@@ -28,7 +28,7 @@ import { _applyAttrs } from './attrs.ts'
 import { _materialize } from './materialize.ts'
 import { _makeScope, _mountDisposersStack, _mountEffect, type mount } from './mount.ts'
 import { _observeMount } from './telemetry.ts'
-import type { Branch, ErrorHandler, MountOptions, Node, Snapshot } from './types.ts'
+import type { AttrMap, Branch, ErrorHandler, MountOptions, Node, Snapshot } from './types.ts'
 
 // Injected by Rolldown (production: false) or vitest define (tests: true).
 declare const __DEV__: boolean
@@ -66,6 +66,39 @@ declare const __DEV__: boolean
 export const _ROOT_PATH = '0'
 
 // ---------------------------------------------------------------------------
+// Signal pre-seeding (wave 3 — the state channel)
+// ---------------------------------------------------------------------------
+
+/**
+ * Seed one writable signal binding from the SSR snapshot, keyed by the same
+ * path the walker is about to wire. Runs at FIRST VISIT, strictly BEFORE the
+ * binding's effect is created: at that point the signal has no subscriber
+ * from this walk yet, so the write re-runs nothing — the effect's first run
+ * (inside `_mountEffect`) then reads the seeded value, and the DOM (already
+ * server-rendered from that same value) is confirmed rather than rewritten.
+ * Thunk arrays/deriveds carry no writer (`sig[1]`) and are skipped — they
+ * re-derive from seeded sources. Snapshot values come from JSON, so a value
+ * can never be a function (which the signal writer would treat as an updater).
+ *
+ * @internal
+ */
+function _seedSignal(snapshot: Snapshot, path: string, sig: readonly unknown[]): void {
+  const write = sig[1]
+  if (typeof write === 'function' && path in snapshot) {
+    ;(write as (v: unknown) => void)(snapshot[path])
+  }
+}
+
+/** Seed every writable reactive attr of a node at `<pathBase>.attr:<key>`. @internal */
+function _seedAttrs(snapshot: Snapshot, pathBase: string, attrs: AttrMap | null): void {
+  if (!attrs) return
+  for (const key in attrs) {
+    const v = attrs[key]
+    if (Array.isArray(v)) _seedSignal(snapshot, `${pathBase}.attr:${key}`, v)
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Internal recursive hydration walker
 // ---------------------------------------------------------------------------
 
@@ -86,6 +119,7 @@ function _hydrateNode(
   pathMap: Map<string, Element>,
   errorHandler: ErrorHandler | undefined,
   textCursor: { i: number },
+  snapshot: Snapshot,
 ): void {
   // Structural nodes (when/each) — #465 adopt-by-replace.
   //
@@ -182,6 +216,9 @@ function _hydrateNode(
   // Text leaf
   if (node.kind === 'leaf' && node.leafKind === 'text') {
     const value = node.value
+    // Pre-seed BEFORE claiming/wiring (and before any mismatch fallback
+    // materialize) so the first reactive run reads the server's value.
+    if (Array.isArray(value)) _seedSignal(snapshot, `${pathBase}.text`, value)
     // Claim the NEXT unclaimed text node at/after the shared per-host cursor.
     // Every text leaf (static or reactive) advances the cursor, so adjacent
     // text leaves each line up with their own DOM text node instead of all
@@ -228,6 +265,7 @@ function _hydrateNode(
 
   // Element leaf (img, br, input, hr, etc.)
   if (node.kind === 'leaf' && node.leafKind === 'element') {
+    _seedAttrs(snapshot, pathBase, node.attrs)
     const tag = (node.tag as string).toUpperCase()
     let found: Element | null = null
     const cns1 = host.childNodes
@@ -280,12 +318,16 @@ function _hydrateNode(
         pathMap,
         errorHandler,
         textCursor,
+        snapshot,
       )
     }
     return
   }
 
-  // Branch node — all leaf/structural kinds returned above.
+  // Branch node — all leaf/structural kinds returned above. Attr seeding
+  // happens before the lookup so even a mismatch-fallback materialize
+  // renders from server values.
+  _seedAttrs(snapshot, pathBase, (node as Branch).attrs)
   const existingEl = pathMap.get(pathBase)
 
   if (!existingEl) {
@@ -330,6 +372,7 @@ function _hydrateNode(
       pathMap,
       errorHandler,
       childCursor,
+      snapshot,
     )
   }
 }
@@ -342,10 +385,12 @@ function _hydrateNode(
  * Attach reactive effects from `component`'s arbor tree to pre-rendered
  * DOM nodes under `host` without re-creating elements.
  *
- * `snapshot` is the pre-parsed JSON state previously emitted by
- * `MountScope.serialize()` (e.g. from `window.__aihu_state__[tag]`).
- * It is used for mismatch detection: if a path key present in `snapshot`
- * has no matching DOM node, that subtree falls back to full `_materialize()`.
+ * `snapshot` is the pre-parsed JSON state previously emitted by the server
+ * (the `signals` record of the `__aihu_state__` envelope, or a
+ * `MountScope.serialize()` result — same path-keyed shape; e.g. from
+ * `window.__aihu_state__[tag]`). Every writable signal binding whose path
+ * appears in it is PRE-SEEDED with the server value at first visit, before
+ * its effect wires, so hydration adopts server state instead of re-deriving.
  *
  * The returned `MountScope`:
  * - `dispose()` — tears down wired reactive effects (leaves DOM intact
@@ -365,18 +410,13 @@ export function hydrate(
   snapshot: Snapshot,
   options?: MountOptions,
 ): ReturnType<typeof mount> {
-  // Signal pre-seeding design note (deferred):
-  // `snapshot` maps path keys (e.g. `0.text`) to their last-known
-  // signal values. Pre-seeding would initialize signal state before wiring
-  // effects so the first reactive run reflects SSR values instead of defaults.
-  //
-  // Implementation requires storing both getter AND setter in `signalRegistry`
-  // (currently only getters are stored). Changing the map shape from
-  // `Map<string, () => unknown>` to `Map<string, [() => unknown, (v: unknown) => void]>`
-  // affects `_applyAttrs` (attrs.ts), the hydration walker, and mount.ts —
-  // a design-level change with multiple call sites. Deferred to a dedicated
-  // signal pre-seeding task.
-  void snapshot
+  // Signal pre-seeding (wave 3): `snapshot` maps path keys (e.g. `0.text`,
+  // `0.1.attr:class`) to server-side signal values. The walker seeds each
+  // WRITABLE signal at first visit, before its effect is wired, so hydration
+  // ADOPTS server state instead of re-deriving it. No registry shape change
+  // was needed: the walker holds the `[read, write]` tuple itself at every
+  // seeding site, so it writes through `sig[1]` directly. An empty snapshot
+  // seeds nothing — byte-identical behavior to the pre-seeding walker.
   const errorHandler = options?.onError
   // Build path→element map inline (per spec §5: `data-aihu-path` anchors).
   const pathMap = new Map<string, Element>()
@@ -409,7 +449,17 @@ export function hydrate(
 
   const pathBase = _ROOT_PATH
 
-  _hydrateNode(node, host, pathBase, disposers, signalRegistry, pathMap, errorHandler, { i: 0 })
+  _hydrateNode(
+    node,
+    host,
+    pathBase,
+    disposers,
+    signalRegistry,
+    pathMap,
+    errorHandler,
+    { i: 0 },
+    snapshot ?? {},
+  )
 
   if (typeof __DEV__ !== 'undefined' && __DEV__)
     _observeMount({ kind: 'mount-end', path: 'hydrate', timestamp: Date.now() })
