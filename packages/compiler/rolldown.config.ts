@@ -6,7 +6,15 @@ export default defineConfig({
     index: 'js/index.ts',
     'resolve-binary': 'js/resolve-binary.ts',
   },
-  external: ['vite', 'node:child_process', 'node:fs', 'node:module', 'node:path', 'node:url'],
+  external: [
+    'vite',
+    'node:child_process',
+    'node:crypto',
+    'node:fs',
+    'node:module',
+    'node:path',
+    'node:url',
+  ],
   checks: { circularDependency: true },
   output: {
     dir: 'dist',
