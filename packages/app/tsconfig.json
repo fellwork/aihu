@@ -19,6 +19,7 @@
       "@aihu/arbor": ["../arbor/src/index.ts"],
       "@aihu/runtime": ["../runtime/src/index.ts"],
       "@aihu/signals": ["../signals/src/index.ts"],
+      "@aihu/store": ["../store/src/index.ts"],
       "@aihu/context": ["../context/src/index.ts"]
     }
   },
