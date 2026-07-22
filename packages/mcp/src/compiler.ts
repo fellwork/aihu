@@ -14,8 +14,8 @@ import { fileURLToPath } from 'node:url'
 const ext = process.platform === 'win32' ? '.exe' : ''
 
 function resolveBinPath(): string {
-  if (process.env.SCRIBE_COMPILE_BIN) {
-    return process.env.SCRIBE_COMPILE_BIN
+  if (process.env.AIHU_COMPILE_BIN) {
+    return process.env.AIHU_COMPILE_BIN
   }
 
   const here = dirname(fileURLToPath(import.meta.url))

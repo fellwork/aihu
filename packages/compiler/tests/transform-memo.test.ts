@@ -75,19 +75,19 @@ function mainCompileSpawns(): number {
   }).length
 }
 
-const PREV_BIN = process.env.SCRIBE_COMPILE_BIN
+const PREV_BIN = process.env.AIHU_COMPILE_BIN
 
 beforeEach(() => {
   _clearTransformMemo()
   spawnSpy.mockClear()
   // Point resolution at a fake path — the mocked execFileSync never touches
   // disk, and the memo's binary stamp degrades gracefully to path-only.
-  process.env.SCRIBE_COMPILE_BIN = '/fake/bin/aihu-compile'
+  process.env.AIHU_COMPILE_BIN = '/fake/bin/aihu-compile'
 })
 
 afterAll(() => {
-  if (PREV_BIN === undefined) delete process.env.SCRIBE_COMPILE_BIN
-  else process.env.SCRIBE_COMPILE_BIN = PREV_BIN
+  if (PREV_BIN === undefined) delete process.env.AIHU_COMPILE_BIN
+  else process.env.AIHU_COMPILE_BIN = PREV_BIN
 })
 
 const SRC_A = '@template {\n  <div>alpha</div>\n}\n'

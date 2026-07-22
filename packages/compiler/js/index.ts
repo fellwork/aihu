@@ -42,15 +42,15 @@ export {
 // `../bin/aihu-compile` relative path anymore.
 //
 // Bug 6 fix — resolveBinPath() is CALL-TIME, not module-load-time. The Vite
-// plugin's `_maybeCompileUtilityCss` sets `process.env.SCRIBE_COMPILE_BIN` so
+// plugin's `_maybeCompileUtilityCss` sets `process.env.AIHU_COMPILE_BIN` so
 // that css-engine's bundled copy of `compileToAst` spawns THIS compiler's
 // binary. Prior to this fix `binPath` was a module-scope const captured at
 // import time, so the env-var assignment was always too late and `compileSfc`
 // failed with ENOENT. Re-reading on every call is essentially free (an env
-// lookup, then a memoized resolve) and makes the SCRIBE_COMPILE_BIN handshake
+// lookup, then a memoized resolve) and makes the AIHU_COMPILE_BIN handshake
 // actually work.
 function resolveBinPath(): string {
-  return process.env.SCRIBE_COMPILE_BIN ?? resolveCompilerBinary()
+  return process.env.AIHU_COMPILE_BIN ?? resolveCompilerBinary()
 }
 
 // Minimal VitePlugin interface — avoids importing from 'vite' at compile time.
@@ -515,7 +515,7 @@ function __aihu_wrap_defer__<T extends typeof HTMLElement>(Ctor: T): T {
  *   2. Replace `defineElement(tag, defineComponent(setup))` with a tiny
  *      inline class that mounts the tree directly via `mount()` (which the
  *      arbor barrel already exports).
- *   3. Tag the file with a `// SCRIBE_STATIC_ISLAND` comment so consumers
+ *   3. Tag the file with a `// AIHU_STATIC_ISLAND` comment so consumers
  *      can audit which routes shipped zero-JS-runtime.
  *
  * Falls back to the original code if the regex shape does not match
@@ -566,7 +566,7 @@ export function _buildStaticIsland(compiledCode: string, elementTag: string): st
       `)\n    mount(__aihu_setup__({ host: root, element: this }), root)\n  }\n})\n`,
     )
 
-  return `// SCRIBE_STATIC_ISLAND — zero @aihu/runtime references\n${rewritten}`
+  return `// AIHU_STATIC_ISLAND — zero @aihu/runtime references\n${rewritten}`
 }
 
 /**
@@ -1266,7 +1266,7 @@ const _CSS_ENGINE_SPECIFIER = '@aihu/css-engine'
  * (the optional-peer no-op path) or when compilation fails for any reason —
  * a CSS-engine failure MUST NOT break an otherwise-valid `.aihu` build.
  *
- * Sets `process.env.SCRIBE_COMPILE_BIN` to this plugin's resolved compiler
+ * Sets `process.env.AIHU_COMPILE_BIN` to this plugin's resolved compiler
  * binary before calling `compileSfc`: css-engine re-derives the SFC AST via
  * its own bundled copy of `compileToAst`, whose binary path is resolved
  * relative to the css-engine package — which does NOT ship the compiler
@@ -1280,14 +1280,14 @@ async function _maybeCompileUtilityCss(source: string, id: string): Promise<stri
   // Ensure css-engine's bundled `compileToAst` spawns the SAME compiler
   // binary this plugin uses (it has no compiler binary of its own). Set
   // this BEFORE the dynamic import so that any module-load-time evaluation
-  // of `process.env.SCRIBE_COMPILE_BIN` in css-engine's bundled dist (older
+  // of `process.env.AIHU_COMPILE_BIN` in css-engine's bundled dist (older
   // bundles capture this into a module-scope const at line 8 of
   // `packages/css-engine/dist/index.js`) sees the correct value. After Bug 6,
   // the source `compileToAst` resolves the bin lazily on each call, so once
   // css-engine is rebuilt this set-before-import is belt-and-braces.
-  if (process.env.SCRIBE_COMPILE_BIN == null) {
+  if (process.env.AIHU_COMPILE_BIN == null) {
     try {
-      process.env.SCRIBE_COMPILE_BIN = resolveBinPath()
+      process.env.AIHU_COMPILE_BIN = resolveBinPath()
     } catch {
       // No CLI binary resolvable (e.g. an addon-only install). css-engine's
       // NEWER bundles route compileToAst through the same native backend and

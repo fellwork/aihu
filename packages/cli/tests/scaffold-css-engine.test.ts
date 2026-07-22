@@ -157,7 +157,7 @@ describe('scaffold css-engine · scaffoldApp() writes the right tree', () => {
 const ext = process.platform === 'win32' ? '.exe' : ''
 const compilerBin = resolve(HERE, `../../compiler/bin/aihu-compile${ext}`)
 if (existsSync(compilerBin)) {
-  process.env.SCRIBE_COMPILE_BIN ??= compilerBin
+  process.env.AIHU_COMPILE_BIN ??= compilerBin
 }
 const cssCoreBin =
   existsSync(resolve(HERE, `../../../target/release/aihu-css-compile${ext}`)) ||

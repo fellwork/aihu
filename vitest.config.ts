@@ -35,14 +35,14 @@ export default defineConfig({
     // ("No test files found"). Guarded by tests/ci-gate-config.test.ts.
     passWithNoTests: false,
     // Per Director session-002 (.team/v1/director-notes/server-native-session-002.md §3):
-    // set SCRIBE_NATIVE_SKIP=1 in the repo's test env so a fresh clone's
+    // set AIHU_NATIVE_SKIP=1 in the repo's test env so a fresh clone's
     // `bun run test` passes without a built native addon. The loader's
     // documented escape hatch (spec §5.3) is the right tool for this — it
     // routes packages/server through the TS implementation silently. CI
     // builds the addon and unsets this var on the parity-gate runner so
     // AC-9 (loud throw on missing binary) still gates real production use.
     env: {
-      SCRIBE_NATIVE_SKIP: '1',
+      AIHU_NATIVE_SKIP: '1',
     },
     coverage: {
       provider: 'v8',

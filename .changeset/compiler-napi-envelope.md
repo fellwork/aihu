@@ -21,4 +21,4 @@ In-process napi compile backend + single-parse envelope API.
   (differential-tested per target across representative fixtures).
 - Escape hatches: `AIHU_COMPILER_NATIVE=0` disables the addon;
   `AIHU_COMPILER_NATIVE_ADDON=<path>` pins one (fail-loud); an explicit
-  `AIHU_COMPILE_BIN`/`SCRIBE_COMPILE_BIN` binary pin keeps the spawn backend.
+  `AIHU_COMPILE_BIN` binary pin keeps the spawn backend.

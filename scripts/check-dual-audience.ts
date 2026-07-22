@@ -119,7 +119,7 @@
  * Wired into CI (plan-a.yml `check` job). Run via the npm script, NOT bare bun:
  *   bun run check:dual-audience
  *
- * `SCRIBE_NATIVE_SKIP=1` selects the TypeScript SSR fallback ("slower, always
+ * `AIHU_NATIVE_SKIP=1` selects the TypeScript SSR fallback ("slower, always
  * correct"), matching what `vitest.config.ts` sets for the same reason; the
  * native renderer binary is not built in a plain checkout.
  *

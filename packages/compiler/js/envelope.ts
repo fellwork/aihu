@@ -17,11 +17,11 @@
  *      feature detection costs zero extra spawns.
  *
  * Backend selection is CACHED at first use (per module instance):
- * `AIHU_COMPILER_NATIVE=0` forces spawn; an explicit `AIHU_COMPILE_BIN` /
- * `SCRIBE_COMPILE_BIN` binary pin forces spawn (working ON the compiler means
+ * `AIHU_COMPILER_NATIVE=0` forces spawn; an explicit `AIHU_COMPILE_BIN`
+ * binary pin forces spawn (working ON the compiler means
  * the pinned binary must actually run — an addon silently shadowing it would
  * reintroduce the exact quiet-wrong-answer failure the pin exists to prevent).
- * The cache means css-engine's mid-build `SCRIBE_COMPILE_BIN` handshake
+ * The cache means css-engine's mid-build `AIHU_COMPILE_BIN` handshake
  * (which programmatically sets the var AFTER the first transform) cannot
  * de-select an already-active native backend.
  *
@@ -71,7 +71,7 @@ let _backend: CompileBackend | null = null
 export function _resolveCompileBackend(): CompileBackend {
   if (_backend !== null) return _backend
   const env = typeof process !== 'undefined' ? process.env : undefined
-  if (env?.AIHU_COMPILER_NATIVE === '0' || env?.AIHU_COMPILE_BIN || env?.SCRIBE_COMPILE_BIN) {
+  if (env?.AIHU_COMPILER_NATIVE === '0' || env?.AIHU_COMPILE_BIN) {
     _backend = { kind: 'spawn' }
     return _backend
   }
@@ -105,13 +105,13 @@ export function _backendStampPath(): string {
 
 /**
  * CLI binary resolution for the spawn backend — env override first (the
- * css-engine handshake sets SCRIBE_COMPILE_BIN), then the shared resolver.
+ * css-engine handshake sets AIHU_COMPILE_BIN), then the shared resolver.
  * Call-time, never cached here (Bug 6 doctrine: the env var may be set
  * between calls).
  * @internal
  */
 export function resolveSpawnBinPath(): string {
-  return process.env.SCRIBE_COMPILE_BIN ?? process.env.AIHU_COMPILE_BIN ?? resolveCompilerBinary()
+  return process.env.AIHU_COMPILE_BIN ?? resolveCompilerBinary()
 }
 
 /** A backend reply: either a parsed envelope, or a legacy single artifact. */
