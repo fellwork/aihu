@@ -136,6 +136,15 @@ jobs:
       # (needs the aihu-compile binary staged above, like emit-parses).
       - run: bun run check:cookbook
       - run: bun run test:cookbook
+      # governed examples (Phase 2a — governed set + coverage matrix): asserts
+      # each governed example's coverage.manifest.json only claims construct rows
+      # its own source actually contains (detectors in the script), and that the
+      # union of manifests still covers the MUST_BE_LIVE floor. A manifest that
+      # over-claims, or an edit that deletes a row's only live exerciser, is red —
+      # so a coverage regression is attributable to a named example + row. Pure
+      # TS, no build; runs with the other always-on invariants. The full row
+      # universe incl. gaps is cookbook/COVERAGE-MATRIX.md (the Phase 2b backlog).
+      - run: bun run check:coverage-manifest
       # CLI templates B1.3 — scaffold-and-compile harness exercises the
       # template against an isolated tmpdir and asserts typecheck passes
       # against the emitted scaffold. Skipped on Windows runners (matches
@@ -203,6 +212,7 @@ jobs:
       code: ${{ steps.filter.outputs.code }}
       bench: ${{ steps.filter.outputs.bench }}
       bench_lsp: ${{ steps.filter.outputs.bench_lsp }}
+      governed: ${{ steps.filter.outputs.governed }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -234,6 +244,26 @@ jobs:
             bench_lsp:
               - 'packages/language-server/src/**'
               - 'packages/language-server/tests/latency.bench.ts'
+              - '.github/workflows/plan-a.yml'
+            # Governed examples (Phase 2a): the build/smoke matrix for the 9
+            # governed examples is paid ONLY when a subsystem they exercise, an
+            # example, the cookbook, or the governed tooling changes. Docs-only /
+            # unrelated-package PRs skip it entirely — keeping the always-on lane
+            # cheap while still gating live-conditions coverage on qualifying PRs.
+            governed:
+              - 'packages/compiler/**'
+              - 'packages/runtime/**'
+              - 'packages/signals/**'
+              - 'packages/arbor/**'
+              - 'packages/router/**'
+              - 'packages/app/**'
+              - 'packages/server/**'
+              - 'packages/store/**'
+              - 'packages/css-engine/**'
+              - 'examples/**'
+              - 'cookbook/**'
+              - 'scripts/check-coverage-manifest.ts'
+              - 'scripts/build-governed-examples.ts'
               - '.github/workflows/plan-a.yml'
 
   bench:
@@ -416,3 +446,55 @@ jobs:
               (cd "${dir}" && bun run test) || exit 1
             fi
           done
+
+  governed-examples:
+    # Phase 2a — the governed example set under live conditions.
+    #
+    # Path-gated (needs.changes.outputs.governed): only pays out when a subsystem
+    # the governed set exercises, an example, the cookbook, or the governed
+    # tooling changes. build:governed-examples reads each example's
+    # coverage.manifest.json `ci` tier and, per example, either `vite build`s it
+    # (todo-mvc, layouts, css-engine-utility, ssg-site — the SPA/@aihu-app set,
+    # ssg-site additionally runs the SSG prerender pass) or runs its smoke suite
+    # (the server/SSR examples, whose SFC compile is already gated by
+    # check:emit-parses in `check`). The tier lives with the manifest, so this
+    # lane can never drift from the governed set.
+    #
+    # Cost: ~4 vite builds (each ~0.1–0.4s of transform, ~20–40s incl. cold
+    # workspace build amortised) + a handful of smoke suites → roughly +3–5 min
+    # wall on a qualifying PR, dominated by the shared `cargo build --release` +
+    # `bun run build` prerequisites (same as the `examples` job). Docs-only and
+    # unrelated-package PRs skip it.
+    if: >-
+      (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
+      && needs.changes.outputs.governed == 'true'
+    runs-on: ubuntu-latest
+    needs: [check, changes]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: moonrepo/setup-toolchain@v0
+        with:
+          auto-install: true
+      - name: Cache Rust build (deps only; workspace crates always rebuild)
+        uses: Swatinem/rust-cache@v2
+      - name: Build compiler binary
+        run: cargo build --release --manifest-path packages/compiler/Cargo.toml
+      - name: Stage compiler binary
+        run: |
+          mkdir -p packages/compiler/bin
+          cp target/release/aihu-compile packages/compiler/bin/aihu-compile
+          chmod 0755 packages/compiler/bin/aihu-compile
+      - run: bun install --frozen-lockfile
+        env:
+          SCRIBE_SKIP_POSTINSTALL: "1"
+      # Manifest integrity (also runs in `check` — cheap, and keeps this lane
+      # self-contained if `check` is ever re-scoped).
+      - run: bun run check:coverage-manifest
+      - name: Build workspace packages
+        run: bun run build
+      - name: Build + smoke the governed set (data-driven by manifest ci tiers)
+        run: bun run build:governed-examples
+        env:
+          SCRIBE_SKIP_POSTINSTALL: "1"
