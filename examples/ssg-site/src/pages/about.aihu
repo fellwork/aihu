@@ -1,0 +1,36 @@
+@route {
+  path: "/about",
+  name: "ssg-about",
+  head: {
+    title: "About — aihu SSG example",
+    description: "What the ssg-site governed example exercises: output: 'static', prerender, hydration adoption, SEO head, onAdopt / onAttributeChange.",
+    canonical: "/about"
+  }
+}
+
+@template {
+  <main class="ssg-about">
+    <h1>About this example</h1>
+    <p>
+      <code>ssg-site</code> is the governed example for aihu's static output
+      mode. It is the sole live exerciser of the SSG build path and the
+      hydration-lifecycle callbacks.
+    </p>
+    <ul class="ssg-list">
+      <li><code>output: 'static'</code> in <code>aihu.config.ts</code></li>
+      <li>prerender to per-route <code>index.html</code> with a per-page head</li>
+      <li>hydration adoption of the prerendered DOM</li>
+      <li><code>onAdopt</code> / <code>onAttributeChange</code> (theme-badge)</li>
+      <li>reflected <code>prop</code> attribute surface</li>
+    </ul>
+    <nav class="ssg-nav"><a href="/">← Home</a></nav>
+  </main>
+}
+
+@style {
+  .ssg-about { max-width: 40rem; margin: 0 auto; padding: 2.5rem 1.5rem; }
+  .ssg-about h1 { font-size: 1.6rem; }
+  .ssg-list { line-height: 1.7; color: #334155; }
+  .ssg-list code { background: #f1f5f9; padding: 0.05rem 0.3rem; border-radius: 3px; }
+  .ssg-nav a { color: #2563eb; }
+}

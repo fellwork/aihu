@@ -1,0 +1,74 @@
+@route {
+  path: "/",
+  name: "ssg-home",
+  head: {
+    title: "aihu SSG — static output that hydrates",
+    description: "A content-ful static site prerendered with output: 'static', then adopted by the SPA on load.",
+    canonical: "/",
+    og: {
+      title: "aihu SSG example",
+      description: "Prerendered HTML for crawlers and non-JS agents; hydration adoption for humans.",
+      type: "website",
+      image: "/og-home.png"
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: "aihu SSG example"
+    },
+    jsonld: {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "aihu SSG example"
+    }
+  }
+}
+
+@state {
+  // Static content, inlined so the route is a STATIC route (no loader) and the
+  // prerender pass can emit it to `/index.html` with real content. The `each`
+  // walk below renders server-side (SSR structural walk, #465) and the client
+  // ADOPTS it on hydration rather than re-creating the DOM.
+  const posts = [
+    { slug: 'why-ssg', title: 'Why static output', blurb: 'Crawlers and agents see real content.' },
+    { slug: 'hydration-adoption', title: 'Hydration adoption', blurb: 'The SPA adopts prerendered DOM in place.' },
+    { slug: 'seo-head', title: 'Per-route SEO head', blurb: 'title / description / canonical / og / json-ld.' },
+  ]
+}
+
+@template {
+  <main class="ssg-home">
+    <header class="ssg-hero">
+      <h1>Static output, live app</h1>
+      <theme-badge variant="light">prerendered</theme-badge>
+    </header>
+
+    <p class="ssg-lead">
+      This page is written to <code>/index.html</code> at build time with its
+      full content and <code>&lt;head&gt;</code>. On load the SPA hydrates and
+      adopts the existing DOM — no flash, no re-render.
+    </p>
+
+    <ul class="ssg-posts">
+      <li each={post of posts} key={post.slug} class="ssg-post">
+        <a href={`/posts/${post.slug}`}>{post.title}</a>
+        <p class="ssg-blurb">{post.blurb}</p>
+      </li>
+    </ul>
+
+    <nav class="ssg-nav">
+      <a href="/about">About this example →</a>
+    </nav>
+  </main>
+}
+
+@style {
+  .ssg-home { max-width: 40rem; margin: 0 auto; padding: 2.5rem 1.5rem; }
+  .ssg-hero { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+  .ssg-hero h1 { font-size: 1.9rem; margin: 0; }
+  .ssg-lead { line-height: 1.6; color: #334155; }
+  .ssg-lead code { background: #f1f5f9; padding: 0.05rem 0.3rem; border-radius: 3px; }
+  .ssg-posts { list-style: none; padding: 0; display: grid; gap: 1rem; margin: 1.5rem 0; }
+  .ssg-post a { font-weight: 600; color: #2563eb; text-decoration: none; }
+  .ssg-blurb { margin: 0.25rem 0 0; color: #64748b; font-size: 0.9rem; }
+  .ssg-nav a { color: #2563eb; }
+}

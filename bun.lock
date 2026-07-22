@@ -424,6 +424,23 @@
         "ws": "^8.18.0",
       },
     },
+    "examples/ssg-site": {
+      "name": "@aihu/example-ssg-site",
+      "version": "0.0.0",
+      "dependencies": {
+        "@aihu/agent": "workspace:*",
+        "@aihu/app": "workspace:*",
+        "@aihu/arbor": "workspace:*",
+        "@aihu/router": "workspace:*",
+        "@aihu/runtime": "workspace:*",
+        "@aihu/server": "workspace:*",
+        "@aihu/signals": "workspace:*",
+      },
+      "devDependencies": {
+        "@aihu/compiler": "workspace:*",
+        "vite": "^8.0.0",
+      },
+    },
     "examples/storefront": {
       "name": "@aihu/example-storefront",
       "version": "0.0.21",
@@ -1029,6 +1046,8 @@
     "@aihu/example-primitives-showcase": ["@aihu/example-primitives-showcase@workspace:examples/primitives-showcase"],
 
     "@aihu/example-realtime-scores": ["@aihu/example-realtime-scores@workspace:examples/realtime-scores"],
+
+    "@aihu/example-ssg-site": ["@aihu/example-ssg-site@workspace:examples/ssg-site"],
 
     "@aihu/example-storefront": ["@aihu/example-storefront@workspace:examples/storefront"],
 
