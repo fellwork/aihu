@@ -65,20 +65,39 @@ async function compileToModule(
 }
 
 /**
- * The differential assertion: walker bytes (a bare wrapper so the fast path
+ * Wave-3 integration seam. The `__aihu_state__` script is post-render CHANNEL
+ * data appended by `renderToStream`'s emission site — NOT part of either
+ * renderer's MARKUP. The walker path harvests component-local signals via its
+ * post-render arbor tree walk (`_collectSignals`); the compiled string path
+ * builds no arbor tree, so it emits an EMPTY signals map (stores still ride
+ * along, arbor-independent). The two paths therefore legitimately diverge on
+ * the signals channel while their MARKUP stays byte-identical. This gate pins
+ * the MARKUP (the string renderer's actual contract, per this file's
+ * docblock); the state channel is covered by the parity + state-channel
+ * suites. See the seam commentary in packages/server/src/ssr.ts.
+ */
+const STATE_SCRIPT = /<script type="application\/json" id="__aihu_state__">.*?<\/script>$/s
+function markup(html: string): string {
+  return html.replace(STATE_SCRIPT, '')
+}
+
+/**
+ * The differential assertion: walker MARKUP (a bare wrapper so the fast path
  * cannot engage) vs compiled-string bytes, both hydration modes, PLUS the
  * public entry (`renderToString(mod.default)` — fast path engaged) against
- * the same bytes.
+ * the same markup. The walker's post-render signals channel is stripped
+ * before comparison (see `markup`): the string renderer emits markup only,
+ * and byte-identity is a claim about the markup.
  */
 async function expectByteIdentity(mod: CompiledModule, props?: Record<string, unknown>) {
   expect(typeof mod.__ssrString).toBe('function')
   for (const hydratable of [true, false]) {
     const walker = await renderToString(() => mod.__ssr(props), { hydratable })
     const fast = mod.__ssrString!(props ?? {}, { hydratable })
-    expect(fast).toBe(walker)
+    expect(fast).toBe(markup(walker))
     if (props === undefined) {
       const publicPath = await renderToString(mod.default, { hydratable })
-      expect(publicPath).toBe(walker)
+      expect(markup(publicPath)).toBe(markup(walker))
     }
   }
 }
@@ -342,9 +361,19 @@ describe.skipIf(!hasBinary)('SSR string fast path — differential byte-identity
       const viaWalker = await renderToString(mod.default, { hydratable: true })
       delete process.env.AIHU_SSR_STRING
       const viaFast = await renderToString(mod.default, { hydratable: true })
-      // Both paths, same bytes — the hatch changes the engine, never output.
-      expect(viaWalker).toBe(viaFast)
-      expect(viaFast).toBe(mod.__ssrString!({}, { hydratable: true }))
+      // Same MARKUP — the hatch changes the engine, never the markup.
+      expect(markup(viaWalker)).toBe(markup(viaFast))
+      expect(markup(viaFast)).toBe(mod.__ssrString!({}, { hydratable: true }))
+      // The wave-3 seam, made observable: this component's `{n}` is a
+      // component-local signal. The walker engine harvests it into an
+      // `__aihu_state__` signals channel via its post-render tree walk; the
+      // string engine builds no tree and (with no store serializer here)
+      // emits no state script at all. The hatch thus changes the signals
+      // channel even though the markup is identical — the documented v1
+      // limitation of string-path rendering.
+      expect(viaWalker).toContain('id="__aihu_state__"')
+      expect(viaWalker).toContain('"0.0.text":7')
+      expect(viaFast).not.toContain('__aihu_state__')
     } finally {
       if (before === undefined) delete process.env.AIHU_SSR_STRING
       else process.env.AIHU_SSR_STRING = before
