@@ -34,6 +34,7 @@ bun add @aihu/agent
 |---|---|
 | **Version** | `0.2.0` |
 | **Tier** | C — Agent surface — primitives (foundation of agent-readiness) |
+| **Bundle size** | 141 B (gz) — limit 200 B |
 | **Published files** | 3 entries |
 | **License** | MIT |
 

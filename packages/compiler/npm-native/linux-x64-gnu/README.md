@@ -1,8 +1,8 @@
-# @aihu/compiler-darwin-arm64
+# @aihu/compiler-native-linux-x64-gnu
 
 > **Aihu** — agentic discovery and interaction, for human purpose.
 
-Platform-specific native binary distributor for `@aihu/compiler`
+aihu compiler native addon (napi) — linux-x64-gnu platform binary.
 
 Platform-specific native binary distributor for [`@aihu/compiler`](../../README.md). Installed automatically as an `optionalDependencies` of `@aihu/compiler` for users on this platform.
 
@@ -29,12 +29,12 @@ This package is the platform-specific native binary distributor for [`@aihu/comp
 If you genuinely need to install only this package (e.g. for an offline mirror):
 
 ```bash
-npm install @aihu/compiler-darwin-arm64
+npm install @aihu/compiler-native-linux-x64-gnu
 # or
-bun add @aihu/compiler-darwin-arm64
+bun add @aihu/compiler-native-linux-x64-gnu
 ```
 
-<sub><i>Auto-generated against `@aihu/compiler-darwin-arm64@0.1.23`.</i></sub>
+<sub><i>Auto-generated against `@aihu/compiler-native-linux-x64-gnu@0.1.0`.</i></sub>
 
 <!-- END_AUTOGEN: install -->
 
@@ -45,12 +45,12 @@ bun add @aihu/compiler-darwin-arm64
 
 | | |
 |---|---|
-| **Version** | `0.1.23` |
+| **Version** | `0.1.0` |
 | **Tier** | platform — Platform-specific native binary distributor for `@aihu/compiler` |
 | **Published files** | 1 entries |
 | **License** | MIT |
 
-<sub><i>Auto-generated against `@aihu/compiler-darwin-arm64@0.1.23`.</i></sub>
+<sub><i>Auto-generated against `@aihu/compiler-native-linux-x64-gnu@0.1.0`.</i></sub>
 
 <!-- END_AUTOGEN: stats -->
 
@@ -62,7 +62,7 @@ bun add @aihu/compiler-darwin-arm64
 - [@aihu/compiler](../../README.md)
 - [Aihu framework root](../../../../README.md)
 
-<sub><i>Auto-generated against `@aihu/compiler-darwin-arm64@0.1.23`.</i></sub>
+<sub><i>Auto-generated against `@aihu/compiler-native-linux-x64-gnu@0.1.0`.</i></sub>
 
 <!-- END_AUTOGEN: see-also -->
 
@@ -73,6 +73,6 @@ bun add @aihu/compiler-darwin-arm64
 
 MIT — see [LICENSE](../../../../LICENSE).
 
-<sub><i>Auto-generated against `@aihu/compiler-darwin-arm64@0.1.23`.</i></sub>
+<sub><i>Auto-generated against `@aihu/compiler-native-linux-x64-gnu@0.1.0`.</i></sub>
 
 <!-- END_AUTOGEN: license -->
