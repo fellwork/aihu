@@ -8,6 +8,18 @@
 import { execFileSync } from 'node:child_process'
 import { basename } from 'node:path'
 import { resolveCompilerBinary } from './resolve-binary.ts'
+import { _memoizedSpawn } from './transform-memo.ts'
+
+// Perf — content-addressed memo over the compile spawns (see transform-memo.ts).
+// The SSG prerender re-runs every transform against a second Vite server with
+// identical inputs; the memo turns that whole second pass (and css-engine's
+// per-file `compileToAst` re-parse) into cache lookups instead of subprocess
+// spawns. Re-exported as internals so tests can reset/observe the cache.
+export {
+  _clearTransformMemo,
+  _MEMO_MAX_ENTRIES,
+  _transformMemoStats,
+} from './transform-memo.ts'
 
 // Binary resolution: env var override, then the per-platform optionalDependency
 // package (`@aihu/compiler-<platform>`) with a workspace `target/` dev fallback —
@@ -592,10 +604,28 @@ export function transform(
   if (options?.strictTemplates) {
     args.push('--strict-templates')
   }
-  const code = execFileSync(resolveBinPath(), args, {
-    input: source,
-    encoding: 'utf8',
-  })
+  const binPath = resolveBinPath()
+  const spawn = () =>
+    execFileSync(binPath, args, {
+      input: source,
+      encoding: 'utf8',
+    })
+  // Memo key: everything that shapes the emitted code. `id` is hashed
+  // separately; the fingerprint carries the explicit options (`tag` covers the
+  // layout override — the default stem is a pure function of `id`).
+  // `sidecarOut` BYPASSES the memo: it makes the spawn write a file on disk,
+  // and a cache hit would silently skip that side effect. The Vite build path
+  // never passes it, so the SSG double-compile still fully hits.
+  const code = options?.sidecarOut
+    ? spawn()
+    : _memoizedSpawn(
+        'transform',
+        source,
+        id,
+        `target=${options?.target ?? ''}|tag=${options?.tag ?? ''}|strict=${options?.strictTemplates === true}`,
+        binPath,
+        spawn,
+      )
   return {
     code,
     map: null, // source maps deferred to v1 (OQ-C8)
@@ -915,10 +945,17 @@ export function compileToAst(source: string, id?: string): SfcAst {
   if (id) {
     args.push('--path', id)
   }
-  const json = execFileSync(resolveBinPath(), args, {
-    input: source,
-    encoding: 'utf8',
-  })
+  const binPath = resolveBinPath()
+  // Memoised (same key discipline as `transform()`): css-engine's `compileSfc`
+  // re-spawns this per file for its AST pass — with the memo, the second parse
+  // of an unchanged file is a lookup. The cached value is the raw JSON string;
+  // parse per call so callers can never mutate a shared AST object.
+  const json = _memoizedSpawn('ast', source, id ?? '', '', binPath, () =>
+    execFileSync(binPath, args, {
+      input: source,
+      encoding: 'utf8',
+    }),
+  )
   return JSON.parse(json) as SfcAst
 }
 
@@ -971,10 +1008,16 @@ export function compileRouteMeta(source: string, id?: string): RouteMeta | null 
   if (id) {
     args.push('--path', id)
   }
-  const out = execFileSync(resolveBinPath(), args, {
-    input: source,
-    encoding: 'utf8',
-  }).trim()
+  const binPath = resolveBinPath()
+  // Memoised (same key discipline as `transform()`): the router Vite plugin
+  // calls this per route file per scan, and the SSG prerender's second server
+  // triggers a full re-scan. Cache the raw stdout; parse per call.
+  const out = _memoizedSpawn('route', source, id ?? '', '', binPath, () =>
+    execFileSync(binPath, args, {
+      input: source,
+      encoding: 'utf8',
+    }),
+  ).trim()
   if (out === '' || out === 'null') return null
   return JSON.parse(out) as RouteMeta
 }
