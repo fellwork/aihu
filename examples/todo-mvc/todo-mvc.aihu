@@ -3,80 +3,69 @@
 // @agent block: todos/remaining/filter + addTodo/clearCompleted.
 
 @state {
-  import { signal } from '@aihu/signals'
-  const [todos, setTodos] = signal<Array<{ id: string; text: string; done: boolean }>>([])
-  const [filter, writeFilter] = signal<'all' | 'active' | 'completed'>('all')
-  const [draft, setDraft] = signal('')
+  let todos = state<Array<{ id: string; text: string; done: boolean }>>([])
+  let filter = state<'all' | 'active' | 'completed'>('all')
+  let draft = state('')
 
-  $computed: {
-    visible: () => filter() === 'all'
-      ? todos()
-      : filter() === 'active'
-        ? todos().filter(t => !t.done)
-        : todos().filter(t => t.done),
-    remaining: {
-      describe: 'Count of incomplete todos',
-      expose: { read: true },
-      value: () => todos().filter(t => !t.done).length,
-    },
-    allDone: () => todos().length > 0 && remaining() === 0,
-  }
+  const visible = derived(() => filter === 'all'
+      ? todos
+      : filter === 'active'
+        ? todos.filter(t => !t.done)
+        : todos.filter(t => t.done))
+  const remaining = derived(
+    { describe: 'Count of incomplete todos', expose: 'read' },
+    () => todos.filter(t => !t.done).length)
+  const allDone = derived(() => todos.length > 0 && remaining() === 0)
 
-  $action: {
-    newId: (): string => {
+  const newId = action((): string => {
       return crypto.randomUUID()
-    },
-    addTodo: {
-      describe: 'Add the current draft text as a new todo',
-      expose: { read: true, write: true },
-      handler: () => {
-        const text = draft().trim()
+    })
+  const addTodo = action(
+    { describe: 'Add the current draft text as a new todo',
+      expose: 'read write' },
+    () => {
+        const text = draft.trim()
         if (!text) return
-        setTodos([...todos(), { id: newId(), text, done: false }])
-        setDraft('')
-      },
-    },
-    toggle: (id: string) => {
-      setTodos(todos().map(t => t.id === id ? { ...t, done: !t.done } : t))
-    },
-    remove: (id: string) => {
-      setTodos(todos().filter(t => t.id !== id))
-    },
-    clearCompleted: {
-      describe: 'Remove all completed todos from the list',
-      expose: { read: true, write: true },
-      handler: () => {
-        setTodos(todos().filter(t => !t.done))
-      },
-    },
-    setFilter: (f: 'all' | 'active' | 'completed') => {
-      writeFilter(f)
-    },
-  }
+        todos = [...todos(), { id: newId(), text, done: false }]
+        draft = ''
+      })
+  const toggle = action((id: string) => {
+      todos = todos.map(t => t.id === id ? { ...t, done: !t.done } : t)
+    })
+  const remove = action((id: string) => {
+      todos = todos.filter(t => t.id !== id)
+    })
+  const clearCompleted = action(
+    { describe: 'Remove all completed todos from the list',
+      expose: 'read write' },
+    () => {
+        todos = todos.filter(t => !t.done)
+      })
+  const setFilter = action((f: 'all' | 'active' | 'completed') => {
+      filter = f
+    })
 
   // v1.1 fix: hydrate from localStorage on mount
-  $lifecycle: {
-    mount: () => {
+  onMount(() => {
       try {
         const saved = localStorage.getItem('aihu-todos')
         if (saved) {
           const parsed = JSON.parse(saved)
-          if (Array.isArray(parsed)) setTodos(parsed)
+          if (Array.isArray(parsed)) (todos = parsed)
         }
       } catch {
         // localStorage unavailable (SSR, private mode, corrupted) — start fresh
       }
-    },
-  }
+    })
 
   // v1.1 fix: persist to localStorage on every todos change
-  $effect: () => {
+  effect(() => {
     try {
-      localStorage.setItem('aihu-todos', JSON.stringify(todos()))
+      localStorage.setItem('aihu-todos', JSON.stringify(todos))
     } catch {
       // ignore quota exceeded / SecurityError
     }
-  }
+  })
 }
 
 @template {
@@ -108,18 +97,18 @@
       </li>
     </ul>
 
-    <footer if={todos().length > 0}>
+    <footer if={todos.length > 0}>
       <span class="todo-count">
         <strong>{remaining}</strong> item{remaining() === 1 ? '' : 's'} left
       </span>
       <ul class="filters">
-        <li><button on:click={() => setFilter('all')}       class={filter() === 'all' ? 'selected' : ''}>All</button></li>
-        <li><button on:click={() => setFilter('active')}    class={filter() === 'active' ? 'selected' : ''}>Active</button></li>
-        <li><button on:click={() => setFilter('completed')} class={filter() === 'completed' ? 'selected' : ''}>Completed</button></li>
+        <li><button on:click={() => setFilter('all')}       class={filter === 'all' ? 'selected' : ''}>All</button></li>
+        <li><button on:click={() => setFilter('active')}    class={filter === 'active' ? 'selected' : ''}>Active</button></li>
+        <li><button on:click={() => setFilter('completed')} class={filter === 'completed' ? 'selected' : ''}>Completed</button></li>
       </ul>
       <button
         class="clear-completed"
-        if={todos().length - remaining() > 0}
+        if={todos.length - remaining() > 0}
         on:click={clearCompleted}
       >
         Clear completed

@@ -15,9 +15,7 @@
 @state {
   import { cn } from '@aihu/css-engine/runtime/cn'
 
-  $prop: {
-    variant: { type: String, default: 'default' },
-  }
+  let variant = prop({ default: 'default' })
 
   class AihuBadge extends HTMLElement {
     static sheet = new CSSStyleSheet()

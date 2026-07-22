@@ -290,7 +290,11 @@ fn w627_fires_on_template_handler_mutation() {
 
 #[test]
 fn old_macro_dialect_agent_weather_still_compiles() {
-    let js = emit_file("../../cookbook/agent-weather.aihu").js;
+    // Frozen old-dialect copy: the LIVE cookbook file migrated to the wrapper
+    // dialect in the §7 wave-1/2 corpus migration (spec AC-2 makes
+    // agent-weather the NEW-dialect golden), so the compat-window coverage
+    // pins the pre-migration content as a fixture instead.
+    let js = emit_file("tests/fixtures/state-model/agent-weather-old.aihu").js;
     // The old-dialect lowerings, unchanged: bare typed decl → let, $action
     // body spliced with the CO1-era write semantics.
     assert!(js.contains("let forecast: string = ''"), "{js}");
@@ -335,7 +339,8 @@ fn wrapper_sidecar_declares_intrinsics_and_inlines_declarations() {
 
 #[test]
 fn old_dialect_sidecar_has_no_intrinsic_decls() {
-    let r = emit_file("../../cookbook/agent-weather.aihu");
+    // Same frozen old-dialect fixture as above (the live file is new-dialect).
+    let r = emit_file("tests/fixtures/state-model/agent-weather-old.aihu");
     let ts = r.sidecar_ts.expect("sidecar");
     assert!(!ts.contains("declare function state<T>"), "old sidecars unchanged\n{ts}");
     assert!(!ts.contains("export {}"), "old sidecars stay as-is\n{ts}");

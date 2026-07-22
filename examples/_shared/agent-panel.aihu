@@ -8,18 +8,14 @@
 
 @state {
   import { getAllAgentMetadata } from '@aihu/agent'
-  import { signal } from '@aihu/signals'
-
   // Snapshot on mount — refreshes if panel is closed + reopened.
-  $computed: {
-    entries: () => getAllAgentMetadata(),
-    count: () => entries.length,
-    hasEntries: () => count > 0,
-  }
+  const entries = derived(() => getAllAgentMetadata())
+  const count = derived(() => entries.length)
+  const hasEntries = derived(() => count > 0)
 
-  const [open, setOpen] = signal(false)
+  let open = state(false)
 
-  const toggle = () => setOpen(v => !v)
+  const toggle = () => { open = !open }
 }
 
 @template {
@@ -28,7 +24,7 @@
       <span class="panel-icon" aria-hidden="true">&#x2713;</span>
       Agent surface
       <span class="panel-count" if={hasEntries}>({count})</span>
-      <span class="panel-chevron" aria-hidden="true">{open() ? '▲' : '▼'}</span>
+      <span class="panel-chevron" aria-hidden="true">{open ? '▲' : '▼'}</span>
     </button>
 
     <div class="agent-panel-body" if={open}>

@@ -7,15 +7,11 @@
 @state {
   import type { HnUser } from './[id].loader.ts'
 
-  $prop: {
-    route: { type: { data: { user: HnUser } } },
-  }
+  const route = prop<{ data: { user: HnUser } }>()
 
-  $action: {
-    joined: (t: number): string => {
+  const joined = action((t: number): string => {
       return new Date(t * 1000).toISOString().slice(0, 10)
-    },
-  }
+    })
 }
 
 @template {

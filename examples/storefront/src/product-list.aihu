@@ -1,9 +1,8 @@
 @state {
   import { createResource } from '@aihu-plugin/data'
   import { inject } from '@aihu/context'
-  import { signal } from '@aihu/signals'
   import { CartContext } from './cart-context'
-  const [resourceKey] = signal('products')
+  let resourceKey = state('products')
 
   const products = createResource(
     resourceKey,
@@ -16,18 +15,14 @@
 
   const cartSignal = inject(CartContext)
 
-  $action: {
-    addToCart: {
-      describe: 'Add a product to the cart by id',
-      expose: { read: true, write: true },
-      handler: (item) => {
+  const addToCart = action(
+    { describe: 'Add a product to the cart by id', expose: 'read write' },
+    (item) => {
         if (cartSignal) {
           const [get, set] = cartSignal
           set([...get(), item])
         }
-      },
-    },
-  }
+      })
 }
 
 @template {

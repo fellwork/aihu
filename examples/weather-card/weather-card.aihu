@@ -4,15 +4,13 @@
 // forecast chain (no auth, no fetch library — global fetch()).
 
 @state {
-  import { signal } from '@aihu/signals'
-
   type Forecast = { temperature: number; weatherCode: number; conditions: string; resolvedName: string }
   type Status = 'idle' | 'loading' | 'ready' | 'error'
 
-  const [location, setLocation] = signal('San Francisco')
-  const [forecastValue, setForecastValue] = signal<Forecast | null>(null)
-  const [statusValue, setStatusValue] = signal<Status>('idle')
-  const [errorMessage, setErrorMessage] = signal('')
+  let location = state('San Francisco')
+  let forecastValue = state<Forecast | null>(null)
+  let statusValue = state<Status>('idle')
+  let errorMessage = state('')
 
   // Open-Meteo weather_code -> human-readable conditions.
   // Spec: https://open-meteo.com/en/docs (WMO Weather interpretation codes).
@@ -28,34 +26,29 @@
     return 'Unknown'
   }
 
-  $computed: {
-    forecast: {
-      describe: 'Most recent forecast: temperature, weatherCode, conditions, resolvedName (null until fetched)',
-      expose: { read: true },
-      value: () => forecastValue(),
-    },
-    status: {
-      describe: 'Request status: one of idle | loading | ready | error',
-      expose: { read: true },
-      value: () => statusValue(),
-    },
-  }
+  const forecast = derived(
+    { describe: 'Most recent forecast: temperature, weatherCode, conditions, resolvedName (null until fetched)',
+      expose: 'read' },
+    () => forecastValue)
+  const status = derived(
+    { describe: 'Request status: one of idle | loading | ready | error',
+      expose: 'read' },
+    () => statusValue)
 
-  $action: {
-    fetchForecast: {
-      describe: 'Geocode the current location signal via Open-Meteo, then fetch the current temperature + weather code',
-      expose: { read: true, write: true },
-      handler: async () => {
-        const query = location().trim()
+  const fetchForecast = action(
+    { describe: 'Geocode the current location signal via Open-Meteo, then fetch the current temperature + weather code',
+      expose: 'read write' },
+    async () => {
+        const query = location.trim()
         if (!query) {
-          setForecastValue(null)
-          setStatusValue('error')
-          setErrorMessage('Please enter a city name.')
+          forecastValue = null
+          statusValue = 'error'
+          errorMessage = 'Please enter a city name.'
           return
         }
 
-        setStatusValue('loading')
-        setErrorMessage('')
+        statusValue = 'loading'
+        errorMessage = ''
 
         try {
           // Step 1: geocode city name -> lat/lon.
@@ -67,9 +60,9 @@
           const geoJson = await geoResp.json() as { results?: Array<{ latitude: number; longitude: number; name: string; country?: string }> }
           const hit = geoJson.results && geoJson.results[0]
           if (!hit) {
-            setForecastValue(null)
-            setStatusValue('error')
-            setErrorMessage(`No matching city found for "${query}".`)
+            forecastValue = null
+            statusValue = 'error'
+            errorMessage = `No matching city found for "${query}".`
             return
           }
 
@@ -88,22 +81,20 @@
           const code = fcJson.current.weather_code
           const resolvedName = hit.country ? `${hit.name}, ${hit.country}` : hit.name
 
-          setForecastValue({
+          forecastValue = {
             temperature: temp,
             weatherCode: code,
             conditions: translateWeatherCode(code),
             resolvedName,
-          })
-          setStatusValue('ready')
-          setErrorMessage('')
+          }
+          statusValue = 'ready'
+          errorMessage = ''
         } catch (err) {
-          setForecastValue(null)
-          setStatusValue('error')
-          setErrorMessage(err instanceof Error ? err.message : 'Unknown error fetching forecast.')
+          forecastValue = null
+          statusValue = 'error'
+          errorMessage = err instanceof Error ? err.message : 'Unknown error fetching forecast.'
         }
-      },
-    },
-  }
+      })
 }
 
 @template {

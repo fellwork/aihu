@@ -4,13 +4,11 @@
 }
 
 @state {
-  posts: Array<{ slug: string; title: string }> = [
+  const posts: Array<{ slug: string; title: string }> = [
 
-  $action: {
-    postKey: (p: { slug: string }): string => {
+  const postKey = action((p: { slug: string }): string => {
       return p.slug
-    },
-  }
+    })
 
   { slug: 'hello',  title: 'Hello, world' },
 

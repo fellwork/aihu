@@ -18,8 +18,8 @@
 @state {
   import { AihuSwitchRoot } from '@aihu/primitives/switch'
 
-  $extends: AihuSwitchRoot
-  $shadow: 'light'
+  base: AihuSwitchRoot
+  shadow: 'light'
 }
 
 @template {

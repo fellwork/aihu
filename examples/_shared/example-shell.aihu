@@ -10,14 +10,11 @@
 //   </example-shell>
 
 @state {
-  import { signal, effect } from '@aihu/signals'
-
-  $prop: {
-    title: { type: string },
-    sourceUrl: { default: '' },
-    liveUrl: { default: '' },
-  }
-  const [dark, setDark] = signal(
+  import { effect } from '@aihu/signals'
+  let title = prop<string>()
+  const sourceUrl = prop({ default: '' })
+  const liveUrl = prop({ default: '' })
+  let dark = state(
 
   typeof localStorage !== 'undefined' && localStorage.getItem('theme') === 'dark'
 
@@ -25,17 +22,17 @@
 
   effect(() => {
 
-  document.documentElement.classList.toggle('dark', dark())
+  document.documentElement.classList.toggle('dark', dark)
 
   if (typeof localStorage !== 'undefined') {
 
-  localStorage.setItem('theme', dark() ? 'dark' : 'light')
+  localStorage.setItem('theme', dark ? 'dark' : 'light')
 
   }
 
   })
 
-  const toggle = () => setDark(d => !d)
+  const toggle = () => { dark = !dark }
 }
 
 @template {

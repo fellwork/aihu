@@ -9,21 +9,19 @@
 // DO (survives reload AND server restart). No localStorage: one source of truth.
 
 @state {
-  import { signal } from '@aihu/signals'
-
   // Local mirror of the DO's canonical state. The DO is authoritative; these
   // signals are only ever set from a broadcast snapshot (see apply()).
-  const [tasks, setTasks] = signal([])
-  const [label, writeLabel] = signal('Tasks')
-  const [variant, writeVariant] = signal('default')
-  const [draft, setDraft] = signal('')
-  const [live, setLive] = signal(false)
+  let tasks = state([])
+  let label = state('Tasks')
+  let variant = state('default')
+  let draft = state('')
+  let live = state(false)
 
   let ws = null
   const apply = (s) => {
-    setTasks(Array.isArray(s.tasks) ? s.tasks : [])
-    writeLabel(typeof s.label === 'string' ? s.label : 'Tasks')
-    writeVariant(typeof s.variant === 'string' ? s.variant : 'default')
+    tasks = Array.isArray(s.tasks) ? s.tasks : []
+    label = typeof s.label === 'string' ? s.label : 'Tasks'
+    variant = typeof s.variant === 'string' ? s.variant : 'default'
   }
 
   // Connect to the room DO. Auto-reconnect so the view is resilient.
@@ -31,9 +29,9 @@
     const connect = () => {
       const proto = location.protocol === 'https:' ? 'wss' : 'ws'
       ws = new WebSocket(proto + '://' + location.host + '/ws')
-      ws.onopen = () => setLive(true)
+      ws.onopen = () => { live = true }
       ws.onclose = () => {
-        setLive(false)
+        live = false
         setTimeout(connect, 1000)
       }
       ws.onmessage = (e) => {
@@ -54,21 +52,21 @@
     if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type, arg }))
   }
 
-  const onDraft = (e) => setDraft(e.target.value)
+  const onDraft = (e) => { draft = e.target.value }
   const addFromInput = () => {
-    const t = draft().trim()
+    const t = draft.trim()
     if (!t) return
     send('addTask', t)
-    setDraft('')
+    draft = ''
   }
 }
 
 @template {
-  <section class={['tl', variant()]}>
+  <section class={['tl', variant]}>
     <header class="tl-head">
       <h2 class="tl-title">{label}</h2>
       <span class="tl-count">{tasks.length}</span>
-      <span class={['tl-live', live() ? 'on' : 'off']}>{live() ? 'live' : 'connecting…'}</span>
+      <span class={['tl-live', live ? 'on' : 'off']}>{live ? 'live' : 'connecting…'}</span>
     </header>
     <div class="tl-add">
       <label class="tl-srlabel" for="tl-new">New task</label>

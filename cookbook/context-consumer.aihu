@@ -2,11 +2,7 @@
 // Pairs with context-provider.aihu; `theme` is the injected provided value.
 
 @state {
-  $context: {
-    consume: {
-      theme: { type: 'string' },
-    },
-  }
+  const theme = consume<string>('theme')
 }
 
 @template {

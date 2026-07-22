@@ -1,6 +1,6 @@
 @state {
-  import { signal, effect } from '@aihu/signals'
-  const [dark, setDark] = signal(
+  import { effect } from '@aihu/signals'
+  let dark = state(
 
   typeof localStorage !== 'undefined' && localStorage.getItem('theme') === 'dark'
 
@@ -8,17 +8,17 @@
 
   effect(() => {
 
-  document.documentElement.classList.toggle('dark', dark())
+  document.documentElement.classList.toggle('dark', dark)
 
   if (typeof localStorage !== 'undefined') {
 
-  localStorage.setItem('theme', dark() ? 'dark' : 'light')
+  localStorage.setItem('theme', dark ? 'dark' : 'light')
 
   }
 
   })
 
-  const toggle = () => setDark(d => !d)
+  const toggle = () => { dark = !dark }
 }
 
 @template {

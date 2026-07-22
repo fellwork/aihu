@@ -3,10 +3,10 @@
 // Shows adapter config metadata and worker deployment details.
 
 @state {
-  import { signal, computed } from '@aihu/signals'
-  const [workerName, setWorkerName] = signal('cf-adapter-demo')
+  import { computed } from '@aihu/signals'
+  let workerName = state('cf-adapter-demo')
 
-  const [deployMode, setDeployMode] = signal('workers')
+  let deployMode = state('workers')
 
   const statusLabel = computed(() => 'Ready to deploy')
 }
@@ -18,12 +18,12 @@
     <div class="config-card">
       <div class="config-item">
         <span class="config-label">Worker name</span>
-        <span class="config-value">{workerName()}</span>
+        <span class="config-value">{workerName}</span>
       </div>
 
       <div class="config-item">
         <span class="config-label">Deploy mode</span>
-        <span class="config-badge">{deployMode()}</span>
+        <span class="config-badge">{deployMode}</span>
       </div>
 
       <div class="config-item">

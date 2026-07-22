@@ -1,7 +1,7 @@
 // guard-ui — $guard scope-gated UI: shows content only when scope 'admin' verified
 
 @state {
-  label: string = 'admin-only content'
+  const label: string = 'admin-only content'
 }
 
 @template {

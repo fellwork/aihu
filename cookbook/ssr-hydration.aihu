@@ -1,21 +1,17 @@
 // ssr-hydration — SSR-safe component: $lifecycle.mount hydrates from dataset
 
 @state {
-  $prop: {
-    greeting: { type: String, default: 'Hello' },
-    name: { type: String, default: 'World' },
-  }
+  let greeting = prop({ default: 'Hello' })
+  let name = prop({ default: 'World' })
 
-  hydratedFrom: string = 'client'
+  let hydratedFrom: string = 'client'
 
-  $lifecycle: {
-    mount: () => {
+  onMount(() => {
       const el = _host as HTMLElement
       if (el.dataset.ssrGreeting) greeting = el.dataset.ssrGreeting
       if (el.dataset.ssrName) name = el.dataset.ssrName
       hydratedFrom = el.dataset.ssrGreeting ? 'server' : 'client'
-    },
-  }
+    })
 }
 
 @template {

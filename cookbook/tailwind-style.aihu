@@ -1,13 +1,11 @@
 // tailwind-style — Tailwind 4 utility classes in template + scoped @style for component rules
 
 @state {
-  active: boolean = false
-  count: number = 0
+  let active = state(false)
+  let count = state(0)
 
-  $action: {
-    toggle: () => { active = !active },
-    increment: () => { count++ },
-  }
+  const toggle = action(() => { active = !active })
+  const increment = action(() => { count++ })
 }
 
 @template {

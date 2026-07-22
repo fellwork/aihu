@@ -16,9 +16,9 @@ import { migrateStateWrappers } from './migrate.ts'
 
 const args = process.argv.slice(2)
 const write = args.includes('--write')
-let stage: 'macros' | 'tuples' | 'all' = 'all'
+type Stage = 'macros' | 'tuples' | 'all'
 const stageIdx = args.indexOf('--stage')
-if (stageIdx >= 0) stage = args[stageIdx + 1] as typeof stage
+const stage: Stage = stageIdx >= 0 ? (args[stageIdx + 1] as Stage) : 'all'
 const keepPlainIdx = args.indexOf('--keep-plain')
 const keepPlain = keepPlainIdx >= 0 ? (args[keepPlainIdx + 1] ?? '').split(',') : []
 

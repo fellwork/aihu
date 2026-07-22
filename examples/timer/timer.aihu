@@ -2,44 +2,33 @@
 // M1 polish: @agent block + dark-mode tokens.
 
 @state {
-  import { signal } from '@aihu/signals'
-  const [duration, setDuration] = signal(10000)
-  const [elapsed, setElapsed] = signal(0)
+  let duration = state(10000)
+  let elapsed = state(0)
 
-  intervalId: number | null = null
+  let intervalId: number | null = null
 
-  $computed: {
-    progress: {
-      describe: 'Elapsed fraction from 0 to 1',
-      expose: { read: true },
-      value: () => duration() === 0 ? 0 : Math.min(elapsed() / duration(), 1),
-    },
-    seconds: () => (elapsed() / 1000).toFixed(1),
-    maxSecs: () => (duration() / 1000).toFixed(1),
-    done: () => elapsed() >= duration(),
-  }
+  const progress = derived(
+    { describe: 'Elapsed fraction from 0 to 1', expose: 'read' },
+    () => duration === 0 ? 0 : Math.min(elapsed / duration, 1))
+  const seconds = derived(() => (elapsed / 1000).toFixed(1))
+  const maxSecs = derived(() => (duration / 1000).toFixed(1))
+  const done = derived(() => elapsed >= duration)
 
-  $action: {
-    tick: () => {
-      if (elapsed() < duration()) {
-        setElapsed(Math.min(elapsed() + 100, duration()))
+  const tick = action(() => {
+      if (elapsed < duration) {
+        elapsed = Math.min(elapsed + 100, duration)
       }
-    },
-    reset: {
-      describe: 'Reset the elapsed time to 0',
-      expose: { read: true, write: true },
-      handler: () => setElapsed(0),
-    },
-  }
+    })
+  const reset = action(
+    { describe: 'Reset the elapsed time to 0', expose: 'read write' },
+    () => { elapsed = 0 })
 
-  $lifecycle: {
-    mount: () => {
+  onMount(() => {
       intervalId = setInterval(() => tick(), 100) as unknown as number
-    },
-    dispose: () => {
+    })
+  onDispose(() => {
       if (intervalId !== null) clearInterval(intervalId)
-    },
-  }
+    })
 }
 
 @template {

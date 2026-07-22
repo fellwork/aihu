@@ -1,17 +1,13 @@
 // fetch-resource — $resource for async fetch with loading/error/data states
 
 @state {
-  $prop: {
-    url: { type: String, default: '/api/resource' },
-  }
+  const url = prop({ default: '/api/resource' })
 
-  $resource: {
-    data: async () => {
+  const data = resource(async () => {
       const res = await fetch(url)
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       return res.json()
-    },
-  }
+    })
 }
 
 @template {

@@ -17,8 +17,8 @@
 @state {
   import { AihuCheckboxRoot } from '@aihu/primitives/checkbox'
 
-  $extends: AihuCheckboxRoot
-  $shadow: 'light'
+  base: AihuCheckboxRoot
+  shadow: 'light'
 }
 
 @template {

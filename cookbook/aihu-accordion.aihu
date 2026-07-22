@@ -1,24 +1,19 @@
 // accordion — $prop items (array) + $action toggle, $each over items, $show for content
 
 @state {
-  $prop: {
-    items: {
-      type: Array,
-      default: [
+  const items = prop({
+    default: [
         { id: '1', title: 'First item', content: 'Content for the first panel.' },
         { id: '2', title: 'Second item', content: 'Content for the second panel.' },
         { id: '3', title: 'Third item', content: 'Content for the third panel.' },
       ],
-    },
-  }
+  })
 
-  openId: string = ''
+  let openId = state('')
 
-  $action: {
-    toggle: (id: string) => {
+  const toggle = action((id: string) => {
       openId = openId === id ? '' : id
-    },
-  }
+    })
 }
 
 @template {

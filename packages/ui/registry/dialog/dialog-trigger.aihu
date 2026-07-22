@@ -13,8 +13,8 @@
 @state {
   import { AihuDialogTrigger } from '@aihu/primitives/dialog'
 
-  $extends: AihuDialogTrigger
-  $shadow: 'light'
+  base: AihuDialogTrigger
+  shadow: 'light'
 }
 
 @template {

@@ -6,13 +6,9 @@
 
   // TODO (M3): pass serialize to renderToString SSR options; dehydrate products into
   // <script id="__aihu_state__"> for client rehydration (arch-2 §M3)
-  $computed: {
-    cartCount: {
-      describe: 'Total items in cart',
-      expose: { read: true },
-      value: () => cartItems().length,
-    },
-  }
+  const cartCount = derived(
+    { describe: 'Total items in cart', expose: 'read' },
+    () => cartItems().length)
 
   const [cartItems, setCartItems] = signal([])
 

@@ -1,34 +1,25 @@
 @state {
   import { inject } from '@aihu/context'
   import { CartContext } from './cart-context'
-  import { signal } from '@aihu/signals'
-
-  $computed: {
-    cartItems: {
-      describe: 'Current cart items',
-      expose: { read: true },
-      value: () => getCart(),
-    },
-    total: () => cartItems.reduce((s, i) => s + i.price, 0),
-    cartCount: {
-      describe: 'Number of items in cart',
-      expose: { read: true },
-      value: () => cartItems.length,
-    },
-  }
+  const cartItems = derived(
+    { describe: 'Current cart items', expose: 'read' },
+    () => getCart())
+  const total = derived(() => cartItems.reduce((s, i) => s + i.price, 0))
+  const cartCount = derived(
+    { describe: 'Number of items in cart', expose: 'read' },
+    () => cartItems.length)
 
   const cartSignal = inject(CartContext)
 
   const [getCart, _setCart] = cartSignal ?? [() => [], () => {}]
 
-  const [checkoutStatus, setCheckoutStatus] = signal('idle')
+  let checkoutStatus = state('idle')
 
-  $action: {
-    checkout: {
-      describe: 'Initiate checkout with current cart items',
-      expose: { read: true, write: true },
-      handler: async () => {
-        setCheckoutStatus('pending')
+  const checkout = action(
+    { describe: 'Initiate checkout with current cart items',
+      expose: 'read write' },
+    async () => {
+        checkoutStatus = 'pending'
         try {
           const r = await fetch('/api/checkout', {
             method: 'POST',
@@ -38,13 +29,11 @@
             },
             body: JSON.stringify({ items: cartItems }),
           })
-          setCheckoutStatus(r.ok ? 'ok' : 'error')
+          checkoutStatus = r.ok ? 'ok' : 'error'
         } catch {
-          setCheckoutStatus('error')
+          checkoutStatus = 'error'
         }
-      },
-    },
-  }
+      })
 }
 
 @template {
@@ -81,17 +70,17 @@
       class="checkout-btn"
       if={cartCount > 0}
       on:click={checkout}
-      disabled={checkoutStatus() === 'pending'}
+      disabled={checkoutStatus === 'pending'}
       aria-label="Proceed to checkout"
     >
-      {checkoutStatus() === 'pending' ? 'Processing…' : 'Checkout'}
+      {checkoutStatus === 'pending' ? 'Processing…' : 'Checkout'}
     </button>
 
-    <div class="status-ok" if={checkoutStatus() === 'ok'} aria-live="polite" role="status">
+    <div class="status-ok" if={checkoutStatus === 'ok'} aria-live="polite" role="status">
       Order placed successfully!
     </div>
 
-    <div class="status-error" if={checkoutStatus() === 'error'} aria-live="polite" role="alert">
+    <div class="status-error" if={checkoutStatus === 'error'} aria-live="polite" role="alert">
       Checkout failed. Please try again.
     </div>
   </aside>

@@ -1,8 +1,7 @@
 @state {
-  import { signal } from '@aihu/signals'
-  const [count, setCount] = signal(0)
+  let count = state(0)
 
-  const increment = () => setCount(c => c + 1)
+  const increment = () => { count = count + 1 }
 }
 
 @template {
