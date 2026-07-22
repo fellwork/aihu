@@ -38,10 +38,16 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
  * createRequire shim (that is what the dedicated @aihu/server/native boundary
  * exists for).
  */
-const LEAK_VECTOR: ReadonlyArray<RegExp> = [/node:module/g, /\bcreateRequire\b/g]
+// A real node: import specifier is ALWAYS quoted (`import … from "node:module"`,
+// `require('node:fs')`, `import("node:os")`). The leading-quote lookbehind
+// excludes object-property false positives: minified SSR code emits
+// `{node:n(),path:…}` (the structural-walk `{ node, path }` segment), which the
+// bare `/node:[a-z/]+/` regex wrongly flagged as a `node:` builtin. A bundled
+// import can never be unquoted, so requiring the quote loses no real leak.
+const LEAK_VECTOR: ReadonlyArray<RegExp> = [/(?<=["'`])node:module/g, /\bcreateRequire\b/g]
 
-/** Any node: builtin (node:module, node:fs, node:path, node:os, …). */
-const ANY_NODE_BUILTIN: RegExp = /node:[a-z/]+/g
+/** Any quoted node: builtin specifier (node:module, node:fs, node:path, …). */
+const ANY_NODE_BUILTIN: RegExp = /(?<=["'`])node:[a-z/]+/g
 
 interface Entry {
   readonly file: string
