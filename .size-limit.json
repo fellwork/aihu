@@ -252,5 +252,18 @@
     "limit": "1.2 KB",
     "gzip": true,
     "ignore": ["@aihu/signals", "@aihu/context", "@aihu-plugin/data", "@aihu/plugin"]
+  },
+  {
+    "name": "@aihu/editor",
+    "path": "packages/editor/dist/index.js",
+    "limit": "14 KB",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
+    "name": "@aihu/editor/safe-href",
+    "path": "packages/editor/dist/safe-href.js",
+    "limit": "300 B",
+    "gzip": true
   }
 ]

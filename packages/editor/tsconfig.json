@@ -10,5 +10,7 @@
       "@aihu/signals": ["../signals/src/index.ts"]
     }
   },
-  "include": ["src/**/*.ts", "tests/**/*.ts", "e2e/**/*.ts"]
+  "include": ["src/**/*.ts", "tests/**/*.ts", "e2e/**/*.ts"],
+  // serve.ts is a Bun-runtime script (Bun global); it is executed, not compiled
+  "exclude": ["e2e/serve.ts"]
 }

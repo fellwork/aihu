@@ -253,6 +253,8 @@ Per-package gates enforced by `bun run size`:
 | `@aihu/auth` | 1.16 kB | 1.5 KB | pass |
 | `@aihu/magna` | 758 B | 1.8 KB | pass |
 | `@aihu/magna/codegen` | 1.04 kB | 1.2 KB | pass |
+| `@aihu/editor` | 13.56 kB | 14 KB | pass |
+| `@aihu/editor/safe-href` | 134 B | 300 B | pass |
 
 <sub><i>Auto-generated — run `bun scripts/sync-readme.ts` to update.</i></sub>
 

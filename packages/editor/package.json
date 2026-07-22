@@ -15,8 +15,8 @@
       "types": "./dist/safe-href.d.ts",
       "import": "./dist/safe-href.js"
     },
-    "./components/editor.aihu": "./components/editor.aihu",
-    "./components/editor-toolbar.aihu": "./components/editor-toolbar.aihu"
+    "./components/aihu-editor.aihu": "./components/aihu-editor.aihu",
+    "./components/aihu-editor-toolbar.aihu": "./components/aihu-editor-toolbar.aihu"
   },
   "files": [
     "dist",
