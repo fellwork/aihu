@@ -46,10 +46,44 @@ pub(crate) struct StateImports {
     pub(crate) needs_context: bool,
 }
 
+/// Wave 3c — authoritative island classification. A component is a STATIC
+/// island when its emitted body needs NONE of the owner-context reactive
+/// primitives (signal/computed/effect/onMount/onCleanup) and takes no reactive
+/// props — it can register and render with zero `@aihu/signals` +
+/// `@aihu/runtime`-owner participation, so the client can skip hydration
+/// entirely. The compiler is the single source of truth: it KNOWS this at emit
+/// time from the IR, and records it here + as a `// @aihu:island <kind>` code
+/// marker. Downstream (the Vite plugin) READS the marker; it must never
+/// re-derive the answer by regexing generated code — that is the derived-
+/// property violation this replaces.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum IslandKind {
+    /// Inert: server-render only, no client hydration/registration needed.
+    #[default]
+    Static,
+    /// Needs the reactive runtime — must hydrate/register client-side.
+    Interactive,
+}
+
+impl IslandKind {
+    /// The `// @aihu:island <kind>` marker token.
+    pub fn as_marker(self) -> &'static str {
+        match self {
+            IslandKind::Static => "static",
+            IslandKind::Interactive => "interactive",
+        }
+    }
+}
+
 #[derive(Debug, Default, serde::Serialize)]
 pub struct EmitResult {
     pub js: String,
     pub manifest_json: String,
+    /// Wave 3c — static vs interactive island classification (authoritative,
+    /// computed from the IR at emit time). Mirrors the `// @aihu:island`
+    /// code marker embedded in `js`.
+    pub island: IslandKind,
     /// v0.6.2: Serialized `.route.json` sidecar. Some when @route block is present.
     pub route_json: Option<String>,
     /// B3 — Per-SFC TypeScript sidecar. Contains `@state` declarations in
@@ -188,6 +222,11 @@ pub fn emit_with_options(unit: &CompileUnit, tag_name: &str, strict_templates: b
     // stubbed server SetupContext grows attr/prop signal support (full P3).
     let emit_ssr_entry = target == BuildTarget::Server && !is_agent_component;
 
+    // Wave 3c — island classification, hoisted out of the `js` block below so it
+    // can ride the returned `EmitResult`. Deferred-init: the block assigns it
+    // unconditionally from `emit_function_form` (the authoritative source)
+    // before yielding, so it is always definitely-assigned afterwards.
+    let island_kind;
     let js = {
         // Unified lowering engine. `emit_function_form` runs `process_state_body`
         // (full $prop/$action/$computed/magna/$auth/... lowering) for EVERY
@@ -196,13 +235,14 @@ pub fn emit_with_options(unit: &CompileUnit, tag_name: &str, strict_templates: b
         // the agent `input` coercions (number/boolean/enum → computed) regardless
         // of build target. Server-only `__agentBinding`/registration are appended
         // below; client-only opaque-ID dispatcher likewise.
-        let mut base_js = emit_function_form(
+        let (mut base_js, island_k) = emit_function_form(
             unit,
             tag_name,
             unit.source.agent.as_ref(),
             &extract,
             emit_ssr_entry,
         );
+        island_kind = island_k;
         // v0.4.0: append __streamBinding export for server artifacts.
         if let Some(stream_block) = &unit.source.stream {
             if elide_stream {
@@ -320,7 +360,7 @@ pub fn emit_with_options(unit: &CompileUnit, tag_name: &str, strict_templates: b
     // --noEmit` over `**/*.aihu.ts` checks template type-safety end-to-end.
     let sidecar_ts = emit_sidecar_ts(unit, tag_name, strict_templates);
 
-    EmitResult { js, manifest_json, route_json, sidecar_ts }
+    EmitResult { js, manifest_json, route_json, sidecar_ts, island: island_kind }
 }
 
 // ─── v0.4.0 — @stream block binding export ───────────────────────────────────
@@ -626,7 +666,7 @@ pub(crate) fn emit_function_form(
     // form emits the standalone-SSR shape: hoisted setup const, DOM-gated
     // registration, `export default __ssr`. See the caller in `emit()`.
     ssr_entry: bool,
-) -> String {
+) -> (String, IslandKind) {
     let raw_script = unit.source.script.unwrap_or("");
 
     // @agent `input` declarations lower to per-instance coercion bindings over
@@ -816,6 +856,65 @@ pub(crate) fn emit_function_form(
         && extends_base.is_none()
         && !has_agent_inputs;
     let ssr_no_dom = ssr_standalone || ssr_options;
+
+    // ── Wave 3c — island classification (authoritative, from IR) ─────────────
+    // A component is a STATIC island iff its emitted body requires NONE of the
+    // owner-context reactive primitives and takes no reactive props: it can
+    // register and render with zero @aihu/signals + @aihu/runtime-owner
+    // participation, so the client can skip hydration for it entirely.
+    //
+    // Conservative by construction — any doubt resolves to `interactive`.
+    // Over-classifying merely forfeits the zero-JS optimisation; UNDER-
+    // classifying would strip the runtime out from under a component that
+    // needs it (the static-island shim inlines a bare `HTMLElement` subclass
+    // and drops `@aihu/runtime`). Notably, a component whose OWN body is inert
+    // but which declares `$prop`s is `interactive`: props are reactive inputs
+    // the PARENT drives, so the instance still needs attribute→signal
+    // hydration — and its emit takes the options-form the shim cannot lower.
+    //
+    // Every term below maps to an owner-requiring primitive the emitter WOULD
+    // put in the output (this is the same fact-set `build_function_imports`
+    // reads to decide which of signal/computed/effect/onMount/onCleanup to
+    // import), so the classification and the emitted code cannot drift.
+    let island_interactive =
+        // reactive state / computed / props — any signal-map entry. Props are
+        // in the map, so the reactive-props case is covered here too.
+        !signal_map.0.is_empty()
+        // effect() — authored, macro-driven ($aria/$form/directives), or a
+        // routing boundary (<$link>/<$outlet> emit effect() in their closures).
+        || helpers_needed.needs_effect
+        || _aria_needs_effect
+        || form_needs_effect
+        || si.needs_effect_for_macros
+        || raw_script.contains("effect(")
+        || helpers_needed.link_element
+        || helpers_needed.outlet_element
+        // computed() coercions
+        || si.needs_computed
+        // owner-context lifecycle hooks
+        || si.needs_on_mount
+        || si.needs_on_cleanup
+        || si.needs_on_adopt
+        || si.needs_on_attribute_change
+        || helpers_needed.needs_on_mount_for_directives
+        // routing boundaries register onMount()/onCleanup() at setup
+        || helpers_needed.router_element
+        || helpers_needed.navigate_element
+        // streams / resources / controller / context wiring
+        || si.needs_create_stream
+        || si.needs_create_resource
+        || si.needs_create_magna_resource
+        || si.needs_controller
+        || si.needs_context
+        // agent surface / class-extension recipes always take the full runtime
+        || has_agent_inputs
+        || agent.is_some()
+        || extends_base.is_some();
+    let island = if island_interactive {
+        IslandKind::Interactive
+    } else {
+        IslandKind::Static
+    };
 
     // Wave-3 keystone — the SSR string fast path. Attempt to lower the
     // template to a compiled string renderer for every standalone-SSR
@@ -1015,6 +1114,15 @@ pub(crate) fn emit_function_form(
     // SyntaxError), so we union named-import sets per source.
     let mut merged_imports = merge_imports(&imports, &user_imports);
 
+    // Wave 3c — island classification marker. The compiler is authoritative:
+    // it emits `static`/`interactive` here from IR facts (computed above) so
+    // the Vite plugin drives the zero-JS static-island shim by READING this,
+    // never by regexing the generated code. Prepended BEFORE the extract/shadow
+    // markers so those keep their documented leading-line positions (the
+    // `// @aihu:shadow*` marker stays line 1 when present); the Vite plugin
+    // parses all three position-independently (`/^…$/m`).
+    merged_imports = format!("// @aihu:island {}\n{}", island.as_marker(), merged_imports);
+
     // GX Phase 1 (#437-GX) — the shadow-adjacent extract marker, artifact 1 of
     // the three-way fan-out (spec §2.4). Emitted for every server/universal
     // build (the resolved default included) so the recorded posture is
@@ -1066,7 +1174,7 @@ pub(crate) fn emit_function_form(
         String::new()
     };
 
-    if uses_options_form {
+    let component_code = if uses_options_form {
         // R1 options-form. Emit `[attrs: [...],] [props: { ... },]` config, then
         // the setup arrow. @agent inputs contribute an `attrs:` array (consumed by
         // `ctx.attrs.<name>`); $prop entries contribute the `props:` config. Both
@@ -1208,7 +1316,8 @@ pub(crate) fn emit_function_form(
             "{}\n\n{}{}{}defineElement('{}', defineComponent(({}) => {{\n{}}}))\n",
             merged_imports, module_decl, helpers_decl, "", tag_name, ctx_param, body
         )
-    }
+    };
+    (component_code, island)
 }
 
 /// Parsed shape of a single ES-module import statement, used by `merge_imports`

@@ -67,6 +67,12 @@ pub struct TargetEmit {
     /// target), or empty.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub manifest: Option<String>,
+    /// Wave 3c — authoritative island classification for this target (`static`
+    /// | `interactive`). Present whenever `js` is emitted; mirrors the
+    /// `// @aihu:island` marker embedded in `js`. Lets an envelope consumer read
+    /// the classification structurally instead of parsing the code marker.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub island: Option<crate::codegen::IslandKind>,
 }
 
 /// A machine-readable diagnostic row. Reserved: compile WARNINGS currently
@@ -258,6 +264,7 @@ pub fn compile_envelope(source: &str, opts: &EnvelopeOptions) -> Result<Envelope
             }
             if want("js") || want("manifest") {
                 let te = TargetEmit {
+                    island: if want("js") { Some(result.island) } else { None },
                     js: if want("js") { Some(result.js) } else { None },
                     manifest: if want("manifest") && !result.manifest_json.is_empty() {
                         Some(result.manifest_json)

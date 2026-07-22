@@ -76,11 +76,11 @@ interface VitePlugin {
  */
 export interface AihuCompilerPluginOptions {
   /**
-   * When `true` (default), components classified as `'static'` by
-   * `_classifyIsland()` are emitted with a minimal HTML-only registration
-   * shim that ships **zero** `@aihu/runtime` and `@aihu/signals` JS to
-   * the browser. Components classified as `'interactive'` retain the
-   * full runtime path.
+   * When `true` (default), components the compiler classified as `'static'`
+   * (read from the `// @aihu:island` marker via `_parseIslandMarker()`) are
+   * emitted with a minimal HTML-only registration shim that ships **zero**
+   * `@aihu/runtime` and `@aihu/signals` JS to the browser. Components
+   * classified as `'interactive'` retain the full runtime path.
    *
    * Setting `islands: false` opts every component back into the unified
    * runtime path (Plan 3.2 baseline behaviour).
@@ -172,35 +172,35 @@ export function _globalizeAuthoredStyle(code: string): string {
 }
 
 /**
- * Classify the compiled output of a single `.aihu` module as either a
- * **static** island (no reactive state — purely declarative DOM) or an
- * **interactive** island (uses the signals reactivity system).
+ * Read the compiler's AUTHORITATIVE island classification from the
+ * `// @aihu:island <kind>` marker the Rust codegen emits for every component
+ * (`emit.rs`, wave 3c). A component is a **static** island (server-render
+ * only, no client hydration) or an **interactive** island (needs the signals
+ * reactivity runtime).
  *
- * The heuristic is intentionally conservative: any source-level reference
- * to a primitive that requires the `defineComponent` owner context flips
- * the file to `'interactive'`. False positives (e.g. a string literal
- * containing `signal(`) are tolerable — they only forfeit the static-island
- * optimisation. False negatives are forbidden: a static-classified file
- * MUST NOT depend on the signals runtime at execution time.
+ * This REPLACES the old `_classifyIsland` regex post-pass, which re-derived
+ * the answer by scanning generated code for `signal(`/`computed(`/`effect(`/…
+ * calls — a Derived-property VIOLATION (docs/plans/ssr-build-performance-
+ * findings.md §5: "the compiler answered that question when it emitted the
+ * code"). The compiler now computes the classification from the IR (the same
+ * fact-set that decides which owner-context primitives to import) and records
+ * it as this marker; the plugin merely reads it.
  *
- * Owner-requiring primitives covered:
- *   - `signal(`, `computed(`, `effect(`, `setSignal(` (signals runtime)
- *   - `onMount(`, `onCleanup(` (lifecycle hooks — throw `no owner` outside
- *     `defineComponent` because they push into the active owner's mount/
- *     cleanup queues)
+ * Crucially the compiler classifies CONSERVATIVELY and knows things the regex
+ * could not: e.g. a component whose own body is inert but which declares
+ * `$prop`s is `interactive` (props are reactive inputs the parent drives, and
+ * its options-form emit is one the static-island shim cannot lower) — the old
+ * regex saw no `signal(` call and wrongly classified it `static`.
  *
- * Plan 3.3 / acceptance criterion 1.
+ * Defaults to `'interactive'` if the marker is somehow absent (an old binary,
+ * or a future emit shape): the safe default never strips the runtime out from
+ * under a component that needs it.
  *
  * @internal
  */
-export function _classifyIsland(compiledCode: string): 'static' | 'interactive' {
-  // Match call sites of the reactive + lifecycle primitives. Use word-boundary
-  // anchors so identifiers like `mySignal(` or `__effect(` do not trip the
-  // heuristic. The `(` is required so that bare imports of the names in an
-  // unused `import { signal }` line do not flip an otherwise-static module.
-  return /\b(?:signal|computed|effect|setSignal|onMount|onCleanup)\s*\(/.test(compiledCode)
-    ? 'interactive'
-    : 'static'
+export function _parseIslandMarker(compiledCode: string): 'static' | 'interactive' {
+  const m = /^\/\/ @aihu:island (static|interactive)$/m.exec(compiledCode)
+  return m?.[1] === 'static' ? 'static' : 'interactive'
 }
 
 /**
@@ -1484,7 +1484,7 @@ export function aihuCompilerPlugin(options?: AihuCompilerPluginOptions): VitePlu
           elementTag !== null &&
           !hasBase &&
           effectiveShadow !== 'light' &&
-          _classifyIsland(compiled) === 'static'
+          _parseIslandMarker(compiled) === 'static'
         ) {
           out = _buildStaticIsland(compiled, elementTag)
         } else if (elementTag !== null) {

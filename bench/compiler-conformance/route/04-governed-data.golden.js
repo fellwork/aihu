@@ -1,5 +1,6 @@
 // @aihu:shadow-default light
 // @aihu:extract read=scope:members call=anonymous
+// @aihu:island interactive
 import { branch, leaf, slot, when } from '@aihu/arbor'
 import type { Signal } from '@aihu/signals'
 import { signal } from '@aihu/signals'

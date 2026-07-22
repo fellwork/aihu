@@ -1,4 +1,5 @@
 // @aihu:extract read=agents call=anonymous
+// @aihu:island interactive
 import { branch, leaf, slot } from '@aihu/arbor'
 import type { Signal } from '@aihu/signals'
 import { signal } from '@aihu/signals'
