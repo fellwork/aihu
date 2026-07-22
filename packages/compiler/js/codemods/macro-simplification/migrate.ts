@@ -399,8 +399,30 @@ function walkState(body: string, sidecar: Map<string, Sidecar>, warnings: string
     const trimStart = lineStart + (lineText.length - lineText.trimStart().length)
 
     if (trimmed.startsWith('import ')) {
-      buckets.passthrough.push({ raw: lineText.trim(), leading, position: position++ })
-      i = lineEndIdx + 1
+      // A multi-line `import { … } from '…'` must be consumed as ONE statement.
+      // If only the opener line is taken, the member lines and the `} from '…'`
+      // closing bucket as separate passthroughs and drift out of the import
+      // group at emit time (imports are hoisted, the orphaned members are not) —
+      // the #502 import-scrambling defect. A statement is complete once a line
+      // carries the source specifier (`from '…'`) or the opener is a bare
+      // side-effect import (`import '…'`).
+      let stmtEndIdx = lineEndIdx
+      let stmt = lineText
+      const carriesSource = /\bfrom\s*['"]/.test(lineText) || /^import\s+['"]/.test(trimmed)
+      if (!carriesSource) {
+        let j = lineEndIdx + 1
+        while (j < body.length) {
+          const nl = body.indexOf('\n', j)
+          const e = nl < 0 ? body.length : nl
+          const l = body.slice(j, e)
+          stmt += `\n${l}`
+          stmtEndIdx = e
+          j = e + 1
+          if (/\bfrom\s*['"]/.test(l)) break
+        }
+      }
+      buckets.passthrough.push({ raw: stmt.trim(), leading, position: position++ })
+      i = stmtEndIdx + 1
       continue
     }
 

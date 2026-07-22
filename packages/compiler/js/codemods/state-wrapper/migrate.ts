@@ -1160,6 +1160,32 @@ export function migrateStateWrappers(
     }
   }
 
+  // De-call prop reads (#502). In the wrapper model `prop()` returns a VALUE,
+  // so a read is `name`, not `name()`. The macros pass rewrites the `$prop`
+  // DECLARATION to `const name = prop(…)` but leaves every read called; fix
+  // them across @state + the template, mirroring the tuple-getter de-call in
+  // migrateTuplesIn. Empty-arg calls only; member reads (`obj.name()`) are left
+  // alone. This is correct even for function-valued props: the retired model
+  // read the prop via `name()` and invoked via `name()()`, so de-calling the
+  // read's trailing `()` turns an invoke `name()()` into `name()` and a bare
+  // read `name()` into `name`.
+  if (!options.tuplesOnly && !st.aborted) {
+    const migratedState = findBlock(text, 'state')
+    if (migratedState) {
+      const propNames = [
+        ...migratedState.body.matchAll(/(?:const|let)\s+([A-Za-z_$][\w$]*)\s*=\s*prop\s*[<(]/g),
+      ].map((m) => m[1] ?? '')
+      for (const name of propNames) {
+        if (!name) continue
+        const esc = name.replace(/\$/g, '\\$')
+        text = text.replace(
+          new RegExp(`(?<![\\w$])(?<!(?<!\\.)\\.)${esc}\\s*\\(\\s*\\)`, 'g'),
+          name,
+        )
+      }
+    }
+  }
+
   if (!options.macrosOnly && !st.aborted) {
     text = migrateTuplesIn(text, tupleSt, renamed)
   }

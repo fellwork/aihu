@@ -310,3 +310,28 @@ function extractIdentifiers(source: string): Set<string> {
   }
   return names
 }
+
+describe('macro-simplification — multi-line imports (#502)', () => {
+  it('keeps a multi-line import intact and in order among single-line imports', () => {
+    const src = [
+      '@state {',
+      "  import { signal } from '@aihu/signals'",
+      '  import {',
+      '    a, b, c,',
+      "  } from './store.ts'",
+      "  import { solo } from './other.ts'",
+      '  const [x, setX] = signal(0)',
+      '}',
+      '@template { <div>{x()}</div> }',
+      '',
+    ].join('\n')
+    const { rewritten } = migrate(src)
+    // members must not be orphaned below the closing / another import hoisted in
+    expect(rewritten).toContain("import {\n    a, b, c,\n  } from './store.ts'")
+    expect(rewritten).not.toMatch(/import \{\n\s*import /)
+    // relative order preserved (store before other)
+    expect(rewritten.indexOf("from './other.ts'")).toBeGreaterThan(
+      rewritten.indexOf("from './store.ts'"),
+    )
+  })
+})

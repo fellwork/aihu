@@ -16,7 +16,11 @@
 import { relative } from 'node:path'
 import { proxyCreateProgram } from '@volar/typescript'
 import ts from 'typescript'
-import { createAihuLanguagePlugin, getUncompilableFiles } from './language-plugin.ts'
+import {
+  createAihuLanguagePlugin,
+  getUncompilableFiles,
+  getUncompilableReason,
+} from './language-plugin.ts'
 
 /**
  * Implicit-`any` diagnostics, suppressed for `.aihu` files only.
@@ -127,10 +131,17 @@ export function run(options: RunOptions = {}): number {
   let errors = diagnostics.filter((d) => d.category === ts.DiagnosticCategory.Error).length
 
   if (unchecked.length > 0) {
+    const reason = getUncompilableReason(unchecked[0] ?? '')
     console.error(
       `\n${unchecked.length} .aihu file(s) could not be compiled, so nothing in them was ` +
-        `type-checked. Run \`aihu build\` for the compile error:\n` +
-        unchecked.map((f) => `  ${relative(cwd, f)}`).join('\n'),
+        `type-checked:\n` +
+        unchecked.map((f) => `  ${relative(cwd, f)}`).join('\n') +
+        (reason
+          ? `\n\nFirst compile error (from @aihu/compiler):\n  ${reason.split('\n')[0]}`
+          : '') +
+        `\n\nIf these files build fine with \`aihu build\` but fail here, @aihu-tsc is resolving a ` +
+        `different @aihu/compiler than your app. Pin @aihu/tsc and @aihu/compiler to the same ` +
+        `version — see docs/site/migration.md (Type-checking after migration).`,
     )
     errors += unchecked.length
   }

@@ -202,9 +202,15 @@ export interface AihuVirtualCode extends VirtualCode {
  * refused to read is a false green. `run()` reports them and fails the run.
  */
 const uncompilable = new Set<string>()
+const uncompilableReasons = new Map<string, string>()
 
 export function getUncompilableFiles(): ReadonlySet<string> {
   return uncompilable
+}
+
+/** The first line of the compile error that made `fileName` uncompilable (#504). */
+export function getUncompilableReason(fileName: string): string | undefined {
+  return uncompilableReasons.get(fileName)
 }
 
 function createVirtualCode(
@@ -220,7 +226,8 @@ function createVirtualCode(
       strictTemplates: options?.strictTemplates ?? false,
     })
     uncompilable.delete(fileName)
-  } catch {
+    uncompilableReasons.delete(fileName)
+  } catch (err) {
     // The SFC does not compile — a COMPILE error, which `aihu build` already
     // reports with a real .aihu line and caret. Repeating it here, worse worded,
     // would only add noise.
@@ -231,6 +238,7 @@ function createVirtualCode(
     // `@state {`. An empty surface contributes no diagnostics; the file is named
     // in the summary instead.
     uncompilable.add(fileName)
+    uncompilableReasons.set(fileName, err instanceof Error ? err.message : String(err))
     generated = ''
   }
 
