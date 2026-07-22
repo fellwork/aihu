@@ -560,6 +560,12 @@ export function transform(
     target?: 'client' | 'server' | 'universal'
     /** Override the registered custom-element tag (default: file stem). Used for layouts. */
     tag?: string
+    /**
+     * #486 step 4 — emit the sidecar's attribute/component-prop type layer
+     * (`--strict-templates`). Affects only the type-check surface written to
+     * `sidecarOut`; the compiled JS is identical either way. Default off.
+     */
+    strictTemplates?: boolean
   },
 ): { code: string; map: null } {
   // O1a (tag naming): normalize the stem so the JS driver's define-name
@@ -582,6 +588,9 @@ export function transform(
   // the compiler's `universal` target when omitted (existing behaviour).
   if (options?.target) {
     args.push('--target', options.target)
+  }
+  if (options?.strictTemplates) {
+    args.push('--strict-templates')
   }
   const code = execFileSync(resolveBinPath(), args, {
     input: source,
@@ -869,11 +878,25 @@ export type SfcMacroValue =
  *
  * Returns `''` when the SFC has no `@template` (nothing to check).
  */
-export function compileSidecar(source: string, id?: string): string {
+export function compileSidecar(
+  source: string,
+  id?: string,
+  options?: {
+    /**
+     * #486 step 4 — emit the attribute/component-prop type layer
+     * (`--strict-templates`). Default off: the surface stays byte-identical
+     * to the pre-#486 sidecar.
+     */
+    strictTemplates?: boolean
+  },
+): string {
   const stem = id ? basename(id, '.aihu') : 'Component'
   const args = ['--stdin', '--tag', stem, '--sidecar-stdout']
   if (id) {
     args.push('--path', id)
+  }
+  if (options?.strictTemplates) {
+    args.push('--strict-templates')
   }
   return execFileSync(resolveBinPath(), args, {
     input: source,

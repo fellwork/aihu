@@ -7,6 +7,6 @@ pub mod signals;
 pub mod state_emit;
 pub mod template_emit;
 
-pub use emit::{emit, EmitResult};
+pub use emit::{emit, emit_with_options, EmitResult};
 pub use mcp_emit::has_exposed_agent_members;
 pub use signals::{resolve_signals, SignalMap};

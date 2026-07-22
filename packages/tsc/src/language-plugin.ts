@@ -132,6 +132,13 @@ export function buildMappings(source: string, generated: string): CodeMapping[] 
     for (const m of gen.matchAll(/__aihu_each\((.*?)\);/g)) {
       if (m[1]) payloads.push({ expr: m[1], genCol: (m.index ?? 0) + m[0].indexOf(m[1]) })
     }
+    // #486 step 4 — strict-templates check assignments: `__chk_N.prop = (EXPR);`
+    // (dynamic attribute / component-prop checks) and `__chk_N.prop = ("LIT");`
+    // (static boolean-attribute literals, whose quoted text exists verbatim in
+    // the source attribute).
+    for (const m of gen.matchAll(/__chk_\d+\.[\w$]+ = \((.*?)\);/g)) {
+      if (m[1]) payloads.push({ expr: m[1], genCol: (m.index ?? 0) + m[0].indexOf(m[1]) })
+    }
     payloads.sort((a, b) => a.genCol - b.genCol)
     for (const { expr, genCol } of payloads) {
       // 1. Verbatim — the capture was not rewritten.
@@ -204,11 +211,14 @@ function createVirtualCode(
   fileName: string,
   snapshot: ts.IScriptSnapshot,
   tsModule: typeof ts,
+  options?: AihuLanguagePluginOptions,
 ): AihuVirtualCode {
   const source = snapshot.getText(0, snapshot.getLength())
   let generated: string
   try {
-    generated = compileSidecar(source, fileName)
+    generated = compileSidecar(source, fileName, {
+      strictTemplates: options?.strictTemplates ?? false,
+    })
     uncompilable.delete(fileName)
   } catch {
     // The SFC does not compile — a COMPILE error, which `aihu build` already
@@ -232,19 +242,41 @@ function createVirtualCode(
   }
 }
 
-export function createAihuLanguagePlugin(
-  tsModule: typeof ts,
-): LanguagePlugin<string, AihuVirtualCode> {
-  return {
-    getLanguageId: (fileName) => (fileName.endsWith('.aihu') ? 'aihu' : undefined),
+export interface AihuLanguagePluginOptions {
+  /**
+   * #486 step 4 — switch the sidecar's attribute/component-prop type layer on
+   * (`aihu-tsc --strict-templates`). Default off: the virtual code is
+   * byte-identical to the pre-#486 surface.
+   */
+  strictTemplates?: boolean
+}
 
-    createVirtualCode(fileName, languageId, snapshot) {
+/**
+ * `.aihu` file id → filesystem-ish path. The CLI (`proxyCreateProgram`) hands
+ * this plugin plain file-name strings; the language server (Volar's
+ * `createTypeScriptProject`) hands it `URI` objects. One plugin serves both
+ * consumers — that is step 5's whole point — so the id is normalized here.
+ */
+function scriptPath(scriptId: unknown): string {
+  if (typeof scriptId === 'string') return scriptId
+  const uri = scriptId as { fsPath?: string; path?: string } | null | undefined
+  return uri?.fsPath ?? uri?.path ?? ''
+}
+
+export function createAihuLanguagePlugin<T = string>(
+  tsModule: typeof ts,
+  options?: AihuLanguagePluginOptions,
+): LanguagePlugin<T, AihuVirtualCode> {
+  return {
+    getLanguageId: (scriptId) => (scriptPath(scriptId).endsWith('.aihu') ? 'aihu' : undefined),
+
+    createVirtualCode(scriptId, languageId, snapshot) {
       if (languageId !== 'aihu') return undefined
-      return createVirtualCode(fileName, snapshot, tsModule)
+      return createVirtualCode(scriptPath(scriptId), snapshot, tsModule, options)
     },
 
-    updateVirtualCode(fileName, _virtualCode, newSnapshot) {
-      return createVirtualCode(fileName, newSnapshot, tsModule)
+    updateVirtualCode(scriptId, _virtualCode, newSnapshot) {
+      return createVirtualCode(scriptPath(scriptId), newSnapshot, tsModule, options)
     },
 
     typescript: {

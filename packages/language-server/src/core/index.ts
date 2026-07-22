@@ -27,11 +27,6 @@ export {
 } from './diagnostics.ts'
 export { getBlockContext, getHoverContent, getMacroAtPosition } from './hover.ts'
 export {
-  type GeneratorInput,
-  type GeneratorOutput,
-  generateStateVirtualCode,
-} from './state-generator.ts'
-export {
   type AihuCodeMapping,
   type AihuSourcePosition,
   type AihuVirtualPosition,
@@ -40,9 +35,8 @@ export {
   SourceMap,
 } from './virtual-source-map.ts'
 export {
-  type AihuLanguagePlugin,
-  type AihuSource,
   type AihuVirtualCode,
   createAihuLanguagePlugin,
   createAihuLanguageServicePlugin,
+  withAihuDiagnosticParity,
 } from './volar-plugin.ts'

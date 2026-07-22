@@ -41,9 +41,12 @@
     "@volar/language-core": "2.4.28",
     "@volar/language-server": "2.4.28",
     "@volar/source-map": "2.4.28",
-    "vscode-uri": "3.1.0"
+    "vscode-uri": "3.1.0",
+    "@aihu/tsc": "workspace:*",
+    "typescript": "^5.6.2",
+    "volar-service-typescript": "0.0.71"
   },
-  "description": "Cross-editor Language Server (aihu-language-server) for .aihu Single File Components — diagnostics, hover, completion, and quick-fix code actions.",
+  "description": "Cross-editor Language Server (aihu-language-server) for .aihu Single File Components \u2014 diagnostics, hover, completion, and quick-fix code actions.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/fellwork/aihu.git",
@@ -53,5 +56,8 @@
   "bugs": "https://github.com/fellwork/aihu/issues",
   "publishConfig": {
     "access": "public"
+  },
+  "devDependencies": {
+    "@volar/typescript": "2.4.28"
   }
 }

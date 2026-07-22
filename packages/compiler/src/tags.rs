@@ -52,6 +52,13 @@ const KNOWN_HTML_ELEMENTS: &[&str] = &[
     // Deprecated but still parsed by browsers
     "acronym", "big", "center", "dir", "font", "marquee", "nobr", "noembed",
     "noframes", "plaintext", "rb", "rtc", "strike", "tt", "xmp",
+];
+
+/// SVG + MathML elements — known (never C611, never component tags) but NOT
+/// HTML-DOM elements: `document.createElement('circle')` yields an
+/// `HTMLUnknownElement`, so the strict-templates attribute type layer (#486
+/// step 4) must not materialize them through `HTMLElementTagNameMap`.
+const KNOWN_SVG_MATHML_ELEMENTS: &[&str] = &[
     // SVG (camelCase tags start lowercase — they are NOT component tags)
     "svg", "animate", "animateMotion", "animateTransform", "circle", "clipPath",
     "defs", "desc", "ellipse", "feBlend", "feColorMatrix", "feComponentTransfer",
@@ -72,6 +79,14 @@ const KNOWN_HTML_ELEMENTS: &[&str] = &[
 
 /// True when `tag` is a known HTML/SVG/MathML element name.
 pub fn is_known_html_element(tag: &str) -> bool {
+    KNOWN_HTML_ELEMENTS.contains(&tag) || KNOWN_SVG_MATHML_ELEMENTS.contains(&tag)
+}
+
+/// True when `tag` is an HTML (non-SVG, non-MathML) element —
+/// `document.createElement(tag)` resolves a real element interface through
+/// `HTMLElementTagNameMap` (or the `HTMLElement` fallback for deprecated
+/// tags), which is what the strict-templates sidecar layer types against.
+pub fn is_html_dom_element(tag: &str) -> bool {
     KNOWN_HTML_ELEMENTS.contains(&tag)
 }
 
