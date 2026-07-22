@@ -58,6 +58,7 @@ export default defineConfig({
       '@aihu/compiler': new URL('./packages/compiler/js/index.ts', import.meta.url).pathname,
       '@aihu/tsc': new URL('./packages/tsc/src/index.ts', import.meta.url).pathname,
       '@aihu/signals': new URL('./packages/signals/src/index.ts', import.meta.url).pathname,
+      '@aihu/store': new URL('./packages/store/src/index.ts', import.meta.url).pathname,
       '@aihu/arbor': new URL('./packages/arbor/src/index.ts', import.meta.url).pathname,
       '@aihu/runtime': new URL('./packages/runtime/src/index.ts', import.meta.url).pathname,
       '@aihu/agent': new URL('./packages/agent/src/index.ts', import.meta.url).pathname,
