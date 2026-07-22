@@ -1,0 +1,48 @@
+{
+  "name": "@aihu/editor",
+  "version": "0.1.0",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./safe-href": {
+      "types": "./dist/safe-href.d.ts",
+      "import": "./dist/safe-href.js"
+    },
+    "./components/aihu-editor.aihu": "./components/aihu-editor.aihu",
+    "./components/aihu-editor-toolbar.aihu": "./components/aihu-editor-toolbar.aihu"
+  },
+  "files": [
+    "dist",
+    "components",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "rolldown -c",
+    "typecheck": "tsc --noEmit",
+    "test:e2e": "playwright test --config e2e/playwright.config.ts",
+    "prepublishOnly": "bun run build"
+  },
+  "dependencies": {
+    "@aihu/signals": "workspace:*"
+  },
+  "description": "Hand-rolled, dependency-free, GX-governed rich-text editor — JSON doc model, invertible transactions, markdown (web-v1 dialect) round-trip, contenteditable view with IME-safe read-back, agent read/suggest/write surface.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fellwork/aihu.git",
+    "directory": "packages/editor"
+  },
+  "homepage": "https://github.com/fellwork/aihu/tree/main/packages/editor#readme",
+  "bugs": "https://github.com/fellwork/aihu/issues",
+  "publishConfig": {
+    "access": "public"
+  }
+}

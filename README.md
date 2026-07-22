@@ -253,6 +253,8 @@ Per-package gates enforced by `bun run size`:
 | `@aihu/auth` | 1.16 kB | 1.5 KB | pass |
 | `@aihu/magna` | 758 B | 1.8 KB | pass |
 | `@aihu/magna/codegen` | 1.04 kB | 1.2 KB | pass |
+| `@aihu/editor` | 13.56 kB | 14 KB | pass |
+| `@aihu/editor/safe-href` | 134 B | 300 B | pass |
 
 <sub><i>Auto-generated — run `bun scripts/sync-readme.ts` to update.</i></sub>
 
@@ -307,6 +309,7 @@ See [`packages/`](./packages) for all packages on disk. By tier:
 | [`@aihu/context`](./packages/context) | `0.2.0` | Async-context-friendly request/SSR context primitives for aihu. |
 | [`@aihu/css-engine`](./packages/css-engine) | `0.4.6` | aihu CSS engine — Tailwind v4 hard fork with WC-native scoped output. |
 | [`@aihu/data`](./packages/_moved/data) | `2.0.3` | [MOVED] This package has moved to @aihu-plugin/data. |
+| [`@aihu/editor`](./packages/editor) | `0.1.0` | Hand-rolled, dependency-free, GX-governed rich-text editor — JSON doc model, invertible transactions, markdown (web-v1 dialect) round-trip, contenteditable view with IME-safe read-back, agent read/suggest/write surface. |
 | [`@aihu/language-server`](./packages/language-server) | `0.3.0` | Cross-editor Language Server (aihu-language-server) for .aihu Single File Components — diagnostics, hover, completion, and quick-fix code actions. |
 | [`@aihu/magna`](./packages/magna) | `0.2.3` | aihu bridge for Magna GraphQL — dep-free fetch, resource composition, JWT relay |
 | [`@aihu/mcp`](./packages/mcp) | `0.1.1` | MCP server for aihu — exposes aihu_example and aihu_validate tools via stdio transport. |

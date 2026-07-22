@@ -1,0 +1,16 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "noEmit": true,
+    "baseUrl": ".",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "paths": {
+      "@aihu/editor": ["./src/index.ts"],
+      "@aihu/signals": ["../signals/src/index.ts"]
+    }
+  },
+  "include": ["src/**/*.ts", "tests/**/*.ts", "e2e/**/*.ts"],
+  // serve.ts is a Bun-runtime script (Bun global); it is executed, not compiled
+  "exclude": ["e2e/serve.ts"]
+}

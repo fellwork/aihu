@@ -1,0 +1,309 @@
+[
+  {
+    "name": "a1-heading-paragraph",
+    "markdown": "# Hello\n\nworld",
+    "doc": {
+      "schema": "aihu-editor/doc",
+      "version": 1,
+      "children": [
+        {
+          "id": "g1",
+          "type": "heading",
+          "attrs": { "level": 1 },
+          "content": [{ "text": "Hello", "mark": null }]
+        },
+        { "id": "g2", "type": "paragraph", "content": [{ "text": "world", "mark": null }] }
+      ]
+    }
+  },
+  {
+    "name": "all-marks",
+    "markdown": "plain **strong** *em* `code` [label](https://example.com/a)",
+    "doc": {
+      "schema": "aihu-editor/doc",
+      "version": 1,
+      "children": [
+        {
+          "id": "g1",
+          "type": "paragraph",
+          "content": [
+            { "text": "plain ", "mark": null },
+            { "text": "strong", "mark": { "type": "strong" } },
+            { "text": " ", "mark": null },
+            { "text": "em", "mark": { "type": "em" } },
+            { "text": " ", "mark": null },
+            { "text": "code", "mark": { "type": "code" } },
+            { "text": " ", "mark": null },
+            {
+              "text": "label",
+              "mark": { "type": "link", "attrs": { "href": "https://example.com/a" } }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "heading-levels",
+    "markdown": "# One\n\n## Two\n\n### Three",
+    "doc": {
+      "schema": "aihu-editor/doc",
+      "version": 1,
+      "children": [
+        {
+          "id": "g1",
+          "type": "heading",
+          "attrs": { "level": 1 },
+          "content": [{ "text": "One", "mark": null }]
+        },
+        {
+          "id": "g2",
+          "type": "heading",
+          "attrs": { "level": 2 },
+          "content": [{ "text": "Two", "mark": null }]
+        },
+        {
+          "id": "g3",
+          "type": "heading",
+          "attrs": { "level": 3 },
+          "content": [{ "text": "Three", "mark": null }]
+        }
+      ]
+    }
+  },
+  {
+    "name": "lists-bullet-ordered",
+    "markdown": "- alpha\n- beta\n\n1. first\n2. second\n3. third",
+    "doc": {
+      "schema": "aihu-editor/doc",
+      "version": 1,
+      "children": [
+        {
+          "id": "g1",
+          "type": "list",
+          "attrs": { "ordered": false },
+          "children": [
+            { "id": "g2", "type": "listItem", "content": [{ "text": "alpha", "mark": null }] },
+            { "id": "g3", "type": "listItem", "content": [{ "text": "beta", "mark": null }] }
+          ]
+        },
+        {
+          "id": "g4",
+          "type": "list",
+          "attrs": { "ordered": true },
+          "children": [
+            { "id": "g5", "type": "listItem", "content": [{ "text": "first", "mark": null }] },
+            { "id": "g6", "type": "listItem", "content": [{ "text": "second", "mark": null }] },
+            { "id": "g7", "type": "listItem", "content": [{ "text": "third", "mark": null }] }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "list-items-with-marks",
+    "markdown": "- has **strong** inside\n- has a [link](/notes/1) inside",
+    "doc": {
+      "schema": "aihu-editor/doc",
+      "version": 1,
+      "children": [
+        {
+          "id": "g1",
+          "type": "list",
+          "attrs": { "ordered": false },
+          "children": [
+            {
+              "id": "g2",
+              "type": "listItem",
+              "content": [
+                { "text": "has ", "mark": null },
+                { "text": "strong", "mark": { "type": "strong" } },
+                { "text": " inside", "mark": null }
+              ]
+            },
+            {
+              "id": "g3",
+              "type": "listItem",
+              "content": [
+                { "text": "has a ", "mark": null },
+                { "text": "link", "mark": { "type": "link", "attrs": { "href": "/notes/1" } } },
+                { "text": " inside", "mark": null }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "blockquote-hr",
+    "markdown": "> folded quote text\n\n---\n\nafter the rule",
+    "doc": {
+      "schema": "aihu-editor/doc",
+      "version": 1,
+      "children": [
+        {
+          "id": "g1",
+          "type": "blockquote",
+          "content": [{ "text": "folded quote text", "mark": null }]
+        },
+        { "id": "g2", "type": "hr" },
+        { "id": "g3", "type": "paragraph", "content": [{ "text": "after the rule", "mark": null }] }
+      ]
+    }
+  },
+  {
+    "name": "escapes-inline",
+    "markdown": "literal \\*stars\\* and \\_underscores\\_ and \\[brackets\\] and \\|pipes\\|",
+    "doc": {
+      "schema": "aihu-editor/doc",
+      "version": 1,
+      "children": [
+        {
+          "id": "g1",
+          "type": "paragraph",
+          "content": [
+            { "text": "literal *stars* and _underscores_ and [brackets] and |pipes|", "mark": null }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "escapes-line-start",
+    "markdown": "\\# not a heading\n\n\\- not a bullet\n\n1\\. not a list\n\n\\> not a quote\n\n\\---",
+    "doc": {
+      "schema": "aihu-editor/doc",
+      "version": 1,
+      "children": [
+        {
+          "id": "g1",
+          "type": "paragraph",
+          "content": [{ "text": "# not a heading", "mark": null }]
+        },
+        {
+          "id": "g2",
+          "type": "paragraph",
+          "content": [{ "text": "- not a bullet", "mark": null }]
+        },
+        { "id": "g3", "type": "paragraph", "content": [{ "text": "1. not a list", "mark": null }] },
+        { "id": "g4", "type": "paragraph", "content": [{ "text": "> not a quote", "mark": null }] },
+        { "id": "g5", "type": "paragraph", "content": [{ "text": "---", "mark": null }] }
+      ]
+    }
+  },
+  {
+    "name": "code-span-with-backtick",
+    "markdown": "``a`b``",
+    "doc": {
+      "schema": "aihu-editor/doc",
+      "version": 1,
+      "children": [
+        {
+          "id": "g1",
+          "type": "paragraph",
+          "content": [{ "text": "a`b", "mark": { "type": "code" } }]
+        }
+      ]
+    }
+  },
+  {
+    "name": "astral-plane-text",
+    "markdown": "emoji 😀 and beyond 𝔘𝔫𝔦",
+    "doc": {
+      "schema": "aihu-editor/doc",
+      "version": 1,
+      "children": [
+        {
+          "id": "g1",
+          "type": "paragraph",
+          "content": [{ "text": "emoji 😀 and beyond 𝔘𝔫𝔦", "mark": null }]
+        }
+      ]
+    }
+  },
+  {
+    "name": "mailto-and-relative-links",
+    "markdown": "[mail](mailto:x@y.dev) and [rel](/journal/2)",
+    "doc": {
+      "schema": "aihu-editor/doc",
+      "version": 1,
+      "children": [
+        {
+          "id": "g1",
+          "type": "paragraph",
+          "content": [
+            { "text": "mail", "mark": { "type": "link", "attrs": { "href": "mailto:x@y.dev" } } },
+            { "text": " and ", "mark": null },
+            { "text": "rel", "mark": { "type": "link", "attrs": { "href": "/journal/2" } } }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "full-document",
+    "markdown": "# Journal\n\nA **bold** start with *notes* and `code`.\n\n## Sections\n\n- one\n- two\n\n> a folded thought\n\n---\n\n### End\n\n1. wrap\n2. up",
+    "doc": {
+      "schema": "aihu-editor/doc",
+      "version": 1,
+      "children": [
+        {
+          "id": "g1",
+          "type": "heading",
+          "attrs": { "level": 1 },
+          "content": [{ "text": "Journal", "mark": null }]
+        },
+        {
+          "id": "g2",
+          "type": "paragraph",
+          "content": [
+            { "text": "A ", "mark": null },
+            { "text": "bold", "mark": { "type": "strong" } },
+            { "text": " start with ", "mark": null },
+            { "text": "notes", "mark": { "type": "em" } },
+            { "text": " and ", "mark": null },
+            { "text": "code", "mark": { "type": "code" } },
+            { "text": ".", "mark": null }
+          ]
+        },
+        {
+          "id": "g3",
+          "type": "heading",
+          "attrs": { "level": 2 },
+          "content": [{ "text": "Sections", "mark": null }]
+        },
+        {
+          "id": "g4",
+          "type": "list",
+          "attrs": { "ordered": false },
+          "children": [
+            { "id": "g5", "type": "listItem", "content": [{ "text": "one", "mark": null }] },
+            { "id": "g6", "type": "listItem", "content": [{ "text": "two", "mark": null }] }
+          ]
+        },
+        {
+          "id": "g7",
+          "type": "blockquote",
+          "content": [{ "text": "a folded thought", "mark": null }]
+        },
+        { "id": "g8", "type": "hr" },
+        {
+          "id": "g9",
+          "type": "heading",
+          "attrs": { "level": 3 },
+          "content": [{ "text": "End", "mark": null }]
+        },
+        {
+          "id": "g10",
+          "type": "list",
+          "attrs": { "ordered": true },
+          "children": [
+            { "id": "g11", "type": "listItem", "content": [{ "text": "wrap", "mark": null }] },
+            { "id": "g12", "type": "listItem", "content": [{ "text": "up", "mark": null }] }
+          ]
+        }
+      ]
+    }
+  }
+]

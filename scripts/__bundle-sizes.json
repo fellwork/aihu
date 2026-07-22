@@ -168,5 +168,15 @@
     "name": "@aihu/magna/codegen",
     "bytes": 1064,
     "limit": "1.2 KB"
+  },
+  {
+    "name": "@aihu/editor",
+    "bytes": 13881,
+    "limit": "14 KB"
+  },
+  {
+    "name": "@aihu/editor/safe-href",
+    "bytes": 134,
+    "limit": "300 B"
   }
 ]

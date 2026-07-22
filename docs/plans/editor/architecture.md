@@ -51,9 +51,17 @@ Marks are **data on text runs**, not nested inline nodes — exactly web's `Inli
 
 Positions are **(blockId, charOffset)**, not tree paths and not ProseMirror flat tokens:
 
+> **Amended per Phase-0 (A3):** `offset` is measured in **UTF-16 code units** — the unit
+> `nodeValue.length`, DOM `Selection` offsets, and JS `.slice`/`.length` all agree on. It is
+> **not** code points and not grapheme clusters: an astral-plane character (emoji, many CJK
+> extension chars) occupies **two** units. Every module that walks text (position map, diff,
+> serializers, input rules) must index in UTF-16 units; the acceptance suite includes an
+> astral-plane case (see §10 A9).
+
 ```ts
 type Point = { block: string /* BlockNode|ListItemNode|TableCellNode id */,
-               offset: number /* char offset into the flattened inline text (mark-transparent) */ }
+               offset: number /* UTF-16 code-unit offset into the flattened inline text
+                                 (mark-transparent) — amended per Phase-0 (A3) */ }
 type SelectionState =
   | { type: 'caret';  at: Point }
   | { type: 'range';  anchor: Point; head: Point }   // anchor = where drag started
@@ -103,7 +111,9 @@ interface Transaction {
   id: string
   time: number
   origin: 'user.typing' | 'user.command' | 'user.paste' | 'inputrule'
-        | 'history' | `agent:${string}` | 'load'
+        | 'history' | 'dom.readback' /* amended per Phase-0 — MutationObserver
+          recovery path gets a distinct origin (G3 attribution) */
+        | `agent:${string}` | 'load'
   steps: Step[]
   selectionAfter?: SelectionState
 }
@@ -210,6 +220,13 @@ DOM `Range` → find ancestor `[data-block-id]` → walk that block's text nodes
 The inverse mapping (model → DOM) walks the same order. Both directions live in one module
 (`position-map.ts`) with property tests: `toDom(toModel(r)) ≡ r` for all ranges over a fuzzed doc.
 
+> **Amended per Phase-0 (A4):** `selectionchange` is **asynchronous** — code that writes the DOM
+> selection and then reads the `selection` signal in the same task sees the *old* value (observed
+> in the spike harness). Command dispatch MUST therefore resolve the live selection **from the DOM
+> at dispatch time** (or the view must flush the signal synchronously immediately after every
+> programmatic `setBaseAndExtent`); a cached/signal-read selection must never be trusted within
+> the same task as a selection write.
+
 ### 4.2 Composition (IME)
 
 - `compositionstart` → `composing = true`; from here the browser owns the DOM inside the active
@@ -219,19 +236,36 @@ The inverse mapping (model → DOM) walks the same order. Both directions live i
   (single-block char diff), synthesize one `insertText`/`deleteRange`+`insertText` transaction
   with `origin: 'user.typing'`, then re-render the block from the model (DOM becomes canonical
   output of model again). `composing = false`.
+- **Amended per Phase-0 (A1):** the `compositionend` handler MUST **synchronously** call
+  `observer.takeRecords()` (draining — and discarding — the composition's own mutation records)
+  *before* scheduling the rAF read-back. The commit's mutation records are queued before
+  `compositionend` fires but are **delivered on a microtask after it**; without the synchronous
+  drain, the MutationObserver tripwire (which by then sees `composing === false`) performs the
+  read-back first and the commit is misattributed to the recovery path, breaking the
+  one-compositionend-one-transaction contract. Observed live on Chromium in the Phase-0 spike;
+  this is standard MutationObserver semantics, so assume all engines.
 
 ### 4.3 Known hard cases & mitigations
 
 | Case | Failure mode | Mitigation |
 |---|---|---|
-| Safari IME | `compositionend` fires before the final mutation; stale read-back | read-back is scheduled on `requestAnimationFrame` after `compositionend`, and the MutationObserver queue is drained first |
+| Safari IME | `compositionend` fires before the final mutation; stale read-back | read-back is scheduled on `requestAnimationFrame` after `compositionend`, **after a synchronous `takeRecords()` drain in the `compositionend` handler itself (amended per Phase-0, A1 — see §4.2)**; the rAF callback drains again so late stragglers fold into the same read-back |
 | Android GBoard backspace | no clean `deleteContentBackward`; deletions arrive as composition on the whole word | never trust inputType on Android during composition; rely wholly on compositionend diffing. The diff, not the event, is the truth |
-| Uncontrolled mutation (spellcheck replace, autofill, extensions) | DOM ≠ model silently | MutationObserver → same read-back reconciliation path as compositionend; synthesized tr with `origin: 'user.typing'` |
+| Uncontrolled mutation (spellcheck replace, autofill, extensions) | DOM ≠ model silently | MutationObserver → same read-back reconciliation path as compositionend; synthesized tr with `origin: 'dom.readback'` (amended per Phase-0 — a distinct origin keeps attribution total, G3: tests and audit logs can prove *which* path ran) |
 | Selection restore during composition | caret jumps inside IME window | model→DOM selection writes are suppressed while `composing` |
 
 Read-back reconciliation (one block, diff, synthesize tr) is the single recovery mechanism for
 every "browser did something we didn't mediate" case — one code path to harden, not four.
 (Concept borrowed from ProseMirror's DOMObserver, reimplemented; see §11.)
+
+> **Amended per Phase-0 (A2):** the read-back reconciler MUST be **structure-aware**: it first
+> attempts to rebuild the block's text runs by walking the block's DOM (which is our own rendered
+> shape — text nodes wrapped in known mark elements, so element→mark mapping is trivial),
+> preserving mark structure; it falls back to a **flat text diff** only when the DOM is no longer
+> parseable as our rendered output. Flat-text diff alone silently strips marks whenever an
+> uncontrolled mutation spans or destroys a mark element (pinned by spike test d3 — a spellcheck
+> rewrite of `t`+**`eh`** to `the` converged the text but dropped `strong`). The d3 case is MVP
+> acceptance: mark survival is the expectation, not mark loss.
 
 ---
 
@@ -528,7 +562,10 @@ view ones in the Phase-0 harness):
 - **A8** Grep gate: zero `innerHTML|outerHTML|insertAdjacentHTML` matches in `src/` outside
   `paste-sanitize.ts`'s inert-DOMParser call.
 - **A9** IME: harness composes 日本語 mid-paragraph ⇒ model equals DOM text, caret correct, no
-  transaction emitted before `compositionend`.
+  transaction emitted before `compositionend`. **Amended per Phase-0 (A3):** also covers an
+  astral-plane case — insert an emoji (e.g. 😀, U+1F600, two UTF-16 units) mid-text; offsets,
+  caret mapping, and the compositionend diff must all stay consistent in UTF-16 units (the spike
+  got away with code-point iteration only because 日本語 is BMP).
 
 ### v2
 
