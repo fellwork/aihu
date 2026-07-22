@@ -331,7 +331,7 @@ export type ValidationResult =
  *
  * v0.2.1: `0.2.0` per the v1 framework plan (`@aihu/plugin` package version).
  */
-export const SCRIBE_VERSION = '0.2.0'
+export const AIHU_VERSION = '0.2.0'
 
 /**
  * Track of namespaces seen by `validatePlugin` calls in the current process.
@@ -398,11 +398,11 @@ export function validatePlugin(plugin: Plugin): ValidationResult {
   }
 
   // aihuVersion compatibility (spec §7.3, §8.1 row 5)
-  if (plugin.aihuVersion && !satisfies(SCRIBE_VERSION, plugin.aihuVersion)) {
+  if (plugin.aihuVersion && !satisfies(AIHU_VERSION, plugin.aihuVersion)) {
     const id = plugin.name && plugin.version ? `'${plugin.name}@${plugin.version}'` : 'plugin'
     errors.push({
       code: 'aihu-version-mismatch',
-      message: `plugin ${id} requires aihu ${plugin.aihuVersion}; running ${SCRIBE_VERSION}`,
+      message: `plugin ${id} requires aihu ${plugin.aihuVersion}; running ${AIHU_VERSION}`,
     })
   }
 

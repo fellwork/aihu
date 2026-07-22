@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
+  AIHU_VERSION,
   definePlugin,
   type LoweringResult,
   type Plugin,
   RESERVED_NAMESPACES,
   resetValidationState,
-  SCRIBE_VERSION,
   validatePlugin,
 } from '../src/index.ts'
 
@@ -107,7 +107,7 @@ describe('@aihu/plugin definePlugin + validatePlugin (spec §1, §8.1)', () => {
       name: 'forms',
       version: '0.1.0',
       namespace: 'forms',
-      // ^2.0.0 cannot be satisfied by 0.2.0 (current SCRIBE_VERSION).
+      // ^2.0.0 cannot be satisfied by 0.2.0 (current AIHU_VERSION).
       aihuVersion: '^2.0.0',
     })
 
@@ -117,7 +117,7 @@ describe('@aihu/plugin definePlugin + validatePlugin (spec §1, §8.1)', () => {
       const mismatch = result.errors.find((e) => e.code === 'aihu-version-mismatch')
       expect(mismatch).toBeDefined()
       expect(mismatch?.message).toContain('^2.0.0')
-      expect(mismatch?.message).toContain(SCRIBE_VERSION)
+      expect(mismatch?.message).toContain(AIHU_VERSION)
     }
   })
 
