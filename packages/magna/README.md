@@ -27,7 +27,7 @@ npm install @aihu/magna
 bun add @aihu/magna
 ```
 
-<sub><i>Auto-generated against `@aihu/magna@0.2.2`.</i></sub>
+<sub><i>Auto-generated against `@aihu/magna@0.2.3`.</i></sub>
 
 <!-- END_AUTOGEN: install -->
 
@@ -38,13 +38,12 @@ bun add @aihu/magna
 
 | | |
 |---|---|
-| **Version** | `0.2.2` |
+| **Version** | `0.2.3` |
 | **Tier** | E — Held private (unmapped tier) |
-| **Bundle size** | 758 B (gz) — limit 1.8 KB |
 | **Published files** | 2 entries |
 | **License** | MIT |
 
-<sub><i>Auto-generated against `@aihu/magna@0.2.2`.</i></sub>
+<sub><i>Auto-generated against `@aihu/magna@0.2.3`.</i></sub>
 
 <!-- END_AUTOGEN: stats -->
 
@@ -58,7 +57,7 @@ bun add @aihu/magna
 | `.` | `./dist/index.js` | `—` |
 | `./codegen` | `./dist/codegen.js` | `—` |
 
-<sub><i>Auto-generated against `@aihu/magna@0.2.2`.</i></sub>
+<sub><i>Auto-generated against `@aihu/magna@0.2.3`.</i></sub>
 
 <!-- END_AUTOGEN: exports -->
 
@@ -78,7 +77,7 @@ bun add @aihu/magna
 
 - `@aihu/magna-gqlmin` — `^0.2.0`
 
-<sub><i>Auto-generated against `@aihu/magna@0.2.2`.</i></sub>
+<sub><i>Auto-generated against `@aihu/magna@0.2.3`.</i></sub>
 
 <!-- END_AUTOGEN: deps -->
 
@@ -90,7 +89,7 @@ bun add @aihu/magna
 - [Aihu framework root](../../README.md)
 - [v1.1 roadmap](../../docs/roadmap/SUMMARY.md)
 
-<sub><i>Auto-generated against `@aihu/magna@0.2.2`.</i></sub>
+<sub><i>Auto-generated against `@aihu/magna@0.2.3`.</i></sub>
 
 <!-- END_AUTOGEN: see-also -->
 
@@ -101,6 +100,6 @@ bun add @aihu/magna
 
 MIT — see [LICENSE](../../LICENSE).
 
-<sub><i>Auto-generated against `@aihu/magna@0.2.2`.</i></sub>
+<sub><i>Auto-generated against `@aihu/magna@0.2.3`.</i></sub>
 
 <!-- END_AUTOGEN: license -->

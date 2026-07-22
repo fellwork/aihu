@@ -1,5 +1,44 @@
 # @aihu/language-server
 
+## 0.3.0
+
+### Minor Changes
+
+- [#489](https://github.com/fellwork/aihu/pull/489) [`80531dc`](https://github.com/fellwork/aihu/commit/80531dcc4dfc43bc9cd399bbb8ab4520efb8f15a) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Template grammar v2 — the prefix-less template (founder-ratified 40-spec).
+
+  One rule: naked keywords + naked HTML attributes + naked framework vocabulary;
+  `{expr}` braces mean expression, quoted strings mean static; `$` retreats to
+  `@state` macros only.
+
+  **New grammar:** `if={…}`/`elseif={…}`/`else` attribute chains (adjacency-checked),
+  the item-first `each={item, i of items}` `of`-binder with destructuring, `key={…}`,
+  `empty` siblings, colon directives `on:<event>` (with `.prevent`/`.stop`/`.self`/`.once`
+  modifiers), `bind:<prop>`, `class:<name>`, the `attr:<name>` literal escape hatch,
+  naked `show`/`html`/`ref`/`once`/`memo`/`raw`, the NEW `<group>` fragment carrier,
+  naked framework elements (`<slot>` is now THE projection form), and the enhanced
+  `<a>` (SPA navigation, `prefetch`, `replace`, `aria-current`, auto-opt-out +
+  explicit `reload`) replacing `<$link>`.
+
+  **Retired (compile errors with fix hints):** `{#if}` C601, `{#each}` C602,
+  `{@html}` C603, `{{ident}}` C604, `<$if>`/`<$else>` C605, `$if=`/`$each=`/`$let=`
+  C606, every other `$`-attribute C607, `<$link>` C608, other `<$…>` elements C609,
+  adjacency violations C610, unknown non-hyphenated elements C611. New lints:
+  W601 (keyless stateful `each`), W602 (non-empty string on a boolean attribute).
+
+  **Intended emission diffs:** internal `<a href>` links now lower to
+  `createLinkBoundary` (the retired `<$link>` lowering) with a runtime
+  origin/scheme auto-opt-out; everything else lowers through the same arbor
+  structural calls as v1 (`when`/`each`/fragment branches).
+
+  `aihu migrate --v2` now lands on this grammar (new final codemod pass:
+  `compiler/js/codemods/template-grammar-v2`).
+
+### Patch Changes
+
+- Updated dependencies [[`c3381b9`](https://github.com/fellwork/aihu/commit/c3381b92c3d356d6f78f9db0e8130a9e7a466269), [`30ed2b5`](https://github.com/fellwork/aihu/commit/30ed2b51c215512f840b113afaa1636378e31407), [`2660a52`](https://github.com/fellwork/aihu/commit/2660a52223193eb724450e4b6e9dce32e15ae83b), [`9dd7654`](https://github.com/fellwork/aihu/commit/9dd7654678da1149705e21324f6b30e9baafcd4b), [`a195b80`](https://github.com/fellwork/aihu/commit/a195b8093e639c96b8471ea3567267ca8c11c269), [`dd8cfd6`](https://github.com/fellwork/aihu/commit/dd8cfd639f42ddb05468fe07b6d4f4420a80a8bf), [`80531dc`](https://github.com/fellwork/aihu/commit/80531dcc4dfc43bc9cd399bbb8ab4520efb8f15a), [`0db5827`](https://github.com/fellwork/aihu/commit/0db58275ecabf2d3e49431c810885e1ebfb5a9b6), [`bc0f289`](https://github.com/fellwork/aihu/commit/bc0f289ee38871cda8002e56fba3e3b8b7e34d84)]:
+  - @aihu/compiler@1.0.0
+  - @aihu/tsc@0.2.4
+
 ## 0.2.22
 
 ### Patch Changes

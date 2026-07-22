@@ -1,5 +1,106 @@
 # @aihu/cli
 
+## 1.0.0
+
+### Major Changes
+
+- [#479](https://github.com/fellwork/aihu/pull/479) [`9dd7654`](https://github.com/fellwork/aihu/commit/9dd7654678da1149705e21324f6b30e9baafcd4b) Thanks [@srmcguirt](https://github.com/srmcguirt)! - DA4 ([#437](https://github.com/fellwork/aihu/issues/437)): the binary shadow API (`'light' | 'shadow'`) and light-DOM-by-default pages — one breaking change.
+
+  **The API.** `ShadowMode` collapsed to a BINARY `'light' | 'shadow'`; the
+  `'open'`, `'closed'`, and `'none'` tokens are retired everywhere (the
+  `$shadow` macro, the plugin-global `shadowMode` config /
+  `css: { shadowMode }`, the runtime `defineElement` options, and the CLI
+  `--shadow` flag). `'shadow'` attaches an OPEN root internally — open is the
+  only browser mode aihu's composition/hydration can use; `'closed'` was
+  self-contradictory (a closed root nulls `this.shadowRoot`, so light-DOM
+  detection misclassified it and content rendered into the host anyway).
+  `'light'` attaches no root, so `this.shadowRoot === null` is an unambiguous
+  detection. Migration: `'open'` → `'shadow'`, `'none'` → `'light'`,
+  `'closed'` → `'shadow'`.
+
+  **The defaults.** Page-level components — those with an `@route` block — and
+  layout SFCs (files under the configured layouts dir, default `src/layouts/`)
+  now default to `'light'`, so server-rendered page content is reachable by
+  crawlers and agents that do not execute JavaScript. Leaf components (no
+  `@route`) default to `'shadow'` (behaviorally the old `'open'` default).
+
+  Precedence, in order: a per-file `$shadow` pin > an explicit plugin-global
+  `shadowMode` config > the page/layout default `'light'` > the leaf default
+  `'shadow'`. An unpinned page carries a new `// @aihu:shadow-default light`
+  marker (distinct from the `$shadow` pin marker) so the implicit default ranks
+  below an explicit plugin-global config.
+
+  Breaking implications:
+
+  - Retired tokens fail loudly: `$shadow` with an old token is a C471 compile
+    error; `css.shadowMode` with one throws at config validation; `--shadow`
+    with one warns and falls back to the default.
+  - A `$shadow`-less `@route` page's `@style` block now joins the global
+    cascade instead of being trapped in a shadow root — scope bare element
+    selectors under a page root class (see the migration guide §8).
+  - W472 (the phase-1 advisory that announced this flip) is retired.
+  - The static-island fast path is skipped for light-DOM components — the shim
+    cannot honor `shadowMode: 'light'`; such components keep the full runtime
+    path.
+  - css-engine scaffolds now always emit an explicit `css: { shadowMode }`
+    block carrying the wizard's `--shadow` choice (default `'shadow'`), since
+    the page default would otherwise override it.
+
+### Minor Changes
+
+- [#489](https://github.com/fellwork/aihu/pull/489) [`80531dc`](https://github.com/fellwork/aihu/commit/80531dcc4dfc43bc9cd399bbb8ab4520efb8f15a) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Template grammar v2 — the prefix-less template (founder-ratified 40-spec).
+
+  One rule: naked keywords + naked HTML attributes + naked framework vocabulary;
+  `{expr}` braces mean expression, quoted strings mean static; `$` retreats to
+  `@state` macros only.
+
+  **New grammar:** `if={…}`/`elseif={…}`/`else` attribute chains (adjacency-checked),
+  the item-first `each={item, i of items}` `of`-binder with destructuring, `key={…}`,
+  `empty` siblings, colon directives `on:<event>` (with `.prevent`/`.stop`/`.self`/`.once`
+  modifiers), `bind:<prop>`, `class:<name>`, the `attr:<name>` literal escape hatch,
+  naked `show`/`html`/`ref`/`once`/`memo`/`raw`, the NEW `<group>` fragment carrier,
+  naked framework elements (`<slot>` is now THE projection form), and the enhanced
+  `<a>` (SPA navigation, `prefetch`, `replace`, `aria-current`, auto-opt-out +
+  explicit `reload`) replacing `<$link>`.
+
+  **Retired (compile errors with fix hints):** `{#if}` C601, `{#each}` C602,
+  `{@html}` C603, `{{ident}}` C604, `<$if>`/`<$else>` C605, `$if=`/`$each=`/`$let=`
+  C606, every other `$`-attribute C607, `<$link>` C608, other `<$…>` elements C609,
+  adjacency violations C610, unknown non-hyphenated elements C611. New lints:
+  W601 (keyless stateful `each`), W602 (non-empty string on a boolean attribute).
+
+  **Intended emission diffs:** internal `<a href>` links now lower to
+  `createLinkBoundary` (the retired `<$link>` lowering) with a runtime
+  origin/scheme auto-opt-out; everything else lowers through the same arbor
+  structural calls as v1 (`when`/`each`/fragment branches).
+
+  `aihu migrate --v2` now lands on this grammar (new final codemod pass:
+  `compiler/js/codemods/template-grammar-v2`).
+
+### Patch Changes
+
+- [#505](https://github.com/fellwork/aihu/pull/505) [`dd8cfd6`](https://github.com/fellwork/aihu/commit/dd8cfd639f42ddb05468fe07b6d4f4420a80a8bf) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Fix the codemod and sidecar defects surfaced by the v2 canary migration
+  ([#502](https://github.com/fellwork/aihu/issues/502), [#503](https://github.com/fellwork/aihu/issues/503), [#504](https://github.com/fellwork/aihu/issues/504)).
+
+  - `aihu migrate` (macro-simplification): consume a multi-line `import { … }`
+    as a single statement so its members are no longer orphaned below the
+    closing brace and single-line imports are no longer hoisted into the open
+    brace (the import-scrambling defect).
+  - `aihu migrate --state` (state-wrapper): de-call prop reads (`name()` →
+    `name`) after `$prop` → `prop()`, since `prop()` returns a value in the
+    wrapper model rather than a callable signal.
+  - `aihu migrate --v2` (template-grammar): accept the dot spelling
+    `$class.modifier` in addition to `$class:modifier`.
+  - Type-check sidecar: `__aihu_each` over an `any` iterable now types loop
+    bindings as `any` instead of `unknown` (one conditional-typed generic with
+    an IsAny guard).
+  - `aihu-tsc`: surface the first real compile error when a file cannot be
+    compiled (a stale-compiler error immediately reveals a version mismatch),
+    and document version-aligning `@aihu/tsc` with `@aihu/compiler`.
+
+- Updated dependencies [[`80531dc`](https://github.com/fellwork/aihu/commit/80531dcc4dfc43bc9cd399bbb8ab4520efb8f15a)]:
+  - @aihu/mcp@0.1.1
+
 ## 0.8.3
 
 ### Patch Changes

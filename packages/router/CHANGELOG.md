@@ -1,5 +1,70 @@
 # @aihu/router
 
+## 0.4.0
+
+### Minor Changes
+
+- [#463](https://github.com/fellwork/aihu/pull/463) [`bc0f289`](https://github.com/fellwork/aihu/commit/bc0f289ee38871cda8002e56fba3e3b8b7e34d84) Thanks [@srmcguirt](https://github.com/srmcguirt)! - GX Phase 3 ([#437](https://github.com/fellwork/aihu/issues/437)-GX) — derive robots.txt, noindex, and discovery output from
+  the compiled `extract.read` axis.
+
+  - `@aihu/server`: new `deriveReadPolicy` / `extractReadValue` /
+    `isCallAdvertised` — the one read-axis derivation table (crawl access per
+    bot tier, robots advertisability, noindex, discovery membership), fail-closed
+    on malformed values. `AgentReadinessConfig` gains `routes` (the compiled
+    route table conduit).
+  - `@aihu-plugin/agent-readiness`: `generateRobotsTxt` accepts `routes` and
+    derives per-path directives per route `read:` value over the tiered bot
+    registry (`'all'` → all tiers; `'agents'` → the [#430](https://github.com/fellwork/aihu/issues/430) tiered default, now
+    derived per route; `'search'` → searchers only; `'none'` → all crawlers
+    disallowed; hard values → not advertised at all). llms.txt gains a derived
+    `## Routes` section and filters its components section by the declared
+    policy; MCP server-card tools are filtered by read + call advertisability.
+    With no routes declared, robots.txt is byte-identical to the shipped [#430](https://github.com/fellwork/aihu/issues/430)
+    default.
+  - `@aihu/router`: `RouteDefinition`/`RouteSidecar` carry the compiled
+    `extract` member; `createServerRouter.handle` sends `X-Robots-Tag: noindex`
+    for `read:'none'`/hard/malformed routes.
+  - `@aihu/compiler`: `RouteMeta` types the `extract` member the binary already
+    emits (type-only).
+
+  All of this is compliance-tier: advisory signals honored by compliant,
+  self-identifying crawlers. Hard-tier enforcement (SSR withholding, the
+  bundle/data boundary) is Phase 4 and is not part of this change.
+
+### Patch Changes
+
+- [#489](https://github.com/fellwork/aihu/pull/489) [`80531dc`](https://github.com/fellwork/aihu/commit/80531dcc4dfc43bc9cd399bbb8ab4520efb8f15a) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Template grammar v2 — the prefix-less template (founder-ratified 40-spec).
+
+  One rule: naked keywords + naked HTML attributes + naked framework vocabulary;
+  `{expr}` braces mean expression, quoted strings mean static; `$` retreats to
+  `@state` macros only.
+
+  **New grammar:** `if={…}`/`elseif={…}`/`else` attribute chains (adjacency-checked),
+  the item-first `each={item, i of items}` `of`-binder with destructuring, `key={…}`,
+  `empty` siblings, colon directives `on:<event>` (with `.prevent`/`.stop`/`.self`/`.once`
+  modifiers), `bind:<prop>`, `class:<name>`, the `attr:<name>` literal escape hatch,
+  naked `show`/`html`/`ref`/`once`/`memo`/`raw`, the NEW `<group>` fragment carrier,
+  naked framework elements (`<slot>` is now THE projection form), and the enhanced
+  `<a>` (SPA navigation, `prefetch`, `replace`, `aria-current`, auto-opt-out +
+  explicit `reload`) replacing `<$link>`.
+
+  **Retired (compile errors with fix hints):** `{#if}` C601, `{#each}` C602,
+  `{@html}` C603, `{{ident}}` C604, `<$if>`/`<$else>` C605, `$if=`/`$each=`/`$let=`
+  C606, every other `$`-attribute C607, `<$link>` C608, other `<$…>` elements C609,
+  adjacency violations C610, unknown non-hyphenated elements C611. New lints:
+  W601 (keyless stateful `each`), W602 (non-empty string on a boolean attribute).
+
+  **Intended emission diffs:** internal `<a href>` links now lower to
+  `createLinkBoundary` (the retired `<$link>` lowering) with a runtime
+  origin/scheme auto-opt-out; everything else lowers through the same arbor
+  structural calls as v1 (`when`/`each`/fragment branches).
+
+  `aihu migrate --v2` now lands on this grammar (new final codemod pass:
+  `compiler/js/codemods/template-grammar-v2`).
+
+- Updated dependencies [[`bc0f289`](https://github.com/fellwork/aihu/commit/bc0f289ee38871cda8002e56fba3e3b8b7e34d84)]:
+  - @aihu/server@0.3.0
+
 ## 0.3.0
 
 ### Minor Changes

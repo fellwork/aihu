@@ -23,7 +23,7 @@ npm install @aihu/mcp
 bun add @aihu/mcp
 ```
 
-<sub><i>Auto-generated against `@aihu/mcp@0.1.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/mcp@0.1.1`.</i></sub>
 
 <!-- END_AUTOGEN: install -->
 
@@ -34,12 +34,12 @@ bun add @aihu/mcp
 
 | | |
 |---|---|
-| **Version** | `0.1.0` |
+| **Version** | `0.1.1` |
 | **Tier** | E — Held private (unmapped tier) |
 | **Published files** | 3 entries |
 | **License** | MIT |
 
-<sub><i>Auto-generated against `@aihu/mcp@0.1.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/mcp@0.1.1`.</i></sub>
 
 <!-- END_AUTOGEN: stats -->
 
@@ -52,7 +52,7 @@ bun add @aihu/mcp
 |---|---|---|
 | `.` | `./dist/index.js` | `—` |
 
-<sub><i>Auto-generated against `@aihu/mcp@0.1.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/mcp@0.1.1`.</i></sub>
 
 <!-- END_AUTOGEN: exports -->
 
@@ -65,7 +65,7 @@ bun add @aihu/mcp
 
 - `@modelcontextprotocol/sdk` — `^1.0.0`
 
-<sub><i>Auto-generated against `@aihu/mcp@0.1.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/mcp@0.1.1`.</i></sub>
 
 <!-- END_AUTOGEN: deps -->
 
@@ -77,7 +77,7 @@ bun add @aihu/mcp
 - [Aihu framework root](../../README.md)
 - [v1.1 roadmap](../../docs/roadmap/SUMMARY.md)
 
-<sub><i>Auto-generated against `@aihu/mcp@0.1.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/mcp@0.1.1`.</i></sub>
 
 <!-- END_AUTOGEN: see-also -->
 
@@ -88,6 +88,6 @@ bun add @aihu/mcp
 
 MIT — see [LICENSE](../../LICENSE).
 
-<sub><i>Auto-generated against `@aihu/mcp@0.1.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/mcp@0.1.1`.</i></sub>
 
 <!-- END_AUTOGEN: license -->

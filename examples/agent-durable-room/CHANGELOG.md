@@ -1,5 +1,12 @@
 # @aihu/example-agent-durable-room
 
+## 0.0.2
+
+### Patch Changes
+
+- Updated dependencies [[`9dd7654`](https://github.com/fellwork/aihu/commit/9dd7654678da1149705e21324f6b30e9baafcd4b)]:
+  - @aihu/runtime@3.0.0
+
 ## 0.0.1
 
 ### Patch Changes

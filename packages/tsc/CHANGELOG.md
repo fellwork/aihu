@@ -1,5 +1,31 @@
 # @aihu/tsc
 
+## 0.2.4
+
+### Patch Changes
+
+- [#505](https://github.com/fellwork/aihu/pull/505) [`dd8cfd6`](https://github.com/fellwork/aihu/commit/dd8cfd639f42ddb05468fe07b6d4f4420a80a8bf) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Fix the codemod and sidecar defects surfaced by the v2 canary migration
+  ([#502](https://github.com/fellwork/aihu/issues/502), [#503](https://github.com/fellwork/aihu/issues/503), [#504](https://github.com/fellwork/aihu/issues/504)).
+
+  - `aihu migrate` (macro-simplification): consume a multi-line `import { … }`
+    as a single statement so its members are no longer orphaned below the
+    closing brace and single-line imports are no longer hoisted into the open
+    brace (the import-scrambling defect).
+  - `aihu migrate --state` (state-wrapper): de-call prop reads (`name()` →
+    `name`) after `$prop` → `prop()`, since `prop()` returns a value in the
+    wrapper model rather than a callable signal.
+  - `aihu migrate --v2` (template-grammar): accept the dot spelling
+    `$class.modifier` in addition to `$class:modifier`.
+  - Type-check sidecar: `__aihu_each` over an `any` iterable now types loop
+    bindings as `any` instead of `unknown` (one conditional-typed generic with
+    an IsAny guard).
+  - `aihu-tsc`: surface the first real compile error when a file cannot be
+    compiled (a stale-compiler error immediately reveals a version mismatch),
+    and document version-aligning `@aihu/tsc` with `@aihu/compiler`.
+
+- Updated dependencies [[`c3381b9`](https://github.com/fellwork/aihu/commit/c3381b92c3d356d6f78f9db0e8130a9e7a466269), [`30ed2b5`](https://github.com/fellwork/aihu/commit/30ed2b51c215512f840b113afaa1636378e31407), [`2660a52`](https://github.com/fellwork/aihu/commit/2660a52223193eb724450e4b6e9dce32e15ae83b), [`9dd7654`](https://github.com/fellwork/aihu/commit/9dd7654678da1149705e21324f6b30e9baafcd4b), [`a195b80`](https://github.com/fellwork/aihu/commit/a195b8093e639c96b8471ea3567267ca8c11c269), [`dd8cfd6`](https://github.com/fellwork/aihu/commit/dd8cfd639f42ddb05468fe07b6d4f4420a80a8bf), [`80531dc`](https://github.com/fellwork/aihu/commit/80531dcc4dfc43bc9cd399bbb8ab4520efb8f15a), [`0db5827`](https://github.com/fellwork/aihu/commit/0db58275ecabf2d3e49431c810885e1ebfb5a9b6), [`bc0f289`](https://github.com/fellwork/aihu/commit/bc0f289ee38871cda8002e56fba3e3b8b7e34d84)]:
+  - @aihu/compiler@1.0.0
+
 ## 0.2.3
 
 ### Patch Changes
