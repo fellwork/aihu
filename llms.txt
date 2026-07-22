@@ -31,6 +31,7 @@
 
 - [MCP Server Card](https://aihu.dev/.well-known/mcp/server-card.json): Machine-readable MCP server card (SEP-1649)
 - [llms-full.txt](https://aihu.dev/llms-full.txt): Extended documentation for AI agents
+- [llms-cookbook.txt](https://github.com/fellwork/aihu/blob/main/llms-cookbook.txt): Compiler-verified cookbook recipes — the fluency corpus for writing idiomatic .aihu components (generated from cookbook/)
 
 ## Source
 

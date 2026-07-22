@@ -15,6 +15,26 @@ export interface CookbookEntry {
   description: string
   tags: string[]
   source: string
+  /** Recipe id — the filename stem (schema: packages/mcp/scripts/cookbook-lib.ts). */
+  id?: string
+  /** Component-type axis (display, form, list, container, async, …). */
+  type?: string
+  /** block (single-concept snippet) | recipe (composed pattern). */
+  granularity?: string
+  /** Canonical construct IDs exercised by the recipe. */
+  constructs?: string[]
+  /** Workspace packages the recipe depends on. */
+  packages?: string[]
+  /** Concern axis tags (state, events, styling, a11y, governance, …). */
+  concerns?: string[]
+  /** Version the pattern was introduced in. */
+  since?: string
+  /** Playground preset label, when the recipe doubles as a playground preset. */
+  playground?: string
+  /** First-class "don't do this" notes — as load-bearing as the source for LLM consumers. */
+  antiPatterns?: string[]
+  /** Ids of related recipes. */
+  related?: string[]
 }
 
 // Load the pre-built index. The embedded source field is our fallback.
