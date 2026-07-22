@@ -409,6 +409,20 @@ re-parsing as markup (threat T7, and a silent round-trip corruption). Options:
 report).** Until it lands, the serializer runs in mode (B) behind a `dialect: 'web-v1'` flag with
 the corruption cases enumerated in tests as `expected-lossy`.
 
+> **RESOLVED — (A) approved and shipped as fellwork/web#46** (`fix/markdown-escapes`). The landed
+> semantics are a GFM-correct superset of the proposal; the serializer contract updates to:
+> - **Escapable set is all ASCII punctuation** (not just `* _ ` [ ] |`) — escape-on-write may use
+>   the full GFM set. `\` before letters/digits/space/EOL and a trailing lone `\` stay literal.
+> - **Block-level escapes are fully honored** (`\#`, `\-`, `\>`, `\---`, `1\.`, leading `\|`) —
+>   the serializer's line-start escaping strategy in (A) works unchanged.
+> - **Code spans are verbatim inside** — the serializer MUST NOT emit `` \` `` within backtick
+>   spans; a text run containing a backtick that cannot be fenced (run of backticks) must use a
+>   longer backtick delimiter, never a backslash.
+> - **No hard line breaks** — the dialect has no trailing-`\` (or two-space) line break; a
+>   `hardBreak` inline node, if ever added to the model, degrades to a space in `web-v1`.
+> - In-repo stored-content scan was clean; a pre-deploy scan of production `body_md` for
+>   backslash-before-punctuation remains recommended before web#46 deploys.
+
 JSON-only constructs degrade on `toMarkdown`: `codeBlock.lang` survives (ignored by web);
 multi-mark runs cannot exist (I4); node types outside §1.1 cannot exist (v1 schema is closed).
 
