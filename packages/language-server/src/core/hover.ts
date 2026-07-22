@@ -266,23 +266,6 @@ const HOVER_TABLE: Record<string, string> = {
     '[v1 spec §2.11](docs/superpowers/specs/2026-05-02-spec-macro-vocabulary.md)',
   ].join('\n'),
 
-  // Source: 2026-05-02-spec-macro-vocabulary.md §2.12 lines 655-701
-  $server: [
-    '**aihu macro: `$server`**',
-    '',
-    'Declares a function that runs only on the server; client calls via RPC.',
-    '',
-    'Compiles to:',
-    '```typescript',
-    '// Server: actual implementation in _aihu-server/actions/{component-id}/{name}.ts',
-    "const name = createServerCall<Args, Return>('component-id/name')",
-    '```',
-    '',
-    'Function body is never bundled to the client. Args/return must be serializable.',
-    '',
-    '[v1 spec §2.12](docs/superpowers/specs/2026-05-02-spec-macro-vocabulary.md)',
-  ].join('\n'),
-
   // Source: 2026-05-02-spec-macro-vocabulary.md §2.13 lines 703-749
   $meta: [
     '**aihu macro: `$meta`**',
