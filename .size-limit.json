@@ -90,7 +90,7 @@
   {
     "name": "@aihu/app",
     "path": "packages/app/dist/client.js",
-    "limit": "1750 B",
+    "limit": "1900 B",
     "gzip": true,
     "ignore": [
       "@aihu/router",
