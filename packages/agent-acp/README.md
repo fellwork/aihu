@@ -48,7 +48,7 @@ bun add @aihu/agent-acp
 |---|---|
 | **Version** | `0.1.2` |
 | **Tier** | C — Agent surface — DEPRECATED; use @aihu/agent-a2a (ACP merged into A2A, Aug 2025) |
-| **Bundle size** | 675 B (gz) — limit 800 B |
+| **Bundle size** | 586 B (gz) — limit 800 B |
 | **Published files** | 3 entries |
 | **License** | MIT |
 
