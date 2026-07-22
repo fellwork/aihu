@@ -34,7 +34,7 @@ bun add @aihu/app
 |---|---|
 | **Version** | `5.0.0` |
 | **Tier** | B — Meta-framework — top-level integration of runtime, router, adapter |
-| **Bundle size** | 1.67 kB (gz) — limit 1750 B |
+| **Bundle size** | 1.77 kB (gz) — limit 1900 B |
 | **Published files** | 3 entries |
 | **License** | MIT |
 
@@ -68,6 +68,7 @@ bun add @aihu/app
 - `@aihu/runtime` — `workspace:*`
 - `@aihu/server` — `workspace:*`
 - `@aihu/signals` — `workspace:*`
+- `@aihu/store` — `workspace:*`
 - `vite` — `>=5.0.0`
 
 <sub><i>Auto-generated against `@aihu/app@5.0.0`.</i></sub>

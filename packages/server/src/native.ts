@@ -34,7 +34,7 @@
 
 import { createRequire } from 'node:module'
 import type { ComponentDescription, SsrOptions } from './ssr.ts'
-import { renderToString as tsRenderToString } from './ssr.ts'
+import { _appendStateScript, renderToString as tsRenderToString } from './ssr.ts'
 
 // ---------------------------------------------------------------------------
 // Platform support matrix
@@ -355,11 +355,19 @@ export async function renderToStringNative(
   const treeJson = JSON.stringify(root)
   const hydratable = opts?.hydratable ?? false
 
+  // Wave-3 state channel: the Rust renderer never reaches the TS stream
+  // walk's emission site, so the state script is appended here, post-render.
+  // ONLY these two addon returns append — every fall-through above routes to
+  // tsRenderToString, which emits through the stream walk itself (appending
+  // there would double-emit). `root` is the materialized JS tree, so the
+  // signals channel rides along exactly as on the TS path. No-op ('') when
+  // there is no state to ship, keeping state-free native renders
+  // byte-identical.
   if (opts?.head) {
     const headJson = JSON.stringify(opts.head)
-    return addon.renderDocument(treeJson, headJson, hydratable)
+    return _appendStateScript(addon.renderDocument(treeJson, headJson, hydratable), opts, root)
   }
-  return addon.renderTree(treeJson, hydratable)
+  return _appendStateScript(addon.renderTree(treeJson, hydratable), opts, root)
 }
 
 // ---------------------------------------------------------------------------

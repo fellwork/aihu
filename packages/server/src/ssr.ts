@@ -4,9 +4,18 @@
  * 1. Zero client runtime imports. Zero DOM globals (no window, document, HTMLElement).
  * 2. Runs in: Workers, Deno, Bun, Node ESM.
  * 3. NEVER import @aihu/context at module level — use injection slots (_setContextFns).
+ * 4. NEVER import @aihu/store at module level — its registry rides @aihu/context,
+ *    which rule 3 already bans. Store serialization is an injection slot too
+ *    (_setStoreSerializer), wired by the app's SSR entry at startup.
  *
- * The `SsrOptions.serializer` field accepts an injected serialize function.
- * In v0 the arbor stub always throws; the spec path is wired for sub-project #6.
+ * State channel (wave 3): after a hydratable render, one
+ * `<script type="application/json" id="__aihu_state__">` script is emitted
+ * carrying `{ v: 1, stores: {...}, signals?: {...} }` — `stores` from the
+ * injected store serializer, `signals` from either `SsrOptions.serializer`
+ * (an arbor MountScope-style snapshot) or, by default, a post-render walk of
+ * the rendered tree collecting writable-signal values at the SAME path keys
+ * the hydration walker uses (`<path>.text`, `<path>.attr:<key>`), so the
+ * client can pre-seed signals instead of re-deriving them.
  */
 
 import type { StreamOptions } from './stream-types.ts'
@@ -31,6 +40,30 @@ let _clearContextMap: (() => void) | undefined
 export function _setContextFns(set: (map: Map<symbol, unknown>) => void, clear: () => void): void {
   _setContextMap = set
   _clearContextMap = clear
+}
+
+// ---------------------------------------------------------------------------
+// Store-serializer injection slot (hard-boundary: @aihu/store is never
+// imported here — it rides @aihu/context, which is itself banned at module
+// level). Same posture as _setContextFns: the app's SSR entry wires it once
+// at startup.
+// ---------------------------------------------------------------------------
+let _storeSerializer: (() => Record<string, unknown>) | undefined
+
+/**
+ * Inject the store snapshot function from @aihu/store. When registered, every
+ * HYDRATABLE render emits the current request's store state under the
+ * `stores` key of the `__aihu_state__` script.
+ *
+ * Example (app SSR entry, once at startup):
+ *   import { serializeStores } from '@aihu/store'
+ *   import { _setStoreSerializer } from '@aihu/server'
+ *   _setStoreSerializer(serializeStores)
+ *
+ * Pass `undefined` to unregister (tests).
+ */
+export function _setStoreSerializer(fn: (() => Record<string, unknown>) | undefined): void {
+  _storeSerializer = fn
 }
 
 export interface MetaTag {
@@ -85,8 +118,11 @@ export interface SsrOptions {
   readonly hydratable?: boolean
 
   /**
-   * Injected serializer from an arbor MountScope.
-   * When it throws (v0 stub), the error is swallowed and no state script is emitted.
+   * Injected signal serializer (an arbor `MountScope.serialize`-shaped
+   * snapshot: path key → value). When provided it REPLACES the default
+   * post-render signal collection and its result rides the `signals` key of
+   * the `__aihu_state__` envelope. When it throws, the error is swallowed
+   * and the `signals` channel is omitted.
    */
   readonly serializer?: () => Record<string, unknown>
 
@@ -168,12 +204,29 @@ const VOID_ELEMENTS = new Set([
   'wbr',
 ])
 
-/** Serialize a branch/leaf attr map to ` k="v"` / boolean-attr form. */
+/**
+ * Serialize a branch/leaf attr map to ` k="v"` / boolean-attr form.
+ *
+ * Reactive values follow the arbor AttrMap contract (types.ts §1.2):
+ *   - `[read, write]` Signal tuple / `[read]` thunk array → the CURRENT value
+ *     is rendered (the same read the client's `_applyAttrs` effect performs,
+ *     so hydration confirms the attribute instead of rewriting it).
+ *   - event handlers (bare functions) → skipped; they have no HTML form.
+ * Previously both stringified to their function source, so any reactive attr
+ * rendered garbage server-side.
+ */
 function serializeAttrs(attrs: Record<string, string | boolean>): string {
   let out = ''
-  for (const [k, v] of Object.entries(attrs)) {
+  for (const [k, raw] of Object.entries(attrs) as [string, unknown][]) {
+    let v: unknown = raw
+    if (Array.isArray(raw)) {
+      if (typeof raw[0] !== 'function') continue
+      v = (raw[0] as () => unknown)()
+    } else if (typeof raw === 'function') {
+      continue // event handler — nothing to serialize
+    }
     if (v === true) out += ` ${k}`
-    else if (v !== false && v !== undefined) out += ` ${k}="${escapeAttr(String(v))}"`
+    else if (v !== false && v !== undefined && v !== null) out += ` ${k}="${escapeAttr(String(v))}"`
   }
   return out
 }
@@ -447,7 +500,12 @@ async function renderNodeAsync(
   path: string,
   hydratable: boolean,
   controller: ReadableStreamDefaultController<string>,
-  pendingState: { count: number; walkDone: boolean; opts: StreamOptions | undefined },
+  pendingState: {
+    count: number
+    walkDone: boolean
+    opts: StreamOptions | undefined
+    root: unknown
+  },
 ): Promise<void> {
   if (typeof node !== 'object' || node === null) {
     controller.enqueue('')
@@ -570,7 +628,7 @@ async function renderNodeAsync(
         controller.enqueue(`</${tag}>`)
         pendingState.count--
         if (pendingState.count === 0 && pendingState.walkDone) {
-          emitStateScriptAndClose(controller, pendingState.opts)
+          emitStateScriptAndClose(controller, pendingState.opts, pendingState.root)
         }
       } catch (err) {
         controller.error(err)
@@ -585,20 +643,160 @@ async function renderNodeAsync(
   controller.enqueue('')
 }
 
+// ---------------------------------------------------------------------------
+// Wave 3 — the state channel. One `__aihu_state__` script per render, emitted
+// at the post-render site (after all pending boundaries settle), carrying
+// `{ v: 1, stores: {...}, signals?: {...} }`.
+// ---------------------------------------------------------------------------
+
+/**
+ * JSON-encode `state` for inline `<script type="application/json">` embedding.
+ * Every `<` becomes `<` (neutralizing both `</script` breakout and
+ * `<!--` comment-interference — HTML spec script-data escaping); U+2028/9
+ * are escaped for downstream JS-context consumers. All replacements happen
+ * inside JSON string values only (JSON syntax itself never contains these),
+ * so `JSON.parse` round-trips the exact original state.
+ */
+function _safeStateJson(state: unknown): string {
+  return JSON.stringify(state)
+    .replace(/</g, '\\u003c')
+    .replace(/\u2028/g, '\\u2028')
+    .replace(/\u2029/g, '\\u2029')
+}
+
+/** Collect writable reactive attrs (`[read, write]` tuples) at `<path>.attr:<key>`. */
+function _collectAttrSignals(attrs: unknown, path: string, out: Record<string, unknown>): void {
+  if (typeof attrs !== 'object' || attrs === null) return
+  for (const [key, v] of Object.entries(attrs as Record<string, unknown>)) {
+    if (Array.isArray(v) && typeof v[0] === 'function' && typeof v[1] === 'function') {
+      out[`${path}.attr:${key}`] = (v[0] as () => unknown)()
+    }
+  }
+}
+
+/**
+ * Default `signals` collection: walk the rendered tree AFTER the render and
+ * snapshot every WRITABLE signal binding (a `[read, write]` tuple — thunk
+ * arrays/deriveds have no writer and are skipped: they re-derive from seeded
+ * sources on the client) at the exact path keys the hydration walker wires:
+ *   - reactive text leaf   → `<path>.text`
+ *   - reactive attr        → `<path>.attr:<key>`  (branch and element leaf)
+ * Path construction mirrors `_renderNode` (children at `<path>.<i>`,
+ * fragments transparent). Structural (`when()`/`each()`) subtrees are
+ * deliberately skipped: hydration rebuilds structural segments from live
+ * state (adopt-by-replace), and re-invoking `grow()` closures purely for
+ * serialization would re-run authored code the render already ran.
+ *
+ * This is a SECOND walk, kept fully separate from `_renderNode` /
+ * `renderNodeAsync` so the render dispatch stays untouched (coordination
+ * contract with the compiled string-renderer fast path).
+ */
+function _collectSignals(node: unknown, path: string, out: Record<string, unknown>): void {
+  if (typeof node !== 'object' || node === null) return
+  const obj = node as Record<string, unknown>
+  if (obj.kind === 'leaf') {
+    if (obj.leafKind === 'element') {
+      _collectAttrSignals(obj.attrs, path, out)
+      return
+    }
+    const value = obj.value
+    if (Array.isArray(value) && typeof value[0] === 'function' && typeof value[1] === 'function') {
+      out[`${path}.text`] = (value[0] as () => unknown)()
+    }
+    return
+  }
+  if (obj.kind === 'branch') {
+    if (!_isFragment(obj)) _collectAttrSignals(obj.attrs, path, out)
+    const children = Array.isArray(obj.children) ? obj.children : []
+    for (let i = 0; i < children.length; i++) {
+      _collectSignals(children[i], `${path}.${i}`, out)
+    }
+  }
+  // structural: skipped (see JSDoc).
+}
+
+/**
+ * Build the `__aihu_state__` script for one finished render, or `''` when
+ * there is no state to ship (so a state-free page's HTML is byte-identical
+ * to today and the client's no-script hydration path is exercised).
+ *
+ * `root` is the rendered arbor tree (pass `null` when no JS tree exists —
+ * `{ toHtml() }` providers, the native renderer, a compiled string-renderer
+ * path that wants stores-only emission).
+ *
+ * Channel gating:
+ *   - `signals`: an explicit `opts.serializer` always wins (and emits even on
+ *     non-hydratable renders — the pre-wave-3 contract); otherwise collected
+ *     from `root` only when `opts.hydratable` (state is a property of the
+ *     DESTINATION, like the path markers).
+ *   - `stores`: the injected store serializer, hydratable renders only.
+ * Serializer throws are swallowed per-channel (a broken serializer degrades
+ * to fresh client state, never a broken page).
+ *
+ * @internal — shared emission helper; every render branch (stream walk,
+ * native append, string-renderer fast path) must emit through this.
+ */
+export function _buildStateScript(root: unknown, opts: SsrOptions | undefined): string {
+  let signals: Record<string, unknown> | undefined
+  if (opts?.serializer) {
+    try {
+      signals = opts.serializer()
+    } catch {
+      // swallow — signals channel omitted
+    }
+  } else if (opts?.hydratable && root !== null && root !== undefined) {
+    const collected: Record<string, unknown> = {}
+    try {
+      _collectSignals(root, ROOT_PATH, collected)
+      signals = collected
+    } catch {
+      // swallow — signals channel omitted
+    }
+  }
+  let stores: Record<string, unknown> | undefined
+  if (opts?.hydratable && _storeSerializer) {
+    try {
+      stores = _storeSerializer()
+    } catch {
+      // swallow — stores channel omitted
+    }
+  }
+  const hasSignals = signals !== undefined && Object.keys(signals).length > 0
+  const hasStores = stores !== undefined && Object.keys(stores).length > 0
+  if (!hasSignals && !hasStores) return ''
+  const state: Record<string, unknown> = { v: 1, stores: hasStores ? stores : {} }
+  if (hasSignals) state.signals = signals
+  return `<script type="application/json" id="__aihu_state__">${_safeStateJson(state)}</script>`
+}
+
+/**
+ * Insert the state script into an ALREADY-RENDERED HTML string — the
+ * post-render emission path for renderers that never enqueue through the
+ * stream walk (today: the native Rust renderer's addon paths in native.ts).
+ * Pass the materialized `root` when a JS tree exists so the signals channel
+ * rides along; `null` gives stores-only emission. Placed before the trailing
+ * `</body>` when the document has one, appended otherwise.
+ *
+ * @internal
+ */
+export function _appendStateScript(
+  html: string,
+  opts: SsrOptions | undefined,
+  root: unknown = null,
+): string {
+  const script = _buildStateScript(root, opts)
+  if (!script) return html
+  const i = html.lastIndexOf('</body>')
+  return i === -1 ? html + script : html.slice(0, i) + script + html.slice(i)
+}
+
 function emitStateScriptAndClose(
   controller: ReadableStreamDefaultController<string>,
   opts: StreamOptions | undefined,
+  root: unknown,
 ): void {
-  if (opts?.serializer) {
-    try {
-      const state = opts.serializer()
-      controller.enqueue(
-        `<script type="application/json" id="__aihu_state__">${JSON.stringify(state)}</script>`,
-      )
-    } catch {
-      // swallow — no state script emitted
-    }
-  }
+  const script = _buildStateScript(root, opts)
+  if (script) controller.enqueue(script)
   if (opts?.head) {
     controller.enqueue('</body></html>')
   }
@@ -615,7 +813,7 @@ export function renderToStream(
 ): ReadableStream<string> {
   return new ReadableStream<string>({
     start(controller) {
-      const pendingState = { count: 0, walkDone: false, opts }
+      const pendingState = { count: 0, walkDone: false, opts, root: null as unknown }
 
       // Step 1: Emit document preamble if opts.head is set
       if (opts?.head) {
@@ -635,7 +833,7 @@ export function renderToStream(
           return
         }
         controller.enqueue(html)
-        emitStateScriptAndClose(controller, opts)
+        emitStateScriptAndClose(controller, opts, null)
         return
       }
 
@@ -647,13 +845,17 @@ export function renderToStream(
         controller.error(err)
         return
       }
+      // Retained for the post-render state emission — both completion paths
+      // (sync walk-done below and the last pending boundary's onReady) build
+      // the state script from the SAME rendered tree.
+      pendingState.root = root
 
       // Kick off async tree walk
       renderNodeAsync(root, ROOT_PATH, opts?.hydratable ?? false, controller, pendingState)
         .then(() => {
           pendingState.walkDone = true
           if (pendingState.count === 0) {
-            emitStateScriptAndClose(controller, opts)
+            emitStateScriptAndClose(controller, opts, root)
           }
         })
         .catch((err: unknown) => {
