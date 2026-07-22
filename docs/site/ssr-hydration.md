@@ -18,7 +18,7 @@ export default defineAihuConfig({
 
 | Target | Description |
 |--------|-------------|
-| `client` | Browser bundle only. `@agent` manifest and `$server` refs are elided. |
+| `client` | Browser bundle only. The `@agent` manifest is elided. |
 | `server` | Server bundle only. Full agent manifest and server-only code included. |
 | `universal` | Both client and server outputs. Default. |
 
@@ -152,7 +152,6 @@ const scope = hydrate(
 When target is `client`:
 
 - `@agent` blocks are removed from the output. The JS contains: `// [client build] @agent block elided`.
-- `$server` macro references are removed. The JS contains: `// [client build] $server macro reference elided`.
 - `manifest_json` in `EmitResult` is empty.
 
 This ensures zero server-only code reaches the browser bundle.

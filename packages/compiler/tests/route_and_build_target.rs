@@ -449,30 +449,6 @@ fn v066_universal_build_emits_agent_manifest() {
     );
 }
 
-/// Client build with $server macro reference: elision comment in JS.
-#[test]
-fn v066_client_build_elides_server_macro() {
-    let src = r#"
-@state {
-  const data = $server.fetchUsers()
-}
-
-@template {
-  <div>Users</div>
-}
-"#;
-    let parsed = sfc::parse(src).unwrap();
-    let unit = compile_full_with_target(&parsed, BuildTarget::Client).unwrap();
-    let result = emit(&unit, "server-users");
-
-    assert!(
-        result
-            .js
-            .contains("// [client build] $server macro reference elided"),
-        "JS should contain $server elision comment for client build"
-    );
-}
-
 /// Server build with @agent block: manifest_json IS emitted (only client gates).
 #[test]
 fn v066_server_build_does_not_elide_agent() {

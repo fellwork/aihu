@@ -143,69 +143,15 @@ export const loader = defineLoader(async (ctx) => {
 
 The runtime injects the resolved loader payload as `route.data` before mount. During streaming SSR or client-side re-validation, wrap the consumer in `<suspense>` to declaratively handle the pending state.
 
-### Pattern B — `$resource` + `createServerCall`
+Use Pattern A (route-bound loaders) when the data is known at request time.
 
-If the data needs to be fetched on demand (e.g. on a button click or when a search box changes), use a typed client stub instead:
-
-```typescript
-// shared/api.ts
-import { createServerCall } from '@aihu/server'
-import type { Post } from './types'
-
-export const searchPosts = createServerCall<[query: string], Post[]>('posts/search')
-```
-
-```
-@state {
-  $prop: {
-    searchTerm: { default: '', type: "string" }
-  }
-
-  $resource: {
-    // refetches automatically when searchTerm changes
-    matches: () => searchPosts(searchTerm)
-  }
-}
-
-@template {
-  <input bind:value={searchTerm} />
-
-  <suspense fallback="Spinner">
-    <ul>
-      <li each={p of matches.value} key={p.slug}>{p.title}</li>
-    </ul>
-  </suspense>
-}
-```
-
-Use Pattern A when the data is route-bound and known at request time. Use Pattern B when the data depends on UI state that the user changes after the page loads.
-
-## `$server` macro
-
-In `@state` blocks, `$server` gates code to server-only execution:
-
-```
-@state {
-  const data = $server.fetchSecretData()
-}
-```
-
-When compiling with `BuildTarget.Client`, any `$server` references are elided from the output.
-
-## `createServerCall`
-
-`createServerCall` creates a typed fetch stub that calls a server action from client-side code:
-
-```typescript
-import { createServerCall } from '@aihu/server'
-
-const getUser = createServerCall<[id: number], User>('users/getUser')
-
-// In an effect or event handler:
-const user = await getUser(42)
-```
-
-The stub sends a `POST` request to `/_aihu/call/<endpoint>` with the args serialized as JSON.
+> **On-demand client→server calls.** aihu previously shipped a `$server`
+> macro and a `createServerCall` client stub for calling server functions from
+> the client over RPC. Both were **retired** — the feature never fully wired
+> up (see the Macro Vocabulary spec §2.12) — with no drop-in replacement. For
+> data that depends on post-load UI state, fetch from a server route
+> (`defineApiRoute` / `defineStreamRoute` in `@aihu/server`) with a plain
+> `fetch`, or drive it through a governed loader.
 
 ## Server response helpers
 

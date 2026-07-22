@@ -28,8 +28,9 @@
 import { describe, expect, it } from 'vitest'
 import { getHoverContent, getMacroAtPosition } from '../src/core/hover.ts'
 
-// 36 resolver-token keys — STATIC, NOT imported from hover.ts.
-// Order: existing 13 first, then 23 new in director-note §3.1 enumeration order.
+// 35 resolver-token keys — STATIC, NOT imported from hover.ts.
+// Order: existing 13 first, then 23 new in director-note §3.1 enumeration order
+// (less `$server`, retired in chore/retire-server-macro).
 const HOVER_KEYS: readonly string[] = [
   // Existing 13 (pre-A4)
   '$prop',
@@ -50,7 +51,6 @@ const HOVER_KEYS: readonly string[] = [
   '$expose',
   '$shared',
   '$cookie',
-  '$server',
   '$meta',
   // @template additions (round-0)
   '$key',
@@ -74,7 +74,7 @@ const HOVER_KEYS: readonly string[] = [
   '$describe',
 ]
 
-describe('hover coverage — getHoverContent returns non-null for all 36 keys', () => {
+describe('hover coverage — getHoverContent returns non-null for all 35 keys', () => {
   it.each(HOVER_KEYS)('has hover content for %s', (key) => {
     const content = getHoverContent(key)
     expect(content).toBeTruthy()
@@ -82,8 +82,8 @@ describe('hover coverage — getHoverContent returns non-null for all 36 keys', 
     expect(content!.length).toBeGreaterThan(20)
   })
 
-  it('static key list contains exactly 36 entries (regression mask)', () => {
-    expect(HOVER_KEYS).toHaveLength(36)
+  it('static key list contains exactly 35 entries (regression mask)', () => {
+    expect(HOVER_KEYS).toHaveLength(35)
   })
 })
 
@@ -202,13 +202,6 @@ const PROBES: Probe[] = [
     ch: 3,
     expected: '$cookie',
     hoverKey: '$cookie',
-  },
-  {
-    name: '$server',
-    line: '  $server async function getUser(id) { return user }',
-    ch: 3,
-    expected: '$server',
-    hoverKey: '$server',
   },
   {
     name: '$meta',

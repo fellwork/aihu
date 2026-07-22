@@ -168,10 +168,8 @@ pub fn emit_with_options(unit: &CompileUnit, tag_name: &str, strict_templates: b
     let is_agent_component = unit.source.agent.is_some() || has_exposed_members;
 
     // v0.6.6: Server-artifact emission gates.
-    // When target == Client, check for @agent block or $server macro references.
+    // When target == Client, check for an @agent block.
     let elide_agent = target == BuildTarget::Client && is_agent_component;
-    let elide_server_macro = target == BuildTarget::Client
-        && unit.source.script.map_or(false, |s| s.contains("$server"));
     // v0.4.0: @stream block is server-only. Elide in client builds.
     let elide_stream = target == BuildTarget::Client && unit.source.stream.is_some();
 
@@ -286,9 +284,6 @@ pub fn emit_with_options(unit: &CompileUnit, tag_name: &str, strict_templates: b
                 )
             };
             format!("{}\n{}\n", with_metadata, agent_binding_export)
-        } else if elide_server_macro {
-            eprintln!("WARNING: $server macro reference elided — client-only build");
-            format!("// [client build] $server macro reference elided\n{}", base_js)
         } else {
             base_js
         }
