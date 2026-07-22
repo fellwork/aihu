@@ -10,28 +10,24 @@
   // arch-5 M1: $route reactive signal — see currentRoute.params.id when consumed
   // by descendant components. The page itself still receives data via the
   // existing $prop route loader pattern (compiled into custom-element attr).
-  $prop: {
-    route: { type: { data: { story: HnItem; comments: Array<CommentNode> } } },
-  }
+  const route = prop<{ data: { story: HnItem; comments: Array<CommentNode> } }>()
 
-  $action: {
-    hostname: (u: string | undefined): string => {
+  const hostname = action((u: string | undefined): string => {
       if (!u) return ''
       try { return new URL(u).hostname.replace(/^www\./, '') } catch { return '' }
-    },
-    ago: (t: number | undefined): string => {
+    })
+  const ago = action((t: number | undefined): string => {
       if (!t) return ''
       const s = Math.floor(Date.now() / 1000 - t)
       if (s < 3600)  return `${Math.floor(s / 60)}m ago`
       if (s < 86400) return `${Math.floor(s / 3600)}h ago`
       return `${Math.floor(s / 86400)}d ago`
-    },
-  }
+    })
 
-  $route currentRoute
+  const currentRoute = route()
 
   // arch-5 M1: post-navigation analytics — runs after each successful nav.
-  $afterNavigate((to) => {
+  afterNavigate((to) => {
     if (typeof window !== 'undefined' && (window as any).analytics?.pageview) {
       (window as any).analytics.pageview(to.pathname)
     }

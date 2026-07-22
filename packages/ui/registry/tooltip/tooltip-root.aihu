@@ -13,8 +13,8 @@
 @state {
   import { AihuTooltipRoot } from '@aihu/primitives/tooltip'
 
-  $extends: AihuTooltipRoot
-  $shadow: 'light'
+  base: AihuTooltipRoot
+  shadow: 'light'
 }
 
 @template {

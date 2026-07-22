@@ -1,39 +1,32 @@
 // data-table — $prop rows + $action sort(col), $computed sortedRows, $each with $key
 
 @state {
-  $prop: {
-    rows: {
-      type: Array,
-      default: [
+  const rows = prop({
+    default: [
         { id: '1', name: 'Alice', role: 'Engineer', score: 92 },
         { id: '2', name: 'Bob', role: 'Designer', score: 78 },
         { id: '3', name: 'Carol', role: 'Manager', score: 85 },
         { id: '4', name: 'Dave', role: 'Engineer', score: 91 },
       ],
-    },
-  }
+  })
 
-  sortCol: string = 'name'
-  sortDir: number = 1
+  let sortCol = state('name')
+  let sortDir = state(1)
 
-  $computed: {
-    sortedRows: () => [...rows].sort((a, b) => {
+  const sortedRows = derived(() => [...rows].sort((a, b) => {
       const av = String(a[sortCol] ?? '')
       const bv = String(b[sortCol] ?? '')
       return av.localeCompare(bv) * sortDir
-    }),
-  }
+    }))
 
-  $action: {
-    sort: (col: string) => {
+  const sort = action((col: string) => {
       if (sortCol === col) {
         sortDir = sortDir === 1 ? -1 : 1
       } else {
         sortCol = col
         sortDir = 1
       }
-    },
-  }
+    })
 }
 
 @template {

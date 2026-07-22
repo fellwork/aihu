@@ -12,8 +12,8 @@
 @state {
   import { AihuTooltipTrigger } from '@aihu/primitives/tooltip'
 
-  $extends: AihuTooltipTrigger
-  $shadow: 'light'
+  base: AihuTooltipTrigger
+  shadow: 'light'
 }
 
 @template {

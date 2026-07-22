@@ -2,16 +2,10 @@
   import { getAllAgentMetadata } from '@aihu/agent'
   import { createContext, provide } from '@aihu/context'
   import { HubServiceContext } from './hub-context'
-  import { signal } from '@aihu/signals'
-
-  $computed: {
-    agentList: () => getAllAgentMetadata(),
-    agentCount: {
-      describe: 'Number of sub-agents registered',
-      expose: { read: true },
-      value: () => agentList.length,
-    },
-  }
+  const agentList = derived(() => getAllAgentMetadata())
+  const agentCount = derived(
+    { describe: 'Number of sub-agents registered', expose: 'read' },
+    () => agentList.length)
 
   // Context token — imported from hub-context.ts so panel SFCs can inject the
   // same token reference. createContext is kept in scope for API-pattern demo.
@@ -19,7 +13,7 @@
   // here to demonstrate the @aihu/context API pattern.
   provide(HubServiceContext, null)
 
-  const [activeTab, setActiveTab] = signal<'a2a' | 'acp'>('a2a')
+  let activeTab = state<'a2a' | 'acp'>('a2a')
 }
 
 @template {
@@ -57,7 +51,7 @@
           class="tab-btn"
           role="tab"
           aria-selected={activeTab === 'a2a'}
-          on:click={() => setActiveTab('a2a')}
+          on:click={() => { activeTab = 'a2a' }}
         >
           A2A
         </button>
@@ -65,7 +59,7 @@
           class="tab-btn"
           role="tab"
           aria-selected={activeTab === 'acp'}
-          on:click={() => setActiveTab('acp')}
+          on:click={() => { activeTab = 'acp' }}
         >
           ACP
         </button>

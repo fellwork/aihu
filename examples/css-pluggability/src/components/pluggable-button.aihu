@@ -1,8 +1,7 @@
 @state {
-  import { signal } from '@aihu/signals'
-  const [pressed, setPressed] = signal(false)
+  let pressed = state(false)
 
-  const toggle = () => setPressed(p => !p)
+  const toggle = () => { pressed = !pressed }
 }
 
 @template {

@@ -2,29 +2,21 @@
 // M1 polish: @agent block + dark-mode tokens.
 
 @state {
-  import { signal } from '@aihu/signals'
-  const [celsius, writeCelsius] = signal(20)
+  let celsius = state(20)
 
-  $computed: {
-    fahrenheit: {
-      describe: 'Temperature in degrees Fahrenheit (computed)',
-      expose: { read: true },
-      value: () => celsius() * 9 / 5 + 32,
-    },
-  }
+  const fahrenheit = derived(
+    { describe: 'Temperature in degrees Fahrenheit (computed)',
+      expose: 'read' },
+    () => celsius * 9 / 5 + 32)
 
-  $action: {
-    setFromF: {
-      describe: 'Set the temperature by Fahrenheit value',
-      expose: { read: true, write: true },
-      handler: (f: number) => writeCelsius((f - 32) * 5 / 9),
-    },
-    setCelsius: {
-      describe: 'Set the temperature by Celsius value',
-      expose: { read: true, write: true },
-      handler: (c: number) => writeCelsius(c),
-    },
-  }
+  const setFromF = action(
+    { describe: 'Set the temperature by Fahrenheit value',
+      expose: 'read write' },
+    (f: number) => { celsius = (f - 32) * 5 / 9 })
+  const setCelsius = action(
+    { describe: 'Set the temperature by Celsius value',
+      expose: 'read write' },
+    (c: number) => { celsius = c })
 }
 
 @template {

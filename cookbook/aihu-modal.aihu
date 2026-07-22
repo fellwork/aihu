@@ -1,23 +1,19 @@
 // modal — $prop open, $action show/hide, on:keydown for Escape, $aria for aria-modal+role="dialog"
 
 @state {
-  $prop: {
-    open: { type: Boolean, default: false },
-  }
+  let open = prop({ default: false })
 
-  $aria: {
+  aria({
     role: 'dialog',
     modal: 'true',
     label: 'Modal dialog',
-  }
+  })
 
-  $action: {
-    show: () => { open = true },
-    hide: () => { open = false },
-    onKeydown: (e: KeyboardEvent) => {
+  const show = action(() => { open = true })
+  const hide = action(() => { open = false })
+  const onKeydown = action((e: KeyboardEvent) => {
       if (e.key === 'Escape') hide()
-    },
-  }
+    })
 }
 
 @template {

@@ -1,15 +1,11 @@
 // counter — $prop count + $action increment/decrement/reset
 
 @state {
-  $prop: {
-    count: { type: Number, default: 0 },
-  }
+  let count = prop({ default: 0 })
 
-  $action: {
-    increment: () => { count++ },
-    decrement: () => { count-- },
-    reset: () => { count = 0 },
-  }
+  const increment = action(() => { count++ })
+  const decrement = action(() => { count-- })
+  const reset = action(() => { count = 0 })
 }
 
 @template {

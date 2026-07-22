@@ -9,17 +9,15 @@
 -->
 
 @state {
-  $shadow: 'light'
+  shadow: 'light'
 
-  $prop: {
-    type: { type: String, default: 'text' },
-    placeholder: { type: String, default: '' },
-    name: { type: String, default: '' },
-    value: { type: String, default: '' },
-    ariaLabel: { type: String, default: '' },
-    disabled: { type: Boolean, default: false },
-    required: { type: Boolean, default: false },
-  }
+  let type = prop({ default: 'text' })
+  let placeholder = prop({ default: '' })
+  let name = prop({ default: '' })
+  let value = prop({ default: '' })
+  const ariaLabel = prop({ default: '' })
+  let disabled = prop({ default: false })
+  let required = prop({ default: false })
 }
 
 @template {

@@ -1,21 +1,15 @@
 // theme-toggle — dark/light toggle: $context provide for theme + $effect for documentElement class
 
 @state {
-  $context: {
-    provide: {
-      theme: { value: 'light', type: 'string' },
-    },
-  }
+  provide('theme', 'light')
 
-  $effect: () => {
+  effect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark')
     document.documentElement.classList.toggle('light', theme === 'light')
-  }
+  })
 
-  $action: {
-    toggle: () => { theme = theme === 'light' ? 'dark' : 'light' },
-    setTheme: (t: 'light' | 'dark') => { theme = t },
-  }
+  const toggle = action(() => { theme = theme === 'light' ? 'dark' : 'light' })
+  const setTheme = action((t: 'light' | 'dark') => { theme = t })
 }
 
 @template {

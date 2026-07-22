@@ -1,30 +1,24 @@
 // toast — $prop message + $action dismiss, auto-dismiss via $lifecycle.mount setTimeout
 
 @state {
-  $prop: {
-    message: { type: String, default: 'Something happened.' },
-    duration: { type: Number, default: 3000 },
-  }
+  const message = prop({ default: 'Something happened.' })
+  const duration = prop({ default: 3000 })
 
-  visible: boolean = false
-  _timerId: number | null = null
+  let visible = state(false)
+  let _timerId: number | null = null
 
-  $action: {
-    dismiss: () => {
+  const dismiss = action(() => {
       visible = false
       if (_timerId !== null) { clearTimeout(_timerId); _timerId = null }
-    },
-  }
+    })
 
-  $lifecycle: {
-    mount: () => {
+  onMount(() => {
       visible = true
       _timerId = setTimeout(() => { visible = false }, duration) as unknown as number
-    },
-    dispose: () => {
+    })
+  onDispose(() => {
       if (_timerId !== null) { clearTimeout(_timerId); _timerId = null }
-    },
-  }
+    })
 }
 
 @template {

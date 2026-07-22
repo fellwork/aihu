@@ -4,20 +4,16 @@
 }
 
 @state {
-  $prop: {
-    route: { type: { params: { slug: string } } },
-  }
+  const route = prop<{ params: { slug: string } }>()
 
   // Demo-only: in real life, look this up via a loader (see ../../blog-loader/)
-  bodies: Record<string, { title: string; body: string }> = {
+  const bodies: Record<string, { title: string; body: string }> = {
     hello:  { title: 'Hello, world',           body: 'First post.' },
     meta:   { title: 'Why aihu is meta',     body: 'Layered, separable, vanilla.' },
     agents: { title: 'Agents are first-class', body: 'Every component is MCP-readable.' },
   }
 
-  $computed: {
-    post: () => bodies[route.params.slug] ?? { title: 'Not found', body: '' },
-  }
+  const post = derived(() => bodies[route.params.slug] ?? { title: 'Not found', body: '' })
 }
 
 @template {

@@ -1,32 +1,28 @@
 // clock — real-time clock: $lifecycle.mount starts setInterval, unmount clears it
 
 @state {
-  hours: string = '00'
-  minutes: string = '00'
-  seconds: string = '00'
-  _timerId: number | null = null
+  let hours = state('00')
+  let minutes = state('00')
+  let seconds = state('00')
+  let _timerId: number | null = null
 
-  $action: {
-    tick: () => {
+  const tick = action(() => {
       const now = new Date()
       hours = String(now.getHours()).padStart(2, '0')
       minutes = String(now.getMinutes()).padStart(2, '0')
       seconds = String(now.getSeconds()).padStart(2, '0')
-    },
-  }
+    })
 
-  $lifecycle: {
-    mount: () => {
+  onMount(() => {
       tick()
       _timerId = setInterval(() => tick(), 1000) as unknown as number
-    },
-    dispose: () => {
+    })
+  onDispose(() => {
       if (_timerId !== null) {
         clearInterval(_timerId)
         _timerId = null
       }
-    },
-  }
+    })
 }
 
 @template {

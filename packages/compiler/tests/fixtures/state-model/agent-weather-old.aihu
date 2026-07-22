@@ -1,20 +1,24 @@
 // agent-weather — @agent pattern: $prop city + $action fetchForecast with expose/describe
 
 @state {
-  let city = prop({
-    default: 'London',
-    describe: 'City name to retrieve weather forecast for',
-    expose: 'read',
-  })
+  $prop: {
+    city: {
+      type: String,
+      default: 'London',
+      describe: 'City name to retrieve weather forecast for',
+      expose: { read: true },
+    },
+  }
 
-  let forecast = state('')
-  let loading = state(false)
-  let errorMsg = state('')
+  forecast: string = ''
+  loading: boolean = false
+  errorMsg: string = ''
 
-  const fetchForecast = action(
-    { describe: 'Fetch the latest weather forecast for the current city',
-      expose: 'read write' },
-    async () => {
+  $action: {
+    fetchForecast: {
+      describe: 'Fetch the latest weather forecast for the current city',
+      expose: { read: true, write: true },
+      handler: async () => {
         loading = true
         errorMsg = ''
         try {
@@ -26,7 +30,9 @@
         } finally {
           loading = false
         }
-      })
+      },
+    },
+  }
 }
 
 @template {

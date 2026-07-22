@@ -1,14 +1,11 @@
 @state {
   import { inject } from '@aihu/context'
   import { HubServiceContext } from './hub-context'
-  import { signal } from '@aihu/signals'
-
-  $action: {
-    sendA2aRequest: {
-      describe: 'Send an A2A SendStreamingMessage JSON-RPC request and show the terminal SSE task status',
-      expose: { read: true, write: true },
-      handler: async () => {
-        setLoading(true)
+  const sendA2aRequest = action(
+    { describe: 'Send an A2A SendStreamingMessage JSON-RPC request and show the terminal SSE task status',
+      expose: 'read write' },
+    async () => {
+        loading = true
         try {
           // A2A v1.0.1 JSON-RPC binding: SendStreamingMessage over SSE.
           const res = await fetch('/a2a', {
@@ -31,32 +28,28 @@
           // Show the last SSE frame — the terminal task status update.
           const dataLines = text.split('\n').filter(l => l.startsWith('data:'))
           const payload = dataLines.length > 0 ? dataLines[dataLines.length - 1].slice(5).trim() : text
-          setResult(payload)
+          result = payload
         } catch (err) {
-          setResult(`Error: ${err}`)
+          result = `Error: ${err}`
         } finally {
-          setLoading(false)
+          loading = false
         }
-      },
-    },
-  }
+      })
 
-  $lifecycle: {
-    mount: () => {
+  onMount(() => {
       fetch('/.well-known/agent-card.json')
         .then(r => r.json())
-        .then(d => setDiscoveryCard(JSON.stringify(d, null, 2)))
-        .catch(() => setDiscoveryCard('(discovery unavailable in dev mode)'))
-    },
-  }
+        .then(d => { discoveryCard = JSON.stringify(d, null, 2) })
+        .catch(() => { discoveryCard = '(discovery unavailable in dev mode)' })
+    })
 
   const _service = inject(HubServiceContext)   // null in client context; API pattern demo
 
-  const [discoveryCard, setDiscoveryCard] = signal<string | null>(null)
+  let discoveryCard = state<string | null>(null)
 
-  const [result, setResult] = signal<string | null>(null)
+  let result = state<string | null>(null)
 
-  const [loading, setLoading] = signal(false)
+  let loading = state(false)
 }
 
 @template {

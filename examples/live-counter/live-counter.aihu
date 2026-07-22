@@ -3,26 +3,17 @@
 // M1 polish: @agent block + dark-mode tokens.
 
 @state {
-  import { signal } from '@aihu/signals'
-  const [count, setCount] = signal(0)
+  let count = state(0)
 
-  $action: {
-    increment: {
-      describe: 'Add 1 to the counter',
-      expose: { read: true, write: true },
-      handler: () => setCount(count() + 1),
-    },
-    decrement: {
-      describe: 'Subtract 1 from the counter',
-      expose: { read: true, write: true },
-      handler: () => setCount(count() - 1),
-    },
-    reset: {
-      describe: 'Reset the counter to 0',
-      expose: { read: true, write: true },
-      handler: () => setCount(0),
-    },
-  }
+  const increment = action(
+    { describe: 'Add 1 to the counter', expose: 'read write' },
+    () => { count = count + 1 })
+  const decrement = action(
+    { describe: 'Subtract 1 from the counter', expose: 'read write' },
+    () => { count = count - 1 })
+  const reset = action(
+    { describe: 'Reset the counter to 0', expose: 'read write' },
+    () => { count = 0 })
 }
 
 @template {

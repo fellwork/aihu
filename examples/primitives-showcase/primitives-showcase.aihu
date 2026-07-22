@@ -4,7 +4,6 @@
 // See README.md for the full breakdown. shadowMode light is set in vite.config.ts.
 
 @state {
-  import { signal } from '@aihu/signals'
   import { defineButton } from '@aihu/primitives/button'
   import { defineDialog } from '@aihu/primitives/dialog'
   import { defineTooltip } from '@aihu/primitives/tooltip'
@@ -14,26 +13,20 @@
   defineDialog()
   defineTooltip()
 
-  const [primitives, _setPrimitives] = signal(['button', 'dialog', 'tooltip'])
+  let primitives = state(['button', 'dialog', 'tooltip'])
 
-  $computed: {
-    wired: {
-      describe: 'The headless @aihu/primitives wired in this showcase',
-      expose: { read: true },
-      value: () => primitives().join(', '),
-    },
-  }
+  const wired = derived(
+    { describe: 'The headless @aihu/primitives wired in this showcase',
+      expose: 'read' },
+    () => primitives.join(', '))
 
-  $action: {
-    closeAll: {
-      describe: 'Imperatively close the dialog and dismiss the tooltip (open primitives)',
-      expose: { read: true, write: true },
-      handler: () => {
+  const closeAll = action(
+    { describe: 'Imperatively close the dialog and dismiss the tooltip (open primitives)',
+      expose: 'read write' },
+    () => {
         document.querySelector('aihu-dialog-root[open]')?.removeAttribute('open')
         document.querySelector('aihu-tooltip-root[open]')?.removeAttribute('open')
-      },
-    },
-  }
+      })
 }
 
 @template {

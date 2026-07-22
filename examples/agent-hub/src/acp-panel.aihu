@@ -1,14 +1,11 @@
 @state {
   import { inject } from '@aihu/context'
   import { HubServiceContext } from './hub-context'
-  import { signal } from '@aihu/signals'
-
-  $action: {
-    sendAcpMessage: {
-      describe: 'Send a ping ACP message and store the response',
-      expose: { read: true, write: true },
-      handler: async () => {
-        setLoading(true)
+  const sendAcpMessage = action(
+    { describe: 'Send a ping ACP message and store the response',
+      expose: 'read write' },
+    async () => {
+        loading = true
         try {
           const res = await fetch('/acp/messages', {
             method: 'POST',
@@ -16,32 +13,28 @@
             headers: { 'Content-Type': 'application/json' },
           })
           const data = await res.json()
-          setResult(JSON.stringify(data, null, 2))
+          result = JSON.stringify(data, null, 2)
         } catch (err) {
-          setResult(`Error: ${err}`)
+          result = `Error: ${err}`
         } finally {
-          setLoading(false)
+          loading = false
         }
-      },
-    },
-  }
+      })
 
-  $lifecycle: {
-    mount: () => {
+  onMount(() => {
       fetch('/.well-known/acp-agent')
         .then(r => r.json())
-        .then(d => setDiscoveryCard(JSON.stringify(d, null, 2)))
-        .catch(() => setDiscoveryCard('(discovery unavailable in dev mode)'))
-    },
-  }
+        .then(d => { discoveryCard = JSON.stringify(d, null, 2) })
+        .catch(() => { discoveryCard = '(discovery unavailable in dev mode)' })
+    })
 
   const _service = inject(HubServiceContext)
 
-  const [discoveryCard, setDiscoveryCard] = signal<string | null>(null)
+  let discoveryCard = state<string | null>(null)
 
-  const [result, setResult] = signal<string | null>(null)
+  let result = state<string | null>(null)
 
-  const [loading, setLoading] = signal(false)
+  let loading = state(false)
 }
 
 @template {

@@ -4,22 +4,20 @@
 // base layer.
 
 @state {
-  import { signal } from '@aihu/signals'
   import { createResource } from '@aihu-plugin/data'
 
-  $lifecycle: {
-    mount: () => {
+  onMount(() => {
       ws = new WebSocket('ws://localhost:5172')
 
       ws.onopen = () => {
-        setConnected(true)
+        connected = true
       }
 
       ws.onmessage = (event: MessageEvent) => {
         try {
           const data = JSON.parse(event.data)
           if (Array.isArray(data)) {
-            setScores(data)
+            scores = data
           }
         } catch (_err) {
           // Malformed message — silently ignore, do not throw.
@@ -27,34 +25,33 @@
       }
 
       ws.onclose = () => {
-        setConnected(false)
+        connected = false
       }
 
       ws.onerror = () => {
-        setConnected(false)
+        connected = false
         // Non-blocking: log to console, do not propagate.
         console.warn('[realtime-scores] WebSocket error — connection may be unavailable.')
       }
-    },
-    dispose: () => {
+    })
+  onDispose(() => {
       if (ws !== null) {
         ws.close()
         ws = null
       }
-    },
-  }
+    })
 
   // Score shape: { id: string, team: string, score: number }
-  const [scores, setScores] = signal([])
+  let scores = state([])
 
-  const [connected, setConnected] = signal(false)
+  let connected = state(false)
 
   let ws: WebSocket | null = null
 
   // createResource for initial fetch — base layer before first WS push.
   // Key is a static signal; fetcher hits the local /api/initial-scores route
   // served by the Vite configureServer middleware.
-  const [resourceKey] = signal('initial-scores')
+  let resourceKey = state('initial-scores')
 
   const initialScores = createResource(
     resourceKey,
@@ -104,8 +101,8 @@
       <tbody>
         <!-- Live WS scores take priority when the signal is populated -->
         <template
-          if={scores().length > 0}
-          each={item of scores()}
+          if={scores.length > 0}
+          each={item of scores}
           key={row.id}
           let={row}
         >
@@ -117,7 +114,7 @@
 
         <!-- Fallback: show initial fetch data while WS hasn't pushed yet -->
         <template
-          if={scores().length === 0 && initialScores.state().status === 'ready'}
+          if={scores.length === 0 && initialScores.state().status === 'ready'}
           each={row of initialScores.state().data}
           key={row.id}>
           <tr>
@@ -127,7 +124,7 @@
         </template>
 
         <!-- Empty state -->
-        <tr if={scores().length === 0 && initialScores.state().status !== 'ready' && initialScores.state().status !== 'loading'}>
+        <tr if={scores.length === 0 && initialScores.state().status !== 'ready' && initialScores.state().status !== 'loading'}>
           <td colspan="2" class="empty">No scores yet — waiting for live data.</td>
         </tr>
       </tbody>

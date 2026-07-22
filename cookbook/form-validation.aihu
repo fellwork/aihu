@@ -1,31 +1,27 @@
 // form-validation — $form with value+validity for form-associated custom element
 
 @state {
-  value: string = ''
-  touched: boolean = false
+  let value = state('')
+  let touched = state(false)
 
-  $form: {
+  form({
     value: () => value,
     validity: () => ({ valueMissing: !value.trim(), tooShort: value.trim().length < 2 }),
-  }
+  })
 
-  $computed: {
-    errorMessage: () => {
+  const errorMessage = derived(() => {
       if (!touched) return ''
       if (!value.trim()) return 'This field is required.'
       if (value.trim().length < 2) return 'Must be at least 2 characters.'
       return ''
-    },
-    isValid: () => value.trim().length >= 2,
-  }
+    })
+  const isValid = derived(() => value.trim().length >= 2)
 
-  $action: {
-    onInput: (e: Event) => {
+  const onInput = action((e: Event) => {
       value = (e.target as HTMLInputElement).value
       touched = true
-    },
-    onBlur: () => { touched = true },
-  }
+    })
+  const onBlur = action(() => { touched = true })
 }
 
 @template {

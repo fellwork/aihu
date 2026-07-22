@@ -3,10 +3,10 @@
 // createDemoRoutes, and createDemoRuntime with @aihu/signals.
 
 @state {
-  import { signal, computed } from '@aihu/signals'
-  const [count, setCount] = signal(0)
+  import { computed } from '@aihu/signals'
+  let count = state(0)
 
-  const doubled = computed(() => count() * 2)
+  const doubled = computed(() => count * 2)
 
   // $greeting: { name: "aihu" }
   // ^^ Macro contribution demo — $greeting is declared by @aihu/plugin-demo.
@@ -20,10 +20,10 @@
 
     <div class="demo-card">
       <p class="demo-label">Counter</p>
-      <p class="demo-value">{count()}</p>
+      <p class="demo-value">{count}</p>
       <p class="demo-label">Doubled</p>
       <p class="demo-value demo-muted">{doubled()}</p>
-      <button class="demo-btn" on:click={() => setCount(n => n + 1)}>
+      <button class="demo-btn" on:click={() => { count = count + 1 }}>
         Increment
       </button>
     </div>

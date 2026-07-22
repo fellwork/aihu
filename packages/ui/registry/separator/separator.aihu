@@ -15,9 +15,7 @@
 @state {
   import { cn } from '@aihu/css-engine/runtime/cn'
 
-  $prop: {
-    orientation: { type: String, default: 'horizontal' },
-  }
+  let orientation = prop({ default: 'horizontal' })
 
   class AihuSeparator extends HTMLElement {
     static sheet = new CSSStyleSheet()

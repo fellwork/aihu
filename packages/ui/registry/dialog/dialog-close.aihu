@@ -12,8 +12,8 @@
 @state {
   import { AihuDialogClose } from '@aihu/primitives/dialog'
 
-  $extends: AihuDialogClose
-  $shadow: 'light'
+  base: AihuDialogClose
+  shadow: 'light'
 }
 
 @template {

@@ -13,39 +13,31 @@
 // drives the component's own signals and the snapshot reflects every change.
 
 @state {
-  import { signal } from '@aihu/signals'
-
   // The durable task list the agent drives. Each task: { id, text, done }.
-  const [tasks, setTasks] = signal([])
-  const [nextId, setNextId] = signal(1)
+  let tasks = state([])
+  let nextId = state(1)
 
-  $action: {
-    addTask: {
-      describe: 'Append a task with the given text; returns the new task id.',
-      expose: { read: true },
-      handler: (args) => {
+  const addTask = action(
+    { describe: 'Append a task with the given text; returns the new task id.',
+      expose: 'read' },
+    (args) => {
         const text = typeof args?.[0] === 'string' ? args[0] : String(args?.[0] ?? '')
-        const id = nextId()
-        setTasks([...tasks(), { id, text, done: false }])
-        setNextId(id + 1)
-      },
-    },
-    toggleTask: {
-      describe: 'Toggle the done state of the task with the given id.',
-      expose: { read: true },
-      handler: (args) => {
+        const id = nextId
+        tasks = [...tasks(), { id, text, done: false }]
+        nextId = id + 1
+      })
+  const toggleTask = action(
+    { describe: 'Toggle the done state of the task with the given id.',
+      expose: 'read' },
+    (args) => {
         const id = Number(args?.[0])
-        setTasks(tasks().map((t) => (t.id === id ? { ...t, done: !t.done } : t)))
-      },
-    },
-    clearCompleted: {
-      describe: 'Remove all completed tasks.',
-      expose: { read: true },
-      handler: () => {
-        setTasks(tasks().filter((t) => !t.done))
-      },
-    },
-  }
+        tasks = tasks.map((t) => (t.id === id ? { ...t, done: !t.done } : t))
+      })
+  const clearCompleted = action(
+    { describe: 'Remove all completed tasks.', expose: 'read' },
+    () => {
+        tasks = tasks.filter((t) => !t.done)
+      })
 }
 
 @template {

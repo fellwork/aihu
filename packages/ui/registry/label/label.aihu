@@ -7,11 +7,9 @@
 -->
 
 @state {
-  $shadow: 'light'
+  shadow: 'light'
 
-  $prop: {
-    htmlFor: { type: String, default: '' },
-  }
+  const htmlFor = prop({ default: '' })
 }
 
 @template {

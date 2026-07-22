@@ -14,49 +14,39 @@
 // utility cascade applies — the documented mode for utility-class frameworks.
 
 @state {
-  import { signal } from '@aihu/signals'
   import { cn } from '@aihu/css-engine/runtime/cn'
   import { anchorFallback } from '@aihu/css-engine/runtime/progressive'
 
-  const [accent, setAccent] = signal(false)
-  const [roomy, setRoomy]   = signal(false)
+  let accent = state(false)
+  let roomy = state(false)
 
   let cleanup: (() => void) | null = null
 
-  $computed: {
-    cardClass: {
-      describe: 'The merged className for the card, produced by css-engine cn()',
-      expose: { read: true },
-      value: () => cn('card flex flex-col gap-3 rounded-lg border border-border p-4 shadow', accent() ? 'bg-accent text-accent-foreground' : 'bg-surface text-foreground', roomy() && 'p-6'),
-    },
-  }
+  const cardClass = derived(
+    { describe: 'The merged className for the card, produced by css-engine cn()',
+      expose: 'read' },
+    () => cn('card flex flex-col gap-3 rounded-lg border border-border p-4 shadow', accent ? 'bg-accent text-accent-foreground' : 'bg-surface text-foreground', roomy && 'p-6'))
 
-  $action: {
-    toggleAccent: {
-      describe: 'Toggle the card between the surface and accent style packs',
-      expose: { read: true, write: true },
-      handler: () => setAccent(a => !a),
-    },
-    toggleRoomy: {
-      describe: 'Toggle roomy padding to prove cn() last-wins conflict resolution',
-      expose: { read: true, write: true },
-      handler: () => setRoomy(r => !r),
-    },
-  }
+  const toggleAccent = action(
+    { describe: 'Toggle the card between the surface and accent style packs',
+      expose: 'read write' },
+    () => { accent = !accent })
+  const toggleRoomy = action(
+    { describe: 'Toggle roomy padding to prove cn() last-wins conflict resolution',
+      expose: 'read write' },
+    () => { roomy = !roomy })
 
-  $lifecycle: {
-    mount: () => {
+  onMount(() => {
       const anchor = document.querySelector('[data-anchor]')
       const badge  = document.querySelector('[data-floating]')
       if (anchor && badge instanceof HTMLElement) {
         cleanup = anchorFallback(anchor, badge, { placement: 'top', offset: 8 })
       }
-    },
-    dispose: () => {
+    })
+  onDispose(() => {
       cleanup?.()
       cleanup = null
-    },
-  }
+    })
 }
 
 @template {

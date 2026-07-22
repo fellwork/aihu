@@ -8,17 +8,15 @@
 -->
 
 @state {
-  $shadow: 'light'
+  shadow: 'light'
 
-  $prop: {
-    placeholder: { type: String, default: '' },
-    name: { type: String, default: '' },
-    value: { type: String, default: '' },
-    rows: { type: String, default: '3' },
-    ariaLabel: { type: String, default: '' },
-    disabled: { type: Boolean, default: false },
-    required: { type: Boolean, default: false },
-  }
+  let placeholder = prop({ default: '' })
+  let name = prop({ default: '' })
+  let value = prop({ default: '' })
+  let rows = prop({ default: '3' })
+  const ariaLabel = prop({ default: '' })
+  let disabled = prop({ default: false })
+  let required = prop({ default: false })
 }
 
 @template {

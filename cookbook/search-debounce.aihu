@@ -1,28 +1,26 @@
 // search-debounce — bind:value on input + $effect with 300ms debounce, $computed results
 
 @state {
-  query: string = ''
-  debouncedQuery: string = ''
-  _debounceTimer: number | null = null
+  let query = state('')
+  let debouncedQuery = state('')
+  let _debounceTimer: number | null = null
 
-  $effect: () => {
+  effect(() => {
     if (_debounceTimer !== null) clearTimeout(_debounceTimer)
     _debounceTimer = setTimeout(() => {
       debouncedQuery = query
       _debounceTimer = null
     }, 300) as unknown as number
-  }
+  })
 
-  $computed: {
-    results: () => {
+  const results = derived(() => {
       if (!debouncedQuery.trim()) return []
       const q = debouncedQuery.toLowerCase()
       return [
         'apple', 'apricot', 'banana', 'blueberry', 'cherry',
         'grape', 'kiwi', 'lemon', 'mango', 'orange', 'peach', 'pear',
       ].filter(item => item.includes(q))
-    },
-  }
+    })
 }
 
 @template {

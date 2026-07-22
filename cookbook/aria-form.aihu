@@ -1,26 +1,24 @@
 // aria-form — $aria collection for role/aria-label/aria-describedby, $form with value+validity
 
 @state {
-  $aria: {
+  aria({
     role: 'form',
     label: 'Contact form',
     describedby: 'aria-form-hint',
-  }
+  })
 
-  name: string = ''
-  email: string = ''
+  let name = state('')
+  let email = state('')
 
-  $form: {
+  form({
     value: () => JSON.stringify({ name, email }),
     validity: () => ({ valueMissing: !name || !email }),
-  }
+  })
 
-  $action: {
-    onSubmit: (e: Event) => {
+  const onSubmit = action((e: Event) => {
       e.preventDefault()
       console.log('submitted', { name, email })
-    },
-  }
+    })
 }
 
 @template {

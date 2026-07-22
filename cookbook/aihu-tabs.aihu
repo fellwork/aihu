@@ -1,32 +1,23 @@
 // tabs — $prop tabs + $action selectTab, $computed selected (active tab)
 
 @state {
-  $prop: {
-    tabs: {
-      type: Array,
-      default: [
+  const tabs = prop({
+    default: [
         { id: 'overview', label: 'Overview', content: 'Overview panel content.' },
         { id: 'details', label: 'Details', content: 'Details panel content.' },
         { id: 'settings', label: 'Settings', content: 'Settings panel content.' },
       ],
-    },
-  }
+  })
 
-  activeId: string = ''
+  let activeId = state('')
 
-  $computed: {
-    selected: () => tabs.find(t => t.id === activeId) ?? tabs[0] ?? null,
-  }
+  const selected = derived(() => tabs.find(t => t.id === activeId) ?? tabs[0] ?? null)
 
-  $lifecycle: {
-    mount: () => {
+  onMount(() => {
       if (tabs.length > 0) activeId = tabs[0].id
-    },
-  }
+    })
 
-  $action: {
-    selectTab: (id: string) => { activeId = id },
-  }
+  const selectTab = action((id: string) => { activeId = id })
 }
 
 @template {
