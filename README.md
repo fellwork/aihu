@@ -1,40 +1,41 @@
 # Aihu
 
-> **Aihu — agentic discovery and interaction, for human purpose.**
-
-Aihu builds **durable Web Components your AI agent can read and drive — not disposable UI it has to generate.** An agent inspects a real component through its llms.txt + MCP manifest and calls its actions on the live, on-screen instance. The thing the user sees is the thing the agent drives, not a throwaway interface regenerated every turn.
-
-<p align="center">
-  <img src="docs/media/hero.gif" width="640" alt="An AI agent relabeling, restyling, and adding tasks to a live aihu component over a scoped capability bridge — and the state surviving a page refresh">
-</p>
-
-```bash
-npx create-aihu my-app --template agent   # a durable component an AI can drive — running in one command
-```
-
-You author `.aihu` single-file components; a Rust compiler emits standards-based **Web Components** *plus* the machine-readable agent manifest — no separate API layer to build.
-
-**Generative UI vs. durable components.** Most "agent UI" today is disposable: the model emits HTML or JSON that renders once and vanishes (MCP Apps, generated iframes). Aihu is the inverse — real, inspectable, reusable custom elements an agent drives over a server-mediated capability bridge, with the server holding auth and policy. Durable wins when the UI has to be trusted, styled, and reused.
-
-Under the hood it's a complete meta-framework — routing, SSR, auth, data loading, and cloud adapters included. The runtime is **sub-2 kB**, output is **vanilla custom elements** (no lock-in, no hydration step), with **zero runtime dependencies**, and reactive updates run 122× faster than vanilla DOM on targeted writes ([benchmarks below](#performance)).
-
-> **Status:** actively developed and shipping in `v1.0.x` releases — the reactive runtime, compiler, router, server, agent surface, CLI, styling engine, and UI primitives all work today. See [Project status](#project-status).
+> **An interactive framework that equally governs the security and experience of humans and AI.**
 
 [![CI](https://github.com/fellwork/aihu/actions/workflows/plan-a.yml/badge.svg)](https://github.com/fellwork/aihu/actions/workflows/plan-a.yml)
 [![release](https://github.com/fellwork/aihu/actions/workflows/release.yml/badge.svg)](https://github.com/fellwork/aihu/actions/workflows/release.yml)
 [![@aihu/signals on npm](https://img.shields.io/npm/v/@aihu/signals.svg?label=@aihu/signals)](https://www.npmjs.com/package/@aihu/signals)
-[![tests](https://img.shields.io/badge/tests-1281%20TS%20%7C%20492%20Rust%20passing-brightgreen)](#)
-[![packages](https://img.shields.io/badge/packages-20-blue)](#packages)
 [![llms.txt](https://img.shields.io/badge/llms.txt-supported-blueviolet)](#compliance)
 [![MCP](https://img.shields.io/badge/MCP-compatible-blue?logo=anthropic)](#compliance)
 [![Agent Ready](https://img.shields.io/badge/agent--ready-yes-brightgreen)](#compliance)
+
+Every interface now has two audiences: the person using it, and that person's AI agent. Aihu treats them as **co-equal users of one interface**.
+
+You author a `.aihu` single-file component and declare what each audience may see and do. A Rust compiler emits both experiences from that one declaration — the rendered UI the human drives, and the MCP tool surface the agent drives — wired to the same live instance under the same policy. No second API layer, no drift between what the user sees and what the agent can touch.
+
+```bash
+npx create-aihu my-app --template agent   # one component, two audiences — running in one command
+```
+
+*Equally governs* is concrete — one declaration fills all four quadrants:
+
+| For | Experience | Security |
+|---|---|---|
+| **Humans** | Reactive UI on vanilla custom elements — sub-2 kB runtime, SSR, accessible primitives | Server-held auth and policy; the agent bridge is scoped and mediated, never a back door |
+| **AI** | MCP tools + llms.txt emitted from the component itself; SSR renders real content agents can read | Nothing is agent-reachable unless declared `expose` — entitlement resolved server-side, non-regressable |
+
+An agent never fabricates a throwaway interface for the turn — it steers the component already on screen. Where generative UI renders once and vanishes, an aihu component persists and holds its own state. That persistence is what lets both audiences drive the same instance over time, and it means the user always sees the thing the agent touched. Durable wins when the UI has to be trusted, styled, and reused.
+
+Under the hood it's a complete meta-framework — routing, SSR, auth, data loading, and cloud adapters included. The runtime is sub-2 kB, the output is vanilla custom elements with zero runtime dependencies, and reactive updates run 122× faster than vanilla DOM on targeted writes ([benchmarks below](#performance)).
+
+> **Status:** actively developed and shipping in `v1.0.x` releases — the reactive runtime, compiler, router, server, agent surface, CLI, styling engine, and UI primitives all work today. See [Project status](#project-status).
 
 ---
 
 ## Quickstart
 
 ```bash
-# The agent showcase — a durable <task-list> a human AND an AI agent drive
+# The agent showcase — a live <task-list> a human AND an AI agent drive
 npx create-aihu my-app --template agent
 cd my-app && bun install
 bun run dev      # component on http://localhost:5108 · agent bridge on :5208
@@ -48,29 +49,68 @@ cd aihu && bun install
 bun run dev:examples
 ```
 
-For an SFC tour, see [`examples/live-counter/`](./examples/live-counter) (~40 LOC) or jump to the [example portfolio](./examples/README.md).
+---
+
+## What a component looks like
+
+State, view, styles, and the agent interface — one `.aihu` file. This is [`live-counter`](./examples/live-counter) (7GUIs #1, ~25 LOC):
+
+```aihu
+@state {
+  let count = state(0)
+
+  const increment = action(
+    { describe: 'Add 1 to the counter', expose: 'read write' },
+    () => { count = count + 1 })
+  const reset = action(
+    { describe: 'Reset the counter to 0', expose: 'read write' },
+    () => { count = 0 })
+}
+
+@template {
+  <section class="counter">
+    <h1>Count: {count}</h1>
+    <button on:click={reset}>Reset</button>
+    <button on:click={increment}>+</button>
+  </section>
+}
+
+@style {
+  .counter { display: grid; gap: 0.75rem; }
+}
+```
+
+How to read it:
+
+- **`state(0)`** declares a reactive field. Read it as `count`, write it with plain assignment — the DOM updates on the touched node.
+- **`action({ … }, fn)`** is an ordinary method. Because it carries `expose: 'read write'`, it *also* becomes an MCP tool an agent can call on the live instance — governance at the declaration site. Nothing is agent-reachable unless you say so.
+- **The template is prefix-less** — naked HTML, `{expr}` for reactive values, `on:click` for events.
+- **It type-checks as plain TypeScript.** `state` / `prop` / `derived` / `action` carry identity types, so your editor and `tsc` see ordinary code; the compiler lowers them to reactive declarations underneath.
+- **The output is a plain custom element** — no virtual DOM, no shipped framework runtime, light DOM by default.
 
 ---
 
-## What it is
+## What you get
 
-You write a component in a single `.aihu` file — markup, state, styles, and (optionally) its agent interface, all in one place. The compiler turns it into a plain custom element that runs anywhere Web Components run. What you get:
+Everything below ships in the box — a compiler, a runtime, and an app framework, each usable on its own:
 
 - **A tiny reactive core** — signals, computeds, and effects in under 2 kB, with direct DOM updates and no virtual DOM (`@aihu/signals` + `@aihu/arbor`).
 - **A real Rust compiler** — pre-built per platform, plus a WebAssembly build for in-browser playgrounds.
-- **Agent-callable by default** — declare a component's `@agent` interface and the compiler emits a matching AI tool schema (MCP), alongside A2A and ACP protocol support.
+- **Equal governance, declared in place** — mark state and actions `expose` and the compiler emits a matching AI tool schema (MCP) from the same declaration that renders the UI, with A2A protocol support alongside. What an agent may see and do is exactly what you exposed — enforced server-side, never inferred.
 - **A complete app framework** — file-based routing, server-side rendering, loaders, cookies, and server actions (`@aihu/router` + `@aihu/server`).
 - **Batteries included** — auth, data loading, context, a plugin system, and accessible UI primitives — all dependency-free.
 - **Deploy anywhere** — first-party Cloudflare and Vercel adapters.
 - **A real toolchain** — a CLI for scaffolding and builds (`aihu app`/`page`/`component`/`plugin`/`dev`/`build`) and a VS Code extension.
 
-The output is **plain custom elements**: nothing locks you in at the consumer boundary, there's no global runtime and no hydration step — and every component is, by construction, callable by an AI agent.
+The output is **plain custom elements** — nothing locks you in at the consumer boundary, there's no global runtime and no hydration step, and every component serves both of its audiences by construction: rendered for the human, governed and callable for the agent.
+
+---
 
 ## How it compares
 
 Most component libraries give you a way to build *components*. Aihu gives you a way to build *apps* — routing, server-side rendering, data, and deployment are first-class, not add-ons.
 
-**Aihu is to Lit what Next.js is to React:** a full app framework built on a small Web Components runtime. Solid is a single reactive package; Lit is templating plus a base class; Vue ships its own scheduler and virtual DOM. Aihu layers cleanly — use just the signals, just the runtime, or the whole framework — and it's the only one where every component is also an AI-callable tool, built into the file format itself.
+**Aihu is to Lit what Next.js is to React:** a full app framework built on a small Web Components runtime. Solid is a single reactive package; Lit is templating plus a base class; Vue ships its own scheduler and virtual DOM. Aihu layers cleanly — use just the signals, just the runtime, or the whole framework — and it's the only one that governs a second audience at all: every component's AI surface is part of the file format, under the same policy as its human one.
 
 ---
 
@@ -79,6 +119,7 @@ Most component libraries give you a way to build *components*. Aihu gives you a 
 ### Reactive runtime
 - Push-based signals, computeds, and effects with batched writes (`@aihu/signals`, ~1.8 kB gz)
 - Direct DOM updates, no virtual DOM (`@aihu/arbor`, ~2.1 kB gz — **122× faster than vanilla** on targeted updates)
+- In `.aihu` files, reactivity is declared with `state` / `prop` / `derived` / `action` wrappers — plain-value reads, plain-assignment writes, no `.value` ceremony
 - Synchronous mount with predictable teardown
 - Compiled components register as standard custom elements (`@aihu/runtime`)
 
@@ -88,9 +129,11 @@ Most component libraries give you a way to build *components*. Aihu gives you a 
 - WebAssembly build for in-browser playgrounds (target: under 200 ms to compile a 50-line component)
 - Scoped styles, slots, list/conditional rendering, type-checked templates, error boundaries, hot reload, islands, and full hydration
 
-### AI-agent surface (built in)
-- An `@agent` block declares a component's exposed state and actions; the compiler emits a matching MCP tool schema next to the Web Component
-- A2A and ACP agent protocols included (`@aihu/agent-a2a`, `@aihu/agent-acp`)
+### AI-agent surface (built in, governed)
+- Mark any `state()` / `action()` declaration `expose` and the compiler emits a matching MCP tool schema next to the Web Component — the agent's surface and the human's UI come from the same line of code
+- A component-level `@agent` block adds descriptions and metadata for the manifest
+- Exposure is a permission, not an annotation: entitlement is resolved server-side and the surface is non-regressable — what you didn't expose does not exist to the agent
+- A2A protocol included (`@aihu/agent-a2a`)
 - Auto-generates `llms.txt`, an MCP Server Card, and `robots.txt` for any app — no manual config (`@aihu-plugin/agent-readiness`)
 
 ### Full-stack capabilities
@@ -124,7 +167,7 @@ A copy-paste UI registry built on the engine is also in progress.
 
 Packages version independently (most are in the `0.x` range during early access), so you can adopt any piece on its own. **Aihu is dependency-free at runtime** — every browser-shipped package has an empty `dependencies` list. It's a research-driven codebase: each layer is pinned by a written spec before code lands, and performance regressions block merges.
 
-Migrating between grammar versions is mechanical — run `npx aihu migrate <file>`, and compiler errors point you at the exact fix. See [`docs/cli.md`](./docs/cli.md) for the migration reference.
+Migrating between versions is mechanical — `npx aihu migrate --v2 <file>` moves templates to the prefix-less grammar, `npx aihu migrate --state <file>` moves `@state` to the wrapper model, and compiler errors carry a `fix:` hint that points at the exact change. See [`docs/cli.md`](./docs/cli.md) for the migration reference.
 
 ---
 
@@ -178,16 +221,16 @@ Per-package gates enforced by `bun run size`:
 |---|---:|---:|:---:|
 | `@aihu/context` | 420 B | 450 B | pass |
 | `@aihu/signals` | 1.69 kB | 1970 B | pass |
-| `@aihu/arbor` | 2.92 kB | 3100 B | pass |
-| `@aihu/runtime` | 3.96 kB | 4100 B | pass |
+| `@aihu/arbor` | 2.70 kB | 3100 B | pass |
+| `@aihu/runtime` | 3.89 kB | 4100 B | pass |
 | `@aihu/agent` | 141 B | 200 B | pass |
-| `@aihu-plugin/data` | 723 B | 800 B | pass |
+| `@aihu-plugin/data` | 757 B | 800 B | pass |
 | `@aihu-plugin/kindly-note` | 1.65 kB | 1850 B | pass |
 | `@aihu/router` | 1.71 kB | 2400 B | pass |
-| `@aihu/agent-service` | 2.76 kB | 2900 B | pass |
-| `@aihu/agent-acp` | 675 B | 800 B | pass |
-| `@aihu/agent-a2a` | 2.62 kB | 3000 B | pass |
-| `@aihu/app` | 1.67 kB | 1750 B | pass |
+| `@aihu/agent-service` | 1.17 kB | 2900 B | pass |
+| `@aihu/agent-acp` | 586 B | 800 B | pass |
+| `@aihu/agent-a2a` | 717 B | 3000 B | pass |
+| `@aihu/app` | 1.58 kB | 1750 B | pass |
 | `@aihu/css-engine/runtime/cn` | 886 B | 1 KB | pass |
 | `@aihu/css-engine/runtime/progressive` | 716 B | 3 KB | pass |
 | `@aihu/primitives/context` | 430 B | 1 KB | pass |

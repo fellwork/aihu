@@ -11,12 +11,12 @@
   },
   {
     "name": "@aihu/arbor",
-    "bytes": 2989,
+    "bytes": 2760,
     "limit": "3100 B"
   },
   {
     "name": "@aihu/runtime",
-    "bytes": 4060,
+    "bytes": 3988,
     "limit": "4100 B"
   },
   {
@@ -26,7 +26,7 @@
   },
   {
     "name": "@aihu-plugin/data",
-    "bytes": 723,
+    "bytes": 757,
     "limit": "800 B"
   },
   {
@@ -41,22 +41,22 @@
   },
   {
     "name": "@aihu/agent-service",
-    "bytes": 2825,
+    "bytes": 1203,
     "limit": "2900 B"
   },
   {
     "name": "@aihu/agent-acp",
-    "bytes": 675,
+    "bytes": 586,
     "limit": "800 B"
   },
   {
     "name": "@aihu/agent-a2a",
-    "bytes": 2680,
+    "bytes": 717,
     "limit": "3000 B"
   },
   {
     "name": "@aihu/app",
-    "bytes": 1707,
+    "bytes": 1621,
     "limit": "1750 B"
   },
   {
