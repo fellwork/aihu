@@ -208,7 +208,7 @@ pages_build_output_dir = "dist"
 | TASK-DOC-006 | Write `@aihu/adapter-cloudflare` package doc | new file ~120 lines | docs+devops |
 | TASK-DOC-007 | Write `@aihu/adapter-vercel` package doc | new file ~100 lines | docs |
 | TASK-DOC-008 | Add `docs/cli.md` to pipeline | copy + sidebar entry | docs |
-| TASK-DOC-009 | Verify/fix `SCRIBE_NATIVE_SKIP` env var name in `deployment.md` | 1 line | docs |
+| TASK-DOC-009 | Verify/fix `AIHU_NATIVE_SKIP` env var name in `deployment.md` | 1 line | docs |
 | TASK-DOC-010 | Add TODO-001 callout to installation page | ~5 lines | docs |
 
 ---

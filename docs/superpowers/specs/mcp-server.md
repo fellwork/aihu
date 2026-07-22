@@ -185,7 +185,7 @@ import { basename } from 'node:path'
 const execFileAsync = promisify(execFile)
 
 // Binary path reuses the same resolution logic as packages/compiler/js/index.ts:
-// env var SCRIBE_COMPILE_BIN ?? resolve(dirname(import.meta.url), '../../compiler/bin/aihu-compile[.exe]')
+// env var AIHU_COMPILE_BIN ?? resolve(dirname(import.meta.url), '../../compiler/bin/aihu-compile[.exe]')
 // The MCP package is a sibling of @aihu/compiler in the workspace; in a published
 // install, @aihu/compiler is a dependency and the bin is at node_modules/.bin/aihu-compile.
 
@@ -246,7 +246,7 @@ export async function compileSource(
 }
 ```
 
-**Binary path resolution:** In the workspace, resolve relative to `packages/compiler/bin/aihu-compile[.exe]` (same sibling-package path used by the compiler's own JS wrapper). In a published npm install, resolve via `node_modules/.bin/aihu-compile` (installed by `@aihu/compiler`'s `bin` field). Check `process.env.SCRIBE_COMPILE_BIN` first as an override, matching the existing convention in `packages/compiler/js/index.ts`.
+**Binary path resolution:** In the workspace, resolve relative to `packages/compiler/bin/aihu-compile[.exe]` (same sibling-package path used by the compiler's own JS wrapper). In a published npm install, resolve via `node_modules/.bin/aihu-compile` (installed by `@aihu/compiler`'s `bin` field). Check `process.env.AIHU_COMPILE_BIN` first as an override, matching the existing convention in `packages/compiler/js/index.ts`.
 
 ### Output schema
 

@@ -80,8 +80,8 @@ The harness reads every `.aihu` file, compiles it via `@aihu/compiler`, and asse
 1. Zero compiler errors (any thrown exception fails the run).
 2. Output contains `defineElement` (compiler emitted a component registration).
 
-Set `SCRIBE_COMPILE_BIN` to override the binary path:
+Set `AIHU_COMPILE_BIN` to override the binary path:
 
 ```bash
-SCRIBE_COMPILE_BIN=/path/to/aihu-compile bun run test:cookbook
+AIHU_COMPILE_BIN=/path/to/aihu-compile bun run test:cookbook
 ```

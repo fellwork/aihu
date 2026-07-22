@@ -339,7 +339,7 @@ No drops. Full repo: **2180 passed, 13 skipped, 1 failed** (pre-existing, below)
 1. **`resolveNewest` was not used.** The brief asked to reuse it alongside
    `expectCount` / `refuseVacuous` / `selfTest` (all three of which *are* used).
    `resolveNewest` resolves a build artifact by newest mtime; this check
-   compiles nothing and reads no artifact. It runs with `SCRIBE_NATIVE_SKIP=1`,
+   compiles nothing and reads no artifact. It runs with `AIHU_NATIVE_SKIP=1`,
    selecting the pure-TS SSR path exactly as `check:dual-audience` does, so
    there is no binary to resolve. Calling it anyway would have been cargo-cult.
    Flagged rather than silently dropped.
@@ -359,7 +359,7 @@ No drops. Full repo: **2180 passed, 13 skipped, 1 failed** (pre-existing, below)
    measured set. The brief's file list did not include it.
 
 5. **`tests/vitest.config.ts` gained an `@aihu/server` alias** and
-   `SCRIBE_NATIVE_SKIP=1`, so the new integration test runs under
+   `AIHU_NATIVE_SKIP=1`, so the new integration test runs under
    `test:integration` as well as under the root config.
 
 No check was weakened to make anything green. No baseline was decremented

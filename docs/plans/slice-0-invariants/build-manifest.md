@@ -217,7 +217,7 @@ to a **published 2.0.0 tarball in `~/.bun/install/cache`** — a behavioral inva
 measure someone else's build and report a plausible number. Same class as the stale-binary trap, and
 silent. The override pins resolution to workspace `src`.
 
-`SCRIBE_NATIVE_SKIP=1` is also set on both, selecting the TypeScript SSR fallback ("slower, always
+`AIHU_NATIVE_SKIP=1` is also set on both, selecting the TypeScript SSR fallback ("slower, always
 correct") exactly as `vitest.config.ts` does; the native renderer binary is absent in a plain checkout.
 
 ### A real logic bug in DA-c

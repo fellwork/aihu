@@ -96,7 +96,7 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
         env:
-          SCRIBE_SKIP_POSTINSTALL: "1"
+          AIHU_SKIP_POSTINSTALL: "1"
 
       - name: Build docs
         run: bun run build
@@ -190,7 +190,7 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
         env:
-          SCRIBE_SKIP_POSTINSTALL: "1"
+          AIHU_SKIP_POSTINSTALL: "1"
 
       - name: Build docs
         run: bun run build

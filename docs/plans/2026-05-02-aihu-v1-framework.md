@@ -305,7 +305,7 @@ The user locked the shape: **0.2 = basic feature sets land, 0.3-0.8 = progressiv
   - **Data Fetching** — `$resource`, `createResource`, server loaders (`defineLoader`), `$server` macro.
   - **Reactivity** — signals, computeds, effects, batch, untrack.
   - **SSR + Hydration** — `renderToStream`, hydration, islands, defer hydration.
-  - **Deployment** — Bun, Node, Workers, Vercel Edge; the 3-state loader; `SCRIBE_NATIVE_SKIP`.
+  - **Deployment** — Bun, Node, Workers, Vercel Edge; the 3-state loader; `AIHU_NATIVE_SKIP`.
   - **API Reference** — every public export across all packages.
 - **v0.9.2 — Test-gap audit + closeout.** Cross-reference `bun run test` coverage against the spec quartet conformance suites (v0.3.8, v0.4.10, v0.5.8, v0.6.9). Add tests where coverage is missing. Goal: every spec-mandated behavior has at least one test.
 - **v0.9.3 — Dep-free re-audit (Learning #49 prep for v1.0).** Snapshot every package's `dependencies` + `peerDependencies` + `optionalDependencies`. CI gate: `npm ls --production` per package; fail on any non-`@aihu/*` entry. (Already substantially compliant per Scout R1 §2.1; v0.9 verifies no drift.)
@@ -391,7 +391,7 @@ The user locked the shape: **0.2 = basic feature sets land, 0.3-0.8 = progressiv
 | Spec quartet migration to `docs/superpowers/specs/` | Q8 collapse | **v1.0.6** |
 | Naming Scheme A renames published | this doc §below | **v1.0.9** |
 | `<$shield>` reuses arbor `ErrorHandler` (Q10:D) | locked | **v0.5.3** |
-| Q14 `SCRIBE_NATIVE_SKIP` permanence + loader doc | R1 Scout Q14 | **v0.9.1** docs (deployment) |
+| Q14 `AIHU_NATIVE_SKIP` permanence + loader doc | R1 Scout Q14 | **v0.9.1** docs (deployment) |
 | Q5 server adapter pattern docs (3-state loader IS the pattern) | R1 Scout Q5 + R2 audit | **v0.9.1** docs (deployment) |
 | `@aihu/data` `Resource<T>` v1 freeze line | R1 Scout Q7 + R2 audit | confirmed by v1.0 cutover (no v2 magna in this roadmap) |
 

@@ -95,7 +95,7 @@ should-not-flag: pinned page + routeless leaf), same bar as the enforced rules.
 Measured: **10 route component(s) without `$shadow`, of 88 shipped .aihu files**
 (all 10 in `examples/*/src/pages/`). Enforced findings unchanged at **0**.
 
-All five thesis invariants (fresh `bun install`, `SCRIBE_NATIVE_SKIP=1` via npm
+All five thesis invariants (fresh `bun install`, `AIHU_NATIVE_SKIP=1` via npm
 scripts): derived 0, attributed 0, governed 0, dual-audience 0,
 hydration-adoption 0 — every self-test ok, `check:thesis` exit 0.
 

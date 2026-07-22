@@ -248,7 +248,7 @@ All five fail today. That is the point, and the `--expect` ratchet lets them **a
 
 Each reads `--expect` from `baselines.json`. Green on day one *because the counts match*; red the moment a count moves either way. Add a `changes` filter so doc-only PRs stay cheap.
 
-**Phase 2 — `check:agent-conformance` as its own job.** Generates, installs, builds, serves — minutes not seconds. Model on the existing `examples` job: `needs: [check]`, same Rust-cache + stage-compiler-binary preamble, `SCRIBE_SKIP_POSTINSTALL: "1"`. Add to `ci-ok`'s `needs`. **Wire only after its baseline is measured on a real run and committed.**
+**Phase 2 — `check:agent-conformance` as its own job.** Generates, installs, builds, serves — minutes not seconds. Model on the existing `examples` job: `needs: [check]`, same Rust-cache + stage-compiler-binary preamble, `AIHU_SKIP_POSTINSTALL: "1"`. Add to `ci-ok`'s `needs`. **Wire only after its baseline is measured on a real run and committed.**
 
 **Phase 3 — the ratchet.** Each fix PR decrements its own baseline in the same commit:
 
