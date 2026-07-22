@@ -168,12 +168,36 @@ const VOID_ELEMENTS = new Set([
   'wbr',
 ])
 
-/** Serialize a branch/leaf attr map to ` k="v"` / boolean-attr form. */
+/**
+ * Serialize a branch/leaf attr map to ` k="v"` / boolean-attr form.
+ *
+ * Value resolution mirrors the CLIENT's `_applyAttrs` (arbor/src/attrs.ts):
+ *   - a reactive binding is the tuple/thunk-array `[get, …]` — the current
+ *     value is `get()`, exactly what the client effect writes into the DOM.
+ *     Previously the array was fed to `String(v)`, which stringifies the
+ *     GETTER FUNCTION SOURCE into the attribute (`class="() => { … }"`) —
+ *     broken bytes on every compiled reactive attribute.
+ *   - function values (event handlers, `onclick: fn`) never serialize —
+ *     handlers are wired at hydration, and function source in HTML was the
+ *     same defect wearing its other hat.
+ *   - resolved/static primitives keep the shipped rules: `true` → bare attr,
+ *     `false`/`undefined` → omitted, everything else → `String(v)` escaped.
+ *
+ * The compiled string renderer (`__ssrString` + @aihu/runtime's
+ * `__aihu_sattr`) mirrors these EXACT rules — the differential suite pins
+ * the byte-identity.
+ */
 function serializeAttrs(attrs: Record<string, string | boolean>): string {
   let out = ''
   for (const [k, v] of Object.entries(attrs)) {
-    if (v === true) out += ` ${k}`
-    else if (v !== false && v !== undefined) out += ` ${k}="${escapeAttr(String(v))}"`
+    let val: unknown = v
+    if (Array.isArray(val)) {
+      const get = val[0]
+      val = typeof get === 'function' ? (get as () => unknown)() : get
+    }
+    if (typeof val === 'function') continue
+    if (val === true) out += ` ${k}`
+    else if (val !== false && val !== undefined) out += ` ${k}="${escapeAttr(String(val))}"`
   }
   return out
 }
@@ -606,6 +630,54 @@ function emitStateScriptAndClose(
 }
 
 // ---------------------------------------------------------------------------
+// Wave-3 — the compiled string fast path.
+// ---------------------------------------------------------------------------
+
+/**
+ * The opts-only compiled string renderer a component factory may carry.
+ * Compiled server artifacts attach it as `__ssr.__aihu_ssr_string__`
+ * (opts-only, empty props); callers that bind props re-attach a props-bound
+ * version via `attachSsrString` below. The renderer's output is
+ * BYTE-IDENTICAL to the tree walk for the same component+state — enforced by
+ * the differential suite — so taking it changes latency, never bytes.
+ */
+type SsrStringRenderer = (opts?: { hydratable?: boolean }) => string
+
+/**
+ * Resolve the compiled string renderer for `component`, if any.
+ * `AIHU_SSR_STRING=0` is the escape hatch back to the tree walker.
+ */
+function _ssrStringOf(component: unknown): SsrStringRenderer | undefined {
+  if (typeof component !== 'function') return undefined
+  if (typeof process !== 'undefined' && process.env && process.env.AIHU_SSR_STRING === '0') {
+    return undefined
+  }
+  const f = (component as { __aihu_ssr_string__?: unknown }).__aihu_ssr_string__
+  return typeof f === 'function' ? (f as SsrStringRenderer) : undefined
+}
+
+/**
+ * Carry a compiled string renderer across a props-binding wrapper.
+ *
+ * Call sites that wrap a compiled `__ssr` to bind props
+ * (`() => mod.default(props)`) hide the function-attached renderer from
+ * `renderToString`; this re-attaches a props-bound one when the MODULE
+ * exports `__ssrString(props, opts)`. Returns `component` for chaining.
+ */
+export function attachSsrString<T extends () => unknown>(
+  component: T,
+  ssrString: unknown,
+  props: unknown,
+): T {
+  if (typeof ssrString === 'function') {
+    ;(component as T & { __aihu_ssr_string__?: SsrStringRenderer }).__aihu_ssr_string__ = (opts?: {
+      hydratable?: boolean
+    }) => (ssrString as (p: unknown, o?: { hydratable?: boolean }) => string)(props, opts)
+  }
+  return component
+}
+
+// ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
@@ -622,6 +694,28 @@ export function renderToStream(
         const headHtml = buildHead(opts.head)
         const lang = opts.head.lang ? ` lang="${escapeAttr(opts.head.lang)}"` : ''
         controller.enqueue(`<!DOCTYPE html><html${lang}><head>${headHtml}</head><body>`)
+      }
+
+      // Wave-3 fast path: a compiled string renderer replaces the whole tree
+      // build + walk with one function call. Compiled templates cannot carry
+      // `dataSource` boundaries (the compiler never emits them — suspense is
+      // a synchronous stub), so there is nothing to suspend on: the render is
+      // one chunk, then the state script + close, exactly the byte sequence
+      // the walker's drained stream produces. Trees that DO stream (hand-built
+      // dataSource components) have no string renderer and take the walker
+      // below, preserving flush/suspend semantics unchanged.
+      const ssrString = _ssrStringOf(component)
+      if (ssrString) {
+        let html: string
+        try {
+          html = ssrString({ hydratable: opts?.hydratable ?? false })
+        } catch (err) {
+          controller.error(err)
+          return
+        }
+        controller.enqueue(html)
+        emitStateScriptAndClose(controller, opts)
+        return
       }
 
       // Step 2: Resolve component

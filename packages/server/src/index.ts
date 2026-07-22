@@ -90,7 +90,7 @@ export type {
   ScriptTag,
   SsrOptions,
 } from './ssr.ts'
-export { _setContextFns, renderToStream } from './ssr.ts'
+export { _setContextFns, attachSsrString, renderToStream } from './ssr.ts'
 export type { StreamRouteHandler } from './stream-route.ts'
 // v0.4.0 — defineStreamRoute for streaming HTTP responses.
 export { defineStreamRoute } from './stream-route.ts'
