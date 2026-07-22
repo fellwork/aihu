@@ -21,7 +21,7 @@ npm install @aihu/agent-service
 bun add @aihu/agent-service
 ```
 
-<sub><i>Auto-generated against `@aihu/agent-service@0.2.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/agent-service@0.3.0`.</i></sub>
 
 <!-- END_AUTOGEN: install -->
 
@@ -32,13 +32,12 @@ bun add @aihu/agent-service
 
 | | |
 |---|---|
-| **Version** | `0.2.0` |
+| **Version** | `0.3.0` |
 | **Tier** | C — Agent surface — server-side execution + tool dispatch |
-| **Bundle size** | 1.17 kB (gz) — limit 2900 B |
 | **Published files** | 3 entries |
 | **License** | MIT |
 
-<sub><i>Auto-generated against `@aihu/agent-service@0.2.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/agent-service@0.3.0`.</i></sub>
 
 <!-- END_AUTOGEN: stats -->
 
@@ -51,7 +50,7 @@ bun add @aihu/agent-service
 |---|---|---|
 | `.` | `./dist/index.js` | `—` |
 
-<sub><i>Auto-generated against `@aihu/agent-service@0.2.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/agent-service@0.3.0`.</i></sub>
 
 <!-- END_AUTOGEN: exports -->
 
@@ -64,7 +63,7 @@ bun add @aihu/agent-service
 
 - `@aihu/agent` — `workspace:*`
 
-<sub><i>Auto-generated against `@aihu/agent-service@0.2.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/agent-service@0.3.0`.</i></sub>
 
 <!-- END_AUTOGEN: deps -->
 
@@ -79,7 +78,7 @@ bun add @aihu/agent-service
 - [@aihu/agent-acp](../agent-acp)
 - [Aihu framework root](../../README.md)
 
-<sub><i>Auto-generated against `@aihu/agent-service@0.2.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/agent-service@0.3.0`.</i></sub>
 
 <!-- END_AUTOGEN: see-also -->
 
@@ -90,6 +89,6 @@ bun add @aihu/agent-service
 
 MIT — see [LICENSE](../../LICENSE).
 
-<sub><i>Auto-generated against `@aihu/agent-service@0.2.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/agent-service@0.3.0`.</i></sub>
 
 <!-- END_AUTOGEN: license -->

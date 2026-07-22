@@ -1,5 +1,42 @@
 # @aihu/server
 
+## 0.3.0
+
+### Minor Changes
+
+- [#463](https://github.com/fellwork/aihu/pull/463) [`bc0f289`](https://github.com/fellwork/aihu/commit/bc0f289ee38871cda8002e56fba3e3b8b7e34d84) Thanks [@srmcguirt](https://github.com/srmcguirt)! - GX Phase 3 ([#437](https://github.com/fellwork/aihu/issues/437)-GX) — derive robots.txt, noindex, and discovery output from
+  the compiled `extract.read` axis.
+
+  - `@aihu/server`: new `deriveReadPolicy` / `extractReadValue` /
+    `isCallAdvertised` — the one read-axis derivation table (crawl access per
+    bot tier, robots advertisability, noindex, discovery membership), fail-closed
+    on malformed values. `AgentReadinessConfig` gains `routes` (the compiled
+    route table conduit).
+  - `@aihu-plugin/agent-readiness`: `generateRobotsTxt` accepts `routes` and
+    derives per-path directives per route `read:` value over the tiered bot
+    registry (`'all'` → all tiers; `'agents'` → the [#430](https://github.com/fellwork/aihu/issues/430) tiered default, now
+    derived per route; `'search'` → searchers only; `'none'` → all crawlers
+    disallowed; hard values → not advertised at all). llms.txt gains a derived
+    `## Routes` section and filters its components section by the declared
+    policy; MCP server-card tools are filtered by read + call advertisability.
+    With no routes declared, robots.txt is byte-identical to the shipped [#430](https://github.com/fellwork/aihu/issues/430)
+    default.
+  - `@aihu/router`: `RouteDefinition`/`RouteSidecar` carry the compiled
+    `extract` member; `createServerRouter.handle` sends `X-Robots-Tag: noindex`
+    for `read:'none'`/hard/malformed routes.
+  - `@aihu/compiler`: `RouteMeta` types the `extract` member the binary already
+    emits (type-only).
+
+  All of this is compliance-tier: advisory signals honored by compliant,
+  self-identifying crawlers. Hard-tier enforcement (SSR withholding, the
+  bundle/data boundary) is Phase 4 and is not part of this change.
+
+### Patch Changes
+
+- Updated dependencies [[`30ed2b5`](https://github.com/fellwork/aihu/commit/30ed2b51c215512f840b113afaa1636378e31407), [`889830d`](https://github.com/fellwork/aihu/commit/889830d907e83b7d74dc8e64503d8bb4b4711812), [`549448c`](https://github.com/fellwork/aihu/commit/549448cd042ba89b94ddb291be741f015c3d0d9c), [`e01f19d`](https://github.com/fellwork/aihu/commit/e01f19d70eabe867b8b8c310a6928b9576461cf0)]:
+  - @aihu/agent@0.2.0
+  - @aihu/agent-service@0.3.0
+
 ## 0.2.1
 
 ### Patch Changes

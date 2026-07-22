@@ -1,6 +1,6 @@
 {
   "name": "@aihu/language-server",
-  "version": "0.2.22",
+  "version": "0.3.0",
   "license": "MIT",
   "type": "module",
   "bin": {
@@ -46,7 +46,7 @@
     "typescript": "^5.6.2",
     "volar-service-typescript": "0.0.71"
   },
-  "description": "Cross-editor Language Server (aihu-language-server) for .aihu Single File Components \u2014 diagnostics, hover, completion, and quick-fix code actions.",
+  "description": "Cross-editor Language Server (aihu-language-server) for .aihu Single File Components — diagnostics, hover, completion, and quick-fix code actions.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/fellwork/aihu.git",

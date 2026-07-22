@@ -1,5 +1,38 @@
 # @aihu/auth
 
+## 3.0.0
+
+### Minor Changes
+
+- [#459](https://github.com/fellwork/aihu/pull/459) [`2b6c013`](https://github.com/fellwork/aihu/commit/2b6c013ef7700397b73f8016dd6bc5f8d5a92dd9) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Security hardening (GX Phase 0): `createAuthRoutes` now verifies tokens before setting the session cookie.
+
+  - The sign-in and refresh routes verify the posted token with `verifyJwt` (HMAC signature plus the registered-claim validation from [#457](https://github.com/fellwork/aihu/issues/457): `exp` required by default, `nbf`, and `aud` when `AuthConfig.audience` is set) BEFORE it is set as the session cookie. An unverifiable token is rejected with 401 and no `Set-Cookie` header. When `jwtSecret` is empty the routes fail closed (500, no cookie).
+  - Docstring corrections: `AuthConfig.jwtSecret` and `VerifiedAuthPluginOptions.jwtSecret` no longer imply aihu signs or issues JWTs. aihu verifies tokens; issuance is not yet provided (planned for the GX issuance phase).
+
+  Behavior change: previously the routes accepted any `{ token }` body and cookied it as-is; tokens must now be signed with the configured `jwtSecret` and carry valid registered claims. This matches what `getAuthState` already required to honor the cookie.
+
+- [#457](https://github.com/fellwork/aihu/pull/457) [`11e4ae5`](https://github.com/fellwork/aihu/commit/11e4ae5165dedb23edb4a37e7bc4300eec6212e0) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Security hardening: JWT verification now enforces registered claims, and the rate limiter fails closed at capacity.
+
+  - `@aihu/auth` (minor): `verifyJwt` (and therefore `createVerifiedAuthPlugin` and `getAuthState`) validates registered claims after the signature check: `exp` is now REQUIRED and enforced (a token without `exp` is rejected unless the service opts in via `allowNoExpiry: true`), `nbf` is enforced, a wildly future `iat` is rejected, and `aud` is enforced when an expected `audience` is configured. A configurable clock-skew leeway (`clockSkewSec`, default 60s) absorbs minor clock drift. New options surface on `VerifyJwtOptions`, `VerifiedAuthPluginOptions`, and `AuthConfig`. All failures return `null`, which the agent-service gate maps to 401 `AUTH_INVALID` (fail-closed).
+  - `@aihu/scraping` (minor): `createRateLimiter` now DENIES a call it cannot positively account for — a new key when the key map is at `maxKeys` capacity, or an internal error — instead of allowing it. Under-limit behavior is unchanged. The store remains per-process; distributed accounting is a separate concern.
+
+  Behavior change: tokens without `exp` (previously accepted forever) are now refused unless `allowNoExpiry` is explicitly set — this is the security fix.
+
+- [#450](https://github.com/fellwork/aihu/pull/450) [`e01f19d`](https://github.com/fellwork/aihu/commit/e01f19d70eabe867b8b8c310a6928b9576461cf0) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Security fix ([#420](https://github.com/fellwork/aihu/issues/420)): rate-limit keys and scope checks derive from a signature-VERIFIED JWT principal.
+
+  Rate-limit keys were `${userId}:${tag}` with `userId` caller-supplied over MCP and never cross-checked against the JWT `sub`, so a caller reset its own quota by rotating `userId`; the scope check likewise consulted unverified claims, so a forged `scope` claim bypassed `$scope`.
+
+  - `@aihu/agent-service` (minor — optional interface member): `AuthPlugin.verify?(jwt) → Promise<VerifiedClaims | null>` is the single verified-claims source for BOTH the rate-limit key (`sub:tag`) and the scope gate; the gate is now async end-to-end and FAILS CLOSED (401) when a scoped/rate-limited tool meets a plugin that cannot verify. New `authDiscoveryUrl` option: 401 envelopes carry the deployment's auth-discovery URL so refused agents know where to obtain a credential.
+  - `@aihu/auth` (minor): `@aihu/auth/server` exports `verifyJwt` and `createVerifiedAuthPlugin({ jwtSecret })` — the `crypto.subtle` HMAC path backing `verify`. The decode-only `createAuthPlugin` remains but cannot serve scoped/rate-limited tools.
+  - `@aihu/agent-server` (minor): the MCP boundary forwards only the `jwt` credential from caller-supplied `context`; caller identity (`userId`) is dropped, never forwarded as authoritative. `authDiscoveryUrl` is threaded through and surfaced in MCP 401 error text.
+
+  Behavior change: callers that relied on caller-supplied identity to satisfy scoped/rate-limited tools (i.e. spoofing callers, or deployments without a verifying auth plugin) are now refused with 401 — this is the security fix. Un-scoped, un-rate-limited tools are unaffected.
+
+### Patch Changes
+
+- Updated dependencies [[`889830d`](https://github.com/fellwork/aihu/commit/889830d907e83b7d74dc8e64503d8bb4b4711812), [`549448c`](https://github.com/fellwork/aihu/commit/549448cd042ba89b94ddb291be741f015c3d0d9c), [`e01f19d`](https://github.com/fellwork/aihu/commit/e01f19d70eabe867b8b8c310a6928b9576461cf0)]:
+  - @aihu/agent-service@0.3.0
+
 ## 2.0.0
 
 ### Patch Changes

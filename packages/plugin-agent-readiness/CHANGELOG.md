@@ -1,5 +1,71 @@
 # @aihu/agent-readiness
 
+## 2.2.0
+
+### Minor Changes
+
+- [#462](https://github.com/fellwork/aihu/pull/462) [`549448c`](https://github.com/fellwork/aihu/commit/549448cd042ba89b94ddb291be741f015c3d0d9c) Thanks [@srmcguirt](https://github.com/srmcguirt)! - GX Phase 2 — the principal gate, `call`-axis enforcement, and the unified bot registry ([#437](https://github.com/fellwork/aihu/issues/437)-GX).
+
+  `@aihu/agent-service` gains `principal-gate.ts`: `resolvePrincipal` (request →
+  one of four principal classes: anonymous / verified-agent / scoped-agent /
+  human-session, derived exclusively from `AuthPlugin.verify` — never decode-only,
+  never caller-supplied identity; a presented-but-invalid credential resolves to
+  anonymous) and `decideEmission` (principal × surface policy → allow/deny with
+  enforcement tier). The tool gate's AUTH\_\* ladder and scope check now route
+  through this one gate — behavior for existing callers is unchanged (same rungs,
+  same order, same messages, same rate-limit keys).
+
+  New enforcement: the `extract.call` axis from GX Phase 1 is consumed
+  server-side as a CEILING over per-member `expose:`/`$scope` — `call: 'none'`
+  makes the agent surface unavailable (404-shaped), `'verified'` forces a
+  verified principal for every member, `{ scope }` is met with each member's own
+  `$scope` (both must pass). Surfaces with no declaration keep today's behavior
+  exactly; a malformed declared value fails closed.
+
+  The `read` axis is DECIDED by `decideEmission` but not yet enforced anywhere —
+  compliance-tier derivation is Phase 3, hard-tier withholding is Phase 4.
+
+  `@aihu/plugin-agent-readiness` unifies its bot lists into one exported
+  `BOT_REGISTRY` with a tier classification (`searcher` / `user-fetcher` /
+  `training-crawler`) and a `classifyBotUserAgent` classifier
+  (longest-token-first, so `Googlebot-Extended` is a trainer, not search). The
+  13-bot AI list, robots.txt output, and markdown negotiation are byte-identical;
+  search bots (`Googlebot`, `Bingbot`, `DuckDuckBot`, `Baiduspider`, `YandexBot`)
+  exist only for classification until Phase 3 derives output from `read:`.
+
+- [#463](https://github.com/fellwork/aihu/pull/463) [`bc0f289`](https://github.com/fellwork/aihu/commit/bc0f289ee38871cda8002e56fba3e3b8b7e34d84) Thanks [@srmcguirt](https://github.com/srmcguirt)! - GX Phase 3 ([#437](https://github.com/fellwork/aihu/issues/437)-GX) — derive robots.txt, noindex, and discovery output from
+  the compiled `extract.read` axis.
+
+  - `@aihu/server`: new `deriveReadPolicy` / `extractReadValue` /
+    `isCallAdvertised` — the one read-axis derivation table (crawl access per
+    bot tier, robots advertisability, noindex, discovery membership), fail-closed
+    on malformed values. `AgentReadinessConfig` gains `routes` (the compiled
+    route table conduit).
+  - `@aihu-plugin/agent-readiness`: `generateRobotsTxt` accepts `routes` and
+    derives per-path directives per route `read:` value over the tiered bot
+    registry (`'all'` → all tiers; `'agents'` → the [#430](https://github.com/fellwork/aihu/issues/430) tiered default, now
+    derived per route; `'search'` → searchers only; `'none'` → all crawlers
+    disallowed; hard values → not advertised at all). llms.txt gains a derived
+    `## Routes` section and filters its components section by the declared
+    policy; MCP server-card tools are filtered by read + call advertisability.
+    With no routes declared, robots.txt is byte-identical to the shipped [#430](https://github.com/fellwork/aihu/issues/430)
+    default.
+  - `@aihu/router`: `RouteDefinition`/`RouteSidecar` carry the compiled
+    `extract` member; `createServerRouter.handle` sends `X-Robots-Tag: noindex`
+    for `read:'none'`/hard/malformed routes.
+  - `@aihu/compiler`: `RouteMeta` types the `extract` member the binary already
+    emits (type-only).
+
+  All of this is compliance-tier: advisory signals honored by compliant,
+  self-identifying crawlers. Hard-tier enforcement (SSR withholding, the
+  bundle/data boundary) is Phase 4 and is not part of this change.
+
+### Patch Changes
+
+- Updated dependencies [[`30ed2b5`](https://github.com/fellwork/aihu/commit/30ed2b51c215512f840b113afaa1636378e31407), [`bc0f289`](https://github.com/fellwork/aihu/commit/bc0f289ee38871cda8002e56fba3e3b8b7e34d84)]:
+  - @aihu/agent@0.2.0
+  - @aihu/server@0.3.0
+
 ## 2.1.0
 
 ### Minor Changes

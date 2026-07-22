@@ -1,5 +1,286 @@
 # @aihu/compiler
 
+## 1.0.0
+
+### Major Changes
+
+- [#479](https://github.com/fellwork/aihu/pull/479) [`9dd7654`](https://github.com/fellwork/aihu/commit/9dd7654678da1149705e21324f6b30e9baafcd4b) Thanks [@srmcguirt](https://github.com/srmcguirt)! - DA4 ([#437](https://github.com/fellwork/aihu/issues/437)): the binary shadow API (`'light' | 'shadow'`) and light-DOM-by-default pages — one breaking change.
+
+  **The API.** `ShadowMode` collapsed to a BINARY `'light' | 'shadow'`; the
+  `'open'`, `'closed'`, and `'none'` tokens are retired everywhere (the
+  `$shadow` macro, the plugin-global `shadowMode` config /
+  `css: { shadowMode }`, the runtime `defineElement` options, and the CLI
+  `--shadow` flag). `'shadow'` attaches an OPEN root internally — open is the
+  only browser mode aihu's composition/hydration can use; `'closed'` was
+  self-contradictory (a closed root nulls `this.shadowRoot`, so light-DOM
+  detection misclassified it and content rendered into the host anyway).
+  `'light'` attaches no root, so `this.shadowRoot === null` is an unambiguous
+  detection. Migration: `'open'` → `'shadow'`, `'none'` → `'light'`,
+  `'closed'` → `'shadow'`.
+
+  **The defaults.** Page-level components — those with an `@route` block — and
+  layout SFCs (files under the configured layouts dir, default `src/layouts/`)
+  now default to `'light'`, so server-rendered page content is reachable by
+  crawlers and agents that do not execute JavaScript. Leaf components (no
+  `@route`) default to `'shadow'` (behaviorally the old `'open'` default).
+
+  Precedence, in order: a per-file `$shadow` pin > an explicit plugin-global
+  `shadowMode` config > the page/layout default `'light'` > the leaf default
+  `'shadow'`. An unpinned page carries a new `// @aihu:shadow-default light`
+  marker (distinct from the `$shadow` pin marker) so the implicit default ranks
+  below an explicit plugin-global config.
+
+  Breaking implications:
+
+  - Retired tokens fail loudly: `$shadow` with an old token is a C471 compile
+    error; `css.shadowMode` with one throws at config validation; `--shadow`
+    with one warns and falls back to the default.
+  - A `$shadow`-less `@route` page's `@style` block now joins the global
+    cascade instead of being trapped in a shadow root — scope bare element
+    selectors under a page root class (see the migration guide §8).
+  - W472 (the phase-1 advisory that announced this flip) is retired.
+  - The static-island fast path is skipped for light-DOM components — the shim
+    cannot honor `shadowMode: 'light'`; such components keep the full runtime
+    path.
+  - css-engine scaffolds now always emit an explicit `css: { shadowMode }`
+    block carrying the wizard's `--shadow` choice (default `'shadow'`), since
+    the page default would otherwise override it.
+
+- [#489](https://github.com/fellwork/aihu/pull/489) [`80531dc`](https://github.com/fellwork/aihu/commit/80531dcc4dfc43bc9cd399bbb8ab4520efb8f15a) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Template grammar v2 — the prefix-less template (founder-ratified 40-spec).
+
+  One rule: naked keywords + naked HTML attributes + naked framework vocabulary;
+  `{expr}` braces mean expression, quoted strings mean static; `$` retreats to
+  `@state` macros only.
+
+  **New grammar:** `if={…}`/`elseif={…}`/`else` attribute chains (adjacency-checked),
+  the item-first `each={item, i of items}` `of`-binder with destructuring, `key={…}`,
+  `empty` siblings, colon directives `on:<event>` (with `.prevent`/`.stop`/`.self`/`.once`
+  modifiers), `bind:<prop>`, `class:<name>`, the `attr:<name>` literal escape hatch,
+  naked `show`/`html`/`ref`/`once`/`memo`/`raw`, the NEW `<group>` fragment carrier,
+  naked framework elements (`<slot>` is now THE projection form), and the enhanced
+  `<a>` (SPA navigation, `prefetch`, `replace`, `aria-current`, auto-opt-out +
+  explicit `reload`) replacing `<$link>`.
+
+  **Retired (compile errors with fix hints):** `{#if}` C601, `{#each}` C602,
+  `{@html}` C603, `{{ident}}` C604, `<$if>`/`<$else>` C605, `$if=`/`$each=`/`$let=`
+  C606, every other `$`-attribute C607, `<$link>` C608, other `<$…>` elements C609,
+  adjacency violations C610, unknown non-hyphenated elements C611. New lints:
+  W601 (keyless stateful `each`), W602 (non-empty string on a boolean attribute).
+
+  **Intended emission diffs:** internal `<a href>` links now lower to
+  `createLinkBoundary` (the retired `<$link>` lowering) with a runtime
+  origin/scheme auto-opt-out; everything else lowers through the same arbor
+  structural calls as v1 (`when`/`each`/fragment branches).
+
+  `aihu migrate --v2` now lands on this grammar (new final codemod pass:
+  `compiler/js/codemods/template-grammar-v2`).
+
+### Minor Changes
+
+- [#435](https://github.com/fellwork/aihu/pull/435) [`c3381b9`](https://github.com/fellwork/aihu/commit/c3381b92c3d356d6f78f9db0e8130a9e7a466269) Thanks [@srmcguirt](https://github.com/srmcguirt)! - `expose:` is now the agent opt-in. An `@agent` block is no longer required.
+
+  Every agent artifact was gated on the presence of an `@agent` block. That
+  contradicted the documented contract (`docs/site/authoring-agents.md`: "No
+  `@agent` block needed") and had a concrete consequence: the `aihu create`
+  scaffold and `cookbook/agent-weather.aihu` both write `expose:` and `describe:`
+  with no `@agent` block, and both compiled to **zero** agent artifacts. The
+  scaffold's own comment that "`$action` is the single source of truth for the
+  agent surface" was false at the compiler level.
+
+  A component is now agent-enabled when it exposes anything. `@agent` keeps its
+  v2 job: carrying policy (`$scope`, `$rate-limit`). A component with exposed
+  members and no block gets no policy — unscoped and unthrottled, which is what
+  declaring nothing means.
+
+  This does not widen the exposed surface. `expose: { read: true }` is already an
+  explicit, per-member opt-in, and unexposed members remain excluded. Requiring a
+  second opt-in only made the first one silently inert. A component that exposes
+  nothing stays inert whether or not it declares `@agent`.
+
+  **Behavior change to expect:** any component with `expose:` and no `@agent`
+  block now emits `registerAgentMetadata`, `__agentBinding`, the server binding
+  registration, and a manifest on server/universal builds — and, on client builds,
+  the narrow opaque-ID dispatcher needed by the capability bridge. That last one
+  is new client-side weight for such components, where previously there was none.
+  Ten components in `cookbook/` and `examples/` are affected, including
+  `live-counter`, `todo-mvc`, and `weather-card`.
+
+  If a component should NOT be agent-reachable, remove `expose:` from its
+  entries — that is now the only switch, rather than one of two that had to agree.
+
+- [#435](https://github.com/fellwork/aihu/pull/435) [`30ed2b5`](https://github.com/fellwork/aihu/commit/30ed2b51c215512f840b113afaa1636378e31407) Thanks [@srmcguirt](https://github.com/srmcguirt)! - `describe:` now reaches agents. The compiler emits `registerAgentMetadata`.
+
+  `$action` / `$prop` / `$computed` entries have accepted a `describe:` key since the
+  v2 macro vocabulary landed — it was parsed, validated, and parser-tested, then
+  dropped. It reached no emitted artifact, so MCP tools shipped with a synthesized
+  description ("Invoke the `bump` action on a live `<tag>` instance.") regardless of
+  what the author wrote.
+
+  Two independent breaks, both fixed:
+
+  - The compiler **never emitted `registerAgentMetadata` anywhere**, so the
+    `@aihu/agent` registry that `@aihu/agent-server`'s `buildToolDefinitions` reads
+    was empty in every real app. `registry.ts`'s doc comment described a wire that
+    was never built. Server and universal builds now emit
+    `registerAgentMetadata({ tag, state, actions })` at module scope. The payload is
+    pure data — it closes over no setup locals, unlike `__agentBinding` — so it is
+    safe there and readable on import without a live instance. Client builds elide
+    it along with the rest of the agent surface.
+
+  - `emit_manifest` read only the retired **v1** `@agent { input / action }`
+    keywords, so a v2 component's `agent-manifest.json` came out with empty
+    `inputs` and `actions`. It now derives from the same `collect_agent_members`
+    walk that feeds `__agentBinding` and the registry, so the sidecar cannot drift
+    from the live surface again. It also gained a `state` key mirroring the
+    registry payload.
+
+  `ActionSchema` gains an optional `describe`. `buildToolDefinitions` prefers the
+  authored text over its synthesized string, for both action tools and state-read
+  tools — the state map's values were previously ignored entirely.
+
+  Descriptions are collected only for members that clear the `expose` gate, so an
+  unexposed member's prose (which may describe internals) never reaches a public
+  artifact.
+
+  Not covered: MCP `inputSchema` is still `args: { type: 'array' }`. Real parameter
+  schemas need handler-signature extraction and are tracked separately.
+
+- [#461](https://github.com/fellwork/aihu/pull/461) [`0db5827`](https://github.com/fellwork/aihu/commit/0db58275ecabf2d3e49431c810885e1ebfb5a9b6) Thanks [@srmcguirt](https://github.com/srmcguirt)! - GX Phase 1 — the `extract:` two-axis governed-extractability vocabulary
+  ([#437](https://github.com/fellwork/aihu/issues/437)-GX, spec `docs/plans/governed-extractability/40-spec.md` §2–§3, §12
+  Phase 1). Parse, validate, store, fan out; **no enforcement** — the principal
+  gate, compliance derivation, and the bundle/data boundary are later phases.
+
+  **The declaration (one, two positions):**
+
+  - `@route { extract: { read: ..., call: ... } }` — routes.
+  - `$extract: { read: ..., call: ... }` in `@state` — non-route components.
+
+  Both lower to the same `ExtractDecl`. `read` (crawl-visibility) ∈ `'all' |
+'agents' | 'search' | 'none' | 'verified' | 'human' | { scope: '<name>' }`;
+  `call` (agent-callability) ∈ `'none' | 'anonymous' | 'verified' |
+{ scope: '<name>' }`. The `{ scope }` value shape carries its scope, making
+  "gated without a scope" (design A's C482) unrepresentable.
+
+  **Resolution:** explicit declaration → component-`$scope` derives a
+  fail-closed `read: { scope }` → the ratified default
+  `{ read: 'agents', call: 'anonymous' }`. Behavior is byte-identical to today
+  for humans, search, and user-directed fetchers — this phase only records the
+  posture.
+
+  **Compile errors / warnings:** C481 (an `expose:`d member under
+  `call: 'none'`), C483 (malformed policy value), C484 (more than one
+  declaration per surface), C485 (unknown `@`-class-scope on `$scope` —
+  `@human`/`@verified` are the reserved vocabulary), W480 (explicit public-tier
+  `read` overriding the component-`$scope` derivation), W481 (`call: { scope }`
+  with nothing exposed).
+
+  **Three-artifact fan-out:** the resolved policy is computed once per compile
+  and rendered into (1) a `// @aihu:extract read=<v> call=<v>` code marker
+  beside the shadow marker (server/universal artifacts only — policy never
+  reaches client bundles), (2) an `"extract"` member on the `.route.json`
+  sidecar, and (3) an `"extract"` member on the agent-meta manifest — agreement
+  by construction, asserted by tests. The Vite plugin prints a per-value census
+  (`[aihu] extract census — N surface(s)`) at the end of every build.
+
+### Patch Changes
+
+- [#435](https://github.com/fellwork/aihu/pull/435) [`2660a52`](https://github.com/fellwork/aihu/commit/2660a52223193eb724450e4b6e9dce32e15ae83b) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Fix: css-engine scoped-utility fold no-opped on agent components. The
+  `_foldCssEngineStyles` Shape-2 pass anchored on a literal `defineComponent((ctx) => {`,
+  but a component with an exposed member emits `(__aihu_ctx__)` (so
+  `_registerAgentServerBinding` can read `__aihu_ctx__?.element`). The pass now
+  captures the actual setup param and injects the `adoptedStyleSheets` adoption
+  against it, so an agent component using css-engine utilities gets its shadow
+  stylesheet instead of silently shipping none.
+
+- [#435](https://github.com/fellwork/aihu/pull/435) [`a195b80`](https://github.com/fellwork/aihu/commit/a195b8093e639c96b8471ea3567267ca8c11c269) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Five codegen bugs that emitted invalid JavaScript.
+
+  Found by syntax-checking every component in `cookbook/` and `examples/` with
+  esbuild — 5 of 32 did not parse. No test caught any of them: the compiler
+  reported success, and the failure surfaced later in the bundler or not at all.
+
+  - **Async `$action` handlers.** `handler: async () => …` lowered to
+    `function name(async ()) { … }`. `arrow_args` saw a leading `a` rather than
+    `(`, took the single-identifier branch, and returned everything before `=>`.
+    Async handlers now lower to `async function name(args) { … }` and are no
+    longer wrapped in `batch` — `batch` takes a plain arrow (so `await` in the
+    body was a syntax error), and it flushes synchronously, so it would have
+    covered only the prefix before the first `await` while looking atomic.
+
+  - **Block-bodied `$computed` / `$resource`.** `arrow_body` strips the braces
+    off a block body, which `$action` relies on because it re-wraps in its own
+    `{ … }` — but `$computed` and `$resource` splice straight into `() => <expr>`,
+    yielding `computed(() => if (x) return y)`. Added `arrow_body_spliceable`,
+    which re-wraps block bodies and leaves expression bodies (including object
+    literals like `({ a: 1 })`) alone.
+
+  - **Async propagation.** `$computed`, `$resource`, `$effect`, and `$lifecycle`
+    dropped the `async` keyword, so any awaiting body became a syntax error.
+    Async `$effect` tracks dependencies only up to the first `await` — a real
+    caveat, but the author's to make; emitting a non-async arrow around an
+    awaiting body is simply broken.
+
+  - **`$form` leaked into the component body.** It was the one `CollectionKind`
+    missing from the plain-body skip list, so its entries reached the
+    `name: type` declaration scanner and `value: () => value,` was rewritten to
+    `let value: () => value,`, leaving a dangling `}`.
+
+  - **Destructured `$each` aliases tore.** `as [name, desc]` split on the first
+    comma — the one inside the pattern — producing `([name) => name`. The split
+    was duplicated in three places; the `emit.rs` copy was the one the
+    `$each="…"` attribute form actually reaches. A depth-aware
+    `split_each_alias` now backs all three. This also removes the need for the
+    `rejoin_alias_list` workaround downstream, whose comment already documented
+    the tearing as expected behavior.
+
+  All 32 cookbook and example components now emit parseable JavaScript, covered
+  by five regression tests.
+
+- [#505](https://github.com/fellwork/aihu/pull/505) [`dd8cfd6`](https://github.com/fellwork/aihu/commit/dd8cfd639f42ddb05468fe07b6d4f4420a80a8bf) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Fix the codemod and sidecar defects surfaced by the v2 canary migration
+  ([#502](https://github.com/fellwork/aihu/issues/502), [#503](https://github.com/fellwork/aihu/issues/503), [#504](https://github.com/fellwork/aihu/issues/504)).
+
+  - `aihu migrate` (macro-simplification): consume a multi-line `import { … }`
+    as a single statement so its members are no longer orphaned below the
+    closing brace and single-line imports are no longer hoisted into the open
+    brace (the import-scrambling defect).
+  - `aihu migrate --state` (state-wrapper): de-call prop reads (`name()` →
+    `name`) after `$prop` → `prop()`, since `prop()` returns a value in the
+    wrapper model rather than a callable signal.
+  - `aihu migrate --v2` (template-grammar): accept the dot spelling
+    `$class.modifier` in addition to `$class:modifier`.
+  - Type-check sidecar: `__aihu_each` over an `any` iterable now types loop
+    bindings as `any` instead of `unknown` (one conditional-typed generic with
+    an IsAny guard).
+  - `aihu-tsc`: surface the first real compile error when a file cannot be
+    compiled (a stale-compiler error immediately reveals a version mismatch),
+    and document version-aligning `@aihu/tsc` with `@aihu/compiler`.
+
+- [#463](https://github.com/fellwork/aihu/pull/463) [`bc0f289`](https://github.com/fellwork/aihu/commit/bc0f289ee38871cda8002e56fba3e3b8b7e34d84) Thanks [@srmcguirt](https://github.com/srmcguirt)! - GX Phase 3 ([#437](https://github.com/fellwork/aihu/issues/437)-GX) — derive robots.txt, noindex, and discovery output from
+  the compiled `extract.read` axis.
+
+  - `@aihu/server`: new `deriveReadPolicy` / `extractReadValue` /
+    `isCallAdvertised` — the one read-axis derivation table (crawl access per
+    bot tier, robots advertisability, noindex, discovery membership), fail-closed
+    on malformed values. `AgentReadinessConfig` gains `routes` (the compiled
+    route table conduit).
+  - `@aihu-plugin/agent-readiness`: `generateRobotsTxt` accepts `routes` and
+    derives per-path directives per route `read:` value over the tiered bot
+    registry (`'all'` → all tiers; `'agents'` → the [#430](https://github.com/fellwork/aihu/issues/430) tiered default, now
+    derived per route; `'search'` → searchers only; `'none'` → all crawlers
+    disallowed; hard values → not advertised at all). llms.txt gains a derived
+    `## Routes` section and filters its components section by the declared
+    policy; MCP server-card tools are filtered by read + call advertisability.
+    With no routes declared, robots.txt is byte-identical to the shipped [#430](https://github.com/fellwork/aihu/issues/430)
+    default.
+  - `@aihu/router`: `RouteDefinition`/`RouteSidecar` carry the compiled
+    `extract` member; `createServerRouter.handle` sends `X-Robots-Tag: noindex`
+    for `read:'none'`/hard/malformed routes.
+  - `@aihu/compiler`: `RouteMeta` types the `extract` member the binary already
+    emits (type-only).
+
+  All of this is compliance-tier: advisory signals honored by compliant,
+  self-identifying crawlers. Hard-tier enforcement (SSR withholding, the
+  bundle/data boundary) is Phase 4 and is not part of this change.
+
 ## 0.11.0
 
 ### Minor Changes

@@ -48,7 +48,7 @@ npm install @aihu/primitives
 bun add @aihu/primitives
 ```
 
-<sub><i>Auto-generated against `@aihu/primitives@0.1.2`.</i></sub>
+<sub><i>Auto-generated against `@aihu/primitives@0.1.3`.</i></sub>
 
 <!-- END_AUTOGEN: install -->
 
@@ -59,12 +59,12 @@ bun add @aihu/primitives
 
 | | |
 |---|---|
-| **Version** | `0.1.2` |
+| **Version** | `0.1.3` |
 | **Tier** | E — Held private (unmapped tier) |
 | **Published files** | 3 entries |
 | **License** | MIT |
 
-<sub><i>Auto-generated against `@aihu/primitives@0.1.2`.</i></sub>
+<sub><i>Auto-generated against `@aihu/primitives@0.1.3`.</i></sub>
 
 <!-- END_AUTOGEN: stats -->
 
@@ -93,7 +93,7 @@ bun add @aihu/primitives
 | `./switch` | `./dist/switch.js` | `—` |
 | `./radio-group` | `./dist/radio-group.js` | `—` |
 
-<sub><i>Auto-generated against `@aihu/primitives@0.1.2`.</i></sub>
+<sub><i>Auto-generated against `@aihu/primitives@0.1.3`.</i></sub>
 
 <!-- END_AUTOGEN: exports -->
 
@@ -108,7 +108,7 @@ bun add @aihu/primitives
 - `@aihu/arbor` — `workspace:*`
 - `@aihu/css-engine` — `workspace:*`
 
-<sub><i>Auto-generated against `@aihu/primitives@0.1.2`.</i></sub>
+<sub><i>Auto-generated against `@aihu/primitives@0.1.3`.</i></sub>
 
 <!-- END_AUTOGEN: deps -->
 
@@ -120,7 +120,7 @@ bun add @aihu/primitives
 - [Aihu framework root](../../README.md)
 - [v1.1 roadmap](../../docs/roadmap/SUMMARY.md)
 
-<sub><i>Auto-generated against `@aihu/primitives@0.1.2`.</i></sub>
+<sub><i>Auto-generated against `@aihu/primitives@0.1.3`.</i></sub>
 
 <!-- END_AUTOGEN: see-also -->
 
@@ -131,6 +131,6 @@ bun add @aihu/primitives
 
 MIT — see [LICENSE](../../LICENSE).
 
-<sub><i>Auto-generated against `@aihu/primitives@0.1.2`.</i></sub>
+<sub><i>Auto-generated against `@aihu/primitives@0.1.3`.</i></sub>
 
 <!-- END_AUTOGEN: license -->
