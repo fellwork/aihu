@@ -32,7 +32,7 @@ import { createAihuLanguagePlugin, getUncompilableFiles } from './language-plugi
  * keeps the relaxation scoped to exactly the files that need it. `--strict-templates`
  * drops the filter once a corpus is annotated.
  */
-const IMPLICIT_ANY_CODES = new Set([
+export const IMPLICIT_ANY_CODES = new Set([
   7005, // Variable implicitly has an 'any' type.
   7006, // Parameter implicitly has an 'any' type.
   7008, // Member implicitly has an 'any' type.
@@ -85,7 +85,10 @@ export function run(options: RunOptions = {}): number {
   parsed.options.allowNonTsExtensions = true
 
   const createProgram = proxyCreateProgram(ts, ts.createProgram, (tsModule) => [
-    createAihuLanguagePlugin(tsModule),
+    // #486 step 4 — `--strict-templates` turns the sidecar's attribute/
+    // component-prop check layer on; default-off keeps the virtual code
+    // byte-identical to the previous surface.
+    createAihuLanguagePlugin(tsModule, { strictTemplates: options.strictTemplates ?? false }),
   ])
 
   const host = ts.createCompilerHost(parsed.options)
@@ -140,9 +143,23 @@ export function run(options: RunOptions = {}): number {
 }
 
 function keep(d: ts.Diagnostic, strictTemplates: boolean): boolean {
+  return keepDiagnosticCode(d.code, d.file?.fileName, strictTemplates)
+}
+
+/**
+ * The one diagnostic-suppression policy, shared with the language server
+ * (step 5): an editor squiggle and a CI failure must apply the SAME filter,
+ * or the split-brain this unification removes would creep back in as
+ * editor-only implicit-any noise.
+ */
+export function keepDiagnosticCode(
+  code: number | string | undefined,
+  fileName: string | undefined,
+  strictTemplates: boolean,
+): boolean {
   if (strictTemplates) return true
-  if (!d.file?.fileName.endsWith('.aihu')) return true
-  return !IMPLICIT_ANY_CODES.has(d.code)
+  if (!fileName?.endsWith('.aihu')) return true
+  return !IMPLICIT_ANY_CODES.has(Number(code))
 }
 
 function formatDiagnostics(diagnostics: readonly ts.Diagnostic[], cwd: string): string {
@@ -153,4 +170,5 @@ function formatDiagnostics(diagnostics: readonly ts.Diagnostic[], cwd: string): 
   })
 }
 
+export type { AihuLanguagePluginOptions, AihuVirtualCode } from './language-plugin.ts'
 export { buildMappings, createAihuLanguagePlugin, getUncompilableFiles } from './language-plugin.ts'

@@ -25,7 +25,7 @@ pub use ast_export::{
     build_owned_ast, compile_to_ast, SfcAstOwned, SfcAttrOwned, SfcIfBranch, SfcMacroValueOwned,
     SfcMetaOwned, SfcNodeOwned, SfcStyleBlockOwned, SfcStyleScope, AST_VERSION,
 };
-pub use codegen::{emit, resolve_signals, EmitResult, SignalMap};
+pub use codegen::{emit, emit_with_options, resolve_signals, EmitResult, SignalMap};
 pub use expr::ExprParserMode;
 pub use parser::sfc;
 pub use parser::stream_macros;

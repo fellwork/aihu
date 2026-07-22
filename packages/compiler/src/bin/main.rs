@@ -421,7 +421,11 @@ fn main() {
     // WARNING; only component *references* are a hard C450 (see lib.rs).
     let tag_name = normalize_define_tag(&tag_name);
 
-    let result = aihu_compiler::emit(&unit, &tag_name);
+    // #486 step 4 — `--strict-templates` switches the sidecar's attribute/
+    // component-prop type layer on. Default-off keeps the type-check surface
+    // byte-identical (the flag affects ONLY `sidecar_ts`, never the JS).
+    let strict_templates = args.iter().any(|a| a == "--strict-templates");
+    let result = aihu_compiler::emit_with_options(&unit, &tag_name, strict_templates);
 
     // B3b — optional `--sidecar-out <path>` writes the per-SFC `.aihu.ts`
     // sidecar to that exact path. Used by the Vite plugin to write the

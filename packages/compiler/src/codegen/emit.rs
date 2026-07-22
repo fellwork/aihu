@@ -117,6 +117,15 @@ fn emit_style_block(style: &StyleBlock) -> (String, String) {
 }
 
 pub fn emit(unit: &CompileUnit, tag_name: &str) -> EmitResult {
+    emit_with_options(unit, tag_name, false)
+}
+
+/// #486 step 4 — `strict_templates` switches the sidecar's attribute/
+/// component-prop type layer on (`--strict-templates`). It affects ONLY the
+/// generated type-check surface (`sidecar_ts`); the emitted JS, manifest, and
+/// route sidecar are identical either way. Default-off keeps the sidecar
+/// byte-identical to the pre-#486 output.
+pub fn emit_with_options(unit: &CompileUnit, tag_name: &str, strict_templates: bool) -> EmitResult {
     if !tag_name.contains('-') {
         eprintln!(
             "warning: tag '{}' does not contain a hyphen; custom element names must include '-'",
@@ -314,7 +323,7 @@ pub fn emit(unit: &CompileUnit, tag_name: &str) -> EmitResult {
     // B3 — Per-SFC `.aihu.ts` sidecar (Architect spec §7 path (i)). Generates
     // a typed function body containing the template expressions so `tsc
     // --noEmit` over `**/*.aihu.ts` checks template type-safety end-to-end.
-    let sidecar_ts = emit_sidecar_ts(unit, tag_name);
+    let sidecar_ts = emit_sidecar_ts(unit, tag_name, strict_templates);
 
     EmitResult { js, manifest_json, route_json, sidecar_ts }
 }

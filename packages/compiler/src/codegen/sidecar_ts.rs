@@ -24,7 +24,11 @@ use super::template_emit::macro_value_expr;
 /// loops emit `for (const [item, i] of __aihu_each(list))` against one
 /// overloaded helper so loop binders carry inferred element types instead
 /// of `any` params. `tsc --noEmit` flags type errors on real `.aihu` lines.
-pub(crate) fn emit_sidecar_ts(unit: &CompileUnit, tag_name: &str) -> Option<String> {
+pub(crate) fn emit_sidecar_ts(
+    unit: &CompileUnit,
+    tag_name: &str,
+    strict_templates: bool,
+) -> Option<String> {
     let nodes = unit.template_ast.as_ref()?;
     // Always emit a sidecar when a template is present so tsc has a per-SFC
     // surface to check, even if the @template happens to contain only static
@@ -201,6 +205,8 @@ pub(crate) fn emit_sidecar_ts(unit: &CompileUnit, tag_name: &str) -> Option<Stri
         governed: governed_data.is_some(),
         uses_each: false,
         each_counter: 0,
+        strict: strict_templates,
+        chk_counter: 0,
     };
     let stmts = collector.collect(nodes, &std::collections::BTreeSet::new());
 
@@ -215,14 +221,32 @@ pub(crate) fn emit_sidecar_ts(unit: &CompileUnit, tag_name: &str) -> Option<Stri
         ""
     };
 
+    // #486 step 4 — the strict-templates attribute/component-prop layer's
+    // shared type scaffolding. `AihuComponentProps` is a GLOBAL interface each
+    // compiled component augments with its own tag→props entry (declaration
+    // merging across every sidecar in the program — the
+    // `JSX.IntrinsicElements` analog, derived from the `prop()` wrapper /
+    // `$prop` declarations, no parallel table). `__AihuPropsOf` resolves a
+    // tag to its merged entry and FAILS OPEN (`Record<string, any>`) for tags
+    // no compiled component declares, so third-party custom elements are
+    // never over-constrained.
+    let strict_type_decls = if strict_templates {
+        "declare global { interface AihuComponentProps {} } \
+         type __AihuPropsOf<K extends string> = K extends keyof AihuComponentProps \
+         ? AihuComponentProps[K] : Record<string, any>; "
+    } else {
+        ""
+    };
+
     let preamble_line = format!(
-        "{} declare function __handler(h: (...args: any[]) => any): void; {} {} {}{}{} \
+        "{} declare function __handler(h: (...args: any[]) => any): void; {} {} {}{}{}{} \
          // {}.aihu type-check sidecar (generated, line-preserving)",
         globals,
         to_single_line(&emit_decl),
         to_single_line(&event_decl),
         gx_type_decls,
         each_helper,
+        strict_type_decls,
         macro_binding_decls(script, governed_data),
         tag_name
     );
@@ -332,10 +356,53 @@ pub(crate) fn emit_sidecar_ts(unit: &CompileUnit, tag_name: &str) -> Option<Stri
     emit_sidecar_stmts(&stmts, &mut placer);
     let mut lines = placer.lines;
     lines.push("}".to_string());
+    // #486 step 4 — register THIS component's tag→props entry on the global
+    // `AihuComponentProps` interface. The member types are DERIVED from the
+    // authored declarations, not re-extracted: a wrapper-dialect
+    // `const city = prop<string>({…})` binding carries the author-facing
+    // value type in place (state-model spec §5.4), so `typeof city` IS the
+    // prop's type; an old-dialect `$prop` binds an accessor
+    // (`let city: () => T`, see `macro_binding_decls`), so its value type is
+    // `ReturnType<typeof city>`. Every entry is optional — required-prop
+    // presence is not this layer's check; wrong types and unknown prop names
+    // are.
+    if strict_templates {
+        let mut members: Vec<String> = Vec::new();
+        for m in &macros {
+            let crate::types::StateMacro::Collection {
+                kind: crate::types::CollectionKind::Prop,
+                entries,
+            } = m
+            else {
+                continue;
+            };
+            for e in entries {
+                // `route` is framework-injected, never parent-passed — and on
+                // a governed route it is declared as a VALUE, so the accessor
+                // derivation would not even type. Skip it.
+                if e.name == "route" {
+                    continue;
+                }
+                let ty = if e.wrapper {
+                    format!("typeof {}", e.name)
+                } else {
+                    format!("ReturnType<typeof {}>", e.name)
+                };
+                members.push(format!("{}?: {}", e.name, ty));
+            }
+        }
+        lines.push(format!(
+            "declare global {{ interface AihuComponentProps {{ {:?}: {{ {} }} }} }}",
+            tag_name,
+            members.join("; ")
+        ));
+    }
     // #487 — a wrapper-dialect sidecar is forced into MODULE scope so its
     // `declare function` intrinsics never collide with lib.dom script-scope
-    // globals (`event`); no-op when the inlined @state body already imports.
-    if !wrapper_scan.macros.is_empty() {
+    // globals (`event`). A strict-templates sidecar needs module scope too:
+    // `declare global` augmentation is only legal inside a module. No-op when
+    // the inlined @state body already imports.
+    if strict_templates || !wrapper_scan.macros.is_empty() {
         lines.push("export {}".to_string());
     }
     Some(format!("{}\n", lines.join("\n")))
@@ -368,6 +435,14 @@ enum SidecarStmt {
     },
     If {
         branches: Vec<SidecarBranch>,
+    },
+    /// #486 step 4 — a strict-templates check statement placed VERBATIM: the
+    /// `document.createElement` element materialization, an
+    /// `__chk_N.prop = (expr);` attribute assignment, or a component-prop
+    /// assignment against `__AihuPropsOf<'tag'>`.
+    Raw {
+        ts: String,
+        line: usize,
     },
     Each {
         /// Tuple binding pattern for the loop head: `[item]`, `[item, i]`,
@@ -437,6 +512,10 @@ struct SidecarCollector<'a> {
     governed: bool,
     uses_each: bool,
     each_counter: usize,
+    /// #486 step 4 — emit the attribute/component-prop check layer.
+    strict: bool,
+    /// Unique ids for the per-element `__chk_N` check consts.
+    chk_counter: usize,
 }
 
 impl SidecarCollector<'_> {
@@ -454,6 +533,27 @@ impl SidecarCollector<'_> {
             }
             None => 0,
         }
+    }
+
+    /// #486 step 4 — recover a STATIC attribute's 1-based `.aihu` line by
+    /// locating its `name="value"` (or `name='value'`) text. Shares the
+    /// forward-only cursor, and attrs scan in source order, so the recovery
+    /// stays sound alongside expression captures. 0 = unknown (stacks).
+    fn recover_static_line(&mut self, name: &str, value: &str) -> usize {
+        if self.tmpl_first_line == 0 {
+            return 0;
+        }
+        for pat in [
+            format!("{}=\"{}\"", name, value),
+            format!("{}='{}'", name, value),
+        ] {
+            if let Some(off) = self.template_text.get(self.cursor..).and_then(|s| s.find(&pat)) {
+                let abs = self.cursor + off;
+                self.cursor = abs + pat.len();
+                return self.tmpl_first_line + newlines_before(self.template_text, abs);
+            }
+        }
+        0
     }
 
     /// Step 1 — rewrite-before-lift: bare reads of registered getters check at
@@ -495,9 +595,13 @@ impl SidecarCollector<'_> {
         let mut out: Vec<SidecarStmt> = Vec::new();
         for node in nodes {
             match node {
-                TemplateNode::Element { attrs, children, .. }
-                | TemplateNode::MacroElement { attrs, children, .. } => {
-                    self.collect_element(attrs, children, shadow, &mut out);
+                TemplateNode::Element { tag, attrs, children } => {
+                    self.collect_element(Some(tag.as_str()), attrs, children, shadow, &mut out);
+                }
+                TemplateNode::MacroElement { attrs, children, .. } => {
+                    // Framework elements (`<group>`, `<suspense>`, …) carry no
+                    // attribute type surface — only their macro attrs matter.
+                    self.collect_element(None, attrs, children, shadow, &mut out);
                 }
                 TemplateNode::Interpolation(s) => {
                     let line = self.recover_line(s);
@@ -577,16 +681,58 @@ impl SidecarCollector<'_> {
     /// in the loop/branch scope, while the each LIST evaluates outside.
     fn collect_element(
         &mut self,
+        tag: Option<&str>,
         attrs: &[Attr],
         children: &[TemplateNode],
         shadow: &std::collections::BTreeSet<String>,
         out: &mut Vec<SidecarStmt>,
     ) {
+        enum RawKind {
+            Plain,
+            Handler,
+            /// #486 step 4 — a typed `__chk_N.prop = (expr);` assignment
+            /// (HTML attribute or component prop). `prop` is the full
+            /// assignment target path.
+            Assign {
+                prop: String,
+            },
+            /// #486 step 4 — a static string checked AS A STRING LITERAL
+            /// against the attribute's type (`disabled="false"` is a type
+            /// error under `--strict-templates`). `literal` is the quoted TS
+            /// string literal; no rewrite applies.
+            StaticAssign {
+                prop: String,
+                literal: String,
+            },
+        }
         struct RawExpr {
             raw: String,
             line: usize,
-            is_handler: bool,
+            kind: RawKind,
         }
+        // #486 step 4 — what this element's attributes type-check against:
+        // a real DOM interface (the `document.createElement` trick) for a
+        // known HTML tag, the merged `AihuComponentProps` entry for a
+        // hyphenated/PascalCase component tag, nothing for SVG/MathML and
+        // framework elements.
+        enum CheckTarget {
+            Html(String),
+            Component(String),
+        }
+        let target: Option<CheckTarget> = if self.strict {
+            match tag {
+                Some(t) if crate::tags::is_component_tag(t) => {
+                    Some(CheckTarget::Component(crate::tags::kebab_component_tag(t)))
+                }
+                Some(t) if crate::tags::is_html_dom_element(t) => {
+                    Some(CheckTarget::Html(t.to_string()))
+                }
+                _ => None,
+            }
+        } else {
+            None
+        };
+        let mut chk_id: Option<usize> = None;
         // (list raw, head line, binder tuple pattern, bound names)
         let mut each_head: Option<(String, usize, String, std::collections::BTreeSet<String>)> =
             None;
@@ -613,7 +759,7 @@ impl SidecarCollector<'_> {
                             // the list capture checked as a plain expression.
                             let raw = clause.trim().to_string();
                             let line = self.recover_line(&raw);
-                            attr_exprs.push(RawExpr { raw, line, is_handler: false });
+                            attr_exprs.push(RawExpr { raw, line, kind: RawKind::Plain });
                         }
                     }
                 }
@@ -625,16 +771,65 @@ impl SidecarCollector<'_> {
                 Attr::Macro { name, value } if name.starts_with("on:") => {
                     let raw = macro_value_expr(value);
                     let line = self.recover_line(&raw);
-                    attr_exprs.push(RawExpr { raw, line, is_handler: true });
+                    attr_exprs.push(RawExpr { raw, line, kind: RawKind::Handler });
                 }
-                Attr::Binding { expr, .. } => {
+                Attr::Binding { name, expr } => {
                     let line = self.recover_line(expr);
-                    attr_exprs.push(RawExpr { raw: expr.clone(), line, is_handler: false });
+                    let kind = match &target {
+                        Some(CheckTarget::Html(_)) => match html_attr_prop(name) {
+                            Some(prop) => {
+                                let id = *chk_id.get_or_insert_with(|| {
+                                    let i = self.chk_counter;
+                                    self.chk_counter += 1;
+                                    i
+                                });
+                                RawKind::Assign { prop: format!("__chk_{}.{}", id, prop) }
+                            }
+                            None => RawKind::Plain,
+                        },
+                        Some(CheckTarget::Component(_)) if component_prop_candidate(name) => {
+                            let id = *chk_id.get_or_insert_with(|| {
+                                let i = self.chk_counter;
+                                self.chk_counter += 1;
+                                i
+                            });
+                            RawKind::Assign { prop: format!("__chk_{}.{}", id, name) }
+                        }
+                        _ => RawKind::Plain,
+                    };
+                    attr_exprs.push(RawExpr { raw: expr.clone(), line, kind });
+                }
+                Attr::Static { name, value }
+                    if self.strict
+                        && !value.is_empty()
+                        && matches!(target, Some(CheckTarget::Html(_))) =>
+                {
+                    // §2.2 normative static-attribute typing, boolean attrs:
+                    // the quoted string checks as a string literal against
+                    // the boolean property type — always a type error, which
+                    // is the point (`disabled="false"` is truthy in HTML;
+                    // W602 already warns non-strict).
+                    if let Some(prop) = boolean_attr_prop(name) {
+                        let line = self.recover_static_line(name, value);
+                        let id = *chk_id.get_or_insert_with(|| {
+                            let i = self.chk_counter;
+                            self.chk_counter += 1;
+                            i
+                        });
+                        attr_exprs.push(RawExpr {
+                            raw: String::new(),
+                            line,
+                            kind: RawKind::StaticAssign {
+                                prop: format!("__chk_{}.{}", id, prop),
+                                literal: format!("{:?}", value),
+                            },
+                        });
+                    }
                 }
                 Attr::Macro { value: MacroValue::Curly(s), .. } => {
                     let raw = s.clone();
                     let line = self.recover_line(&raw);
-                    attr_exprs.push(RawExpr { raw, line, is_handler: false });
+                    attr_exprs.push(RawExpr { raw, line, kind: RawKind::Plain });
                 }
                 _ => {}
             }
@@ -650,14 +845,65 @@ impl SidecarCollector<'_> {
             }
             None => shadow,
         };
-        let mut current: Vec<SidecarStmt> = attr_exprs
-            .into_iter()
-            .map(|e| SidecarStmt::Expr {
-                ts: self.rewrite(&e.raw, inner),
-                line: e.line,
-                is_handler: e.is_handler,
-            })
-            .collect();
+        let mut current: Vec<SidecarStmt> = Vec::new();
+        let mut chk_declared = false;
+        for e in attr_exprs {
+            match e.kind {
+                RawKind::Plain => current.push(SidecarStmt::Expr {
+                    ts: self.rewrite(&e.raw, inner),
+                    line: e.line,
+                    is_handler: false,
+                }),
+                RawKind::Handler => current.push(SidecarStmt::Expr {
+                    ts: self.rewrite(&e.raw, inner),
+                    line: e.line,
+                    is_handler: true,
+                }),
+                RawKind::Assign { prop } => {
+                    if !chk_declared {
+                        current.push(SidecarStmt::Raw {
+                            ts: chk_decl(&target, chk_id),
+                            line: e.line,
+                        });
+                        chk_declared = true;
+                    }
+                    current.push(SidecarStmt::Raw {
+                        ts: format!("{} = ({});", prop, self.rewrite(&e.raw, inner)),
+                        line: e.line,
+                    });
+                }
+                RawKind::StaticAssign { prop, literal } => {
+                    if !chk_declared {
+                        current.push(SidecarStmt::Raw {
+                            ts: chk_decl(&target, chk_id),
+                            line: e.line,
+                        });
+                        chk_declared = true;
+                    }
+                    current.push(SidecarStmt::Raw {
+                        ts: format!("{} = ({});", prop, literal),
+                        line: e.line,
+                    });
+                }
+            }
+        }
+        // The per-element check binding: a `document.createElement('tag')`
+        // materialization (typed through `HTMLElementTagNameMap`) or the
+        // component's `__AihuPropsOf` value view.
+        fn chk_decl(
+            target: &Option<CheckTarget>,
+            chk_id: Option<usize>,
+        ) -> String {
+            match (target, chk_id) {
+                (Some(CheckTarget::Html(t)), Some(id)) => {
+                    format!("const __chk_{} = document.createElement({:?});", id, t)
+                }
+                (Some(CheckTarget::Component(t)), Some(id)) => {
+                    format!("const __chk_{} = null as any as __AihuPropsOf<{:?}>;", id, t)
+                }
+                _ => String::new(),
+            }
+        }
         current.extend(self.collect(children, inner));
         if let Some((cond_raw, line)) = if_cond {
             if !cond_raw.trim().is_empty() {
@@ -747,6 +993,9 @@ fn emit_sidecar_stmts(stmts: &[SidecarStmt], p: &mut SidecarPlacer) {
                     format!("void ({});", ts)
                 };
                 p.place(stmt, *line);
+            }
+            SidecarStmt::Raw { ts, line } => {
+                p.place(ts.clone(), *line);
             }
             SidecarStmt::If { branches } => {
                 // Step 2 — REAL `if/else if/else` blocks: heads sit on the
@@ -965,6 +1214,137 @@ fn newlines_before(text: &str, offset: usize) -> usize {
     text[..offset].bytes().filter(|&b| b == b'\n').count()
 }
 
+
+// ─── #486 step 4 — strict-templates attribute/prop classification ────────────
+
+/// HTML attributes whose reflected DOM property has a DIFFERENT name. Checked
+/// attributes not listed here use the attribute name verbatim as the property.
+const HTML_ATTR_TO_PROP: &[(&str, &str)] = &[
+    ("class", "className"),
+    ("for", "htmlFor"),
+    ("readonly", "readOnly"),
+    ("maxlength", "maxLength"),
+    ("minlength", "minLength"),
+    ("tabindex", "tabIndex"),
+    ("colspan", "colSpan"),
+    ("rowspan", "rowSpan"),
+    ("contenteditable", "contentEditable"),
+    ("novalidate", "noValidate"),
+    ("formnovalidate", "formNoValidate"),
+    ("usemap", "useMap"),
+    ("ismap", "isMap"),
+    ("accesskey", "accessKey"),
+    ("crossorigin", "crossOrigin"),
+    ("datetime", "dateTime"),
+    ("allowfullscreen", "allowFullscreen"),
+    ("playsinline", "playsInline"),
+    ("inputmode", "inputMode"),
+    ("referrerpolicy", "referrerPolicy"),
+    ("formaction", "formAction"),
+    ("formenctype", "formEnctype"),
+    ("formmethod", "formMethod"),
+    ("formtarget", "formTarget"),
+];
+
+/// Attributes the strict layer deliberately does NOT check on HTML elements:
+/// their reflected property is an object (or otherwise not
+/// assignment-shaped), so the attribute→property assignment would be a false
+/// error on legal authoring.
+const STRICT_SKIP_HTML_ATTRS: &[&str] = &["style", "part", "is", "role"];
+
+/// Attribute name → checkable DOM property for a REACTIVE attribute on a
+/// known HTML element. `None` = stay open (the spec's JSX-hole carve-outs:
+/// kebab-case, `data-*`, `aria-*`, namespaced/directive names, and the
+/// object-valued skip set).
+fn html_attr_prop(name: &str) -> Option<String> {
+    if name.contains('-') || name.contains(':') || !is_js_ident(name) {
+        return None;
+    }
+    if STRICT_SKIP_HTML_ATTRS.contains(&name) {
+        return None;
+    }
+    Some(
+        HTML_ATTR_TO_PROP
+            .iter()
+            .find(|(a, _)| *a == name)
+            .map(|(_, p)| (*p).to_string())
+            .unwrap_or_else(|| name.to_string()),
+    )
+}
+
+/// Boolean attributes whose STATIC quoted value checks as a string literal
+/// against the boolean property type (§2.2 normative — `disabled="false"` is
+/// a type error under `--strict-templates`; the Angular `strictAttributeTypes`
+/// precedent). Only attributes whose reflected boolean property exists in
+/// lib.dom are listed, so the assignment itself can never be a false error.
+const BOOLEAN_ATTR_PROPS: &[(&str, &str)] = &[
+    ("disabled", "disabled"),
+    ("checked", "checked"),
+    ("readonly", "readOnly"),
+    ("required", "required"),
+    ("multiple", "multiple"),
+    ("autofocus", "autofocus"),
+    ("autoplay", "autoplay"),
+    ("controls", "controls"),
+    ("default", "default"),
+    ("hidden", "hidden"),
+    ("loop", "loop"),
+    ("novalidate", "noValidate"),
+    ("formnovalidate", "formNoValidate"),
+    ("ismap", "isMap"),
+    ("open", "open"),
+    ("reversed", "reversed"),
+    ("selected", "selected"),
+    ("inert", "inert"),
+];
+
+fn boolean_attr_prop(name: &str) -> Option<&'static str> {
+    BOOLEAN_ATTR_PROPS
+        .iter()
+        .find(|(a, _)| *a == name)
+        .map(|(_, p)| *p)
+}
+
+/// Global HTML attributes that are legal on ANY custom element and are NOT
+/// component props — they must not be checked against the component's
+/// `AihuComponentProps` entry.
+const GLOBAL_HTML_ATTRS: &[&str] = &[
+    "class",
+    "id",
+    "style",
+    "slot",
+    "part",
+    "hidden",
+    "title",
+    "tabindex",
+    "dir",
+    "lang",
+    "role",
+    "translate",
+    "draggable",
+    "spellcheck",
+    "accesskey",
+    "autocapitalize",
+    "contenteditable",
+    "enterkeyhint",
+    "inputmode",
+    "is",
+    "nonce",
+    "popover",
+    "autofocus",
+    // aihu islands: lazy-hydration opt-in, consumed by the runtime wrapper.
+    "defer",
+];
+
+/// True when a reactive attribute on a component tag is a PROP to check
+/// against the child's declared interface. Kebab-case (`data-*`/`aria-*`
+/// included), namespaced, and global-HTML attribute names stay open.
+fn component_prop_candidate(name: &str) -> bool {
+    !name.contains('-')
+        && !name.contains(':')
+        && is_js_ident(name)
+        && !GLOBAL_HTML_ATTRS.contains(&name)
+}
 
 /// True for a non-empty `[A-Za-z_$][A-Za-z0-9_$]*` token.
 fn is_js_ident(s: &str) -> bool {

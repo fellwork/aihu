@@ -7,156 +7,73 @@
  *   - createAihuLanguagePlugin()    — LanguagePlugin<URI, AihuVirtualCode>
  *   - createAihuLanguageServicePlugin() — LanguageServicePlugin (hover provider)
  *
- * See: .context/m2/a4/round-1/architect-brief-volar-refactor.md §4, §5
+ * ## #486 step 5 — one virtual code, two consumers
+ *
+ * The language plugin is the SAME `createAihuLanguagePlugin` the `aihu-tsc`
+ * CLI runs (`@aihu/tsc`, packages/tsc/src/language-plugin.ts): the `.aihu`
+ * file is presented to TypeScript as the compiler's line-preserving
+ * type-check surface (`compileSidecar`), and diagnostics map back to the
+ * authored line through `buildMappings`. The old regex-based `@state`-only
+ * generator (`state-generator.ts`) is retired — an editor squiggle and a CI
+ * failure are now the same diagnostic by construction (template-grammar
+ * 40-spec §5 step 5; acceptance §8.7).
  */
-import type {
-  CodegenContext,
-  IScriptSnapshot,
-  LanguagePlugin,
-  LanguageServicePlugin,
-  VirtualCode,
-} from '@volar/language-server/node'
+import type { AihuVirtualCode } from '@aihu/tsc'
+import {
+  createAihuLanguagePlugin as createSharedAihuLanguagePlugin,
+  IMPLICIT_ANY_CODES,
+} from '@aihu/tsc'
+import type { LanguagePlugin, LanguageServicePlugin } from '@volar/language-server/node'
+import ts from 'typescript'
 import type { URI } from 'vscode-uri'
 import { buildMigrateFix, MIGRATE_CODES } from './code-action.ts'
 import { BLOCK_COMPLETIONS, STATE_MACRO_COMPLETIONS } from './completion.ts'
 import { compileWithDiagnostics } from './diagnostics.ts'
 import { getBlockContext, getHoverContent, getMacroAtPosition } from './hover.ts'
-import { generateStateVirtualCode } from './state-generator.ts'
-import type { AihuCodeMapping } from './virtual-source-map.ts'
+
+export type { AihuVirtualCode }
 
 // ---------------------------------------------------------------------------
-// §5.1 AihuVirtualCode
-// ---------------------------------------------------------------------------
-
-/**
- * The virtual __state__.ts file generated from a .aihu source's @state block.
- * Implements VirtualCode from @volar/language-core@2.4.28.
- * No further embedding (leaf virtual code — embeddedCodes omitted).
- */
-export interface AihuVirtualCode extends VirtualCode {
-  /** Always "__state__" — Volar uses this to construct the embedded URI */
-  id: string
-  /** Always "typescript" */
-  languageId: string
-  /** IScriptSnapshot wrapping the generated __state__.ts content string */
-  snapshot: IScriptSnapshot
-  /** Character-level source-map entries (see architect-brief §3) */
-  mappings: AihuCodeMapping[]
-}
-
-// ---------------------------------------------------------------------------
-// §5.2 AihuSource
-// ---------------------------------------------------------------------------
-
-/**
- * Metadata attached to the host .aihu source script.
- * Plain data object, NOT a Volar interface implementation.
- */
-export interface AihuSource {
-  /** The URI of the .aihu file */
-  uri: URI
-  /** Raw text of the .aihu source */
-  text: string
-  /** The @state block body text, or null if no @state block found */
-  stateBlockText: string | null
-  /** Character offset of the @state block's opening brace in `text`, or -1 */
-  stateBlockStart: number
-}
-
-// ---------------------------------------------------------------------------
-// §5.3 AihuLanguagePlugin
-// ---------------------------------------------------------------------------
-
-/**
- * Volar LanguagePlugin that handles .aihu files.
- * Implements LanguagePlugin<URI> from @volar/language-core@2.4.28.
- * (Generic parameter K=VirtualCode — AihuVirtualCode satisfies VirtualCode.)
- */
-export interface AihuLanguagePlugin extends LanguagePlugin<URI> {
-  getLanguageId(scriptId: URI): string | undefined
-  createVirtualCode(
-    scriptId: URI,
-    languageId: string,
-    snapshot: IScriptSnapshot,
-    ctx: CodegenContext<URI>,
-  ): AihuVirtualCode | undefined
-  updateVirtualCode?(
-    scriptId: URI,
-    virtualCode: AihuVirtualCode,
-    newSnapshot: IScriptSnapshot,
-    ctx: CodegenContext<URI>,
-  ): AihuVirtualCode | undefined
-}
-
-// ---------------------------------------------------------------------------
-// Snapshot helper
-// ---------------------------------------------------------------------------
-
-/** Wrap a string in a minimal IScriptSnapshot implementation. */
-function createSnapshot(text: string): IScriptSnapshot {
-  return {
-    getText(start: number, end: number): string {
-      return text.slice(start, end)
-    },
-    getLength(): number {
-      return text.length
-    },
-    getChangeRange(): undefined {
-      return undefined
-    },
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Factory: AihuLanguagePlugin
+// Factory: AihuLanguagePlugin — the shared compileSidecar-backed virtual code
 // ---------------------------------------------------------------------------
 
 /**
  * Create the Volar LanguagePlugin for .aihu files.
- * Returns "aihu" language ID for .aihu URIs; generates a virtual __state__.ts
- * code block from the @state macro body.
+ *
+ * Thin URI-typed instantiation of the shared `@aihu/tsc` plugin, so the
+ * editor and the CLI consume one type-check surface. `strictTemplates`
+ * defaults off, matching `aihu-tsc` without `--strict-templates`.
  */
-export function createAihuLanguagePlugin(): AihuLanguagePlugin {
+export function createAihuLanguagePlugin(): LanguagePlugin<URI, AihuVirtualCode> {
+  return createSharedAihuLanguagePlugin<URI>(ts)
+}
+
+// ---------------------------------------------------------------------------
+// TS diagnostic parity filter (#486 step 5)
+// ---------------------------------------------------------------------------
+
+/**
+ * Wrap a TypeScript LanguageServicePlugin (volar-service-typescript) so its
+ * diagnostics apply the SAME implicit-`any` suppression `aihu-tsc` applies to
+ * `.aihu` files by default (`IMPLICIT_ANY_CODES`, packages/tsc/src/index.ts).
+ * Without this, the editor would show implicit-any noise the CI gate
+ * deliberately filters — the exact split-brain step 5 removes.
+ */
+export function withAihuDiagnosticParity(plugin: LanguageServicePlugin): LanguageServicePlugin {
   return {
-    getLanguageId(scriptId: URI): string | undefined {
-      const path =
-        typeof scriptId === 'string' ? scriptId : (scriptId.fsPath ?? scriptId.path ?? '')
-      return path.endsWith('.aihu') ? 'aihu' : undefined
-    },
-
-    createVirtualCode(
-      _scriptId: URI,
-      languageId: string,
-      snapshot: IScriptSnapshot,
-      _ctx: CodegenContext<URI>,
-    ): AihuVirtualCode | undefined {
-      if (languageId !== 'aihu') return undefined
-
-      const source = snapshot.getText(0, snapshot.getLength())
-      const output = generateStateVirtualCode({ source, snapshot })
-
-      if (!output.virtualCode) return undefined
-
-      const virtualSnapshot = createSnapshot(output.virtualCode)
-
-      const virtualCode: AihuVirtualCode = {
-        id: '__state__',
-        languageId: 'typescript',
-        snapshot: virtualSnapshot,
-        mappings: output.mappings,
+    ...plugin,
+    create(context) {
+      const instance = plugin.create(context)
+      const provideDiagnostics = instance.provideDiagnostics?.bind(instance)
+      if (!provideDiagnostics) return instance
+      return {
+        ...instance,
+        async provideDiagnostics(document, token) {
+          const diagnostics = await provideDiagnostics(document, token)
+          if (!diagnostics || !document.uri.includes('.aihu')) return diagnostics
+          return diagnostics.filter((d) => !IMPLICIT_ANY_CODES.has(Number(d.code)))
+        },
       }
-
-      return virtualCode
-    },
-
-    updateVirtualCode(
-      scriptId: URI,
-      _virtualCode: AihuVirtualCode,
-      newSnapshot: IScriptSnapshot,
-      ctx: CodegenContext<URI>,
-    ): AihuVirtualCode | undefined {
-      // M2: full regen on every update. Incremental is M3 scope.
-      return this.createVirtualCode(scriptId, 'aihu', newSnapshot, ctx)
     },
   }
 }

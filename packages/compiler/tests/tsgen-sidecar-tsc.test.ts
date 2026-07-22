@@ -95,7 +95,10 @@ const STATE = `@state {
 }
 `
 
-describe('#485 step 1 — rewrite-before-lift (authored value types)', () => {
+// Real `bunx tsc` subprocesses: give the suite headroom under full-suite worker load.
+const TSC_SUITE = { timeout: 120_000 }
+
+describe('#485 step 1 — rewrite-before-lift (authored value types)', TSC_SUITE, () => {
   it('bare reads pass tsc: {count > 0} and {items.join(", ")} (were false errors)', () => {
     const { code, combined, sidecar } = checkSidecar(
       'step1-pass',
@@ -140,7 +143,7 @@ describe('#485 step 1 — rewrite-before-lift (authored value types)', () => {
   })
 })
 
-describe('#485 step 2 — real if/else emission (narrowing)', () => {
+describe('#485 step 2 — real if/else emission (narrowing)', TSC_SUITE, () => {
   it('if={user} narrows {user.name} (was a false "possibly null")', () => {
     const { code, combined, sidecar } = checkSidecar(
       'step2-narrow',
@@ -181,7 +184,7 @@ describe('#485 step 2 — real if/else emission (narrowing)', () => {
   })
 })
 
-describe('#485 step 3 — for…of + __aihu_each (loop binder inference)', () => {
+describe('#485 step 3 — for…of + __aihu_each (loop binder inference)', TSC_SUITE, () => {
   it('each={item of items} types the alias as the element (Book)', () => {
     const { code, combined, sidecar } = checkSidecar(
       'step3-infer',

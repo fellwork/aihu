@@ -8,8 +8,11 @@
  * (`aihu-language-server`) is `src/bin.ts`, which calls `startServer()`.
  *
  * Migrated from vscode-languageserver to @volar/language-server@2.4.28 in
- * M2 A4 round-2. Features:
- *   - Virtual-file generation for @state block (12 macros, source-mapped)
+ * M2 A4 round-2. #486 step 5 replaced the regex-based `@state`-only virtual
+ * file with the compiler's `compileSidecar` surface, shared with `aihu-tsc`.
+ * Features:
+ *   - Virtual TypeScript for the whole SFC (@state inlined + template lifts),
+ *     type-checked by the real TS language service (volar-service-typescript)
  *   - Hover: 36-entry HOVER_TABLE via AihuLanguageServicePlugin
  *   - Completion and code-action: wired through LanguageServicePlugin layer
  *
@@ -20,10 +23,16 @@
  */
 import {
   createConnection,
-  createSimpleProject,
+  createTypeScriptProject,
   createServer as createVolarServer,
 } from '@volar/language-server/node'
-import { createAihuLanguagePlugin, createAihuLanguageServicePlugin } from './core/volar-plugin.ts'
+import ts from 'typescript'
+import { create as createTypeScriptServices } from 'volar-service-typescript'
+import {
+  createAihuLanguagePlugin,
+  createAihuLanguageServicePlugin,
+  withAihuDiagnosticParity,
+} from './core/volar-plugin.ts'
 
 /**
  * Create and wire the test seam for integration / unit tests.
@@ -51,9 +60,21 @@ export function startServer(): void {
   const server = createVolarServer(connection)
 
   connection.onInitialize((params) => {
-    const result = server.initialize(params, createSimpleProject([createAihuLanguagePlugin()]), [
-      createAihuLanguageServicePlugin(),
-    ])
+    // #486 step 5 — the TypeScript project consumes the SAME
+    // compileSidecar-backed language plugin `aihu-tsc` runs, so template
+    // expressions get real TS hover/completion/diagnostics in the editor and
+    // an editor squiggle equals the CI diagnostic by construction. The TS
+    // service plugins are wrapped with the CLI's implicit-any parity filter.
+    const result = server.initialize(
+      params,
+      createTypeScriptProject(ts, undefined, () => ({
+        languagePlugins: [createAihuLanguagePlugin()],
+      })),
+      [
+        ...createTypeScriptServices(ts).map(withAihuDiagnosticParity),
+        createAihuLanguageServicePlugin(),
+      ],
+    )
     return result
   })
 
