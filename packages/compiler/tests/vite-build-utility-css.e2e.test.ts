@@ -115,7 +115,7 @@ export default defineConfig({
         const r = spawnSync('bunx', ['vite', 'build', '--config', '__bug6_test_vite.config.ts'], {
           cwd: EXAMPLE_ROOT,
           encoding: 'utf8',
-          env: { ...process.env, SCRIBE_COMPILE_BIN: compilerBin },
+          env: { ...process.env, AIHU_COMPILE_BIN: compilerBin },
           stdio: ['ignore', 'pipe', 'pipe'],
         })
         if (r.status !== 0) {

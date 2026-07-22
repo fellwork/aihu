@@ -12,7 +12,7 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     include: ['tests/**/*.test.ts'],
-    env: { SCRIBE_NATIVE_SKIP: '1' },
+    env: { AIHU_NATIVE_SKIP: '1' },
     // Polyfill Constructable Stylesheets (jsdom 25 lacks replaceSync) before any
     // test module — the compiled component adopts a stylesheet for its @style.
     setupFiles: ['./tests/jsdom-polyfill.ts'],

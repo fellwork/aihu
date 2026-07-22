@@ -18,7 +18,7 @@
  *
  * Contract (spec-server-native.md §3, Director session-002):
  *   - native-loaded:        addon required successfully; render routes to Rust.
- *   - edge-skipped:         edge runtime OR SCRIBE_NATIVE_SKIP=1 OR unsupported
+ *   - edge-skipped:         edge runtime OR AIHU_NATIVE_SKIP=1 OR unsupported
  *                           platform; caller silently uses the TS fallback.
  *   - native-failed-loud:   platform IS supported and the addon load failed —
  *                           resolveNativeState() records the error and
@@ -105,8 +105,8 @@ function detectEdge(): boolean {
     return true
   }
 
-  // SCRIBE_NATIVE_SKIP=1 is the user-controlled escape hatch (silent fallthrough).
-  if (typeof process !== 'undefined' && process.env && process.env.SCRIBE_NATIVE_SKIP === '1') {
+  // AIHU_NATIVE_SKIP=1 is the user-controlled escape hatch (silent fallthrough).
+  if (typeof process !== 'undefined' && process.env && process.env.AIHU_NATIVE_SKIP === '1') {
     return true
   }
 
@@ -138,9 +138,9 @@ let _state: NativeState | null = null
 export function resolveNativeState(): NativeState {
   if (_state !== null) return _state
 
-  // SCRIBE_NATIVE_SKIP=1 is the documented escape hatch (spec §5.3) — short-
+  // AIHU_NATIVE_SKIP=1 is the documented escape hatch (spec §5.3) — short-
   // circuit at the very top so we never attempt platform detection or require.
-  if (typeof process !== 'undefined' && process.env && process.env.SCRIBE_NATIVE_SKIP === '1') {
+  if (typeof process !== 'undefined' && process.env && process.env.AIHU_NATIVE_SKIP === '1') {
     _state = { kind: 'edge-skipped' }
     return _state
   }
@@ -209,10 +209,10 @@ export function resolveNativeState(): NativeState {
 // ---------------------------------------------------------------------------
 
 export class AihuNativeError extends Error {
-  readonly code: 'SCRIBE_NATIVE_MISSING' | 'SCRIBE_NATIVE_LOAD_FAILED'
+  readonly code: 'AIHU_NATIVE_MISSING' | 'AIHU_NATIVE_LOAD_FAILED'
   constructor(
     message: string,
-    code: 'SCRIBE_NATIVE_MISSING' | 'SCRIBE_NATIVE_LOAD_FAILED',
+    code: 'AIHU_NATIVE_MISSING' | 'AIHU_NATIVE_LOAD_FAILED',
     options?: { cause?: unknown },
   ) {
     super(message)
@@ -236,8 +236,8 @@ function buildMissingBinaryError(descriptor: PlatformDescriptor): AihuNativeErro
     `    npm install @aihu/server\n` +
     `    # or: pnpm install   or: bun install\n\n` +
     `  If you built from source or are running a CI environment without npm access,\n` +
-    `  set SCRIBE_NATIVE_SKIP=1 to use the TypeScript fallback (slower, always correct).`
-  return new AihuNativeError(msg, 'SCRIBE_NATIVE_MISSING')
+    `  set AIHU_NATIVE_SKIP=1 to use the TypeScript fallback (slower, always correct).`
+  return new AihuNativeError(msg, 'AIHU_NATIVE_MISSING')
 }
 
 function buildCorruptBinaryError(descriptor: PlatformDescriptor, cause: Error): AihuNativeError {
@@ -252,7 +252,7 @@ function buildCorruptBinaryError(descriptor: PlatformDescriptor, cause: Error): 
     `  To fix:\n` +
     `    npm install @aihu/server   (re-downloads the platform package)\n\n` +
     `  Original error: ${cause.stack ?? cause.message}`
-  return new AihuNativeError(msg, 'SCRIBE_NATIVE_LOAD_FAILED', { cause })
+  return new AihuNativeError(msg, 'AIHU_NATIVE_LOAD_FAILED', { cause })
 }
 
 /**

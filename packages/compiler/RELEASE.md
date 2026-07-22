@@ -27,10 +27,10 @@ only runs when the workflow is triggered by an actual `refs/tags/v*` push.
 
 ## Local development bypass
 
-If you build from source, set `SCRIBE_COMPILE_BIN`:
+If you build from source, set `AIHU_COMPILE_BIN`:
 
 ```bash
-export SCRIBE_COMPILE_BIN=$(pwd)/packages/compiler/target/release/aihu-compile
+export AIHU_COMPILE_BIN=$(pwd)/packages/compiler/target/release/aihu-compile
 bun install
 ```
 
@@ -38,7 +38,7 @@ The postinstall hook copies that path to `packages/compiler/bin/aihu-compile`
 instead of downloading. On Windows, point at the `.exe`:
 
 ```powershell
-$env:SCRIBE_COMPILE_BIN = "$pwd\packages\compiler\target\release\aihu-compile.exe"
+$env:AIHU_COMPILE_BIN = "$pwd\packages\compiler\target\release\aihu-compile.exe"
 bun install
 ```
 
@@ -70,7 +70,7 @@ the URL it attempted) on any of:
 - Network error fetching the asset
 - Non-2xx HTTP response from GitHub
 - Empty download
-- `SCRIBE_COMPILE_BIN` set to a path that does not exist
+- `AIHU_COMPILE_BIN` set to a path that does not exist
 
 Silent failure is forbidden — a missing binary at install time becomes an
 obvious failure during `bun add`, not a confusing error during `vite build`.

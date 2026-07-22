@@ -46,9 +46,9 @@ describe('_buildStaticIsland — Plan 3.3', () => {
     expect(out).not.toMatch(/\bdefineComponent\(/)
   })
 
-  it('marks the output with the SCRIBE_STATIC_ISLAND audit comment (#4)', () => {
+  it('marks the output with the AIHU_STATIC_ISLAND audit comment (#4)', () => {
     const out = _buildStaticIsland(STATIC_OUTPUT, 'x-msg')
-    expect(out).toMatch(/SCRIBE_STATIC_ISLAND/)
+    expect(out).toMatch(/AIHU_STATIC_ISLAND/)
   })
 
   it('returns input unchanged when the expected call shape is missing (#5)', () => {

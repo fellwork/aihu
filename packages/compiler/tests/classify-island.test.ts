@@ -74,7 +74,7 @@ const _dir = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(_dir, '../../..')
 const COMPILER =
   process.env.AIHU_COMPILE_BIN ??
-  process.env.SCRIBE_COMPILE_BIN ??
+  process.env.AIHU_COMPILE_BIN ??
   [
     resolve(REPO_ROOT, 'target/release/aihu-compile'),
     resolve(REPO_ROOT, 'target/debug/aihu-compile'),
@@ -247,7 +247,7 @@ describe('static island skips hydration and still renders; interactive keeps the
       // are GONE — there is no reactive hydration for the browser to perform.
       expect(shimmed).not.toMatch(/from\s*'@aihu\/runtime'/)
       expect(shimmed).not.toMatch(/\bdefineComponent\(/)
-      expect(shimmed).toMatch(/SCRIBE_STATIC_ISLAND/)
+      expect(shimmed).toMatch(/AIHU_STATIC_ISLAND/)
 
       // …yet it still renders correctly once mounted.
       mkdirSync(TMP_DIR, { recursive: true })

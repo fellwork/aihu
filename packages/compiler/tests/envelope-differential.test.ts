@@ -16,7 +16,7 @@
  *      additional compiles (asserted via memo stats).
  *
  * Requires a real `aihu-compile` binary (workspace `target/release`). The
- * suite runner exports SCRIBE_COMPILE_BIN/AIHU_COMPILE_BIN; this test manages
+ * suite runner exports AIHU_COMPILE_BIN; this test manages
  * those vars itself to select backends deliberately.
  */
 import { execFileSync } from 'node:child_process'
@@ -147,7 +147,7 @@ function legacyTransform(source: string, id: string, target?: string): string {
   return legacySpawn(source, args)
 }
 
-const ENV_KEYS = ['SCRIBE_COMPILE_BIN', 'AIHU_COMPILE_BIN', 'AIHU_COMPILER_NATIVE'] as const
+const ENV_KEYS = ['AIHU_COMPILE_BIN', 'AIHU_COMPILER_NATIVE'] as const
 const savedEnv: Record<string, string | undefined> = {}
 for (const k of ENV_KEYS) savedEnv[k] = process.env[k]
 
@@ -227,7 +227,6 @@ describe.skipIf(!hasBin)('envelope CLI spawn vs legacy spawn (byte identity)', (
 describe.skipIf(!hasBin || !hasAddon)('napi addon vs legacy spawn (byte identity)', () => {
   beforeEach(() => {
     // Select the native backend explicitly: no binary pins, addon path pinned.
-    delete process.env.SCRIBE_COMPILE_BIN
     delete process.env.AIHU_COMPILE_BIN
     delete process.env.AIHU_COMPILER_NATIVE
     process.env.AIHU_COMPILER_NATIVE_ADDON = ADDON
@@ -296,7 +295,6 @@ describe.skipIf(!hasBin || !hasAddon)('napi addon vs legacy spawn (byte identity
 describe.skipIf(!hasBin)('spawn backend seeding (envelope CLI as fallback)', () => {
   beforeEach(() => {
     // Pin the fresh CLI binary → spawn backend, envelope-capable.
-    process.env.SCRIBE_COMPILE_BIN = BIN
     process.env.AIHU_COMPILE_BIN = BIN
     delete process.env.AIHU_COMPILER_NATIVE
     delete process.env.AIHU_COMPILER_NATIVE_ADDON

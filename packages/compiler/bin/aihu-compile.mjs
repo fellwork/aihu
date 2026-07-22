@@ -60,9 +60,9 @@ function isUsableExecutable(candidate) {
 }
 
 function resolveCompilerBinary() {
-  // 0. Env override + css-engine SCRIBE_COMPILE_BIN handshake (dev override).
-  if (process.env.SCRIBE_COMPILE_BIN) {
-    return process.env.SCRIBE_COMPILE_BIN
+  // 0. Env override + css-engine AIHU_COMPILE_BIN handshake (dev override).
+  if (process.env.AIHU_COMPILE_BIN) {
+    return process.env.AIHU_COMPILE_BIN
   }
 
   const descriptor = detectPlatform()

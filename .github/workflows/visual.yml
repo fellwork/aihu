@@ -73,7 +73,7 @@ jobs:
           chmod 0755 packages/compiler/bin/aihu-compile
       - run: bun install --frozen-lockfile
         env:
-          SCRIBE_SKIP_POSTINSTALL: "1"
+          AIHU_SKIP_POSTINSTALL: "1"
       - name: Build workspace packages
         run: bun run build
       - name: Build Storybook

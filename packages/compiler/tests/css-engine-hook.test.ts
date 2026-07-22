@@ -42,12 +42,12 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 // Point css-engine's bundled `compileToAst` (which spawns the compiler binary
 // from a path relative to the css-engine package — that package does NOT ship
 // the compiler binary) at this package's own compiler binary. Mirrors the
-// plugin's own SCRIBE_COMPILE_BIN handshake so the test environment resolves
+// plugin's own AIHU_COMPILE_BIN handshake so the test environment resolves
 // identically to production.
 const ext = process.platform === 'win32' ? '.exe' : ''
 const compilerBin = resolve(__dirname, `../bin/aihu-compile${ext}`)
 if (existsSync(compilerBin)) {
-  process.env.SCRIBE_COMPILE_BIN ??= compilerBin
+  process.env.AIHU_COMPILE_BIN ??= compilerBin
 }
 
 // Does the css-core binary resolve in this environment? Mirror css-engine's

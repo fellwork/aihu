@@ -16,7 +16,7 @@ export default defineConfig({
     passWithNoTests: false,
     // `@aihu/server` selects its TypeScript SSR fallback rather than requiring a
     // built native addon — the same reason the root `vitest.config.ts` sets it.
-    env: { SCRIBE_NATIVE_SKIP: '1' },
+    env: { AIHU_NATIVE_SKIP: '1' },
   },
   resolve: {
     alias: {

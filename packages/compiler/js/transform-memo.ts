@@ -48,7 +48,7 @@ let seeds = 0
 
 /**
  * Identity stamp for the compiler binary: path + mtime + size when statable,
- * path alone otherwise (e.g. tests pointing SCRIBE_COMPILE_BIN at a fake).
+ * path alone otherwise (e.g. tests pointing AIHU_COMPILE_BIN at a fake).
  * A rebuilt-in-place binary changes mtime/size → old entries become inert.
  * @internal
  */

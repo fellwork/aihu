@@ -5,7 +5,7 @@
  * v0.5.0: 20 CI-protected SFCs covering the core v0.4 feature surface.
  *
  * Run: bun test cookbook/cookbook.test.ts
- * Env: set SCRIBE_COMPILE_BIN to a pre-built aihu-compile binary if the
+ * Env: set AIHU_COMPILE_BIN to a pre-built aihu-compile binary if the
  *      repo does not have one in packages/compiler/bin/.
  */
 

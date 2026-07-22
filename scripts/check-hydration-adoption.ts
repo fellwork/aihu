@@ -48,7 +48,7 @@
  * the real `Response`, and hydrates those. It is the only assertion in the
  * repo that the shipped pipeline produces HTML the shipped client can adopt.
  *
- * `SCRIBE_NATIVE_SKIP=1` selects the TypeScript SSR fallback ("slower, always
+ * `AIHU_NATIVE_SKIP=1` selects the TypeScript SSR fallback ("slower, always
  * correct"), matching what `vitest.config.ts` and `check:dual-audience` set for
  * the same reason: the native renderer binary is not built in a plain checkout.
  * Run via the npm script, NOT bare bun:

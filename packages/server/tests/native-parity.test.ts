@@ -9,13 +9,13 @@
  *   - hydratable (deferred per OQ-SN-3 — Rust implements it but no parity AC)
  *
  * Skip behavior (per Director session-002):
- *   - SCRIBE_NATIVE_SKIP=1 (the documented escape hatch, set in vitest.config
+ *   - AIHU_NATIVE_SKIP=1 (the documented escape hatch, set in vitest.config
  *     so fresh clones pass) → loader is in EDGE_SKIPPED state; skip all tests.
  *   - Otherwise, if the loader resolved to NATIVE_LOADED → run all tests.
  *   - Otherwise (loader is in any other state but SKIP isn't set in a test
  *     env) → skip with a clear diagnostic.
  *
- * The CI parity-gate runner unsets SCRIBE_NATIVE_SKIP and builds the addon;
+ * The CI parity-gate runner unsets AIHU_NATIVE_SKIP and builds the addon;
  * if either step is missing the loader throws via AC-9 at module load time,
  * which is the correct CI failure mode (no env-var gate needed).
  */
@@ -38,15 +38,15 @@ import { renderToString as tsImpl } from '../src/ssr.ts'
 let nativeLoaded = false
 
 beforeAll(async () => {
-  // SCRIBE_NATIVE_SKIP=1 is the documented escape hatch (spec §5.3) and is
+  // AIHU_NATIVE_SKIP=1 is the documented escape hatch (spec §5.3) and is
   // set by vitest.config.ts so fresh clones pass without a built addon.
   // When set, we skip every parity test below — there is no native path
   // expected. CI's parity-gate runner unsets this var and builds the addon.
-  if (typeof process !== 'undefined' && process.env.SCRIBE_NATIVE_SKIP === '1') {
+  if (typeof process !== 'undefined' && process.env.AIHU_NATIVE_SKIP === '1') {
     nativeLoaded = false
     // eslint-disable-next-line no-console
     console.warn(
-      `[native-parity] skipping all tests — SCRIBE_NATIVE_SKIP=1 is set. ` +
+      `[native-parity] skipping all tests — AIHU_NATIVE_SKIP=1 is set. ` +
         `This is expected on developer machines without a built native addon. ` +
         `CI unsets this var and builds the addon to run the parity gate.`,
     )
@@ -277,16 +277,16 @@ describe('loader: edge-runtime detection (AC-11)', () => {
     }
   })
 
-  it('SCRIBE_NATIVE_SKIP=1 causes EDGE_SKIPPED state', async () => {
+  it('AIHU_NATIVE_SKIP=1 causes EDGE_SKIPPED state', async () => {
     if (typeof process === 'undefined') return
-    const prev = process.env.SCRIBE_NATIVE_SKIP
-    process.env.SCRIBE_NATIVE_SKIP = '1'
+    const prev = process.env.AIHU_NATIVE_SKIP
+    process.env.AIHU_NATIVE_SKIP = '1'
     try {
       await _resetLoaderState()
       expect(await _getLoaderStateKind()).toBe('edge-skipped')
     } finally {
-      if (prev === undefined) delete process.env.SCRIBE_NATIVE_SKIP
-      else process.env.SCRIBE_NATIVE_SKIP = prev
+      if (prev === undefined) delete process.env.AIHU_NATIVE_SKIP
+      else process.env.AIHU_NATIVE_SKIP = prev
       await _resetLoaderState()
     }
   })

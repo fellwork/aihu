@@ -49,7 +49,7 @@ export interface PluginInstallManifest {
 
   /**
    * Compatible aihu framework range (semver). The CLI reads
-   * `@aihu/plugin`'s `SCRIBE_VERSION` (currently `0.2.0` —
+   * `@aihu/plugin`'s `AIHU_VERSION` (currently `0.2.0` —
    * packages/plugin/src/index.ts:333) and refuses to install when the
    * range does not satisfy. Matches the `aihuVersion` field on
    * `PluginConfig` (packages/plugin/src/index.ts:259).
