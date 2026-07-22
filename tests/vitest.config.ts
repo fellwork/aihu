@@ -21,7 +21,16 @@ export default defineConfig({
   resolve: {
     alias: {
       '@aihu/signals': new URL('../packages/signals/src/index.ts', import.meta.url).pathname,
+      // Added for `ssr-state-channel.test.ts` — the wave-3 round-trip pipes
+      // real @aihu/server state-script output into @aihu/store hydration and
+      // @aihu/arbor signal pre-seeding.
+      '@aihu/store': new URL('../packages/store/src/index.ts', import.meta.url).pathname,
+      '@aihu/context': new URL('../packages/context/src/index.ts', import.meta.url).pathname,
       '@aihu/arbor': new URL('../packages/arbor/src/index.ts', import.meta.url).pathname,
+      // Subpath before package (wave-3): '@aihu/runtime/ssr' must not resolve
+      // through the package alias as '<index.ts>/ssr'.
+      '@aihu/runtime/ssr': new URL('../packages/runtime/src/ssr-string.ts', import.meta.url)
+        .pathname,
       '@aihu/runtime': new URL('../packages/runtime/src/index.ts', import.meta.url).pathname,
       // Added for `ssr-hydrate-path-parity.test.ts`, which is cross-package by
       // nature: it pipes real `@aihu/server` output into `@aihu/arbor`'s

@@ -5,12 +5,19 @@
  *
  *   { [storeId]: { [stateKey]: jsonValue } }
  *
- * Server (inside the request's `runWithContext` scope, after render):
+ * Framework path (wave 3): @aihu/server carries this record as the `stores`
+ * key of its unified `__aihu_state__` envelope (`{ v: 1, stores, signals? }`)
+ * — wire it once at server startup via
+ * `_setStoreSerializer(serializeStores)`; on the client, `@aihu/app`'s
+ * `createApp()` parses the envelope and calls `hydrateStores(env.stores)`
+ * before any component setup runs.
+ *
+ * Manual server wiring (custom SSR, inside the request scope, after render):
  *
  *   const json = JSON.stringify(serializeStores()).replace(/</g, '\\u003c')
  *   html += `<script type="application/json" id="__AIHU_STORE_STATE__">${json}</script>`
  *
- * Client (entry point, BEFORE mounting components):
+ * Manual client wiring (entry point, BEFORE mounting components):
  *
  *   const el = document.getElementById('__AIHU_STORE_STATE__')
  *   if (el) hydrateStores(JSON.parse(el.textContent!))

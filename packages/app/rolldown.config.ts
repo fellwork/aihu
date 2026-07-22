@@ -8,6 +8,7 @@ const external = [
   '@aihu/server/head-lowering',
   '@aihu/arbor',
   '@aihu/signals',
+  '@aihu/store',
   '@aihu/runtime',
   '@aihu-plugin/agent-readiness',
   '@aihu/compiler',

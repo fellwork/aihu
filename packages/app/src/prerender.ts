@@ -31,7 +31,8 @@ import { dirname, join, resolve as resolvePath } from 'node:path'
 import type { RouteSegment } from '@aihu/router'
 import { readRouteSidecar, scanLayouts, scanPages } from '@aihu/router/plugin'
 import type { HeadConfig } from '@aihu/server'
-import { renderToString, routeHeadToSsrHead } from '@aihu/server'
+import { _setStoreSerializer, renderToString, routeHeadToSsrHead } from '@aihu/server'
+import { _resetStoreRegistry, serializeStores } from '@aihu/store'
 import type { ResolvedConfig } from 'vite'
 import type { AihuConfig } from './config.ts'
 import { applyHeadToHtml } from './head-apply.ts'
@@ -258,6 +259,16 @@ export async function runPrerender(opts: RunPrerenderOptions): Promise<Prerender
     warn(msg)
   }
 
+  // Wave-3 state channel: this is @aihu/app's SSG SSR entry, so it owns the
+  // store-serializer wiring (@aihu/server never imports @aihu/store — the
+  // injection-slot posture of _setContextFns). Each hydratable page render
+  // below then emits its stores under `__aihu_state__`. Prerender runs
+  // sequentially in one Node process with no per-request context map, so
+  // stores live in the module-singleton registry; `_resetStoreRegistry()`
+  // before every render keeps one page's store state out of the next page's
+  // snapshot.
+  _setStoreSerializer(serializeStores)
+
   // SSR layout parity (#7): render a route's layout shell once and cache by
   // name (param-independent; routes sharing a layout reuse it). Scoped to the
   // composition case — only layouts whose module exposes an SSR-renderable
@@ -283,6 +294,7 @@ export async function runPrerender(opts: RunPrerenderOptions): Promise<Prerender
           // See the `hydratable` note on the page render below — the layout
           // shell is part of the same prerendered document and must carry
           // markers too, or the client adopts the page and rebuilds its wrapper.
+          _resetStoreRegistry()
           shell = await renderToString(layoutComponent, { hydratable: true })
         } else {
           pushWarn(
@@ -392,6 +404,7 @@ export async function runPrerender(opts: RunPrerenderOptions): Promise<Prerender
         // the tree beside the prerendered DOM, silently duplicating every
         // statically generated page's content on first load. `hydratable` is a
         // property of the DESTINATION, not of the renderer.
+        _resetStoreRegistry()
         content = await renderToString(component, { hydratable: true })
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err)

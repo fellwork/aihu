@@ -12,6 +12,7 @@ import { _setHydrate, _setMount, _setSignal } from '@aihu/runtime'
 import type { HeadConfig } from '@aihu/server/head-lowering'
 import { routeHeadToSsrHead } from '@aihu/server/head-lowering'
 import { signal } from '@aihu/signals'
+import { hydrateStores } from '@aihu/store'
 import { applyHeadToDocument, clearManagedHead } from './head-apply.ts'
 
 /**
@@ -138,6 +139,29 @@ export function createApp(config?: AppConfig): AppHandle {
     Object.assign(globalThis, config.provide)
   }
 
+  // Wave-3 state channel: adopt the server's `__aihu_state__` envelope
+  // ({ v: 1, stores, signals? }) SYNCHRONOUSLY, before the router renders
+  // anything. `hydrateStores` must precede the first `useStore()` in any
+  // component setup — createApp runs before any route module is imported
+  // (and so before any custom element is defined or connected), which is
+  // that guarantee. The `signals` record is held and published under the
+  // initial route's tag (see render()) so `defineElement`'s hydration
+  // branch passes it to arbor's `hydrate()` for signal pre-seeding.
+  let ssrSignals: Record<string, unknown> | null = null
+  try {
+    const env = JSON.parse(document.getElementById('__aihu_state__')?.textContent ?? '') as {
+      v?: number
+      stores?: Record<string, Record<string, unknown>>
+      signals?: Record<string, unknown>
+    }
+    if (env?.v === 1) {
+      if (env.stores) hydrateStores(env.stores)
+      ssrSignals = env.signals ?? {}
+    }
+  } catch {
+    // No state script, or a malformed one: hydrate fresh (client re-derives).
+  }
+
   // Wire runtime — null-guarded in @aihu/runtime, safe to call multiple times
   _setMount(mount)
   _setSignal(signal as Parameters<typeof _setSignal>[0])
@@ -231,6 +255,16 @@ export function createApp(config?: AppConfig): AppHandle {
     await Promise.all([match.route.module(), ...registerRouteComponents(match.route)])
     const tag = match.route.name
     if (!tag?.includes('-')) return
+
+    // First render only: publish the SSR signal snapshot under this page's
+    // tag so defineElement's hydration branch (`__aihu_state__[tag]`) hands
+    // it to arbor's `hydrate()` for pre-seeding. Consumed once — later
+    // navigations are client renders with no server snapshot.
+    if (ssrSignals) {
+      const g = globalThis as { __aihu_state__?: Record<string, unknown> }
+      ;(g.__aihu_state__ ??= {})[tag] = ssrSignals
+      ssrSignals = null
+    }
 
     const el = document.createElement(tag)
 

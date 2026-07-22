@@ -33,6 +33,7 @@
     "@aihu/runtime": "workspace:*",
     "@aihu/server": "workspace:*",
     "@aihu/signals": "workspace:*",
+    "@aihu/store": "workspace:*",
     "vite": ">=5.0.0"
   },
   "devDependencies": {

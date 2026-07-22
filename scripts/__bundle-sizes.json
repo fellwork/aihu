@@ -11,7 +11,7 @@
   },
   {
     "name": "@aihu/arbor",
-    "bytes": 2989,
+    "bytes": 3079,
     "limit": "3100 B"
   },
   {
@@ -56,8 +56,8 @@
   },
   {
     "name": "@aihu/app",
-    "bytes": 1707,
-    "limit": "1750 B"
+    "bytes": 1817,
+    "limit": "1900 B"
   },
   {
     "name": "@aihu/css-engine/runtime/cn",

@@ -221,7 +221,7 @@ Per-package gates enforced by `bun run size`:
 |---|---:|---:|:---:|
 | `@aihu/context` | 420 B | 450 B | pass |
 | `@aihu/signals` | 1.69 kB | 1970 B | pass |
-| `@aihu/arbor` | 2.92 kB | 3100 B | pass |
+| `@aihu/arbor` | 3.01 kB | 3100 B | pass |
 | `@aihu/runtime` | 3.96 kB | 4100 B | pass |
 | `@aihu/agent` | 141 B | 200 B | pass |
 | `@aihu-plugin/data` | 723 B | 800 B | pass |
@@ -230,7 +230,7 @@ Per-package gates enforced by `bun run size`:
 | `@aihu/agent-service` | 2.76 kB | 2900 B | pass |
 | `@aihu/agent-acp` | 675 B | 800 B | pass |
 | `@aihu/agent-a2a` | 2.62 kB | 3000 B | pass |
-| `@aihu/app` | 1.67 kB | 1750 B | pass |
+| `@aihu/app` | 1.77 kB | 1900 B | pass |
 | `@aihu/css-engine/runtime/cn` | 886 B | 1 KB | pass |
 | `@aihu/css-engine/runtime/progressive` | 716 B | 3 KB | pass |
 | `@aihu/primitives/context` | 430 B | 1 KB | pass |

@@ -13,6 +13,7 @@ import type {
   GovernedRouteDataDecl,
 } from '@aihu/server'
 import {
+  attachSsrString,
   deriveReadPolicy,
   GOVERNED_RETRY_AFTER_SECONDS,
   governedHttpStatus,
@@ -234,8 +235,19 @@ export function createServerRouter(
       // `route.data === undefined` while the payload rides only the JSON
       // embed below. `{ toHtml() }` modules pass through unchanged.
       const raw = mod.default as ((props?: unknown) => unknown) | { toHtml(): string }
+      // Wave-3: the props-binding wrapper hides the compiled `__ssrString`
+      // fast path attached to `raw`; `attachSsrString` re-attaches a
+      // props-bound renderer from the MODULE export so the governed render
+      // keeps the compiled string path (byte-identical to the walker).
+      const routeProps = { route: { params, data: emission.data } }
       const component =
-        typeof raw === 'function' ? () => raw({ route: { params, data: emission.data } }) : raw
+        typeof raw === 'function'
+          ? attachSsrString(
+              () => raw(routeProps),
+              (mod as { __ssrString?: unknown }).__ssrString,
+              routeProps,
+            )
+          : raw
       // `governed: true` — the P5/I2s guard: governed trees are not streamed;
       // a pending dataSource inside this render is refused fail-closed.
       const html = await renderToString(component, { hydratable: true, governed: true })
