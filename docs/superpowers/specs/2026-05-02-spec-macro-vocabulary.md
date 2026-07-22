@@ -14,7 +14,7 @@
 
 ## 0. Posture
 
-This spec defines the complete macro vocabulary for `.aihu` SFC files in v1. The vocabulary is closed: 39 macros across 4 blocks, fixed by language version. New macros require an RFC and version bump. Plugins MAY contribute namespaced macros (`@plugin.macro`) but those are documented in plugin specs, not here.
+This spec defines the complete macro vocabulary for `.aihu` SFC files in v1. The vocabulary is closed: 38 macros across 4 blocks, fixed by language version. New macros require an RFC and version bump. Plugins MAY contribute namespaced macros (`@plugin.macro`) but those are documented in plugin specs, not here.
 
 Each macro entry specifies:
 - Block where it is valid
@@ -39,7 +39,7 @@ Macros are visually marked with the `$` prefix. The prefix is the discriminator 
 | `@agent` | 6 | `$expose`, `$expose.write`, `$action`, `$scope`, `$rate-limit`, `$describe` |
 | **Total** | **39** | |
 
-**Note on counting:** This spec defines **39 macro forms** across **36 unique names**. Three names (`$expose`, `$action`, `$lifecycle`) appear in multiple blocks with block-determined semantics (see §1.1 below). Counting unique names: 36. Counting all forms (each block instance counted separately): 39. The "39 macros" figure used elsewhere in this spec refers to forms, not unique names.
+**Note on counting:** This spec defines **38 macro forms** across **35 unique names**. Three names (`$expose`, `$action`, `$lifecycle`) appear in multiple blocks with block-determined semantics (see §1.1 below). Counting unique names: 35. Counting all forms (each block instance counted separately): 38. The "38 macros" figure used elsewhere in this spec refers to forms, not unique names. (`$server` was retired — see §2.12 — dropping both totals by one.)
 
 **Note on `@route`:** A fifth structural block, `@route`, exists in aihu but contains no macros. It is valid only in page components (files under `src/pages/`) and contains route metadata as a TypeScript object literal. The `@route` block is documented in the Block Structure Spec §7.3; it is omitted from this spec's vocabulary because it is a structural data block, not a macro-bearing block. The "4 blocks" referenced throughout this spec refers to macro-bearing blocks (`@state`, `@template`, `@style`, `@agent`).
 
@@ -1875,7 +1875,7 @@ Quick reference: which macros are valid in which blocks.
 | `$rate-limit` | | | | ✓ | |
 | `$describe` | | | | ✓ | |
 
-**Total: 36 unique macro names. 39 macro forms (counting `$expose` × 2 blocks + `$action` × 3 blocks).**
+**Total: 35 unique macro names. 38 macro forms (counting `$expose` × 2 blocks + `$action` × 3 blocks).**
 
 The compiler MUST enforce this matrix at parse time. Macros used in invalid blocks fail with a clear error citing this matrix.
 
