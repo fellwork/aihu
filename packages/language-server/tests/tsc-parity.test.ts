@@ -151,7 +151,10 @@ describe('#486 step 5 — editor and CLI report the SAME diagnostic', () => {
     expect(cli.text).toContain(`broken.aihu:${diag.line}:${diag.character}`)
     expect(cli.text).toContain('error TS2339')
     expect(cli.text).toContain("Property 'toUpperCase' does not exist on type 'number'.")
-  })
+    // Spawns aihu-tsc (→ real tsc) + the editor-side Volar program; both are
+    // slow under CI worker load, well past vitest's 5s default. Match the
+    // other tsc-spawning lanes' generous ceiling.
+  }, 120_000)
 })
 
 describe('#486 step 5 — the implicit-any parity filter', () => {
