@@ -1,0 +1,42 @@
+{
+  "example": "storefront",
+  "id": "G4",
+  "subsystem": "Data + app-state platform",
+  "sources": [
+    "src/storefront-root.aihu",
+    "src/product-list.aihu",
+    "src/cart-drawer.aihu",
+    "src/cart-context.ts",
+    "server.ts"
+  ],
+  "exercises": [
+    "state",
+    "derived",
+    "action",
+    "provide",
+    "if",
+    "each",
+    "key",
+    "on:click",
+    "interpolation",
+    "expose:read",
+    "expose:read-write",
+    "describe",
+    "requireAuth",
+    "pkg:context",
+    "pkg:auth"
+  ],
+  "planned": [
+    "resource",
+    "consume",
+    "pkg:store",
+    "store.defineStore",
+    "store.$patch",
+    "store.$subscribe",
+    "store.persist",
+    "store.serialize"
+  ],
+  "absorbs": [],
+  "ci": "compile+smoke",
+  "notes": "Today uses the IMPERATIVE @aihu-plugin/data createResource + @aihu/context inject APIs, not the resource()/consume() intrinsics (see matrix gaps). Migration to intrinsics + the @aihu/store zero\u2192full jump are P3 (planned). Bun server + arbor alias; not vite-buildable in the default lane \u2014 guarded by check:emit-parses + smoke."
+}

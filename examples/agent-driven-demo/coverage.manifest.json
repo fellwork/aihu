@@ -1,0 +1,21 @@
+{
+  "example": "agent-driven-demo",
+  "id": "G7",
+  "subsystem": "Agent surface / GX governance",
+  "sources": ["src/task-list.aihu"],
+  "exercises": [
+    "state",
+    "action",
+    "each",
+    "key",
+    "interpolation",
+    "action.expose",
+    "expose:read",
+    "describe",
+    "agent-block"
+  ],
+  "planned": ["event", "gx:read-tier", "gx:call-tier", "expose:public", "shield"],
+  "absorbs": [],
+  "ci": "compile+smoke",
+  "notes": "The launch-proof example: standalone @agent{} block, external-agent WS capability bridge, server-enforced gate (404\u2192401\u2192403\u2192429) with a behavioral test (tests/real-ws-bridge.test.ts). event()+$emit and the GX hard-tier read:/call: vocabulary are P3 (planned) \u2014 the current source exposes actions but does not yet emit agent-visible events. Guarded by check:emit-parses + the WS-bridge behavioral test."
+}

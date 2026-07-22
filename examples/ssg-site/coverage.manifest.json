@@ -1,0 +1,35 @@
+{
+  "example": "ssg-site",
+  "id": "G8",
+  "subsystem": "SSG / static output",
+  "sources": [
+    "aihu.config.ts",
+    "src/pages/index.aihu",
+    "src/pages/about.aihu",
+    "src/components/theme-badge.aihu"
+  ],
+  "exercises": [
+    "output:static",
+    "route",
+    "route.head",
+    "each",
+    "key",
+    "interpolation",
+    "a-enhanced",
+    "prop",
+    "prop.attribute",
+    "prop.reflect",
+    "prop.expose",
+    "expose:read",
+    "describe",
+    "state",
+    "onAdopt",
+    "onAttributeChange",
+    "slot",
+    "ssr-hydration"
+  ],
+  "planned": ["onceRendered-prerender-content"],
+  "absorbs": ["auth-magna-seo"],
+  "ci": "build",
+  "notes": "NEW in Phase 2a. Sole live exerciser of output:'static', onAdopt, onAttributeChange, and the reflected prop attribute surface. `bun run build` exits 0 and emits the client bundle, but the SSG prerender pass currently DEGRADES (Vite-8 SSR module-runner lacks CSSStyleSheet/customElements for compiled components) — a framework gap surfaced as a warning, tracked for Phase 2b/3. SFCs compile clean; per-route head sidecars carry full SEO metadata."
+}
