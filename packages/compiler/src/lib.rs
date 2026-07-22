@@ -4,6 +4,9 @@ pub mod codegen;
 // parser (C485/C487) + `.route.json` / withheld-type rendering.
 pub mod data;
 pub mod diagnostics;
+// Envelope API — single-parse, multi-target, multi-output compile. Shared by
+// the CLI's `--envelope` flag and the napi addon (packages/compiler/src-native).
+pub mod envelope;
 // GX Phase 1 (#437-GX): the `extract:` two-axis vocabulary — shared value
 // parser + declaration→derivation→default resolution.
 pub mod extract;
@@ -26,6 +29,10 @@ pub use ast_export::{
     SfcMetaOwned, SfcNodeOwned, SfcStyleBlockOwned, SfcStyleScope, AST_VERSION,
 };
 pub use codegen::{emit, emit_with_options, resolve_signals, EmitResult, SignalMap};
+pub use envelope::{
+    compile_envelope, format_compile_error, resolve_define_tag, Envelope, EnvelopeDiagnostic,
+    EnvelopeOptions, TargetEmit, ENVELOPE_VERSION,
+};
 pub use expr::ExprParserMode;
 pub use parser::sfc;
 pub use parser::stream_macros;
