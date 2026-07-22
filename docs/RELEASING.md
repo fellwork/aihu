@@ -63,6 +63,55 @@ The resulting `.changeset/<name>.md` file is committed in your PR.
 > holding the v1.0.0 narrative tag under Path B). To make tagging automatic
 > instead, add a publish/tag step to `release-pr.yml` — tracked as a follow-up.
 
+## Canary (snapshot) releases
+
+To let a consumer (e.g. fellwork/web) pin unreleased `main` without cutting a
+stable release, publish a **canary snapshot**: every non-ignored `@aihu/*`
+package at version `0.0.0-canary-<shortsha>`, published under the `canary` npm
+dist-tag. `latest` is untouched, so ordinary installs are unaffected. Snapshot
+versions are ephemeral — nothing is committed, no git tag, no GitHub Release;
+pending `.changeset/*.md` files stay in place for the next stable release.
+
+```bash
+# Dry-run (DEFAULT — build + pack + validate, no npm write):
+gh workflow run release.yml -f canary=true
+
+# LIVE canary publish (explicit opt-in):
+gh workflow run release.yml -f canary=true -f dry_run=false
+```
+
+Both run the full binary matrix (5 compiler platforms, WASM, server + css-engine
+natives) at the tip of `main`, then:
+
+1. Each publish job writes an ephemeral catch-all changeset
+   (`scripts/canary-catchall-changeset.ts` — covers every publishable
+   `packages/*` package, so the snapshot isn't limited to packages with
+   pending changesets) and runs `changeset version --snapshot canary` —
+   deterministic `0.0.0-canary-<sha>` for every package
+   (`.changeset/config.json` `snapshot.prereleaseTemplate: "{tag}-{commit}"`
+   keys the suffix to the commit, so all jobs agree without coordination).
+2. `scripts/stamp-platform-snapshot.ts` syncs the native platform packages
+   (`packages/{compiler,server,css-engine}/npm/*` — not workspace members, so
+   changesets never sees them) and the hosts' `optionalDependencies` pins to
+   the same snapshot version.
+3. `scripts/publish-all.sh --tag canary` (JS packages) and the platform-package
+   jobs publish with `npm publish --tag canary` — plus `--dry-run` unless
+   `dry_run=false`.
+
+Consume it with:
+
+```bash
+npm install @aihu/app@canary                # moving canary pointer
+npm install @aihu/app@0.0.0-canary-abc1234  # exact snapshot pin
+```
+
+Note: the `packages/_moved/*` legacy-name stubs are excluded from the
+catch-all (frozen at their 1.x stable versions; the live publish's idempotency
+check skips them). The compiler `postinstall`
+GitHub-release fallback still points at the latest stable Release assets;
+canary consumers get canary binaries via the `@aihu/compiler-<platform>`
+optionalDependencies path, which is the primary resolution route.
+
 ## Pre-release channels (alpha / beta / rc)
 
 For unstable releases pre-v1.1 GA:
