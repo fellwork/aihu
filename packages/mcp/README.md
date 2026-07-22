@@ -4,9 +4,7 @@
 
 MCP server for aihu — exposes aihu_example and aihu_validate tools via stdio transport.
 
-Held-private workspace package. Not yet published to npm.
-
-> **Status:** Held private — not yet published to npm. See [v1.1 roadmap](../../docs/roadmap/SUMMARY.md) for ratification gating (e.g. RFC #56 live-binding for `@aihu/plugin` enforcement).
+> **Status:** Publish-ready — rides the next release cut. The `aihu_example` index is generated from the `cookbook/` corpus (`scripts/build-cookbook-index.ts`) and CI-guarded against staleness (`check:cookbook`).
 
 <!-- BEGIN_HANDWRITTEN: prose -->
 _(Hand-written prose lives in this block. Replace this placeholder; everything below is auto-generated.)_
@@ -35,7 +33,7 @@ bun add @aihu/mcp
 | | |
 |---|---|
 | **Version** | `0.1.1` |
-| **Tier** | E — Held private (unmapped tier) |
+| **Tier** | C — Agent surface — MCP server (aihu_example cookbook retrieval + aihu_validate) |
 | **Published files** | 3 entries |
 | **License** | MIT |
 
@@ -74,8 +72,10 @@ bun add @aihu/mcp
 <!-- BEGIN_AUTOGEN: see-also -->
 <!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
 
+- [Cookbook corpus](../../cookbook)
+- [@aihu/agent](../agent)
+- [@aihu-plugin/agent-readiness](../plugin-agent-readiness)
 - [Aihu framework root](../../README.md)
-- [v1.1 roadmap](../../docs/roadmap/SUMMARY.md)
 
 <sub><i>Auto-generated against `@aihu/mcp@0.1.1`.</i></sub>
 

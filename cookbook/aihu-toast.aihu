@@ -1,4 +1,17 @@
-// toast — $prop message + $action dismiss, auto-dismiss via $lifecycle.mount setTimeout
+<!-- @cookbook
+id: aihu-toast
+type: container
+granularity: block
+description: Toast — auto-dismiss via onMount setTimeout, manual dismiss action, aria-live polite status region.
+constructs: [prop, state, action, onMount, onDispose, show, on:click, interpolation]
+packages: []
+concerns: [state, a11y]
+since: 0.5.0
+anti-patterns:
+  - "Do not auto-dismiss without clearing the timer in onDispose — a disposed toast must not fire a dangling timeout."
+related: [aihu-modal, aihu-clock]
+-->
+// toast — prop message + action dismiss, auto-dismiss via onMount setTimeout
 
 @state {
   const message = prop({ default: 'Something happened.' })

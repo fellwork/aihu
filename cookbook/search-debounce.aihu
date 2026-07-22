@@ -1,4 +1,18 @@
-// search-debounce — bind:value on input + $effect with 300ms debounce, $computed results
+<!-- @cookbook
+id: search-debounce
+type: list
+granularity: block
+description: Debounced search — bind:value feeds the query, effect() debounces 300ms into a second state, derived() filters results.
+constructs: [state, effect, derived, bind:value, each, key, if, elseif, group, interpolation]
+packages: []
+concerns: [state, events]
+since: 0.5.0
+playground: Search
+anti-patterns:
+  - "Do not debounce inside derived() — derivations must be pure; the timer lives in effect(), the settled value in its own state."
+related: [data-table, fetch-resource]
+-->
+// search-debounce — bind:value on input + effect() with 300ms debounce, derived results
 
 @state {
   let query = state('')

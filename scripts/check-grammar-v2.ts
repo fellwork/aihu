@@ -69,6 +69,24 @@ const PATTERNS: ReadonlyArray<[string, string]> = [
   ],
 ]
 
+/**
+ * The pre-#497 `@state` collection dialect ($prop:/$action:/$computed:/… bags)
+ * is retired in the FLUENCY CORPUS — cookbook recipes, the generated MCP
+ * index, and the playground presets teach agents idiomatic aihu, so they must
+ * only carry the ratified wrapper dialect (state()/prop()/action()/…).
+ * The compiler still accepts the old dialect elsewhere; these scopes are the
+ * teaching surfaces, where the fossil index (21 pre-#497 entries served by
+ * aihu_example until #P0) proved drift goes unnoticed without a guard.
+ */
+const CORPUS_SCOPES = ['cookbook', 'packages/mcp/src/cookbook-index.json', 'apps/docs/playground']
+
+const CORPUS_STATE_PATTERNS: ReadonlyArray<[string, string]> = [
+  [
+    'retired @state collections',
+    String.raw`\$(prop|computed|action|resource|effect|lifecycle|aria|form|context|controller|event|stream|extract)\s*:`,
+  ],
+]
+
 let failed = false
 for (const [label, pattern] of PATTERNS) {
   const res = spawnSync('grep', ['-rlE', pattern, ...SCOPES], { encoding: 'utf8' })
@@ -80,6 +98,20 @@ for (const [label, pattern] of PATTERNS) {
   if (hits.length > 0) {
     failed = true
     console.error(`✗ ${label} — retired form found in live code:`)
+    for (const h of hits) console.error(`    ${h}`)
+  }
+}
+
+for (const [label, pattern] of CORPUS_STATE_PATTERNS) {
+  const res = spawnSync('grep', ['-rlE', pattern, ...CORPUS_SCOPES], { encoding: 'utf8' })
+  const out = res.stdout ?? ''
+  const hits = out
+    .split('\n')
+    .filter(Boolean)
+    .filter((f) => !EXCLUDES.some((e) => f.includes(e)))
+  if (hits.length > 0) {
+    failed = true
+    console.error(`✗ ${label} — pre-#497 collection dialect found in the fluency corpus:`)
     for (const h of hits) console.error(`    ${h}`)
   }
 }

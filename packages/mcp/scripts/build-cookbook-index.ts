@@ -1,88 +1,71 @@
 /**
- * Build-time script: scans cookbook/*.aihu, parses @cookbook frontmatter,
- * and writes packages/mcp/src/cookbook-index.json.
+ * Build-time generator: scans `cookbook/*.aihu`, parses + validates the
+ * `<!-- @cookbook -->` frontmatter schema (see cookbook-lib.ts), and writes
+ * every generated consumption surface:
  *
- * Usage: bun scripts/build-cookbook-index.ts
- * (called automatically by `bun run build` in packages/mcp)
+ *   1. packages/mcp/src/cookbook-index.json   — the @aihu/mcp `aihu_example` index
+ *   2. llms-cookbook.txt (repo root)          — agent-consumable text export
+ *   3. apps/docs/playground/presets.generated.ts — playground presets
+ *
+ * FAIL-LOUD CONTRACT (the `-1` bundle-size doctrine): any recipe with
+ * missing/invalid frontmatter, an unknown construct/type/concern, a duplicate
+ * id, or an empty scan result exits 1 and lists every offender. This script
+ * NEVER writes partial or empty artifacts.
+ *
+ * Usage: bun packages/mcp/scripts/build-cookbook-index.ts
+ * (also runs as part of `bun run build` in packages/mcp)
  */
 
-import { readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { writeFileSync } from 'node:fs'
 import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import {
+  buildCorpus,
+  renderIndexJson,
+  renderLlmsCookbook,
+  renderPresetsTs,
+} from './cookbook-lib.ts'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-
-// Resolve paths
 const repoRoot = resolve(__dirname, '../../../')
+
 const cookbookDir = join(repoRoot, 'cookbook')
-const outputPath = join(__dirname, '../src/cookbook-index.json')
+const indexPath = join(repoRoot, 'packages/mcp/src/cookbook-index.json')
+const llmsPath = join(repoRoot, 'llms-cookbook.txt')
+const presetsPath = join(repoRoot, 'apps/docs/playground/presets.generated.ts')
 
-interface CookbookEntry {
-  filename: string
-  description: string
-  tags: string[]
-  source: string
-}
+const { entries, errors } = buildCorpus(cookbookDir)
 
-/**
- * Parse the <!-- @cookbook ... --> frontmatter block from a .aihu file.
- * Returns null if no valid frontmatter block is found.
- */
-function parseFrontmatter(source: string): { description: string; tags: string[] } | null {
-  const match = /<!--\s*@cookbook\s*([\s\S]*?)-->/.exec(source)
-  if (!match?.[1]) return null
-
-  const block = match[1]
-  let description = ''
-  const tags: string[] = []
-
-  for (const line of block.split('\n')) {
-    const trimmed = line.trim()
-    if (trimmed.startsWith('description:')) {
-      description = trimmed.slice('description:'.length).trim()
-    } else if (trimmed.startsWith('tags:')) {
-      const tagStr = trimmed.slice('tags:'.length).trim()
-      tags.push(
-        ...tagStr
-          .split(',')
-          .map((t) => t.trim().toLowerCase())
-          .filter(Boolean),
-      )
-    }
-  }
-
-  if (!description) return null
-  return { description, tags }
-}
-
-// Scan cookbook directory
-const entries: CookbookEntry[] = []
-
-let files: string[]
-try {
-  files = readdirSync(cookbookDir).filter((f) => f.endsWith('.aihu'))
-} catch {
-  console.error(`[build-cookbook-index] Could not read cookbook dir: ${cookbookDir}`)
+if (errors.length > 0) {
+  console.error(`[build-cookbook-index] REFUSING to write: ${errors.length} problem(s):`)
+  for (const err of errors) console.error(`  ✗ ${err}`)
+  console.error(
+    '\nEvery cookbook recipe must carry a valid <!-- @cookbook --> frontmatter block.' +
+      '\nSchema: packages/mcp/scripts/cookbook-lib.ts (header comment).',
+  )
   process.exit(1)
 }
 
-for (const filename of files.sort()) {
-  const filePath = join(cookbookDir, filename)
-  const source = readFileSync(filePath, 'utf-8')
-  const meta = parseFrontmatter(source)
-
-  if (!meta) {
-    console.warn(`[build-cookbook-index] Skipping ${filename}: no @cookbook frontmatter`)
-    continue
-  }
-
-  entries.push({
-    filename,
-    description: meta.description,
-    tags: meta.tags,
-    source,
-  })
+if (entries.length === 0) {
+  console.error('[build-cookbook-index] REFUSING to write an empty index (zero entries).')
+  process.exit(1)
 }
 
-writeFileSync(outputPath, `${JSON.stringify(entries, null, 2)}\n`, 'utf-8')
-console.log(`[build-cookbook-index] Wrote ${entries.length} entries to ${basename(outputPath)}`)
+const presetCount = entries.filter((e) => e.playground).length
+if (presetCount === 0) {
+  console.error(
+    '[build-cookbook-index] REFUSING to write: no recipe carries a `playground:` label — the playground would have zero presets.',
+  )
+  process.exit(1)
+}
+
+writeFileSync(indexPath, renderIndexJson(entries), 'utf-8')
+console.log(`[build-cookbook-index] Wrote ${entries.length} entries to ${basename(indexPath)}`)
+
+writeFileSync(llmsPath, renderLlmsCookbook(entries), 'utf-8')
+console.log(`[build-cookbook-index] Wrote ${entries.length} recipes to ${basename(llmsPath)}`)
+
+writeFileSync(presetsPath, renderPresetsTs(entries), 'utf-8')
+console.log(
+  `[build-cookbook-index] Wrote ${presetCount} playground presets to ${basename(presetsPath)}`,
+)

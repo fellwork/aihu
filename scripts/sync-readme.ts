@@ -600,6 +600,15 @@ const PACKAGE_TIERS: Record<string, TierInfo> = {
       { label: '@aihu/server', href: '../server' },
     ],
   },
+  '@aihu/mcp': {
+    tier: 'C',
+    label: 'Agent surface — MCP server (aihu_example cookbook retrieval + aihu_validate)',
+    seeAlso: [
+      { label: 'Cookbook corpus', href: '../../cookbook' },
+      { label: '@aihu/agent', href: '../agent' },
+      { label: '@aihu-plugin/agent-readiness', href: '../plugin-agent-readiness' },
+    ],
+  },
   // Tier D — compiler/cli
   '@aihu/compiler': {
     tier: 'D',

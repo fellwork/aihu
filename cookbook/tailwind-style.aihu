@@ -1,3 +1,16 @@
+<!-- @cookbook
+id: tailwind-style
+type: display
+granularity: block
+description: Tailwind utilities in the template coexisting with a scoped @style block for component-specific rules.
+constructs: [state, action, on:click, interpolation]
+packages: []
+concerns: [styling, state]
+since: 0.5.0
+anti-patterns:
+  - "Do not duplicate utility rules inside @style — the scoped block is for rules the utility layer cannot express."
+related: [theme-toggle]
+-->
 // tailwind-style — Tailwind 4 utility classes in template + scoped @style for component rules
 
 @state {

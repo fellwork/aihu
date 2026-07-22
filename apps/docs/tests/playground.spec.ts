@@ -4,7 +4,16 @@
 // URL-share roundtrip works.
 import { expect, test } from '@playwright/test'
 
-const PRESET_IDS = ['counter', 'todo', 'agent-block', 'ssr', 'route', 'plugin']
+// Generated from cookbook frontmatter (`playground:` labels) — see
+// apps/docs/playground/presets.generated.ts.
+const PRESET_IDS = [
+  'agent-weather',
+  'aihu-counter',
+  'aihu-tabs',
+  'form-validation',
+  'search-debounce',
+  'theme-toggle',
+]
 
 // <playground-embed> is inside <docs-shell>'s shadow root, so each
 // helper pierces two layers of shadow DOM to reach it.
@@ -54,26 +63,28 @@ test('selecting a preset updates the URL with ?preset=', async ({ page }) => {
     const shell = document.querySelector('docs-shell')
     const embed = shell?.shadowRoot?.querySelector('playground-embed') as HTMLElement | null
     const tab = embed?.shadowRoot?.querySelector(
-      '.preset-tab[data-preset-id="todo"]',
+      '.preset-tab[data-preset-id="aihu-tabs"]',
     ) as HTMLButtonElement | null
     tab?.click()
   })
-  await expect.poll(() => page.url()).toMatch(/\?preset=todo/)
-  expect(await activePresetId(page)).toBe('todo')
+  await expect.poll(() => page.url()).toMatch(/\?preset=aihu-tabs/)
+  expect(await activePresetId(page)).toBe('aihu-tabs')
 })
 
-test('default preset (counter) keeps URL clean — no ?preset=counter', async ({ page }) => {
+test('default preset (aihu-counter) keeps URL clean — no ?preset=aihu-counter', async ({
+  page,
+}) => {
   await gotoPlayground(page)
-  expect(page.url()).not.toMatch(/preset=counter/)
-  expect(await activePresetId(page)).toBe('counter')
+  expect(page.url()).not.toMatch(/preset=aihu-counter/)
+  expect(await activePresetId(page)).toBe('aihu-counter')
 })
 
-test('?preset=agent-block in URL loads that preset on cold visit', async ({ page }) => {
-  await gotoPlayground(page, '?preset=agent-block')
-  expect(await activePresetId(page)).toBe('agent-block')
+test('?preset=agent-weather in URL loads that preset on cold visit', async ({ page }) => {
+  await gotoPlayground(page, '?preset=agent-weather')
+  expect(await activePresetId(page)).toBe('agent-weather')
 })
 
-test('tall preset (todo) preview is not clipped — iframe fills its pane within a clamped, scrollable layout', async ({
+test('tall preset (aihu-tabs) preview is not clipped — iframe fills its pane within a clamped, scrollable layout', async ({
   page,
 }) => {
   // Give the embed a generous viewport so the .playground clamp resolves to
@@ -86,11 +97,11 @@ test('tall preset (todo) preview is not clipped — iframe fills its pane within
     const shell = document.querySelector('docs-shell')
     const embed = shell?.shadowRoot?.querySelector('playground-embed') as HTMLElement | null
     const tab = embed?.shadowRoot?.querySelector(
-      '.preset-tab[data-preset-id="todo"]',
+      '.preset-tab[data-preset-id="aihu-tabs"]',
     ) as HTMLButtonElement | null
     tab?.click()
   })
-  await expect.poll(() => activePresetId(page)).toBe('todo')
+  await expect.poll(() => activePresetId(page)).toBe('aihu-tabs')
 
   // Probe geometry + computed CSS by piercing two shadow layers to the
   // iframe inside <playground-embed>. We assert on box geometry and CSS

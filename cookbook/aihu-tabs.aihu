@@ -1,4 +1,18 @@
-// tabs — $prop tabs + $action selectTab, $computed selected (active tab)
+<!-- @cookbook
+id: aihu-tabs
+type: container
+granularity: block
+description: Tabs — derived() computes the selected tab, each/key renders the tablist, onMount picks the initial tab.
+constructs: [prop, state, derived, action, onMount, each, key, if, else, group, on:click, interpolation]
+packages: []
+concerns: [state, a11y]
+since: 0.5.0
+playground: Tabs
+anti-patterns:
+  - "Do not recompute the active tab inline in the template — derived() memoizes the selection once for every read site."
+related: [aihu-accordion]
+-->
+// tabs — prop tabs + action selectTab, derived selected (active tab)
 
 @state {
   const tabs = prop({

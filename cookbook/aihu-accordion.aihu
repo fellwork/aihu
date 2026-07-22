@@ -1,4 +1,17 @@
-// accordion — $prop items (array) + $action toggle, $each over items, $show for content
+<!-- @cookbook
+id: aihu-accordion
+type: container
+granularity: block
+description: Accordion — each/key over prop-provided items, show toggles the open panel, aria-expanded tracks state.
+constructs: [prop, state, action, each, key, show, group, on:click, interpolation]
+packages: []
+concerns: [state, a11y]
+since: 0.5.0
+anti-patterns:
+  - "Do not drive frequently-toggled panels with if= — show keeps DOM and internal state alive; if= tears down and rebuilds."
+related: [aihu-tabs, aihu-modal]
+-->
+// accordion — prop items (array) + action toggle, each over items, show for content
 
 @state {
   const items = prop({

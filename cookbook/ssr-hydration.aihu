@@ -1,4 +1,17 @@
-// ssr-hydration — SSR-safe component: $lifecycle.mount hydrates from dataset
+<!-- @cookbook
+id: ssr-hydration
+type: ssr-ssg
+granularity: block
+description: SSR-safe bootstrapping — props render placeholders on the server; onMount reads server-stamped dataset values after hydration.
+constructs: [prop, state, onMount, interpolation]
+packages: []
+concerns: [state, serialization]
+since: 0.5.0
+anti-patterns:
+  - "Do not touch the DOM or dataset during setup — SSR executes setup on the server; DOM reads belong in onMount."
+related: [context-provider]
+-->
+// ssr-hydration — SSR-safe component: onMount hydrates from dataset
 
 @state {
   let greeting = prop({ default: 'Hello' })
