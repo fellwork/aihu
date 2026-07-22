@@ -140,6 +140,11 @@ class Computed<T> implements Subscriber {
  * to unlink the computed from its source signals and downstream subscribers,
  * allowing it (and its `fn` closure) to be garbage-collected even if source
  * signals remain live.
+ *
+ * CONTRACT: the `dispose` own property is the discriminant that distinguishes
+ * a computed read from a plain zero-arg function at runtime. `@aihu/store`
+ * relies on it to exclude computed reads from setup-store state detection —
+ * do not remove or rename it without migrating that detection.
  */
 export function computed<T>(
   fn: () => T,

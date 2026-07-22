@@ -150,6 +150,11 @@
     "limit": "4 KB"
   },
   {
+    "name": "@aihu/store",
+    "bytes": 1856,
+    "limit": "2.5 KB"
+  },
+  {
     "name": "@aihu/auth",
     "bytes": -1,
     "limit": "1.5 KB"

@@ -276,6 +276,12 @@
     "isPlatform": false
   },
   {
+    "name": "@aihu/store",
+    "version": "0.1.0",
+    "dir": "packages/store",
+    "isPlatform": false
+  },
+  {
     "name": "@aihu/templates-cf-team",
     "version": "3.0.1",
     "dir": "packages/templates/cf-team",

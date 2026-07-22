@@ -1,0 +1,41 @@
+{
+  "name": "@aihu/store",
+  "version": "0.1.0",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "rolldown -c",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "bun run build"
+  },
+  "dependencies": {
+    "@aihu/context": "workspace:*",
+    "@aihu/signals": "workspace:*"
+  },
+  "description": "Pinia-style global stores on aihu signals — defineStore, SSR-safe per-request instances, registry-based serialize/hydrate, plugins.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/fellwork/aihu.git",
+    "directory": "packages/store"
+  },
+  "homepage": "https://github.com/fellwork/aihu/tree/main/packages/store#readme",
+  "bugs": "https://github.com/fellwork/aihu/issues",
+  "publishConfig": {
+    "access": "public"
+  }
+}
