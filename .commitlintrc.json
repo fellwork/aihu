@@ -22,6 +22,7 @@
         "agent-server",
         "agent-service",
         "signals",
+        "store",
         "arbor",
         "runtime",
         "context",
