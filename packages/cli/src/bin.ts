@@ -457,6 +457,9 @@ async function main(): Promise<void> {
     // #425 — `--v2` chains the v1→v2 macro-simplification pass after the
     // v0→v1 passes, giving external devs a CLI path to the v2 vocabulary.
     const v2 = hasFlag(rest, 'v2')
+    // #487 — `--state` runs the @state wrapper-model codemod (spec §7):
+    // `$`-macros → wrappers, signal tuples → `state()` incl. call sites.
+    const state = hasFlag(rest, 'state')
     const files = rest.filter((a) => !a.startsWith('--'))
     if (files.length === 0) {
       process.stderr.write(
@@ -464,13 +467,14 @@ async function main(): Promise<void> {
           'Usage:',
           '  aihu migrate <files...>   Migrate legacy SFC syntax to v1.0+ canonical forms',
           '  aihu migrate --v2 <files...>   Also migrate v1 macro forms to the v2 vocabulary',
+          '  aihu migrate --state <files...>   Migrate @state to the wrapper model (#487)',
           '  aihu migrate --dry-run <files...>   Preview changes without writing',
           '',
         ].join('\n'),
       )
       process.exit(1)
     }
-    migrateFiles(files, dryRun, process.cwd(), v2)
+    migrateFiles(files, dryRun, process.cwd(), v2, state)
     return
   }
   if (cmd === 'add') {

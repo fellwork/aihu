@@ -35,6 +35,10 @@ import { isAbsolute, join } from 'node:path'
 // v1→v2 macro-vocabulary pass (#425). Relative source import — rolldown
 // bundles it into the CLI dist, so the published package stays self-contained.
 import { migrate as migrateMacrosV2 } from '../../../compiler/js/codemods/macro-simplification/migrate.ts'
+// #487 — the @state wrapper-model migration (state-model spec §7 waves 1+2):
+// `$`-macros → wrappers/statement calls/directives, signal tuples → `state()`
+// with call-site rewrites. Opt-in via `aihu migrate --state`.
+import { migrateStateWrappers } from '../../../compiler/js/codemods/state-wrapper/migrate.ts'
 // Template grammar v2 (the prefix-less template): the `$` attribute layer,
 // block tags, `<$…>` macro elements, and `{{…}}` all migrate to the naked
 // grammar as the FINAL pass — the v0→v1 passes above stay byte-identical and
@@ -602,12 +606,22 @@ export function migrateFiles(
   dryRun: boolean,
   cwd: string,
   v2 = false,
+  state = false,
 ): void {
   for (const file of files) {
     const filePath = isAbsolute(file) ? file : join(cwd, file)
     const original = readFileSync(filePath, 'utf8')
     let converted: string
-    if (v2) {
+    if (state) {
+      // #487 — @state wrapper-model migration. Runs the state-wrapper codemod
+      // alone (input is expected to already be v2 vocabulary; the codemod
+      // aborts per-file on any form it cannot map losslessly).
+      const res = migrateStateWrappers(original)
+      converted = res.rewritten
+      for (const w of res.warnings) {
+        process.stderr.write(`  warn: ${file}: ${w}\n`)
+      }
+    } else if (v2) {
       const { content, warnings } = migrateFileV2(original)
       converted = content
       for (const w of warnings) {
