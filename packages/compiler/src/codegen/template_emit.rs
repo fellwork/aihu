@@ -43,6 +43,88 @@ pub(crate) fn emit_nodes(
     }
 }
 
+/// The template-text whitespace model, shared VERBATIM by the tree emit
+/// (`emit_node`'s Text arm) and the SSR string emitter
+/// (`ssr_string_emit.rs`) so the two can never disagree about which text
+/// nodes exist and what they contain.
+pub(crate) enum NormalizedText {
+    /// Whitespace-only run spanning lines — template-body indentation,
+    /// dropped entirely (the node contributes NO child).
+    Dropped,
+    /// Whitespace-only single-line run containing a non-breaking space —
+    /// collapses to exactly one U+00A0.
+    Nbsp,
+    /// The normalized text (JSX-style collapse; single-line whitespace-only
+    /// runs collapse to `" "` and land here as a one-space string).
+    Text(String),
+}
+
+pub(crate) fn normalize_text_node(s: &str) -> NormalizedText {
+    // Decode entities first so &nbsp; etc. survive whitespace normalization.
+    let raw = decode_html_entities(s);
+    if raw.trim().is_empty() {
+        // A whitespace-only text node. On a SINGLE line (no newline in the
+        // run) it is a significant inline separator — the only space
+        // between `{a}` and `{b}`, or between text and an inline element —
+        // and collapses to one space, matching HTML's inline whitespace
+        // model and rule 3 below (which only ran for mixed-content text).
+        // Before this it was dropped outright, so `{a} {b}` rendered `ab`
+        // (#400). A run that SPANS lines is template-body indentation
+        // between block-level content and stays stripped (rule 4).
+        if raw.contains('\n') {
+            NormalizedText::Dropped
+        } else if raw.contains('\u{00A0}') {
+            // A non-breaking space is deliberate significant whitespace —
+            // preserve it rather than folding to a plain space (the decode
+            // above exists precisely so `&nbsp;` survives).
+            NormalizedText::Nbsp
+        } else {
+            NormalizedText::Text(" ".to_string())
+        }
+    } else {
+        // JSX-style whitespace handling for text adjacent to inline elements:
+        //  1. Collapse runs of ASCII whitespace (incl. newlines) per-line.
+        //  2. Lines that are only whitespace are dropped.
+        //  3. Same-line leading/trailing whitespace (no `\n` in the leading/
+        //     trailing run) is preserved as a single space — required to
+        //     keep the gap between `<text>` and an inline `<element>` sibling.
+        //  4. Multi-line surrounding whitespace (template body newlines) is
+        //     stripped entirely (existing behavior).
+        let leading_len = raw
+            .as_bytes()
+            .iter()
+            .take_while(|b| b.is_ascii_whitespace())
+            .count();
+        let trailing_len = raw
+            .as_bytes()
+            .iter()
+            .rev()
+            .take_while(|b| b.is_ascii_whitespace())
+            .count();
+        let leading_run = &raw[..leading_len];
+        let trailing_run = &raw[raw.len() - trailing_len..];
+        let has_same_line_leading = !leading_run.is_empty() && !leading_run.contains('\n');
+        let has_same_line_trailing = !trailing_run.is_empty() && !trailing_run.contains('\n');
+
+        let core: String = raw
+            .split('\n')
+            .map(|ln| ln.trim())
+            .filter(|ln| !ln.is_empty())
+            .collect::<Vec<_>>()
+            .join(" ");
+
+        let mut normalized = String::with_capacity(core.len() + 2);
+        if has_same_line_leading {
+            normalized.push(' ');
+        }
+        normalized.push_str(&core);
+        if has_same_line_trailing {
+            normalized.push(' ');
+        }
+        NormalizedText::Text(normalized)
+    }
+}
+
 pub(crate) fn emit_node(
     node: &TemplateNode,
     signal_map: &SignalMap,
@@ -51,75 +133,17 @@ pub(crate) fn emit_node(
     mode: ExprParserMode,
 ) -> String {
     match node {
-        TemplateNode::Text(s) => {
-            // Decode entities first so &nbsp; etc. survive whitespace normalization.
-            let raw = decode_html_entities(s);
-            if raw.trim().is_empty() {
-                // A whitespace-only text node. On a SINGLE line (no newline in the
-                // run) it is a significant inline separator — the only space
-                // between `{a}` and `{b}`, or between text and an inline element —
-                // and collapses to one space, matching HTML's inline whitespace
-                // model and rule 3 below (which only ran for mixed-content text).
-                // Before this it was dropped outright, so `{a} {b}` rendered `ab`
-                // (#400). A run that SPANS lines is template-body indentation
-                // between block-level content and stays stripped (rule 4).
-                if raw.contains('\n') {
-                    String::new()
-                } else if raw.contains('\u{00A0}') {
-                    // A non-breaking space is deliberate significant whitespace —
-                    // preserve it rather than folding to a plain space (the decode
-                    // above exists precisely so `&nbsp;` survives).
-                    "leaf('\\u00A0')".to_string()
-                } else {
-                    "leaf(' ')".to_string()
-                }
-            } else {
-                // JSX-style whitespace handling for text adjacent to inline elements:
-                //  1. Collapse runs of ASCII whitespace (incl. newlines) per-line.
-                //  2. Lines that are only whitespace are dropped.
-                //  3. Same-line leading/trailing whitespace (no `\n` in the leading/
-                //     trailing run) is preserved as a single space — required to
-                //     keep the gap between `<text>` and an inline `<element>` sibling.
-                //  4. Multi-line surrounding whitespace (template body newlines) is
-                //     stripped entirely (existing behavior).
-                let leading_len = raw
-                    .as_bytes()
-                    .iter()
-                    .take_while(|b| b.is_ascii_whitespace())
-                    .count();
-                let trailing_len = raw
-                    .as_bytes()
-                    .iter()
-                    .rev()
-                    .take_while(|b| b.is_ascii_whitespace())
-                    .count();
-                let leading_run = &raw[..leading_len];
-                let trailing_run = &raw[raw.len() - trailing_len..];
-                let has_same_line_leading =
-                    !leading_run.is_empty() && !leading_run.contains('\n');
-                let has_same_line_trailing =
-                    !trailing_run.is_empty() && !trailing_run.contains('\n');
-
-                let core: String = raw
-                    .split('\n')
-                    .map(|ln| ln.trim())
-                    .filter(|ln| !ln.is_empty())
-                    .collect::<Vec<_>>()
-                    .join(" ");
-
-                let mut normalized = String::with_capacity(core.len() + 2);
-                if has_same_line_leading {
-                    normalized.push(' ');
-                }
-                normalized.push_str(&core);
-                if has_same_line_trailing {
-                    normalized.push(' ');
-                }
-
+        TemplateNode::Text(s) => match normalize_text_node(s) {
+            NormalizedText::Dropped => String::new(),
+            // A non-breaking space is deliberate significant whitespace —
+            // emitted as the ` ` JS escape (byte-stable emit; the raw
+            // char would round-trip identically but change the artifact).
+            NormalizedText::Nbsp => "leaf('\\u00A0')".to_string(),
+            NormalizedText::Text(normalized) => {
                 let escaped = normalized.replace('\\', "\\\\").replace('\'', "\\'");
                 format!("leaf('{}')", escaped)
             }
-        }
+        },
         TemplateNode::Interpolation(id) => {
             let trimmed = id.trim();
             let is_simple_ident = !trimmed.is_empty()
@@ -671,9 +695,11 @@ pub(crate) fn emit_each_block(
 /// B3 — Lower a `{@html expr}` block to the same IIFE pattern as `$html`.
 fn emit_html_block(expr: &str, indent: &str) -> String {
     // Mirror the `$html` attribute-form lowering: build a fragment branch with
-    // a placeholder element whose content gets replaced reactively.
+    // a placeholder element whose content gets replaced reactively. The
+    // `onMount` registration is try/catch-guarded for the same owner-less
+    // contexts as `ElemEffect::wrap` (SSR render, loop item factories).
     format!(
-        "(() => {{ const _n = branch('span', {{ 'data-aihu-html': '' }}, []); onMount(() => {{ const _el = _n && _n.el; if (!_el) return () => {{}}; const _s = effect(() => {{ _el.replaceChildren(document.createRange().createContextualFragment({})); }}); return () => {{ _s && _s(); }}; }}); return _n; }})(){}",
+        "(() => {{ const _n = branch('span', {{ 'data-aihu-html': '' }}, []); try {{ onMount(() => {{ const _el = _n && _n.el; if (!_el) return () => {{}}; const _s = effect(() => {{ _el.replaceChildren(document.createRange().createContextualFragment({})); }}); return () => {{ _s && _s(); }}; }}); }} catch {{}} return _n; }})(){}",
         expr,
         if indent.is_empty() { "" } else { "" }
     )
@@ -1035,7 +1061,7 @@ fn emit_macro_element(
 }
 
 /// Find a static attribute value by name.
-fn find_static_attr<'a>(attrs: &'a [crate::types::Attr], attr_name: &str) -> Option<&'a str> {
+pub(crate) fn find_static_attr<'a>(attrs: &'a [crate::types::Attr], attr_name: &str) -> Option<&'a str> {
     attrs.iter().find_map(|a| match a {
         crate::types::Attr::Static { name, value } if name == attr_name => Some(value.as_str()),
         _ => None,
@@ -1078,7 +1104,7 @@ fn link_href_arg(
 }
 
 /// The surface name of an attribute, whatever its form.
-fn attr_name(a: &Attr) -> &str {
+pub(crate) fn attr_name(a: &Attr) -> &str {
     match a {
         Attr::Static { name, .. } => name.as_str(),
         Attr::Binding { name, .. } => name.as_str(),
@@ -1473,7 +1499,7 @@ fn format_attr_key(name: &str) -> String {
 /// Return true if `name` is an event-handler attribute (`onclick`, `onSubmit`,
 /// etc.). These take the runtime's Path 1 (typeof === 'function') so the
 /// emitter must NOT wrap their values in `[() => expr]` thunk arrays.
-fn is_event_attr_name(name: &str) -> bool {
+pub(crate) fn is_event_attr_name(name: &str) -> bool {
     if !name.starts_with("on") || name.len() < 3 {
         return false;
     }
@@ -1649,19 +1675,19 @@ fn collect_arrow_params(expr: &str) -> std::collections::BTreeSet<String> {
 /// when compiled through `compile_full_with_options`; reachable only by
 /// direct `emit()` callers) falls back to the legacy rewrite so emit always
 /// produces output.
-struct RewrittenExpr {
-    source: String,
+pub(crate) struct RewrittenExpr {
+    pub(crate) source: String,
     /// AST mode only: the expression reads a registered signal after
     /// shadowing is resolved. Always `false` under `Legacy` (legacy decision
     /// sites don't consult it).
-    reads_signal: bool,
+    pub(crate) reads_signal: bool,
 }
 
 /// W3 — true when `s` is nothing but `ident.ident[.ident…]` (the shape the
 /// Interpolation dotted-base fast path exists for: `{user.name}`,
 /// `{route.params.slug}`). Anything richer — calls, operators, optional
 /// chaining, arrows — must go through the full rewrite under AST mode.
-fn is_pure_dotted_path(s: &str) -> bool {
+pub(crate) fn is_pure_dotted_path(s: &str) -> bool {
     s.contains('.')
         && s.split('.').all(|seg| {
             !seg.is_empty()
@@ -1671,7 +1697,7 @@ fn is_pure_dotted_path(s: &str) -> bool {
         })
 }
 
-fn rewrite_template_expr(
+pub(crate) fn rewrite_template_expr(
     expr: &str,
     signal_map: &SignalMap,
     mode: ExprParserMode,
@@ -1827,7 +1853,7 @@ fn rewrite_signal_reads_to_calls(expr: &str, signal_map: &SignalMap) -> String {
 /// NOTE: interpolations are REWRITTEN first (`rewrite_signal_reads_to_calls`,
 /// FEL-172/173) — `{count + 1}` becomes `count() + 1`, which then carries a
 /// call and gets wrapped here. So this predicate runs on the rewritten form.
-fn interpolation_has_call(expr: &str) -> bool {
+pub(crate) fn interpolation_has_call(expr: &str) -> bool {
     let bytes = expr.as_bytes();
     let mut i = 0usize;
     while i < bytes.len() {
@@ -1861,7 +1887,7 @@ fn interpolation_has_call(expr: &str) -> bool {
 /// in `state_names`. Skips identifiers inside string literals and after a `.`
 /// (member access — `obj.foo` where `foo` shadows a state name in property
 /// position is not a state reference).
-fn expr_references_state(expr: &str, state_names: &StateNames) -> bool {
+pub(crate) fn expr_references_state(expr: &str, state_names: &StateNames) -> bool {
     if state_names.0.is_empty() {
         return false;
     }
@@ -2366,22 +2392,31 @@ enum ElemEffect {
 
 impl ElemEffect {
     /// Wrap `inner` (the node expression this effect operates on) in the IIFE.
+    ///
+    /// The `onMount` registration is guarded with `try/catch` (mirroring
+    /// `createLinkBoundary`): outside a component-setup owner — a host-less
+    /// SSR render (`__ssr()` / `__ssrString`), or an `each`/`if` item factory
+    /// re-run during reconcile — `onMount` throws `SCR-R0010 no owner`, which
+    /// previously CRASHED any server render (and any looped re-grow) of an
+    /// element carrying `show`/`html`/`class:`/`ref`. The effect is a
+    /// mount-time behavior; where there is no mount there is nothing to wire,
+    /// so swallowing the registration failure is the correct semantic.
     fn wrap(&self, inner: &str, indent: &str) -> String {
         match self {
             ElemEffect::Show(expr) => format!(
-                "{}(() => {{ const _n = {}; onMount(() => {{ const _el = _n && _n.el; if (!_el) return () => {{}}; const _s = effect(() => {{ _el.toggleAttribute('hidden', !({})) }}); return () => {{ _s && _s(); }}; }}); return _n; }})()",
+                "{}(() => {{ const _n = {}; try {{ onMount(() => {{ const _el = _n && _n.el; if (!_el) return () => {{}}; const _s = effect(() => {{ _el.toggleAttribute('hidden', !({})) }}); return () => {{ _s && _s(); }}; }}); }} catch {{}} return _n; }})()",
                 indent, inner, expr
             ),
             ElemEffect::Html(expr) => format!(
-                "{}(() => {{ const _n = {}; onMount(() => {{ const _el = _n && _n.el; if (!_el) return () => {{}}; const _s = effect(() => {{ _el.replaceChildren(document.createRange().createContextualFragment({})); }}); return () => {{ _s && _s(); }}; }}); return _n; }})()",
+                "{}(() => {{ const _n = {}; try {{ onMount(() => {{ const _el = _n && _n.el; if (!_el) return () => {{}}; const _s = effect(() => {{ _el.replaceChildren(document.createRange().createContextualFragment({})); }}); return () => {{ _s && _s(); }}; }}); }} catch {{}} return _n; }})()",
                 indent, inner, expr
             ),
             ElemEffect::Class(class_name, expr) => format!(
-                "{}(() => {{ const _n = {}; onMount(() => {{ const _el = _n && _n.el; if (!_el) return () => {{}}; const _s = effect(() => {{ _el.classList.toggle('{}', Boolean({})) }}); return () => {{ _s && _s(); }}; }}); return _n; }})()",
+                "{}(() => {{ const _n = {}; try {{ onMount(() => {{ const _el = _n && _n.el; if (!_el) return () => {{}}; const _s = effect(() => {{ _el.classList.toggle('{}', Boolean({})) }}); return () => {{ _s && _s(); }}; }}); }} catch {{}} return _n; }})()",
                 indent, inner, class_name, expr
             ),
             ElemEffect::Ref(setter_call) => format!(
-                "{}(() => {{ const _n = {}; onMount(() => {{ const _el = _n && _n.el; if (_el) {{ {} }}; return () => {{}}; }}); return _n; }})()",
+                "{}(() => {{ const _n = {}; try {{ onMount(() => {{ const _el = _n && _n.el; if (_el) {{ {} }}; return () => {{}}; }}); }} catch {{}} return _n; }})()",
                 indent, inner, setter_call
             ),
         }
@@ -2413,7 +2448,7 @@ impl ElemEffect {
 /// loop binders SHADOW same-named signals/state for everything evaluated
 /// per-item (the element's own attrs, effects, `if`/`key` values, and its
 /// children). Returns filtered map copies when a collision exists.
-fn each_scoped_maps(
+pub(crate) fn each_scoped_maps(
     attrs: &[Attr],
     signal_map: &SignalMap,
     state_names: &StateNames,

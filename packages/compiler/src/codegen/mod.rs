@@ -4,6 +4,7 @@ pub mod mcp_schema;
 pub mod sidecar_json;
 pub mod sidecar_ts;
 pub mod signals;
+pub mod ssr_string_emit;
 pub mod state_emit;
 pub mod template_emit;
 
