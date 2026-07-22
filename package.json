@@ -77,6 +77,7 @@
     "@aihu/server": "workspace:*",
     "@aihu/signals": "workspace:*",
     "@biomejs/biome": "2.4.14",
+    "@playwright/test": "^1.50.0",
     "@changesets/changelog-github": "^0.7.0",
     "@changesets/cli": "^2.31.0",
     "@commitlint/cli": "^20.5.3",

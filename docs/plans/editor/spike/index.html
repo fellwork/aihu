@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>aihu editor phase-0 spike</title>
+<style>
+  body { font: 16px/1.5 system-ui, sans-serif; max-width: 46rem; margin: 2rem auto; padding: 0 1rem; }
+  #editor { border: 1px solid #999; border-radius: 6px; padding: .75rem 1rem; min-height: 8rem; outline-offset: 2px; }
+  #editor p { margin: .4rem 0; }
+  #status { font: 12px/1.4 ui-monospace, monospace; white-space: pre-wrap; background: #f4f4f4; padding: .5rem; border-radius: 6px; margin-top: 1rem; color: #333; }
+</style>
+</head>
+<body>
+<h1>@aihu/editor — phase-0 IME/contenteditable spike</h1>
+<p>Type below. IME composition, spellcheck replacement, and Ctrl/Cmd+B are the interesting cases. Model state renders underneath.</p>
+<div id="editor" spellcheck="true"></div>
+<pre id="status"></pre>
+<script type="module" src="/main.js"></script>
+</body>
+</html>
