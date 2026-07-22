@@ -56,7 +56,9 @@
     "check:hydration-adoption": "SCRIBE_NATIVE_SKIP=1 bun scripts/check-hydration-adoption.ts",
     "check:thesis": "bun run check:derived && bun run check:attributed && bun run check:governed && bun run check:dual-audience && bun run check:hydration-adoption",
     "check:grammar-v2": "bun scripts/check-grammar-v2.ts",
-    "check:cookbook": "bun scripts/check-cookbook-index.ts"
+    "check:cookbook": "bun scripts/check-cookbook-index.ts",
+    "check:coverage-manifest": "bun scripts/check-coverage-manifest.ts",
+    "build:governed-examples": "bun scripts/build-governed-examples.ts"
   },
   "devDependencies": {
     "@aihu-plugin/agent-readiness": "workspace:*",

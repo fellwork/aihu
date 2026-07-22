@@ -1,0 +1,36 @@
+{
+  "example": "hacker-news",
+  "id": "G2",
+  "subsystem": "SSR meta-framework",
+  "sources": [
+    "src/pages/index.aihu",
+    "src/pages/index.loader.ts",
+    "src/pages/item/[id].aihu",
+    "src/pages/item/[id].loader.ts",
+    "src/pages/user/[id].aihu",
+    "src/components/hn-comment.aihu"
+  ],
+  "exercises": [
+    "prop",
+    "action",
+    "route",
+    "route.dynamic",
+    "defineLoader",
+    "ssr-hydration",
+    "each",
+    "key",
+    "if",
+    "html",
+    "interpolation",
+    "a-enhanced",
+    "prefetch",
+    "afterNavigate",
+    "prop.expose",
+    "expose:read",
+    "describe"
+  ],
+  "planned": ["route.head", "beforeNavigate", "suspense", "slot", "reload-opt-out"],
+  "absorbs": ["blog-loader"],
+  "ci": "compile+smoke",
+  "notes": "SSR structural-walk hydration (#465), recursive <hn-comment>, enhanced <a> nav. Absorbs blog-loader's <suspense>+fallback slot in P3 (planned). Not vite-buildable in the default lane — server/SSR wiring; guarded by check:emit-parses + smoke."
+}

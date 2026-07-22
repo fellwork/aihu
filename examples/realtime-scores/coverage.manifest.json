@@ -1,0 +1,21 @@
+{
+  "example": "realtime-scores",
+  "id": "G5",
+  "subsystem": "Streaming / realtime",
+  "sources": ["src/realtime-scores.aihu"],
+  "exercises": [
+    "state",
+    "onMount",
+    "onDispose",
+    "websocket",
+    "each",
+    "key",
+    "if",
+    "interpolation",
+    "class:directive"
+  ],
+  "planned": ["stream", "resource"],
+  "absorbs": [],
+  "ci": "compile+smoke",
+  "notes": "Sole live user of class:. WebSocket lifecycle via onMount/onDispose + aria-live. Still uses imperative createResource for the initial fetch; migrating the base layer to the stream() intrinsic (currently zero coverage anywhere) is P3 (planned). Guarded by check:emit-parses + smoke."
+}

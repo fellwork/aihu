@@ -6,6 +6,8 @@
   let todos = state<Array<{ id: string; text: string; done: boolean }>>([])
   let filter = state<'all' | 'active' | 'completed'>('all')
   let draft = state('')
+  // ref target: the new-todo input, captured on mount so actions can refocus it.
+  let inputEl = state<HTMLInputElement | null>(null)
 
   const visible = derived(() => filter === 'all'
       ? todos
@@ -72,13 +74,19 @@
   <section class="todoapp">
     <header>
       <h1>todos</h1>
-      <input
-        class="new-todo"
-        placeholder="What needs to be done?"
-        bind:value={draft}
-        on:keydown={(e) => e.key === 'Enter' && addTodo()}
-        autofocus
-      >
+      <!-- on:submit.prevent — the dotted event-modifier surface; ref captures
+           the input element into a signal. -->
+      <form class="new-todo-form" on:submit.prevent={addTodo}>
+        <input
+          class="new-todo"
+          placeholder="What needs to be done?"
+          bind:value={draft}
+          ref={inputEl}
+          autofocus
+        >
+      </form>
+      <!-- show= — toggles [hidden] reactively (kept in the DOM, unlike if=). -->
+      <p class="all-done" show={allDone()} role="status">All done — nice.</p>
     </header>
 
     <ul class="todo-list">
@@ -95,6 +103,8 @@
         <label>{todo.text}</label>
         <button class="destroy" on:click={() => remove(todo.id)}>×</button>
       </li>
+      <!-- empty — the each-fallback, rendered only when `visible` is empty. -->
+      <li empty class="todo-empty">Nothing here yet — add your first todo above.</li>
     </ul>
 
     <footer if={todos.length > 0}>
@@ -120,6 +130,9 @@
 @style {
   .todoapp { max-width: 32rem; margin: 2rem auto; }
   .todoapp h1 { font-size: 2rem; color: var(--accent); margin: 0 0 0.5rem 0; }
+  .new-todo-form { margin: 0; }
+  .all-done { margin: 0.5rem 0 0; color: var(--accent); font-size: 0.9rem; font-weight: 600; }
+  .todo-empty { display: block; padding: 0.75rem 0; color: var(--muted); font-style: italic; border-bottom: 0; }
   .new-todo { width: 100%; padding: 0.75rem; font-size: 1rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: var(--radius); color: var(--fg); }
   .new-todo:focus { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
   .todo-list { list-style: none; padding: 0; margin: 0.5rem 0; }

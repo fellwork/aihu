@@ -1,0 +1,65 @@
+// theme-badge — the SSG example's hydration-lifecycle exerciser.
+//
+// This custom element is the designated LIVE exerciser for two statement
+// intrinsics that had ZERO coverage anywhere in the corpus before the governed
+// set (coverage-matrix rows onAdopt / onAttributeChange), plus the reflected
+// `prop` attribute surface (prop attribute:/reflect:):
+//
+//   - prop({ attribute, reflect })  → an OBSERVED attribute. The element mirrors
+//        its `variant` signal back to the DOM attribute (reflect), and the
+//        attribute is what attributeChangedCallback observes.
+//   - onAttributeChange((name, old, next) => …) → attributeChangedCallback.
+//        Fires AFTER the R1 signal update (spec §3.R2 order contract): authors
+//        observe the converted signal value, not the raw attribute string.
+//   - onAdopt(() => …) → adoptedCallback. Fires when the element is moved into a
+//        new document (e.g. adopted into an <iframe> / template content). Rare,
+//        but part of the four-callback custom-element lifecycle and otherwise
+//        untaught.
+//
+// It is deliberately tiny and side-effect-light so it prerenders cleanly under
+// output: 'static' and then adopts on hydration.
+
+@state {
+  const variant = prop({
+    default: 'light',
+    attribute: 'variant',
+    reflect: true,
+    describe: 'Visual variant, mirrored to the `variant` DOM attribute.',
+    expose: 'read',
+  })
+
+  // Observable lifecycle telemetry — proves the callbacks actually ran.
+  let adoptedCount = state(0)
+  let lastChange = state('')
+
+  onAdopt(() => {
+      adoptedCount = adoptedCount() + 1
+    })
+
+  onAttributeChange((name, oldValue, newValue) => {
+      lastChange = `${name}: ${oldValue ?? '∅'} → ${newValue ?? '∅'}`
+    })
+}
+
+@template {
+  <span class="theme-badge" data-variant={variant}>
+    <slot>{variant}</slot>
+    <small class="tb-meta" if={lastChange !== ''}>{lastChange}</small>
+  </span>
+}
+
+@style {
+  .theme-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.15rem 0.55rem;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    border: 1px solid currentColor;
+  }
+  .theme-badge[data-variant="light"] { background: #f8fafc; color: #0f172a; }
+  .theme-badge[data-variant="dark"]  { background: #0f172a; color: #f8fafc; }
+  .tb-meta { font-weight: 400; opacity: 0.7; font-variant-numeric: tabular-nums; }
+}

@@ -1,0 +1,11 @@
+{
+  "example": "css-engine-utility",
+  "id": "G6",
+  "subsystem": "Styling system",
+  "sources": ["src/pages/index.aihu", "vite.config.ts"],
+  "exercises": ["route", "css-utility-fold", "css-container-query", "pkg:css-engine"],
+  "planned": ["cn-runtime", "compile-runtime", "reactive-style"],
+  "absorbs": ["css-engine-demo"],
+  "ci": "build",
+  "notes": "css-engine auto-fold via viteAihuPlugin, light-DOM (css.shadowMode:'light'), container queries, aria/data variants, motion utilities, hoisted @keyframes. Absorbs css-engine-demo's cn()/compile() runtime API + color-theme's reactive @style values in P3 (planned). Build acceptance via scripts/check-utility-css.ts; @aihu/app-based, vite-buildable."
+}

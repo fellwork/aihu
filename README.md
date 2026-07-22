@@ -362,11 +362,12 @@ See [`packages/`](./packages) for all packages on disk. By tier:
 | 16 | [`plugin-demo/`](./examples/plugin-demo) | _no README_ | 5111 |
 | 17 | [`primitives-showcase/`](./examples/primitives-showcase) | Wires three WAI-ARIA APG patterns from the published [`@aihu/primitives`](../../packages/primitives) package — each a vanilla custom elem... | 5115 |
 | 18 | [`realtime-scores/`](./examples/realtime-scores) | Live score board demonstrating WebSocket-driven signal updates, `$lifecycle.mount/dispose`, and `createResource` from `@aihu-plugin/data`... | 5112 |
-| 19 | [`storefront/`](./examples/storefront) | _no README_ | 5113 |
-| 20 | [`temperature-converter/`](./examples/temperature-converter) | two-way binding plus a computed-derived counterpart (7GUIs #2), and an agent surface that lets AI tools read and write the temperature on... | 5102 |
-| 21 | [`timer/`](./examples/timer) | lifecycle hooks, reactive derivations, and an agent surface that lets AI monitor timer progress and trigger resets on the human's behalf ... | 5103 |
-| 22 | [`todo-mvc/`](./examples/todo-mvc) | the canonical TodoMVC — list reactivity, filtering, computed derivations, keyed iteration, localStorage persistence, and an agent surface... | 5104 |
-| 23 | [`weather-card/`](./examples/weather-card) | the aihu-unique `@agent` block. Every signal you `$expose` becomes an MCP resource; every action you `$action` becomes an MCP tool. The s... | 5106 |
+| 19 | [`ssg-site/`](./examples/ssg-site) | The designated live exerciser for aihu's **static output** build path and the hydration-lifecycle callbacks. Before the governed set, `ou... | 5120 |
+| 20 | [`storefront/`](./examples/storefront) | _no README_ | 5113 |
+| 21 | [`temperature-converter/`](./examples/temperature-converter) | two-way binding plus a computed-derived counterpart (7GUIs #2), and an agent surface that lets AI tools read and write the temperature on... | 5102 |
+| 22 | [`timer/`](./examples/timer) | lifecycle hooks, reactive derivations, and an agent surface that lets AI monitor timer progress and trigger resets on the human's behalf ... | 5103 |
+| 23 | [`todo-mvc/`](./examples/todo-mvc) | the canonical TodoMVC — list reactivity, filtering, computed derivations, keyed iteration, localStorage persistence, and an agent surface... | 5104 |
+| 24 | [`weather-card/`](./examples/weather-card) | the aihu-unique `@agent` block. Every signal you `$expose` becomes an MCP resource; every action you `$action` becomes an MCP tool. The s... | 5106 |
 
 <sub><i>Auto-generated — run `bun scripts/sync-readme.ts` to update.</i></sub>
 

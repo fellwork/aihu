@@ -1,0 +1,16 @@
+{
+  "example": "layouts",
+  "id": "G3",
+  "subsystem": "Router / layouts / navigation",
+  "sources": [
+    "src/pages/index.aihu",
+    "src/pages/dashboard.aihu",
+    "src/layouts/app.aihu",
+    "src/layouts/compact.aihu"
+  ],
+  "exercises": ["route", "route.head", "route.layout", "outlet", "a-enhanced"],
+  "planned": ["route.dynamic", "beforeNavigate", "afterNavigate", "navigate", "shield"],
+  "absorbs": ["blog-router"],
+  "ci": "build",
+  "notes": "Runtime layouts (@route{layout:} + <outlet>), layout switching without navigation via createApp().setLayout. Absorbs blog-router's dynamic [slug] params + @route{head} in P3 (planned route.dynamic here). @aihu/app-based; vite-buildable."
+}

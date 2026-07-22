@@ -1,0 +1,32 @@
+{
+  "example": "agent-hub",
+  "id": "G9",
+  "subsystem": "Agent protocols (A2A + ACP)",
+  "sources": [
+    "src/hub-root.aihu",
+    "src/a2a-panel.aihu",
+    "src/acp-panel.aihu",
+    "src/hub-context.ts",
+    "server.ts"
+  ],
+  "exercises": [
+    "state",
+    "derived",
+    "action",
+    "provide",
+    "if",
+    "each",
+    "key",
+    "on:click",
+    "interpolation",
+    "expose:read",
+    "describe",
+    "pkg:context",
+    "pkg:agent-a2a",
+    "pkg:agent-acp"
+  ],
+  "planned": ["event", "consume"],
+  "absorbs": [],
+  "ci": "compile+smoke",
+  "notes": "Kept SEPARATE from G7 by founder decision \u2014 the agent-PROTOCOL flagship: A2A SSE + ACP adapters together (@aihu/agent-a2a AND @aihu/agent-acp), agent-service, context token sharing, Bun server. G7 (agent-driven-demo) is agent GOVERNANCE; this is agent INTEROP. Still uses imperative inject() (not the consume() intrinsic). Bun server + /@shared URL wiring; not vite-buildable in the default lane \u2014 guarded by check:emit-parses + smoke."
+}
