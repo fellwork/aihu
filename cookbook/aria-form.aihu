@@ -1,4 +1,17 @@
-// aria-form — $aria collection for role/aria-label/aria-describedby, $form with value+validity
+<!-- @cookbook
+id: aria-form
+type: form
+granularity: block
+description: Form-associated element — aria() maps role/label/describedby, form() exposes value and validity to the surrounding form.
+constructs: [aria, state, form, action, bind:value, on:submit]
+packages: []
+concerns: [a11y, state]
+since: 0.5.0
+anti-patterns:
+  - "Do not mirror validity into ad-hoc CSS classes only — form() participates in real form submission and native :invalid styling."
+related: [form-validation]
+-->
+// aria-form — aria() for role/aria-label/aria-describedby, form() with value+validity
 
 @state {
   aria({

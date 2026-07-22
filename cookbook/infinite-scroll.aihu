@@ -1,49 +1,60 @@
-// infinite-scroll — $prop page + $action loadMore, IntersectionObserver in $controller
+<!-- @cookbook
+id: infinite-scroll
+type: list
+granularity: block
+description: Infinite scroll — controller() wires an IntersectionObserver sentinel that calls the loadMore action; each/key/empty renders the list.
+constructs: [prop, state, action, controller, onMount, each, key, empty, group, if, interpolation]
+packages: []
+concerns: [state, events]
+since: 0.5.0
+anti-patterns:
+  - "Do not fire loadMore from the observer without checking loading — re-entrant calls double-append pages."
+related: [data-table, aihu-controller]
+-->
+// infinite-scroll — prop page + action loadMore, IntersectionObserver via controller()
 
 @state {
-  $prop: {
-    page: { type: Number, default: 1 },
-  }
+  const page = prop({ default: 1 })
 
-  $controller: {
-    sentinel: {
-      mount: (host) => {
-        const sentinel = host.querySelector('.scroll-sentinel')
-        if (!sentinel) return () => {}
-        const observer = new IntersectionObserver((entries) => {
+  let loading = state(false)
+  let items = state<Array<{ id: number; text: string }>>([])
+
+  const loadMore = action(async () => {
+    if (loading) return
+    loading = true
+    await new Promise(resolve => setTimeout(resolve, 400))
+    const start = items.length
+    items = [
+      ...items,
+      ...Array.from({ length: 10 }, (_, i) => ({
+        id: start + i + 1,
+        text: `Item ${start + i + 1}`,
+      })),
+    ]
+    loading = false
+  })
+
+  const sentinel = controller(() => {
+    let observer: IntersectionObserver | null = null
+    return {
+      hostConnected: () => {
+        const el = (ctx.host as ShadowRoot).querySelector('.scroll-sentinel')
+        if (!el) return
+        observer = new IntersectionObserver((entries) => {
           if (entries[0]?.isIntersecting && !loading) {
             loadMore()
           }
         }, { threshold: 0.1 })
-        observer.observe(sentinel)
-        return () => observer.disconnect()
+        observer.observe(el)
       },
-    },
-  }
+      hostDisconnected: () => {
+        observer?.disconnect()
+        observer = null
+      },
+    }
+  })
 
-  loading: boolean = false
-  items: Array<{ id: number; text: string }> = []
-
-  $action: {
-    loadMore: async () => {
-      if (loading) return
-      loading = true
-      await new Promise(resolve => setTimeout(resolve, 400))
-      const start = items.length
-      items = [
-        ...items,
-        ...Array.from({ length: 10 }, (_, i) => ({
-          id: start + i + 1,
-          text: `Item ${start + i + 1}`,
-        })),
-      ]
-      loading = false
-    },
-  }
-
-  $lifecycle: {
-    mount: () => { loadMore() },
-  }
+  onMount(() => { loadMore() })
 }
 
 @template {

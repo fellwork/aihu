@@ -1,19 +1,31 @@
-// context-provider — $context provide: exposes a static theme token to descendants
-// Pairs with context-consumer.aihu, which injects `theme` and renders it.
-// The static `value: 'light'` is provided verbatim (not called as a factory).
+<!-- @cookbook
+id: context-provider
+type: container
+granularity: block
+description: provide() intrinsic — exposes a theme token to descendant consumers over the context prototype chain.
+constructs: [state, provide, action, slot, interpolation]
+packages: []
+concerns: [state]
+since: 0.5.0
+anti-patterns:
+  - "provide() must run during setup — do not call it inside onMount; descendants connecting during mount would miss the scope."
+related: [context-consumer, theme-toggle]
+-->
+// context-provider — provide(): exposes a theme token to descendants
+// Pairs with context-consumer.aihu, which consumes 'theme' and renders it.
 
 @state {
-  $context: {
-    provide: {
-      theme: { value: 'light', type: 'string' },
-    },
-  }
+  let theme = state('light')
+
+  provide('theme', theme)
+
+  const setTheme = action((t: string) => { theme = t })
 }
 
 @template {
   <div class="provider" data-theme="light">
     <div class="controls">
-      <span class="label">Providing theme: <strong>light</strong></span>
+      <span class="label">Providing theme: <strong>{theme}</strong></span>
     </div>
     <div class="slot-area">
       <slot />

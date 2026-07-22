@@ -1,4 +1,17 @@
-// modal — $prop open, $action show/hide, on:keydown for Escape, $aria for aria-modal+role="dialog"
+<!-- @cookbook
+id: aihu-modal
+type: container
+granularity: block
+description: Modal dialog — aria() declares role/aria-modal on the host, show toggles visibility, Escape and backdrop click dismiss.
+constructs: [prop, aria, action, show, slot, on:click, on:keydown]
+packages: []
+concerns: [a11y, events, state]
+since: 0.5.0
+anti-patterns:
+  - "Do not scatter role/aria-modal on inner wrappers — aria() declares them once on the host element."
+related: [aihu-toast, aihu-accordion]
+-->
+// modal — prop open, action show/hide, on:keydown for Escape, aria() for aria-modal+role="dialog"
 
 @state {
   let open = prop({ default: false })

@@ -1,4 +1,18 @@
-// form-validation — $form with value+validity for form-associated custom element
+<!-- @cookbook
+id: form-validation
+type: form
+granularity: block
+description: Live validation — form() exposes value/validity, derived() computes the error message, touched gates when errors show.
+constructs: [state, form, derived, action, if, group, on:input, on:blur, interpolation]
+packages: []
+concerns: [state, a11y]
+since: 0.5.0
+playground: Form
+anti-patterns:
+  - "Do not surface errors on every keystroke before first interaction — track touched so messages appear only after blur or input."
+related: [aria-form]
+-->
+// form-validation — form() with value+validity for form-associated custom element
 
 @state {
   let value = state('')

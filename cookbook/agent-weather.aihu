@@ -1,4 +1,19 @@
-// agent-weather — @agent pattern: $prop city + $action fetchForecast with expose/describe
+<!-- @cookbook
+id: agent-weather
+type: agent
+granularity: block
+description: Agent-surface async fetch — prop city and action fetchForecast carry expose/describe so MCP agents can read and invoke them.
+constructs: [prop, prop.expose, prop.describe, state, action, action.expose, action.describe, group, if, elseif, else, on:click, interpolation]
+packages: []
+concerns: [state, events, governance]
+since: 0.5.0
+playground: Agent
+anti-patterns:
+  - "Do not mark a mutating action expose: 'read' — the expose tier must match what the action does; fetchForecast writes state, so it is 'read write'."
+  - "Do not throw from an exposed action for ordinary failures — set an error state the agent can read back."
+related: [fetch-resource, guard-ui]
+-->
+// agent-weather — agent-surface pattern: prop city + action fetchForecast with expose/describe
 
 @state {
   let city = prop({

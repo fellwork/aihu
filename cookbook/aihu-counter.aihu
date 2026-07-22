@@ -1,4 +1,18 @@
-// counter — $prop count + $action increment/decrement/reset
+<!-- @cookbook
+id: aihu-counter
+type: display
+granularity: block
+description: Minimal reactive counter — prop-backed count with increment/decrement/reset actions.
+constructs: [prop, action, on:click, interpolation]
+packages: []
+concerns: [state, events]
+since: 0.5.0
+playground: Counter
+anti-patterns:
+  - "Do not reach for state() when the value is part of the component's public surface — prop() makes it host-settable and attribute-visible."
+related: [agent-weather, aihu-tabs]
+-->
+// counter — prop count + action increment/decrement/reset
 
 @state {
   let count = prop({ default: 0 })

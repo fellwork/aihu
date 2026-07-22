@@ -1,22 +1,43 @@
-// controller — $controller with a ResizeObserver lifecycle controller
+<!-- @cookbook
+id: aihu-controller
+type: display
+granularity: block
+description: controller() intrinsic — a ResizeObserver reactive controller with hostConnected/hostDisconnected lifecycle, writes routed through an action.
+constructs: [state, action, controller, controller.describe, interpolation]
+packages: []
+concerns: [state, events]
+since: 0.5.0
+anti-patterns:
+  - "Do not write state directly inside a controller body (C561) — controllers are derivations; route writes through an action."
+related: [infinite-scroll]
+-->
+// controller — controller() intrinsic wrapping a ResizeObserver reactive controller
 
 @state {
-  $controller: {
-    resizeObserver: {
-      mount: (host) => {
-        const observer = new ResizeObserver((entries) => {
-          const rect = entries[0]?.contentRect
-          width = Math.round(rect?.width ?? 0)
-          height = Math.round(rect?.height ?? 0)
-        })
-        observer.observe(host)
-        return () => observer.disconnect()
-      },
-    },
-  }
+  let width = state(0)
+  let height = state(0)
 
-  width: number = 0
-  height: number = 0
+  const setSize = action((w: number, h: number) => {
+    width = w
+    height = h
+  })
+
+  const resizeObserver = controller({ describe: 'Tracks host size via ResizeObserver' }, () => {
+    let observer: ResizeObserver | null = null
+    return {
+      hostConnected: () => {
+        observer = new ResizeObserver((entries) => {
+          const rect = entries[0]?.contentRect
+          setSize(Math.round(rect?.width ?? 0), Math.round(rect?.height ?? 0))
+        })
+        observer.observe((ctx.host as ShadowRoot).host)
+      },
+      hostDisconnected: () => {
+        observer?.disconnect()
+        observer = null
+      },
+    }
+  })
 }
 
 @template {

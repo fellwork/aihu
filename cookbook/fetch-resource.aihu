@@ -1,4 +1,17 @@
-// fetch-resource — $resource for async fetch with loading/error/data states
+<!-- @cookbook
+id: fetch-resource
+type: async
+granularity: block
+description: resource() intrinsic — async fetch with loading/error/value states rendered through an if/elseif/else chain.
+constructs: [prop, resource, group, if, elseif, else, interpolation]
+packages: []
+concerns: [state]
+since: 0.5.0
+anti-patterns:
+  - "Do not hand-roll loading/error state() flags around fetch inside an effect — resource() owns the loading/error/value lifecycle."
+related: [agent-weather, search-debounce]
+-->
+// fetch-resource — resource() for async fetch with loading/error/data states
 
 @state {
   const url = prop({ default: '/api/resource' })

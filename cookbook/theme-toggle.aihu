@@ -1,7 +1,23 @@
-// theme-toggle — dark/light toggle: $context provide for theme + $effect for documentElement class
+<!-- @cookbook
+id: theme-toggle
+type: display
+granularity: block
+description: Theme switcher — state-backed theme is provided to descendants and mirrored onto documentElement by an effect.
+constructs: [state, provide, effect, action, on:click, interpolation]
+packages: []
+concerns: [styling, state]
+since: 0.5.0
+playground: Theme
+anti-patterns:
+  - "Do not toggle document-level classes inside action bodies — the effect() re-runs whenever theme changes, keeping DOM and state in sync from one place."
+related: [context-provider, tailwind-style]
+-->
+// theme-toggle — dark/light toggle: provide() for theme + effect() for documentElement class
 
 @state {
-  provide('theme', 'light')
+  let theme = state('light')
+
+  provide('theme', theme)
 
   effect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark')

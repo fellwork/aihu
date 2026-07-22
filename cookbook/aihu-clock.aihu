@@ -1,4 +1,17 @@
-// clock — real-time clock: $lifecycle.mount starts setInterval, unmount clears it
+<!-- @cookbook
+id: aihu-clock
+type: display
+granularity: block
+description: Real-time clock — onMount starts the interval, onDispose clears it; tick runs through an action.
+constructs: [state, action, onMount, onDispose, interpolation]
+packages: []
+concerns: [state]
+since: 0.5.0
+anti-patterns:
+  - "Do not start timers at @state top level — setup also runs during SSR; start them in onMount and always clear them in onDispose."
+related: [aihu-toast]
+-->
+// clock — real-time clock: onMount starts setInterval, onDispose clears it
 
 @state {
   let hours = state('00')

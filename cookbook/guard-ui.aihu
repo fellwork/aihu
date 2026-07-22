@@ -1,4 +1,17 @@
-// guard-ui — $guard scope-gated UI: shows content only when scope 'admin' verified
+<!-- @cookbook
+id: guard-ui
+type: agent
+granularity: block
+description: <guard> element — scope-gated UI that renders its children only when the 'admin' scope is verified.
+constructs: [guard, interpolation]
+packages: []
+concerns: [governance]
+since: 0.5.0
+anti-patterns:
+  - "Do not treat <guard> as the security boundary — the server must enforce the same scope; the template guard is UX, not authorization."
+related: [agent-weather]
+-->
+// guard-ui — <guard> scope-gated UI: shows content only when scope 'admin' verified
 
 @state {
   const label: string = 'admin-only content'

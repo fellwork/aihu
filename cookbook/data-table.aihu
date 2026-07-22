@@ -1,4 +1,17 @@
-// data-table — $prop rows + $action sort(col), $computed sortedRows, $each with $key
+<!-- @cookbook
+id: data-table
+type: list
+granularity: block
+description: Sortable data table — derived() sorts a copy of the prop rows, each/key renders rows, click headers to toggle direction.
+constructs: [prop, state, derived, action, each, key, on:click, interpolation]
+packages: []
+concerns: [state]
+since: 0.5.0
+anti-patterns:
+  - "Do not sort the prop array in place — [...rows].sort() keeps the source identity stable so the derivation re-runs cleanly."
+related: [infinite-scroll, search-debounce]
+-->
+// data-table — prop rows + action sort(col), derived sortedRows, each with key
 
 @state {
   const rows = prop({

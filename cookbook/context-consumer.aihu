@@ -1,5 +1,18 @@
-// context-consumer — $context consume: reads theme from ancestor provider
-// Pairs with context-provider.aihu; `theme` is the injected provided value.
+<!-- @cookbook
+id: context-consumer
+type: container
+granularity: block
+description: consume() intrinsic — reads the 'theme' token provided by an ancestor context-provider.
+constructs: [consume, interpolation]
+packages: []
+concerns: [state]
+since: 0.5.0
+anti-patterns:
+  - "Do not resolve context in module scope — consume() resolves against the ancestor chain at setup time, not import time."
+related: [context-provider, theme-toggle]
+-->
+// context-consumer — consume(): reads theme from ancestor provider
+// Pairs with context-provider.aihu; `theme` is the consumed provided value.
 
 @state {
   const theme = consume<string>('theme')
