@@ -94,7 +94,7 @@ outside the compiler. Change an emit shape and these silently no-op.
 | Pass | Line | Why |
 |---|---|---|
 | `_injectShadowMode` | 115 | Decodes `// @aihu:shadow <mode>` — **a marker the compiler emitted** (`types.rs:413`). Pure round-trip through a comment. |
-| `_classifyIsland` | 166 | Regexes compiled output for `signal\|computed\|effect\|setSignal\|onMount\|onCleanup` — asking *"did I emit signals?"* The compiler answered that when it emitted them. |
+| ~~`_classifyIsland`~~ | ~~166~~ | **RESOLVED (wave 3c).** Was: regexed compiled output for `signal\|computed\|effect\|setSignal\|onMount\|onCleanup` — asking *"did I emit signals?"* The compiler now answers directly: `emit.rs` computes the classification from the IR and emits a `// @aihu:island static\|interactive` marker (+ `EmitResult.island` / envelope `TargetEmit.island`); the plugin reads it via `_parseIslandMarker`. The move also fixed a latent bug — a `$prop`-only component (options-form, no `signal(` call) the old regex mis-classified `static`, which the static-island shim could not lower, is now correctly `interactive`. |
 | `_globalizeAuthoredStyle` | 135 | Entirely conditioned on shadow mode, which the compiler owns. |
 | `_passivizeOutlet` | 257 | Needs layout/route knowledge the compiler already has. |
 | `_buildDeferredHydration` | 354 | Rewrites the `connectedCallback` the compiler generated. |

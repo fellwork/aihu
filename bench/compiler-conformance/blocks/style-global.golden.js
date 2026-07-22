@@ -1,4 +1,5 @@
 // @aihu:extract read=agents call=anonymous
+// @aihu:island static
 import { branch, leaf, slot } from '@aihu/arbor'
 import { defineComponent, defineElement } from '@aihu/runtime'
 
