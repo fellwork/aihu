@@ -27,7 +27,14 @@ import { readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 const ROOT = join(import.meta.dir, '..')
-const HOSTS = ['compiler', 'server', 'css-engine']
+// Each host maps to the platform-package dirs it owns. The compiler ships TWO
+// native surfaces: the CLI binary packages (npm/) and the napi addon packages
+// (npm-native/) — both must ride the same snapshot version.
+const HOSTS: Array<{ host: string; npmDirs: string[] }> = [
+  { host: 'compiler', npmDirs: ['npm', 'npm-native'] },
+  { host: 'server', npmDirs: ['npm'] },
+  { host: 'css-engine', npmDirs: ['npm'] },
+]
 
 type PackageJson = {
   name: string
@@ -44,7 +51,7 @@ function writePkg(path: string, pkg: PackageJson): void {
 }
 
 let failed = false
-for (const host of HOSTS) {
+for (const { host, npmDirs } of HOSTS) {
   const hostPkgPath = join(ROOT, 'packages', host, 'package.json')
   const hostPkg = readPkg(hostPkgPath)
   const version: string = hostPkg.version
@@ -59,21 +66,25 @@ for (const host of HOSTS) {
     continue
   }
 
-  const npmDir = join(ROOT, 'packages', host, 'npm')
-  const platforms = readdirSync(npmDir, { withFileTypes: true })
-    .filter((d) => d.isDirectory())
-    .map((d) => d.name)
-    .sort()
-
-  if (platforms.length === 0) {
-    console.error(`✗ no platform package dirs under packages/${host}/npm/`)
-    failed = true
-    continue
+  const platformPkgPaths: string[] = []
+  for (const npmDirName of npmDirs) {
+    const npmDir = join(ROOT, 'packages', host, npmDirName)
+    const platforms = readdirSync(npmDir, { withFileTypes: true })
+      .filter((d) => d.isDirectory())
+      .map((d) => d.name)
+      .sort()
+    if (platforms.length === 0) {
+      console.error(`✗ no platform package dirs under packages/${host}/${npmDirName}/`)
+      failed = true
+      continue
+    }
+    for (const platform of platforms) {
+      platformPkgPaths.push(join(npmDir, platform, 'package.json'))
+    }
   }
 
   const optDeps: Record<string, string> = hostPkg.optionalDependencies ?? {}
-  for (const platform of platforms) {
-    const platPkgPath = join(npmDir, platform, 'package.json')
+  for (const platPkgPath of platformPkgPaths) {
     const platPkg = readPkg(platPkgPath)
     platPkg.version = version
     writePkg(platPkgPath, platPkg)
@@ -91,7 +102,7 @@ for (const host of HOSTS) {
   }
   hostPkg.optionalDependencies = optDeps
   writePkg(hostPkgPath, hostPkg)
-  console.log(`✔ ${hostPkg.name}@${version}: ${platforms.length} platform pins stamped`)
+  console.log(`✔ ${hostPkg.name}@${version}: ${platformPkgPaths.length} platform pins stamped`)
 }
 
 if (failed) process.exit(1)

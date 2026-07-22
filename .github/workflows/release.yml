@@ -702,6 +702,175 @@ jobs:
           done
 
   # ---------------------------------------------------------------------------
+  # @aihu/compiler native ADDON (napi-rs, packages/compiler/src-native) — the
+  # in-process compile fast path. Mirrors the @aihu/server build-native /
+  # publish-native pattern: per-platform .node cdylibs shipped as
+  # @aihu/compiler-native-<platform> optionalDependency packages
+  # (packages/compiler/npm-native/<platform>/), loaded by
+  # packages/compiler/js/native.ts. The CLI binary lanes above are UNCHANGED —
+  # the addon is an additional backend, and the spawn path remains the
+  # universal fallback. Same 5 platforms as the CLI matrix; linux-arm64 uses
+  # `cross` like the CLI build (napi cdylibs cross-compile cleanly under it).
+  # ---------------------------------------------------------------------------
+  build-compiler-napi:
+    name: Build compiler addon ${{ matrix.platform }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-14
+            target: aarch64-apple-darwin
+            platform: darwin-arm64
+            node-file: aihu-compiler-native.darwin-arm64.node
+            cdylib: libaihu_compiler_native.dylib
+            use_cross: false
+          # x86_64 darwin: cross-target on macos-14 (macos-13 EOL'd 2025-12-04);
+          # LLVM cross-compiles darwin-on-darwin natively.
+          - runner: macos-14
+            target: x86_64-apple-darwin
+            platform: darwin-x64
+            node-file: aihu-compiler-native.darwin-x64.node
+            cdylib: libaihu_compiler_native.dylib
+            use_cross: false
+          - runner: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            platform: linux-x64-gnu
+            node-file: aihu-compiler-native.linux-x64-gnu.node
+            cdylib: libaihu_compiler_native.so
+            use_cross: false
+          - runner: ubuntu-22.04
+            target: aarch64-unknown-linux-gnu
+            platform: linux-arm64-gnu
+            node-file: aihu-compiler-native.linux-arm64-gnu.node
+            cdylib: libaihu_compiler_native.so
+            use_cross: true
+          - runner: windows-2022
+            target: x86_64-pc-windows-msvc
+            platform: win32-x64-msvc
+            node-file: aihu-compiler-native.win32-x64-msvc.node
+            cdylib: aihu_compiler_native.dll
+            use_cross: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@1482605bfc5719782e1267fd0c0cc350fe7646b8 # stable @ 2024-10-25
+        with:
+          toolchain: "1.95"
+          targets: ${{ matrix.target }}
+
+      - name: Install cross (aarch64-linux only)
+        if: matrix.use_cross == true
+        # Same pin as the CLI `build` job — cross v0.2.5, --locked.
+        run: cargo install cross --git https://github.com/cross-rs/cross --tag v0.2.5 --locked
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build release cdylib (cargo)
+        if: matrix.use_cross == false
+        run: cargo build --release --target ${{ matrix.target }} --manifest-path packages/compiler/src-native/Cargo.toml
+
+      - name: Build release cdylib (cross)
+        if: matrix.use_cross == true
+        run: cross build --release --target ${{ matrix.target }} --manifest-path packages/compiler/src-native/Cargo.toml
+
+      - name: Stage .node file (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          # src-native is EXCLUDED from the root workspace, so cargo emits to
+          # packages/compiler/src-native/target/, not ./target.
+          cp packages/compiler/src-native/target/${{ matrix.target }}/release/${{ matrix.cdylib }} ${{ matrix.node-file }}
+
+      - name: Stage .node file (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Copy-Item -Path "packages/compiler/src-native/target/${{ matrix.target }}/release/${{ matrix.cdylib }}" -Destination "${{ matrix.node-file }}"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: compiler-napi-${{ matrix.platform }}
+          path: ${{ matrix.node-file }}
+          if-no-files-found: error
+          retention-days: 7
+
+  publish-compiler-napi:
+    name: Publish @aihu/compiler-native-* platform packages
+    needs: build-compiler-napi
+    runs-on: ubuntu-22.04
+    # Tag push (stable) OR canary workflow_dispatch (see publish-native).
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.canary)
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Setup Bun (canary)
+        if: github.event_name == 'workflow_dispatch' && inputs.canary
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Snapshot version (canary)
+        # See publish-native's snapshot step — identical, deterministic per SHA.
+        if: github.event_name == 'workflow_dispatch' && inputs.canary
+        env:
+          HUSKY: '0'
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          bun install --frozen-lockfile --ignore-scripts
+          bun scripts/canary-catchall-changeset.ts
+          bun changeset version --snapshot canary
+          bun scripts/stamp-platform-snapshot.ts
+
+      - name: Download all compiler addon artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: compiler-napi-artifacts
+
+      - name: Stage and publish each platform package (idempotent)
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          CANARY: ${{ (github.event_name == 'workflow_dispatch' && inputs.canary) && '1' || '' }}
+          CANARY_DRY_RUN: ${{ (github.event_name == 'workflow_dispatch' && inputs.canary && inputs.dry_run) && '1' || '' }}
+        run: |
+          set -euo pipefail
+          NPM_EXTRA=""
+          if [ -n "${CANARY:-}" ]; then NPM_EXTRA="--tag canary"; fi
+          if [ -n "${CANARY_DRY_RUN:-}" ]; then NPM_EXTRA="$NPM_EXTRA --dry-run"; fi
+          for dir in packages/compiler/npm-native/*/; do
+            platform=$(basename "$dir")
+            node_file=$(ls compiler-napi-artifacts/compiler-napi-$platform/*.node 2>/dev/null || true)
+            if [ -z "$node_file" ]; then
+              echo "no .node artifact for $platform — skipping"
+              continue
+            fi
+            cp "$node_file" "$dir/"
+            # No chmod: .node files are dlopen()'d, not exec()'d (see the
+            # publish-native NOTE — do not change without re-verifying dlopen).
+            pkg_name=$(node -p "require('./$dir/package.json').name")
+            pkg_version=$(node -p "require('./$dir/package.json').version")
+            # Idempotency: skip if this version is already on npm (re-run / retag).
+            existing=$(npm view "${pkg_name}@${pkg_version}" version 2>/dev/null || true)
+            if [ -n "$existing" ]; then
+              echo "${pkg_name}@${pkg_version} already published — skipping"
+              continue
+            fi
+            ( cd "$dir" && npm publish --access public $NPM_EXTRA )
+          done
+
+  # ---------------------------------------------------------------------------
   # Publish all tier A/B/C/D @aihu/* JS packages on `v*` tag.
   #
   # Mirrors the publish-native pattern: triggered only by an actual tag push,
@@ -717,7 +886,7 @@ jobs:
   # ---------------------------------------------------------------------------
   publish-packages:
     name: Publish @aihu/* packages to npm
-    needs: [build, build-wasm, build-native, publish-native, build-css-native, publish-css-native, publish-compiler-native]
+    needs: [build, build-wasm, build-native, publish-native, build-css-native, publish-css-native, publish-compiler-native, build-compiler-napi, publish-compiler-napi]
     runs-on: ubuntu-22.04
     # Tag push (stable) OR canary workflow_dispatch. In canary mode the needed
     # publish-* jobs above all run (canary condition), so `needs` still chains.

@@ -10,6 +10,10 @@ members = [
 # break `cargo build` for the native binaries.
 exclude = [
     "packages/server/src-native",
+    # napi-rs in-process compiler addon — same standalone treatment: its own
+    # O3 release profile (the workspace profile is wasm-size-tuned Oz +
+    # panic="abort", which napi unwinding must not inherit).
+    "packages/compiler/src-native",
 ]
 
 [workspace.package]

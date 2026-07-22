@@ -89,6 +89,12 @@ docs/site/dist/
 # WASM build artifacts (Directive 1 + arch-4 §4.6)
 packages/compiler/pkg-wasm/
 
+# Compiler napi addon — locally staged .node binaries (built by
+# packages/compiler/scripts/build-native.ts; CI ships them via the
+# @aihu/compiler-native-* platform packages). Never commit binaries.
+packages/compiler/src-native/*.node
+packages/compiler/npm-native/*/*.node
+
 # Agent team session artifacts — director notes, retros, build manifests, state files
 # (consolidate ratified specs into docs/superpowers/specs/ and plans into docs/plans/ instead)
 .team/

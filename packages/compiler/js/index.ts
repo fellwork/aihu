@@ -7,9 +7,22 @@
  */
 import { execFileSync } from 'node:child_process'
 import { basename } from 'node:path'
+import { _backendStampPath, _compileViaBackend } from './envelope.ts'
 import { resolveCompilerBinary } from './resolve-binary.ts'
-import { _memoizedSpawn } from './transform-memo.ts'
+import { _memoizedSpawn, _seedMemo } from './transform-memo.ts'
 
+export type { CompileEnvelope, CompileEnvelopeOptions } from './envelope.ts'
+
+// Perf — in-process napi compile backend + single-parse envelope (see
+// js/envelope.ts and js/native.ts). `transform()` / `compileToAst()` /
+// `compileRouteMeta()` route memo → native addon → envelope CLI spawn →
+// legacy per-output spawn. Re-exported as internals for tests/diagnostics.
+export {
+  _compileViaBackend,
+  _resetCompileBackend,
+  _resolveCompileBackend,
+} from './envelope.ts'
+export { _getCompilerNativeStateKind, _resetCompilerNative, loadCompilerNative } from './native.ts'
 // Perf — content-addressed memo over the compile spawns (see transform-memo.ts).
 // The SSG prerender re-runs every transform against a second Vite server with
 // identical inputs; the memo turns that whole second pass (and css-engine's
@@ -604,28 +617,64 @@ export function transform(
   if (options?.strictTemplates) {
     args.push('--strict-templates')
   }
-  const binPath = resolveBinPath()
-  const spawn = () =>
-    execFileSync(binPath, args, {
+  // `sidecarOut` BYPASSES the memo AND the envelope backends: it makes the
+  // spawn write a file on disk — a cache hit would silently skip that side
+  // effect, and the envelope API deliberately has no file-writing emits. The
+  // Vite build path never passes it, so the SSG double-compile still fully
+  // hits.
+  if (options?.sidecarOut) {
+    const code = execFileSync(resolveBinPath(), args, {
       input: source,
       encoding: 'utf8',
     })
+    return { code, map: null }
+  }
   // Memo key: everything that shapes the emitted code. `id` is hashed
   // separately; the fingerprint carries the explicit options (`tag` covers the
-  // layout override — the default stem is a pure function of `id`).
-  // `sidecarOut` BYPASSES the memo: it makes the spawn write a file on disk,
-  // and a cache hit would silently skip that side effect. The Vite build path
-  // never passes it, so the SSG double-compile still fully hits.
-  const code = options?.sidecarOut
-    ? spawn()
-    : _memoizedSpawn(
-        'transform',
-        source,
-        id,
-        `target=${options?.target ?? ''}|tag=${options?.tag ?? ''}|strict=${options?.strictTemplates === true}`,
-        binPath,
-        spawn,
-      )
+  // layout override — the default stem is a pure function of `id`). The stamp
+  // is the ACTIVE backend's file identity (native addon `.node` path when
+  // in-process, CLI binary path when spawning) — see js/envelope.ts.
+  const stamp = _backendStampPath()
+  const target = options?.target ?? 'universal'
+  // Sibling-artifact seeding (the single-parse envelope win): one compile of
+  // a file yields js + ast + route, and the ast/route strings are seeded into
+  // the memo under the exact keys `compileToAst` / `compileRouteMeta` derive
+  // for the same (source, id) — so css-engine's AST pass and the router's
+  // route scan become cache hits instead of re-parses. Only sound when the
+  // tag is NOT overridden: those callers derive their own stem from `id`, and
+  // an explicit tag (layout mode) resolves to a different define-name.
+  const seedSiblings = options?.tag === undefined
+  const code = _memoizedSpawn(
+    'transform',
+    source,
+    id,
+    `target=${options?.target ?? ''}|tag=${options?.tag ?? ''}|strict=${options?.strictTemplates === true}`,
+    stamp,
+    () => {
+      const reply = _compileViaBackend(source, args, {
+        tag: options?.tag ?? stem,
+        path: id,
+        targets: [target],
+        emits: seedSiblings ? ['js', 'ast', 'route'] : ['js'],
+        ...(options?.strictTemplates ? { strictTemplates: true } : {}),
+      })
+      // Legacy reply — an older binary ignored `--envelope` and answered the
+      // classic single-target request; its stdout IS the compiled JS.
+      if (reply.kind === 'legacy') return reply.output
+      const envelope = reply.envelope
+      if (seedSiblings) {
+        if (envelope.astJson !== undefined) {
+          _seedMemo('ast', source, id, '', stamp, envelope.astJson)
+        }
+        _seedMemo('route', source, id, '', stamp, envelope.routeJson ?? 'null')
+      }
+      const js = envelope.targets[target]?.js
+      if (js === undefined) {
+        throw new Error(`[@aihu/compiler] envelope reply missing js for target '${target}'`)
+      }
+      return js
+    },
+  )
   return {
     code,
     map: null, // source maps deferred to v1 (OQ-C8)
@@ -945,17 +994,26 @@ export function compileToAst(source: string, id?: string): SfcAst {
   if (id) {
     args.push('--path', id)
   }
-  const binPath = resolveBinPath()
   // Memoised (same key discipline as `transform()`): css-engine's `compileSfc`
-  // re-spawns this per file for its AST pass — with the memo, the second parse
-  // of an unchanged file is a lookup. The cached value is the raw JSON string;
-  // parse per call so callers can never mutate a shared AST object.
-  const json = _memoizedSpawn('ast', source, id ?? '', '', binPath, () =>
-    execFileSync(binPath, args, {
-      input: source,
-      encoding: 'utf8',
-    }),
-  )
+  // re-derives the AST per file — with the memo, the second parse of an
+  // unchanged file is a lookup, and a preceding `transform()` of the same
+  // source has usually SEEDED this exact entry from its envelope (one parse
+  // for js + ast + route). The cached value is the raw JSON string; parse per
+  // call so callers can never mutate a shared AST object.
+  const stamp = _backendStampPath()
+  const json = _memoizedSpawn('ast', source, id ?? '', '', stamp, () => {
+    const reply = _compileViaBackend(source, args, {
+      tag: stem,
+      ...(id ? { path: id } : {}),
+      emits: ['ast'],
+    })
+    if (reply.kind === 'legacy') return reply.output
+    const ast = reply.envelope.astJson
+    if (ast === undefined) {
+      throw new Error('[@aihu/compiler] envelope reply missing astJson')
+    }
+    return ast
+  })
   return JSON.parse(json) as SfcAst
 }
 
@@ -1008,16 +1066,21 @@ export function compileRouteMeta(source: string, id?: string): RouteMeta | null 
   if (id) {
     args.push('--path', id)
   }
-  const binPath = resolveBinPath()
   // Memoised (same key discipline as `transform()`): the router Vite plugin
   // calls this per route file per scan, and the SSG prerender's second server
-  // triggers a full re-scan. Cache the raw stdout; parse per call.
-  const out = _memoizedSpawn('route', source, id ?? '', '', binPath, () =>
-    execFileSync(binPath, args, {
-      input: source,
-      encoding: 'utf8',
-    }),
-  ).trim()
+  // triggers a full re-scan — and a preceding `transform()` of the same
+  // source has usually SEEDED this entry from its envelope. Cache the raw
+  // stdout; parse per call.
+  const stamp = _backendStampPath()
+  const out = _memoizedSpawn('route', source, id ?? '', '', stamp, () => {
+    const reply = _compileViaBackend(source, args, {
+      tag: stem,
+      ...(id ? { path: id } : {}),
+      emits: ['route'],
+    })
+    if (reply.kind === 'legacy') return reply.output
+    return reply.envelope.routeJson ?? 'null'
+  }).trim()
   if (out === '' || out === 'null') return null
   return JSON.parse(out) as RouteMeta
 }
@@ -1223,7 +1286,15 @@ async function _maybeCompileUtilityCss(source: string, id: string): Promise<stri
   // the source `compileToAst` resolves the bin lazily on each call, so once
   // css-engine is rebuilt this set-before-import is belt-and-braces.
   if (process.env.SCRIBE_COMPILE_BIN == null) {
-    process.env.SCRIBE_COMPILE_BIN = resolveBinPath()
+    try {
+      process.env.SCRIBE_COMPILE_BIN = resolveBinPath()
+    } catch {
+      // No CLI binary resolvable (e.g. an addon-only install). css-engine's
+      // NEWER bundles route compileToAst through the same native backend and
+      // never read this var; older bundles will surface their own resolver
+      // error, which the compileSfc try/catch below already treats as the
+      // non-fatal no-op path.
+    }
   }
   if (_cssEngine === undefined) {
     try {
