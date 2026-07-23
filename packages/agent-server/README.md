@@ -120,7 +120,7 @@ bun add @aihu/agent-server
 | | |
 |---|---|
 | **Version** | `0.4.0` |
-| **Tier** | E — Held private (unmapped tier) |
+| **Tier** | C — Agent surface — server-mount + MCP live-dispatch bridge to a browser |
 | **Published files** | 3 entries |
 | **License** | MIT |
 
@@ -163,8 +163,9 @@ bun add @aihu/agent-server
 <!-- BEGIN_AUTOGEN: see-also -->
 <!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
 
+- [@aihu/agent-service](../agent-service)
+- [@aihu/mcp](../mcp)
 - [Aihu framework root](../../README.md)
-- [v1.1 roadmap](../../docs/roadmap/SUMMARY.md)
 
 <sub><i>Auto-generated against `@aihu/agent-server@0.4.0`.</i></sub>
 

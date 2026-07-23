@@ -4,9 +4,6 @@
 
 Runtime syntax highlighting + markdown rendering for aihu — <aihu-code>/<aihu-markdown> custom elements + signal-aware highlight()/renderMarkdown() helpers, powered by published @kindly-note/* packages with lazy loading.
 
-Held-private workspace package. Not yet published to npm.
-
-> **Status:** Held private — not yet published to npm. See [v1.1 roadmap](../../docs/roadmap/SUMMARY.md) for ratification gating (e.g. RFC #56 live-binding for `@aihu/plugin` enforcement).
 
 <!-- BEGIN_HANDWRITTEN: prose -->
 Runtime syntax highlighting **and** markdown rendering for
@@ -179,7 +176,7 @@ bun add @aihu-plugin/kindly-note
 | | |
 |---|---|
 | **Version** | `0.2.2` |
-| **Tier** | E — Held private (unmapped tier) |
+| **Tier** | F — UI — runtime syntax highlighting + markdown custom elements |
 | **Bundle size** | 1.65 kB (gz) — limit 1850 B |
 | **Published files** | 3 entries |
 | **License** | MIT |
@@ -226,8 +223,8 @@ bun add @aihu-plugin/kindly-note
 <!-- BEGIN_AUTOGEN: see-also -->
 <!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
 
+- [@aihu/ui](../ui)
 - [Aihu framework root](../../README.md)
-- [v1.1 roadmap](../../docs/roadmap/SUMMARY.md)
 
 <sub><i>Auto-generated against `@aihu-plugin/kindly-note@0.2.2`.</i></sub>
 

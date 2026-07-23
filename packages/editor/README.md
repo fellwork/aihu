@@ -70,7 +70,7 @@ bun add @aihu/editor
 | | |
 |---|---|
 | **Version** | `0.1.0` |
-| **Tier** | E — Held private (unmapped tier) |
+| **Tier** | G — Content — GX-governed rich-text editor (JSON doc model + transactions) |
 | **Bundle size** | 13.56 kB (gz) — limit 14 KB |
 | **Published files** | 4 entries |
 | **License** | MIT |
@@ -113,8 +113,9 @@ bun add @aihu/editor
 <!-- BEGIN_AUTOGEN: see-also -->
 <!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
 
+- [@aihu/agent](../agent)
+- [@aihu/store](../store)
 - [Aihu framework root](../../README.md)
-- [v1.1 roadmap](../../docs/roadmap/SUMMARY.md)
 
 <sub><i>Auto-generated against `@aihu/editor@0.1.0`.</i></sub>
 

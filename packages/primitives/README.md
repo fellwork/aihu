@@ -60,7 +60,7 @@ bun add @aihu/primitives
 | | |
 |---|---|
 | **Version** | `0.1.3` |
-| **Tier** | E — Held private (unmapped tier) |
+| **Tier** | F — UI — headless WAI-ARIA APG behavior primitives (zero CSS) |
 | **Published files** | 3 entries |
 | **License** | MIT |
 
@@ -117,8 +117,9 @@ bun add @aihu/primitives
 <!-- BEGIN_AUTOGEN: see-also -->
 <!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
 
+- [@aihu/css-engine](../css-engine)
+- [@aihu/ui](../ui)
 - [Aihu framework root](../../README.md)
-- [v1.1 roadmap](../../docs/roadmap/SUMMARY.md)
 
 <sub><i>Auto-generated against `@aihu/primitives@0.1.3`.</i></sub>
 

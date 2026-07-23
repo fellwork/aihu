@@ -62,7 +62,7 @@ bun add @aihu/language-server
 | | |
 |---|---|
 | **Version** | `0.3.0` |
-| **Tier** | E — Held private (unmapped tier) |
+| **Tier** | D — Toolchain — cross-editor Language Server for .aihu SFCs |
 | **Published files** | 3 entries |
 | **License** | MIT |
 
@@ -109,8 +109,10 @@ bun add @aihu/language-server
 <!-- BEGIN_AUTOGEN: see-also -->
 <!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
 
+- [@aihu/tsc](../tsc)
+- [@aihu/compiler](../compiler)
+- [vscode-aihu](../vscode-aihu)
 - [Aihu framework root](../../README.md)
-- [v1.1 roadmap](../../docs/roadmap/SUMMARY.md)
 
 <sub><i>Auto-generated against `@aihu/language-server@0.3.0`.</i></sub>
 

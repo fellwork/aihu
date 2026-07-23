@@ -35,7 +35,7 @@ bun add @aihu/scraping
 | | |
 |---|---|
 | **Version** | `0.2.0` |
-| **Tier** | E — Held private (unmapped tier) |
+| **Tier** | B — Meta-framework — sliding-window rate limiter + bot-detection middleware |
 | **Published files** | 3 entries |
 | **License** | MIT |
 
@@ -72,8 +72,9 @@ _Zero runtime dependencies_ (per the [dep-free thesis](../../README.md#project-p
 <!-- BEGIN_AUTOGEN: see-also -->
 <!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
 
+- [@aihu/agent-service](../agent-service)
+- [@aihu/server](../server)
 - [Aihu framework root](../../README.md)
-- [v1.1 roadmap](../../docs/roadmap/SUMMARY.md)
 
 <sub><i>Auto-generated against `@aihu/scraping@0.2.0`.</i></sub>
 
