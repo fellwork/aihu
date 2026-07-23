@@ -40,7 +40,6 @@ bun add @aihu/magna
 |---|---|
 | **Version** | `0.2.3` |
 | **Tier** | E — Held private (unmapped tier) |
-| **Bundle size** | 758 B (gz) — limit 1.8 KB |
 | **Published files** | 2 entries |
 | **License** | MIT |
 
