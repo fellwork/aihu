@@ -56,6 +56,11 @@ const replacements = [
   [/\bequals\b/g, 'eq'],
 
   // 8-char graph fields
+  // cleanups — Effect per-run cleanup list (effect-scope plan §1). `cl` is
+  // unused by every other rename (fl/sh/st/dh/dt/lw/ns/ps/nd/pd/ri/no/rc/
+  // he/hc/ca/eq/d/s/f — verified). Access pattern here; class-body
+  // declaration pattern in the class-body section below.
+  [/\.cleanups\b/g, '.cl'],
   [/\.lastWave\b/g, '.lw'],
   [/lastWave:/g, 'lw:'],
   [/\.subsHead\b/g, '.sh'],
@@ -105,6 +110,7 @@ const replacements = [
   // Order: longest names first to prevent prefix collisions (e.g. `subsHead`
   // before `subs`-anything else); flags last because `\bflags\b` is the
   // most aggressive bareword.
+  [/\bcleanups(?=[=;,}])/g, 'cl'],
   [/\bsubsHead(?=[=;,}])/g, 'sh'],
   [/\bsubsTail(?=[=;,}])/g, 'st'],
   [/\bdepsHead(?=[=;,}])/g, 'dh'],

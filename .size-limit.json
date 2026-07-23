@@ -8,7 +8,7 @@
   {
     "name": "@aihu/signals",
     "path": "packages/signals/dist/index.js",
-    "limit": "1970 B",
+    "limit": "2350 B",
     "gzip": true
   },
   {
