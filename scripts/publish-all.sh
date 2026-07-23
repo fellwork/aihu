@@ -44,6 +44,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 #     publish time.
 PKGS=(
   "signals"
+  "use"                # @aihu/use — SSR-safe composables (multi-entry subpaths); peer-deps @aihu/signals only (must follow it)
   "arbor"
   "runtime"
   "agent"
