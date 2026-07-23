@@ -71,7 +71,6 @@ bun add @aihu/editor
 |---|---|
 | **Version** | `0.1.0` |
 | **Tier** | G — Content — GX-governed rich-text editor (JSON doc model + transactions) |
-| **Bundle size** | 13.56 kB (gz) — limit 14 KB |
 | **Published files** | 4 entries |
 | **License** | MIT |
 

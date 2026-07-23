@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=https://moonrepo.dev/schemas/project.json
+language: typescript
+layer: library
+
+# @aihu/use imports @aihu/signals only (effect-scope plan §5: signals is the
+# sole hard dep — the library is signals+scope; only the later `useMounted`
+# entry will touch @aihu/runtime). Declare the project dep so Moon's
+# `^:build` builds signals' dist + .d.ts BEFORE use's typecheck.
+dependsOn:
+  - 'signals'
+
+tasks:
+  build:
+    command: "rolldown -c"
+    inputs:
+      - "src/**/*.ts"
+      - "rolldown.config.ts"
+    outputs:
+      - "dist"
+    options:
+      mergeArgs: "replace"
+
+  # typecheck is inherited from .moon/tasks/tasks.yml ("bunx tsc --noEmit"
+  # with deps: ["^:build"]). Do NOT override the command here (see the
+  # primitives moon.yml note on Moon's arg-merge TS6231 footgun).
+
+  test:
+    command: "vitest run"
+    inputs:
+      - "src/**/*.ts"
+      - "tests/**/*"
+    deps:
+      - "~:build"

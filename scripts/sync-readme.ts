@@ -801,6 +801,15 @@ const PACKAGE_TIERS: Record<string, TierInfo> = {
       { label: '@aihu/store', href: '../store' },
     ],
   },
+  '@aihu/use': {
+    tier: 'G',
+    label:
+      'Composables — VueUse-style sensor/state/browser utilities on aihu signals (SSR-safe, per-composable entries)',
+    seeAlso: [
+      { label: '@aihu/signals', href: '../signals' },
+      { label: '@aihu/primitives', href: '../primitives' },
+    ],
+  },
 }
 
 /**

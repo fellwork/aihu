@@ -36,7 +36,6 @@ bun add @aihu/auth
 |---|---|
 | **Version** | `3.0.0` |
 | **Tier** | B — Meta-framework — JWT scope checks, ScopeSignal, and server auth middleware |
-| **Bundle size** | 1.16 kB (gz) — limit 1.5 KB |
 | **Published files** | 3 entries |
 | **License** | MIT |
 

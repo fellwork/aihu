@@ -938,6 +938,13 @@
         "storybook": "^10.4.3",
       },
     },
+    "packages/use": {
+      "name": "@aihu/use",
+      "version": "0.1.0",
+      "dependencies": {
+        "@aihu/signals": "workspace:*",
+      },
+    },
     "packages/vscode-aihu": {
       "name": "vscode-aihu",
       "version": "1.0.0",
@@ -1098,6 +1105,8 @@
     "@aihu/tsc": ["@aihu/tsc@workspace:packages/tsc"],
 
     "@aihu/ui": ["@aihu/ui@workspace:packages/ui"],
+
+    "@aihu/use": ["@aihu/use@workspace:packages/use"],
 
     "@alloc/quick-lru": ["@alloc/quick-lru@5.2.0", "", {}, "sha512-UrcABB+4bUrFABwbluTIBErXwvbsU/V7TZWfmbgJfbkwiBuziS9gxdODUyuiecfdGQ85jglMW6juS3+z5TsKLw=="],
 
