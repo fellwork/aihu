@@ -6,6 +6,8 @@
   "description": "Redesigned aihu documentation + DX site — a full dogfood aihu SSG app (@aihu/app + file router + output:'static').",
   "scripts": {
     "gen:css": "bun gen-css.ts",
+    "gen:api": "bun scripts/gen-api.ts",
+    "gen:gallery": "bun scripts/gen-gallery.ts",
     "prebuild": "bun run gen:css",
     "predev": "bun run gen:css",
     "dev": "vite --port 5175",

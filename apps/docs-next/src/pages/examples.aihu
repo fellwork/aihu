@@ -10,11 +10,27 @@
 }
 
 @state {
-  import { COOKBOOK, GOVERNED, COUNTER_SOURCE } from '../data/gallery.ts'
+  import { COOKBOOK, GOVERNED, LIVE_ISLANDS, COUNTER_SOURCE } from '../data/gallery.ts'
   import { codeBlock } from '../lib/code-block.ts'
 
-  const cookbook = COOKBOOK
-  const governed = GOVERNED
+  const cookbook = COOKBOOK.map((r) => ({
+    id: r.id,
+    href: `/cookbook/${r.id}`,
+    title: r.title,
+    type: r.type,
+    description: r.description,
+    constructs: r.constructs.slice(0, 4),
+    more: r.constructs.length > 4 ? r.constructs.length - 4 : 0,
+    runnable: !!LIVE_ISLANDS[r.id],
+  }))
+  const governed = GOVERNED.map((g) => ({
+    id: g.id,
+    example: g.example,
+    subsystem: g.subsystem,
+    ci: g.ci,
+    exercises: g.exercises.slice(0, 6),
+    more: g.exercises.length > 6 ? g.exercises.length - 6 : 0,
+  }))
   const counterCode = codeBlock(COUNTER_SOURCE, { name: 'aihu-counter.aihu', lang: 'aihu' })
 }
 
@@ -63,8 +79,15 @@
         <div class="dn-gov-card" each={g of governed} key={g.id}>
           <span class="dn-gov-id">{g.id}</span>
           <div class="dn-gov-body">
-            <code class="dn-gov-name">{g.name}</code>
+            <div class="dn-gov-top">
+              <code class="dn-gov-name">{g.example}</code>
+              <span class="dn-gov-ci dn-rail">{g.ci}</span>
+            </div>
             <span class="dn-gov-sub">{g.subsystem}</span>
+            <div class="dn-card-tags">
+              <code each={ex of g.exercises} key={ex}>{ex}</code>
+              <code class="dn-card-more" if={g.more > 0}>+{g.more}</code>
+            </div>
           </div>
         </div>
       </div>
@@ -76,10 +99,10 @@
         <span class="dn-sec-count dn-rail">{cookbook.length} shown</span>
       </div>
       <div class="dn-card-grid">
-        <a class="dn-card" each={r of cookbook} key={r.id} href={`/examples#${r.id}`}>
+        <a class="dn-card" each={r of cookbook} key={r.id} href={r.href}>
           <div class="dn-card-top">
             <span class="dn-card-type">{r.type}</span>
-            <span class="dn-card-run" if={!!r.playground}>
+            <span class="dn-card-run" if={r.runnable}>
               <span class="dn-dot"></span>Run
             </span>
           </div>
@@ -87,6 +110,7 @@
           <p class="dn-card-desc">{r.description}</p>
           <div class="dn-card-tags">
             <code each={construct of r.constructs} key={construct}>{construct}</code>
+            <code class="dn-card-more" if={r.more > 0}>+{r.more}</code>
           </div>
         </a>
       </div>
@@ -247,12 +271,23 @@
     display: flex;
     flex-direction: column;
     min-width: 0;
+    gap: 0.35rem;
+    flex: 1;
+  }
+  .dn-gov-top {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.6rem;
   }
   .dn-gov-name {
     font-family: var(--font-mono);
     font-weight: 550;
     color: var(--fg-strong);
     font-size: var(--fs-sm);
+  }
+  .dn-gov-ci {
+    flex-shrink: 0;
   }
   .dn-gov-sub {
     color: var(--muted);
@@ -331,6 +366,11 @@
     border: 1px solid var(--border);
     padding: 0.05rem 0.4rem;
     border-radius: 4px;
+  }
+  .dn-card-more {
+    color: var(--faint) !important;
+    background: transparent !important;
+    border-color: transparent !important;
   }
 
   @media (min-width: 640px) {

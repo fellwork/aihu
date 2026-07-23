@@ -47,6 +47,12 @@ export const NAV: readonly NavSection[] = [
     ],
   },
   // --- /API (track A) ---
+  // --- Cookbook (track B) ---
+  // Gallery data (scripts/gen-gallery.ts): 20 cookbook recipes + the 9
+  // founder-ratified governed examples, derived from packages/mcp/src/
+  // cookbook-index.json + examples/<name>/coverage.manifest.json. Every
+  // recipe below is a real, prerendered /cookbook/<id> detail page; the
+  // in-browser WASM playground is deferred (see cookbook build follow-up).
   {
     title: 'Examples',
     links: [
@@ -57,8 +63,9 @@ export const NAV: readonly NavSection[] = [
   {
     title: 'Cookbook',
     links: [
-      { label: 'Recipes', href: '/examples#cookbook', ready: true },
-      { label: 'Playground', href: '/examples#playground', ready: true },
+      { label: 'All recipes (20)', href: '/cookbook', ready: true },
+      { label: 'Live demo', href: '/examples#playground', ready: true },
     ],
   },
+  // --- /Cookbook (track B) ---
 ]

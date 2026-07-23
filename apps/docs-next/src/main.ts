@@ -5,6 +5,7 @@ import './styles/tokens.css'
 import './styles/utilities.generated.css' // dogfooded @aihu/css-engine output
 import './styles/base.css'
 import './styles/api.css' // /api/** datasheet — global so generated pages need no per-page @style
+import './styles/cookbook.css' // /cookbook/<id> recipe datasheet — same reasoning
 
 // --- island + shell component registrations ---
 // Pages (src/pages) and layouts (src/layouts) are registered by the file-router
