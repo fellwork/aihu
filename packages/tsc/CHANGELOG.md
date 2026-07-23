@@ -1,5 +1,12 @@
 # @aihu/tsc
 
+## 0.2.5
+
+### Patch Changes
+
+- Updated dependencies [[`68957ca`](https://github.com/fellwork/aihu/commit/68957caa33616b7eee7b05dc55ebd051e603a9fc), [`aac7624`](https://github.com/fellwork/aihu/commit/aac762460619d060e9d1030c86b52231dcb88df3), [`d56a1f5`](https://github.com/fellwork/aihu/commit/d56a1f5569982d30e1924bd48b8cdda8d4ad4e82), [`2ef2830`](https://github.com/fellwork/aihu/commit/2ef2830aa737906d09a5d870176da34a22f20b99), [`8924c51`](https://github.com/fellwork/aihu/commit/8924c51da6e6c25fb2664a7ab6fe9c628895161d), [`061eefb`](https://github.com/fellwork/aihu/commit/061eefb3e94fdbbe9e6f5d5301db3bcdd3fa3b22)]:
+  - @aihu/compiler@1.1.0
+
 ## 0.2.4
 
 ### Patch Changes

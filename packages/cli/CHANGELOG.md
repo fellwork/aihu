@@ -1,5 +1,12 @@
 # @aihu/cli
 
+## 1.0.1
+
+### Patch Changes
+
+- Updated dependencies [[`7bf702f`](https://github.com/fellwork/aihu/commit/7bf702f6e7de8716ef51544944064a988fa3c38c), [`2ef2830`](https://github.com/fellwork/aihu/commit/2ef2830aa737906d09a5d870176da34a22f20b99)]:
+  - @aihu/mcp@0.2.0
+
 ## 1.0.0
 
 ### Major Changes

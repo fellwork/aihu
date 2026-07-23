@@ -1,5 +1,76 @@
 # @aihu/runtime
 
+## 4.0.0
+
+### Minor Changes
+
+- [#524](https://github.com/fellwork/aihu/pull/524) [`18e5f6d`](https://github.com/fellwork/aihu/commit/18e5f6dda93772877690e88e8c217dcdcf4bddc2) Thanks [@srmcguirt](https://github.com/srmcguirt)! - feat(runtime): bind the component root to an effect scope (effect-scope plan §2)
+
+  Every component instance now opens a DETACHED root `effectScope` around its
+  `setup()` call; onMount bodies run inside it; the scope stops on disconnect
+  (before `MountScope.dispose()` — DOM removal last), on HMR replace, on
+  setup-throw, and (via the new define-element bridge) on hydrated-component
+  disconnect. Effects/computeds created by composables during setup or onMount
+  are automatically disposed on unmount — no manual dispose.
+
+  - `@aihu/signals`: new `runWithoutScope(fn)` — run `fn` with no current scope
+    (the explicit opt-out mirror of `runWithScope`).
+  - `@aihu/arbor`: `mount()`/`hydrate()` wrap their synchronous effect wiring
+    (including error-handler fallbacks) in `runWithoutScope`, so binding effects
+    are owned by the MountScope exclusively and are never adopted by a component
+    scope — even for a child custom element upgrading synchronously inside a
+    parent's scoped `setup()`/`onMount` (P0-2b).
+
+  BEHAVIOR CHANGES:
+
+  - (a) `onCleanup` inside an `effect()` body now throws SCR-R0011 — the current
+    scope is cleared for every effect run (P0-1), and the old behavior was itself
+    a bug (it only worked on the effect's first run and risked cross-component
+    mis-registration). Use the effect's per-run `onCleanup` argument instead.
+    `onCleanup` also throws under a STOPPED current scope (async re-entry after
+    the owner stopped) instead of silently dropping the callback — and is newly
+    LEGAL inside `onMount` bodies and plain `effectScope.run()` frames.
+  - (b) Unified-LIFO teardown order (ratified P0-3): everything the component
+    owns — composable effect/computed handles, `onCleanup` callbacks, and
+    onMount-returned teardowns — lives in ONE component-scope list drained LIFO
+    by `scope.stop()`. This REVERSES the previous order (onCleanup FIFO in setup
+    order, then onMount teardowns): onMount teardowns now run first (registered
+    last), then setup-time cleanups in reverse registration order. All teardown
+    still runs before DOM removal.
+
+- [#514](https://github.com/fellwork/aihu/pull/514) [`061eefb`](https://github.com/fellwork/aihu/commit/061eefb3e94fdbbe9e6f5d5301db3bcdd3fa3b22) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Compile-time SSR string-template emit target (wave-3 keystone).
+
+  - `--target server` artifacts now additionally export `__ssrString(props,
+{ hydratable })` — a compiled string renderer of straight-line
+    concatenation with interpolated dynamic holes and static-subtree constant
+    folding (Svelte/Solid-SSR style), byte-identical to the tree-walk renderer
+    including the full hydration wire grammar (`data-aihu-path`,
+    `<!--aihu:s:PATH-->` structural markers, `<!--|-->` text-leaf boundaries).
+    Templates using constructs outside the lowerable set (suspense/shield/
+    guard/warp/focusTrap/router-macro elements, duplicate attr keys) simply
+    ship without the export and keep the walker.
+  - New `@aihu/runtime/ssr` subpath entry with the SSR string helpers
+    (`__aihu_stext`, `__aihu_sattr`, …) mirroring the walker's escaping —
+    server-only bytes on their own entry, so the client bundle size gate is
+    untouched.
+  - `@aihu/server` renderToString/renderToStream take the string fast path when
+    the component carries a compiled renderer (`AIHU_SSR_STRING=0` opts out);
+    new `attachSsrString` carries the renderer across props-binding wrappers
+    (used by the router's governed path).
+  - SSR walker fix: reactive attribute tuples/thunks now serialize their
+    CURRENT VALUE (previously the getter's function source was printed into the
+    attribute) and function-valued attrs (event handlers) never serialize.
+  - Compiler fixes surfaced by the differential gate: `show`/`class:`/`ref`/
+    `html` effect IIFEs guard their `onMount` registration (host-less SSR and
+    loop-item factories previously crashed with SCR-R0010 'no owner'), and an
+    `each`+`empty` chain now emits the `createIfBoundary` helper it references.
+
+### Patch Changes
+
+- Updated dependencies [[`18e5f6d`](https://github.com/fellwork/aihu/commit/18e5f6dda93772877690e88e8c217dcdcf4bddc2), [`ea8d2eb`](https://github.com/fellwork/aihu/commit/ea8d2ebb91c28132f399a708e2bd88877072d1db)]:
+  - @aihu/signals@0.4.0
+  - @aihu/arbor@3.0.0
+
 ## 3.0.0
 
 ### Major Changes

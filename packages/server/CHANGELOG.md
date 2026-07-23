@@ -1,5 +1,97 @@
 # @aihu/server
 
+## 0.4.0
+
+### Minor Changes
+
+- [#514](https://github.com/fellwork/aihu/pull/514) [`061eefb`](https://github.com/fellwork/aihu/commit/061eefb3e94fdbbe9e6f5d5301db3bcdd3fa3b22) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Compile-time SSR string-template emit target (wave-3 keystone).
+
+  - `--target server` artifacts now additionally export `__ssrString(props,
+{ hydratable })` — a compiled string renderer of straight-line
+    concatenation with interpolated dynamic holes and static-subtree constant
+    folding (Svelte/Solid-SSR style), byte-identical to the tree-walk renderer
+    including the full hydration wire grammar (`data-aihu-path`,
+    `<!--aihu:s:PATH-->` structural markers, `<!--|-->` text-leaf boundaries).
+    Templates using constructs outside the lowerable set (suspense/shield/
+    guard/warp/focusTrap/router-macro elements, duplicate attr keys) simply
+    ship without the export and keep the walker.
+  - New `@aihu/runtime/ssr` subpath entry with the SSR string helpers
+    (`__aihu_stext`, `__aihu_sattr`, …) mirroring the walker's escaping —
+    server-only bytes on their own entry, so the client bundle size gate is
+    untouched.
+  - `@aihu/server` renderToString/renderToStream take the string fast path when
+    the component carries a compiled renderer (`AIHU_SSR_STRING=0` opts out);
+    new `attachSsrString` carries the renderer across props-binding wrappers
+    (used by the router's governed path).
+  - SSR walker fix: reactive attribute tuples/thunks now serialize their
+    CURRENT VALUE (previously the getter's function source was printed into the
+    attribute) and function-valued attrs (event handlers) never serialize.
+  - Compiler fixes surfaced by the differential gate: `show`/`class:`/`ref`/
+    `html` effect IIFEs guard their `onMount` registration (host-less SSR and
+    loop-item factories previously crashed with SCR-R0010 'no owner'), and an
+    `each`+`empty` chain now emits the `createIfBoundary` helper it references.
+
+### Patch Changes
+
+- [#519](https://github.com/fellwork/aihu/pull/519) [`2ef2830`](https://github.com/fellwork/aihu/commit/2ef2830aa737906d09a5d870176da34a22f20b99) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Rename the remaining legacy `SCRIBE_*` environment variables and markers to the
+  `AIHU_*` family (following `SCRIBE_VERSION` → `AIHU_VERSION` in [#516](https://github.com/fellwork/aihu/issues/516)). No
+  deprecated aliases — aihu has no external consumers.
+
+  - `SCRIBE_NATIVE_SKIP` → `AIHU_NATIVE_SKIP` (documented SSR native-loader escape
+    hatch), plus the internal `SCRIBE_NATIVE_MISSING` / `SCRIBE_NATIVE_LOAD_FAILED`
+    diagnostic codes → `AIHU_NATIVE_MISSING` / `AIHU_NATIVE_LOAD_FAILED`.
+  - `SCRIBE_COMPILE_BIN` → `AIHU_COMPILE_BIN`, **consolidated with** the existing
+    `AIHU_COMPILE_BIN` drive-test override into a single variable. The sidecar
+    `resolveBinPath()` / `resolveSpawnBinPath()` resolution and the drive/differential
+    tests now both read one `AIHU_COMPILE_BIN`.
+  - `SCRIBE_STATIC_ISLAND` audit marker → `AIHU_STATIC_ISLAND`.
+
+- [#515](https://github.com/fellwork/aihu/pull/515) [`8924c51`](https://github.com/fellwork/aihu/commit/8924c51da6e6c25fb2664a7ab6fe9c628895161d) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Retire the `$server` macro and its `createServerCall` client RPC bridge.
+
+  The feature was half-wired and effectively broken: the compiler recognized
+  `$server` only as a substring and, on a `--target client` build, emitted a
+  `// [client build] $server macro reference elided` comment while leaving the
+  `$server.*` reference untouched in the output — no server artifact and no
+  `createServerCall` stub were ever generated, so any reference resolved to an
+  undefined identifier. The whole surface is removed rather than finished:
+
+  - `@aihu/server`: delete `createServerCall` (`src/client.ts`) and its barrel
+    re-export.
+  - `@aihu/compiler`: drop the `$server` client-build elision branch from
+    `codegen/emit.rs`. A stray `$server` is no longer special-cased — it passes
+    through as an ordinary (undefined) identifier and surfaces as a normal
+    type-check / runtime error, instead of a misleading "elided" comment.
+  - `@aihu/language-server`: remove the `$server` hover entry.
+  - Spec: Macro Vocabulary §2.12 marked **RETIRED** (no drop-in replacement).
+
+  Platform binary packages bumped 0.1.24 → 0.1.25 (Rust source changed).
+
+- [#527](https://github.com/fellwork/aihu/pull/527) [`27a3268`](https://github.com/fellwork/aihu/commit/27a326826ee9a4d0a9b46bf50ca31686543848fe) Thanks [@srmcguirt](https://github.com/srmcguirt)! - fix(server): dispose setup-created effects per SSR render (effect-scope plan §3)
+
+  SSR runs a component's full setup body by calling the `component()` factory —
+  bypassing `defineComponent`'s component scope — so any `effect()`/`computed()`
+  created there (directly or via a composable) leaked per request. Both factory
+  seams now wrap the call in a per-render detached `effectScope`:
+
+  - `renderToStream` (TS path): the scope stays alive through the async walk and
+    suspended boundaries, and is stopped exactly once on every terminal path —
+    walk done, last-boundary close, sync factory throw, walk/boundary errors,
+    and the consumer's `cancel()` (client disconnect / streaming timeout with a
+    boundary still pending).
+  - `renderToStringNative`: scope wraps the factory; serialization, the state
+    script's signal reads, and the dialect-guard TS fallback all complete before
+    the finally-phase `stop()`. A throwing user disposer is reported via
+    `console.error`, never masking an in-flight render error.
+
+  Rendered bytes are unchanged — the wrap affects lifecycle only. `@aihu/signals`
+  is a new dependency and is external in both build entries (a bundled private
+  copy would split the `_currentScope` module-global and silently break scope
+  adoption). The compiled ssr-string fast path never calls setup and needs no
+  wrap.
+
+- Updated dependencies [[`18e5f6d`](https://github.com/fellwork/aihu/commit/18e5f6dda93772877690e88e8c217dcdcf4bddc2), [`ea8d2eb`](https://github.com/fellwork/aihu/commit/ea8d2ebb91c28132f399a708e2bd88877072d1db)]:
+  - @aihu/signals@0.4.0
+
 ## 0.3.0
 
 ### Minor Changes
