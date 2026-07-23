@@ -12,6 +12,15 @@ const nativeAddonExternals = [
   '@aihu/server-win32-x64-msvc',
 ]
 
+// @aihu/signals MUST be external in every entry that reaches the SSR scope
+// wrap (main + native). Scope adoption works through a module-global
+// `_currentScope` inside signals; bundling a private copy into dist would
+// give the server's `effectScope()` a DIFFERENT `_currentScope` than the
+// one the app's `effect()`/`computed()` calls register against — the
+// per-render scope would silently adopt nothing and the SSR leak fix would
+// be a no-op. One shared signals instance, always.
+const signalsExternal = '@aihu/signals'
+
 // loader.ts lazily does `import('./native.ts')` so that TS (moduleResolution:
 // Bundler + allowImportingTsExtensions) and vitest resolve it to src/native.ts.
 // In the build we must (a) keep it external so it is NOT inlined back into
@@ -55,6 +64,8 @@ export default defineConfig([
       // imports `Plugin` purely for the `plugins?: Plugin[]` field type). The
       // runtime bundle MUST NOT pull it in. Marked external to stay safe.
       '@aihu/plugin',
+      // See signalsExternal note above — a bundled copy breaks scope adoption.
+      signalsExternal,
       ...nativeAddonExternals,
     ],
     checks: { circularDependency: true },
@@ -81,7 +92,9 @@ export default defineConfig([
   {
     input: { native: 'src/native.ts' },
     platform: 'node',
-    external: ['node:module', ...nativeAddonExternals],
+    // signalsExternal: same shared-instance requirement as the main entry —
+    // renderToStringNative wraps the factory in a per-render effectScope.
+    external: ['node:module', signalsExternal, ...nativeAddonExternals],
     checks: { circularDependency: true },
     transform: { define: { __DEV__: 'false' } },
     output: {

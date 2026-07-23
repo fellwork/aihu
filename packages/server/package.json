@@ -37,7 +37,8 @@
   "dependencies": {
     "@aihu/agent": "workspace:*",
     "@aihu/agent-service": "workspace:*",
-    "@aihu/plugin": "workspace:*"
+    "@aihu/plugin": "workspace:*",
+    "@aihu/signals": "workspace:^"
   },
   "optionalDependencies": {
     "@aihu/server-darwin-arm64": "0.1.2",

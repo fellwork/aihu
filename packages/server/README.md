@@ -66,6 +66,7 @@ bun add @aihu/server
 - `@aihu/agent` — `workspace:*`
 - `@aihu/agent-service` — `workspace:*`
 - `@aihu/plugin` — `workspace:*`
+- `@aihu/signals` — `workspace:^`
 
 **Optional dependencies (platform-specific):**
 

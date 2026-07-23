@@ -33,6 +33,7 @@
  */
 
 import { createRequire } from 'node:module'
+import { effectScope } from '@aihu/signals'
 import type { ComponentDescription, SsrOptions } from './ssr.ts'
 import { _appendStateScript, renderToString as tsRenderToString } from './ssr.ts'
 
@@ -342,32 +343,54 @@ export async function renderToStringNative(
   // state.kind === 'native-loaded'
   const addon = (state as Extract<NativeState, { kind: 'native-loaded' }>).addon
 
-  // Materialize the component; if the factory throws we let it propagate.
-  const root = (component as () => unknown)()
+  // SSR ownership (effect-scope plan §3): the factory runs the component's
+  // full setup body server-side — every effect()/computed() it (or a
+  // composable) creates would otherwise leak per request, because SSR
+  // bypasses defineComponent's component scope. A per-render DETACHED scope
+  // adopts them; stop() disposes them once the render is done. All tree
+  // reads (JSON.stringify, _appendStateScript's signal walk, the dialect-
+  // fallback TS walk) happen BEFORE the finally-phase stop — a stopped
+  // scope has disposed the tree's computeds. stop() is wrapped so a
+  // throwing user disposer is reported, never masking a factory/serialize
+  // throw already unwinding through this frame.
+  const scope = effectScope(true)
+  try {
+    // Materialize the component; if the factory throws we let it propagate
+    // (the finally still disposes whatever was created before the throw).
+    const root = scope.run(() => (component as () => unknown)())
 
-  // Dialect guard: modern-dialect trees (structural nodes, `value` leaves,
-  // fragments, reactive attrs) take the always-correct TS walker. The factory
-  // has already run; re-wrap its result so the tree is not built twice.
-  if (!_nativeDialectSupports(root)) {
-    return tsRenderToString(() => root, opts)
+    // Dialect guard: modern-dialect trees (structural nodes, `value` leaves,
+    // fragments, reactive attrs) take the always-correct TS walker. The factory
+    // has already run; re-wrap its result so the tree is not built twice.
+    // `return await` (not bare `return`) so the finally-phase stop() runs
+    // AFTER the async walk finishes reading the tree.
+    if (!_nativeDialectSupports(root)) {
+      return await tsRenderToString(() => root, opts)
+    }
+
+    const treeJson = JSON.stringify(root)
+    const hydratable = opts?.hydratable ?? false
+
+    // Wave-3 state channel: the Rust renderer never reaches the TS stream
+    // walk's emission site, so the state script is appended here, post-render.
+    // ONLY these two addon returns append — every fall-through above routes to
+    // tsRenderToString, which emits through the stream walk itself (appending
+    // there would double-emit). `root` is the materialized JS tree, so the
+    // signals channel rides along exactly as on the TS path. No-op ('') when
+    // there is no state to ship, keeping state-free native renders
+    // byte-identical.
+    if (opts?.head) {
+      const headJson = JSON.stringify(opts.head)
+      return _appendStateScript(addon.renderDocument(treeJson, headJson, hydratable), opts, root)
+    }
+    return _appendStateScript(addon.renderTree(treeJson, hydratable), opts, root)
+  } finally {
+    try {
+      scope.stop()
+    } catch (e) {
+      console.error('[aihu/server] SSR disposer threw:', e)
+    }
   }
-
-  const treeJson = JSON.stringify(root)
-  const hydratable = opts?.hydratable ?? false
-
-  // Wave-3 state channel: the Rust renderer never reaches the TS stream
-  // walk's emission site, so the state script is appended here, post-render.
-  // ONLY these two addon returns append — every fall-through above routes to
-  // tsRenderToString, which emits through the stream walk itself (appending
-  // there would double-emit). `root` is the materialized JS tree, so the
-  // signals channel rides along exactly as on the TS path. No-op ('') when
-  // there is no state to ship, keeping state-free native renders
-  // byte-identical.
-  if (opts?.head) {
-    const headJson = JSON.stringify(opts.head)
-    return _appendStateScript(addon.renderDocument(treeJson, headJson, hydratable), opts, root)
-  }
-  return _appendStateScript(addon.renderTree(treeJson, hydratable), opts, root)
 }
 
 // ---------------------------------------------------------------------------
@@ -382,6 +405,13 @@ export function _getNativeStateKind(): NativeState['kind'] {
 /** Reset the cached native state. Used by unit tests that mock detection. */
 export function _resetNativeState(): void {
   _state = null
+}
+
+/** Inject a native loader state (e.g. a stub addon) so tests can exercise
+ * the native-loaded render path without a built binary. Pair with
+ * `_resetNativeState()` in afterEach. */
+export function _setNativeState(state: NativeState): void {
+  _state = state
 }
 
 // ---------------------------------------------------------------------------
