@@ -27,7 +27,7 @@ npm install @aihu/magna
 bun add @aihu/magna
 ```
 
-<sub><i>Auto-generated against `@aihu/magna@0.2.3`.</i></sub>
+<sub><i>Auto-generated against `@aihu/magna@0.2.4`.</i></sub>
 
 <!-- END_AUTOGEN: install -->
 
@@ -38,12 +38,12 @@ bun add @aihu/magna
 
 | | |
 |---|---|
-| **Version** | `0.2.3` |
+| **Version** | `0.2.4` |
 | **Tier** | B — Meta-framework — dep-free Magna GraphQL bridge (resources + JWT relay) |
 | **Published files** | 2 entries |
 | **License** | MIT |
 
-<sub><i>Auto-generated against `@aihu/magna@0.2.3`.</i></sub>
+<sub><i>Auto-generated against `@aihu/magna@0.2.4`.</i></sub>
 
 <!-- END_AUTOGEN: stats -->
 
@@ -57,7 +57,7 @@ bun add @aihu/magna
 | `.` | `./dist/index.js` | `—` |
 | `./codegen` | `./dist/codegen.js` | `—` |
 
-<sub><i>Auto-generated against `@aihu/magna@0.2.3`.</i></sub>
+<sub><i>Auto-generated against `@aihu/magna@0.2.4`.</i></sub>
 
 <!-- END_AUTOGEN: exports -->
 
@@ -77,7 +77,7 @@ bun add @aihu/magna
 
 - `@aihu/magna-gqlmin` — `^0.2.0`
 
-<sub><i>Auto-generated against `@aihu/magna@0.2.3`.</i></sub>
+<sub><i>Auto-generated against `@aihu/magna@0.2.4`.</i></sub>
 
 <!-- END_AUTOGEN: deps -->
 
@@ -90,7 +90,7 @@ bun add @aihu/magna
 - [@aihu/server](../server)
 - [Aihu framework root](../../README.md)
 
-<sub><i>Auto-generated against `@aihu/magna@0.2.3`.</i></sub>
+<sub><i>Auto-generated against `@aihu/magna@0.2.4`.</i></sub>
 
 <!-- END_AUTOGEN: see-also -->
 
@@ -101,6 +101,6 @@ bun add @aihu/magna
 
 MIT — see [LICENSE](../../LICENSE).
 
-<sub><i>Auto-generated against `@aihu/magna@0.2.3`.</i></sub>
+<sub><i>Auto-generated against `@aihu/magna@0.2.4`.</i></sub>
 
 <!-- END_AUTOGEN: license -->

@@ -58,7 +58,7 @@ npm install @aihu/editor
 bun add @aihu/editor
 ```
 
-<sub><i>Auto-generated against `@aihu/editor@0.1.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/editor@0.1.1`.</i></sub>
 
 <!-- END_AUTOGEN: install -->
 
@@ -69,12 +69,12 @@ bun add @aihu/editor
 
 | | |
 |---|---|
-| **Version** | `0.1.0` |
+| **Version** | `0.1.1` |
 | **Tier** | G — Content — GX-governed rich-text editor (JSON doc model + transactions) |
 | **Published files** | 4 entries |
 | **License** | MIT |
 
-<sub><i>Auto-generated against `@aihu/editor@0.1.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/editor@0.1.1`.</i></sub>
 
 <!-- END_AUTOGEN: stats -->
 
@@ -90,7 +90,7 @@ bun add @aihu/editor
 | `./components/aihu-editor.aihu` | `./components/aihu-editor.aihu` | — |
 | `./components/aihu-editor-toolbar.aihu` | `./components/aihu-editor-toolbar.aihu` | — |
 
-<sub><i>Auto-generated against `@aihu/editor@0.1.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/editor@0.1.1`.</i></sub>
 
 <!-- END_AUTOGEN: exports -->
 
@@ -103,7 +103,7 @@ bun add @aihu/editor
 
 - `@aihu/signals` — `workspace:*`
 
-<sub><i>Auto-generated against `@aihu/editor@0.1.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/editor@0.1.1`.</i></sub>
 
 <!-- END_AUTOGEN: deps -->
 
@@ -116,7 +116,7 @@ bun add @aihu/editor
 - [@aihu/store](../store)
 - [Aihu framework root](../../README.md)
 
-<sub><i>Auto-generated against `@aihu/editor@0.1.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/editor@0.1.1`.</i></sub>
 
 <!-- END_AUTOGEN: see-also -->
 
@@ -127,6 +127,6 @@ bun add @aihu/editor
 
 MIT — see [LICENSE](../../LICENSE).
 
-<sub><i>Auto-generated against `@aihu/editor@0.1.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/editor@0.1.1`.</i></sub>
 
 <!-- END_AUTOGEN: license -->

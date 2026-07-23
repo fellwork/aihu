@@ -1,5 +1,136 @@
 # @aihu/compiler
 
+## 1.1.0
+
+### Minor Changes
+
+- [#526](https://github.com/fellwork/aihu/pull/526) [`68957ca`](https://github.com/fellwork/aihu/commit/68957caa33616b7eee7b05dc55ebd051e603a9fc) Thanks [@srmcguirt](https://github.com/srmcguirt)! - feat(compiler): auto-import @aihu/use composables
+
+  When a `.aihu` `@state` block calls a bare `useMouse()` (or any known
+  `@aihu/use` composable) without importing it, the compiler now injects the
+  per-subpath `import { useMouse } from '@aihu/use/useMouse'` into the emitted JS
+  (and an ambient declaration into the `.aihu.ts` sidecar for type-check
+  coherence) — mirroring how it already provides the `@state` vocabulary, and
+  preserving per-composable tree-shaking (granular specifier, never the barrel).
+
+  Detection is guarded so it never fires for a name the author already imported
+  (any source), declared, or shadowed (`const`/`let`/`var`/`function`/`class`/
+  destructure) — one shared authority drives both the emit injection and the
+  sidecar declaration, so they can never disagree. Comments and string/template
+  literals are masked before scanning, so a name mentioned in a comment can't
+  inject a spurious import. Registry lives in `codegen/use_registry.rs`, kept in
+  sync with `packages/use/package.json` exports (grows with the composable set).
+
+- [#510](https://github.com/fellwork/aihu/pull/510) [`aac7624`](https://github.com/fellwork/aihu/commit/aac762460619d060e9d1030c86b52231dcb88df3) Thanks [@srmcguirt](https://github.com/srmcguirt)! - In-process napi compile backend + single-parse envelope API.
+
+  - New Rust `compile_envelope()` (envelope.rs): parse + validate + lower ONCE,
+    emit per requested target (`client|server|universal`), and serialize every
+    requested artifact (`js|ast|route|manifest`) into one JSON envelope. Exposed
+    on the CLI as `--envelope <options-json>` — so even the spawn path gets
+    single-parse, multi-output compiles.
+  - New napi addon (`packages/compiler/src-native`, shipped as
+    `@aihu/compiler-native-<platform>` optionalDependencies):
+    `compileEnvelope(source, optionsJson) → envelopeJson`, one boundary crossing
+    per file, eliminating the per-file process spawn on the build path.
+  - `transform()` / `compileToAst()` / `compileRouteMeta()` now route
+    memo → native addon → envelope CLI spawn → legacy per-output spawn, and one
+    `transform()` seeds the memo entries for the AST and route artifacts from the
+    SAME parse — css-engine's AST pass and the router's route scan become cache
+    hits instead of re-parses. Output is byte-identical to the legacy spawn
+    (differential-tested per target across representative fixtures).
+  - Escape hatches: `AIHU_COMPILER_NATIVE=0` disables the addon;
+    `AIHU_COMPILER_NATIVE_ADDON=<path>` pins one (fail-loud); an explicit
+    `AIHU_COMPILE_BIN` binary pin keeps the spawn backend.
+
+- [#518](https://github.com/fellwork/aihu/pull/518) [`d56a1f5`](https://github.com/fellwork/aihu/commit/d56a1f5569982d30e1924bd48b8cdda8d4ad4e82) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Island classification is now authoritative in the Rust codegen (wave 3c).
+
+  The compiler decides whether a component is a **static** island (server-render
+  only, zero client hydration) or an **interactive** island at emit time, from
+  the IR — the same fact-set that already decides which owner-context primitives
+  (`signal`/`computed`/`effect`/`onMount`/`onCleanup`) to import. It records the
+  verdict three ways: a `// @aihu:island static|interactive` code marker,
+  `EmitResult.island`, and the envelope's `TargetEmit.island`.
+
+  This RETIRES the `_classifyIsland` JS post-pass, which re-derived the answer by
+  regexing generated code for `signal(`/`effect(`/… — a Derived-property
+  violation (the compiler already knew). The Vite plugin now reads the marker via
+  `_parseIslandMarker`.
+
+  The move also fixes a latent bug: a `$prop`-only component (options-form,
+  no `signal(` call in its body) was mis-classified `static` by the old regex and
+  routed through the static-island shim, which cannot lower
+  `defineComponent({ props, setup })`. Reactive props are parent-driven inputs, so
+  the compiler now classifies such a component **interactive** (conservative: only
+  truly inert components are `static`).
+
+  Static islands continue to ship the zero-runtime shim (no `@aihu/runtime`
+  import, no `defineComponent` hydration walk); interactive components keep the
+  full runtime path. Physically code-splitting a purely-static route so its chunk
+  graph excludes `@aihu/runtime` + `@aihu/signals` (~5.9 kB gzip) remains a
+  scoped follow-up in `@aihu/app`'s route bundling.
+
+- [#514](https://github.com/fellwork/aihu/pull/514) [`061eefb`](https://github.com/fellwork/aihu/commit/061eefb3e94fdbbe9e6f5d5301db3bcdd3fa3b22) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Compile-time SSR string-template emit target (wave-3 keystone).
+
+  - `--target server` artifacts now additionally export `__ssrString(props,
+{ hydratable })` — a compiled string renderer of straight-line
+    concatenation with interpolated dynamic holes and static-subtree constant
+    folding (Svelte/Solid-SSR style), byte-identical to the tree-walk renderer
+    including the full hydration wire grammar (`data-aihu-path`,
+    `<!--aihu:s:PATH-->` structural markers, `<!--|-->` text-leaf boundaries).
+    Templates using constructs outside the lowerable set (suspense/shield/
+    guard/warp/focusTrap/router-macro elements, duplicate attr keys) simply
+    ship without the export and keep the walker.
+  - New `@aihu/runtime/ssr` subpath entry with the SSR string helpers
+    (`__aihu_stext`, `__aihu_sattr`, …) mirroring the walker's escaping —
+    server-only bytes on their own entry, so the client bundle size gate is
+    untouched.
+  - `@aihu/server` renderToString/renderToStream take the string fast path when
+    the component carries a compiled renderer (`AIHU_SSR_STRING=0` opts out);
+    new `attachSsrString` carries the renderer across props-binding wrappers
+    (used by the router's governed path).
+  - SSR walker fix: reactive attribute tuples/thunks now serialize their
+    CURRENT VALUE (previously the getter's function source was printed into the
+    attribute) and function-valued attrs (event handlers) never serialize.
+  - Compiler fixes surfaced by the differential gate: `show`/`class:`/`ref`/
+    `html` effect IIFEs guard their `onMount` registration (host-less SSR and
+    loop-item factories previously crashed with SCR-R0010 'no owner'), and an
+    `each`+`empty` chain now emits the `createIfBoundary` helper it references.
+
+### Patch Changes
+
+- [#519](https://github.com/fellwork/aihu/pull/519) [`2ef2830`](https://github.com/fellwork/aihu/commit/2ef2830aa737906d09a5d870176da34a22f20b99) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Rename the remaining legacy `SCRIBE_*` environment variables and markers to the
+  `AIHU_*` family (following `SCRIBE_VERSION` → `AIHU_VERSION` in [#516](https://github.com/fellwork/aihu/issues/516)). No
+  deprecated aliases — aihu has no external consumers.
+
+  - `SCRIBE_NATIVE_SKIP` → `AIHU_NATIVE_SKIP` (documented SSR native-loader escape
+    hatch), plus the internal `SCRIBE_NATIVE_MISSING` / `SCRIBE_NATIVE_LOAD_FAILED`
+    diagnostic codes → `AIHU_NATIVE_MISSING` / `AIHU_NATIVE_LOAD_FAILED`.
+  - `SCRIBE_COMPILE_BIN` → `AIHU_COMPILE_BIN`, **consolidated with** the existing
+    `AIHU_COMPILE_BIN` drive-test override into a single variable. The sidecar
+    `resolveBinPath()` / `resolveSpawnBinPath()` resolution and the drive/differential
+    tests now both read one `AIHU_COMPILE_BIN`.
+  - `SCRIBE_STATIC_ISLAND` audit marker → `AIHU_STATIC_ISLAND`.
+
+- [#515](https://github.com/fellwork/aihu/pull/515) [`8924c51`](https://github.com/fellwork/aihu/commit/8924c51da6e6c25fb2664a7ab6fe9c628895161d) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Retire the `$server` macro and its `createServerCall` client RPC bridge.
+
+  The feature was half-wired and effectively broken: the compiler recognized
+  `$server` only as a substring and, on a `--target client` build, emitted a
+  `// [client build] $server macro reference elided` comment while leaving the
+  `$server.*` reference untouched in the output — no server artifact and no
+  `createServerCall` stub were ever generated, so any reference resolved to an
+  undefined identifier. The whole surface is removed rather than finished:
+
+  - `@aihu/server`: delete `createServerCall` (`src/client.ts`) and its barrel
+    re-export.
+  - `@aihu/compiler`: drop the `$server` client-build elision branch from
+    `codegen/emit.rs`. A stray `$server` is no longer special-cased — it passes
+    through as an ordinary (undefined) identifier and surfaces as a normal
+    type-check / runtime error, instead of a misleading "elided" comment.
+  - `@aihu/language-server`: remove the `$server` hover entry.
+  - Spec: Macro Vocabulary §2.12 marked **RETIRED** (no drop-in replacement).
+
+  Platform binary packages bumped 0.1.24 → 0.1.25 (Rust source changed).
+
 ## 1.0.0
 
 ### Major Changes

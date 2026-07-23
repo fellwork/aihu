@@ -107,7 +107,7 @@ npm install @aihu/store
 bun add @aihu/store
 ```
 
-<sub><i>Auto-generated against `@aihu/store@0.1.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/store@0.1.1`.</i></sub>
 
 <!-- END_AUTOGEN: install -->
 
@@ -118,12 +118,12 @@ bun add @aihu/store
 
 | | |
 |---|---|
-| **Version** | `0.1.0` |
+| **Version** | `0.1.1` |
 | **Tier** | G — State — Pinia-style global stores on aihu signals (SSR-safe per-request) |
 | **Published files** | 3 entries |
 | **License** | MIT |
 
-<sub><i>Auto-generated against `@aihu/store@0.1.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/store@0.1.1`.</i></sub>
 
 <!-- END_AUTOGEN: stats -->
 
@@ -136,7 +136,7 @@ bun add @aihu/store
 |---|---|---|
 | `.` | `./dist/index.js` | `—` |
 
-<sub><i>Auto-generated against `@aihu/store@0.1.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/store@0.1.1`.</i></sub>
 
 <!-- END_AUTOGEN: exports -->
 
@@ -150,7 +150,7 @@ bun add @aihu/store
 - `@aihu/context` — `workspace:*`
 - `@aihu/signals` — `workspace:*`
 
-<sub><i>Auto-generated against `@aihu/store@0.1.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/store@0.1.1`.</i></sub>
 
 <!-- END_AUTOGEN: deps -->
 
@@ -163,7 +163,7 @@ bun add @aihu/store
 - [@aihu/context](../context)
 - [Aihu framework root](../../README.md)
 
-<sub><i>Auto-generated against `@aihu/store@0.1.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/store@0.1.1`.</i></sub>
 
 <!-- END_AUTOGEN: see-also -->
 
@@ -174,6 +174,6 @@ bun add @aihu/store
 
 MIT — see [LICENSE](../../LICENSE).
 
-<sub><i>Auto-generated against `@aihu/store@0.1.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/store@0.1.1`.</i></sub>
 
 <!-- END_AUTOGEN: license -->

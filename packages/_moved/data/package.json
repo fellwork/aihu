@@ -1,6 +1,6 @@
 {
   "name": "@aihu/data",
-  "version": "2.0.3",
+  "version": "2.0.4",
   "license": "MIT",
   "type": "module",
   "main": "./index.js",
@@ -19,7 +19,7 @@
     "LICENSE"
   ],
   "dependencies": {
-    "@aihu-plugin/data": "2.0.3"
+    "@aihu-plugin/data": "2.0.4"
   },
   "description": "[MOVED] This package has moved to @aihu-plugin/data.",
   "deprecated": "Moved to @aihu-plugin/data — install that instead.",

@@ -1,5 +1,40 @@
 # @aihu/router
 
+## 0.4.1
+
+### Patch Changes
+
+- [#514](https://github.com/fellwork/aihu/pull/514) [`061eefb`](https://github.com/fellwork/aihu/commit/061eefb3e94fdbbe9e6f5d5301db3bcdd3fa3b22) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Compile-time SSR string-template emit target (wave-3 keystone).
+
+  - `--target server` artifacts now additionally export `__ssrString(props,
+{ hydratable })` — a compiled string renderer of straight-line
+    concatenation with interpolated dynamic holes and static-subtree constant
+    folding (Svelte/Solid-SSR style), byte-identical to the tree-walk renderer
+    including the full hydration wire grammar (`data-aihu-path`,
+    `<!--aihu:s:PATH-->` structural markers, `<!--|-->` text-leaf boundaries).
+    Templates using constructs outside the lowerable set (suspense/shield/
+    guard/warp/focusTrap/router-macro elements, duplicate attr keys) simply
+    ship without the export and keep the walker.
+  - New `@aihu/runtime/ssr` subpath entry with the SSR string helpers
+    (`__aihu_stext`, `__aihu_sattr`, …) mirroring the walker's escaping —
+    server-only bytes on their own entry, so the client bundle size gate is
+    untouched.
+  - `@aihu/server` renderToString/renderToStream take the string fast path when
+    the component carries a compiled renderer (`AIHU_SSR_STRING=0` opts out);
+    new `attachSsrString` carries the renderer across props-binding wrappers
+    (used by the router's governed path).
+  - SSR walker fix: reactive attribute tuples/thunks now serialize their
+    CURRENT VALUE (previously the getter's function source was printed into the
+    attribute) and function-valued attrs (event handlers) never serialize.
+  - Compiler fixes surfaced by the differential gate: `show`/`class:`/`ref`/
+    `html` effect IIFEs guard their `onMount` registration (host-less SSR and
+    loop-item factories previously crashed with SCR-R0010 'no owner'), and an
+    `each`+`empty` chain now emits the `createIfBoundary` helper it references.
+
+- Updated dependencies [[`2ef2830`](https://github.com/fellwork/aihu/commit/2ef2830aa737906d09a5d870176da34a22f20b99), [`8924c51`](https://github.com/fellwork/aihu/commit/8924c51da6e6c25fb2664a7ab6fe9c628895161d), [`18e5f6d`](https://github.com/fellwork/aihu/commit/18e5f6dda93772877690e88e8c217dcdcf4bddc2), [`27a3268`](https://github.com/fellwork/aihu/commit/27a326826ee9a4d0a9b46bf50ca31686543848fe), [`ea8d2eb`](https://github.com/fellwork/aihu/commit/ea8d2ebb91c28132f399a708e2bd88877072d1db), [`061eefb`](https://github.com/fellwork/aihu/commit/061eefb3e94fdbbe9e6f5d5301db3bcdd3fa3b22)]:
+  - @aihu/server@0.4.0
+  - @aihu/signals@0.4.0
+
 ## 0.4.0
 
 ### Minor Changes

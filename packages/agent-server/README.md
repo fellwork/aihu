@@ -108,7 +108,7 @@ npm install @aihu/agent-server
 bun add @aihu/agent-server
 ```
 
-<sub><i>Auto-generated against `@aihu/agent-server@0.4.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/agent-server@0.4.1`.</i></sub>
 
 <!-- END_AUTOGEN: install -->
 
@@ -119,12 +119,12 @@ bun add @aihu/agent-server
 
 | | |
 |---|---|
-| **Version** | `0.4.0` |
+| **Version** | `0.4.1` |
 | **Tier** | C — Agent surface — server-mount + MCP live-dispatch bridge to a browser |
 | **Published files** | 3 entries |
 | **License** | MIT |
 
-<sub><i>Auto-generated against `@aihu/agent-server@0.4.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/agent-server@0.4.1`.</i></sub>
 
 <!-- END_AUTOGEN: stats -->
 
@@ -137,7 +137,7 @@ bun add @aihu/agent-server
 |---|---|---|
 | `.` | `./dist/index.js` | `—` |
 
-<sub><i>Auto-generated against `@aihu/agent-server@0.4.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/agent-server@0.4.1`.</i></sub>
 
 <!-- END_AUTOGEN: exports -->
 
@@ -154,7 +154,7 @@ bun add @aihu/agent-server
 - `@modelcontextprotocol/sdk` — `^1.0.0`
 - `jsdom` — `^25.0.0`
 
-<sub><i>Auto-generated against `@aihu/agent-server@0.4.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/agent-server@0.4.1`.</i></sub>
 
 <!-- END_AUTOGEN: deps -->
 
@@ -167,7 +167,7 @@ bun add @aihu/agent-server
 - [@aihu/mcp](../mcp)
 - [Aihu framework root](../../README.md)
 
-<sub><i>Auto-generated against `@aihu/agent-server@0.4.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/agent-server@0.4.1`.</i></sub>
 
 <!-- END_AUTOGEN: see-also -->
 
@@ -178,6 +178,6 @@ bun add @aihu/agent-server
 
 MIT — see [LICENSE](../../LICENSE).
 
-<sub><i>Auto-generated against `@aihu/agent-server@0.4.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/agent-server@0.4.1`.</i></sub>
 
 <!-- END_AUTOGEN: license -->

@@ -1,5 +1,33 @@
 # @aihu/language-server
 
+## 0.3.1
+
+### Patch Changes
+
+- [#515](https://github.com/fellwork/aihu/pull/515) [`8924c51`](https://github.com/fellwork/aihu/commit/8924c51da6e6c25fb2664a7ab6fe9c628895161d) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Retire the `$server` macro and its `createServerCall` client RPC bridge.
+
+  The feature was half-wired and effectively broken: the compiler recognized
+  `$server` only as a substring and, on a `--target client` build, emitted a
+  `// [client build] $server macro reference elided` comment while leaving the
+  `$server.*` reference untouched in the output — no server artifact and no
+  `createServerCall` stub were ever generated, so any reference resolved to an
+  undefined identifier. The whole surface is removed rather than finished:
+
+  - `@aihu/server`: delete `createServerCall` (`src/client.ts`) and its barrel
+    re-export.
+  - `@aihu/compiler`: drop the `$server` client-build elision branch from
+    `codegen/emit.rs`. A stray `$server` is no longer special-cased — it passes
+    through as an ordinary (undefined) identifier and surfaces as a normal
+    type-check / runtime error, instead of a misleading "elided" comment.
+  - `@aihu/language-server`: remove the `$server` hover entry.
+  - Spec: Macro Vocabulary §2.12 marked **RETIRED** (no drop-in replacement).
+
+  Platform binary packages bumped 0.1.24 → 0.1.25 (Rust source changed).
+
+- Updated dependencies [[`68957ca`](https://github.com/fellwork/aihu/commit/68957caa33616b7eee7b05dc55ebd051e603a9fc), [`aac7624`](https://github.com/fellwork/aihu/commit/aac762460619d060e9d1030c86b52231dcb88df3), [`d56a1f5`](https://github.com/fellwork/aihu/commit/d56a1f5569982d30e1924bd48b8cdda8d4ad4e82), [`2ef2830`](https://github.com/fellwork/aihu/commit/2ef2830aa737906d09a5d870176da34a22f20b99), [`8924c51`](https://github.com/fellwork/aihu/commit/8924c51da6e6c25fb2664a7ab6fe9c628895161d), [`061eefb`](https://github.com/fellwork/aihu/commit/061eefb3e94fdbbe9e6f5d5301db3bcdd3fa3b22)]:
+  - @aihu/compiler@1.1.0
+  - @aihu/tsc@0.2.5
+
 ## 0.3.0
 
 ### Minor Changes

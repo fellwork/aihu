@@ -1,5 +1,41 @@
 # @aihu/mcp
 
+## 0.2.0
+
+### Minor Changes
+
+- [#512](https://github.com/fellwork/aihu/pull/512) [`7bf702f`](https://github.com/fellwork/aihu/commit/7bf702f6e7de8716ef51544944064a988fa3c38c) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Cookbook corpus unification — `@aihu/mcp` becomes publishable, its index becomes generated.
+
+  - The `aihu_example` cookbook index is now GENERATED from the `cookbook/` corpus
+    (`scripts/build-cookbook-index.ts` + `scripts/cookbook-lib.ts`): 20 entries in the
+    current wrapper grammar, filenames mirroring `cookbook/*.aihu`, carrying the full
+    `<!-- @cookbook -->` frontmatter schema (id/type/granularity/constructs/packages/
+    concerns/since/playground/anti-patterns/related) plus derived retrieval tags.
+    This replaces the pre-[#497](https://github.com/fellwork/aihu/issues/497) fossil index (21 `$action:`-collection-era entries whose
+    filenames matched nothing on disk).
+  - The builder FAILS LOUDLY (non-zero exit, all offenders listed) on any recipe with
+    missing/invalid frontmatter, unknown construct/type/concern IDs, duplicate ids,
+    or an empty scan — it can no longer emit a vacuous empty index.
+  - Package flipped publish-ready (tier C — agent surface); publish rides the next
+    release cut. CI staleness guard: `bun run check:cookbook` diffs the committed
+    index (plus `llms-cookbook.txt` and the generated playground presets) against a
+    fresh corpus build.
+
+### Patch Changes
+
+- [#519](https://github.com/fellwork/aihu/pull/519) [`2ef2830`](https://github.com/fellwork/aihu/commit/2ef2830aa737906d09a5d870176da34a22f20b99) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Rename the remaining legacy `SCRIBE_*` environment variables and markers to the
+  `AIHU_*` family (following `SCRIBE_VERSION` → `AIHU_VERSION` in [#516](https://github.com/fellwork/aihu/issues/516)). No
+  deprecated aliases — aihu has no external consumers.
+
+  - `SCRIBE_NATIVE_SKIP` → `AIHU_NATIVE_SKIP` (documented SSR native-loader escape
+    hatch), plus the internal `SCRIBE_NATIVE_MISSING` / `SCRIBE_NATIVE_LOAD_FAILED`
+    diagnostic codes → `AIHU_NATIVE_MISSING` / `AIHU_NATIVE_LOAD_FAILED`.
+  - `SCRIBE_COMPILE_BIN` → `AIHU_COMPILE_BIN`, **consolidated with** the existing
+    `AIHU_COMPILE_BIN` drive-test override into a single variable. The sidecar
+    `resolveBinPath()` / `resolveSpawnBinPath()` resolution and the drive/differential
+    tests now both read one `AIHU_COMPILE_BIN`.
+  - `SCRIBE_STATIC_ISLAND` audit marker → `AIHU_STATIC_ISLAND`.
+
 ## 0.1.1
 
 ### Patch Changes
