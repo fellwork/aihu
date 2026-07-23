@@ -19,6 +19,7 @@
   import { HERO_SOURCE, AGENT_SURFACE } from '../data/gallery.ts'
 
   const heroCode = codeBlock(HERO_SOURCE, { name: 'weather.aihu', lang: 'aihu' })
+  const heroSource = HERO_SOURCE
   const surface = AGENT_SURFACE
 }
 
@@ -69,7 +70,19 @@
         <figcaption class="dn-ds-cap">
           <span class="dn-sec-num"><b>SRC</b> one component</span>
         </figcaption>
-        <div class="dn-ds-source" html={heroCode}></div>
+        <!--
+          Raw-HTML `html={...}` lowers to an empty `<span data-aihu-html>`
+          that a client-only `onMount` effect fills via `replaceChildren` —
+          SSR/SSG renders NO text (see compiler codegen/ssr_string_emit.rs +
+          template_emit.rs). That silently dropped the hero source from the
+          static output crawlers and agents read. Fix: a plain interpolated
+          `heroSource` `<pre>` sits alongside it as an always-prerendered fallback (real
+          interpolated text, so it lands in __ssrString like any other
+          export). CSS hides the fallback once the live span is populated
+          (`:not(:empty)` is a live DOM state, so this needs no extra JS).
+        -->
+        <div class="dn-ds-source-live" html={heroCode}></div>
+        <pre class="dn-ds-source-plain"><code>{heroSource}</code></pre>
 
         <div class="dn-ds-split">
           <div class="dn-ds-pane dn-ds-human">
@@ -322,12 +335,28 @@
     border-bottom: 1px solid var(--border);
     background: var(--surface-2);
   }
-  .dn-ds-source .cb {
+  .dn-ds-source-live .cb {
     margin: 0;
     border: 0;
     border-radius: 0;
     box-shadow: none;
     background: var(--code-bg);
+  }
+  /* Prerendered plain fallback for the hero source (see the SSR-vs-hydration
+     comment in @template). Same position/looks as the syntax-highlighted
+     `.cb` block; auto-hidden once the live span mounts and fills in. */
+  .dn-ds-source-plain {
+    margin: 0;
+    padding: 0.9rem 1.1rem;
+    overflow-x: auto;
+    background: var(--code-bg);
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    line-height: 1.6;
+    color: var(--fg);
+  }
+  .dn-ds-source-live:not(:empty) ~ .dn-ds-source-plain {
+    display: none;
   }
   .dn-ds-split {
     display: grid;

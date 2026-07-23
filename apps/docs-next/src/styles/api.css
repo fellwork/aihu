@@ -1,0 +1,238 @@
+/* =============================================================================
+   API DATASHEET — global styles for the generated /api/** pages.
+
+   The hand-authored `@aihu/signals` exemplar (src/pages/api/signals.aihu) carries
+   these `.dn-api-*` rules in its own route-scoped @style; this module lifts the
+   SAME treatment to the global cascade so every GENERATED per-package page and
+   the /api index render identically without loading the signals chunk (and so
+   the datasheet is styled even before JS hydrates). Reuses the locked tokens
+   only — terracotta = human accent, graphite = the agent/governance axis.
+   ============================================================================ */
+
+.dn-api {
+  max-width: var(--content-max);
+}
+.dn-api .dn-breadcrumb {
+  margin: 0 0 1.5rem;
+}
+.dn-api .dn-breadcrumb a {
+  color: var(--muted);
+}
+
+/* ---- package header ---- */
+.dn-api-titles {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  flex-wrap: wrap;
+}
+.dn-api-pkg {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xl);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--fg-strong);
+  margin: 0;
+}
+.dn-api-badge {
+  border: 1px solid var(--graphite-line);
+  background: var(--graphite-soft);
+  border-radius: var(--r-full);
+  padding: 0.15rem 0.65rem;
+  font-size: var(--fs-xs);
+}
+.dn-api-badge.dn-status-accent {
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+}
+.dn-api-tagline {
+  font-size: var(--fs-lg);
+  color: var(--fg);
+  margin: 0.85rem 0 0.5rem;
+  max-width: 44rem;
+}
+
+/* datasheet spec rail */
+.dn-api-spec {
+  display: grid;
+  grid-template-columns: repeat(4, auto);
+  gap: 0 2.5rem;
+  justify-content: start;
+  margin: 1rem 0 0.5rem;
+  padding: 0.85rem 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.dn-api-spec dt {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--faint);
+}
+.dn-api-spec dd {
+  margin: 0.2rem 0 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-md);
+  font-weight: 550;
+  color: var(--fg-strong);
+  font-variant-numeric: tabular-nums;
+}
+
+.dn-api-empty {
+  margin: 2rem 0;
+  padding: 1.1rem 1.25rem;
+  border: 1px solid var(--border);
+  border-left: 2px solid var(--graphite-line);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: var(--fs-sm);
+}
+
+/* ---- per-export datasheet rows ---- */
+.dn-api-export {
+  padding: 2rem 0;
+  border-top: 1px solid var(--border);
+}
+.dn-api-export-head {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  flex-wrap: wrap;
+  margin: 0 0 0.9rem;
+  scroll-margin-top: calc(var(--header-h) + 1rem);
+}
+.dn-api-export-num {
+  color: var(--accent);
+  font-weight: 500;
+}
+.dn-api-export-name {
+  margin: 0;
+}
+.dn-api-export-name code {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xl);
+  font-weight: 600;
+  color: var(--fg-strong);
+}
+.dn-api-kind {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.dn-api-agent {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.dn-api-since {
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+.dn-api-sig {
+  margin: 0 0 1rem;
+  padding: 0.9rem 1.1rem;
+  background: var(--code-bg);
+  border: 1px solid var(--code-border);
+  border-left: 2px solid var(--accent-line);
+  border-radius: var(--r-md);
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: var(--graphite);
+  white-space: pre;
+  tab-size: 2;
+}
+.dn-api-sig code {
+  font-family: var(--font-mono);
+  color: inherit;
+}
+.dn-api-summary {
+  color: var(--fg);
+  line-height: 1.65;
+  margin: 0 0 1rem;
+}
+
+/* ---- /api index — packages grouped by tier ---- */
+.dn-apidx-tier {
+  padding: 1.75rem 0 0.5rem;
+  border-top: 1px solid var(--border);
+  margin-top: 1.5rem;
+}
+.dn-apidx-tier:first-of-type {
+  border-top: 0;
+  margin-top: 0.5rem;
+}
+.dn-apidx-tier .dn-sec-num {
+  margin: 0 0 1rem;
+}
+.dn-apidx-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.dn-apidx-row {
+  display: grid;
+  grid-template-columns: minmax(11rem, auto) 1fr auto;
+  align-items: baseline;
+  gap: 0.4rem 1.25rem;
+  padding: 0.7rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.dn-apidx-name {
+  text-decoration: none;
+}
+.dn-apidx-name code {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  font-weight: 550;
+  color: var(--accent);
+}
+.dn-apidx-name:hover code {
+  color: var(--accent-strong);
+  text-decoration: underline;
+}
+.dn-apidx-tag {
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  min-width: 0;
+}
+.dn-apidx-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  justify-self: end;
+}
+.dn-apidx-agent {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.dn-apidx-count {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+  min-width: 1.5rem;
+  text-align: right;
+}
+
+@media (max-width: 640px) {
+  .dn-api-spec {
+    grid-template-columns: repeat(2, auto);
+    gap: 0.75rem 2rem;
+  }
+  .dn-apidx-row {
+    grid-template-columns: 1fr auto;
+  }
+  .dn-apidx-tag {
+    grid-column: 1 / -1;
+    order: 3;
+  }
+}

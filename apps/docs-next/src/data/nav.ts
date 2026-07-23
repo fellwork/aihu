@@ -29,17 +29,24 @@ export const NAV: readonly NavSection[] = [
       { label: 'Deployment', href: '/guides/deployment', ready: false },
     ],
   },
+  // --- API (track A) ---
+  // Generated datasheet (scripts/gen-api.ts): one page per documentable
+  // package. All 37 are live; the sidebar surfaces the index + a curated
+  // shortlist (the exemplar + the packages a getting-started reader hits
+  // first) rather than all 37 rows.
   {
     title: 'API Reference',
     links: [
+      { label: 'All 37 packages', href: '/api', ready: true },
       { label: '@aihu/signals', href: '/api/signals', ready: true },
-      { label: '@aihu/runtime', href: '/api/runtime', ready: false },
-      { label: '@aihu/router', href: '/api/router', ready: false },
-      { label: '@aihu/server', href: '/api/server', ready: false },
-      { label: '@aihu/app', href: '/api/app', ready: false },
-      { label: 'All 37 packages', href: '/api', ready: false },
+      { label: '@aihu/store', href: '/api/store', ready: true },
+      { label: '@aihu/runtime', href: '/api/runtime', ready: true },
+      { label: '@aihu/router', href: '/api/router', ready: true },
+      { label: '@aihu/server', href: '/api/server', ready: true },
+      { label: '@aihu/app', href: '/api/app', ready: true },
     ],
   },
+  // --- /API (track A) ---
   {
     title: 'Examples',
     links: [
