@@ -12,7 +12,7 @@
   {
     "name": "@aihu/arbor",
     "bytes": 3113,
-    "limit": "3100 B"
+    "limit": "3200 B"
   },
   {
     "name": "@aihu/runtime",
@@ -153,6 +153,21 @@
     "name": "@aihu/store",
     "bytes": -1,
     "limit": "2.5 KB"
+  },
+  {
+    "name": "@aihu/use/shared",
+    "bytes": 288,
+    "limit": "320 B"
+  },
+  {
+    "name": "@aihu/use/useEventListener",
+    "bytes": 352,
+    "limit": "390 B"
+  },
+  {
+    "name": "@aihu/use/useMouse",
+    "bytes": 519,
+    "limit": "570 B"
   },
   {
     "name": "@aihu/auth",

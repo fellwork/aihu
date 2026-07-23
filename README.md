@@ -221,7 +221,7 @@ Per-package gates enforced by `bun run size`:
 |---|---:|---:|:---:|
 | `@aihu/context` | 420 B | 450 B | pass |
 | `@aihu/signals` | 2.18 kB | 2350 B | pass |
-| `@aihu/arbor` | 3.04 kB | 3100 B | OVER |
+| `@aihu/arbor` | 3.04 kB | 3200 B | pass |
 | `@aihu/runtime` | 4.22 kB | 4500 B | pass |
 | `@aihu/agent` | — | 200 B | _no dist_ |
 | `@aihu-plugin/data` | — | 800 B | _no dist_ |
@@ -250,6 +250,9 @@ Per-package gates enforced by `bun run size`:
 | `@aihu/primitives/switch` | 1.67 kB | 4 KB | pass |
 | `@aihu/primitives/radio-group` | 2.91 kB | 4 KB | pass |
 | `@aihu/store` | — | 2.5 KB | _no dist_ |
+| `@aihu/use/shared` | 288 B | 320 B | pass |
+| `@aihu/use/useEventListener` | 352 B | 390 B | pass |
+| `@aihu/use/useMouse` | 519 B | 570 B | pass |
 | `@aihu/auth` | — | 1.5 KB | _no dist_ |
 | `@aihu/magna` | — | 1.8 KB | _no dist_ |
 | `@aihu/magna/codegen` | — | 1.2 KB | _no dist_ |
@@ -279,7 +282,7 @@ See [`packages/`](./packages) for all packages on disk. By tier:
 - **Compiler & toolchain (build-time):** [`@aihu/cli`](./packages/cli), [`@aihu/compiler`](./packages/compiler), [`@aihu/css-engine`](./packages/css-engine), [`@aihu/language-server`](./packages/language-server), [`@aihu/tsc`](./packages/tsc), [`create-aihu`](./packages/create-aihu).
 - **Plugin substrate, editor & templates:** [`@aihu/plugin`](./packages/plugin), [`@aihu/templates-cf-team`](./packages/templates/cf-team), [`vscode-aihu`](./packages/vscode-aihu).
 - **UI, styling & content rendering:** [`@aihu-plugin/kindly-note`](./packages/plugin-kindly-note), [`@aihu/primitives`](./packages/primitives), [`@aihu/ui`](./packages/ui).
-- **State & rich-content capabilities:** [`@aihu/editor`](./packages/editor), [`@aihu/store`](./packages/store).
+- **State & rich-content capabilities:** [`@aihu/editor`](./packages/editor), [`@aihu/store`](./packages/store), [`@aihu/use`](./packages/use).
 
 <sub><i>Auto-generated — run `bun scripts/sync-readme.ts` to update.</i></sub>
 
@@ -335,6 +338,7 @@ See [`packages/`](./packages) for all packages on disk. By tier:
 | [`@aihu/templates-cf-team`](./packages/templates/cf-team) | `3.0.1` | Cloudflare Workers + monorepo (bun workspaces + moon) team template for Aihu |
 | [`@aihu/tsc`](./packages/tsc) | `0.2.4` | aihu-tsc — `tsc` for projects containing .aihu Single File Components. Type-checks .aihu sources as virtual TypeScript, with no .aihu.ts files written to disk. |
 | [`@aihu/ui`](./packages/ui) | `0.1.0` | aihu styled-recipe registry — copy-paste .aihu recipes distributed as source via `aihu add` (no runtime bundle). |
+| [`@aihu/use`](./packages/use) | `0.1.0` | aihu utility/sensor/state composables — SSR-safe, scope-aware, per-composable subpath entries. |
 | [`create-aihu`](./packages/create-aihu) | `0.1.5` | Scaffold a new Aihu app — the `npm create aihu` / `npx create-aihu` entry point. Thin delegator to @aihu/cli. |
 | [`vscode-aihu`](./packages/vscode-aihu) | `1.0.0` | Syntax highlighting, snippets, and language support for .aihu Single File Components |
 

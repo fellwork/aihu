@@ -25,6 +25,7 @@
         "store",
         "arbor",
         "runtime",
+        "use",
         "context",
         "data",
         "app",
