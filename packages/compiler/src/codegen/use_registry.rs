@@ -24,6 +24,26 @@ use std::collections::BTreeSet;
 pub(crate) const USE_COMPOSABLES: &[(&str, &str)] = &[
     ("useEventListener", "@aihu/use/useEventListener"),
     ("useMouse", "@aihu/use/useMouse"),
+    ("useToggle", "@aihu/use/useToggle"),
+    ("useCounter", "@aihu/use/useCounter"),
+    ("usePrevious", "@aihu/use/usePrevious"),
+    ("useSupported", "@aihu/use/useSupported"),
+    ("useIntervalFn", "@aihu/use/useIntervalFn"),
+    ("useTimeoutFn", "@aihu/use/useTimeoutFn"),
+    ("useRafFn", "@aihu/use/useRafFn"),
+    ("useNow", "@aihu/use/useNow"),
+    ("useDebounced", "@aihu/use/useDebounced"),
+    ("useThrottle", "@aihu/use/useThrottle"),
+    ("useScroll", "@aihu/use/useScroll"),
+    ("useElementSize", "@aihu/use/useElementSize"),
+    ("useElementVisibility", "@aihu/use/useElementVisibility"),
+    ("useWindowSize", "@aihu/use/useWindowSize"),
+    ("useMediaQuery", "@aihu/use/useMediaQuery"),
+    ("usePreferredDark", "@aihu/use/usePreferredDark"),
+    ("useColorScheme", "@aihu/use/useColorScheme"),
+    ("useDocumentVisibility", "@aihu/use/useDocumentVisibility"),
+    ("useLocalStorage", "@aihu/use/useLocalStorage"),
+    ("useClipboard", "@aihu/use/useClipboard"),
 ];
 
 /// The registry entries to auto-import for this `@state` script.

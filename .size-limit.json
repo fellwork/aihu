@@ -255,6 +255,146 @@
     "ignore": ["@aihu/signals"]
   },
   {
+    "name": "@aihu/use/useToggle",
+    "path": "packages/use/dist/useToggle.js",
+    "limit": "250 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
+    "name": "@aihu/use/useCounter",
+    "path": "packages/use/dist/useCounter.js",
+    "limit": "350 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
+    "name": "@aihu/use/usePrevious",
+    "path": "packages/use/dist/usePrevious.js",
+    "limit": "350 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
+    "name": "@aihu/use/useSupported",
+    "path": "packages/use/dist/useSupported.js",
+    "limit": "200 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
+    "name": "@aihu/use/useIntervalFn",
+    "path": "packages/use/dist/useIntervalFn.js",
+    "limit": "400 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
+    "name": "@aihu/use/useTimeoutFn",
+    "path": "packages/use/dist/useTimeoutFn.js",
+    "limit": "400 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
+    "name": "@aihu/use/useRafFn",
+    "path": "packages/use/dist/useRafFn.js",
+    "limit": "450 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
+    "name": "@aihu/use/useNow",
+    "path": "packages/use/dist/useNow.js",
+    "limit": "600 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
+    "name": "@aihu/use/useDebounced",
+    "path": "packages/use/dist/useDebounced.js",
+    "limit": "350 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
+    "name": "@aihu/use/useThrottle",
+    "path": "packages/use/dist/useThrottle.js",
+    "limit": "450 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
+    "name": "@aihu/use/useElementSize",
+    "path": "packages/use/dist/useElementSize.js",
+    "limit": "1200 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
+    "name": "@aihu/use/useElementVisibility",
+    "path": "packages/use/dist/useElementVisibility.js",
+    "limit": "1150 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
+    "name": "@aihu/use/useScroll",
+    "path": "packages/use/dist/useScroll.js",
+    "limit": "1200 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
+    "name": "@aihu/use/useWindowSize",
+    "path": "packages/use/dist/useWindowSize.js",
+    "limit": "950 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
+    "name": "@aihu/use/useMediaQuery",
+    "path": "packages/use/dist/useMediaQuery.js",
+    "limit": "400 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
+    "name": "@aihu/use/usePreferredDark",
+    "path": "packages/use/dist/usePreferredDark.js",
+    "limit": "450 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
+    "name": "@aihu/use/useColorScheme",
+    "path": "packages/use/dist/useColorScheme.js",
+    "limit": "550 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
+    "name": "@aihu/use/useDocumentVisibility",
+    "path": "packages/use/dist/useDocumentVisibility.js",
+    "limit": "520 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
+    "name": "@aihu/use/useLocalStorage",
+    "path": "packages/use/dist/useLocalStorage.js",
+    "limit": "650 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
+    "name": "@aihu/use/useClipboard",
+    "path": "packages/use/dist/useClipboard.js",
+    "limit": "480 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
     "name": "@aihu/auth",
     "path": "packages/auth/dist/index.js",
     "limit": "1.5 KB",
