@@ -35,7 +35,6 @@
     "check:size-rows": "bun scripts/check-size-rows.ts",
     "check:runtime-purity": "bun scripts/check-runtime-purity.ts",
     "test:quality": "bun scripts/lighthouse.ts",
-    "build:docs": "bun scripts/build-docs.ts",
     "check:deps": "bun scripts/dep-check.ts",
     "check:compiler-binary-bump": "bun scripts/check-compiler-binary-bump.ts",
     "lint:dep-pins": "bun scripts/lint-dep-pins.ts",

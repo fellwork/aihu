@@ -74,7 +74,7 @@
 
     <p class="text-sm">
       All classes used here are in the engine's supported vocabulary — see
-      <code>docs/site/utility-classes.md</code> for the full table. Round 2 added
+      <code>apps/docs/src/content/docs/guides/utility-classes.md</code> for the full table. Round 2 added
       <code>group:</code>/<code>peer:</code> variants, motion utilities, container
       queries (<code>@container</code>, <code>@md:</code>), and
       <code>aria-*</code>/<code>data-*</code> attribute variants.

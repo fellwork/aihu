@@ -35,7 +35,7 @@
  * CDN-layer controls — e.g. Cloudflare's default AI-crawler blocking —
  * override whatever is emitted here. Hard enforcement of the verified `read`
  * values is Phase 4 (SSR withholding + the bundle/data boundary), NOT this
- * file. See docs/site/agent-discovery.md §robots.txt.
+ * file. See apps/docs/src/content/docs/guides/agent-discovery.md §robots.txt.
  */
 
 import { deriveReadPolicy, extractReadValue } from '@aihu/server'
