@@ -38,7 +38,7 @@
 
 @template {
   <div class="dn-api dn-article">
-    <p class="dn-breadcrumb dn-rail"><a href="/api/signals">API</a> / {pkg.name}</p>
+    <p class="dn-breadcrumb dn-rail"><a href="/api">API</a> / {pkg.name}</p>
 
     <header class="dn-api-head">
       <div class="dn-api-titles">

@@ -1,6 +1,16 @@
 // site layout — the full-bleed shell for marketing/landing pages: shared header,
 // a routed <outlet>, and the site footer. No sidebar.
 
+@state {
+  // Reset scroll to the top on client-side navigation — otherwise the previous
+  // page's scroll offset carries over (e.g. clicking a link halfway down the
+  // landing page opens the next page scrolled halfway down). Skip when the URL
+  // targets an in-page anchor so TOC links still work.
+  afterNavigate(() => {
+    if (!location.hash) window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
+  })
+}
+
 @template {
   <div class="dn-site">
     <site-header></site-header>
@@ -15,7 +25,7 @@
         </div>
         <nav class="dn-footer-nav" aria-label="Footer">
           <a href="/guides/getting-started">Guides</a>
-          <a href="/api/signals">API</a>
+          <a href="/api">API</a>
           <a href="/examples">Examples</a>
           <a href="https://github.com/fellwork/aihu">GitHub</a>
         </nav>

@@ -17,6 +17,16 @@
       })
     }
   })
+
+  // On client-side navigation: sync the active-link path AND reset scroll to the
+  // top (unless targeting an in-page anchor) — otherwise the previous page's
+  // scroll offset carries over and pages open scrolled halfway down.
+  afterNavigate(() => {
+    if (typeof location !== 'undefined') path = location.pathname
+    if (typeof window !== 'undefined' && !location.hash) {
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
+    }
+  })
 }
 
 @template {

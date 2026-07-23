@@ -41,4 +41,23 @@ if (typeof document !== 'undefined') {
       done()
     }
   })
+
+  // --- scroll-reset on navigation ---
+  // The router doesn't reset scroll on client-side navigation, and a per-layout
+  // afterNavigate misses cross-layout transitions (site ↔ docs). This global,
+  // never-unmounted handler resets scroll to top for EVERY internal link click
+  // (unless it targets an in-page #anchor), so no navigation can land mid-page.
+  document.addEventListener('click', (e) => {
+    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey)
+      return
+    const a = (e.target as Element | null)?.closest?.('a') as HTMLAnchorElement | null
+    if (!a) return
+    const href = a.getAttribute('href')
+    if (!href || href.startsWith('#') || a.target === '_blank' || a.hasAttribute('download')) return
+    const url = new URL(a.href, location.href)
+    if (url.origin !== location.origin || url.hash) return
+    if (url.pathname === location.pathname) return
+    // Fire after the router swaps content in.
+    requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0, behavior: 'instant' }))
+  })
 }
