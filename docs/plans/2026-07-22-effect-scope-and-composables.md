@@ -168,16 +168,23 @@ and **order (when)** — test those, not "runs exactly once."
 onMount-returned teardowns (`define-component.ts:34-39, 41-43`) — run *before*
 `MountScope.dispose()` (`:282-287`). Aliasing `onCleanup`→`onScopeDispose` while
 keeping onMount teardowns in `_LC.c` **splits one list into two run at different
-times** — so the "behavior-preserving" claim is false. Required:
-- **Target order:** `scope.stop()` (user cleanups + setup-owned effects/computeds)
-  → onMount teardowns → `MountScope.dispose()` (bindings, **DOM removal last**,
-  `mount.ts:29-31`) → base `disconnectedCallback` (`:614`). User cleanups must see
-  live DOM/bindings.
-- Register onMount-returned teardowns against the scope **by handle** (they are
-  pushed after setup when no scope is current, `:34-39` at `:276/:553`), or keep
-  `_LC.c` and order it explicitly.
-- Decide LIFO (Solid, acquisition-symmetry — recommended) vs FIFO (Vue) among
-  cleanups; it's a semantic change from today's FIFO — state and test it.
+times** — so the "behavior-preserving" claim is false. **RATIFIED: unified
+single-list LIFO.** Required:
+- **Order:** everything the component owns — composable-created effects/computeds,
+  `onCleanup` callbacks, AND onMount-returned teardowns — lives in the **one**
+  component-scope disposer list and is drained **LIFO** (reverse-registration,
+  Solid acquisition-symmetry) by `scope.stop()`. Disconnect collapses to
+  `scope.stop()` → `MountScope.dispose()` (bindings, **DOM removal last**,
+  `mount.ts:29-31`) → base `disconnectedCallback` (`:614`). All user teardown runs
+  before DOM removal (the load-bearing invariant).
+- onMount bodies run inside `runWithScope(es, …)` so onMount-created effects are
+  scope-owned and onMount-returned teardowns register into the same list **by
+  handle** (`onScopeDispose`) — no separate `_LC.c` stage.
+- **Documented reversal from today** (must be tested): today onCleanup callbacks
+  run FIFO (setup order) *then* onMount teardowns; the unified LIFO drains onMount
+  teardowns first (registered last) then setup-time cleanups in reverse. Chosen
+  for simplicity + construction-symmetry; no perf impact (unmount-time only, not
+  the reactive hot path).
 - **Throw containment:** today a throwing `onCleanup` skips `MountScope.dispose()`
   entirely (`:284-285`) — leaking every binding + the DOM. `scope.stop()`
   amplifies this (owns far more). Wrap per-teardown; never let one throw abandon
