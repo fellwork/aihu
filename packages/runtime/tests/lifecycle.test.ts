@@ -86,7 +86,9 @@ describe('onMount + onCleanup — v0.4.9', () => {
     expect(() => onCleanup(() => {})).toThrow(RuntimeError)
   })
 
-  // Additional: multiple onMount + onCleanup callbacks run in registration order
+  // onMount callbacks run FIFO (registration order); teardown is the unified
+  // component-scope list drained LIFO (effect-scope plan P0-3, ratified) —
+  // this REVERSED the pre-scope order, which ran onCleanup FIFO.
   it('multiple lifecycle callbacks run in order', () => {
     const order: string[] = []
     const Cmp = defineComponent(() => {
@@ -110,7 +112,8 @@ describe('onMount + onCleanup — v0.4.9', () => {
     document.body.appendChild(el)
     expect(order).toEqual(['m1', 'm2'])
     el.remove()
-    expect(order).toEqual(['m1', 'm2', 'c1', 'c2'])
+    // LIFO: c2 registered after c1, so it runs first on disconnect.
+    expect(order).toEqual(['m1', 'm2', 'c2', 'c1'])
   })
 
   // onMount with options-form component

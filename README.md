@@ -220,17 +220,17 @@ Per-package gates enforced by `bun run size`:
 | Package | Size (gz) | Limit | Status |
 |---|---:|---:|:---:|
 | `@aihu/context` | 420 B | 450 B | pass |
-| `@aihu/signals` | 1.69 kB | 1970 B | pass |
-| `@aihu/arbor` | 3.01 kB | 3100 B | pass |
-| `@aihu/runtime` | 3.96 kB | 4100 B | pass |
-| `@aihu/agent` | 141 B | 200 B | pass |
-| `@aihu-plugin/data` | 723 B | 800 B | pass |
-| `@aihu-plugin/kindly-note` | 1.65 kB | 1850 B | pass |
-| `@aihu/router` | 1.71 kB | 2400 B | pass |
-| `@aihu/agent-service` | 2.76 kB | 2900 B | pass |
-| `@aihu/agent-acp` | 675 B | 800 B | pass |
-| `@aihu/agent-a2a` | 2.62 kB | 3000 B | pass |
-| `@aihu/app` | 1.77 kB | 1900 B | pass |
+| `@aihu/signals` | 2.18 kB | 2350 B | pass |
+| `@aihu/arbor` | 3.04 kB | 3100 B | OVER |
+| `@aihu/runtime` | 4.22 kB | 4500 B | pass |
+| `@aihu/agent` | — | 200 B | _no dist_ |
+| `@aihu-plugin/data` | — | 800 B | _no dist_ |
+| `@aihu-plugin/kindly-note` | — | 1850 B | _no dist_ |
+| `@aihu/router` | — | 2400 B | _no dist_ |
+| `@aihu/agent-service` | — | 2900 B | _no dist_ |
+| `@aihu/agent-acp` | — | 800 B | _no dist_ |
+| `@aihu/agent-a2a` | — | 3000 B | _no dist_ |
+| `@aihu/app` | — | 1900 B | _no dist_ |
 | `@aihu/css-engine/runtime/cn` | 886 B | 1 KB | pass |
 | `@aihu/css-engine/runtime/progressive` | 716 B | 3 KB | pass |
 | `@aihu/primitives/context` | 430 B | 1 KB | pass |
@@ -249,12 +249,12 @@ Per-package gates enforced by `bun run size`:
 | `@aihu/primitives/checkbox` | 1.76 kB | 4 KB | pass |
 | `@aihu/primitives/switch` | 1.67 kB | 4 KB | pass |
 | `@aihu/primitives/radio-group` | 2.91 kB | 4 KB | pass |
-| `@aihu/store` | 1.81 kB | 2.5 KB | pass |
-| `@aihu/auth` | 1.16 kB | 1.5 KB | pass |
-| `@aihu/magna` | 758 B | 1.8 KB | pass |
-| `@aihu/magna/codegen` | 1.04 kB | 1.2 KB | pass |
-| `@aihu/editor` | 13.56 kB | 14 KB | pass |
-| `@aihu/editor/safe-href` | 134 B | 300 B | pass |
+| `@aihu/store` | — | 2.5 KB | _no dist_ |
+| `@aihu/auth` | — | 1.5 KB | _no dist_ |
+| `@aihu/magna` | — | 1.8 KB | _no dist_ |
+| `@aihu/magna/codegen` | — | 1.2 KB | _no dist_ |
+| `@aihu/editor` | — | 14 KB | _no dist_ |
+| `@aihu/editor/safe-href` | — | 300 B | _no dist_ |
 
 <sub><i>Auto-generated — run `bun scripts/sync-readme.ts` to update.</i></sub>
 

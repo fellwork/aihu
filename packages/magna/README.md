@@ -40,7 +40,6 @@ bun add @aihu/magna
 |---|---|
 | **Version** | `0.2.3` |
 | **Tier** | B — Meta-framework — dep-free Magna GraphQL bridge (resources + JWT relay) |
-| **Bundle size** | 758 B (gz) — limit 1.8 KB |
 | **Published files** | 2 entries |
 | **License** | MIT |
 

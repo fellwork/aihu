@@ -34,7 +34,7 @@ bun add @aihu/runtime
 |---|---|
 | **Version** | `3.0.0` |
 | **Tier** | A — Reactive runtime core — custom-element wiring for compiled SFCs |
-| **Bundle size** | 3.96 kB (gz) — limit 4100 B |
+| **Bundle size** | 4.22 kB (gz) — limit 4500 B |
 | **Published files** | 3 entries |
 | **License** | MIT |
 

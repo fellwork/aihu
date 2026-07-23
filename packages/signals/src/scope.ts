@@ -214,6 +214,27 @@ export function runWithScope<T>(scope: EffectScope, fn: () => T): T {
 }
 
 /**
+ * Run `fn` with NO current scope — the explicit opt-out mirror of
+ * `runWithScope`. Anything created inside `fn` (effects, computeds, child
+ * scopes, `onScopeDispose`) is unowned and must be disposed manually.
+ *
+ * This is the primitive arbor uses so binding effects are never
+ * scope-adopted (P0-2b): a child custom element upgrading synchronously
+ * inside a parent's scoped `setup()`/`onMount` would otherwise register its
+ * bindings into the PARENT component's scope — there is no `runEffect`
+ * frame in that path, so the P0-1 save/clear does not cover it.
+ */
+export function runWithoutScope<T>(fn: () => T): T {
+  const prev = _currentScope
+  _currentScope = null
+  try {
+    return fn()
+  } finally {
+    _currentScope = prev
+  }
+}
+
+/**
  * Register `fn` to run when the current scope is stopped. With no active
  * scope this is a no-op (dev builds warn); callers that need to know can
  * check `getCurrentScope()` first.

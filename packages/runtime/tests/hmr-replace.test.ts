@@ -11,9 +11,15 @@
  */
 
 import { branch, leaf, mount } from '@aihu/arbor'
-import { signal } from '@aihu/signals'
+import { effect, signal } from '@aihu/signals'
 import { describe, expect, it, vi } from 'vitest'
-import { _hmrReplace, _setMount, defineComponent } from '../src/define-component.ts'
+import {
+  _hmrReplace,
+  _setMount,
+  defineComponent,
+  _onCleanup as onCleanup,
+  _onMount as onMount,
+} from '../src/define-component.ts'
 import { defineElement } from '../src/define-element.ts'
 import type { SetupContext } from '../src/types.ts'
 
@@ -140,6 +146,98 @@ describe('_hmrReplace — Plan 4.1', () => {
     expect(span?.textContent).toBe('42')
 
     el.remove()
+  })
+
+  // ── Effect-scope integration (effect-scope plan §5) ────────────────────────
+
+  it('HMR-6: stops the OLD component scope before replacing (scope-owned effects + onCleanup)', () => {
+    const [n, setN] = signal(0)
+    let runs = 0
+    const oldCleanup = vi.fn()
+    const setup1 = (_ctx: SetupContext) => {
+      effect(() => {
+        n()
+        runs++
+      })
+      onCleanup(oldCleanup)
+      return leaf('v1')
+    }
+    const Cmp = defineComponent(setup1)
+    const tag = nextTag()
+    defineElement(tag, Cmp)
+    const el = document.createElement(tag)
+    document.body.appendChild(el)
+    expect(runs).toBe(1)
+
+    _hmrReplace(el, (_ctx: SetupContext) => leaf('v2'))
+
+    // Old scope stopped: its onCleanup ran, its effect is disposed.
+    expect(oldCleanup).toHaveBeenCalledTimes(1)
+    setN(1)
+    expect(runs).toBe(1)
+    el.remove()
+    // No double-dispose: the old scope was already stopped; disconnect must
+    // not run its cleanup a second time (idempotent handles + map delete).
+    expect(oldCleanup).toHaveBeenCalledTimes(1)
+  })
+
+  it('HMR-7: the replacement setup gets a working scope — onCleanup/onMount do not throw and fire on disconnect', () => {
+    const setup1 = (_ctx: SetupContext) => leaf('v1')
+    const Cmp = defineComponent(setup1)
+    const tag = nextTag()
+    defineElement(tag, Cmp)
+    const el = document.createElement(tag)
+    document.body.appendChild(el)
+
+    const order: string[] = []
+    const setup2 = (_ctx: SetupContext) => {
+      onCleanup(() => order.push('setup-cleanup'))
+      onMount(() => {
+        order.push('mount')
+        return () => order.push('mount-teardown')
+      })
+      return leaf('v2')
+    }
+    // Pre-scope this threw SCR-R0011/R0010 (newSetup ran with no owner).
+    expect(() => _hmrReplace(el, setup2)).not.toThrow()
+    expect(order).toEqual(['mount'])
+
+    el.remove()
+    // The replacement's scope is stopped on disconnect — unified LIFO order.
+    expect(order).toEqual(['mount', 'mount-teardown', 'setup-cleanup'])
+  })
+
+  it('HMR-8 (P2-2): a throwing replacement setup stops the fresh scope — no orphaned effects', () => {
+    const Cmp = defineComponent((_ctx: SetupContext) => leaf('v1'))
+    const tag = nextTag()
+    defineElement(tag, Cmp)
+    const el = document.createElement(tag)
+    document.body.appendChild(el)
+
+    const [n, setN] = signal(0)
+    let runs = 0
+    const preThrowCleanup = vi.fn()
+    const setup2 = (_ctx: SetupContext) => {
+      effect(() => {
+        n()
+        runs++
+      })
+      onCleanup(preThrowCleanup)
+      throw new Error('hmr boom')
+    }
+    expect(() => _hmrReplace(el, setup2)).toThrow('hmr boom')
+
+    // The fresh scope was stopped: the pre-throw effect is disposed (no
+    // re-runs against the half-initialized component) and the pre-throw
+    // onCleanup drained.
+    expect(runs).toBe(1)
+    expect(preThrowCleanup).toHaveBeenCalledTimes(1)
+    setN(1)
+    expect(runs).toBe(1)
+
+    // Disconnect after the failed replace is quiet (scope already deleted).
+    el.remove()
+    expect(preThrowCleanup).toHaveBeenCalledTimes(1)
   })
 
   it('HMR-5: _hmrReplace is a no-op when _setMount has not been called', () => {
