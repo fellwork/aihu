@@ -226,7 +226,7 @@
     font-weight: 700;
     font-size: var(--fs-sm);
     color: var(--accent-contrast);
-    background: var(--accent-2);
+    background: var(--graphite);
     border-radius: var(--r-sm);
     padding: 0.2rem 0.5rem;
     min-width: 2.3rem;
@@ -282,7 +282,7 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    color: var(--accent-2);
+    color: var(--graphite);
   }
   .dn-card-run {
     font-size: var(--fs-xs);

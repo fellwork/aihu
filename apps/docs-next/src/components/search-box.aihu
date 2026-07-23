@@ -184,8 +184,8 @@
   }
   .dn-search-soon {
     font-size: var(--fs-xs);
-    color: var(--accent-2);
-    border: 1px solid var(--accent-2-line);
+    color: var(--graphite);
+    border: 1px solid var(--graphite-line);
     border-radius: var(--r-full);
     padding: 0.02rem 0.45rem;
   }

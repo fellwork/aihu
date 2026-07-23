@@ -2,37 +2,41 @@
    docs-next design tokens — "Warm Technical / Governed"
    -----------------------------------------------------------------------------
    Visual thesis: aihu "equally governs the security and experience of humans
-   and AI". The palette encodes that duality with TWO signal hues on a warm,
-   editorial paper neutral (not cool Bootstrap-grey):
-     --accent    clay / terracotta  → the HUMAN / experience axis (aihu brand)
-     --accent-2  indigo             → the AI / governance / security axis
+   and AI". The brand is SINGLE-ACCENT — terracotta is the one and only hue.
+   The humans/AI duality is drawn with the brand's OWN two colors, not a second
+   hue: the HUMAN / experience axis is terracotta; the AI / governance axis is
+   graphite — a cool neutral derived straight from the brand ink (#1a1d24). The
+   ramp sits on warm editorial paper (#faf8f4).
+     --accent    terracotta #c8543a  → the HUMAN / experience axis (the brand dot)
+     --graphite  ink-graphite        → the AI / governance / security axis (neutral)
    Light + dark are both first-class; `.dark` on <html> is authoritative, and
    prefers-color-scheme seeds the pre-paint default (see index.html).
    ============================================================================ */
 
 :root {
   /* ---- warm neutral ramp (light) ---- */
-  --paper: #faf8f5; /* page background — warm paper */
+  --paper: #faf8f4; /* page background — warm paper (brand canvas) */
   --surface: #ffffff; /* cards / raised */
   --surface-2: #f4f0ea; /* sunken / subtle fills */
-  --fg: #1c1714; /* warm near-black text */
-  --fg-strong: #120e0b;
-  --muted: #6b6259; /* secondary text */
+  --fg: #1a1d24; /* brand ink — cool near-black text */
+  --fg-strong: #101319;
+  --muted: #5a5a55; /* secondary text — brand warm-grey */
   --faint: #938a7f; /* tertiary / meta */
-  --border: #ece5db; /* hairlines */
+  --border: #ece9e2; /* hairlines — brand warm neutral */
   --border-strong: #ddd4c8;
   --hover-bg: #f3eee7;
 
-  /* ---- signal hues ---- */
-  --accent: #c8543a; /* clay — human / experience */
+  /* ---- accent: terracotta is the ONE brand hue ---- */
+  --accent: #c8543a; /* terracotta — human / experience (the brand dot) */
   --accent-strong: #a8402b;
   --accent-contrast: #ffffff;
   --accent-soft: rgba(200, 84, 58, 0.1);
   --accent-line: rgba(200, 84, 58, 0.28);
-  --accent-2: #4b57b8; /* indigo — AI / governance */
-  --accent-2-strong: #38439a;
-  --accent-2-soft: rgba(75, 87, 184, 0.1);
-  --accent-2-line: rgba(75, 87, 184, 0.26);
+  /* ---- graphite: the AI / governance axis — a neutral from brand ink, NOT a 2nd hue ---- */
+  --graphite: #363c47; /* ink-graphite — cool, technical, on-brand */
+  --graphite-strong: #1a1d24; /* the brand ink itself */
+  --graphite-soft: rgba(26, 29, 36, 0.06);
+  --graphite-line: rgba(26, 29, 36, 0.2);
 
   /* ---- code surface ---- */
   --code-bg: #f7f3ee;
@@ -44,11 +48,11 @@
   --tok-keyword: #b0432c;
   --tok-string: #4d7a3d;
   --tok-number: #a86a1f;
-  --tok-fn: #4b57b8;
+  --tok-fn: #4a5061;
   --tok-tag: #b0432c;
   --tok-attr: #7d6fa6;
   --tok-decorator: #9a5b00;
-  --tok-intrinsic: #4b57b8;
+  --tok-intrinsic: #4a5061;
   --tok-punct: #8a8178;
 
   /* ---- type ---- */
@@ -103,40 +107,43 @@
 }
 
 :root.dark {
-  --paper: #141110;
-  --surface: #1b1714;
-  --surface-2: #221d19;
-  --fg: #ece5dd;
-  --fg-strong: #fbf7f2;
-  --muted: #a89e92;
-  --faint: #7c7367;
-  --border: #2b2521;
-  --border-strong: #3a3029;
-  --hover-bg: #221d18;
+  /* ---- cool dark ramp, derived from brand ink #1a1d24 / paper #faf8f4 ---- */
+  --paper: #14161c; /* below the ink — cool near-black canvas */
+  --surface: #1a1d24; /* brand ink as the raised surface */
+  --surface-2: #21242c;
+  --fg: #ece9e2; /* brand warm off-white text */
+  --fg-strong: #faf8f4; /* brand paper as strongest text */
+  --muted: #9a9ca3;
+  --faint: #70727a;
+  --border: #282b33;
+  --border-strong: #3a3e48;
+  --hover-bg: #21242c;
 
+  /* terracotta stays the one hue — lightened for legibility on dark ground */
   --accent: #e8705a;
   --accent-strong: #f08d78;
-  --accent-contrast: #1a1310;
+  --accent-contrast: #14161c;
   --accent-soft: rgba(232, 112, 90, 0.14);
   --accent-line: rgba(232, 112, 90, 0.32);
-  --accent-2: #8b93e6;
-  --accent-2-strong: #a4abf0;
-  --accent-2-soft: rgba(139, 147, 230, 0.16);
-  --accent-2-line: rgba(139, 147, 230, 0.32);
+  /* graphite inverts to a light cool grey on dark */
+  --graphite: #aab0bd;
+  --graphite-strong: #c9cdd6;
+  --graphite-soft: rgba(170, 176, 189, 0.14);
+  --graphite-line: rgba(170, 176, 189, 0.28);
 
-  --code-bg: #191512;
-  --code-border: #2c2621;
-  --code-inline-bg: #241f1a;
+  --code-bg: #191b21;
+  --code-border: #2a2e37;
+  --code-inline-bg: #24272f;
 
-  --tok-comment: #7c7367;
+  --tok-comment: #70727a;
   --tok-keyword: #f0917a;
   --tok-string: #9dcf83;
   --tok-number: #e2b167;
-  --tok-fn: #9aa2f0;
+  --tok-fn: #aab6c4;
   --tok-tag: #f0917a;
   --tok-attr: #c6b9ea;
   --tok-decorator: #e2b167;
-  --tok-intrinsic: #9aa2f0;
+  --tok-intrinsic: #aab6c4;
   --tok-punct: #8a8178;
 
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);

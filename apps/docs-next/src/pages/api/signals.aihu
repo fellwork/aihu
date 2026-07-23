@@ -125,9 +125,9 @@
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    color: var(--accent-2);
-    background: var(--accent-2-soft);
-    border: 1px solid var(--accent-2-line);
+    color: var(--graphite);
+    background: var(--graphite-soft);
+    border: 1px solid var(--graphite-line);
     border-radius: var(--r-full);
     padding: 0.15rem 0.6rem;
   }
@@ -214,7 +214,7 @@
     font-family: var(--font-mono);
     font-size: 0.85rem;
     line-height: 1.6;
-    color: var(--accent-2);
+    color: var(--graphite);
   }
   .dn-api-sig code {
     font-family: var(--font-mono);
@@ -267,7 +267,7 @@
     color: var(--accent);
   }
   .dn-api-type {
-    color: var(--accent-2) !important;
+    color: var(--graphite) !important;
   }
   .dn-api-opt {
     color: var(--faint);
@@ -289,7 +289,7 @@
   }
   .dn-api-returns code {
     font-family: var(--font-mono);
-    color: var(--accent-2);
+    color: var(--graphite);
     font-size: 0.85em;
   }
   @media (max-width: 560px) {

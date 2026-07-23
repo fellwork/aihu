@@ -141,7 +141,7 @@
     color: transparent;
   }
   .dn-grad-ai {
-    background: linear-gradient(120deg, var(--accent-2), var(--accent-2-strong));
+    background: linear-gradient(120deg, var(--graphite), var(--graphite-strong));
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
@@ -255,10 +255,10 @@
     color: var(--accent);
   }
   .dn-ai {
-    border-top: 3px solid var(--accent-2);
+    border-top: 3px solid var(--graphite);
   }
   .dn-ai .dn-duality-tag {
-    color: var(--accent-2);
+    color: var(--graphite);
   }
   .dn-duality-eq {
     display: flex;
