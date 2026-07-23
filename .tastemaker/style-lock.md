@@ -71,3 +71,30 @@ Use `brand/aihu-*.svg` byte-for-byte — do not reconstruct the mark.
 
 SSG + islands: static pages ship ~0 JS; interactive islands (playground counter, theme toggle,
 search, TOC) hydrate. Keep motion restrained — reveals/transitions, reduced-motion-aware.
+The terracotta status dot may carry a faint live pulse (reduced-motion-aware).
+
+## Design direction — "Datasheet for a living framework" (APPROVED 2026-07-23, founder: "It's beautiful")
+
+The bound character for aihu docs/marketing surfaces. Reference render: the approved direction
+prototype (published artifact; source kept in the working scratchpad, NOT committed — biome lints
+embedded CSS in vendored HTML).
+
+- **The dot is the system, not just the logo.** The terracotta dot ("reads first," per brand) is
+  the recurring live-status device: `● governed`, `● live · runnable`, `● Run`, section accents,
+  nav "you are here". Small, precise, deliberate — never decorative scatter. Its rarity is the point.
+- **The dual-surface code card is the signature move.** Show one `.aihu` component AND its two
+  governed projections: **Human render** (terracotta — the actual rendered UI) beside **Agent
+  surface** (graphite — the exposed `expose`/`describe` contract an agent sees). Code-as-hero +
+  thesis-as-design in one object. The flagship hero treatment and the API/example story.
+- **Datasheet rigor.** Geist Mono metadata rails (section numbers, versions, byte sizes, construct
+  tags, expose chips), hairline warm-neutral rules instead of boxes-everywhere, `tabular-nums`,
+  precise alignment. Instrument-grade — fitting for a compiler-backed framework. Terracotta stays
+  rare and deliberate = restraint = "governed".
+- **Duality is a fixed semantic:** terracotta = human/experience; graphite = agent/security —
+  applied identically everywhere (hero, duality band, expose chips), never a second hue.
+- **API-as-datasheet:** each export as `signature | declaration | expose-chips`, not prose.
+- **Show, don't tell:** a visual/mockup/real-render beats explanatory paragraphs; the dual-surface
+  card sells more than a page of feature copy.
+
+Type note stands: this direction assumes **Geist / Geist Mono** self-hosted (the prototype used a
+system-grotesque stand-in). Self-host via the OFL `geist` package at build-out.
