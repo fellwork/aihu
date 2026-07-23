@@ -213,7 +213,29 @@ cleanup on dep change; **disconnect order** (all four owners, DOM removed last);
 throwing cleanup doesn't leak bindings; HMR stops the old scope; setup-throw stops
 the scope.
 
-### 3. SSR ownership (P0 — must land with piece 2)
+### 3. SSR ownership — **DEFERRED (2026-07-22), split into library + platform**
+
+**Status update after Pieces 1–2 landed.** On investigation the platform-level
+`__ssr` scope wrap is *not safe to author now*: the `__ssr()` →
+`renderToString(__ssr(props))` flow this section targets is being **actively
+rewritten by the in-flight ssr-string work** (`ssr_string_emit.rs` is *untracked*
+in this worktree; the server package doesn't yet depend on `@aihu/signals`; the
+existing `renderToString` walks a pre-built tree and doesn't call setup). That
+work is also the cause of the ~34 broken `packages/server` tests — no clean
+baseline to verify against. Editing it now would collide with the rewrite.
+
+**Re-sequenced resolution:**
+- **Library SSR-safety → folded into Piece 5** (`@aihu/use`), self-contained: the
+  **`isClient` no-op invariant** (a composable creates no effect/timer when
+  `isClient === false`, lint-enforced) makes the composables SSR-safe *without
+  touching platform SSR code*. Plus the `tryOnMounted` shim and the
+  `isClient`/`defaultNavigator` guards below live in `@aihu/use`.
+- **Platform `__ssr`-scope wrap → deferred follow-up**, defense-in-depth against a
+  misbehaving composable (or existing server-side `$effect`), to land *with/after*
+  the ssr-string work once the SSR emit architecture stabilizes and the server
+  package's setup-call site is stable + signals-reachable.
+
+The original analysis (still valid, for the eventual platform wrap):
 
 **SSR never goes through `defineComponent`.** The compiler emits
 `__ssr = () => __aihu_setup__({ host: null, element: null, … })`
@@ -355,10 +377,10 @@ check:ci` green.
 
 ## Sequencing
 
-1. **Signals scope + per-run cleanup + P0-1** — the core; bench + size gated.
-2. **Runtime scope binding** — P0-2 (a+b), P0-3 ordering, HMR + setup-throw + base-proto seams.
-3. **SSR ownership** — lands with 2; retargeted SSR test.
-4. **`@aihu/use` scaffold + `useEventListener` + `useMouse`** references.
+1. **Signals scope + per-run cleanup + P0-1** — the core; bench + size gated. ✅ DONE (`b4ce70ae`).
+2. **Runtime scope binding** — P0-2 (a+b), P0-3 ordering, HMR + setup-throw + base-proto seams. ✅ DONE (`3d2302f1`).
+3. **SSR ownership** — ⏸ DEFERRED (see §3): library SSR-safety moves into Piece 5's `isClient` invariant; platform `__ssr` wrap follows the ssr-string work.
+4. **`@aihu/use` scaffold + `useEventListener` + `useMouse`** references — SSR-safe via `isClient`/`tryOnMounted`.
 5. **Fan out the ~25**, and **primitives behavior entries** (parallel; independent packages).
 6. **Docs + release.**
 
