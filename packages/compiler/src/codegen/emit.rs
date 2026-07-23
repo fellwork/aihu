@@ -182,7 +182,7 @@ pub fn emit_with_options(unit: &CompileUnit, tag_name: &str, strict_templates: b
     //
     // Previously every agent artifact was gated on `unit.source.agent.is_some()`,
     // which contradicted the documented contract
-    // (apps/docs/src/content/docs/guides/authoring-agents.md: "No `@agent` block needed") and, more
+    // (docs/site/authoring-agents.md: "No `@agent` block needed") and, more
     // concretely, meant `aihu create`'s scaffold and `cookbook/agent-weather.aihu`
     // — both of which write `expose:` + `describe:` and NO `@agent` block —
     // compiled to zero agent artifacts. The scaffold's own comment that
