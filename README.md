@@ -219,65 +219,65 @@ Per-package gates enforced by `bun run size`:
 
 | Package | Size (gz) | Limit | Status |
 |---|---:|---:|:---:|
-| `@aihu/context` | 420 B | 450 B | pass |
-| `@aihu/signals` | 2.18 kB | 2350 B | pass |
-| `@aihu/arbor` | 3.04 kB | 3200 B | pass |
-| `@aihu/runtime` | 4.22 kB | 4500 B | pass |
-| `@aihu/agent` | 141 B | 200 B | pass |
-| `@aihu-plugin/data` | 723 B | 800 B | pass |
-| `@aihu-plugin/kindly-note` | 1.65 kB | 1850 B | pass |
-| `@aihu/router` | 1.71 kB | 2400 B | pass |
-| `@aihu/agent-service` | 2.76 kB | 2900 B | pass |
-| `@aihu/agent-acp` | 675 B | 800 B | pass |
-| `@aihu/agent-a2a` | 2.62 kB | 3000 B | pass |
-| `@aihu/app` | 1.77 kB | 1900 B | pass |
-| `@aihu/css-engine/runtime/cn` | 886 B | 1 KB | pass |
-| `@aihu/css-engine/runtime/progressive` | 716 B | 3 KB | pass |
-| `@aihu/primitives/context` | 430 B | 1 KB | pass |
-| `@aihu/primitives/presence-gate` | 798 B | 4 KB | pass |
-| `@aihu/primitives/form-control` | 1.32 kB | 4 KB | pass |
-| `@aihu/primitives/config-provider` | 757 B | 4 KB | pass |
-| `@aihu/primitives/roving-focus` | 1.41 kB | 4 KB | pass |
-| `@aihu/primitives/collection` | 515 B | 4 KB | pass |
-| `@aihu/primitives/dialog` | 2.01 kB | 4 KB | pass |
-| `@aihu/primitives/tooltip` | 1.83 kB | 4 KB | pass |
-| `@aihu/primitives/button` | 1.10 kB | 4 KB | pass |
-| `@aihu/primitives/separator` | 566 B | 4 KB | pass |
-| `@aihu/primitives/label` | 1.77 kB | 4 KB | pass |
-| `@aihu/primitives/input` | 1.43 kB | 4 KB | pass |
-| `@aihu/primitives/textarea` | 1.41 kB | 4 KB | pass |
-| `@aihu/primitives/checkbox` | 1.76 kB | 4 KB | pass |
-| `@aihu/primitives/switch` | 1.67 kB | 4 KB | pass |
-| `@aihu/primitives/radio-group` | 2.91 kB | 4 KB | pass |
-| `@aihu/store` | 1.81 kB | 2.5 KB | pass |
-| `@aihu/use/shared` | 288 B | 320 B | pass |
-| `@aihu/use/useEventListener` | 352 B | 390 B | pass |
-| `@aihu/use/useMouse` | 519 B | 570 B | pass |
-| `@aihu/use/useToggle` | 179 B | 250 B | pass |
-| `@aihu/use/useCounter` | 275 B | 350 B | pass |
-| `@aihu/use/usePrevious` | 255 B | 350 B | pass |
-| `@aihu/use/useSupported` | 139 B | 200 B | pass |
-| `@aihu/use/useIntervalFn` | 325 B | 400 B | pass |
-| `@aihu/use/useTimeoutFn` | 330 B | 400 B | pass |
-| `@aihu/use/useRafFn` | 372 B | 450 B | pass |
-| `@aihu/use/useNow` | 512 B | 600 B | pass |
-| `@aihu/use/useDebounced` | 305 B | 350 B | pass |
-| `@aihu/use/useThrottle` | 360 B | 450 B | pass |
-| `@aihu/use/useElementSize` | 484 B | 1200 B | pass |
-| `@aihu/use/useElementVisibility` | 446 B | 1150 B | pass |
-| `@aihu/use/useScroll` | 543 B | 1200 B | pass |
-| `@aihu/use/useWindowSize` | 482 B | 950 B | pass |
-| `@aihu/use/useMediaQuery` | 340 B | 400 B | pass |
-| `@aihu/use/usePreferredDark` | 383 B | 450 B | pass |
-| `@aihu/use/useColorScheme` | 481 B | 550 B | pass |
-| `@aihu/use/useDocumentVisibility` | 441 B | 520 B | pass |
-| `@aihu/use/useLocalStorage` | 604 B | 650 B | pass |
-| `@aihu/use/useClipboard` | 416 B | 480 B | pass |
-| `@aihu/auth` | 1.16 kB | 1.5 KB | pass |
-| `@aihu/magna` | 758 B | 1.8 KB | pass |
-| `@aihu/magna/codegen` | 1.04 kB | 1.2 KB | pass |
-| `@aihu/editor` | 13.56 kB | 14 KB | pass |
-| `@aihu/editor/safe-href` | 134 B | 300 B | pass |
+| `@aihu/context` | — | 450 B | _no dist_ |
+| `@aihu/signals` | — | 2350 B | _no dist_ |
+| `@aihu/arbor` | — | 3200 B | _no dist_ |
+| `@aihu/runtime` | — | 4500 B | _no dist_ |
+| `@aihu/agent` | — | 200 B | _no dist_ |
+| `@aihu-plugin/data` | — | 800 B | _no dist_ |
+| `@aihu-plugin/kindly-note` | — | 1850 B | _no dist_ |
+| `@aihu/router` | — | 2400 B | _no dist_ |
+| `@aihu/agent-service` | — | 2900 B | _no dist_ |
+| `@aihu/agent-acp` | — | 800 B | _no dist_ |
+| `@aihu/agent-a2a` | — | 3000 B | _no dist_ |
+| `@aihu/app` | — | 1900 B | _no dist_ |
+| `@aihu/css-engine/runtime/cn` | — | 1 KB | _no dist_ |
+| `@aihu/css-engine/runtime/progressive` | — | 3 KB | _no dist_ |
+| `@aihu/primitives/context` | — | 1 KB | _no dist_ |
+| `@aihu/primitives/presence-gate` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/form-control` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/config-provider` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/roving-focus` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/collection` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/dialog` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/tooltip` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/button` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/separator` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/label` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/input` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/textarea` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/checkbox` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/switch` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/radio-group` | — | 4 KB | _no dist_ |
+| `@aihu/store` | — | 2.5 KB | _no dist_ |
+| `@aihu/use/shared` | — | 320 B | _no dist_ |
+| `@aihu/use/useEventListener` | — | 390 B | _no dist_ |
+| `@aihu/use/useMouse` | — | 570 B | _no dist_ |
+| `@aihu/use/useToggle` | — | 250 B | _no dist_ |
+| `@aihu/use/useCounter` | — | 350 B | _no dist_ |
+| `@aihu/use/usePrevious` | — | 350 B | _no dist_ |
+| `@aihu/use/useSupported` | — | 200 B | _no dist_ |
+| `@aihu/use/useIntervalFn` | — | 400 B | _no dist_ |
+| `@aihu/use/useTimeoutFn` | — | 400 B | _no dist_ |
+| `@aihu/use/useRafFn` | — | 450 B | _no dist_ |
+| `@aihu/use/useNow` | — | 600 B | _no dist_ |
+| `@aihu/use/useDebounced` | — | 350 B | _no dist_ |
+| `@aihu/use/useThrottle` | — | 450 B | _no dist_ |
+| `@aihu/use/useElementSize` | — | 1200 B | _no dist_ |
+| `@aihu/use/useElementVisibility` | — | 1150 B | _no dist_ |
+| `@aihu/use/useScroll` | — | 1200 B | _no dist_ |
+| `@aihu/use/useWindowSize` | — | 950 B | _no dist_ |
+| `@aihu/use/useMediaQuery` | — | 400 B | _no dist_ |
+| `@aihu/use/usePreferredDark` | — | 450 B | _no dist_ |
+| `@aihu/use/useColorScheme` | — | 550 B | _no dist_ |
+| `@aihu/use/useDocumentVisibility` | — | 520 B | _no dist_ |
+| `@aihu/use/useLocalStorage` | — | 650 B | _no dist_ |
+| `@aihu/use/useClipboard` | — | 480 B | _no dist_ |
+| `@aihu/auth` | — | 1.5 KB | _no dist_ |
+| `@aihu/magna` | — | 1.8 KB | _no dist_ |
+| `@aihu/magna/codegen` | — | 1.2 KB | _no dist_ |
+| `@aihu/editor` | — | 14 KB | _no dist_ |
+| `@aihu/editor/safe-href` | — | 300 B | _no dist_ |
 
 <sub><i>Auto-generated — run `bun scripts/sync-readme.ts` to update.</i></sub>
 
@@ -358,7 +358,7 @@ See [`packages/`](./packages) for all packages on disk. By tier:
 | [`@aihu/templates-cf-team`](./packages/templates/cf-team) | `3.0.1` | Cloudflare Workers + monorepo (bun workspaces + moon) team template for Aihu |
 | [`@aihu/tsc`](./packages/tsc) | `0.2.5` | aihu-tsc — `tsc` for projects containing .aihu Single File Components. Type-checks .aihu sources as virtual TypeScript, with no .aihu.ts files written to disk. |
 | [`@aihu/ui`](./packages/ui) | `0.1.0` | aihu styled-recipe registry — copy-paste .aihu recipes distributed as source via `aihu add` (no runtime bundle). |
-| [`@aihu/use`](./packages/use) | `0.2.0` | aihu utility/sensor/state composables — SSR-safe, scope-aware, per-composable subpath entries. |
+| [`@aihu/use`](./packages/use) | `0.3.0` | aihu utility/sensor/state composables — SSR-safe, scope-aware, per-composable subpath entries. |
 | [`create-aihu`](./packages/create-aihu) | `0.1.6` | Scaffold a new Aihu app — the `npm create aihu` / `npx create-aihu` entry point. Thin delegator to @aihu/cli. |
 | [`vscode-aihu`](./packages/vscode-aihu) | `1.0.0` | Syntax highlighting, snippets, and language support for .aihu Single File Components |
 

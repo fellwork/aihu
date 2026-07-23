@@ -47,7 +47,6 @@ bun add @aihu/agent-a2a
 |---|---|
 | **Version** | `1.0.0` |
 | **Tier** | C — Agent surface — A2A (Agent2Agent) protocol, spec v1.0.1 JSON-RPC binding |
-| **Bundle size** | 2.62 kB (gz) — limit 3000 B |
 | **Published files** | 3 entries |
 | **License** | MIT |
 

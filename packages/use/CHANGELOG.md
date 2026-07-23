@@ -1,5 +1,36 @@
 # @aihu/use
 
+## 0.3.0
+
+### Minor Changes
+
+- [#529](https://github.com/fellwork/aihu/pull/529) [`bc69d15`](https://github.com/fellwork/aihu/commit/bc69d15e595660026fca29a8a0003e166e5d01dd) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Fan out `@aihu/use` with ~20 new signals-only composables, each with its own
+  per-composable subpath entry (`@aihu/use/useX`) and `.size-limit.json` row.
+  SSR-safety and scope-cleanup have been fable-reviewed across the set.
+
+  New composables:
+
+  - `useClipboard`
+  - `useColorScheme`
+  - `useCounter`
+  - `useDebounced`
+  - `useDocumentVisibility`
+  - `useElementSize`
+  - `useElementVisibility`
+  - `useIntervalFn`
+  - `useLocalStorage`
+  - `useMediaQuery`
+  - `useNow`
+  - `usePreferredDark`
+  - `usePrevious`
+  - `useRafFn`
+  - `useScroll`
+  - `useSupported`
+  - `useThrottle`
+  - `useTimeoutFn`
+  - `useToggle`
+  - `useWindowSize`
+
 ## 0.2.0
 
 ### Minor Changes

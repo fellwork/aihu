@@ -337,7 +337,7 @@
   },
   {
     "name": "@aihu/use",
-    "version": "0.2.0",
+    "version": "0.3.0",
     "dir": "packages/use",
     "isPlatform": false
   },
