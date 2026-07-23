@@ -119,7 +119,7 @@ bun add @aihu/store
 | | |
 |---|---|
 | **Version** | `0.1.0` |
-| **Tier** | E — Held private (unmapped tier) |
+| **Tier** | G — State — Pinia-style global stores on aihu signals (SSR-safe per-request) |
 | **Bundle size** | 1.81 kB (gz) — limit 2.5 KB |
 | **Published files** | 3 entries |
 | **License** | MIT |
@@ -160,8 +160,9 @@ bun add @aihu/store
 <!-- BEGIN_AUTOGEN: see-also -->
 <!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
 
+- [@aihu/signals](../signals)
+- [@aihu/context](../context)
 - [Aihu framework root](../../README.md)
-- [v1.1 roadmap](../../docs/roadmap/SUMMARY.md)
 
 <sub><i>Auto-generated against `@aihu/store@0.1.0`.</i></sub>
 

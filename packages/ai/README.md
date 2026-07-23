@@ -35,7 +35,7 @@ bun add @aihu/ai
 | | |
 |---|---|
 | **Version** | `0.1.0` |
-| **Tier** | E — Held private (unmapped tier) |
+| **Tier** | C — Agent surface — AI SDK stream adapters for `$stream` collections |
 | **Published files** | 3 entries |
 | **License** | MIT |
 
@@ -76,8 +76,9 @@ bun add @aihu/ai
 <!-- BEGIN_AUTOGEN: see-also -->
 <!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
 
+- [@aihu/agent](../agent)
+- [@aihu/mcp](../mcp)
 - [Aihu framework root](../../README.md)
-- [v1.1 roadmap](../../docs/roadmap/SUMMARY.md)
 
 <sub><i>Auto-generated against `@aihu/ai@0.1.0`.</i></sub>
 

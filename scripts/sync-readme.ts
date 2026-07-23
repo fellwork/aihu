@@ -448,7 +448,7 @@ function genReferenceSection(): SectionResult {
 // Per-package READMEs
 // ---------------------------------------------------------------------------
 
-type Tier = 'A' | 'B' | 'C' | 'D' | 'E' | 'platform'
+type Tier = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'platform'
 
 interface TierInfo {
   tier: Tier
@@ -500,7 +500,10 @@ const PACKAGE_TIERS: Record<string, TierInfo> = {
     label: 'Meta-framework — file-based router',
     seeAlso: [
       { label: 'arch-1 (website)', href: '../../docs/roadmap/arch-1-website.md' },
-      { label: 'docs/site/routing-layouts.md', href: '../../docs/site/routing-layouts.md' },
+      {
+        label: 'Routing & layouts guide',
+        href: '../../apps/docs/src/content/docs/guides/routing-layouts.md',
+      },
       { label: '@aihu/server', href: '../server' },
     ],
   },
@@ -509,7 +512,10 @@ const PACKAGE_TIERS: Record<string, TierInfo> = {
     label: 'Meta-framework — SSR + native renderer (napi-rs)',
     seeAlso: [
       { label: 'arch-1 (website)', href: '../../docs/roadmap/arch-1-website.md' },
-      { label: 'docs/site/ssr-hydration.md', href: '../../docs/site/ssr-hydration.md' },
+      {
+        label: 'SSR & hydration guide',
+        href: '../../apps/docs/src/content/docs/guides/ssr-hydration.md',
+      },
       { label: '@aihu/router', href: '../router' },
       { label: '@aihu-plugin/agent-readiness', href: '../plugin-agent-readiness' },
     ],
@@ -518,7 +524,10 @@ const PACKAGE_TIERS: Record<string, TierInfo> = {
     tier: 'B',
     label: 'Meta-framework — reactive resources + loader protocol',
     seeAlso: [
-      { label: 'docs/site/data-fetching.md', href: '../../docs/site/data-fetching.md' },
+      {
+        label: 'Data-fetching guide',
+        href: '../../apps/docs/src/content/docs/guides/data-fetching.md',
+      },
       { label: '@aihu/context', href: '../context' },
     ],
   },
@@ -675,6 +684,123 @@ const PACKAGE_TIERS: Record<string, TierInfo> = {
     label: 'Editor — VS Code extension (TextMate grammar + snippets; LSP in M2)',
     seeAlso: [{ label: 'arch-4 (DX tools)', href: '../../docs/roadmap/arch-4-dx-tools.md' }],
   },
+  '@aihu/templates-cf-team': {
+    tier: 'E',
+    label: 'Starter — Cloudflare Workers + bun/moon monorepo team template',
+    seeAlso: [
+      { label: '@aihu/adapter-cloudflare', href: '../adapter-cloudflare' },
+      { label: '@aihu/cli', href: '../cli' },
+    ],
+  },
+  // Tier B — meta-framework (server / data capabilities)
+  '@aihu/auth': {
+    tier: 'B',
+    label: 'Meta-framework — JWT scope checks, ScopeSignal, and server auth middleware',
+    seeAlso: [
+      { label: '@aihu/server', href: '../server' },
+      { label: '@aihu/agent-service', href: '../agent-service' },
+    ],
+  },
+  '@aihu/magna': {
+    tier: 'B',
+    label: 'Meta-framework — dep-free Magna GraphQL bridge (resources + JWT relay)',
+    seeAlso: [
+      { label: '@aihu-plugin/data', href: '../plugin-data' },
+      { label: '@aihu/server', href: '../server' },
+    ],
+  },
+  '@aihu/scraping': {
+    tier: 'B',
+    label: 'Meta-framework — sliding-window rate limiter + bot-detection middleware',
+    seeAlso: [
+      { label: '@aihu/agent-service', href: '../agent-service' },
+      { label: '@aihu/server', href: '../server' },
+    ],
+  },
+  '@aihu-plugin/drizzle': {
+    tier: 'B',
+    label: 'Meta-framework — Drizzle ORM data adapter (typed resources + loaders)',
+    seeAlso: [{ label: '@aihu-plugin/data', href: '../plugin-data' }],
+  },
+  // Tier C — agent surface (server glue + adapters)
+  '@aihu/agent-server': {
+    tier: 'C',
+    label: 'Agent surface — server-mount + MCP live-dispatch bridge to a browser',
+    seeAlso: [
+      { label: '@aihu/agent-service', href: '../agent-service' },
+      { label: '@aihu/mcp', href: '../mcp' },
+    ],
+  },
+  '@aihu/ai': {
+    tier: 'C',
+    label: 'Agent surface — AI SDK stream adapters for `$stream` collections',
+    seeAlso: [
+      { label: '@aihu/agent', href: '../agent' },
+      { label: '@aihu/mcp', href: '../mcp' },
+    ],
+  },
+  '@aihu/seo': {
+    tier: 'C',
+    label: 'Agent surface — DEPRECATED shim over @aihu-plugin/agent-readiness',
+    seeAlso: [{ label: '@aihu-plugin/agent-readiness', href: '../plugin-agent-readiness' }],
+  },
+  // Tier D — compiler / toolchain (type-checking + editor tooling)
+  '@aihu/tsc': {
+    tier: 'D',
+    label: 'Toolchain — `aihu-tsc` type-checker for .aihu Single-File Components',
+    seeAlso: [
+      { label: '@aihu/compiler', href: '../compiler' },
+      { label: '@aihu/language-server', href: '../language-server' },
+    ],
+  },
+  '@aihu/language-server': {
+    tier: 'D',
+    label: 'Toolchain — cross-editor Language Server for .aihu SFCs',
+    seeAlso: [
+      { label: '@aihu/tsc', href: '../tsc' },
+      { label: '@aihu/compiler', href: '../compiler' },
+      { label: 'vscode-aihu', href: '../vscode-aihu' },
+    ],
+  },
+  // Tier F — UI, styling & content rendering
+  '@aihu/primitives': {
+    tier: 'F',
+    label: 'UI — headless WAI-ARIA APG behavior primitives (zero CSS)',
+    seeAlso: [
+      { label: '@aihu/css-engine', href: '../css-engine' },
+      { label: '@aihu/ui', href: '../ui' },
+    ],
+  },
+  '@aihu/ui': {
+    tier: 'F',
+    label: 'UI — styled-recipe registry distributed as source via `aihu add`',
+    seeAlso: [
+      { label: '@aihu/primitives', href: '../primitives' },
+      { label: '@aihu/css-engine', href: '../css-engine' },
+    ],
+  },
+  '@aihu-plugin/kindly-note': {
+    tier: 'F',
+    label: 'UI — runtime syntax highlighting + markdown custom elements',
+    seeAlso: [{ label: '@aihu/ui', href: '../ui' }],
+  },
+  // Tier G — state & rich-content capabilities
+  '@aihu/store': {
+    tier: 'G',
+    label: 'State — Pinia-style global stores on aihu signals (SSR-safe per-request)',
+    seeAlso: [
+      { label: '@aihu/signals', href: '../signals' },
+      { label: '@aihu/context', href: '../context' },
+    ],
+  },
+  '@aihu/editor': {
+    tier: 'G',
+    label: 'Content — GX-governed rich-text editor (JSON doc model + transactions)',
+    seeAlso: [
+      { label: '@aihu/agent', href: '../agent' },
+      { label: '@aihu/store', href: '../store' },
+    ],
+  },
 }
 
 /**
@@ -708,6 +834,87 @@ function tierFor(name: string): TierInfo {
     label: 'Held private (unmapped tier)',
     seeAlso: [],
   }
+}
+
+// Human-facing titles for the README "packages by tier" prose. Every non-platform
+// tier a mapped package can carry MUST have a title here, or genPackagesByTierSection
+// throws (exhaustiveness guard #1).
+const TIER_TITLES: Record<Exclude<Tier, 'platform'>, string> = {
+  A: 'Reactive runtime core (sized, ships to client)',
+  B: 'Meta-framework — server, routing, data & adapters',
+  C: 'Agent surface (built in, governed)',
+  D: 'Compiler & toolchain (build-time)',
+  E: 'Plugin substrate, editor & templates',
+  F: 'UI, styling & content rendering',
+  G: 'State & rich-content capabilities',
+}
+
+const TIER_ORDER: Array<Exclude<Tier, 'platform'>> = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
+
+/**
+ * A package is eligible for the human-facing "packages by tier" prose when it is a
+ * real, publishable workspace package: not a platform native-binary distributor,
+ * not a `_moved/` redirect stub, and not `private`.
+ */
+function isTierProseEligible(p: PkgInfo): boolean {
+  if (p.isPlatform) return false
+  if (tierFor(p.name).tier === 'platform') return false
+  if (p.dir.includes('/_moved/')) return false
+  if (p.pkg.private === true) return false
+  return true
+}
+
+/**
+ * Emit the README `packages-by-tier` prose from the SAME discovery pass that builds
+ * the Packages table + inventory, so the tier listing can never be partial again.
+ *
+ * Two guards make incompleteness a hard error:
+ *   1. every eligible package MUST have an explicit PACKAGE_TIERS entry (no falling
+ *      back to the `E — unmapped` default), and its tier MUST have a TIER_TITLES title;
+ *   2. the emitted member count MUST equal the eligible package count (no orphans).
+ */
+function genPackagesByTierSection(packages: PkgInfo[]): SectionResult {
+  const eligible = packages.filter(isTierProseEligible)
+
+  const unmapped = eligible.filter((p) => !PACKAGE_TIERS[p.name]).map((p) => p.name)
+  if (unmapped.length > 0) {
+    throw new Error(
+      `sync-readme: ${unmapped.length} publishable package(s) missing from PACKAGE_TIERS ` +
+        `(add a tier so the README "packages by tier" prose stays complete): ${unmapped.join(', ')}`,
+    )
+  }
+
+  const byTier = new Map<Exclude<Tier, 'platform'>, PkgInfo[]>()
+  for (const p of eligible) {
+    const ti = PACKAGE_TIERS[p.name]
+    if (ti.tier === 'platform') continue // impossible for a mapped entry, but keep the type honest
+    if (!TIER_TITLES[ti.tier]) {
+      throw new Error(`sync-readme: tier '${ti.tier}' (${p.name}) has no TIER_TITLES entry`)
+    }
+    const arr = byTier.get(ti.tier) ?? []
+    arr.push(p)
+    byTier.set(ti.tier, arr)
+  }
+
+  const lines: string[] = []
+  lines.push('See [`packages/`](./packages) for all packages on disk. By tier:')
+  lines.push('')
+  let emitted = 0
+  for (const tier of TIER_ORDER) {
+    const members = (byTier.get(tier) ?? []).sort((a, b) => a.name.localeCompare(b.name))
+    if (members.length === 0) continue
+    emitted += members.length
+    const links = members.map((m) => `[\`${m.name}\`](./${m.dir})`).join(', ')
+    lines.push(`- **${TIER_TITLES[tier]}:** ${links}.`)
+  }
+
+  if (emitted !== eligible.length) {
+    throw new Error(
+      `sync-readme: tier prose emitted ${emitted} packages but ${eligible.length} are eligible (orphan/tier mismatch)`,
+    )
+  }
+
+  return { key: 'packages-by-tier', body: lines.join('\n') }
 }
 
 function genInstallSection(p: PkgInfo): SectionResult {
@@ -1146,6 +1353,7 @@ async function main() {
     genPerformanceSection(),
     await genBundleSizesSection(measurements),
     genExamplesSection(),
+    genPackagesByTierSection(packages),
     genPackagesListSection(packages),
     genReferenceSection(),
   ]

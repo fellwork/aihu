@@ -13,8 +13,8 @@ integration end-to-end.
 
 ## What this is NOT
 
-- An onboarding example (see `docs/site/getting-started.md` instead)
-- A reference for plugin authoring (see `docs/site/authoring-plugins.md`)
+- An onboarding example (see `apps/docs/src/content/docs/getting-started.md` instead)
+- A reference for plugin authoring (see `apps/docs/src/content/docs/guides/authoring-plugins.md`)
 - A scaffolder template (see `npx aihu app` from `@aihu/cli`)
 
 ## Running
@@ -30,4 +30,4 @@ Then run Lighthouse against the local URL (http://localhost:3456/).
 ## Out of scope
 
 If you're looking for canonical aihu v1 examples or DX walkthroughs,
-read `docs/site/` instead. This fixture exists for internal QA only.
+read `apps/docs/src/content/docs/` instead. This fixture exists for internal QA only.

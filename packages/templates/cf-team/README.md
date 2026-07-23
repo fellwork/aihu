@@ -81,7 +81,7 @@ bun add @aihu/templates-cf-team
 | | |
 |---|---|
 | **Version** | `3.0.1` |
-| **Tier** | E — Held private (unmapped tier) |
+| **Tier** | E — Starter — Cloudflare Workers + bun/moon monorepo team template |
 | **Published files** | 5 entries |
 | **License** | MIT |
 
@@ -116,8 +116,9 @@ _Zero runtime dependencies_ (per the [dep-free thesis](../../README.md#project-p
 <!-- BEGIN_AUTOGEN: see-also -->
 <!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
 
+- [@aihu/adapter-cloudflare](../adapter-cloudflare)
+- [@aihu/cli](../cli)
 - [Aihu framework root](../../../README.md)
-- [v1.1 roadmap](../../../docs/roadmap/SUMMARY.md)
 
 <sub><i>Auto-generated against `@aihu/templates-cf-team@3.0.1`.</i></sub>
 

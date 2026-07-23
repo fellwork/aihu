@@ -19,7 +19,6 @@ name: Deploy aihu-docs
       - 'packages/compiler/**'
       - 'packages/plugin-agent-readiness/**'
       - 'packages/server/**'
-      - 'docs/site/**'
       - '.github/workflows/deploy-docs.yml'
   pull_request:
     paths:
@@ -28,7 +27,6 @@ name: Deploy aihu-docs
       - 'packages/compiler/**'
       - 'packages/plugin-agent-readiness/**'
       - 'packages/server/**'
-      - 'docs/site/**'
       - '.github/workflows/deploy-docs.yml'
   workflow_dispatch:
 

@@ -35,7 +35,7 @@ bun add @aihu/tsc
 | | |
 |---|---|
 | **Version** | `0.2.4` |
-| **Tier** | E — Held private (unmapped tier) |
+| **Tier** | D — Toolchain — `aihu-tsc` type-checker for .aihu Single-File Components |
 | **Published files** | 4 entries |
 | **License** | MIT |
 
@@ -80,8 +80,9 @@ bun add @aihu/tsc
 <!-- BEGIN_AUTOGEN: see-also -->
 <!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
 
+- [@aihu/compiler](../compiler)
+- [@aihu/language-server](../language-server)
 - [Aihu framework root](../../README.md)
-- [v1.1 roadmap](../../docs/roadmap/SUMMARY.md)
 
 <sub><i>Auto-generated against `@aihu/tsc@0.2.4`.</i></sub>
 

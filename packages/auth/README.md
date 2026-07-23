@@ -35,7 +35,7 @@ bun add @aihu/auth
 | | |
 |---|---|
 | **Version** | `3.0.0` |
-| **Tier** | E — Held private (unmapped tier) |
+| **Tier** | B — Meta-framework — JWT scope checks, ScopeSignal, and server auth middleware |
 | **Bundle size** | 1.16 kB (gz) — limit 1.5 KB |
 | **Published files** | 3 entries |
 | **License** | MIT |
@@ -81,8 +81,9 @@ bun add @aihu/auth
 <!-- BEGIN_AUTOGEN: see-also -->
 <!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
 
+- [@aihu/server](../server)
+- [@aihu/agent-service](../agent-service)
 - [Aihu framework root](../../README.md)
-- [v1.1 roadmap](../../docs/roadmap/SUMMARY.md)
 
 <sub><i>Auto-generated against `@aihu/auth@3.0.0`.</i></sub>
 

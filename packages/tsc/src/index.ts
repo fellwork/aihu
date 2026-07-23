@@ -141,7 +141,7 @@ export function run(options: RunOptions = {}): number {
           : '') +
         `\n\nIf these files build fine with \`aihu build\` but fail here, @aihu-tsc is resolving a ` +
         `different @aihu/compiler than your app. Pin @aihu/tsc and @aihu/compiler to the same ` +
-        `version — see docs/site/migration.md (Type-checking after migration).`,
+        `version — see apps/docs/src/content/docs/migration.md (Type-checking after migration).`,
     )
     errors += unchecked.length
   }

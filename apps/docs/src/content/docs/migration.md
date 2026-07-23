@@ -227,6 +227,39 @@ Token migration is mechanical: `'open'` → `'shadow'`, `'none'` → `'light'`, 
 
 Under the hood, an unpinned page compiles with a `// @aihu:shadow-default light` marker (distinct from the `$shadow` pin marker `// @aihu:shadow <mode>`) so the Vite plugin can rank the implicit default *below* an explicit plugin-global config. New apps scaffolded with `aihu app` pin `$shadow: 'light'` on the generated index page, which is simply explicit about the default; css-engine scaffolds carry the wizard's `--shadow` choice as an explicit `css: { shadowMode }` block.
 
+## Type-checking after migration — align `@aihu/tsc`
+
+Type-checking `.aihu` files (`aihu-tsc`, and the editor language server) compiles
+each file to a virtual TypeScript sidecar with **`@aihu/compiler`**. That compiler
+must be the *same version* your app builds with — otherwise `aihu-tsc` may resolve
+an older `@aihu/compiler` from its own dependency tree and reject perfectly valid
+new-grammar files, reporting only:
+
+```
+N .aihu file(s) could not be compiled, so nothing in them was type-checked
+```
+
+(followed, now, by the first real compile error and this note). The build passes
+because the Vite plugin uses your app's `@aihu/compiler`; only the type-check
+diverges.
+
+Pin them together. With bun/npm `overrides` (or pnpm `resolutions`) in the root
+`package.json`:
+
+```json
+{
+  "overrides": {
+    "@aihu/compiler": "<version>",
+    "@aihu/tsc": "<version>",
+    "@aihu/language-server": "<version>"
+  }
+}
+```
+
+A normal coordinated release ships every `@aihu/*` package at the same version, so
+a plain `npm install @aihu/app` stays aligned automatically — the pin matters only
+when you mix versions (e.g. testing a canary/snapshot build, as here).
+
 ## Diagnostic quick reference
 
 | Code | Meaning | Fix |

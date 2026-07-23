@@ -268,13 +268,22 @@ Per-package gates enforced by `bun run size`:
 
 > **Publish status:** packages publish independently at `0.x` early-access (see [Project status](#project-status)). A few internal packages stay private until their designs settle.
 
+<!-- BEGIN_AUTOGEN: packages-by-tier -->
+<!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
+
 See [`packages/`](./packages) for all packages on disk. By tier:
 
-- **Browser runtime (sized, ships to client):** `@aihu/signals`, `@aihu/arbor`, `@aihu/runtime`, `@aihu/context`, `@aihu/agent`.
-- **Server / edge / data (sized):** `@aihu/router`, `@aihu-plugin/data`, `@aihu/agent-service`, `@aihu/agent-acp`, `@aihu/agent-a2a`. Plus `@aihu/server` (SSR + back-compat router alias), `@aihu-plugin/agent-readiness` (`llms.txt`, MCP Server Card, robots, Vite plugin), `@aihu/app` (top-level integration).
-- **Cloud adapters (in-tree):** `@aihu/adapter-cloudflare`, `@aihu/adapter-vercel`.
-- **Build-time only (not shipped):** `@aihu/compiler` (Rust SFC compiler), `@aihu/cli` (`aihu app`, `aihu dev`, `aihu build`), `@aihu/plugin` (plugin contract types).
-- **Editor:** `vscode-aihu` (TextMate grammar + snippets; Volar LSP in M2).
+- **Reactive runtime core (sized, ships to client):** [`@aihu/arbor`](./packages/arbor), [`@aihu/context`](./packages/context), [`@aihu/runtime`](./packages/runtime), [`@aihu/signals`](./packages/signals).
+- **Meta-framework — server, routing, data & adapters:** [`@aihu-plugin/data`](./packages/plugin-data), [`@aihu-plugin/drizzle`](./packages/plugin-drizzle), [`@aihu/adapter-cloudflare`](./packages/adapter-cloudflare), [`@aihu/adapter-vercel`](./packages/adapter-vercel), [`@aihu/app`](./packages/app), [`@aihu/auth`](./packages/auth), [`@aihu/magna`](./packages/magna), [`@aihu/router`](./packages/router), [`@aihu/scraping`](./packages/scraping), [`@aihu/server`](./packages/server).
+- **Agent surface (built in, governed):** [`@aihu-plugin/agent-readiness`](./packages/plugin-agent-readiness), [`@aihu/agent`](./packages/agent), [`@aihu/agent-a2a`](./packages/agent-a2a), [`@aihu/agent-acp`](./packages/agent-acp), [`@aihu/agent-server`](./packages/agent-server), [`@aihu/agent-service`](./packages/agent-service), [`@aihu/ai`](./packages/ai), [`@aihu/mcp`](./packages/mcp), [`@aihu/seo`](./packages/seo).
+- **Compiler & toolchain (build-time):** [`@aihu/cli`](./packages/cli), [`@aihu/compiler`](./packages/compiler), [`@aihu/css-engine`](./packages/css-engine), [`@aihu/language-server`](./packages/language-server), [`@aihu/tsc`](./packages/tsc), [`create-aihu`](./packages/create-aihu).
+- **Plugin substrate, editor & templates:** [`@aihu/plugin`](./packages/plugin), [`@aihu/templates-cf-team`](./packages/templates/cf-team), [`vscode-aihu`](./packages/vscode-aihu).
+- **UI, styling & content rendering:** [`@aihu-plugin/kindly-note`](./packages/plugin-kindly-note), [`@aihu/primitives`](./packages/primitives), [`@aihu/ui`](./packages/ui).
+- **State & rich-content capabilities:** [`@aihu/editor`](./packages/editor), [`@aihu/store`](./packages/store).
+
+<sub><i>Auto-generated — run `bun scripts/sync-readme.ts` to update.</i></sub>
+
+<!-- END_AUTOGEN: packages-by-tier -->
 
 ### Packages
 
@@ -428,7 +437,7 @@ setCount(1) // DOM updates synchronously via nodeValue
 scope.dispose()
 ```
 
-Edge / server (fetch-API, works on Cloudflare Workers, Deno, Bun) — request-router shape from `@aihu/server`. Two distinct routing APIs ship in aihu: `@aihu/server.createRequestRouter` builds a fetch-API request handler from an explicit route manifest (shown below), while `@aihu/router.createRouter` powers file-based routing via the v1 Vite plugin (`viteRouterPlugin`); see [`docs/site/routing-layouts.md`](./docs/site/routing-layouts.md).
+Edge / server (fetch-API, works on Cloudflare Workers, Deno, Bun) — request-router shape from `@aihu/server`. Two distinct routing APIs ship in aihu: `@aihu/server.createRequestRouter` builds a fetch-API request handler from an explicit route manifest (shown below), while `@aihu/router.createRouter` powers file-based routing via the v1 Vite plugin (`viteRouterPlugin`); see [`apps/docs/src/content/docs/guides/routing-layouts.md`](./apps/docs/src/content/docs/guides/routing-layouts.md).
 
 ```ts
 import { createRequestRouter, defineRoute, json } from '@aihu/server'
@@ -476,7 +485,7 @@ Run all compliance checks: `bun run test && bun run test:quality`
 
 ## Reference
 
-- **User guide** — [`docs/site/`](./docs/site): introduction, installation, getting started, authoring components, authoring agents, reactivity, SSR + hydration, routing + layouts, data fetching, deployment, API reference, and plugins.
+- **User guide** — [`apps/docs/src/content/docs/`](./apps/docs/src/content/docs): the rendered documentation site source — [introduction](./apps/docs/src/content/docs/introduction.md), [installation](./apps/docs/src/content/docs/installation.md), [getting started](./apps/docs/src/content/docs/getting-started.md), [API reference](./apps/docs/src/content/docs/api-reference.md), [migration](./apps/docs/src/content/docs/migration.md), and the [guides](./apps/docs/src/content/docs/guides) (authoring components, authoring agents, reactivity, SSR + hydration, routing + layouts, data fetching, styling, theming, composition, deployment, plugins).
 - **CLI reference** — [`docs/cli.md`](./docs/cli.md): `create-aihu`, `aihu app` / `page` / `component` / `dev` / `build`, and `aihu migrate`.
 - **Contributing** — [`CONTRIBUTING.md`](./CONTRIBUTING.md): fork, branch, conventional commits, changesets, and the dependency-free thesis.
 - **Releasing** — [`docs/RELEASING.md`](./docs/RELEASING.md): changeset workflow, release PR, npm publish pipeline.

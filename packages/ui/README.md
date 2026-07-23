@@ -59,7 +59,7 @@ bun add @aihu/ui
 | | |
 |---|---|
 | **Version** | `0.1.0` |
-| **Tier** | E — Held private (unmapped tier) |
+| **Tier** | F — UI — styled-recipe registry distributed as source via `aihu add` |
 | **Published files** | 6 entries |
 | **License** | MIT |
 
@@ -97,8 +97,9 @@ _Zero runtime dependencies_ (per the [dep-free thesis](../../README.md#project-p
 <!-- BEGIN_AUTOGEN: see-also -->
 <!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
 
+- [@aihu/primitives](../primitives)
+- [@aihu/css-engine](../css-engine)
 - [Aihu framework root](../../README.md)
-- [v1.1 roadmap](../../docs/roadmap/SUMMARY.md)
 
 <sub><i>Auto-generated against `@aihu/ui@0.1.0`.</i></sub>
 

@@ -41,7 +41,7 @@ const POSTS: Record<string, { title: string; body: string }> = {
  * serialised onto the SSR payload and injected as the `route.data` prop on
  * the SFC.
  *
- * See docs/site/data-fetching.md → "Server loaders → SFC handoff" for the
+ * See apps/docs/src/content/docs/guides/data-fetching.md → "Server loaders → SFC handoff" for the
  * full handoff contract.
  */
 export const loader = defineLoader(async (ctx): Promise<PostBody> => {

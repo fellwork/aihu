@@ -53,7 +53,7 @@ Four examples cover the full value proposition in under 250 LOC:
 
 ## Authoring contract
 
-All `.aihu` files are written against the spec quartet at `../docs/superpowers/specs/`, including the v2 macro vocabulary (`2026-05-05-spec-macro-vocabulary-v2.md`). If something drifts from the specs, the specs win. To bring an older `.aihu` up to v2, run `npx aihu migrate --v2 <file>` (see `../docs/site/migration.md`).
+All `.aihu` files are written against the spec quartet at `../docs/superpowers/specs/`, including the v2 macro vocabulary (`2026-05-05-spec-macro-vocabulary-v2.md`). If something drifts from the specs, the specs win. To bring an older `.aihu` up to v2, run `npx aihu migrate --v2 <file>` (see `../apps/docs/src/content/docs/migration.md`).
 
 ## Coverage matrix (M1 basics + hacker-news)
 

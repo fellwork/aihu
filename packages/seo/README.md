@@ -47,7 +47,7 @@ bun add @aihu/seo
 | | |
 |---|---|
 | **Version** | `1.0.1` |
-| **Tier** | E — Held private (unmapped tier) |
+| **Tier** | C — Agent surface — DEPRECATED shim over @aihu-plugin/agent-readiness |
 | **Published files** | 4 entries |
 | **License** | MIT |
 
@@ -88,8 +88,8 @@ bun add @aihu/seo
 <!-- BEGIN_AUTOGEN: see-also -->
 <!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
 
+- [@aihu-plugin/agent-readiness](../plugin-agent-readiness)
 - [Aihu framework root](../../README.md)
-- [v1.1 roadmap](../../docs/roadmap/SUMMARY.md)
 
 <sub><i>Auto-generated against `@aihu/seo@1.0.1`.</i></sub>
 

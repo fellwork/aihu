@@ -39,7 +39,7 @@ bun add @aihu/magna
 | | |
 |---|---|
 | **Version** | `0.2.3` |
-| **Tier** | E — Held private (unmapped tier) |
+| **Tier** | B — Meta-framework — dep-free Magna GraphQL bridge (resources + JWT relay) |
 | **Bundle size** | 758 B (gz) — limit 1.8 KB |
 | **Published files** | 2 entries |
 | **License** | MIT |
@@ -87,8 +87,9 @@ bun add @aihu/magna
 <!-- BEGIN_AUTOGEN: see-also -->
 <!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
 
+- [@aihu-plugin/data](../plugin-data)
+- [@aihu/server](../server)
 - [Aihu framework root](../../README.md)
-- [v1.1 roadmap](../../docs/roadmap/SUMMARY.md)
 
 <sub><i>Auto-generated against `@aihu/magna@0.2.3`.</i></sub>
 

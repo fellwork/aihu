@@ -85,15 +85,10 @@ function ownerOf(shortName: string): Track {
 // the dir form, e.g. "plugin-drizzle".
 const DOC_EXEMPT = new Set<string>([
   'compiler', // .aihu Rust compiler + JS glue — build-time
-  'mcp', // stdio MCP server binary
   'plugin', // internal hook substrate shared by server/runtime
   'app', // Vite app integration meta-package (covered by guides)
-  'ai', // thin AI-SDK stream adapter (server-side glue)
-  'plugin-drizzle', // @aihu-plugin/drizzle — server-side ORM data adapter
-  // @aihu-plugin/kindly-note ships browser custom elements and is a known
-  // A1 doc follow-up; exempt for now (not part of this CI-gate slice, and
-  // the gate must not author content). Remove this line when its doc lands.
-  'plugin-kindly-note',
+  // NOTE: mcp, ai, plugin-drizzle, and plugin-kindly-note now have dedicated
+  // stub pages under packages/, so they are documented (not exempt).
 ])
 
 // ── Enumerate published @aihu packages dynamically ─────────────────────────

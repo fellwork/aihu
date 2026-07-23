@@ -4,9 +4,7 @@
 
 Drizzle ORM data adapter for aihu — typed createResource fetchers and defineLoader helpers (Postgres / SQLite / libSQL).
 
-Held-private workspace package. Not yet published to npm.
-
-> **Status:** Held private — not yet published to npm. See [v1.1 roadmap](../../docs/roadmap/SUMMARY.md) for ratification gating (e.g. RFC #56 live-binding for `@aihu/plugin` enforcement).
+Part of the **meta-framework** layer of Aihu. Provides whole-app capability — file-based routing, SSR, loaders, cookies — without the boilerplate other meta-frameworks impose. See [arch-1](../../docs/roadmap/arch-1-website.md) for the meta-framework contract.
 
 <!-- BEGIN_HANDWRITTEN: prose -->
 Server-only. Wraps a Drizzle query into the two data-access shapes aihu uses:
@@ -61,7 +59,7 @@ bun add @aihu-plugin/drizzle
 | | |
 |---|---|
 | **Version** | `0.1.2` |
-| **Tier** | E — Held private (unmapped tier) |
+| **Tier** | B — Meta-framework — Drizzle ORM data adapter (typed resources + loaders) |
 | **Published files** | 3 entries |
 | **License** | MIT |
 
@@ -104,8 +102,8 @@ bun add @aihu-plugin/drizzle
 <!-- BEGIN_AUTOGEN: see-also -->
 <!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
 
+- [@aihu-plugin/data](../plugin-data)
 - [Aihu framework root](../../README.md)
-- [v1.1 roadmap](../../docs/roadmap/SUMMARY.md)
 
 <sub><i>Auto-generated against `@aihu-plugin/drizzle@0.1.2`.</i></sub>
 
