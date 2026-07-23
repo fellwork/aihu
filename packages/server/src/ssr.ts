@@ -18,6 +18,11 @@
  * client can pre-seed signals instead of re-deriving them.
  */
 
+// @aihu/signals is environment-agnostic (no DOM, no client runtime) — it is
+// NOT covered by constraints 1/3/4 above. It MUST stay `external` in the
+// rolldown build (see rolldown.config.ts): scope adoption rides the
+// module-global `_currentScope`, so server and app must share ONE instance.
+import { effectScope } from '@aihu/signals'
 import type { StreamOptions } from './stream-types.ts'
 
 // ---------------------------------------------------------------------------
@@ -516,6 +521,13 @@ async function renderNodeAsync(
     walkDone: boolean
     opts: StreamOptions | undefined
     root: unknown
+    /** Stop-once disposer for the per-render effect scope (SSR ownership,
+     * effect-scope plan §3). Set by renderToStream's factory branch; every
+     * TERMINAL path of the render — walk done, boundary close, boundary
+     * error, walk error, factory throw, consumer cancel — must call it.
+     * Idempotent by construction (the wrapper carries a `scopeStopped`
+     * flag), so overlapping terminals are safe. */
+    dispose: () => void
   },
 ): Promise<void> {
   if (typeof node !== 'object' || node === null) {
@@ -594,6 +606,7 @@ async function renderNodeAsync(
 
     if (dataSource.status === 'error') {
       controller.error(dataSource.error)
+      pendingState.dispose()
       return
     }
 
@@ -619,6 +632,7 @@ async function renderNodeAsync(
             'inside a governed render is refused (fail-closed)',
         ),
       )
+      pendingState.dispose()
       return
     }
 
@@ -629,6 +643,7 @@ async function renderNodeAsync(
       try {
         if (dataSource.status === 'error') {
           controller.error(dataSource.error)
+          pendingState.dispose()
           return
         }
         for (let i = 0; i < children.length; i++) {
@@ -640,9 +655,14 @@ async function renderNodeAsync(
         pendingState.count--
         if (pendingState.count === 0 && pendingState.walkDone) {
           emitStateScriptAndClose(controller, pendingState.opts, pendingState.root)
+          // Last boundary closed the stream — the render is terminal; the
+          // per-render scope's effects are disposed here (the emit above
+          // already took its tree/signal reads).
+          pendingState.dispose()
         }
       } catch (err) {
         controller.error(err)
+        pendingState.dispose()
       }
     })
 
@@ -870,9 +890,29 @@ export function renderToStream(
   component: ComponentDescription,
   opts?: StreamOptions,
 ): ReadableStream<string> {
+  // SSR ownership (effect-scope plan §3): the factory branch below runs the
+  // component's full setup body server-side; every effect()/computed() it (or
+  // a composable) creates would otherwise leak per request, because SSR
+  // bypasses defineComponent's component scope. A per-render DETACHED scope
+  // adopts them; `disposeScope` stops it exactly once on EVERY terminal path:
+  // sync factory throw, walk done (count 0), last-boundary close, walk/
+  // boundary errors — and, crucially, the consumer's `cancel()` (client
+  // disconnect, or the AbortController-race timeout documented in
+  // stream-types.ts) while a boundary is still pending. Hoisted out of
+  // start() so both start() and cancel() reach the same disposer. The
+  // string/toHtml branches never call setup, create no reactive tree, and
+  // never assign it — cancel() is then a scope no-op.
+  let disposeScope: (() => void) | undefined
+
   return new ReadableStream<string>({
     start(controller) {
-      const pendingState = { count: 0, walkDone: false, opts, root: null as unknown }
+      const pendingState = {
+        count: 0,
+        walkDone: false,
+        opts,
+        root: null as unknown,
+        dispose: () => disposeScope?.(),
+      }
 
       // Step 1: Emit document preamble if opts.head is set
       if (opts?.head) {
@@ -930,11 +970,29 @@ export function renderToStream(
         return
       }
 
-      // Factory (function) — may produce async boundaries
+      // Factory (function) — may produce async boundaries. Run it inside the
+      // per-render detached scope so setup-created effects/computeds are
+      // adopted and disposable. Stop-once wrapper: `scopeStopped` guarantees
+      // exactly one stop() across overlapping terminals, and the try/catch
+      // reports a throwing user disposer (console.error) instead of letting
+      // it race a settled/errored controller.
+      const scope = effectScope(true)
+      let scopeStopped = false
+      disposeScope = () => {
+        if (scopeStopped) return
+        scopeStopped = true
+        try {
+          scope.stop()
+        } catch (e) {
+          console.error('[aihu/server] SSR disposer threw:', e)
+        }
+      }
+
       let root: unknown
       try {
-        root = component()
+        root = scope.run(() => component())
       } catch (err) {
+        disposeScope()
         controller.error(err)
         return
       }
@@ -943,17 +1001,31 @@ export function renderToStream(
       // the state script from the SAME rendered tree.
       pendingState.root = root
 
-      // Kick off async tree walk
+      // Kick off async tree walk. The scope stays ALIVE during the walk — a
+      // suspended boundary may still read the tree's computeds — and is
+      // stopped only at a terminal: walk done with no pending boundaries
+      // (here), the last boundary's close (onReady in renderNodeAsync), any
+      // error path, or the consumer's cancel() below.
       renderNodeAsync(root, ROOT_PATH, opts?.hydratable ?? false, controller, pendingState)
         .then(() => {
           pendingState.walkDone = true
           if (pendingState.count === 0) {
             emitStateScriptAndClose(controller, opts, root)
+            // Emit before stop: the state script reads the tree's signals.
+            pendingState.dispose()
           }
         })
         .catch((err: unknown) => {
           controller.error(err)
+          pendingState.dispose()
         })
+    },
+    cancel() {
+      // Consumer cancelled mid-stream (client disconnect / streaming
+      // timeout) — possibly with boundaries still pending, so no completion
+      // path above will ever run. The per-render scope must be disposed HERE
+      // or its effects leak for the process lifetime.
+      disposeScope?.()
     },
   })
 }
