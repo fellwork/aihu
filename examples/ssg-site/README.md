@@ -22,16 +22,25 @@ hydration-lifecycle callbacks. Before the governed set, `output: 'static'` had
 bun run build      # client bundle + SSG prerender pass (closeBundle)
 ```
 
-## Known limitation (framework, tracked for Phase 2b/3)
+`bun run build` produces the client SPA bundle **and** prerenders every static
+route to a content-ful `<pattern>/index.html` (`dist/index.html`,
+`dist/about/index.html`) — real headings, list items, and the per-route
+`<head>` (title / description / canonical / og / twitter / json-ld), each
+carrying `data-aihu-path` hydration markers so the SPA adopts the prerendered
+DOM in place on load. The governed-examples build lane
+(`scripts/build-governed-examples.ts`, `coverage.manifest.json` `prerender`
+block) asserts that content is really in the bytes, so a regression back to an
+empty SPA shell is RED, not silently green.
 
-`bun run build` currently exits 0 and produces the client SPA bundle, but the
-SSG **prerender pass degrades**: `ssrLoadModule` evaluates compiled components
-in Vite's SSR module-runner where `CSSStyleSheet` (and other custom-element DOM
-globals) are undefined, so each route load fails with a **warning** and no
-per-route `index.html` content is written. The build stays green — the same
-"succeed-vacuously" class the cookbook-index guard exists to prevent, here in
-the SSG path. Closing it needs an SSR DOM environment (or CSSStyleSheet /
-customElements shim) in `@aihu/app`'s prerender module loader — a framework fix
-outside the examples-governance phase. The SFCs themselves compile clean
-(`check:emit-parses`) and the per-route head sidecars carry the full SEO
-metadata, so the coverage claim is honest at the source level.
+### How the prerender renders without a DOM
+
+The SSG pass loads each route through Vite's SSR module-runner
+(`ssrLoadModule`). Compiled components are loaded with the compiler's **server
+target**, which guards its custom-element registration behind
+`typeof customElements` and exports a host-less `__ssr` factory plus the
+compile-time `__aihu_ssr_string__` string renderer. `@aihu/server`'s
+`renderToString` prefers that string fast path — pure string concatenation with
+no `CSSStyleSheet` / `customElements` / DOM — so the render never touches the
+browser globals the SSR runner lacks. (Earlier this example degraded to a green
+-but-vacuous SPA shell because the runner evaluated the *client* target and hit
+`CSSStyleSheet is not defined`; the server-target switch closed that.)

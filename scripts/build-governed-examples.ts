@@ -38,6 +38,18 @@ interface Manifest {
   example: string
   id: string
   ci?: 'build' | 'compile+smoke' | 'compile'
+  /**
+   * Content-level prerender assertion for `ci: "build"` examples (SSG /
+   * `output: 'static'`). Maps a built HTML file (relative to the example's
+   * `dist/`) to substrings its bytes MUST contain. `vite build` exiting 0 is
+   * NOT proof an SSG prerender worked — the whole ssg-site bug was a
+   * green-but-vacuous build that shipped an empty SPA shell. This turns the
+   * lane into a real check: after the build we open the route HTML and assert
+   * the rendered content (headings, list items) AND a hydration marker
+   * (`data-aihu-path`) are present, so a regression back to the SPA shell is
+   * RED, not silently green.
+   */
+  prerender?: Record<string, string[]>
 }
 
 const args = process.argv.slice(2)
@@ -75,7 +87,31 @@ for (const m of manifests) {
       stdio: 'inherit',
       env: { ...process.env, SCRIBE_SKIP_POSTINSTALL: '1' },
     })
-    if (r.status !== 0) failures.push(`${m.example}: vite build exited ${r.status}`)
+    if (r.status !== 0) {
+      failures.push(`${m.example}: vite build exited ${r.status}`)
+    } else if (m.prerender) {
+      // Content-level prerender assertion — `vite build` exit 0 is necessary
+      // but NOT sufficient for SSG (the succeed-vacuously trap). Open each
+      // declared route HTML and assert the expected rendered content is
+      // actually in the bytes.
+      for (const [rel, needles] of Object.entries(m.prerender)) {
+        const htmlPath = join(m.dir, 'dist', rel)
+        if (!existsSync(htmlPath)) {
+          failures.push(`${m.example}: prerender expected ${rel} but it was not written to dist/`)
+          continue
+        }
+        const html = readFileSync(htmlPath, 'utf-8')
+        const missing = needles.filter((n) => !html.includes(n))
+        if (missing.length > 0) {
+          failures.push(
+            `${m.example}: ${rel} is missing prerendered content — did it degrade to a SPA shell? ` +
+              `Absent: ${missing.map((n) => JSON.stringify(n)).join(', ')}`,
+          )
+        } else {
+          console.log(`  ✓ prerender content asserted in ${rel} (${needles.length} needle(s))`)
+        }
+      }
+    }
   } else if (tier === 'compile+smoke') {
     // SFC compile is covered by check:emit-parses; run the smoke suite if any.
     const hasSmoke =

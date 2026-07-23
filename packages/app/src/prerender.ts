@@ -28,6 +28,7 @@
 
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join, resolve as resolvePath } from 'node:path'
+import { compileRouteMeta } from '@aihu/compiler'
 import type { RouteSegment } from '@aihu/router'
 import { readRouteSidecar, scanLayouts, scanPages } from '@aihu/router/plugin'
 import type { HeadConfig } from '@aihu/server'
@@ -341,7 +342,28 @@ export async function runPrerender(opts: RunPrerenderOptions): Promise<Prerender
     }
 
     const sidecar = readRouteSidecar(route.file)
-    const head = sidecar?.head
+    let head = sidecar?.head
+    if (head === undefined) {
+      // The stdin compile path writes no `.route.json` sidecar to disk, so a
+      // real SSG build has none to read (only the test harness lays them down).
+      // Recover the route's `@route { head }` straight from source via the
+      // compiler — the SAME metadata the SPA build threads into
+      // `virtual:aihu-routes` (compileRouteMeta). Without this fallback every
+      // prerendered page ships ONLY the global head and loses its per-route
+      // title / description / canonical / og / twitter / json-ld — the SEO
+      // payload that is the entire reason to prerender for crawlers. Failure is
+      // non-fatal: the page still ships content + the global head.
+      try {
+        const src = await readFile(route.file, 'utf8')
+        head = compileRouteMeta(src, route.file)?.head as typeof head
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err)
+        pushWarn(
+          `[@aihu/app] static output: could not recover per-route head for ${route.pattern}: ` +
+            `${msg} — the page ships with the global head only.`,
+        )
+      }
+    }
 
     const component = resolveComponent(mod)
     if (!component) {
