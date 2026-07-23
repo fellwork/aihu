@@ -1,4 +1,5 @@
 import { SignalCircularError } from './errors.ts'
+import { _currentScope, _scopeAdd, _scopeRemove, type ScopeRec } from './scope.ts'
 import {
   __HOST,
   beginTrack,
@@ -116,6 +117,11 @@ class Computed<T> implements Subscriber {
   recompute(): T {
     this.flags |= RUNNING
     beginTrack(this)
+    // NOTE (effect-scope plan §1): unlike runEffect, recompute deliberately
+    // does NOT clear `_currentScope`. Computed fns are pure by contract —
+    // they must not create effects/computeds or call onScopeDispose — so
+    // there is nothing to mis-adopt; the asymmetry with effect.ts is
+    // intentional (keeps the computed hot path free of the scope compare).
     const prevObserver = setCurrentObserver(this)
     try {
       const next = this.fn()
@@ -167,8 +173,16 @@ export function computed<T>(
     return node.cached as T
   }
 
+  let rec: ScopeRec | null = null
   read.dispose = () => {
     if (node.flags & DISPOSED) return
+    // Scope back-pointer (effect-scope plan §1): a manual dispose
+    // swap-removes this handle's entry from its owning scope's list;
+    // during scope.stop() the removal is a no-op.
+    if (rec !== null) {
+      _scopeRemove(rec)
+      rec = null
+    }
     node.flags |= DISPOSED
     // Unlink from all source signals (remove this computed from their subs lists)
     for (let l = node.depsHead; l !== null; ) {
@@ -192,6 +206,10 @@ export function computed<T>(
     node.subsHead = null
     node.subsTail = null
   }
+
+  // Scope registration (guarded — no scope active ⇒ path unchanged): the
+  // scope owns the dispose handle so stop() unlinks scoped computeds.
+  if (_currentScope !== null) rec = _scopeAdd(read.dispose)
 
   if (__DEV__) read[__HOST] = node
 
