@@ -1,0 +1,52 @@
+// theme-toggle — the light/dark island. Authoritative state is the `.dark`
+// class on <html> (seeded pre-paint in index.html); this toggles + persists it.
+// The sun/moon glyphs are swapped by CSS keyed off html.dark (see base.css), so
+// the button prerenders cleanly and needs no server-side theme knowledge.
+
+@state {
+  const toggle = action(() => {
+    if (typeof document === 'undefined') return
+    const root = document.documentElement
+    const dark = root.classList.toggle('dark')
+    try {
+      localStorage.setItem('dn-theme', dark ? 'dark' : 'light')
+    } catch (e) {}
+  })
+}
+
+@template {
+  <button class="dn-tt" on:click={toggle} aria-label="Toggle color theme" title="Toggle theme">
+    <span class="dn-tt-sun" aria-hidden="true">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <circle cx="12" cy="12" r="4.2"></circle>
+        <path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4"></path>
+      </svg>
+    </span>
+    <span class="dn-tt-moon" aria-hidden="true">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"></path>
+      </svg>
+    </span>
+  </button>
+}
+
+@style {
+  .dn-tt {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: var(--r-sm);
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--muted);
+    cursor: pointer;
+    transition: color 0.12s, border-color 0.12s, background 0.12s;
+  }
+  .dn-tt:hover {
+    color: var(--fg);
+    border-color: var(--border-strong);
+    background: var(--hover-bg);
+  }
+}

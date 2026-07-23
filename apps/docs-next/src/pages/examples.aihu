@@ -1,0 +1,343 @@
+@route {
+  path: "/examples",
+  name: "examples-page",
+  layout: "docs",
+  head: {
+    title: "Examples & Cookbook — aihu",
+    description: "Browse the governed example set and the aihu fluency cookbook — with a live, runnable playground.",
+    canonical: "/examples"
+  }
+}
+
+@state {
+  import { COOKBOOK, GOVERNED, COUNTER_SOURCE } from '../data/gallery.ts'
+  import { codeBlock } from '../lib/code-block.ts'
+
+  const cookbook = COOKBOOK
+  const governed = GOVERNED
+  const counterCode = codeBlock(COUNTER_SOURCE, { name: 'aihu-counter.aihu' })
+}
+
+@template {
+  <div class="dn-gallery dn-article">
+    <header class="dn-gallery-head">
+      <h1>Examples &amp; Cookbook</h1>
+      <p>A governed example set that exercises every subsystem <em>live</em>, and a
+         fluency cookbook of focused recipes — the corpus that teaches humans and
+         agents idiomatic aihu.</p>
+    </header>
+
+    <section id="playground" class="dn-pg">
+      <div class="dn-pg-head">
+        <h2>Playground</h2>
+        <span class="dn-pg-tag">live · runnable</span>
+      </div>
+      <div class="dn-pg-body">
+        <div class="dn-pg-preview">
+          <span class="dn-pg-label">Rendered — try it</span>
+          <counter-demo count="3"></counter-demo>
+        </div>
+        <div class="dn-pg-source" html={counterCode}></div>
+      </div>
+      <p class="dn-pg-note">
+        This counter is the real <code>aihu-counter</code> recipe, compiled at
+        build and hydrated as an island — fully interactive right here. In-browser
+        recompilation (the WASM playground) is the next phase.
+      </p>
+    </section>
+
+    <section id="governed" class="dn-sec">
+      <div class="dn-sec-head">
+        <h2>Governed examples</h2>
+        <span class="dn-sec-count">{governed.length} · CI-built</span>
+      </div>
+      <div class="dn-gov-grid">
+        <div class="dn-gov-card" each={g of governed} key={g.id}>
+          <span class="dn-gov-id">{g.id}</span>
+          <div class="dn-gov-body">
+            <code class="dn-gov-name">{g.name}</code>
+            <span class="dn-gov-sub">{g.subsystem}</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="cookbook" class="dn-sec">
+      <div class="dn-sec-head">
+        <h2>Cookbook recipes</h2>
+        <span class="dn-sec-count">{cookbook.length} shown</span>
+      </div>
+      <div class="dn-card-grid">
+        <a class="dn-card" each={r of cookbook} key={r.id} href={`/examples#${r.id}`}>
+          <div class="dn-card-top">
+            <span class="dn-card-type">{r.type}</span>
+            <span class="dn-card-run" if={!!r.playground}>Run ↗</span>
+          </div>
+          <h3 class="dn-card-title">{r.title}</h3>
+          <p class="dn-card-desc">{r.description}</p>
+          <div class="dn-card-tags">
+            <code each={construct of r.constructs} key={construct}>{construct}</code>
+          </div>
+        </a>
+      </div>
+    </section>
+  </div>
+}
+
+@style {
+  .dn-gallery {
+    max-width: 62rem;
+  }
+  .dn-gallery-head h1 {
+    font-size: var(--fs-3xl);
+    font-weight: 750;
+    letter-spacing: var(--tracking-tighter);
+    margin: 0 0 0.6rem;
+  }
+  .dn-gallery-head p {
+    color: var(--muted);
+    font-size: var(--fs-md);
+    line-height: 1.6;
+    max-width: 42rem;
+    margin: 0 0 2rem;
+  }
+  .dn-gallery-head em {
+    color: var(--accent);
+    font-style: normal;
+    font-weight: 600;
+  }
+
+  /* playground */
+  .dn-pg {
+    border: 1px solid var(--border-strong);
+    border-radius: var(--r-lg);
+    background: var(--surface);
+    overflow: hidden;
+    box-shadow: var(--shadow-md);
+    margin-bottom: 3rem;
+    scroll-margin-top: calc(var(--header-h) + 1rem);
+  }
+  .dn-pg-head {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.9rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .dn-pg-head h2 {
+    font-size: var(--fs-lg);
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+  .dn-pg-tag {
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--accent);
+    background: var(--accent-soft);
+    border: 1px solid var(--accent-line);
+    border-radius: var(--r-full);
+    padding: 0.12rem 0.6rem;
+  }
+  .dn-pg-body {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+  .dn-pg-preview {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--border);
+  }
+  .dn-pg-label {
+    align-self: flex-start;
+    font-size: var(--fs-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--faint);
+    font-weight: 650;
+  }
+  .dn-pg-source .cb {
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+  .dn-pg-note {
+    padding: 0.9rem 1.25rem;
+    margin: 0;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: var(--fs-sm);
+  }
+  .dn-pg-note code {
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+    color: var(--accent);
+  }
+
+  /* sections */
+  .dn-sec {
+    margin-bottom: 3rem;
+    scroll-margin-top: calc(var(--header-h) + 1rem);
+  }
+  .dn-sec-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.1rem;
+    padding-bottom: 0.6rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .dn-sec-head h2 {
+    font-size: var(--fs-xl);
+    letter-spacing: -0.02em;
+    margin: 0;
+  }
+  .dn-sec-count {
+    font-size: var(--fs-sm);
+    color: var(--faint);
+    font-family: var(--font-mono);
+  }
+
+  /* governed grid */
+  .dn-gov-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+  .dn-gov-card {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    padding: 0.85rem 1rem;
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    background: var(--surface);
+  }
+  .dn-gov-id {
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: var(--fs-sm);
+    color: var(--accent-contrast);
+    background: var(--accent-2);
+    border-radius: var(--r-sm);
+    padding: 0.2rem 0.5rem;
+    min-width: 2.3rem;
+    text-align: center;
+  }
+  .dn-gov-body {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  .dn-gov-name {
+    font-family: var(--font-mono);
+    font-weight: 600;
+    color: var(--fg-strong);
+    font-size: var(--fs-sm);
+  }
+  .dn-gov-sub {
+    color: var(--muted);
+    font-size: var(--fs-xs);
+  }
+
+  /* cookbook cards */
+  .dn-card-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  .dn-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 1.25rem;
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    background: var(--surface);
+    color: var(--fg);
+    text-decoration: none;
+    transition: border-color 0.14s, transform 0.12s, box-shadow 0.16s;
+  }
+  .dn-card:hover {
+    text-decoration: none;
+    border-color: var(--accent-line);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+  }
+  .dn-card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .dn-card-type {
+    font-size: var(--fs-xs);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--accent-2);
+  }
+  .dn-card-run {
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    color: var(--accent);
+    background: var(--accent-soft);
+    border-radius: var(--r-full);
+    padding: 0.1rem 0.5rem;
+  }
+  .dn-card-title {
+    font-size: var(--fs-lg);
+    letter-spacing: -0.02em;
+    margin: 0;
+  }
+  .dn-card-desc {
+    color: var(--muted);
+    font-size: var(--fs-sm);
+    line-height: 1.5;
+    margin: 0;
+    flex: 1;
+  }
+  .dn-card-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    margin-top: 0.25rem;
+  }
+  .dn-card-tags code {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    color: var(--muted);
+    background: var(--code-inline-bg);
+    border: 1px solid var(--code-border);
+    padding: 0.05rem 0.4rem;
+    border-radius: 4px;
+  }
+
+  @media (min-width: 640px) {
+    .dn-gov-grid {
+      grid-template-columns: 1fr 1fr;
+    }
+    .dn-card-grid {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+  @media (min-width: 900px) {
+    .dn-pg-body {
+      grid-template-columns: 0.85fr 1.15fr;
+    }
+    .dn-pg-preview {
+      border-bottom: 0;
+      border-right: 1px solid var(--border);
+    }
+    .dn-card-grid {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+}

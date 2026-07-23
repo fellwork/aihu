@@ -1,0 +1,76 @@
+// site layout — the full-bleed shell for marketing/landing pages: shared header,
+// a routed <outlet>, and the site footer. No sidebar.
+
+@template {
+  <div class="dn-site">
+    <site-header></site-header>
+    <main class="dn-site-main">
+      <outlet></outlet>
+    </main>
+    <footer class="dn-footer">
+      <div class="dn-footer-inner">
+        <div class="dn-footer-brand">
+          <strong>aihu</strong>
+          <span>The framework that equally governs humans and AI.</span>
+        </div>
+        <nav class="dn-footer-nav" aria-label="Footer">
+          <a href="/guides/getting-started">Guides</a>
+          <a href="/api/signals">API</a>
+          <a href="/examples">Examples</a>
+          <a href="https://github.com/fellwork/aihu">GitHub</a>
+        </nav>
+      </div>
+    </footer>
+  </div>
+}
+
+@style {
+  .dn-site {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  .dn-site-main {
+    flex: 1;
+  }
+  .dn-footer {
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .dn-footer-inner {
+    max-width: var(--page-max);
+    margin: 0 auto;
+    padding: 2rem 1.25rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem 2rem;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .dn-footer-brand {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+  }
+  .dn-footer-brand strong {
+    font-size: 1.05rem;
+    letter-spacing: -0.02em;
+  }
+  .dn-footer-brand span {
+    color: var(--muted);
+    font-size: var(--fs-sm);
+  }
+  .dn-footer-nav {
+    display: flex;
+    gap: 1.25rem;
+    flex-wrap: wrap;
+  }
+  .dn-footer-nav a {
+    color: var(--muted);
+    font-size: var(--fs-sm);
+    font-weight: 500;
+  }
+  .dn-footer-nav a:hover {
+    color: var(--accent);
+  }
+}

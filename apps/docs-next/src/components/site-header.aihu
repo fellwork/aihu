@@ -1,0 +1,150 @@
+// site-header — the sticky top bar shared by every layout: wordmark, primary
+// nav, the search affordance, version, theme toggle, GitHub. Active section is
+// derived from location.pathname on the client (SSR has no location; it fills
+// on hydrate — a deliberate island seam, not a bug).
+
+@state {
+  let path = state('')
+
+  const isActive = (prefix) => path.startsWith(prefix)
+
+  onMount(() => {
+    if (typeof location !== 'undefined') path = location.pathname
+    if (typeof window !== 'undefined') {
+      window.addEventListener('popstate', () => {
+        path = location.pathname
+      })
+    }
+  })
+}
+
+@template {
+  <header class="dn-header">
+    <div class="dn-header-inner">
+      <a class="dn-brand" href="/" aria-label="aihu home">
+        <svg class="dn-brand-mark" width="26" height="26" viewBox="0 0 100 100" fill="none" aria-hidden="true">
+          <path d="M 18 30 L 18 56 a 32 32 0 0 0 64 0 L 82 30" stroke="currentColor" stroke-width="14" fill="none"></path>
+          <circle cx="50" cy="16" r="9" fill="var(--accent)"></circle>
+        </svg>
+        <span class="dn-wordmark">aihu</span>
+      </a>
+
+      <nav class="dn-topnav" aria-label="Primary">
+        <a href="/guides/getting-started" class:active={isActive('/guides')}>Guides</a>
+        <a href="/api/signals" class:active={isActive('/api')}>API</a>
+        <a href="/examples" class:active={isActive('/examples')}>Examples</a>
+      </nav>
+
+      <div class="dn-header-actions">
+        <search-box></search-box>
+        <a class="dn-version" href="/api/signals" title="Current release channel">v1</a>
+        <a class="dn-icon-link" href="https://github.com/fellwork/aihu" aria-label="GitHub" title="GitHub">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M12 .5A11.5 11.5 0 0 0 .5 12a11.5 11.5 0 0 0 7.9 10.9c.6.1.8-.2.8-.6v-2c-3.2.7-3.9-1.4-3.9-1.4-.5-1.3-1.3-1.7-1.3-1.7-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.7-1.6-2.6-.3-5.3-1.3-5.3-5.7 0-1.3.4-2.3 1.2-3.1-.1-.3-.5-1.5.1-3.1 0 0 1-.3 3.2 1.2a11 11 0 0 1 5.8 0c2.2-1.5 3.2-1.2 3.2-1.2.6 1.6.2 2.8.1 3.1.8.8 1.2 1.8 1.2 3.1 0 4.4-2.7 5.4-5.3 5.7.4.4.8 1.1.8 2.2v3.3c0 .4.2.7.8.6A11.5 11.5 0 0 0 23.5 12 11.5 11.5 0 0 0 12 .5z"></path>
+          </svg>
+        </a>
+        <theme-toggle></theme-toggle>
+      </div>
+    </div>
+  </header>
+}
+
+@style {
+  .dn-header {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    height: var(--header-h);
+    background: color-mix(in srgb, var(--paper) 82%, transparent);
+    backdrop-filter: saturate(180%) blur(12px);
+    border-bottom: 1px solid var(--border);
+  }
+  .dn-header-inner {
+    max-width: var(--page-max);
+    height: 100%;
+    margin: 0 auto;
+    padding: 0 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+  }
+  .dn-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--fg-strong);
+    text-decoration: none;
+  }
+  .dn-brand-mark {
+    color: var(--fg-strong);
+  }
+  .dn-wordmark {
+    font-weight: 750;
+    font-size: 1.15rem;
+    letter-spacing: -0.03em;
+  }
+  .dn-topnav {
+    display: none;
+    gap: 0.35rem;
+    margin-left: 0.5rem;
+  }
+  .dn-topnav a {
+    padding: 0.4rem 0.7rem;
+    border-radius: var(--r-sm);
+    color: var(--muted);
+    font-weight: 550;
+    font-size: var(--fs-sm);
+    text-decoration: none;
+  }
+  .dn-topnav a:hover {
+    color: var(--fg);
+    background: var(--hover-bg);
+  }
+  .dn-topnav a.active {
+    color: var(--accent);
+    background: var(--accent-soft);
+  }
+  .dn-header-actions {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+  .dn-version {
+    display: none;
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+    color: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: var(--r-full);
+    padding: 0.12rem 0.55rem;
+    text-decoration: none;
+  }
+  .dn-version:hover {
+    border-color: var(--accent-line);
+    color: var(--accent);
+    text-decoration: none;
+  }
+  .dn-icon-link {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    color: var(--muted);
+    border-radius: var(--r-sm);
+  }
+  .dn-icon-link:hover {
+    color: var(--fg);
+    background: var(--hover-bg);
+  }
+  @media (min-width: 720px) {
+    .dn-topnav {
+      display: inline-flex;
+    }
+    .dn-version,
+    .dn-icon-link {
+      display: inline-flex;
+    }
+  }
+}

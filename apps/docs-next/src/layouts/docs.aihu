@@ -1,0 +1,160 @@
+// docs layout — the three-column documentation shell: sticky header, a
+// sectioned left sidebar (Guides / API / Examples / Cookbook), the routed
+// <outlet>, and the right-hand <toc-rail>. Active link is derived from
+// location.pathname. Collapses to two columns, then one, responsively.
+
+@state {
+  import { NAV } from '../data/nav.ts'
+
+  const nav = NAV
+  let path = state('')
+
+  onMount(() => {
+    if (typeof location !== 'undefined') path = location.pathname
+    if (typeof window !== 'undefined') {
+      window.addEventListener('popstate', () => {
+        path = location.pathname
+      })
+    }
+  })
+}
+
+@template {
+  <div class="dn-docs">
+    <site-header></site-header>
+    <div class="dn-docs-body">
+      <aside class="dn-sidebar" aria-label="Documentation">
+        <div class="dn-sidebar-scroll">
+          <div class="dn-nav-section" each={section of nav} key={section.title}>
+            <p class="dn-nav-title">{section.title}</p>
+            <ul class="dn-nav-list">
+              <li each={link of section.links} key={link.href}>
+                <a
+                  if={link.ready}
+                  href={link.href}
+                  class="dn-nav-link"
+                  class:active={path === link.href}
+                >{link.label}</a>
+                <span if={!link.ready} class="dn-nav-link dn-nav-soon">
+                  {link.label}<em>soon</em>
+                </span>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </aside>
+
+      <div class="dn-docs-main">
+        <outlet></outlet>
+      </div>
+
+      <aside class="dn-toc-col">
+        <toc-rail></toc-rail>
+      </aside>
+    </div>
+  </div>
+}
+
+@style {
+  .dn-docs {
+    min-height: 100vh;
+  }
+  .dn-docs-body {
+    max-width: var(--page-max);
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
+    align-items: start;
+  }
+  .dn-sidebar {
+    position: sticky;
+    top: var(--header-h);
+    height: calc(100vh - var(--header-h));
+    overflow: hidden;
+    border-right: 1px solid var(--border);
+  }
+  .dn-sidebar-scroll {
+    height: 100%;
+    overflow-y: auto;
+    padding: 1.75rem 0.85rem 3rem 1.25rem;
+  }
+  .dn-nav-section {
+    margin-bottom: 1.5rem;
+  }
+  .dn-nav-title {
+    font-size: var(--fs-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--faint);
+    font-weight: 700;
+    margin: 0 0 0.5rem 0.6rem;
+  }
+  .dn-nav-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .dn-nav-link {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.35rem 0.6rem;
+    border-radius: var(--r-sm);
+    color: var(--muted);
+    font-size: var(--fs-sm);
+    font-weight: 500;
+    text-decoration: none;
+    line-height: 1.35;
+  }
+  a.dn-nav-link:hover {
+    color: var(--fg);
+    background: var(--hover-bg);
+  }
+  .dn-nav-link.active {
+    color: var(--accent);
+    background: var(--accent-soft);
+    font-weight: 600;
+  }
+  .dn-nav-soon {
+    color: var(--faint);
+    cursor: default;
+  }
+  .dn-nav-soon em {
+    margin-left: auto;
+    font-style: normal;
+    font-size: 0.62rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--accent-2);
+    border: 1px solid var(--accent-2-line);
+    border-radius: var(--r-full);
+    padding: 0.02rem 0.4rem;
+  }
+  .dn-docs-main {
+    min-width: 0;
+    padding: 2.5rem 3rem 5rem;
+  }
+  .dn-toc-col {
+    display: none;
+    padding: 2.5rem 1.25rem 0 0;
+  }
+  @media (min-width: 1180px) {
+    .dn-docs-body {
+      grid-template-columns: var(--sidebar-w) minmax(0, 1fr) var(--toc-w);
+    }
+    .dn-toc-col {
+      display: block;
+    }
+  }
+  @media (max-width: 900px) {
+    .dn-docs-body {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .dn-sidebar {
+      display: none;
+    }
+    .dn-docs-main {
+      padding: 2rem 1.25rem 4rem;
+    }
+  }
+}

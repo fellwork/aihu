@@ -1,0 +1,300 @@
+@route {
+  path: "/api/signals",
+  name: "api-signals",
+  layout: "docs",
+  head: {
+    title: "@aihu/signals — API Reference — aihu",
+    description: "Typed API reference for @aihu/signals: signal, computed, effect, batch, untrack, and the Signal / Read / Write types.",
+    canonical: "/api/signals"
+  }
+}
+
+@state {
+  // NOTE: raw-HTML `html={…}` bindings do not hydrate inside an `each` loop
+  // (only a single top-level binding does — see the guide/landing). So the
+  // per-export signature + example render as plain interpolated text in a
+  // <pre><code>; that also means they land in the DOM-free __ssrString, i.e.
+  // they ship as real static HTML. Syntax-highlighted code is showcased on the
+  // landing hero + examples playground (single top-level bindings).
+  import { PKG, EXPORTS } from '../../data/api-signals.ts'
+
+  const pkg = PKG
+  const fns = EXPORTS.filter((e) => e.kind === 'function')
+  const types = EXPORTS.filter((e) => e.kind === 'type')
+
+  const items = EXPORTS.map((e) => ({
+    name: e.name,
+    kind: e.kind,
+    summary: e.summary,
+    params: e.params ?? [],
+    returns: e.returns ?? '',
+    signature: e.signature,
+    example: e.example ?? '',
+    hasExample: !!e.example,
+    hasParams: (e.params ?? []).length > 0,
+  }))
+}
+
+@template {
+  <div class="dn-api dn-article">
+    <p class="dn-breadcrumb"><a href="/api/signals">API</a> / {pkg.name}</p>
+
+    <header class="dn-api-head">
+      <div class="dn-api-titles">
+        <h1 class="dn-api-pkg">{pkg.name}</h1>
+        <span class="dn-api-badge">runtime core</span>
+      </div>
+      <p class="dn-api-tagline">{pkg.tagline}</p>
+      <p class="dn-api-blurb">{pkg.blurb}</p>
+    </header>
+
+    <div class="dn-api-index">
+      <div class="dn-api-index-col">
+        <p class="dn-api-index-label">Functions</p>
+        <ul>
+          <li each={f of fns} key={f.name}><a href={`#${f.name}`}><code>{f.name}</code></a></li>
+        </ul>
+      </div>
+      <div class="dn-api-index-col">
+        <p class="dn-api-index-label">Types</p>
+        <ul>
+          <li each={t of types} key={t.name}><a href={`#${t.name}`}><code>{t.name}</code></a></li>
+        </ul>
+      </div>
+    </div>
+
+    <section class="dn-api-export" each={it of items} key={it.name}>
+      <h2 id={it.name} class="dn-api-export-name">
+        <code>{it.name}</code>
+        <span class="dn-api-kind">{it.kind}</span>
+      </h2>
+      <pre class="dn-api-sig"><code>{it.signature}</code></pre>
+      <p class="dn-api-summary">{it.summary}</p>
+
+      <div class="dn-api-params" if={it.hasParams}>
+        <table>
+          <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr each={p of it.params} key={p.name}>
+              <td><code>{p.name}</code><span class="dn-api-opt" if={p.optional}>?</span></td>
+              <td><code class="dn-api-type">{p.type}</code></td>
+              <td>{p.desc}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p class="dn-api-returns" if={it.returns !== ''}>
+        <span class="dn-api-returns-label">Returns</span>
+        <code>{it.returns}</code>
+      </p>
+
+      <pre class="dn-api-ex" if={it.hasExample}><code>{it.example}</code></pre>
+    </section>
+  </div>
+}
+
+@style {
+  .dn-api {
+    max-width: var(--content-max);
+  }
+  .dn-breadcrumb {
+    font-size: var(--fs-sm);
+    color: var(--faint);
+    margin: 0 0 1.5rem;
+  }
+  .dn-breadcrumb a {
+    color: var(--muted);
+  }
+  .dn-api-titles {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+  .dn-api-pkg {
+    font-family: var(--font-mono);
+    font-size: var(--fs-2xl);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--fg-strong);
+    margin: 0;
+  }
+  .dn-api-badge {
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--accent-2);
+    background: var(--accent-2-soft);
+    border: 1px solid var(--accent-2-line);
+    border-radius: var(--r-full);
+    padding: 0.15rem 0.6rem;
+  }
+  .dn-api-tagline {
+    font-size: var(--fs-lg);
+    color: var(--fg);
+    margin: 0.75rem 0 0.5rem;
+  }
+  .dn-api-blurb {
+    color: var(--muted);
+    line-height: 1.65;
+    margin: 0 0 1.5rem;
+  }
+  .dn-api-index {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    padding: 1.25rem 1.4rem;
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    background: var(--surface);
+    margin-bottom: 1rem;
+  }
+  .dn-api-index-label {
+    font-size: var(--fs-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--faint);
+    font-weight: 700;
+    margin: 0 0 0.5rem;
+  }
+  .dn-api-index ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 0.5rem;
+  }
+  .dn-api-index a {
+    text-decoration: none;
+  }
+  .dn-api-index code {
+    font-family: var(--font-mono);
+    font-size: var(--fs-sm);
+    color: var(--accent);
+    background: var(--code-inline-bg);
+    border: 1px solid var(--code-border);
+    padding: 0.1rem 0.45rem;
+    border-radius: 5px;
+  }
+  .dn-api-export {
+    padding: 2rem 0;
+    border-top: 1px solid var(--border);
+  }
+  .dn-api-export-name {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    margin: 0 0 0.9rem;
+    scroll-margin-top: calc(var(--header-h) + 1rem);
+  }
+  .dn-api-export-name code {
+    font-family: var(--font-mono);
+    font-size: var(--fs-xl);
+    font-weight: 650;
+    color: var(--fg-strong);
+  }
+  .dn-api-kind {
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    color: var(--muted);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--r-full);
+    padding: 0.05rem 0.55rem;
+  }
+  .dn-api-sig {
+    margin: 0 0 1rem;
+    padding: 0.9rem 1.1rem;
+    background: var(--code-bg);
+    border: 1px solid var(--code-border);
+    border-radius: var(--r-md);
+    overflow-x: auto;
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    line-height: 1.6;
+    color: var(--accent-2);
+  }
+  .dn-api-sig code {
+    font-family: var(--font-mono);
+    color: inherit;
+  }
+  .dn-api-ex {
+    margin: 0 0 0.5rem;
+    padding: 0.9rem 1.1rem;
+    background: var(--code-bg);
+    border: 1px solid var(--code-border);
+    border-radius: var(--r-md);
+    overflow-x: auto;
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    line-height: 1.65;
+    color: var(--fg);
+  }
+  .dn-api-ex code {
+    font-family: var(--font-mono);
+    color: inherit;
+  }
+  .dn-api-summary {
+    color: var(--fg);
+    line-height: 1.65;
+    margin: 0 0 1rem;
+  }
+  .dn-api-params table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--fs-sm);
+    margin: 0 0 1rem;
+  }
+  .dn-api-params th,
+  .dn-api-params td {
+    text-align: left;
+    padding: 0.5rem 0.7rem;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  .dn-api-params th {
+    color: var(--faint);
+    font-weight: 650;
+    text-transform: uppercase;
+    font-size: var(--fs-xs);
+    letter-spacing: 0.05em;
+  }
+  .dn-api-params code {
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+    color: var(--accent);
+  }
+  .dn-api-type {
+    color: var(--accent-2) !important;
+  }
+  .dn-api-opt {
+    color: var(--faint);
+  }
+  .dn-api-returns {
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    margin: 0 0 1rem;
+    font-size: var(--fs-sm);
+  }
+  .dn-api-returns-label {
+    font-size: var(--fs-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--faint);
+    font-weight: 700;
+  }
+  .dn-api-returns code {
+    font-family: var(--font-mono);
+    color: var(--accent-2);
+    font-size: 0.85em;
+  }
+  @media (max-width: 560px) {
+    .dn-api-index {
+      grid-template-columns: 1fr;
+    }
+  }
+}

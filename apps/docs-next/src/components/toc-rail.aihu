@@ -1,0 +1,95 @@
+// toc-rail — the right-hand "On this page" rail. Scans the rendered article's
+// h2/h3 after hydration and tracks the active section on scroll. Empty during
+// prerender (no DOM); it fills on the client — a progressive-enhancement seam.
+
+@state {
+  const SEL = '.dn-article h2[id], .dn-article h3[id], .dn-prose h2[id], .dn-prose h3[id]'
+
+  let items = state([])
+  let activeId = state('')
+
+  const scan = () => {
+    if (typeof document === 'undefined') return
+    const hs = Array.from(document.querySelectorAll(SEL))
+    const mapped = hs.map((h) => {
+      const text = (h.textContent || '').replace(/^#/, '').trim()
+      const lvl = h.tagName === 'H3' ? 3 : 2
+      return { id: h.id, text: text, lvl: lvl }
+    })
+    items = mapped
+  }
+
+  const spy = () => {
+    if (typeof document === 'undefined') return
+    const marks = Array.from(document.querySelectorAll(SEL))
+    let current = ''
+    for (const m of marks) {
+      if (m.getBoundingClientRect().top < 120) current = m.id
+    }
+    activeId = current
+  }
+
+  onMount(() => {
+    if (typeof window === 'undefined') return
+    requestAnimationFrame(scan)
+    setTimeout(scan, 120)
+    window.addEventListener('scroll', spy, { passive: true })
+  })
+}
+
+@template {
+  <nav class="dn-toc" aria-label="On this page" show={items.length > 0}>
+    <p class="dn-toc-title">On this page</p>
+    <ul class="dn-toc-list">
+      <li each={it of items} key={it.id} class={['dn-toc-item', it.lvl === 3 && 'lvl3', activeId === it.id && 'active']}>
+        <a href={`#${it.id}`}>{it.text}</a>
+      </li>
+    </ul>
+  </nav>
+}
+
+@style {
+  .dn-toc {
+    position: sticky;
+    top: calc(var(--header-h) + 1.5rem);
+    max-height: calc(100vh - var(--header-h) - 3rem);
+    overflow-y: auto;
+    padding-left: 0.5rem;
+  }
+  .dn-toc-title {
+    font-size: var(--fs-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--faint);
+    font-weight: 650;
+    margin: 0 0 0.6rem;
+  }
+  .dn-toc-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border-left: 1px solid var(--border);
+  }
+  .dn-toc-item a {
+    display: block;
+    padding: 0.25rem 0 0.25rem 0.85rem;
+    margin-left: -1px;
+    border-left: 2px solid transparent;
+    color: var(--muted);
+    font-size: var(--fs-sm);
+    line-height: 1.4;
+    text-decoration: none;
+  }
+  .dn-toc-item.lvl3 a {
+    padding-left: 1.6rem;
+    font-size: 0.82rem;
+  }
+  .dn-toc-item a:hover {
+    color: var(--fg);
+  }
+  .dn-toc-item.active a {
+    color: var(--accent);
+    border-left-color: var(--accent);
+    font-weight: 550;
+  }
+}

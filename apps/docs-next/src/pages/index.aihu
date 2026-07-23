@@ -1,0 +1,361 @@
+@route {
+  path: "/",
+  name: "home-page",
+  layout: "site",
+  head: {
+    title: "aihu — the framework that equally governs humans and AI",
+    description: "aihu is a web meta-framework that equally governs the security and experience of humans and AI. Real components, a real agent surface, static output, and islands.",
+    canonical: "/",
+    og: {
+      title: "aihu",
+      description: "The web meta-framework that equally governs the security and experience of humans and AI.",
+      type: "website"
+    }
+  }
+}
+
+@state {
+  import { codeBlock } from '../lib/code-block.ts'
+  import { HERO_SOURCE } from '../data/gallery.ts'
+
+  const heroCode = codeBlock(HERO_SOURCE, { name: 'weather.aihu', playground: 'agent-weather' })
+}
+
+@template {
+  <div class="dn-home">
+
+    <section class="dn-hero">
+      <div class="dn-hero-copy">
+        <span class="dn-eyebrow">The governed web meta-framework</span>
+        <h1 class="dn-hero-title">
+          One framework that <span class="dn-grad-human">equally governs</span>{' '}the
+          security and experience of <span class="dn-grad-ai">humans and AI</span>.
+        </h1>
+        <p class="dn-hero-sub">
+          Write a single component. It renders as a fast custom element for people
+          and exposes a discoverable, permissioned surface for agents — the same
+          reactivity, the same governance, no second codebase.
+        </p>
+        <div class="dn-hero-cta">
+          <a class="dn-btn dn-btn-primary" href="/guides/getting-started">Get started →</a>
+          <a class="dn-btn dn-btn-ghost" href="/examples">Browse examples</a>
+        </div>
+        <div class="dn-hero-meta">
+          <span><b>≤2 kB</b> reactive core</span>
+          <span><b>37</b> packages</span>
+          <span><b>SSG</b> + islands</span>
+        </div>
+      </div>
+      <div class="dn-hero-code" html={heroCode}></div>
+    </section>
+
+    <section class="dn-duality">
+      <div class="dn-duality-card dn-human">
+        <span class="dn-duality-tag">For humans</span>
+        <h3>Experience, governed</h3>
+        <p>Static-first HTML that hydrates into interactive islands. Accessible
+           primitives, theming, and a css-engine — the fast, crafted surface
+           people actually touch.</p>
+      </div>
+      <div class="dn-duality-eq" aria-hidden="true">=</div>
+      <div class="dn-duality-card dn-ai">
+        <span class="dn-duality-tag">For AI</span>
+        <h3>Security, governed</h3>
+        <p>Every prop and action can carry <code>describe</code> / <code>expose</code>
+           and scope guards, so agents discover and invoke exactly what you permit —
+           over MCP, A2A, and ACP.</p>
+      </div>
+    </section>
+
+    <section class="dn-jobs">
+      <a class="dn-job" href="/guides/getting-started">
+        <span class="dn-job-ico">📘</span>
+        <h3>Guides</h3>
+        <p>Learn the model — state, templates, routing, SSR, and the agent surface.</p>
+        <span class="dn-job-go">Start learning →</span>
+      </a>
+      <a class="dn-job" href="/api/signals">
+        <span class="dn-job-ico">⚙︎</span>
+        <h3>API Reference</h3>
+        <p>Typed signatures for every export across all 37 packages.</p>
+        <span class="dn-job-go">Read the API →</span>
+      </a>
+      <a class="dn-job" href="/examples">
+        <span class="dn-job-ico">✦</span>
+        <h3>Examples & Cookbook</h3>
+        <p>A governed example set and a fluency cookbook — with a live playground.</p>
+        <span class="dn-job-go">Explore →</span>
+      </a>
+    </section>
+
+    <section class="dn-features">
+      <div class="dn-feature"><h4>Static output</h4><p>Every route prerenders to real HTML, then hydrates. Crawlers and agents read content; humans get the live app.</p></div>
+      <div class="dn-feature"><h4>Islands</h4><p>Ship ~0 JS on static pages. Only the interactive components hydrate.</p></div>
+      <div class="dn-feature"><h4>One agent contract</h4><p>The serving gate is a supersede chain plus sign-off — governance is a first-class primitive, not a bolt-on.</p></div>
+      <div class="dn-feature"><h4>css-engine</h4><p>Design tokens and a utility layer compiled by a real Rust engine — the one styling this very site.</p></div>
+    </section>
+
+  </div>
+}
+
+@style {
+  .dn-home {
+    max-width: var(--page-max);
+    margin: 0 auto;
+    padding: 0 1.25rem;
+  }
+
+  /* hero */
+  .dn-hero {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 2.5rem;
+    align-items: center;
+    padding: 3.5rem 0 3rem;
+  }
+  .dn-eyebrow {
+    display: inline-block;
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: var(--accent);
+    background: var(--accent-soft);
+    border: 1px solid var(--accent-line);
+    padding: 0.2rem 0.7rem;
+    border-radius: var(--r-full);
+    margin-bottom: 1.25rem;
+  }
+  .dn-hero-title {
+    font-size: clamp(2.1rem, 5vw, 3.5rem);
+    line-height: 1.08;
+    letter-spacing: var(--tracking-tighter);
+    font-weight: 750;
+    color: var(--fg-strong);
+    text-wrap: balance;
+    margin: 0 0 1.25rem;
+  }
+  .dn-grad-human {
+    background: linear-gradient(120deg, var(--accent), var(--accent-strong));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .dn-grad-ai {
+    background: linear-gradient(120deg, var(--accent-2), var(--accent-2-strong));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .dn-hero-sub {
+    font-size: var(--fs-lg);
+    line-height: 1.55;
+    color: var(--muted);
+    max-width: 34rem;
+    margin: 0 0 1.75rem;
+  }
+  .dn-hero-cta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-bottom: 1.75rem;
+  }
+  .dn-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.7rem 1.35rem;
+    border-radius: var(--r-md);
+    font-weight: 600;
+    font-size: var(--fs-md);
+    text-decoration: none;
+    transition: transform 0.1s, box-shadow 0.15s, background 0.12s;
+  }
+  .dn-btn:hover {
+    text-decoration: none;
+    transform: translateY(-1px);
+  }
+  .dn-btn-primary {
+    background: var(--accent);
+    color: var(--accent-contrast);
+    box-shadow: var(--shadow-accent);
+  }
+  .dn-btn-primary:hover {
+    background: var(--accent-strong);
+  }
+  .dn-btn-ghost {
+    background: var(--surface);
+    color: var(--fg);
+    border: 1px solid var(--border-strong);
+  }
+  .dn-btn-ghost:hover {
+    border-color: var(--accent-line);
+    color: var(--accent);
+  }
+  .dn-hero-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    color: var(--muted);
+    font-size: var(--fs-sm);
+  }
+  .dn-hero-meta b {
+    color: var(--fg-strong);
+    font-weight: 700;
+  }
+  .dn-hero-code {
+    min-width: 0;
+  }
+  .dn-hero-code .cb {
+    box-shadow: var(--shadow-lg);
+    margin: 0;
+  }
+
+  /* duality band */
+  .dn-duality {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: stretch;
+    gap: 1rem;
+    padding: 2.5rem 0;
+  }
+  .dn-duality-card {
+    padding: 1.75rem;
+    border-radius: var(--r-lg);
+    border: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .dn-duality-card h3 {
+    font-size: var(--fs-xl);
+    letter-spacing: -0.02em;
+    margin: 0.5rem 0 0.6rem;
+  }
+  .dn-duality-card p {
+    color: var(--muted);
+    margin: 0;
+    line-height: 1.6;
+  }
+  .dn-duality-card code {
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+    background: var(--code-inline-bg);
+    border: 1px solid var(--code-border);
+    padding: 0.05em 0.35em;
+    border-radius: 5px;
+  }
+  .dn-duality-tag {
+    font-size: var(--fs-xs);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .dn-human {
+    border-top: 3px solid var(--accent);
+  }
+  .dn-human .dn-duality-tag {
+    color: var(--accent);
+  }
+  .dn-ai {
+    border-top: 3px solid var(--accent-2);
+  }
+  .dn-ai .dn-duality-tag {
+    color: var(--accent-2);
+  }
+  .dn-duality-eq {
+    display: flex;
+    align-items: center;
+    font-size: 2rem;
+    font-weight: 300;
+    color: var(--faint);
+  }
+
+  /* jobs */
+  .dn-jobs {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+    padding: 1.5rem 0 2.5rem;
+  }
+  .dn-job {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    padding: 1.6rem;
+    border-radius: var(--r-lg);
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--fg);
+    text-decoration: none;
+    transition: border-color 0.14s, transform 0.12s, box-shadow 0.16s;
+  }
+  .dn-job:hover {
+    text-decoration: none;
+    border-color: var(--accent-line);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+  }
+  .dn-job-ico {
+    font-size: 1.6rem;
+  }
+  .dn-job h3 {
+    font-size: var(--fs-lg);
+    letter-spacing: -0.02em;
+    margin: 0;
+  }
+  .dn-job p {
+    color: var(--muted);
+    margin: 0;
+    font-size: var(--fs-sm);
+    line-height: 1.55;
+  }
+  .dn-job-go {
+    margin-top: auto;
+    padding-top: 0.6rem;
+    color: var(--accent);
+    font-weight: 600;
+    font-size: var(--fs-sm);
+  }
+
+  /* features */
+  .dn-features {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+    padding: 1.5rem 0 4rem;
+    border-top: 1px solid var(--border);
+  }
+  .dn-feature h4 {
+    font-size: var(--fs-md);
+    margin: 1.25rem 0 0.35rem;
+    letter-spacing: -0.01em;
+  }
+  .dn-feature p {
+    color: var(--muted);
+    margin: 0;
+    font-size: var(--fs-sm);
+    line-height: 1.55;
+  }
+
+  @media (min-width: 680px) {
+    .dn-jobs {
+      grid-template-columns: repeat(3, 1fr);
+    }
+    .dn-features {
+      grid-template-columns: repeat(4, 1fr);
+    }
+  }
+  @media (min-width: 960px) {
+    .dn-hero {
+      grid-template-columns: 1.05fr 0.95fr;
+      padding: 5rem 0 4rem;
+    }
+  }
+  @media (max-width: 720px) {
+    .dn-duality {
+      grid-template-columns: 1fr;
+    }
+    .dn-duality-eq {
+      justify-content: center;
+      padding: 0.25rem;
+    }
+  }
+}

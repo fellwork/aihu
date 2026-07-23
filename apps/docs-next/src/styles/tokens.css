@@ -1,0 +1,148 @@
+/* =============================================================================
+   docs-next design tokens — "Warm Technical / Governed"
+   -----------------------------------------------------------------------------
+   Visual thesis: aihu "equally governs the security and experience of humans
+   and AI". The palette encodes that duality with TWO signal hues on a warm,
+   editorial paper neutral (not cool Bootstrap-grey):
+     --accent    clay / terracotta  → the HUMAN / experience axis (aihu brand)
+     --accent-2  indigo             → the AI / governance / security axis
+   Light + dark are both first-class; `.dark` on <html> is authoritative, and
+   prefers-color-scheme seeds the pre-paint default (see index.html).
+   ============================================================================ */
+
+:root {
+  /* ---- warm neutral ramp (light) ---- */
+  --paper: #faf8f5; /* page background — warm paper */
+  --surface: #ffffff; /* cards / raised */
+  --surface-2: #f4f0ea; /* sunken / subtle fills */
+  --fg: #1c1714; /* warm near-black text */
+  --fg-strong: #120e0b;
+  --muted: #6b6259; /* secondary text */
+  --faint: #938a7f; /* tertiary / meta */
+  --border: #ece5db; /* hairlines */
+  --border-strong: #ddd4c8;
+  --hover-bg: #f3eee7;
+
+  /* ---- signal hues ---- */
+  --accent: #c8543a; /* clay — human / experience */
+  --accent-strong: #a8402b;
+  --accent-contrast: #ffffff;
+  --accent-soft: rgba(200, 84, 58, 0.1);
+  --accent-line: rgba(200, 84, 58, 0.28);
+  --accent-2: #4b57b8; /* indigo — AI / governance */
+  --accent-2-strong: #38439a;
+  --accent-2-soft: rgba(75, 87, 184, 0.1);
+  --accent-2-line: rgba(75, 87, 184, 0.26);
+
+  /* ---- code surface ---- */
+  --code-bg: #f7f3ee;
+  --code-border: #ebe3d8;
+  --code-inline-bg: #f1ece4;
+
+  /* ---- syntax tokens (light) ---- */
+  --tok-comment: #a1978a;
+  --tok-keyword: #b0432c;
+  --tok-string: #4d7a3d;
+  --tok-number: #a86a1f;
+  --tok-fn: #4b57b8;
+  --tok-tag: #b0432c;
+  --tok-attr: #7d6fa6;
+  --tok-decorator: #9a5b00;
+  --tok-intrinsic: #4b57b8;
+  --tok-punct: #8a8178;
+
+  /* ---- type ---- */
+  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", "Fira Code", monospace;
+  --fs-xs: 0.78rem;
+  --fs-sm: 0.875rem;
+  --fs-base: 1rem;
+  --fs-md: 1.075rem;
+  --fs-lg: 1.25rem;
+  --fs-xl: 1.5rem;
+  --fs-2xl: 1.95rem;
+  --fs-3xl: 2.6rem;
+  --fs-4xl: 3.5rem;
+  --lh-tight: 1.12;
+  --lh-snug: 1.35;
+  --lh-normal: 1.7;
+  --tracking-tight: -0.022em;
+  --tracking-tighter: -0.035em;
+
+  /* ---- space (4px grid) ---- */
+  --sp-1: 0.25rem;
+  --sp-2: 0.5rem;
+  --sp-3: 0.75rem;
+  --sp-4: 1rem;
+  --sp-5: 1.5rem;
+  --sp-6: 2rem;
+  --sp-7: 3rem;
+  --sp-8: 4rem;
+  --sp-9: 6rem;
+
+  /* ---- radius ---- */
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 16px;
+  --r-full: 999px;
+
+  /* ---- elevation (warm-tinted) ---- */
+  --shadow-sm: 0 1px 2px rgba(60, 40, 30, 0.06);
+  --shadow-md: 0 4px 16px rgba(60, 40, 30, 0.08), 0 1px 3px rgba(60, 40, 30, 0.06);
+  --shadow-lg: 0 18px 48px rgba(50, 34, 24, 0.14), 0 4px 12px rgba(50, 34, 24, 0.08);
+  --shadow-accent: 0 10px 30px rgba(200, 84, 58, 0.24);
+
+  /* ---- layout metrics ---- */
+  --header-h: 60px;
+  --sidebar-w: 264px;
+  --toc-w: 224px;
+  --content-max: 46rem;
+  --page-max: 1440px;
+
+  color-scheme: light;
+}
+
+:root.dark {
+  --paper: #141110;
+  --surface: #1b1714;
+  --surface-2: #221d19;
+  --fg: #ece5dd;
+  --fg-strong: #fbf7f2;
+  --muted: #a89e92;
+  --faint: #7c7367;
+  --border: #2b2521;
+  --border-strong: #3a3029;
+  --hover-bg: #221d18;
+
+  --accent: #e8705a;
+  --accent-strong: #f08d78;
+  --accent-contrast: #1a1310;
+  --accent-soft: rgba(232, 112, 90, 0.14);
+  --accent-line: rgba(232, 112, 90, 0.32);
+  --accent-2: #8b93e6;
+  --accent-2-strong: #a4abf0;
+  --accent-2-soft: rgba(139, 147, 230, 0.16);
+  --accent-2-line: rgba(139, 147, 230, 0.32);
+
+  --code-bg: #191512;
+  --code-border: #2c2621;
+  --code-inline-bg: #241f1a;
+
+  --tok-comment: #7c7367;
+  --tok-keyword: #f0917a;
+  --tok-string: #9dcf83;
+  --tok-number: #e2b167;
+  --tok-fn: #9aa2f0;
+  --tok-tag: #f0917a;
+  --tok-attr: #c6b9ea;
+  --tok-decorator: #e2b167;
+  --tok-intrinsic: #9aa2f0;
+  --tok-punct: #8a8178;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.44), 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 20px 52px rgba(0, 0, 0, 0.56), 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-accent: 0 10px 30px rgba(232, 112, 90, 0.26);
+
+  color-scheme: dark;
+}
