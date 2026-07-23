@@ -1,10 +1,15 @@
 // counter-demo — a real, runnable aihu component embedded live in the examples
-// playground panel. This is the cookbook `aihu-counter` recipe: prop-backed
-// count with increment / decrement / reset actions. It compiles at build, ships
-// as an island, and is fully interactive on the page — the "runnable block".
+// playground panel. Local numeric `state` count with increment / decrement /
+// reset actions. It compiles at build, ships as an island, and is fully
+// interactive on the page — the "runnable block".
+//
+// NOTE: uses state(0), not prop({ default: 0 }). A prop is attribute-backed, so
+// the value arrives as a STRING and `count++` lowers to `count + 1` → string
+// concat ("0"→"01"→"011"). A counter's value is component-local state, not a
+// parent input.
 
 @state {
-  let count = prop({ default: 0 })
+  let count = state(0)
 
   const increment = action(() => { count++ })
   const decrement = action(() => { count-- })
