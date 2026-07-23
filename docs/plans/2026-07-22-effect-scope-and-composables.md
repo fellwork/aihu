@@ -412,3 +412,27 @@ per-connection scope, config-provider overlap, dist/arbor housekeeping);
 `@aihu/use` (SSR `__ssr` bypass + `tryOnMounted` + shims, getter-call template
 convention, signals-sole-dep, `toValue` no-tuple, `useDebounced` omission,
 `useTitle`/`useDark` respec, micro-util row grouping).
+
+## Future work (post-deployment — do NOT start until this plan ships + deploys)
+
+- **Compiler auto-import of composables** (the zero-import DX). Today a `.aihu`
+  author writes `import { useMouse } from '@aihu/use/useMouse'` in `@state`. The
+  ergonomic end-state is the compiler recognizing a bare `useMouse()` call in
+  `@state` and injecting the **per-subpath** import itself — exactly how it
+  already injects `state()`/`effect()`/`onMount()`, and how VueUse's unplugin
+  auto-import works. Key constraint: inject the granular `@aihu/use/<name>`
+  specifier (NOT a barrel), so per-composable tree-shaking is preserved — this is
+  the whole reason NOT to route composables through an `@aihu/app` runtime
+  re-export facade (which would trade shaking for convenience; the `@aihu/use`
+  barrel already covers the manual-import case). Distinct from — and safer than —
+  the bare-`{x}` template read heuristic (deferred as FEL-172 miscompile risk):
+  auto-import adds an import statement, it does not change reactive-read lowering.
+  Scope: `@aihu/compiler` (a resolved-name → known-composable registry + import
+  injection), opt-in config, collision handling with user-declared names.
+  **Explicitly gated to after this plan ships and deploys** (founder call,
+  2026-07-22).
+
+- **Platform `__ssr` scope wrap consolidation** — the per-render effectScope now
+  lives in `ssr.ts`/`native.ts` (Piece 3, committed). Revisit once the in-flight
+  ssr-string emit path lands, to ensure that path (`renderToString(__ssr(props))`)
+  shares the same per-render ownership rather than re-introducing the bypass.
