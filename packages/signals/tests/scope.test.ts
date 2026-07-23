@@ -262,7 +262,7 @@ describe('effectScope', () => {
     warn.mockRestore()
   })
 
-  it('an effect created inside a scoped effect\'s OWN first run is unowned (P0-1 corollary)', () => {
+  it("an effect created inside a scoped effect's OWN first run is unowned (P0-1 corollary)", () => {
     // The blanket per-run scope clear cannot distinguish an owned first
     // run from a re-entered foreign run — so lazily-created nested
     // effects are always unowned; the author must dispose them manually

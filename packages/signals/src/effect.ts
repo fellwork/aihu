@@ -1,11 +1,5 @@
 import { SignalCircularError } from './errors.ts'
-import {
-  _currentScope,
-  _scopeAdd,
-  _scopeRemove,
-  _setCurrentScope,
-  type ScopeRec,
-} from './scope.ts'
+import { _currentScope, _scopeAdd, _scopeRemove, _setCurrentScope, type ScopeRec } from './scope.ts'
 import {
   beginTrack,
   currentObserver,
