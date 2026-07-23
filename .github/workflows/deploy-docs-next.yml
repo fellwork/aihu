@@ -100,6 +100,17 @@ jobs:
         run: bun run build
         working-directory: apps/docs-next
 
+      - name: Ensure Pages project exists
+        # Idempotent: creates aihu-docs-next on first run; continue-on-error lets
+        # re-runs pass when it already exists. Pages:Edit on the token covers
+        # creation. Separate project from live aihu-docs — never touches aihu.dev.
+        continue-on-error: true
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages project create aihu-docs-next --production-branch main
+
       - name: Deploy to Cloudflare Pages
         id: deploy
         uses: cloudflare/wrangler-action@v3
