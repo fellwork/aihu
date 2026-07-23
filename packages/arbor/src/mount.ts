@@ -1,4 +1,4 @@
-import { type Dispose, effect } from '@aihu/signals'
+import { type Dispose, effect, runWithoutScope } from '@aihu/signals'
 import { _materialize } from './materialize.ts'
 import { _observeMount } from './telemetry.ts'
 import type { AgentContext, ErrorHandler, MountOptions, Node, Snapshot } from './types.ts'
@@ -351,19 +351,36 @@ export function mount(node: Node, host: Element | ShadowRoot, options?: MountOpt
   // absent, the rethrow propagates through finally so the pop still runs.
   _mountDisposersStack.push(disposers)
   try {
-    appendedRoots = _materialize(
-      node,
-      host,
-      disposers,
-      pathBase,
-      _mountEffect,
-      errorHandler,
-      signalRegistry,
-    )
-  } catch (err: unknown) {
-    if (!errorHandler) throw err
-    // Plan 1.1: any returned fallback Node is currently discarded (stub).
-    errorHandler(err, pathBase)
+    // P0-2b (effect-scope plan §2): bindings are UNOWNED by any effect
+    // scope — clear the current scope for the whole synchronous materialize,
+    // including any child custom element that upgrades (connectedCallback →
+    // its own mount()) while this tree is being appended. Without this, a
+    // mount() re-entered synchronously inside a scoped component setup() or
+    // onMount body (no `runEffect` frame, so P0-1's save/clear does not
+    // apply) would register every `_mountEffect` dispose into the CALLER's
+    // component scope and kill the bindings on the wrong unmount. Binding
+    // disposal ownership stays with `disposers`/MountScope exclusively.
+    //
+    // The errorHandler call lives INSIDE the wrap too (P3-1): a fallback
+    // binding effect it creates must be just as unowned as the ones from
+    // the happy path.
+    runWithoutScope(() => {
+      try {
+        appendedRoots = _materialize(
+          node,
+          host,
+          disposers,
+          pathBase,
+          _mountEffect,
+          errorHandler,
+          signalRegistry,
+        )
+      } catch (err: unknown) {
+        if (!errorHandler) throw err
+        // Plan 1.1: any returned fallback Node is currently discarded (stub).
+        errorHandler(err, pathBase)
+      }
+    })
   } finally {
     _mountDisposersStack.pop()
   }

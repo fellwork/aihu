@@ -1,5 +1,12 @@
 import { _enterContext, _exitContext } from '@aihu/context'
-import type { signal as SignalFactory } from '@aihu/signals'
+import {
+  type EffectScope,
+  effectScope,
+  getCurrentScope,
+  onScopeDispose,
+  runWithScope,
+  type signal as SignalFactory,
+} from '@aihu/signals'
 import { _takeAgentServerBinding } from './agent-dispatch.ts'
 import type {
   ComponentOptions,
@@ -23,23 +30,30 @@ let _signal: typeof SignalFactory | null = null
 // attributeChangedCallback can dispatch userland callbacks at the right
 // platform moment. `attributeChange` per spec runs AFTER R1's $prop signal
 // dispatch (so authors see the post-converted signal value).
+// Unified-LIFO teardown (effect-scope plan P0-3, ratified): there is no `c`
+// (cleanup) array anymore. Everything the component owns — composable
+// effects/computeds, `onCleanup` callbacks, and onMount-returned teardowns —
+// registers into the ONE component-scope disposer list (`_componentScopes`)
+// and is drained LIFO by `scope.stop()` on disconnect. This REVERSES the old
+// order (previously: onCleanup FIFO in setup order, then onMount teardowns);
+// now onMount teardowns run first (registered last), then setup-time
+// cleanups in reverse registration order. All of it still runs before
+// `MountScope.dispose()` (DOM removal last).
 interface _LC {
   m: Array<() => void | (() => void)>
-  c: Array<() => void>
   a: Array<() => void>
   ac: Array<(name: string, oldValue: string | null, newValue: string | null) => void>
 }
 let _cur: _LC | null = null
 
+// Callers must invoke this inside `runWithScope(es, ...)` so onMount-created
+// effects are scope-owned and onMount-returned teardowns register into the
+// same unified LIFO list as setup-time `onCleanup` callbacks.
 function _runMounts(lc: _LC): void {
   for (const fn of lc.m) {
     const r = fn()
-    if (r) lc.c.push(r as () => void)
+    if (r) onScopeDispose(r as () => void)
   }
-}
-
-function _runCleanups(lc: _LC): void {
-  for (const fn of lc.c) fn()
 }
 
 function _runAdopts(lc: _LC): void {
@@ -66,6 +80,23 @@ export function _setMount(fn: MountFn): void {
 }
 
 const _scopes = new WeakMap<HTMLElement, _ScopeRef>()
+// Per-instance component effect scope (effect-scope plan §2). Module-level —
+// NOT a per-class closure symbol — because `_hmrReplace` and define-element's
+// hydration disconnect bridge must reach it across class boundaries.
+const _componentScopes = new WeakMap<HTMLElement, EffectScope>()
+
+/** @internal — stop + delete an element's component effect scope, if any.
+ * Called by define-element's hydration branch, which bypasses this module's
+ * `disconnectedCallback` (early return on `_HS`) but still runs `_build()`
+ * and therefore opened the scope. Rethrows the first disposer error
+ * (scope.stop's collect-run-all-rethrow-first contract). */
+export function _stopComponentScope(el: HTMLElement): void {
+  const es = _componentScopes.get(el)
+  if (es !== undefined) {
+    _componentScopes.delete(el)
+    es.stop()
+  }
+}
 const ATTR_SYM = Symbol()
 const LC_SYM = Symbol()
 // Hierarchical DI: each instance's `provides` object. Its prototype chain IS the
@@ -226,13 +257,25 @@ export function defineComponent(setupOrOptions: Setup | ComponentOptions): typeo
        * tree without calling _mount. Called by define-element's hydration
        * branch via the `_build?()` check. */
       _build(): ReturnType<Setup> {
-        const lc: _LC = { m: [], c: [], a: [], ac: [] }
+        const lc: _LC = { m: [], a: [], ac: [] }
         this[LC_SYM] = lc
         const host = this.shadowRoot ?? this
+        // Component root scope — DETACHED (effect-scope plan §2). Element↔
+        // element ownership is the DOM tree, not the scope tree: a child
+        // component upgrading while an ancestor's scope is current must NOT
+        // auto-parent its root scope into the ancestor's (that would recreate
+        // the unified owner tree the ownership model rejects — double-stop,
+        // tree-1-collapses-into-tree-2). Each element stops its own scope on
+        // disconnect; DOM removal cascades.
+        const es = effectScope(true)
+        _componentScopes.set(this, es)
         _cur = lc
         const prevCtx = _enterOwnerContext(this as unknown as Record<symbol, unknown>)
         try {
-          return setup({ host, element: this } as SetupContext)
+          // es.run wraps ONLY the setup call (P0-2a, structural): `_mount`
+          // runs later in connectedCallback, after _build returns, OUTSIDE
+          // the scope — binding effects belong to the MountScope, never here.
+          return es.run(() => setup({ host, element: this } as SetupContext)) as ReturnType<Setup>
         } finally {
           _exitContext(prevCtx)
           _cur = null
@@ -273,18 +316,41 @@ export function defineComponent(setupOrOptions: Setup | ComponentOptions): typeo
           this[S] = scope
           _scopes.set(this, scope)
           if (lightDomChildren !== null) _projectLightDomSlot(this, lightDomChildren)
-          _runMounts(lc)
+          // onMount bodies run INSIDE the component scope so effects they
+          // create are scope-owned and returned teardowns join the unified
+          // LIFO list (see _runMounts).
+          runWithScope(_componentScopes.get(this)!, () => _runMounts(lc))
         } catch (err) {
+          // Setup/mount/onMount throw: stop + delete the just-opened scope so
+          // any effects created before the throw don't leak (mirror of the
+          // signals first-run-throw self-dispose). A throwing disposer must
+          // not mask the ORIGINAL error — log it and rethrow the original.
+          try {
+            _stopComponentScope(this)
+          } catch (stopErr) {
+            console.error(`[aihu] scope stop failed for <${_tagOf(this)}>:`, stopErr)
+          }
           console.error(`[aihu] setup failed for <${_tagOf(this)}>:`, err)
           throw err
         }
       }
       disconnectedCallback(): void {
-        const lc = this[LC_SYM]
-        if (lc) _runCleanups(lc)
-        this[S]?.dispose()
-        this[S] = this[LC_SYM] = null
-        _scopes.delete(this)
+        // Unified-LIFO teardown (P0-3, ratified): scope.stop() drains
+        // everything the component owns — onMount teardowns first
+        // (registered last), then setup-time onCleanup callbacks in reverse.
+        // The `finally` is throw containment for COMPONENT-SCOPE disposers:
+        // a throwing scope disposer never skips MountScope.dispose()
+        // (bindings + DOM removal last). NOTE a throwing MountScope-INTERNAL
+        // binding disposer still aborts _makeScope's own LIFO loop —
+        // pre-existing gap, separate fix.
+        try {
+          _componentScopes.get(this)?.stop()
+        } finally {
+          this[S]?.dispose()
+          this[S] = this[LC_SYM] = null
+          _scopes.delete(this)
+          _componentScopes.delete(this)
+        }
       }
       // R2 (Director r6 §3): adoptedCallback dispatches userland onAdopt.
       adoptedCallback(): void {
@@ -497,18 +563,24 @@ export function defineComponent(setupOrOptions: Setup | ComponentOptions): typeo
       // themselves) and we don't replay a stale pre-connect value.
       this[PENDING_SYM] = undefined
 
-      const lc: _LC = { m: [], c: [], a: [], ac: [] }
+      const lc: _LC = { m: [], a: [], ac: [] }
       this[LC_SYM] = lc
       const host = this.shadowRoot ?? this
+      // Component root scope — DETACHED; es.run wraps ONLY the setup call
+      // (P0-2a). See the function-form _build for the full rationale.
+      const es = effectScope(true)
+      _componentScopes.set(this, es)
       _cur = lc
       const prevCtx = _enterOwnerContext(this as unknown as Record<symbol, unknown>)
       try {
-        return setup({
-          host,
-          element: this,
-          attrs: attrSignals,
-          props: propSignals,
-        } as Parameters<typeof setup>[0])
+        return es.run(() =>
+          setup({
+            host,
+            element: this,
+            attrs: attrSignals,
+            props: propSignals,
+          } as Parameters<typeof setup>[0]),
+        ) as ReturnType<typeof setup>
       } finally {
         _exitContext(prevCtx)
         _cur = null
@@ -550,8 +622,17 @@ export function defineComponent(setupOrOptions: Setup | ComponentOptions): typeo
         this[S] = scope
         _scopes.set(this, scope)
         if (lightDomChildren !== null) _projectLightDomSlot(this, lightDomChildren)
-        _runMounts(lc)
+        // onMount bodies run INSIDE the component scope — unified LIFO list
+        // (see the function-form connectedCallback).
+        runWithScope(_componentScopes.get(this)!, () => _runMounts(lc))
       } catch (err) {
+        // Setup/mount/onMount throw: stop + delete the just-opened scope (see
+        // the function-form connectedCallback for the full rationale).
+        try {
+          _stopComponentScope(this)
+        } catch (stopErr) {
+          console.error(`[aihu] scope stop failed for <${_tagOf(this)}>:`, stopErr)
+        }
         console.error(`[aihu] setup failed for <${_tagOf(this)}>:`, err)
         throw err
       }
@@ -603,15 +684,26 @@ export function defineComponent(setupOrOptions: Setup | ComponentOptions): typeo
     }
 
     disconnectedCallback(): void {
-      const lc = this[LC_SYM]
-      if (lc) _runCleanups(lc)
-      this[S]?.dispose()
-      this[S] = this[LC_SYM] = null
-      this[PROPS_SYM] = null
-      _scopes.delete(this)
-      // §9.4 class-extension: let the base tear down its own listeners/effects
-      // (e.g. AihuButton's disposer array). Last, after our scope dispose.
-      _baseProto.disconnectedCallback?.call(this)
+      // Unified-LIFO teardown (P0-3): scope.stop() drains onMount teardowns
+      // first (registered last), then setup-time onCleanup in reverse. The
+      // `finally` is throw containment for COMPONENT-SCOPE disposers — a
+      // throwing scope disposer never skips MountScope.dispose() (DOM
+      // removal last) or the base's teardown. (A throwing MountScope-
+      // internal binding disposer still aborts _makeScope's own loop —
+      // pre-existing gap, separate fix.)
+      try {
+        _componentScopes.get(this)?.stop()
+      } finally {
+        this[S]?.dispose()
+        this[S] = this[LC_SYM] = null
+        this[PROPS_SYM] = null
+        _scopes.delete(this)
+        _componentScopes.delete(this)
+        // §9.4 class-extension: let the base tear down its own listeners/
+        // effects (e.g. AihuButton's disposer array). Last, after our scope
+        // stop + MountScope dispose.
+        _baseProto.disconnectedCallback?.call(this)
+      }
     }
   }
 
@@ -691,10 +783,56 @@ function _reflectToAttr(v: unknown): string | null {
 /** @internal */
 export function _hmrReplace(element: HTMLElement, newSetup: Setup): void {
   if (_mount === null) return
-  _scopes.get(element)?.dispose()
-  _scopes.delete(element)
+  // Stop the OLD component scope BEFORE replacing — user teardown (onCleanup,
+  // onMount teardowns, composable effects) runs before DOM teardown, same
+  // order as disconnect. The `finally` is throw containment: a throwing
+  // disposer must not skip the MountScope dispose.
+  //
+  // NOTE (pre-existing bug, separate fix): the replacement MountScope below
+  // is stored ONLY in the `_scopes` WeakMap, but `disconnectedCallback`
+  // disposes `this[S]` (the per-class symbol slot, unreachable from here) —
+  // so a post-HMR disconnect already leaks the replacement MountScope. The
+  // component scope avoids replicating that divergence by living in the
+  // module-level `_componentScopes` map, which both paths share.
+  try {
+    _componentScopes.get(element)?.stop()
+  } finally {
+    _componentScopes.delete(element)
+    _scopes.get(element)?.dispose()
+    _scopes.delete(element)
+  }
   const host = element.shadowRoot ?? element
-  _scopes.set(element, _mount(newSetup({ host, element } as SetupContext)!, host))
+  // Mirror the _build + connectedCallback flow: fresh scope + fresh _LC so
+  // the replacement setup's onCleanup/onMount don't throw SCR-R0011/R0010,
+  // and owner-context entry so provide/inject resolves the DI chain.
+  // es.run wraps ONLY newSetup — NOT the _mount around it (P0-2a).
+  const es = effectScope(true)
+  _componentScopes.set(element, es)
+  const lc: _LC = { m: [], a: [], ac: [] }
+  ;(element as unknown as Record<symbol, unknown>)[LC_SYM] = lc
+  try {
+    _cur = lc
+    const prevCtx = _enterOwnerContext(element as unknown as Record<symbol, unknown>)
+    let tree: ReturnType<Setup>
+    try {
+      tree = es.run(() => newSetup({ host, element } as SetupContext)) as ReturnType<Setup>
+    } finally {
+      _exitContext(prevCtx)
+      _cur = null
+    }
+    _scopes.set(element, _mount(tree!, host))
+    runWithScope(es, () => _runMounts(lc))
+  } catch (err) {
+    // A throwing newSetup/_mount/_runMounts must not leave the fresh scope
+    // running (orphaned pre-throw effects would re-run against a
+    // half-initialized component). Mirror the connectedCallback catch.
+    try {
+      _stopComponentScope(element)
+    } catch (stopErr) {
+      console.error('[aihu] scope stop failed during HMR replace:', stopErr)
+    }
+    throw err
+  }
 }
 
 // Lifecycle exports — exported only from index.ts
@@ -703,9 +841,21 @@ export function _onMount(fn: () => void | (() => void)): void {
   _cur.m.push(fn)
 }
 
+// Unified into the component scope (effect-scope plan §2): onCleanup routes
+// into the scope's LIFO disposer list via onScopeDispose, alongside
+// composable effect handles and onMount-returned teardowns. Fail-loud
+// contract preserved: no ACTIVE scope ⇒ SCR-R0011 (never a silent no-op) —
+// the `.active` check matters because `runWithScope(stoppedScope, ...)` (the
+// async re-entry path) leaves a stopped scope current, and onScopeDispose
+// would silently drop the callback in prod.
 export function _onCleanup(fn: () => void): void {
-  if (!_cur) throw new RuntimeError('SCR-R0011', 'no owner')
-  _cur.c.push(fn)
+  const s = getCurrentScope()
+  if (s === undefined || !s.active)
+    throw new RuntimeError(
+      'SCR-R0011',
+      "no active scope for onCleanup — inside an effect, use the effect's onCleanup argument",
+    )
+  onScopeDispose(fn)
 }
 
 // R2 (Director r6 §3): four-callback $lifecycle extension. `onAdopt` and

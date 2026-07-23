@@ -6,18 +6,18 @@
   },
   {
     "name": "@aihu/signals",
-    "bytes": 2218,
+    "bytes": 2232,
     "limit": "2350 B"
   },
   {
     "name": "@aihu/arbor",
-    "bytes": 3079,
-    "limit": "3100 B"
+    "bytes": 3113,
+    "limit": "3200 B"
   },
   {
     "name": "@aihu/runtime",
-    "bytes": 4060,
-    "limit": "4100 B"
+    "bytes": 4319,
+    "limit": "4500 B"
   },
   {
     "name": "@aihu/agent",

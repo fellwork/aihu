@@ -6,6 +6,7 @@ import {
   effectScope,
   getCurrentScope,
   onScopeDispose,
+  runWithoutScope,
   runWithScope,
 } from '../src/scope.ts'
 import { type Read, signal } from '../src/signal.ts'
@@ -404,5 +405,57 @@ describe('effectScope', () => {
     expect(fired).toEqual(['async-cleanup'])
     setN(2)
     expect(runs).toBe(2)
+  })
+})
+
+describe('runWithoutScope', () => {
+  it('clears the current scope: creations inside are unowned', () => {
+    const [n, setN] = signal(0)
+    let runs = 0
+    const scope = effectScope()
+    let innerDispose: Dispose | null = null
+    scope.run(() => {
+      expect(getCurrentScope()).toBe(scope)
+      runWithoutScope(() => {
+        expect(getCurrentScope()).toBeUndefined()
+        innerDispose = effect(() => {
+          n()
+          runs++
+        })
+      })
+      // Restored after the call.
+      expect(getCurrentScope()).toBe(scope)
+    })
+    expect(runs).toBe(1)
+    // Stopping the scope must not dispose the unowned effect.
+    scope.stop()
+    setN(1)
+    expect(runs).toBe(2)
+    // Manual disposal is the only owner.
+    ;(innerDispose as unknown as Dispose)()
+    setN(2)
+    expect(runs).toBe(2)
+  })
+
+  it('returns fn result and restores the previous scope on throw', () => {
+    const scope = effectScope()
+    scope.run(() => {
+      expect(runWithoutScope(() => 42)).toBe(42)
+      expect(() =>
+        runWithoutScope(() => {
+          throw new Error('boom')
+        }),
+      ).toThrow('boom')
+      expect(getCurrentScope()).toBe(scope)
+    })
+    scope.stop()
+  })
+
+  it('is a no-op sandwich when no scope is current', () => {
+    expect(getCurrentScope()).toBeUndefined()
+    runWithoutScope(() => {
+      expect(getCurrentScope()).toBeUndefined()
+    })
+    expect(getCurrentScope()).toBeUndefined()
   })
 })

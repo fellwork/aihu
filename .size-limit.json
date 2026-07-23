@@ -14,14 +14,14 @@
   {
     "name": "@aihu/arbor",
     "path": "packages/arbor/dist/index.js",
-    "limit": "3100 B",
+    "limit": "3200 B",
     "gzip": true,
     "ignore": ["@aihu/signals"]
   },
   {
     "name": "@aihu/runtime",
     "path": "packages/runtime/dist/index.js",
-    "limit": "4100 B",
+    "limit": "4500 B",
     "gzip": true
   },
   {

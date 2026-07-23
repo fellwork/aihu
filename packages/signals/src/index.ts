@@ -5,7 +5,13 @@ export type { Dispose, EffectFn } from './effect.ts'
 export { effect } from './effect.ts'
 export { SignalCircularError, SignalError } from './errors.ts'
 export type { EffectScope } from './scope.ts'
-export { effectScope, getCurrentScope, onScopeDispose, runWithScope } from './scope.ts'
+export {
+  effectScope,
+  getCurrentScope,
+  onScopeDispose,
+  runWithoutScope,
+  runWithScope,
+} from './scope.ts'
 export type { Read, Signal, SignalOptions, Write } from './signal.ts'
 export { signal } from './signal.ts'
 export { untrack } from './untrack.ts'

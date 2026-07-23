@@ -23,7 +23,7 @@
  * @module
  */
 
-import type { Dispose } from '@aihu/signals'
+import { type Dispose, runWithoutScope } from '@aihu/signals'
 import { _applyAttrs } from './attrs.ts'
 import { _materialize } from './materialize.ts'
 import { _makeScope, _mountDisposersStack, _mountEffect, type mount } from './mount.ts'
@@ -439,7 +439,9 @@ export function hydrate(
     node = component()
   } catch (err) {
     if (errorHandler) {
-      errorHandler(err, 'hydrate')
+      // P3-1: same unowned rule as the wiring below — anything the handler
+      // creates must not be adopted by a caller's scope.
+      runWithoutScope(() => errorHandler(err, 'hydrate'))
       if (typeof __DEV__ !== 'undefined' && __DEV__)
         _observeMount({ kind: 'mount-end', path: 'hydrate', timestamp: Date.now() })
       return _makeScope(disposers, signalRegistry)
@@ -449,16 +451,22 @@ export function hydrate(
 
   const pathBase = _ROOT_PATH
 
-  _hydrateNode(
-    node,
-    host,
-    pathBase,
-    disposers,
-    signalRegistry,
-    pathMap,
-    errorHandler,
-    { i: 0 },
-    snapshot ?? {},
+  // P0-2b (effect-scope plan §2): same unowned-bindings rule as mount() —
+  // hydration wiring creates the same `_mountEffect` binding effects, so a
+  // hydrate() re-entered while some component scope is current must not let
+  // that scope adopt them (binding ownership is the MountScope, always).
+  runWithoutScope(() =>
+    _hydrateNode(
+      node,
+      host,
+      pathBase,
+      disposers,
+      signalRegistry,
+      pathMap,
+      errorHandler,
+      { i: 0 },
+      snapshot ?? {},
+    ),
   )
 
   if (typeof __DEV__ !== 'undefined' && __DEV__)
