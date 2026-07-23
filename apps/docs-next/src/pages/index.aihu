@@ -150,7 +150,7 @@
           <p>Learn the model — state, templates, routing, SSR, and the agent surface.</p>
           <span class="dn-job-go">Start learning →</span>
         </a>
-        <a class="dn-job" href="/api/signals">
+        <a class="dn-job" href="/api">
           <span class="dn-job-num dn-rail">API · 37</span>
           <h3>API Reference</h3>
           <p>Typed signatures for every export across all 37 packages.</p>
