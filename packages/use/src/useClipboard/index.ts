@@ -27,7 +27,8 @@ export interface UseClipboardReturn {
   /** Write `text` to the clipboard. Resolves once the write settles;
    * swallows a rejected `navigator.clipboard.writeText` (e.g. denied
    * permission) rather than throwing — check `isSupported()` beforehand for
-   * a UI-level guard. No-op under SSR/unsupported browsers. */
+   * a UI-level guard. No-op under SSR/unsupported browsers, and after the
+   * owning effect scope is disposed. */
   copy: (text: string) => Promise<void>
   /** Reactive getter — `true` for `copiedDuring` ms after a successful
    * `copy()`, then resets to `false`. Read as `{copied()}` in templates
@@ -70,6 +71,9 @@ export function useClipboard(options: UseClipboardOptions = {}): UseClipboardRet
   }
 
   const copy = async (text: string): Promise<void> => {
+    // A still-referenced copy() must not touch the clipboard or re-arm the
+    // reset timer once the owning scope tore down.
+    if (stopped) return
     if (!isSupported()) return
     try {
       await defaultNavigator?.clipboard.writeText(text)
@@ -78,6 +82,9 @@ export function useClipboard(options: UseClipboardOptions = {}): UseClipboardRet
       // rather than throwing out of a UI action handler.
       return
     }
+    // The write may settle AFTER the scope tore down — re-check before
+    // flipping `copied` or re-arming the reset timer post-dispose.
+    if (stopped) return
     setCopied(true)
     clearReset()
     resetHandle = setTimeout(() => setCopied(false), copiedDuring)

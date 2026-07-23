@@ -98,6 +98,23 @@ describe('@aihu/use/useRafFn', () => {
     vi.advanceTimersToNextFrame()
     expect(callback).toHaveBeenCalledTimes(1)
   })
+
+  it('resume() after scope disposal does not re-arm the loop', () => {
+    const callback = vi.fn()
+    const scope = effectScope()
+    const ret = scope.run(() => useRafFn(callback, { immediate: false })) as ReturnType<
+      typeof useRafFn
+    >
+
+    scope.stop()
+    ret.resume()
+    // Regression: a still-referenced resume() used to restart the frame loop
+    // (and fire state updates) after the owning scope tore down.
+    expect(ret.isActive()).toBe(false)
+    vi.advanceTimersToNextFrame()
+    vi.advanceTimersToNextFrame()
+    expect(callback).not.toHaveBeenCalled()
+  })
 })
 
 describe('@aihu/use/useRafFn — SSR-static path', () => {

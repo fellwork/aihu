@@ -31,7 +31,8 @@ export interface UseRafFnReturn {
   readonly isActive: () => boolean
   /** Cancel the pending frame and stop the loop. Idempotent. */
   pause: () => void
-  /** (Re)start the loop. No-op if already running. */
+  /** (Re)start the loop. No-op if already running, or after the owning
+   * effect scope is disposed. */
   resume: () => void
 }
 
@@ -57,6 +58,7 @@ export function useRafFn(
   const [isActive, setIsActive] = signal(false)
   let handle: number | undefined
   let previousTimestamp: number | undefined
+  let disposed = false
 
   const loop = (timestamp: number): void => {
     // Reschedule BEFORE invoking the callback: if the callback calls
@@ -81,12 +83,18 @@ export function useRafFn(
   }
 
   const resume = (): void => {
+    // A still-referenced resume() must not re-arm the frame loop (and fire
+    // state updates) once the owning scope tore down.
+    if (disposed) return
     if (handle !== undefined) return
     setIsActive(true)
     handle = requestAnimationFrame(loop)
   }
 
-  tryOnScopeDispose(pause)
+  tryOnScopeDispose(() => {
+    disposed = true
+    pause()
+  })
 
   if (immediate) resume()
 

@@ -3,7 +3,7 @@
  * state, `resolved()` against the OS preference for `'auto'`, `setScheme`,
  * and the SSR-static path. jsdom environment (root vitest config).
  */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { useColorScheme } from '../src/useColorScheme/index.ts'
 import { fireMatchMediaChange, installMatchMediaPolyfill } from './_match-media.ts'
 import { withSSR } from './_ssr.ts'
@@ -52,4 +52,50 @@ describe('@aihu/use/useColorScheme — SSR-static path', () => {
         expect(result?.resolved()).toBe('light')
       },
     ))
+
+  it('with isClient false, returns static getters — setScheme is a no-op', () =>
+    withSSR(
+      () => import('../src/useColorScheme/index.ts'),
+      (mod) => {
+        const { scheme, resolved, setScheme } = mod.useColorScheme()
+        expect(() => setScheme('dark')).not.toThrow()
+        // Static, not a signal: the SSR setScheme is a documented no-op.
+        expect(scheme()).toBe('auto')
+        expect(resolved()).toBe('light')
+
+        const explicit = mod.useColorScheme({ initialValue: 'dark' })
+        expect(explicit.scheme()).toBe('dark')
+        expect(explicit.resolved()).toBe('dark')
+      },
+    ))
+
+  it('with isClient false, allocates no signal at all', async () => {
+    // Regression: the SSR path used to allocate a `signal()` (the raw
+    // scheme state) despite registering no listener. Wrap `@aihu/signals`
+    // so any signal() call — direct or via usePreferredDark/useMediaQuery —
+    // is observed.
+    const signalCalls = vi.fn()
+    vi.doMock('@aihu/signals', async (importOriginal) => {
+      const actual = await importOriginal<typeof import('@aihu/signals')>()
+      return {
+        ...actual,
+        signal: (...args: Parameters<typeof actual.signal>) => {
+          signalCalls()
+          return actual.signal(...args)
+        },
+      }
+    })
+    try {
+      await withSSR(
+        () => import('../src/useColorScheme/index.ts'),
+        (mod) => {
+          mod.useColorScheme()
+          expect(signalCalls).not.toHaveBeenCalled()
+        },
+      )
+    } finally {
+      vi.doUnmock('@aihu/signals')
+      vi.resetModules()
+    }
+  })
 })

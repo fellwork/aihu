@@ -34,6 +34,13 @@ export function useDebounced<T>(source: () => T, delay: number = 200): UseDeboun
 
   const [value, setValue] = signal(source())
   let handle: ReturnType<typeof setTimeout> | undefined
+  // The effect's own creation run must not arm a debounce timer — it only
+  // re-observes the value `signal()` was already seeded with above, and
+  // scheduling there would fire a spurious trailing re-set of that same
+  // value. Skipping it here means creation registers reactive tracking and
+  // nothing else; the first REAL change arms the trailing edge normally.
+  // (Same pattern as useThrottle's creation-run guard.)
+  let isFirstRun = true
 
   const clearPending = (): void => {
     if (handle === undefined) return
@@ -45,6 +52,10 @@ export function useDebounced<T>(source: () => T, delay: number = 200): UseDeboun
   // timer, so only the value that survives `delay` ms unchanged propagates.
   const disposeEffect = effect(() => {
     const next = source()
+    if (isFirstRun) {
+      isFirstRun = false
+      return
+    }
     clearPending()
     handle = setTimeout(() => {
       handle = undefined

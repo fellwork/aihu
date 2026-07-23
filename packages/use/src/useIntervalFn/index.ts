@@ -24,7 +24,8 @@ export interface UseIntervalFnReturn {
   readonly isActive: () => boolean
   /** Stop the interval. Idempotent. */
   pause: () => void
-  /** (Re)start the interval. No-op if already running. */
+  /** (Re)start the interval. No-op if already running, or after the owning
+   * effect scope is disposed. */
   resume: () => void
 }
 
@@ -50,6 +51,7 @@ export function useIntervalFn(
 
   const [isActive, setIsActive] = signal(false)
   let handle: ReturnType<typeof setInterval> | undefined
+  let disposed = false
 
   const pause = (): void => {
     if (handle === undefined) return
@@ -59,12 +61,18 @@ export function useIntervalFn(
   }
 
   const resume = (): void => {
+    // A still-referenced resume() must not re-arm the interval (and fire
+    // state updates) once the owning scope tore down.
+    if (disposed) return
     if (handle !== undefined) return
     setIsActive(true)
     handle = setInterval(callback, interval)
   }
 
-  tryOnScopeDispose(pause)
+  tryOnScopeDispose(() => {
+    disposed = true
+    pause()
+  })
 
   if (immediate) resume()
 

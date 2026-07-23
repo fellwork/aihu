@@ -22,7 +22,8 @@ export interface UseTimeoutFnOptions {
 export interface UseTimeoutFnReturn {
   /** Reactive getter — read as `{isPending()}` in templates (parens required). */
   readonly isPending: () => boolean
-  /** (Re)start the timeout, replacing any pending one. */
+  /** (Re)start the timeout, replacing any pending one. No-op after the
+   * owning effect scope is disposed. */
   start: () => void
   /** Cancel a pending timeout. Idempotent; no-op if none pending. */
   stop: () => void
@@ -50,6 +51,7 @@ export function useTimeoutFn(
 
   const [isPending, setIsPending] = signal(false)
   let handle: ReturnType<typeof setTimeout> | undefined
+  let disposed = false
 
   const stop = (): void => {
     if (handle === undefined) return
@@ -59,6 +61,9 @@ export function useTimeoutFn(
   }
 
   const start = (): void => {
+    // A still-referenced start() must not re-arm the timeout (and fire
+    // state updates) once the owning scope tore down.
+    if (disposed) return
     stop()
     setIsPending(true)
     handle = setTimeout(() => {
@@ -68,7 +73,10 @@ export function useTimeoutFn(
     }, delay)
   }
 
-  tryOnScopeDispose(stop)
+  tryOnScopeDispose(() => {
+    disposed = true
+    stop()
+  })
 
   if (immediate) start()
 

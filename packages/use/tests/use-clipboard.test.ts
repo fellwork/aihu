@@ -7,6 +7,7 @@
  * fan-out) — this file exercises `useClipboard` against a stubbed
  * `navigator.clipboard`, not `useSupported`'s own detection logic.
  */
+import { effectScope } from '@aihu/signals'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useClipboard } from '../src/useClipboard/index.ts'
 import { withSSR } from './_ssr.ts'
@@ -55,6 +56,38 @@ describe('@aihu/use/useClipboard', () => {
     const { copy, copied } = useClipboard()
     await copy('nope')
     expect(copied()).toBe(false)
+  })
+
+  it('copy() is a no-op after the owning scope is disposed', async () => {
+    const scope = effectScope()
+    const { copy, copied } = scope.run(() => useClipboard()) as ReturnType<typeof useClipboard>
+
+    scope.stop()
+    await copy('late')
+    // Regression: a still-referenced copy() used to write the clipboard and
+    // re-arm the reset timer after dispose.
+    expect(writeText).not.toHaveBeenCalled()
+    expect(copied()).toBe(false)
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('a copy() in flight when the scope is disposed does not flip copied() or re-arm the timer', async () => {
+    let resolveWrite!: () => void
+    writeText.mockReturnValueOnce(
+      new Promise<void>((resolve) => {
+        resolveWrite = resolve
+      }),
+    )
+    const scope = effectScope()
+    const { copy, copied } = scope.run(() => useClipboard()) as ReturnType<typeof useClipboard>
+
+    const inFlight = copy('racing')
+    scope.stop() // dispose while the clipboard write is still settling
+    resolveWrite()
+    await inFlight
+
+    expect(copied()).toBe(false)
+    expect(vi.getTimerCount()).toBe(0)
   })
 })
 

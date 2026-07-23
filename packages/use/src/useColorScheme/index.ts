@@ -14,13 +14,15 @@
  * signals under the hood. Readers in .aihu templates MUST call getters with
  * parens: `{scheme()}` / `{resolved()}`, never bare.
  *
- * SSR (`isClient === false`): `resolved()` falls back to `'light'` (via
- * `usePreferredDark`'s static-`false` SSR path) and no listener/effect of
- * any kind is registered — the `isClient` no-op invariant is inherited from
- * `usePreferredDark` → `useMediaQuery`.
+ * SSR (`isClient === false`): returns static getters of the resolved
+ * default — `scheme()` is `initialValue`, `resolved()` resolves `'auto'` to
+ * `'light'` — and `setScheme` is a documented no-op. No signal, effect, or
+ * listener of any kind is allocated, the `isClient` no-op invariant (same
+ * shape as the SSR branch in `useMediaQuery`/`useDocumentVisibility`).
  */
 
 import { signal } from '@aihu/signals'
+import { isClient } from '../shared/index.ts'
 import { usePreferredDark } from '../usePreferredDark/index.ts'
 
 /** A color-scheme setting: an explicit choice, or `'auto'` to follow the OS
@@ -40,7 +42,7 @@ export interface UseColorSchemeReturn {
    * is resolved against `usePreferredDark`. Read as `{resolved()}` in
    * templates (parens required). `'light'` under SSR. */
   readonly resolved: () => 'light' | 'dark'
-  /** Update the raw setting. */
+  /** Update the raw setting. No-op under SSR. */
   setScheme: (value: ColorScheme) => void
 }
 
@@ -51,6 +53,14 @@ export interface UseColorSchemeReturn {
  */
 export function useColorScheme(options: UseColorSchemeOptions = {}): UseColorSchemeReturn {
   const { initialValue = 'auto' } = options
+
+  // SSR: static getters of the resolved default, no signal, no effect, no
+  // listener — setScheme is a documented no-op (module doc).
+  if (!isClient) {
+    const scheme = (): ColorScheme => initialValue
+    const resolved = (): 'light' | 'dark' => (initialValue === 'auto' ? 'light' : initialValue)
+    return { scheme, resolved, setScheme: () => {} }
+  }
 
   const [scheme, setScheme] = signal<ColorScheme>(initialValue)
   const { prefersDark } = usePreferredDark()

@@ -73,6 +73,20 @@ describe('@aihu/use/useIntervalFn', () => {
     vi.advanceTimersByTime(300)
     expect(callback).toHaveBeenCalledTimes(1)
   })
+
+  it('resume() after scope disposal does not re-arm the interval', () => {
+    const callback = vi.fn()
+    const scope = effectScope()
+    const ret = scope.run(() => useIntervalFn(callback, 100)) as ReturnType<typeof useIntervalFn>
+
+    scope.stop()
+    ret.resume()
+    // Regression: a still-referenced resume() used to restart the interval
+    // (and fire state updates) after the owning scope tore down.
+    expect(ret.isActive()).toBe(false)
+    vi.advanceTimersByTime(300)
+    expect(callback).not.toHaveBeenCalled()
+  })
 })
 
 describe('@aihu/use/useIntervalFn — SSR-static path', () => {

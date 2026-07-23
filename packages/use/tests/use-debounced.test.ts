@@ -23,6 +23,18 @@ describe('@aihu/use/useDebounced', () => {
     expect(value()).toBe(1)
   })
 
+  it("the effect's creation run does not arm a spurious trailing timer", () => {
+    const [count, setCount] = signal(0)
+    useDebounced(() => count(), 100)
+    // Regression: the creation run used to schedule a trailing timer that
+    // re-set the value `signal()` was already seeded with.
+    expect(vi.getTimerCount()).toBe(0)
+
+    // The first REAL change still arms the trailing edge normally.
+    setCount(1)
+    expect(vi.getTimerCount()).toBe(1)
+  })
+
   it('propagates a new value only after it is stable for the delay', () => {
     const [count, setCount] = signal(0)
     const { value } = useDebounced(() => count(), 100)

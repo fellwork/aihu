@@ -79,6 +79,22 @@ describe('@aihu/use/useTimeoutFn', () => {
     vi.advanceTimersByTime(200)
     expect(callback).not.toHaveBeenCalled()
   })
+
+  it('start() after scope disposal does not re-arm the timeout', () => {
+    const callback = vi.fn()
+    const scope = effectScope()
+    const ret = scope.run(() => useTimeoutFn(callback, 100, { immediate: false })) as ReturnType<
+      typeof useTimeoutFn
+    >
+
+    scope.stop()
+    ret.start()
+    // Regression: a still-referenced start() used to arm a fresh timeout
+    // (and fire state updates) after the owning scope tore down.
+    expect(ret.isPending()).toBe(false)
+    vi.advanceTimersByTime(300)
+    expect(callback).not.toHaveBeenCalled()
+  })
 })
 
 describe('@aihu/use/useTimeoutFn — SSR-static path', () => {
