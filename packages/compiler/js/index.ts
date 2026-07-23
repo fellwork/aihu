@@ -1377,6 +1377,25 @@ export function aihuCompilerPlugin(options?: AihuCompilerPluginOptions): VitePlu
       // Strip Vite query strings (e.g. `?import`, `?t=...`) before checking the extension.
       const rawId = id.split('?')[0]!
       if (!rawId.endsWith('.aihu')) return
+      // Server-environment detection (Vite Environment API). A `.aihu` loaded
+      // through an SSR module runner — the `output: 'static'` prerender's
+      // `ssrLoadModule` (packages/app/src/prerender.ts), or any `vite dev` SSR
+      // consumer — must NOT get the client/universal target: that emits a
+      // module-level `new CSSStyleSheet()` and an unguarded `customElements`
+      // registration, both of which throw in the DOM-less SSR runner
+      // (`CSSStyleSheet is not defined`) and silently degrade the prerender to
+      // an empty SPA shell. The `server` target guards DOM registration behind
+      // `typeof customElements` and exports `__ssr` (a host-less arbor factory)
+      // plus the `__aihu_ssr_string__` compiled string fast path that
+      // @aihu/server's `renderToString` prefers — a pure string concatenation
+      // that needs no DOM. An explicit `target` option still wins (a caller
+      // that pins a target owns the consequences); we only fill the SSR default
+      // when none was configured. `this.environment` is absent on pre-Environment
+      // -API Vite, in which case the prior universal default stands.
+      const isServerEnv =
+        (this as { environment?: { config?: { consumer?: string } } })?.environment?.config
+          ?.consumer === 'server'
+      const effectiveTarget = target ?? (isServerEnv ? 'server' : undefined)
       return (async () => {
         // No `.aihu.ts` sidecar is written any more. Type-checking goes through
         // `aihu-tsc`, which projects each `.aihu` into the TypeScript program as a
@@ -1389,7 +1408,7 @@ export function aihuCompilerPlugin(options?: AihuCompilerPluginOptions): VitePlu
         const isLayout = _isLayoutFile(rawId, layoutsDir)
         const layoutTag = isLayout ? _layoutTag(basename(rawId, '.aihu')) : undefined
         const tOpts = {
-          ...(target ? { target } : {}),
+          ...(effectiveTarget ? { target: effectiveTarget } : {}),
           ...(layoutTag ? { tag: layoutTag } : {}),
         }
         const result = transform(code, rawId, tOpts)
@@ -1479,7 +1498,20 @@ export function aihuCompilerPlugin(options?: AihuCompilerPluginOptions): VitePlu
         // and cannot honor `shadowMode: 'light'` (and its tail rewrite does not
         // match the injected options argument). Keep the full runtime path so
         // the injected `{ shadowMode: 'light' }` reaches defineElement.
-        if (
+        if (isServerEnv) {
+          // Server module-runner target (the SSG prerender's `ssrLoadModule`,
+          // any dev-SSR consumer). The `server` compile target already exports
+          // the host-less `__ssr` factory + the `__aihu_ssr_string__` string
+          // fast path and guards its own custom-element registration behind
+          // `typeof customElements`. The client-only instrumentation below is
+          // wrong here: HMR (`_buildHmrCode`) prepends a `let __aihu_setup__`
+          // slot that COLLIDES with the server target's named
+          // `const __aihu_setup__` (duplicate declaration); the static-island
+          // shim, `defer` hydration, and auto-wiring all inject browser mount
+          // code the SSR render never runs. Emit the server target as-is; the
+          // TS-strip below still applies.
+          out = compiled
+        } else if (
           islandsEnabled &&
           elementTag !== null &&
           !hasBase &&
@@ -1516,6 +1548,25 @@ export function aihuCompilerPlugin(options?: AihuCompilerPluginOptions): VitePlu
         // and fail on import-type / as-casts.
         try {
           const vite = await import('vite')
+          // Server module-runner env (the SSG prerender's `ssrLoadModule`, any
+          // dev-SSR consumer): the runner's `ssrTransform` parses JS ONLY and
+          // IGNORES the `moduleType: 'ts'` hint below (it drives rolldown
+          // BUNDLING, not the module-runner), so TS MUST be stripped to real JS
+          // right here or the runner throws `Expected a semicolon …` on the
+          // first type annotation. Prefer `transformWithOxc` — Vite 8's native
+          // transform, always present, with NO separate esbuild dependency
+          // (Vite 8 made esbuild optional). This is what makes the SSR/SSG path
+          // robust in a consumer project that never installs esbuild; the
+          // esbuild branch below stays the default for the client path (and its
+          // Vite-5 compatibility). Guarded on `isServerEnv` so the client build
+          // is byte-for-byte unchanged.
+          if (isServerEnv && typeof vite.transformWithOxc === 'function') {
+            const stripped = await vite.transformWithOxc(out, 'component.ts', {
+              lang: 'ts',
+              sourcemap: false,
+            })
+            return { code: stripped.code, map: null }
+          }
           if ('transformWithEsbuild' in vite && typeof vite.transformWithEsbuild === 'function') {
             const stripped = await vite.transformWithEsbuild(out, 'component.ts', {
               target: 'esnext',

@@ -28,8 +28,22 @@
     "slot",
     "ssr-hydration"
   ],
-  "planned": ["onceRendered-prerender-content"],
   "absorbs": ["auth-magna-seo"],
   "ci": "build",
-  "notes": "NEW in Phase 2a. Sole live exerciser of output:'static', onAdopt, onAttributeChange, and the reflected prop attribute surface. `bun run build` exits 0 and emits the client bundle, but the SSG prerender pass currently DEGRADES (Vite-8 SSR module-runner lacks CSSStyleSheet/customElements for compiled components) — a framework gap surfaced as a warning, tracked for Phase 2b/3. SFCs compile clean; per-route head sidecars carry full SEO metadata."
+  "prerender": {
+    "index.html": [
+      "Static output, live app",
+      "Why static output",
+      "Hydration adoption",
+      "Per-route SEO head",
+      "data-aihu-path=\"0\"",
+      "<script type=\"module\""
+    ],
+    "about/index.html": [
+      "About this example",
+      "sole live exerciser of the SSG build path",
+      "data-aihu-path=\"0\""
+    ]
+  },
+  "notes": "NEW in Phase 2a. Sole live exerciser of output:'static', onAdopt, onAttributeChange, and the reflected prop attribute surface. `bun run build` prerenders every static route to a content-ful <pattern>/index.html (SSR string renderer via the compiler's server target) that hydrates into the SPA on load; the `prerender` block above asserts the rendered content is really in the bytes so a regression to the empty SPA shell is RED. SFCs compile clean; per-route head recovered from source via compileRouteMeta (parity with the SPA build)."
 }
