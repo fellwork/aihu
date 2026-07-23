@@ -29,9 +29,7 @@ describe('@aihu/use/useDocumentVisibility', () => {
 
   it('scope.stop() removes the listener (getter freezes)', () => {
     const scope = effectScope()
-    const doc = scope.run(() => useDocumentVisibility()) as ReturnType<
-      typeof useDocumentVisibility
-    >
+    const doc = scope.run(() => useDocumentVisibility()) as ReturnType<typeof useDocumentVisibility>
     scope.stop()
     fireVisibilityChange('hidden')
     expect(doc.visibility()).toBe('visible')

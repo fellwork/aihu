@@ -32,17 +32,20 @@ describe('@aihu/use/useThrottle', () => {
     expect(value()).toBe(1)
   })
 
-  it('the first REAL change propagates immediately even when it arrives ' +
-    'right after creation (creation itself must not consume the leading-edge slot)', () => {
-    const [count, setCount] = signal(0)
-    const { value } = useThrottle(() => count(), 100)
+  it(
+    'the first REAL change propagates immediately even when it arrives ' +
+      'right after creation (creation itself must not consume the leading-edge slot)',
+    () => {
+      const [count, setCount] = signal(0)
+      const { value } = useThrottle(() => count(), 100)
 
-    // No advance — this change lands well within `delay` ms of creation.
-    // A bug that stamps `lastRun` on the effect's creation run would defer
-    // this to the trailing edge instead.
-    setCount(1)
-    expect(value()).toBe(1)
-  })
+      // No advance — this change lands well within `delay` ms of creation.
+      // A bug that stamps `lastRun` on the effect's creation run would defer
+      // this to the trailing edge instead.
+      setCount(1)
+      expect(value()).toBe(1)
+    },
+  )
 
   it('changes within a still-open window are coalesced and flushed once at its end', () => {
     const [count, setCount] = signal(0)

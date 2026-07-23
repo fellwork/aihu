@@ -42,10 +42,7 @@ export interface UseScrollReturn {
  */
 function isWindowTarget(target: unknown): target is Window {
   return (
-    typeof target === 'object' &&
-    target !== null &&
-    'document' in target &&
-    'scrollX' in target
+    typeof target === 'object' && target !== null && 'document' in target && 'scrollX' in target
   )
 }
 

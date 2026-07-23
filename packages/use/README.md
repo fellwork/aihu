@@ -110,8 +110,28 @@ bun add @aihu/use
 |---|---|---|
 | `.` | `./dist/index.js` | `—` |
 | `./shared` | `./dist/shared.js` | `—` |
+| `./useClipboard` | `./dist/useClipboard.js` | `—` |
+| `./useColorScheme` | `./dist/useColorScheme.js` | `—` |
+| `./useCounter` | `./dist/useCounter.js` | `—` |
+| `./useDebounced` | `./dist/useDebounced.js` | `—` |
+| `./useDocumentVisibility` | `./dist/useDocumentVisibility.js` | `—` |
+| `./useElementSize` | `./dist/useElementSize.js` | `—` |
+| `./useElementVisibility` | `./dist/useElementVisibility.js` | `—` |
 | `./useEventListener` | `./dist/useEventListener.js` | `—` |
+| `./useIntervalFn` | `./dist/useIntervalFn.js` | `—` |
+| `./useLocalStorage` | `./dist/useLocalStorage.js` | `—` |
+| `./useMediaQuery` | `./dist/useMediaQuery.js` | `—` |
 | `./useMouse` | `./dist/useMouse.js` | `—` |
+| `./useNow` | `./dist/useNow.js` | `—` |
+| `./usePreferredDark` | `./dist/usePreferredDark.js` | `—` |
+| `./usePrevious` | `./dist/usePrevious.js` | `—` |
+| `./useRafFn` | `./dist/useRafFn.js` | `—` |
+| `./useScroll` | `./dist/useScroll.js` | `—` |
+| `./useSupported` | `./dist/useSupported.js` | `—` |
+| `./useThrottle` | `./dist/useThrottle.js` | `—` |
+| `./useTimeoutFn` | `./dist/useTimeoutFn.js` | `—` |
+| `./useToggle` | `./dist/useToggle.js` | `—` |
+| `./useWindowSize` | `./dist/useWindowSize.js` | `—` |
 
 <sub><i>Auto-generated against `@aihu/use@0.2.0`.</i></sub>
 

@@ -4,7 +4,7 @@
  * SSR-static path (no `localStorage` access at all). jsdom environment
  * (root vitest config).
  */
-import { describe, expect, it, beforeEach, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useLocalStorage } from '../src/useLocalStorage/index.ts'
 import { withSSR } from './_ssr.ts'
 

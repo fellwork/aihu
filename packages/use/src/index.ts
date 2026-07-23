@@ -21,7 +21,11 @@ export {
 } from './shared/index.ts'
 export type { UseClipboardOptions, UseClipboardReturn } from './useClipboard/index.ts'
 export { useClipboard } from './useClipboard/index.ts'
-export type { ColorScheme, UseColorSchemeOptions, UseColorSchemeReturn } from './useColorScheme/index.ts'
+export type {
+  ColorScheme,
+  UseColorSchemeOptions,
+  UseColorSchemeReturn,
+} from './useColorScheme/index.ts'
 export { useColorScheme } from './useColorScheme/index.ts'
 export type { UseCounterOptions, UseCounterReturn } from './useCounter/index.ts'
 export { useCounter } from './useCounter/index.ts'
