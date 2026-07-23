@@ -234,6 +234,27 @@
     "ignore": ["@aihu/signals", "@aihu/context"]
   },
   {
+    "name": "@aihu/use/shared",
+    "path": "packages/use/dist/shared.js",
+    "limit": "320 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
+    "name": "@aihu/use/useEventListener",
+    "path": "packages/use/dist/useEventListener.js",
+    "limit": "390 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
+    "name": "@aihu/use/useMouse",
+    "path": "packages/use/dist/useMouse.js",
+    "limit": "570 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
     "name": "@aihu/auth",
     "path": "packages/auth/dist/index.js",
     "limit": "1.5 KB",

@@ -336,6 +336,12 @@
     "isPlatform": false
   },
   {
+    "name": "@aihu/use",
+    "version": "0.1.0",
+    "dir": "packages/use",
+    "isPlatform": false
+  },
+  {
     "name": "create-aihu",
     "version": "0.1.5",
     "dir": "packages/create-aihu",

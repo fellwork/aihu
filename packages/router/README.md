@@ -34,7 +34,6 @@ bun add @aihu/router
 |---|---|
 | **Version** | `0.4.0` |
 | **Tier** | B — Meta-framework — file-based router |
-| **Bundle size** | 1.71 kB (gz) — limit 2400 B |
 | **Published files** | 3 entries |
 | **License** | MIT |
 
