@@ -1,0 +1,41 @@
+<!-- @cookbook
+id: use-mouse
+type: display
+granularity: block
+description: "@aihu/use composable in @state — a bare useMouse() call auto-imports its per-subpath entry; destructured getters are read with parens: {x()}."
+constructs: [interpolation]
+packages: ["@aihu/use"]
+concerns: [state, events]
+since: 0.5.0
+anti-patterns:
+  - "Do not read composable getters bare — `{x}` renders the getter's source text. Composable returns are getters, not state()-declared names; always call them: `{x()}`."
+  - "Do not import the @aihu/use barrel (`from '@aihu/use'`) — the compiler auto-imports the tree-shakable per-subpath entry when you just call useMouse()."
+-->
+// use-mouse — @aihu/use composable in @state: bare call auto-imports, getters read with parens
+
+@state {
+  // No import needed: a bare `useMouse()` call auto-imports
+  // `import { useMouse } from '@aihu/use/useMouse'` (per-subpath, tree-shakable).
+  // Destructured composable return: named getters, signals under the hood.
+  // The component scope owns the composable's mousemove listener — it is
+  // removed automatically on unmount, no $lifecycle.dispose needed.
+  const { x, y } = useMouse()
+}
+
+@template {
+  <div class="mouse-pos" role="status" aria-live="off">
+    <!--
+      Parens REQUIRED: `x`/`y` are composable getters, not
+      state()-declared names, so the compiler cannot auto-unwrap them.
+      `{x()}` is reactive; a bare `{x}` would render the getter's source
+      text. This is the #1 composable DX gotcha.
+    -->
+    <span class="coord">x: {x()}</span>
+    <span class="coord">y: {y()}</span>
+  </div>
+}
+
+@style {
+  .mouse-pos { display: flex; gap: 1rem; font-family: monospace; font-size: 1.25rem; padding: 1rem; }
+  .coord { background: var(--coord-bg, #111); color: var(--coord-fg, #0f0); padding: 0.2em 0.5em; border-radius: 4px; min-width: 7ch; }
+}

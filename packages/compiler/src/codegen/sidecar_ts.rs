@@ -127,6 +127,22 @@ pub(crate) fn emit_sidecar_ts(
         .map(|(_, decl)| *decl)
         .collect::<Vec<_>>()
         .join(" ");
+    // Compiler auto-import of `@aihu/use` composables (codegen/use_registry.rs):
+    // the JS emit injects `import { useX } from '@aihu/use/useX'` for a bare
+    // `useX(...)` call; the sidecar mirrors it with an ambient declaration so
+    // the same bare call type-checks. Both sides call the ONE decision
+    // function `detect_composables` (comment/string-masked call detection +
+    // the shared bound-name guard: an authored import or local binding
+    // suppresses both the import and this declaration), so they can never
+    // disagree. Permissive signature for v1 — deriving the real signatures
+    // from the package's .d.ts is future work alongside generating the
+    // registry itself.
+    for (name, _source) in crate::codegen::use_registry::detect_composables(script) {
+        if !globals.is_empty() {
+            globals.push(' ');
+        }
+        globals.push_str(&format!("declare const {name}: (...args: any[]) => any;"));
+    }
     // #487 §5 — the identity-typed intrinsic declarations (state-model spec
     // §5.1). Emitted ONLY for a wrapper-dialect file, so old-dialect sidecars
     // stay byte-identical. Wrapper declarations are valid TS checked IN PLACE
@@ -1365,7 +1381,7 @@ fn is_js_ident(s: &str) -> bool {
 /// harmless as `any` params. Handles MULTI-LINE imports (named lists split
 /// across lines), which the previous line-at-a-time scan missed — that miss is
 /// why imported handlers like `closeNav` still TS2304'd.
-fn collect_imported_names(script: &str, out: &mut std::collections::BTreeSet<String>) {
+pub(crate) fn collect_imported_names(script: &str, out: &mut std::collections::BTreeSet<String>) {
     // Reassemble each `import …` statement (it may span several lines) up to and
     // including its `from '…'` tail, then parse that single logical statement.
     let mut buf = String::new();
@@ -1373,7 +1389,10 @@ fn collect_imported_names(script: &str, out: &mut std::collections::BTreeSet<Str
     for line in script.lines() {
         let t = line.trim();
         if !in_import {
-            if t.starts_with("import ") {
+            // Accept a tab after the keyword too — the @state import lifter
+            // (process_state_body) accepts `import\t`, and a form the lifter
+            // hoists but this guard misses would double-bind at module scope.
+            if t.starts_with("import ") || t.starts_with("import\t") {
                 in_import = true;
                 buf.clear();
                 buf.push_str(t);
@@ -1400,9 +1419,15 @@ fn collect_imported_names(script: &str, out: &mut std::collections::BTreeSet<Str
 
 /// Parse one assembled `import …` statement for its bound names.
 fn parse_import_statement(stmt: &str, out: &mut std::collections::BTreeSet<String>) {
-    let Some(rest) = stmt.trim().strip_prefix("import ") else {
+    // `import` + any whitespace (space or tab), never `imports…`.
+    let trimmed = stmt.trim();
+    let Some(after_kw) = trimmed.strip_prefix("import") else {
         return;
     };
+    if !after_kw.starts_with([' ', '\t']) {
+        return;
+    }
+    let rest = after_kw.trim_start();
     if let (Some(lb), Some(rb)) = (rest.find('{'), rest.find('}')) {
         if lb < rb {
             for part in rest[lb + 1..rb].split(',') {

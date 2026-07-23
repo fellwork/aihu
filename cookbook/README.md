@@ -1,6 +1,6 @@
 # aihu Cookbook
 
-Twenty CI-protected `.aihu` SFC recipes — the **fluency corpus** that teaches humans and
+Twenty-one CI-protected `.aihu` SFC recipes — the **fluency corpus** that teaches humans and
 AI agents idiomatic aihu. Each recipe compiles cleanly through the aihu Rust compiler
 (the harness exits 1 on any error) and carries machine-readable frontmatter.
 
@@ -67,6 +67,7 @@ related: [aihu-tabs]
 | `ssr-hydration.aihu` | `onMount` hydrates from `dataset` — SSR-safe prop bootstrapping pattern |
 | `tailwind-style.aihu` | Tailwind 4 utility classes in template + scoped `@style` block coexistence |
 | `theme-toggle.aihu` | `provide()` theme + `effect()` toggling `document.documentElement` class |
+| `use-mouse.aihu` | `@aihu/use` composable — bare `useMouse()` auto-imports its subpath entry; destructured getters read `{x()}` WITH parens; scope-owned auto-cleanup |
 
 ## Running the harness
 

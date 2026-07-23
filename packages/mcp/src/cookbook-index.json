@@ -883,5 +883,39 @@
       "toggle"
     ],
     "source": "// theme-toggle — dark/light toggle: provide() for theme + effect() for documentElement class\n\n@state {\n  let theme = state('light')\n\n  provide('theme', theme)\n\n  effect(() => {\n    document.documentElement.classList.toggle('dark', theme === 'dark')\n    document.documentElement.classList.toggle('light', theme === 'light')\n  })\n\n  const toggle = action(() => { theme = theme === 'light' ? 'dark' : 'light' })\n  const setTheme = action((t: 'light' | 'dark') => { theme = t })\n}\n\n@template {\n  <div class=\"theme-toggle\">\n    <button\n      class={['toggle-btn', theme]}\n      on:click={toggle}\n      aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} theme`}\n    >\n      {theme === 'light' ? '☀ Light' : '☾ Dark'}\n    </button>\n    <span class=\"current\">Current: {theme}</span>\n  </div>\n}\n\n@style {\n  .theme-toggle { display: flex; align-items: center; gap: 1rem; padding: 0.75rem 1rem; }\n  .toggle-btn { padding: 0.4rem 0.9rem; border: 1px solid var(--border, #ccc); border-radius: 20px; cursor: pointer; font-size: 0.9rem; transition: background 0.2s; }\n  .toggle-btn.light { background: #fff; color: #333; }\n  .toggle-btn.dark { background: #111; color: #eee; border-color: #555; }\n  .current { font-size: 0.8rem; color: var(--muted, #888); }\n}\n"
+  },
+  {
+    "filename": "use-mouse.aihu",
+    "id": "use-mouse",
+    "type": "display",
+    "granularity": "block",
+    "description": "\"@aihu/use composable in @state — a bare useMouse() call auto-imports its per-subpath entry; destructured getters are read with parens: {x()}.\"",
+    "constructs": [
+      "interpolation"
+    ],
+    "packages": [
+      "@aihu/use"
+    ],
+    "concerns": [
+      "state",
+      "events"
+    ],
+    "since": "0.5.0",
+    "antiPatterns": [
+      "Do not read composable getters bare — `{x}` renders the getter's source text. Composable returns are getters, not state()-declared names; always call them: `{x()}`.",
+      "Do not import the @aihu/use barrel (`from '@aihu/use'`) — the compiler auto-imports the tree-shakable per-subpath entry when you just call useMouse()."
+    ],
+    "related": [],
+    "tags": [
+      "@aihu/use",
+      "block",
+      "display",
+      "events",
+      "interpolation",
+      "mouse",
+      "state",
+      "use"
+    ],
+    "source": "// use-mouse — @aihu/use composable in @state: bare call auto-imports, getters read with parens\n\n@state {\n  // No import needed: a bare `useMouse()` call auto-imports\n  // `import { useMouse } from '@aihu/use/useMouse'` (per-subpath, tree-shakable).\n  // Destructured composable return: named getters, signals under the hood.\n  // The component scope owns the composable's mousemove listener — it is\n  // removed automatically on unmount, no $lifecycle.dispose needed.\n  const { x, y } = useMouse()\n}\n\n@template {\n  <div class=\"mouse-pos\" role=\"status\" aria-live=\"off\">\n    <!--\n      Parens REQUIRED: `x`/`y` are composable getters, not\n      state()-declared names, so the compiler cannot auto-unwrap them.\n      `{x()}` is reactive; a bare `{x}` would render the getter's source\n      text. This is the #1 composable DX gotcha.\n    -->\n    <span class=\"coord\">x: {x()}</span>\n    <span class=\"coord\">y: {y()}</span>\n  </div>\n}\n\n@style {\n  .mouse-pos { display: flex; gap: 1rem; font-family: monospace; font-size: 1.25rem; padding: 1rem; }\n  .coord { background: var(--coord-bg, #111); color: var(--coord-fg, #0f0); padding: 0.2em 0.5em; border-radius: 4px; min-width: 7ch; }\n}\n"
   }
 ]
