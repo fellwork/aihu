@@ -136,6 +136,7 @@ bun add @aihu/signals
 |---|---|
 | **Version** | `0.4.0` |
 | **Tier** | A — Reactive runtime core — signals/computeds/effects |
+| **Bundle size** | 2.18 kB (gz) — limit 2350 B |
 | **Published files** | 3 entries |
 | **License** | MIT |
 

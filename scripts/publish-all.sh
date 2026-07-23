@@ -58,6 +58,7 @@ PKGS=(
   "mcp"               # leaf — MCP server, only external sdk dep
   "ai"                # leaf — peer deps only on external sdks
   "context"
+  "store"              # @aihu/store — depends on @aihu/signals + @aihu/context (must follow them). Public + changeset-versioned but was missing from this manifest, so it never reached npm.
   "plugin-data"
   "plugin"
   "router"

@@ -15,13 +15,93 @@
       "types": "./dist/shared.d.ts",
       "import": "./dist/shared.js"
     },
+    "./useClipboard": {
+      "types": "./dist/useClipboard.d.ts",
+      "import": "./dist/useClipboard.js"
+    },
+    "./useColorScheme": {
+      "types": "./dist/useColorScheme.d.ts",
+      "import": "./dist/useColorScheme.js"
+    },
+    "./useCounter": {
+      "types": "./dist/useCounter.d.ts",
+      "import": "./dist/useCounter.js"
+    },
+    "./useDebounced": {
+      "types": "./dist/useDebounced.d.ts",
+      "import": "./dist/useDebounced.js"
+    },
+    "./useDocumentVisibility": {
+      "types": "./dist/useDocumentVisibility.d.ts",
+      "import": "./dist/useDocumentVisibility.js"
+    },
+    "./useElementSize": {
+      "types": "./dist/useElementSize.d.ts",
+      "import": "./dist/useElementSize.js"
+    },
+    "./useElementVisibility": {
+      "types": "./dist/useElementVisibility.d.ts",
+      "import": "./dist/useElementVisibility.js"
+    },
     "./useEventListener": {
       "types": "./dist/useEventListener.d.ts",
       "import": "./dist/useEventListener.js"
     },
+    "./useIntervalFn": {
+      "types": "./dist/useIntervalFn.d.ts",
+      "import": "./dist/useIntervalFn.js"
+    },
+    "./useLocalStorage": {
+      "types": "./dist/useLocalStorage.d.ts",
+      "import": "./dist/useLocalStorage.js"
+    },
+    "./useMediaQuery": {
+      "types": "./dist/useMediaQuery.d.ts",
+      "import": "./dist/useMediaQuery.js"
+    },
     "./useMouse": {
       "types": "./dist/useMouse.d.ts",
       "import": "./dist/useMouse.js"
+    },
+    "./useNow": {
+      "types": "./dist/useNow.d.ts",
+      "import": "./dist/useNow.js"
+    },
+    "./usePreferredDark": {
+      "types": "./dist/usePreferredDark.d.ts",
+      "import": "./dist/usePreferredDark.js"
+    },
+    "./usePrevious": {
+      "types": "./dist/usePrevious.d.ts",
+      "import": "./dist/usePrevious.js"
+    },
+    "./useRafFn": {
+      "types": "./dist/useRafFn.d.ts",
+      "import": "./dist/useRafFn.js"
+    },
+    "./useScroll": {
+      "types": "./dist/useScroll.d.ts",
+      "import": "./dist/useScroll.js"
+    },
+    "./useSupported": {
+      "types": "./dist/useSupported.d.ts",
+      "import": "./dist/useSupported.js"
+    },
+    "./useThrottle": {
+      "types": "./dist/useThrottle.d.ts",
+      "import": "./dist/useThrottle.js"
+    },
+    "./useTimeoutFn": {
+      "types": "./dist/useTimeoutFn.d.ts",
+      "import": "./dist/useTimeoutFn.js"
+    },
+    "./useToggle": {
+      "types": "./dist/useToggle.d.ts",
+      "import": "./dist/useToggle.js"
+    },
+    "./useWindowSize": {
+      "types": "./dist/useWindowSize.d.ts",
+      "import": "./dist/useWindowSize.js"
     }
   },
   "files": [
