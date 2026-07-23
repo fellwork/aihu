@@ -15,41 +15,49 @@
 
   const cookbook = COOKBOOK
   const governed = GOVERNED
-  const counterCode = codeBlock(COUNTER_SOURCE, { name: 'aihu-counter.aihu' })
+  const counterCode = codeBlock(COUNTER_SOURCE, { name: 'aihu-counter.aihu', lang: 'aihu' })
 }
 
 @template {
   <div class="dn-gallery dn-article">
     <header class="dn-gallery-head">
-      <h1>Examples &amp; Cookbook</h1>
+      <p class="dn-sec-num"><b>EX</b> examples &amp; cookbook</p>
+      <h1>The corpus that teaches humans and agents idiomatic aihu</h1>
       <p>A governed example set that exercises every subsystem <em>live</em>, and a
-         fluency cookbook of focused recipes — the corpus that teaches humans and
-         agents idiomatic aihu.</p>
+         fluency cookbook of focused recipes — each one a real, compiled
+         <code>.aihu</code> component.</p>
     </header>
 
+    <!-- Playground — a dual surface: source + the live island it compiles to. -->
     <section id="playground" class="dn-pg">
       <div class="dn-pg-head">
-        <h2>Playground</h2>
-        <span class="dn-pg-tag">live · runnable</span>
+        <span class="dn-status dn-status-accent">
+          <span class="dn-dot dn-dot-live"></span>live · runnable
+        </span>
+        <span class="dn-pg-name dn-rail">aihu-counter</span>
       </div>
       <div class="dn-pg-body">
         <div class="dn-pg-preview">
-          <span class="dn-pg-label">Rendered — try it</span>
+          <span class="dn-pg-label">
+            <span class="dn-dot"></span>Human render — try it
+          </span>
           <counter-demo count="3"></counter-demo>
         </div>
         <div class="dn-pg-source" html={counterCode}></div>
       </div>
       <p class="dn-pg-note">
         This counter is the real <code>aihu-counter</code> recipe, compiled at
-        build and hydrated as an island — fully interactive right here. In-browser
-        recompilation (the WASM playground) is the next phase.
+        build and hydrated as an island — fully interactive right here.
+        In-browser recompilation (the WASM playground) is the next phase.
       </p>
     </section>
 
     <section id="governed" class="dn-sec">
       <div class="dn-sec-head">
         <h2>Governed examples</h2>
-        <span class="dn-sec-count">{governed.length} · CI-built</span>
+        <span class="dn-status dn-status-graphite dn-sec-count">
+          <span class="dn-dot dn-dot-graphite"></span>{governed.length} · CI-built
+        </span>
       </div>
       <div class="dn-gov-grid">
         <div class="dn-gov-card" each={g of governed} key={g.id}>
@@ -65,13 +73,15 @@
     <section id="cookbook" class="dn-sec">
       <div class="dn-sec-head">
         <h2>Cookbook recipes</h2>
-        <span class="dn-sec-count">{cookbook.length} shown</span>
+        <span class="dn-sec-count dn-rail">{cookbook.length} shown</span>
       </div>
       <div class="dn-card-grid">
         <a class="dn-card" each={r of cookbook} key={r.id} href={`/examples#${r.id}`}>
           <div class="dn-card-top">
             <span class="dn-card-type">{r.type}</span>
-            <span class="dn-card-run" if={!!r.playground}>Run ↗</span>
+            <span class="dn-card-run" if={!!r.playground}>
+              <span class="dn-dot"></span>Run
+            </span>
           </div>
           <h3 class="dn-card-title">{r.title}</h3>
           <p class="dn-card-desc">{r.description}</p>
@@ -88,11 +98,17 @@
   .dn-gallery {
     max-width: 62rem;
   }
+  .dn-gallery-head .dn-sec-num {
+    margin: 0 0 1.1rem;
+  }
   .dn-gallery-head h1 {
     font-size: var(--fs-3xl);
-    font-weight: 750;
+    font-weight: 700;
     letter-spacing: var(--tracking-tighter);
-    margin: 0 0 0.6rem;
+    line-height: 1.08;
+    margin: 0 0 0.75rem;
+    text-wrap: balance;
+    max-width: 24ch;
   }
   .dn-gallery-head p {
     color: var(--muted);
@@ -106,6 +122,11 @@
     font-style: normal;
     font-weight: 600;
   }
+  .dn-gallery-head code {
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+    color: var(--accent-strong);
+  }
 
   /* playground */
   .dn-pg {
@@ -114,31 +135,17 @@
     background: var(--surface);
     overflow: hidden;
     box-shadow: var(--shadow-md);
-    margin-bottom: 3rem;
+    margin-bottom: 3.5rem;
     scroll-margin-top: calc(var(--header-h) + 1rem);
   }
   .dn-pg-head {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 0.75rem;
-    padding: 0.9rem 1.25rem;
+    padding: 0.75rem 1.25rem;
     border-bottom: 1px solid var(--border);
-  }
-  .dn-pg-head h2 {
-    font-size: var(--fs-lg);
-    margin: 0;
-    letter-spacing: -0.01em;
-  }
-  .dn-pg-tag {
-    font-size: var(--fs-xs);
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--accent);
-    background: var(--accent-soft);
-    border: 1px solid var(--accent-line);
-    border-radius: var(--r-full);
-    padding: 0.12rem 0.6rem;
+    background: var(--surface-2);
   }
   .dn-pg-body {
     display: grid;
@@ -150,17 +157,21 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
+    gap: 1rem;
     padding: 1.5rem;
-    background: var(--surface-2);
+    background: var(--surface);
     border-bottom: 1px solid var(--border);
+    box-shadow: inset 3px 0 0 var(--accent);
   }
   .dn-pg-label {
     align-self: flex-start;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-family: var(--font-mono);
     font-size: var(--fs-xs);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--faint);
-    font-weight: 650;
+    letter-spacing: 0.03em;
+    color: var(--muted);
   }
   .dn-pg-source .cb {
     margin: 0;
@@ -174,6 +185,7 @@
     border-top: 1px solid var(--border);
     color: var(--muted);
     font-size: var(--fs-sm);
+    line-height: 1.55;
   }
   .dn-pg-note code {
     font-family: var(--font-mono);
@@ -183,7 +195,7 @@
 
   /* sections */
   .dn-sec {
-    margin-bottom: 3rem;
+    margin-bottom: 3.5rem;
     scroll-margin-top: calc(var(--header-h) + 1rem);
   }
   .dn-sec-head {
@@ -191,26 +203,24 @@
     align-items: baseline;
     justify-content: space-between;
     gap: 1rem;
-    margin-bottom: 1.1rem;
+    margin-bottom: 1.25rem;
     padding-bottom: 0.6rem;
     border-bottom: 1px solid var(--border);
   }
   .dn-sec-head h2 {
     font-size: var(--fs-xl);
-    letter-spacing: -0.02em;
+    letter-spacing: var(--tracking-tight);
     margin: 0;
   }
   .dn-sec-count {
-    font-size: var(--fs-sm);
-    color: var(--faint);
-    font-family: var(--font-mono);
+    align-self: center;
   }
 
   /* governed grid */
   .dn-gov-grid {
     display: grid;
     grid-template-columns: 1fr;
-    gap: 0.75rem;
+    gap: 0.6rem;
   }
   .dn-gov-card {
     display: flex;
@@ -223,7 +233,7 @@
   }
   .dn-gov-id {
     font-family: var(--font-mono);
-    font-weight: 700;
+    font-weight: 600;
     font-size: var(--fs-sm);
     color: var(--accent-contrast);
     background: var(--graphite);
@@ -231,6 +241,7 @@
     padding: 0.2rem 0.5rem;
     min-width: 2.3rem;
     text-align: center;
+    font-variant-numeric: tabular-nums;
   }
   .dn-gov-body {
     display: flex;
@@ -239,7 +250,7 @@
   }
   .dn-gov-name {
     font-family: var(--font-mono);
-    font-weight: 600;
+    font-weight: 550;
     color: var(--fg-strong);
     font-size: var(--fs-sm);
   }
@@ -278,23 +289,25 @@
     justify-content: space-between;
   }
   .dn-card-type {
+    font-family: var(--font-mono);
     font-size: var(--fs-xs);
-    font-weight: 700;
+    font-weight: 500;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.05em;
     color: var(--graphite);
   }
   .dn-card-run {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-family: var(--font-mono);
     font-size: var(--fs-xs);
-    font-weight: 600;
+    font-weight: 500;
     color: var(--accent);
-    background: var(--accent-soft);
-    border-radius: var(--r-full);
-    padding: 0.1rem 0.5rem;
   }
   .dn-card-title {
     font-size: var(--fs-lg);
-    letter-spacing: -0.02em;
+    letter-spacing: var(--tracking-tight);
     margin: 0;
   }
   .dn-card-desc {
@@ -314,8 +327,8 @@
     font-family: var(--font-mono);
     font-size: 0.7rem;
     color: var(--muted);
-    background: var(--code-inline-bg);
-    border: 1px solid var(--code-border);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
     padding: 0.05rem 0.4rem;
     border-radius: 4px;
   }

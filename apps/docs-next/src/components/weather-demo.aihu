@@ -1,0 +1,141 @@
+// weather-demo — the human-render half of the landing's dual-surface card. This
+// is the ACTUAL hydrated island the dual-surface story promises (not a picture of
+// one): the `weather.aihu` thesis component made real. `city` is a public,
+// agent-exposable prop; `refresh` is an agent-invocable action. It compiles at
+// build, ships as an island, and is fully interactive on the page. Forecasts are
+// canned + deterministic (no network) so the running surface is stable for
+// screenshots yet genuinely reactive — every click advances real reactive state.
+
+@state {
+  const CITIES = ['London', 'Tokyo', 'Lisbon', 'Nairobi']
+  // A small canned forecast rotation per refresh — deterministic, no network.
+  const FORECASTS = [
+    { icon: '☀', sky: 'Clear', temp: 21 },
+    { icon: '⛅', sky: 'Partly cloudy', temp: 18 },
+    { icon: '☁', sky: 'Overcast', temp: 15 },
+    { icon: '🌧', sky: 'Light rain', temp: 12 },
+  ]
+
+  let city = prop({
+    default: 'London',
+    describe: 'City to forecast',
+    expose: 'read write',
+  })
+
+  let tick = state(0)
+
+  const forecast = derived(() => FORECASTS[tick % FORECASTS.length])
+
+  const refresh = action(
+    { describe: 'Fetch the latest forecast', expose: 'read write' },
+    () => {
+      tick++
+    },
+  )
+
+  // Cycle the exposed `city` prop — proves the public surface is live reactive.
+  const nextCity = action(() => {
+    const i = CITIES.indexOf(city)
+    city = CITIES[(i + 1) % CITIES.length]
+  })
+}
+
+@template {
+  <section class="wx">
+    <button class="wx-city" on:click={nextCity} title="Change city">
+      <span class="wx-city-name">{city}</span>
+      <span class="wx-city-swap">change ↻</span>
+    </button>
+    <div class="wx-read">
+      <span class="wx-icon" aria-hidden="true">{forecast.icon}</span>
+      <output class="wx-temp">{forecast.temp}°</output>
+      <span class="wx-sky">{forecast.sky}</span>
+    </div>
+    <button class="wx-refresh" on:click={refresh}>
+      <span class="dn-dot"></span>
+      Forecast {city}
+    </button>
+  </section>
+}
+
+@style {
+  .wx {
+    display: grid;
+    gap: 0.9rem;
+    place-items: center;
+    padding: 1.4rem 1.25rem;
+    text-align: center;
+  }
+  .wx-city {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    background: none;
+    border: 0;
+    cursor: pointer;
+    font: inherit;
+    color: var(--fg-strong);
+  }
+  .wx-city-name {
+    font-size: var(--fs-lg);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  .wx-city-swap {
+    font-family: var(--font-mono);
+    font-size: 0.66rem;
+    letter-spacing: 0.03em;
+    color: var(--faint);
+  }
+  .wx-city:hover .wx-city-swap {
+    color: var(--accent);
+  }
+  .wx-read {
+    display: grid;
+    grid-template-columns: auto auto;
+    grid-template-rows: auto auto;
+    align-items: center;
+    justify-items: start;
+    column-gap: 0.75rem;
+  }
+  .wx-icon {
+    grid-row: 1 / 3;
+    font-size: 2.4rem;
+    line-height: 1;
+  }
+  .wx-temp {
+    font-family: var(--font-mono);
+    font-size: 2.4rem;
+    font-weight: 550;
+    font-variant-numeric: tabular-nums;
+    color: var(--fg-strong);
+    line-height: 1;
+    align-self: end;
+  }
+  .wx-sky {
+    font-size: var(--fs-sm);
+    color: var(--muted);
+    align-self: start;
+  }
+  .wx-refresh {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.55rem 1rem;
+    font: inherit;
+    font-size: var(--fs-sm);
+    font-weight: 550;
+    cursor: pointer;
+    color: var(--accent-contrast);
+    background: var(--accent);
+    border: 1px solid var(--accent);
+    border-radius: var(--r-md);
+    transition: background 0.12s;
+  }
+  .wx-refresh:hover {
+    background: var(--accent-strong);
+  }
+  .wx-refresh .dn-dot {
+    background: var(--accent-contrast);
+  }
+}

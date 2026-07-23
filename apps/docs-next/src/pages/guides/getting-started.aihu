@@ -23,7 +23,8 @@
 
 @template {
   <div class="dn-guide">
-    <p class="dn-breadcrumb"><a href="/guides/getting-started">Guides</a> / Getting Started</p>
+    <p class="dn-sec-num"><b>G · 01</b> guides</p>
+    <p class="dn-breadcrumb dn-rail"><a href="/guides/getting-started">Guides</a> / Getting Started</p>
     <article class="dn-prose dn-article" html={body}></article>
     <nav class="dn-page-nav" aria-label="Guide pagination">
       <span class="dn-page-nav-spacer"></span>
@@ -39,10 +40,11 @@
   .dn-guide {
     max-width: var(--content-max);
   }
+  .dn-guide > .dn-sec-num {
+    margin: 0 0 1rem;
+  }
   .dn-breadcrumb {
-    font-size: var(--fs-sm);
-    color: var(--faint);
-    margin: 0 0 1.5rem;
+    margin: 0 0 2rem;
   }
   .dn-breadcrumb a {
     color: var(--muted);

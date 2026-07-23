@@ -79,8 +79,9 @@
     color: var(--fg-strong);
   }
   .dn-wordmark {
-    font-weight: 750;
-    font-size: 1.15rem;
+    /* brand/README.md: the wordmark is Geist 600 */
+    font-weight: 600;
+    font-size: 1.18rem;
     letter-spacing: -0.03em;
   }
   .dn-topnav {

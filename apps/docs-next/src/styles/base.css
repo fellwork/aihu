@@ -4,33 +4,24 @@
    are namespaced with `dn-` to share this cascade safely.
    ============================================================================ */
 
+/* Geist + Geist Mono — the canonical aihu brand type (brand/README.md: "Type:
+   Geist (sans), Geist Mono"). Self-hosted variable woff2, same-origin only (no
+   CDN / no fonts.googleapis — CSP-clean). Sourced from the OFL `geist` npm
+   package (public/fonts/GEIST-OFL-LICENSE.txt). One axis file per family covers
+   the whole weight range the datasheet uses (400 body → 750 display). */
 @font-face {
-  font-family: "Inter";
+  font-family: "Geist";
   font-style: normal;
   font-weight: 100 900;
   font-display: swap;
-  src: url("/fonts/inter-latin-wght-normal.woff2") format("woff2");
+  src: url("/fonts/Geist-Variable.woff2") format("woff2");
 }
 @font-face {
-  font-family: "JetBrains Mono";
+  font-family: "Geist Mono";
   font-style: normal;
-  font-weight: 400;
+  font-weight: 100 900;
   font-display: swap;
-  src: url("/fonts/jetbrains-mono-latin-400-normal.woff2") format("woff2");
-}
-@font-face {
-  font-family: "JetBrains Mono";
-  font-style: normal;
-  font-weight: 500;
-  font-display: swap;
-  src: url("/fonts/jetbrains-mono-latin-500-normal.woff2") format("woff2");
-}
-@font-face {
-  font-family: "JetBrains Mono";
-  font-style: normal;
-  font-weight: 600;
-  font-display: swap;
-  src: url("/fonts/jetbrains-mono-latin-600-normal.woff2") format("woff2");
+  src: url("/fonts/GeistMono-Variable.woff2") format("woff2");
 }
 
 *,
@@ -55,7 +46,8 @@ body {
   background: var(--paper);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
-  font-feature-settings: "cv02", "cv03", "cv04", "ss01";
+  /* Geist's slashed-zero + tabular figures suit the datasheet's number rails. */
+  font-feature-settings: "ss01";
 }
 
 a {
@@ -101,6 +93,129 @@ html.dark .dn-tt-moon {
 }
 html.dark .dn-tt-sun {
   display: none;
+}
+
+/* =============================================================================
+   THE DOT — the live-status system. The terracotta brand dot ("reads first")
+   is the one recurring device: `● governed`, `● live · runnable`, `● Run`,
+   section markers, "you are here". Small, precise, deliberate — its rarity is
+   the point. Graphite variant carries the AI / governance axis. A faint live
+   pulse marks genuinely-runnable surfaces, and is reduced-motion-aware.
+   ============================================================================ */
+.dn-dot {
+  display: inline-block;
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--accent);
+  /* optical alignment with mono/small caps labels */
+  vertical-align: baseline;
+  position: relative;
+}
+.dn-dot-graphite {
+  background: var(--graphite);
+}
+/* live pulse — a single faint terracotta ring, only where something truly runs */
+.dn-dot-live::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: var(--accent);
+  animation: dn-pulse 2.4s ease-out infinite;
+}
+@keyframes dn-pulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.5;
+  }
+  70%,
+  100% {
+    transform: scale(3);
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dn-dot-live::after {
+    animation: none;
+  }
+}
+
+/* A status label: a dot + a tight-tracked mono/caps word. The unit of the
+   datasheet's live-status vocabulary. */
+.dn-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.dn-status-accent {
+  color: var(--accent);
+}
+.dn-status-graphite {
+  color: var(--graphite);
+}
+
+/* =============================================================================
+   DATASHEET RAILS — Geist Mono metadata: section numbers (01 / 02 / 03),
+   versions, byte sizes, construct tags. Hairline warm-neutral rules, tabular
+   figures, precise alignment. Instrument-grade, fitting a compiler-backed
+   framework.
+   ============================================================================ */
+.dn-rail {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.04em;
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+.dn-num {
+  font-variant-numeric: tabular-nums;
+}
+/* section eyebrow: `01 — SECTION NAME` on a hairline */
+.dn-sec-num {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.dn-sec-num b {
+  color: var(--accent);
+  font-weight: 600;
+}
+.dn-sec-num::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+/* a mono construct/expose chip — the datasheet's atomic tag */
+.dn-chip {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.01em;
+  color: var(--muted);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  padding: 0.08rem 0.42rem;
+  border-radius: 5px;
+  white-space: nowrap;
+}
+.dn-chip-expose {
+  color: var(--graphite);
+  border-color: var(--graphite-line);
+  background: var(--graphite-soft);
 }
 
 /* =============================================================================
@@ -252,51 +367,66 @@ html.dark .dn-inline-code {
   border-bottom: 1px solid var(--code-border);
   font-size: var(--fs-xs);
 }
-.cb-dots {
+/* `● governed` — the status dot leads every code surface */
+.cb-status {
   display: inline-flex;
-  gap: 6px;
-}
-.cb-dots i {
-  width: 10px;
-  height: 10px;
-  border-radius: 999px;
-  background: var(--border-strong);
-}
-.cb-dots i:nth-child(1) {
-  background: #e6796a;
-}
-.cb-dots i:nth-child(2) {
-  background: #e6bd5a;
-}
-.cb-dots i:nth-child(3) {
-  background: #86c07a;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.03em;
+  color: var(--muted);
 }
 .cb-name {
   font-family: var(--font-mono);
-  color: var(--muted);
+  color: var(--fg);
   font-weight: 500;
   letter-spacing: 0.01em;
 }
-.cb-actions {
+.cb-meta {
   margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.03em;
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+.cb-lang {
+  text-transform: uppercase;
+}
+.cb-size {
+  padding-left: 0.55rem;
+  border-left: 1px solid var(--code-border);
+}
+.cb-actions {
   display: inline-flex;
   align-items: center;
   gap: var(--sp-2);
 }
 .cb-run {
-  font-family: var(--font-sans);
-  font-weight: 600;
-  font-size: var(--fs-xs);
-  color: var(--graphite);
-  padding: 0.15rem 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+  color: var(--accent);
+  padding: 0.12rem 0.5rem;
   border-radius: var(--r-sm);
-  border: 1px solid var(--graphite-line);
-  background: var(--graphite-soft);
+  border: 1px solid var(--accent-line);
+  background: var(--accent-soft);
 }
 .cb-run:hover {
   text-decoration: none;
-  background: var(--graphite);
+  background: var(--accent);
   color: var(--accent-contrast);
+}
+.cb-run:hover .dn-dot {
+  background: var(--accent-contrast);
 }
 .cb-copy {
   font: inherit;

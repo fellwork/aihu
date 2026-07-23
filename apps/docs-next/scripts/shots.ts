@@ -88,6 +88,7 @@ async function main() {
           waitUntil: 'networkidle',
         })
         await page.waitForTimeout(450) // let islands hydrate + fonts settle
+        await page.evaluate(() => window.scrollTo(0, 0))
         const out = join(OUT, `${pg.name}-${vp.name}-${theme}.png`)
         await page.screenshot({ path: out, fullPage: true })
         shots.push(out)

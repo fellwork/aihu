@@ -160,6 +160,30 @@ export const HERO_SOURCE = `@state {
   <button on:click={refresh}>Forecast {city}</button>
 }`
 
+/**
+ * The AGENT SURFACE half of the dual-surface card — the exposed `expose` /
+ * `describe` contract an agent discovers for `weather.aihu` over MCP / A2A. This
+ * is the SAME component the human-render island runs; these rows are what the
+ * compiler emits into the agent-discoverable surface. Mirrors the `expose`
+ * declarations in HERO_SOURCE (and in the real `weather-demo.aihu` island), so
+ * the two projections are provably one component.
+ */
+export interface AgentSurfaceEntry {
+  readonly kind: 'prop' | 'action'
+  readonly name: string
+  readonly describe: string
+  readonly expose: string
+}
+export const AGENT_SURFACE: readonly AgentSurfaceEntry[] = [
+  { kind: 'prop', name: 'city', describe: 'City to forecast', expose: 'read write' },
+  {
+    kind: 'action',
+    name: 'refresh',
+    describe: 'Fetch the latest forecast',
+    expose: 'read write',
+  },
+]
+
 /** Source for the live, runnable counter shown in the playground panel. */
 export const COUNTER_SOURCE = `// counter — prop count + action increment/decrement/reset
 

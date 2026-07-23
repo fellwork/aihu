@@ -16,9 +16,10 @@
 
 @state {
   import { codeBlock } from '../lib/code-block.ts'
-  import { HERO_SOURCE } from '../data/gallery.ts'
+  import { HERO_SOURCE, AGENT_SURFACE } from '../data/gallery.ts'
 
-  const heroCode = codeBlock(HERO_SOURCE, { name: 'weather.aihu', playground: 'agent-weather' })
+  const heroCode = codeBlock(HERO_SOURCE, { name: 'weather.aihu', lang: 'aihu' })
+  const surface = AGENT_SURFACE
 }
 
 @template {
@@ -26,73 +27,155 @@
 
     <section class="dn-hero">
       <div class="dn-hero-copy">
-        <span class="dn-eyebrow">The governed web meta-framework</span>
+        <span class="dn-status dn-status-accent dn-hero-eyebrow">
+          <span class="dn-dot"></span>The governed web meta-framework
+        </span>
         <h1 class="dn-hero-title">
-          One framework that <span class="dn-grad-human">equally governs</span>{' '}the
-          security and experience of <span class="dn-grad-ai">humans and AI</span>.
+          One component. <span class="dn-ink-human">Rendered for people,</span>
+          <span class="dn-ink-agent">exposed for agents.</span>
         </h1>
         <p class="dn-hero-sub">
-          Write a single component. It renders as a fast custom element for people
-          and exposes a discoverable, permissioned surface for agents — the same
-          reactivity, the same governance, no second codebase.
+          Write a single <code>.aihu</code> component. It renders as a fast custom
+          element for humans <em>and</em> exposes a discoverable, permissioned
+          surface for AI — the same reactivity, the same governance, no second
+          codebase.
         </p>
         <div class="dn-hero-cta">
           <a class="dn-btn dn-btn-primary" href="/guides/getting-started">Get started →</a>
           <a class="dn-btn dn-btn-ghost" href="/examples">Browse examples</a>
         </div>
-        <div class="dn-hero-meta">
-          <span><b>≤2 kB</b> reactive core</span>
-          <span><b>37</b> packages</span>
-          <span><b>SSG</b> + islands</span>
+        <dl class="dn-spec">
+          <div class="dn-spec-row">
+            <dt>reactive core</dt>
+            <dd class="dn-num">≤ 2 kB</dd>
+          </div>
+          <div class="dn-spec-row">
+            <dt>packages</dt>
+            <dd class="dn-num">37</dd>
+          </div>
+          <div class="dn-spec-row">
+            <dt>output</dt>
+            <dd>SSG + islands</dd>
+          </div>
+          <div class="dn-spec-row">
+            <dt>agent protocols</dt>
+            <dd>MCP · A2A · ACP</dd>
+          </div>
+        </dl>
+      </div>
+
+      <!-- THE dual-surface card — one source, two governed projections. -->
+      <figure class="dn-ds">
+        <figcaption class="dn-ds-cap">
+          <span class="dn-sec-num"><b>SRC</b> one component</span>
+        </figcaption>
+        <div class="dn-ds-source" html={heroCode}></div>
+
+        <div class="dn-ds-split">
+          <div class="dn-ds-pane dn-ds-human">
+            <div class="dn-ds-head">
+              <span class="dn-status dn-status-accent">
+                <span class="dn-dot dn-dot-live"></span>Human render
+              </span>
+              <span class="dn-rail">live</span>
+            </div>
+            <weather-demo city="London"></weather-demo>
+          </div>
+
+          <div class="dn-ds-pane dn-ds-agent">
+            <div class="dn-ds-head">
+              <span class="dn-status dn-status-graphite">
+                <span class="dn-dot dn-dot-graphite"></span>Agent surface
+              </span>
+              <span class="dn-rail">via MCP · A2A</span>
+            </div>
+            <ul class="dn-surface-list">
+              <li class="dn-surface-row" each={s of surface} key={s.name}>
+                <span class="dn-surface-kind">{s.kind}</span>
+                <code class="dn-surface-name">{s.name}</code>
+                <span class="dn-surface-desc">{s.describe}</span>
+                <span class="dn-chip dn-chip-expose">expose: {s.expose}</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </figure>
+    </section>
+
+    <!-- 01 — the duality, drawn in the two brand colors -->
+    <section class="dn-block">
+      <p class="dn-sec-num"><b>01</b> the duality</p>
+      <div class="dn-duality">
+        <div class="dn-duality-card dn-human">
+          <span class="dn-status dn-status-accent">
+            <span class="dn-dot"></span>humans / experience
+          </span>
+          <h3>Experience, governed</h3>
+          <p>Static-first HTML that hydrates into interactive islands. Accessible
+             primitives, theming, and a real css-engine — the fast, crafted
+             surface people actually touch.</p>
+        </div>
+        <div class="dn-duality-card dn-ai">
+          <span class="dn-status dn-status-graphite">
+            <span class="dn-dot dn-dot-graphite"></span>AI / security
+          </span>
+          <h3>Security, governed</h3>
+          <p>Every prop and action can carry <code>describe</code> /
+             <code>expose</code> and scope guards, so agents discover and invoke
+             exactly what you permit — over MCP, A2A, and ACP.</p>
         </div>
       </div>
-      <div class="dn-hero-code" html={heroCode}></div>
     </section>
 
-    <section class="dn-duality">
-      <div class="dn-duality-card dn-human">
-        <span class="dn-duality-tag">For humans</span>
-        <h3>Experience, governed</h3>
-        <p>Static-first HTML that hydrates into interactive islands. Accessible
-           primitives, theming, and a css-engine — the fast, crafted surface
-           people actually touch.</p>
+    <!-- 02 — where to go -->
+    <section class="dn-block">
+      <p class="dn-sec-num"><b>02</b> start here</p>
+      <div class="dn-jobs">
+        <a class="dn-job" href="/guides/getting-started">
+          <span class="dn-job-num dn-rail">G · 8</span>
+          <h3>Guides</h3>
+          <p>Learn the model — state, templates, routing, SSR, and the agent surface.</p>
+          <span class="dn-job-go">Start learning →</span>
+        </a>
+        <a class="dn-job" href="/api/signals">
+          <span class="dn-job-num dn-rail">API · 37</span>
+          <h3>API Reference</h3>
+          <p>Typed signatures for every export across all 37 packages.</p>
+          <span class="dn-job-go">Read the API →</span>
+        </a>
+        <a class="dn-job" href="/examples">
+          <span class="dn-job-num dn-rail">EX · 9 + 12</span>
+          <h3>Examples &amp; Cookbook</h3>
+          <p>A governed example set and a fluency cookbook — with a live playground.</p>
+          <span class="dn-job-go">Explore →</span>
+        </a>
       </div>
-      <div class="dn-duality-eq" aria-hidden="true">=</div>
-      <div class="dn-duality-card dn-ai">
-        <span class="dn-duality-tag">For AI</span>
-        <h3>Security, governed</h3>
-        <p>Every prop and action can carry <code>describe</code> / <code>expose</code>
-           and scope guards, so agents discover and invoke exactly what you permit —
-           over MCP, A2A, and ACP.</p>
-      </div>
     </section>
 
-    <section class="dn-jobs">
-      <a class="dn-job" href="/guides/getting-started">
-        <span class="dn-job-ico">📘</span>
-        <h3>Guides</h3>
-        <p>Learn the model — state, templates, routing, SSR, and the agent surface.</p>
-        <span class="dn-job-go">Start learning →</span>
-      </a>
-      <a class="dn-job" href="/api/signals">
-        <span class="dn-job-ico">⚙︎</span>
-        <h3>API Reference</h3>
-        <p>Typed signatures for every export across all 37 packages.</p>
-        <span class="dn-job-go">Read the API →</span>
-      </a>
-      <a class="dn-job" href="/examples">
-        <span class="dn-job-ico">✦</span>
-        <h3>Examples & Cookbook</h3>
-        <p>A governed example set and a fluency cookbook — with a live playground.</p>
-        <span class="dn-job-go">Explore →</span>
-      </a>
-    </section>
-
-    <section class="dn-features">
-      <div class="dn-feature"><h4>Static output</h4><p>Every route prerenders to real HTML, then hydrates. Crawlers and agents read content; humans get the live app.</p></div>
-      <div class="dn-feature"><h4>Islands</h4><p>Ship ~0 JS on static pages. Only the interactive components hydrate.</p></div>
-      <div class="dn-feature"><h4>One agent contract</h4><p>The serving gate is a supersede chain plus sign-off — governance is a first-class primitive, not a bolt-on.</p></div>
-      <div class="dn-feature"><h4>css-engine</h4><p>Design tokens and a utility layer compiled by a real Rust engine — the one styling this very site.</p></div>
+    <!-- 03 — the datasheet spec -->
+    <section class="dn-block">
+      <p class="dn-sec-num"><b>03</b> specification</p>
+      <dl class="dn-features">
+        <div class="dn-feature">
+          <dt>Static output</dt>
+          <dd>Every route prerenders to real HTML, then hydrates. Crawlers and
+              agents read content; humans get the live app.</dd>
+        </div>
+        <div class="dn-feature">
+          <dt>Islands</dt>
+          <dd>Ship ~0 JS on static pages. Only the interactive components hydrate.</dd>
+        </div>
+        <div class="dn-feature">
+          <dt>One agent contract</dt>
+          <dd>The serving gate is a supersede chain plus sign-off — governance is
+              a first-class primitive, not a bolt-on.</dd>
+        </div>
+        <div class="dn-feature">
+          <dt>css-engine</dt>
+          <dd>Design tokens and a utility layer compiled by a real Rust engine —
+              the one styling this very site.</dd>
+        </div>
+      </dl>
     </section>
 
   </div>
@@ -105,46 +188,35 @@
     padding: 0 1.25rem;
   }
 
-  /* hero */
+  /* ---------- hero ---------- */
   .dn-hero {
     display: grid;
     grid-template-columns: 1fr;
-    gap: 2.5rem;
+    gap: 2.75rem;
     align-items: center;
-    padding: 3.5rem 0 3rem;
+    padding: 3.5rem 0 3.5rem;
   }
-  .dn-eyebrow {
-    display: inline-block;
-    font-size: var(--fs-sm);
-    font-weight: 600;
-    letter-spacing: 0.02em;
-    color: var(--accent);
-    background: var(--accent-soft);
-    border: 1px solid var(--accent-line);
-    padding: 0.2rem 0.7rem;
-    border-radius: var(--r-full);
-    margin-bottom: 1.25rem;
+  .dn-hero-eyebrow {
+    margin-bottom: 1.5rem;
   }
   .dn-hero-title {
-    font-size: clamp(2.1rem, 5vw, 3.5rem);
-    line-height: 1.08;
+    font-size: clamp(2.1rem, 5vw, 3.4rem);
+    line-height: 1.06;
     letter-spacing: var(--tracking-tighter);
-    font-weight: 750;
+    font-weight: 700;
     color: var(--fg-strong);
     text-wrap: balance;
-    margin: 0 0 1.25rem;
+    margin: 0 0 1.35rem;
   }
-  .dn-grad-human {
-    background: linear-gradient(120deg, var(--accent), var(--accent-strong));
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
+  .dn-ink-human,
+  .dn-ink-agent {
+    display: block;
   }
-  .dn-grad-ai {
-    background: linear-gradient(120deg, var(--graphite), var(--graphite-strong));
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
+  .dn-ink-human {
+    color: var(--accent);
+  }
+  .dn-ink-agent {
+    color: var(--graphite);
   }
   .dn-hero-sub {
     font-size: var(--fs-lg);
@@ -153,22 +225,32 @@
     max-width: 34rem;
     margin: 0 0 1.75rem;
   }
+  .dn-hero-sub code {
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+    color: var(--accent-strong);
+  }
+  .dn-hero-sub em {
+    font-style: normal;
+    color: var(--fg);
+    font-weight: 550;
+  }
   .dn-hero-cta {
     display: flex;
     flex-wrap: wrap;
     gap: 0.75rem;
-    margin-bottom: 1.75rem;
+    margin-bottom: 2rem;
   }
   .dn-btn {
     display: inline-flex;
     align-items: center;
     gap: 0.4rem;
-    padding: 0.7rem 1.35rem;
+    padding: 0.68rem 1.3rem;
     border-radius: var(--r-md);
     font-weight: 600;
     font-size: var(--fs-md);
     text-decoration: none;
-    transition: transform 0.1s, box-shadow 0.15s, background 0.12s;
+    transition: transform 0.1s, background 0.12s, border-color 0.12s;
   }
   .dn-btn:hover {
     text-decoration: none;
@@ -177,7 +259,6 @@
   .dn-btn-primary {
     background: var(--accent);
     color: var(--accent-contrast);
-    box-shadow: var(--shadow-accent);
   }
   .dn-btn-primary:hover {
     background: var(--accent-strong);
@@ -191,32 +272,152 @@
     border-color: var(--accent-line);
     color: var(--accent);
   }
-  .dn-hero-meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 1.5rem;
-    color: var(--muted);
-    font-size: var(--fs-sm);
-  }
-  .dn-hero-meta b {
-    color: var(--fg-strong);
-    font-weight: 700;
-  }
-  .dn-hero-code {
-    min-width: 0;
-  }
-  .dn-hero-code .cb {
-    box-shadow: var(--shadow-lg);
+
+  /* datasheet spec rail under the hero copy */
+  .dn-spec {
+    display: grid;
+    gap: 0;
     margin: 0;
+    max-width: 24rem;
+    border-top: 1px solid var(--border);
+  }
+  .dn-spec-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .dn-spec-row dt {
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+    letter-spacing: 0.03em;
+    color: var(--faint);
+    text-transform: uppercase;
+  }
+  .dn-spec-row dd {
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: var(--fs-sm);
+    font-weight: 500;
+    color: var(--fg-strong);
+    font-variant-numeric: tabular-nums;
   }
 
-  /* duality band */
+  /* ---------- the dual-surface card ---------- */
+  .dn-ds {
+    margin: 0;
+    min-width: 0;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--r-lg);
+    background: var(--surface);
+    box-shadow: var(--shadow-lg);
+    overflow: hidden;
+  }
+  .dn-ds-cap {
+    display: flex;
+    align-items: center;
+    padding: 0.7rem 1rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface-2);
+  }
+  .dn-ds-source .cb {
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    background: var(--code-bg);
+  }
+  .dn-ds-split {
+    display: grid;
+    grid-template-columns: 1fr;
+    border-top: 1px solid var(--border);
+  }
+  .dn-ds-pane {
+    min-width: 0;
+    padding: 0;
+  }
+  .dn-ds-human {
+    border-bottom: 1px solid var(--border);
+  }
+  .dn-ds-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.6rem 1rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .dn-ds-human .dn-ds-head {
+    box-shadow: inset 3px 0 0 var(--accent);
+  }
+  .dn-ds-agent {
+    background: var(--graphite-soft);
+  }
+  .dn-ds-agent .dn-ds-head {
+    box-shadow: inset 3px 0 0 var(--graphite);
+    background: var(--surface);
+  }
+
+  /* agent surface contract rows */
+  .dn-surface-list {
+    list-style: none;
+    margin: 0;
+    padding: 0.4rem 0.5rem;
+    display: grid;
+    gap: 0.15rem;
+  }
+  .dn-surface-row {
+    display: grid;
+    grid-template-columns: auto auto 1fr;
+    align-items: center;
+    gap: 0.4rem 0.6rem;
+    padding: 0.5rem 0.6rem;
+    border-radius: var(--r-sm);
+  }
+  .dn-surface-row:hover {
+    background: var(--surface-2);
+  }
+  .dn-surface-kind {
+    font-family: var(--font-mono);
+    font-size: 0.64rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--faint);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.02rem 0.3rem;
+  }
+  .dn-surface-name {
+    font-family: var(--font-mono);
+    font-size: var(--fs-sm);
+    font-weight: 550;
+    color: var(--fg-strong);
+  }
+  .dn-surface-desc {
+    font-size: var(--fs-xs);
+    color: var(--muted);
+    min-width: 0;
+  }
+  .dn-surface-row .dn-chip-expose {
+    grid-column: 2 / 4;
+    justify-self: start;
+  }
+
+  /* ---------- section blocks ---------- */
+  .dn-block {
+    padding: 2.5rem 0;
+  }
+  .dn-block .dn-sec-num {
+    margin: 0 0 1.5rem;
+  }
+
+  /* duality */
   .dn-duality {
     display: grid;
-    grid-template-columns: 1fr auto 1fr;
-    align-items: stretch;
+    grid-template-columns: 1fr;
     gap: 1rem;
-    padding: 2.5rem 0;
   }
   .dn-duality-card {
     padding: 1.75rem;
@@ -226,8 +427,8 @@
   }
   .dn-duality-card h3 {
     font-size: var(--fs-xl);
-    letter-spacing: -0.02em;
-    margin: 0.5rem 0 0.6rem;
+    letter-spacing: var(--tracking-tight);
+    margin: 0.85rem 0 0.6rem;
   }
   .dn-duality-card p {
     color: var(--muted);
@@ -237,35 +438,13 @@
   .dn-duality-card code {
     font-family: var(--font-mono);
     font-size: 0.85em;
-    background: var(--code-inline-bg);
-    border: 1px solid var(--code-border);
-    padding: 0.05em 0.35em;
-    border-radius: 5px;
-  }
-  .dn-duality-tag {
-    font-size: var(--fs-xs);
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-  }
-  .dn-human {
-    border-top: 3px solid var(--accent);
-  }
-  .dn-human .dn-duality-tag {
-    color: var(--accent);
-  }
-  .dn-ai {
-    border-top: 3px solid var(--graphite);
-  }
-  .dn-ai .dn-duality-tag {
     color: var(--graphite);
   }
-  .dn-duality-eq {
-    display: flex;
-    align-items: center;
-    font-size: 2rem;
-    font-weight: 300;
-    color: var(--faint);
+  .dn-human {
+    box-shadow: inset 3px 0 0 var(--accent);
+  }
+  .dn-ai {
+    box-shadow: inset 3px 0 0 var(--graphite);
   }
 
   /* jobs */
@@ -273,13 +452,12 @@
     display: grid;
     grid-template-columns: 1fr;
     gap: 1rem;
-    padding: 1.5rem 0 2.5rem;
   }
   .dn-job {
     display: flex;
     flex-direction: column;
-    gap: 0.4rem;
-    padding: 1.6rem;
+    gap: 0.35rem;
+    padding: 1.5rem;
     border-radius: var(--r-lg);
     border: 1px solid var(--border);
     background: var(--surface);
@@ -293,13 +471,13 @@
     transform: translateY(-2px);
     box-shadow: var(--shadow-md);
   }
-  .dn-job-ico {
-    font-size: 1.6rem;
+  .dn-job-num {
+    color: var(--accent);
   }
   .dn-job h3 {
     font-size: var(--fs-lg);
-    letter-spacing: -0.02em;
-    margin: 0;
+    letter-spacing: var(--tracking-tight);
+    margin: 0.35rem 0 0;
   }
   .dn-job p {
     color: var(--muted);
@@ -315,22 +493,29 @@
     font-size: var(--fs-sm);
   }
 
-  /* features */
+  /* features — datasheet rows */
   .dn-features {
     display: grid;
     grid-template-columns: 1fr;
-    gap: 1.25rem;
-    padding: 1.5rem 0 4rem;
+    gap: 0;
+    margin: 0;
     border-top: 1px solid var(--border);
   }
-  .dn-feature h4 {
-    font-size: var(--fs-md);
-    margin: 1.25rem 0 0.35rem;
-    letter-spacing: -0.01em;
+  .dn-feature {
+    display: grid;
+    gap: 0.3rem;
+    padding: 1.15rem 0;
+    border-bottom: 1px solid var(--border);
   }
-  .dn-feature p {
-    color: var(--muted);
+  .dn-feature dt {
+    font-size: var(--fs-md);
+    font-weight: 650;
+    letter-spacing: var(--tracking-tight);
+    color: var(--fg-strong);
+  }
+  .dn-feature dd {
     margin: 0;
+    color: var(--muted);
     font-size: var(--fs-sm);
     line-height: 1.55;
   }
@@ -339,23 +524,26 @@
     .dn-jobs {
       grid-template-columns: repeat(3, 1fr);
     }
+    .dn-duality {
+      grid-template-columns: 1fr 1fr;
+    }
     .dn-features {
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: 1fr 1fr;
+      column-gap: 2.5rem;
+    }
+    .dn-ds-split {
+      grid-template-columns: 1fr 1fr;
+    }
+    .dn-ds-human {
+      border-bottom: 0;
+      border-right: 1px solid var(--border);
     }
   }
   @media (min-width: 960px) {
     .dn-hero {
-      grid-template-columns: 1.05fr 0.95fr;
-      padding: 5rem 0 4rem;
-    }
-  }
-  @media (max-width: 720px) {
-    .dn-duality {
-      grid-template-columns: 1fr;
-    }
-    .dn-duality-eq {
-      justify-content: center;
-      padding: 0.25rem;
+      grid-template-columns: 1fr 1fr;
+      gap: 3.5rem;
+      padding: 5rem 0 4.5rem;
     }
   }
 }

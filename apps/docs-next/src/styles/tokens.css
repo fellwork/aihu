@@ -55,9 +55,12 @@
   --tok-intrinsic: #4a5061;
   --tok-punct: #8a8178;
 
-  /* ---- type ---- */
-  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", "Fira Code", monospace;
+  /* ---- type — Geist + Geist Mono, the canonical brand type (brand/README.md).
+     Self-hosted variable woff2 (public/fonts/Geist-Variable.woff2 +
+     GeistMono-Variable.woff2, OFL, via the `geist` npm package). NO CDN — the
+     @font-face lives in base.css and points only at same-origin /fonts/. ---- */
+  --font-sans: "Geist", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, "SF Mono", "Fira Code", monospace;
   --fs-xs: 0.78rem;
   --fs-sm: 0.875rem;
   --fs-base: 1rem;
