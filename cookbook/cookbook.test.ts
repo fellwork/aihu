@@ -2,7 +2,8 @@
  * Cookbook compile test — verifies every .aihu SFC in cookbook/ compiles
  * cleanly via the aihu compiler and produces valid output.
  *
- * v0.5.0: 20 CI-protected SFCs covering the core v0.4 feature surface.
+ * v0.5.0: 21 CI-protected SFCs covering the core v0.4 feature surface
+ * plus the @aihu/use composable auto-import pattern (use-mouse).
  *
  * Run: bun test cookbook/cookbook.test.ts
  * Env: set AIHU_COMPILE_BIN to a pre-built aihu-compile binary if the
@@ -18,8 +19,8 @@ const cookbookDir = resolve(import.meta.dirname, '.')
 const sfcFiles = readdirSync(cookbookDir).filter((f) => f.endsWith('.aihu'))
 
 describe('cookbook compile test', () => {
-  it('finds exactly 20 .aihu SFCs', () => {
-    expect(sfcFiles.length).toBe(20)
+  it('finds exactly 21 .aihu SFCs', () => {
+    expect(sfcFiles.length).toBe(21)
   })
 
   for (const file of sfcFiles) {

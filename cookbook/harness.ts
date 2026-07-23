@@ -23,7 +23,7 @@ const sfcFiles = readdirSync(cookbookDir)
   .filter((f) => f.endsWith('.aihu'))
   .sort()
 
-const EXPECTED_COUNT = 20
+const EXPECTED_COUNT = 21
 
 // ── pre-flight ──────────────────────────────────────────────────────────────
 

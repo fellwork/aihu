@@ -497,6 +497,19 @@ pub(crate) fn process_state_body(
             .join("\n")
     };
 
+    // Auto-import `@aihu/use` composables (ON by default, v1). Scans the RAW
+    // @state script — plain lines AND `$action`/`$effect`/`$lifecycle` macro
+    // bodies, everywhere author JS runs — for bare `useX(...)` calls whose
+    // names the author neither imported (from any source) nor bound locally,
+    // and injects the per-subpath import. `detect_composables` is the SAME
+    // decision function the TS sidecar keys its ambient declarations on, so
+    // JS emit and sidecar can never disagree. Routed through `user_imports`
+    // so `merge_imports` collapses an identical author import to a single
+    // line. See codegen/use_registry.rs.
+    for (name, source) in crate::codegen::use_registry::detect_composables(raw_script) {
+        user_imports.push(format!("import {{ {name} }} from '{source}'"));
+    }
+
     (si, macros, plain_body, user_imports, state_names)
 }
 
