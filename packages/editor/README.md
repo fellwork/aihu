@@ -71,6 +71,7 @@ bun add @aihu/editor
 |---|---|
 | **Version** | `0.1.0` |
 | **Tier** | E — Held private (unmapped tier) |
+| **Bundle size** | 13.56 kB (gz) — limit 14 KB |
 | **Published files** | 4 entries |
 | **License** | MIT |
 
