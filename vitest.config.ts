@@ -59,6 +59,11 @@ export default defineConfig({
       '@aihu/tsc': new URL('./packages/tsc/src/index.ts', import.meta.url).pathname,
       '@aihu/signals': new URL('./packages/signals/src/index.ts', import.meta.url).pathname,
       '@aihu/store': new URL('./packages/store/src/index.ts', import.meta.url).pathname,
+      // `@aihu/reactive/helpers` self-imports `@aihu/reactive` by package
+      // name (rolldown.config.ts marks it external so dist/helpers.js
+      // stays small); this alias makes that self-import resolvable when
+      // vitest loads the source directly.
+      '@aihu/reactive': new URL('./packages/reactive/src/index.ts', import.meta.url).pathname,
       '@aihu/arbor': new URL('./packages/arbor/src/index.ts', import.meta.url).pathname,
       // Order matters: the subpath alias must precede the package alias or
       // '@aihu/runtime/ssr' resolves as '<index.ts>/ssr' (same pattern as

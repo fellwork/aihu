@@ -45,6 +45,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PKGS=(
   "signals"
   "use"                # @aihu/use — SSR-safe composables (multi-entry subpaths); peer-deps @aihu/signals only (must follow it)
+  "reactive"           # @aihu/reactive — deep reactive trees (2 entries: index + helpers); depends on @aihu/signals only (must follow it)
   "arbor"
   "runtime"
   "agent"

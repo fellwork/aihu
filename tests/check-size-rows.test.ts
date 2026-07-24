@@ -22,6 +22,11 @@ describe('check-size-rows policy lint', () => {
     expect(classify('@aihu/context')).toBe('browser-eligible')
     expect(classify('@aihu/agent')).toBe('browser-eligible')
     expect(classify('@aihu/agent-service')).toBe('browser-eligible')
+    // @aihu/reactive is not in any of the forbidden allowlists, so it falls
+    // through to the default classification — same mechanism that already
+    // covers @aihu/store and @aihu/use (design doc
+    // docs/plans/2026-07-24-deep-reactivity.md §3 landing checklist).
+    expect(classify('@aihu/reactive')).toBe('browser-eligible')
 
     expect(classify('@aihu/server')).toBe('server-side')
     expect(classify('@aihu-plugin/agent-readiness')).toBe('server-side')

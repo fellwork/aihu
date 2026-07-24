@@ -896,6 +896,15 @@ const PACKAGE_TIERS: Record<string, TierInfo> = {
       { label: '@aihu/context', href: '../context' },
     ],
   },
+  '@aihu/reactive': {
+    tier: 'G',
+    label:
+      'State — fine-grained Proxy-backed deep reactive trees (lazy per-key nodes, plain-assignment writes)',
+    seeAlso: [
+      { label: '@aihu/signals', href: '../signals' },
+      { label: '@aihu/store', href: '../store' },
+    ],
+  },
   '@aihu/editor': {
     tier: 'G',
     label: 'Content — GX-governed rich-text editor (JSON doc model + transactions)',

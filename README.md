@@ -222,7 +222,7 @@ Per-package gates enforced by `bun run size`:
 | `@aihu/context` | 420 B | 450 B | pass |
 | `@aihu/signals` | 2.18 kB | 2350 B | pass |
 | `@aihu/arbor` | 3.04 kB | 3200 B | pass |
-| `@aihu/runtime` | 4.30 kB | 4500 B | pass |
+| `@aihu/runtime` | 4.22 kB | 4500 B | pass |
 | `@aihu/agent` | 141 B | 200 B | pass |
 | `@aihu-plugin/data` | 723 B | 800 B | pass |
 | `@aihu-plugin/kindly-note` | 1.65 kB | 1850 B | pass |
@@ -250,10 +250,12 @@ Per-package gates enforced by `bun run size`:
 | `@aihu/primitives/switch` | 1.79 kB | 4 KB | pass |
 | `@aihu/primitives/radio-group` | 3.20 kB | 4 KB | pass |
 | `@aihu/store` | 1.81 kB | 2.5 KB | pass |
+| `@aihu/reactive` | 1.28 kB | 1900 B | pass |
+| `@aihu/reactive/helpers` | 528 B | 700 B | pass |
 | `@aihu/use/shared` | 288 B | 320 B | pass |
 | `@aihu/use/math` | 158 B | 1200 B | pass |
 | `@aihu/use/motion` | 385 B | 3 KB | pass |
-| `@aihu/use/router` | 316 B | 1500 B | pass |
+| `@aihu/use/router` | 165 B | 1500 B | pass |
 | `@aihu/auth` | 1.16 kB | 1.5 KB | pass |
 | `@aihu/magna` | 758 B | 1.8 KB | pass |
 | `@aihu/magna/codegen` | 1.04 kB | 1.2 KB | pass |
@@ -263,7 +265,7 @@ Per-package gates enforced by `bun run size`:
 | `@aihu/use/integrations` (1 composable) | 338 B | 600 B | pass |
 | `@aihu/use/math` (1 composable) | 158 B | 250 B | pass |
 | `@aihu/use/motion` (1 composable) | 385 B | 900 B | pass |
-| `@aihu/use/router` (1 composable) | 316 B | 500 B | pass |
+| `@aihu/use/router` (1 composable) | 165 B | 500 B | pass |
 
 <sub><i>Auto-generated — run `bun scripts/sync-readme.ts` to update.</i></sub>
 
@@ -288,7 +290,7 @@ See [`packages/`](./packages) for all packages on disk. By tier:
 - **Compiler & toolchain (build-time):** [`@aihu/cli`](./packages/cli), [`@aihu/compiler`](./packages/compiler), [`@aihu/css-engine`](./packages/css-engine), [`@aihu/language-server`](./packages/language-server), [`@aihu/tsc`](./packages/tsc), [`create-aihu`](./packages/create-aihu).
 - **Plugin substrate, editor & templates:** [`@aihu/plugin`](./packages/plugin), [`@aihu/templates-cf-team`](./packages/templates/cf-team), [`vscode-aihu`](./packages/vscode-aihu).
 - **UI, styling & content rendering:** [`@aihu-plugin/kindly-note`](./packages/plugin-kindly-note), [`@aihu/primitives`](./packages/primitives), [`@aihu/ui`](./packages/ui).
-- **State & rich-content capabilities:** [`@aihu/editor`](./packages/editor), [`@aihu/store`](./packages/store), [`@aihu/use`](./packages/use).
+- **State & rich-content capabilities:** [`@aihu/editor`](./packages/editor), [`@aihu/reactive`](./packages/reactive), [`@aihu/store`](./packages/store), [`@aihu/use`](./packages/use).
 
 <sub><i>Auto-generated — run `bun scripts/sync-readme.ts` to update.</i></sub>
 
@@ -334,6 +336,7 @@ See [`packages/`](./packages) for all packages on disk. By tier:
 | [`@aihu/plugin`](./packages/plugin) | `0.1.0` | Plugin substrate shared by @aihu/server and the meta-framework — runtime hook surface. |
 | [`@aihu/plugin-demo`](./packages/plugin-demo) | `0.1.3` | Canonical proof-of-life for the @aihu/plugin API — exercises macros, middleware, and transforms. |
 | [`@aihu/primitives`](./packages/primitives) | `0.1.4` | aihu headless behavior primitives — WAI-ARIA APG patterns as vanilla custom elements, zero CSS. |
+| [`@aihu/reactive`](./packages/reactive) | `0.1.0` | Fine-grained Proxy-backed deep reactive trees on aihu signals — lazy per-(object,key) tracking nodes, plain-assignment writes, mutate/reconcile. |
 | [`@aihu/router`](./packages/router) | `0.4.1` | File-based router for the aihu meta-framework. |
 | [`@aihu/runtime`](./packages/runtime) | `4.0.0` | Single File Component (.aihu) runtime — registers custom elements compiled by @aihu/compiler. |
 | [`@aihu/scraping`](./packages/scraping) | `0.2.0` | O(1) sliding-window rate limiter and bot-detection middleware for aihu agent services. |

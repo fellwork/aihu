@@ -658,16 +658,16 @@
         "@aihu/css-engine": "workspace:*",
       },
       "optionalDependencies": {
-        "@aihu/compiler-darwin-arm64": "0.1.29",
-        "@aihu/compiler-darwin-x64": "0.1.29",
-        "@aihu/compiler-linux-arm64-gnu": "0.1.29",
-        "@aihu/compiler-linux-x64-gnu": "0.1.29",
+        "@aihu/compiler-darwin-arm64": "0.1.30",
+        "@aihu/compiler-darwin-x64": "0.1.30",
+        "@aihu/compiler-linux-arm64-gnu": "0.1.30",
+        "@aihu/compiler-linux-x64-gnu": "0.1.30",
         "@aihu/compiler-native-darwin-arm64": "0.1.0",
         "@aihu/compiler-native-darwin-x64": "0.1.0",
         "@aihu/compiler-native-linux-arm64-gnu": "0.1.0",
         "@aihu/compiler-native-linux-x64-gnu": "0.1.0",
         "@aihu/compiler-native-win32-x64-msvc": "0.1.0",
-        "@aihu/compiler-win32-x64-msvc": "0.1.29",
+        "@aihu/compiler-win32-x64-msvc": "0.1.30",
       },
       "peerDependencies": {
         "vite": ">=5.0.0",
@@ -852,6 +852,13 @@
         "storybook": "^10.4.3",
       },
     },
+    "packages/reactive": {
+      "name": "@aihu/reactive",
+      "version": "0.1.0",
+      "dependencies": {
+        "@aihu/signals": "workspace:*",
+      },
+    },
     "packages/router": {
       "name": "@aihu/router",
       "version": "0.4.1",
@@ -946,14 +953,17 @@
         "@aihu/signals": "workspace:*",
       },
       "devDependencies": {
+        "@aihu/context": "workspace:*",
         "@aihu/router": "workspace:*",
         "jwt-decode": "^4.0.0",
       },
       "peerDependencies": {
+        "@aihu/context": "workspace:*",
         "@aihu/router": "workspace:*",
         "jwt-decode": ">=4",
       },
       "optionalPeers": [
+        "@aihu/context",
         "@aihu/router",
         "jwt-decode",
       ],
@@ -1100,6 +1110,8 @@
     "@aihu/plugin-demo": ["@aihu/plugin-demo@workspace:packages/plugin-demo"],
 
     "@aihu/primitives": ["@aihu/primitives@workspace:packages/primitives"],
+
+    "@aihu/reactive": ["@aihu/reactive@workspace:packages/reactive"],
 
     "@aihu/router": ["@aihu/router@workspace:packages/router"],
 
