@@ -1,5 +1,5 @@
 import { signal } from '@aihu/signals'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { branch, each, leaf, mount, when } from '../src/index.ts'
 
 /**
@@ -545,6 +545,94 @@ describe('each() — list rendering', () => {
     scope.dispose()
   })
 
+  // -------------------------------------------------------------------------
+  // FEL-395 regression: keyed each() must not leave STALE ROW VALUES when a
+  // list is replaced by NEW objects that share the SAME keys but carry
+  // DIFFERENT field values. Row bodies capture their item by value at grow
+  // time (`lgrow(items[i], i)` — template_emit.rs ~653), so
+  // `_reconcileEach`'s old `if (sc.has(k)) continue` skipped re-growing any
+  // row whose key was unchanged, even when the object behind that key was a
+  // completely different reference with different fields. T4-T8 above never
+  // caught this because they use primitive items where key === value, so
+  // "same key" and "same value" were indistinguishable.
+  // -------------------------------------------------------------------------
+  it('T10 (FEL-395): same-keyed but different-value objects → DOM reflects the NEW values', () => {
+    const host = document.createElement('div')
+    type Row = { id: string; label: string }
+    const [getItems, setItems] = signal<Row[]>([
+      { id: '1', label: 'alpha' },
+      { id: '2', label: 'beta' },
+    ])
+    const itemsSig: ReturnType<typeof signal<Row[]>> = [getItems, setItems]
+
+    const scope = mount(
+      branch('ul', undefined, [
+        each(
+          itemsSig,
+          (item) => (item as Row).id,
+          (item) => branch('li', undefined, [leaf((item as Row).label)]),
+        ),
+      ]),
+      host,
+    )
+
+    let lis = host.querySelectorAll('li')
+    expect(lis[0]?.textContent).toBe('alpha')
+    expect(lis[1]?.textContent).toBe('beta')
+
+    // Replace with BRAND NEW objects — same ids (keys), different labels.
+    setItems([
+      { id: '1', label: 'ALPHA-CHANGED' },
+      { id: '2', label: 'BETA-CHANGED' },
+    ])
+
+    lis = host.querySelectorAll('li')
+    expect(lis.length).toBe(2)
+    // Before the fix: stale 'alpha'/'beta' render forever because the keyed
+    // row was skipped (sc.has(k) === true) and never re-grown.
+    expect(lis[0]?.textContent).toBe('ALPHA-CHANGED')
+    expect(lis[1]?.textContent).toBe('BETA-CHANGED')
+
+    scope.dispose()
+  })
+
+  it('T11 (FEL-395): reordering the SAME object references still reuses rows (no spurious re-grow)', () => {
+    const host = document.createElement('div')
+    type Row = { id: string; label: string }
+    const rowA: Row = { id: 'a', label: 'Alpha' }
+    const rowB: Row = { id: 'b', label: 'Beta' }
+    const [getItems, setItems] = signal<Row[]>([rowA, rowB])
+    const itemsSig: ReturnType<typeof signal<Row[]>> = [getItems, setItems]
+
+    const created: string[] = []
+    const scope = mount(
+      branch('ul', undefined, [
+        each(
+          itemsSig,
+          (item) => (item as Row).id,
+          (item) => {
+            created.push((item as Row).id)
+            return branch('li', undefined, [leaf((item as Row).label)])
+          },
+        ),
+      ]),
+      host,
+    )
+
+    expect(created).toEqual(['a', 'b'])
+    created.length = 0
+
+    // Reorder using the SAME object references — must not re-grow either row.
+    setItems([rowB, rowA])
+    expect(created).toEqual([])
+
+    const lis = host.querySelectorAll('li')
+    expect(lis[0]?.textContent).toBe('Beta')
+    expect(lis[1]?.textContent).toBe('Alpha')
+
+    scope.dispose()
+  })
+
   it('T8: dispose of outer MountScope tears down all child scopes', () => {
     const host = document.createElement('div')
     const items = signal(['p', 'q', 'r'])
@@ -573,5 +661,223 @@ describe('each() — list rendering', () => {
     // Signal writes after dispose should not cause errors
     const setReactive = reactiveText[1]
     expect(() => setReactive('after-dispose')).not.toThrow()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// FEL-396 regression: repositioning an unchanged (same key, same value) row
+// during a keyed each() reorder must prefer moveBefore() over insertBefore()
+// when the host supports it — insertBefore on an already-connected node is a
+// remove+insert that fires disconnectedCallback+connectedCallback on any
+// custom element inside, destroying its state (see define-component.ts /
+// define-element.ts connectedMoveCallback additions for the other half of
+// this fix). jsdom (this repo's test environment) does not implement
+// `moveBefore` natively, so both branches are exercised here directly:
+//   - the feature-detection branch, via a `moveBefore` shim installed on
+//     `Element.prototype` for the duration of the test (real
+//     state-preservation semantics — the browser skipping
+//     disconnected/connectedCallback — cannot be observed under jsdom; a
+//     shim only proves the reconciler CALLS moveBefore when present, which
+//     is what `_moveNode`'s feature-detection is responsible for).
+//   - the fallback branch (today's behavior), confirming insertBefore is
+//     still used when moveBefore is absent — this repo has no real-browser
+//     test lane for arbor/runtime (only packages/editor/e2e is Playwright,
+//     scoped to the editor's Storybook), so full state-preservation across a
+//     real moveBefore is not verifiable in this test suite.
+// ---------------------------------------------------------------------------
+
+type MoveCapableElement = Element & {
+  moveBefore?(node: globalThis.Node, child: globalThis.Node | null): void
+}
+
+/**
+ * Spec-faithful `moveBefore` shim: real `moveBefore()` throws
+ * `HierarchyRequestError` when `node` isn't a valid move target for `this` —
+ * in particular when it has no parent, or its root differs from `this`'s
+ * root. jsdom has no native `moveBefore` to enforce this, so an earlier
+ * version of this shim delegated straight to `insertBefore` with no
+ * validity check at all — which meant it could never catch the reconciler
+ * handing `moveBefore` a stale/detached node (FEL-396: exactly the hazard
+ * `_moveNode`'s feature-detection guard exists to prevent). Installed on
+ * `Element.prototype` for the duration of a test; callers restore it via
+ * `afterEach`.
+ */
+function installMoveBeforeShim(
+  moveCalls: Array<{ node: globalThis.Node; ref: globalThis.Node | null }>,
+): void {
+  ;(Element.prototype as MoveCapableElement).moveBefore = function (
+    this: Element,
+    node: globalThis.Node,
+    ref: globalThis.Node | null,
+  ): void {
+    if (node.parentNode === null || node.getRootNode() !== this.getRootNode()) {
+      throw new DOMException(
+        "Failed to execute 'moveBefore' on 'Node': the node to be moved is not in this node's tree.",
+        'HierarchyRequestError',
+      )
+    }
+    moveCalls.push({ node, ref })
+    // A real moveBefore repositions without destroying state; jsdom has no
+    // native implementation, so emulate the DOM-position effect via
+    // insertBefore (the state-preservation semantics themselves are a
+    // browser-internal guarantee this shim cannot reproduce — see the
+    // comment block above).
+    Element.prototype.insertBefore.call(this, node, ref)
+  }
+}
+
+describe('each() — FEL-396: reposition prefers moveBefore() when available', () => {
+  afterEach(() => {
+    delete (Element.prototype as MoveCapableElement).moveBefore
+  })
+
+  it('feature-detection branch: calls moveBefore (not insertBefore) to reorder existing rows', () => {
+    const moveCalls: Array<{ node: globalThis.Node; ref: globalThis.Node | null }> = []
+    installMoveBeforeShim(moveCalls)
+    const insertSpy = vi.spyOn(Element.prototype, 'insertBefore')
+
+    const host = document.createElement('div')
+    const [getItems, setItems] = signal(['a', 'b', 'c'])
+    const itemsSig: ReturnType<typeof signal<string[]>> = [getItems, setItems]
+
+    const scope = mount(
+      branch('ul', undefined, [
+        each(
+          itemsSig,
+          (item) => item as string,
+          (item) => branch('li', undefined, [leaf(item as string)]),
+        ),
+      ]),
+      host,
+    )
+
+    moveCalls.length = 0
+    insertSpy.mockClear()
+    setItems(['c', 'b', 'a'])
+
+    // The reorder repositions existing (unchanged) rows via moveBefore, not
+    // a raw insertBefore call from the reconciler itself. (insertSpy still
+    // sees calls because the shim above delegates to insertBefore
+    // internally — the point is moveBefore was reached at all.)
+    expect(moveCalls.length).toBeGreaterThan(0)
+
+    const lis = host.querySelectorAll('li')
+    expect(lis[0]?.textContent).toBe('c')
+    expect(lis[1]?.textContent).toBe('b')
+    expect(lis[2]?.textContent).toBe('a')
+
+    insertSpy.mockRestore()
+    scope.dispose()
+  })
+
+  it("fallback branch: no moveBefore on the host → reorder still uses insertBefore (today's behavior)", () => {
+    expect(typeof (document.createElement('div') as MoveCapableElement).moveBefore).toBe(
+      'undefined',
+    )
+    const insertSpy = vi.spyOn(Element.prototype, 'insertBefore')
+
+    const host = document.createElement('div')
+    const [getItems, setItems] = signal(['x', 'y', 'z'])
+    const itemsSig: ReturnType<typeof signal<string[]>> = [getItems, setItems]
+
+    const scope = mount(
+      branch('ul', undefined, [
+        each(
+          itemsSig,
+          (item) => item as string,
+          (item) => branch('li', undefined, [leaf(item as string)]),
+        ),
+      ]),
+      host,
+    )
+
+    insertSpy.mockClear()
+    setItems(['z', 'y', 'x'])
+
+    expect(insertSpy).toHaveBeenCalled()
+    const lis = host.querySelectorAll('li')
+    expect(lis[0]?.textContent).toBe('z')
+    expect(lis[1]?.textContent).toBe('y')
+    expect(lis[2]?.textContent).toBe('x')
+
+    insertSpy.mockRestore()
+    scope.dispose()
+  })
+
+  // FEL-396 (review finding): a row whose top-level body is a bare structural
+  // — compiler-emitted `each(..., (item, i) => when(...))` for
+  // `{#each}{#if}...{/if}{/each}` — records the nested when()'s live content
+  // nodes directly in the OUTER row's `appendedNodes` at grow time (see `_mc`
+  // draining the nested reconcile's synchronous output alongside its
+  // boundary anchor). When that nested when() later toggles off,
+  // `_teardownChildScope` removes those nodes from the DOM, but the outer
+  // row's `appendedNodes` snapshot is never updated — it keeps stale,
+  // now-detached references. A real `moveBefore()` throws
+  // `HierarchyRequestError` on a detached node (unlike `insertBefore`, which
+  // silently proceeds), so a subsequent reorder must not hand one of those
+  // stale nodes to `moveBefore` — `_moveNode` has to fall back to
+  // `insertBefore` for anything that isn't still attached under the same
+  // root as the reorder target.
+  it('reorder after a bare-structural row toggles off its content does not throw on a stale detached node', () => {
+    const moveCalls: Array<{ node: globalThis.Node; ref: globalThis.Node | null }> = []
+    installMoveBeforeShim(moveCalls)
+
+    const host = document.createElement('div')
+    const [getItems, setItems] = signal(['a', 'b', 'c'])
+    const itemsSig: ReturnType<typeof signal<string[]>> = [getItems, setItems]
+    type BoolSignal = ReturnType<typeof signal<boolean>>
+    const visA: BoolSignal = signal(true)
+    const visB: BoolSignal = signal(true)
+    const visC: BoolSignal = signal(true)
+    const vis: Record<string, BoolSignal> = { a: visA, b: visB, c: visC }
+
+    const scope = mount(
+      branch('ul', undefined, [
+        each(
+          itemsSig,
+          (item) => item as string,
+          // Bare structural as the row body — no wrapping branch/fragment.
+          (item) =>
+            when(vis[item as string]!, () => branch('li', undefined, [leaf(item as string)])),
+        ),
+      ]),
+      host,
+    )
+
+    expect(host.querySelectorAll('li').length).toBe(3)
+
+    // Toggle off row 'b's nested content: its <li> (and the nested when's
+    // own 'w' boundary comment) are removed from the DOM, but stay in row
+    // 'b's outer appendedNodes snapshot as stale, now-detached references.
+    visB[1](false)
+    expect(host.querySelectorAll('li').length).toBe(2)
+
+    // Reorder — must not throw despite the stale detached-node reference in
+    // row 'b's appendedNodes. This is the FEL-396 regression itself: pre-fix,
+    // `_moveNode` handed the detached, stale <li> straight to the spec-
+    // faithful shim's moveBefore and it threw, aborting the reposition loop
+    // mid-reorder.
+    expect(() => setItems(['c', 'b', 'a'])).not.toThrow()
+
+    // The guard never called moveBefore on the stale node — it fell back to
+    // insertBefore instead (moveCalls only ever sees attached, same-root
+    // nodes).
+    for (const { node } of moveCalls) {
+      expect(node.parentNode !== null && node.getRootNode() === host.getRootNode()).toBe(true)
+    }
+
+    // NOTE: the insertBefore fallback for a stale node silently re-inserts
+    // it — row 'b's toggled-off <li> reappears in the DOM. That resurrection
+    // is a separate, pre-existing defect (appendedNodes goes stale when a
+    // row's top-level structural toggles off) independent of this guard;
+    // this test only locks in that the reorder no longer throws. Filed
+    // separately per the always-file-defects directive.
+    const lis = host.querySelectorAll('li')
+    expect(lis.length).toBe(3)
+    const texts = Array.from(lis).map((li) => li.textContent)
+    expect(texts).toContain('c')
+    expect(texts).toContain('a')
+
+    scope.dispose()
   })
 })

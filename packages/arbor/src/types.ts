@@ -101,6 +101,15 @@ export interface ChildScope {
   readonly key: string | number
   readonly disposers: Dispose[]
   appendedNodes: globalThis.Node[]
+  /**
+   * FEL-395: the list item VALUE this scope was grown from (`null` for the
+   * `when()` boundary, which has no per-item value). Row bodies capture their
+   * item by value at grow time (compiler-emitted `lgrow(items[i], i)`), so
+   * `_reconcileEach` must compare the incoming item against this to detect
+   * "same key, different value" and re-grow — otherwise a same-keyed
+   * replacement object's field changes never reach the DOM.
+   */
+  readonly item: unknown
 }
 
 /**
