@@ -2,6 +2,10 @@
 // M2 deliverable: demonstrates $lifecycle.mount/dispose for WS, $effect reactive
 // signal updates, and createResource from @aihu-plugin/data for the initial-scores
 // base layer.
+//
+// Agent surface: raw `state()` carries no config (state-model spec §2.1), so the
+// two agent-readable values are exposed through `derived` lenses over the private
+// signals, and `getScores` is the exposed action. See the @agent block below.
 
 @state {
   import { createResource } from '@aihu-plugin/data'
@@ -10,14 +14,14 @@
       ws = new WebSocket('ws://localhost:5172')
 
       ws.onopen = () => {
-        connected = true
+        wsConnected = true
       }
 
       ws.onmessage = (event: MessageEvent) => {
         try {
           const data = JSON.parse(event.data)
           if (Array.isArray(data)) {
-            scores = data
+            liveScores = data
           }
         } catch (_err) {
           // Malformed message — silently ignore, do not throw.
@@ -25,11 +29,11 @@
       }
 
       ws.onclose = () => {
-        connected = false
+        wsConnected = false
       }
 
       ws.onerror = () => {
-        connected = false
+        wsConnected = false
         // Non-blocking: log to console, do not propagate.
         console.warn('[realtime-scores] WebSocket error — connection may be unavailable.')
       }
@@ -41,10 +45,30 @@
       }
     })
 
-  // Score shape: { id: string, team: string, score: number }
-  let scores = state([])
+  // Private write targets. Score shape: { id: string, team: string, score: number }
+  let liveScores = state([])
 
-  let connected = state(false)
+  let wsConnected = state(false)
+
+  // Agent-readable projections of the two signals above. `derived` is what can
+  // carry `describe`/`expose` in the v2 wrapper dialect; the template reads
+  // these names, so nothing downstream changes.
+  const scores = derived(
+    { describe: 'Current live scores array: [{ id, team, score }]',
+      expose: 'read' },
+    () => liveScores)
+
+  const connected = derived(
+    { describe: 'WebSocket connection state: true when connected, false otherwise',
+      expose: 'read' },
+    () => wsConnected)
+
+  const getScores = action(
+    { describe: 'Return the current live scores array.',
+      expose: 'read' },
+    () => {
+      return liveScores
+    })
 
   let ws: WebSocket | null = null
 
@@ -150,4 +174,8 @@
     .realtime-scores { padding: 1rem; }
     .score-table th, .score-table td { padding: 0.35rem 0.4rem; font-size: 0.85rem; }
   }
+}
+
+@agent {
+  action getScores()
 }

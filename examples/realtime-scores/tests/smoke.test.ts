@@ -8,7 +8,10 @@
  *   A5-4: The SFC source contains `createResource`
  *   A5-5: The SFC source contains `@aihu-plugin/data`
  *   A5-6: The SFC source contains `@agent`
- *   A5-7: The SFC source contains `$expose`
+ *   A5-7: The SFC source exposes its agent surface via the v2 `expose:` config
+ *          key. (`$expose` was the v1 macro form; the v2 wrapper dialect carries
+ *          `describe`/`expose` on `derived`/`action` config bags instead —
+ *          state-model spec §2.1/§2.3, §6.1.)
  *   A5-8: registerAgentMetadata() can be called without throwing
  *          (registry simulation — same pattern as EX-06 weather-card and EX-09 blog-loader)
  *
@@ -58,8 +61,19 @@ describe('EX-12 realtime-scores — SFC source-text checks', () => {
     expect(sfcSrc).toContain('@agent')
   })
 
-  it('A5-7: SFC source contains $expose', () => {
-    expect(sfcSrc).toContain('$expose')
+  it('A5-7: SFC exposes its agent surface via the v2 expose: config key', () => {
+    // v2 wrapper dialect: `describe`/`expose` ride on `derived`/`action` config
+    // bags. Raw `state()` takes no config (spec §2.1), so the two readable
+    // values are `derived` lenses over the private signals.
+    expect(sfcSrc).toContain("expose: 'read'")
+    expect(sfcSrc).toContain('const scores = derived(')
+    expect(sfcSrc).toContain('const connected = derived(')
+    expect(sfcSrc).toContain('const getScores = action(')
+  })
+
+  it('A5-7b: @agent block declares the exposed getScores action', () => {
+    const agentBlock = sfcSrc.slice(sfcSrc.indexOf('@agent'))
+    expect(agentBlock).toContain('action getScores()')
   })
 })
 
