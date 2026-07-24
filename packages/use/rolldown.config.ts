@@ -1,5 +1,6 @@
 import { defineConfig } from 'rolldown'
 import { dts } from 'rolldown-plugin-dts'
+import pkg from './package.json' with { type: 'json' }
 
 export default defineConfig({
   // Multi-entry: one key per composable (+ the shared SSR-guard substrate).
@@ -12,6 +13,15 @@ export default defineConfig({
   // Entry (and subpath) names are camelCase (`useEventListener`) — a
   // deliberate, ratified divergence from primitives' kebab-case: subpaths
   // mirror the exported `useX` composable names (the VueUse convention).
+  //
+  // FAMILY subpaths (namespace-wave0: `math`, `motion`, `router`,
+  // `integrations`) land here too once their first composable is scaffolded
+  // — a bare family key (`math: 'src/math/index.ts'`) is the aggregate
+  // barrel, only present for `aggregate: true` families with >=1 member; a
+  // quoted `'family/name'` key is a member entry. Nothing is added here
+  // pre-emptively (see `packages/use/families.json` for the declared
+  // families themselves) — `scripts/gen-use.ts --family <family>` is what
+  // adds these once a composable actually lands.
   input: {
     index: 'src/index.ts',
     shared: 'src/shared/index.ts',
@@ -39,6 +49,13 @@ export default defineConfig({
     useToggle: 'src/useToggle/index.ts',
     useWindowSize: 'src/useWindowSize/index.ts',
     watch: 'src/watch/index.ts',
+    math: 'src/math/index.ts',
+    'math/useClamp': 'src/math/useClamp/index.ts',
+    motion: 'src/motion/index.ts',
+    'motion/useReducedMotion': 'src/motion/useReducedMotion/index.ts',
+    'integrations/useJwt': 'src/integrations/useJwt/index.ts',
+    router: 'src/router/index.ts',
+    'router/useRouteParams': 'src/router/useRouteParams/index.ts',
   },
   output: {
     dir: 'dist',
@@ -48,6 +65,12 @@ export default defineConfig({
   },
   plugins: [dts()],
   // @aihu/signals stays external so each composable's dist measures only its
-  // own code (matching the `.size-limit.json` ignore lists).
-  external: ['@aihu/signals'],
+  // own code (matching the `.size-limit.json` ignore lists). Every declared
+  // optional peer (packages/use/package.json `peerDependencies`) is external
+  // too, derived from the manifest so the two can never drift — peers are
+  // installed as devDependencies for typecheck/test, so WITHOUT this they
+  // would be silently inlined into whichever family bundle imports them.
+  // Harmless today: `peerDependencies` is empty until a family's first
+  // peer-bearing composable lands.
+  external: ['@aihu/signals', ...Object.keys(pkg.peerDependencies ?? {})],
 })

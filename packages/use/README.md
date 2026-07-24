@@ -134,6 +134,13 @@ bun add @aihu/use
 | `./useToggle` | `./dist/useToggle.js` | `—` |
 | `./useWindowSize` | `./dist/useWindowSize.js` | `—` |
 | `./watch` | `./dist/watch.js` | `—` |
+| `./integrations/useJwt` | `./dist/integrations/useJwt.js` | `—` |
+| `./math` | `./dist/math.js` | `—` |
+| `./math/useClamp` | `./dist/math/useClamp.js` | `—` |
+| `./motion` | `./dist/motion.js` | `—` |
+| `./motion/useReducedMotion` | `./dist/motion/useReducedMotion.js` | `—` |
+| `./router` | `./dist/router.js` | `—` |
+| `./router/useRouteParams` | `./dist/router/useRouteParams.js` | `—` |
 
 <sub><i>Auto-generated against `@aihu/use@0.3.0`.</i></sub>
 
@@ -147,6 +154,12 @@ bun add @aihu/use
 **Dependencies:**
 
 - `@aihu/signals` — `workspace:*`
+
+**Peer dependencies:**
+
+- `@aihu/context` — `workspace:*`
+- `@aihu/router` — `workspace:*`
+- `jwt-decode` — `>=4`
 
 <sub><i>Auto-generated against `@aihu/use@0.3.0`.</i></sub>
 

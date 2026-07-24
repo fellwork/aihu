@@ -54,6 +54,8 @@ pub(crate) const USE_COMPOSABLES: &[(&str, &str)] = &[
     // unimported `watch` identifier, which does not exist in any
     // browser/Node global. Included per the hard 6-touch-point rule.
     ("watch", "@aihu/use/watch"),
+    ("useClamp", "@aihu/use/math/useClamp"),
+    ("useReducedMotion", "@aihu/use/motion/useReducedMotion"),
 ];
 
 /// The registry entries to auto-import for this `@state` script.

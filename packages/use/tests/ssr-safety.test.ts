@@ -1,16 +1,34 @@
 /**
  * SSR-safety GATE — plan-mandated enforcement of the `isClient` no-op
  * invariant (effect-scope plan §3: the library's sole SSR defense while the
- * platform `__ssr` scope wrap is deferred).
+ * platform `__ssr` scope wrap is deferred), TWO-TIER (namespace-wave0,
+ * family-aware — `math`, `motion`, `router`, `integrations`):
  *
- * Table-driven over every composable entry: each row imports its entry under
- * stubbed-absent `window`/`document`/`navigator` and asserts ZERO side
- * effects — no `addEventListener`, no `setTimeout`/`setInterval`/
- * `requestAnimationFrame`, and a return value that works without a DOM.
+ * TIER 1 — AUTO-DISCOVERED, zero maintenance. Walks the real
+ * `packages/use/src` tree (CORE composables + every family member, via
+ * `packages/use/families.json`) and, for each one, imports its module under
+ * stubbed-absent `window`/`document`/`navigator` and asserts NO side-effect
+ * global (`addEventListener`/`setTimeout`/`setInterval`/
+ * `requestAnimationFrame`) was touched merely by EVALUATING the module.
+ * "Forgot a row" is structurally impossible for import-time safety — there
+ * is no row to forget, the discovery reads the tree itself. This is what
+ * makes the two-tier split affordable past composable #25: Tier 1 scales to
+ * 150 composables for free.
  *
- * **Adding composable #3..#25 to the library REQUIRES adding a row here** —
- * this is the safety net for the fan-out.
+ * TIER 2 — hand-written, CALL-time assertions. A composable that has a
+ * *meaningful* no-op return shape under SSR (e.g. `useCounter()` should
+ * still return a working `count()` getter, `useMouse()` should default to
+ * `{x:0,y:0}`) needs a human to write down what "correct" looks like when
+ * called — Tier 1 only proves "doesn't crash on import", not "behaves
+ * correctly when called". The parity gate (`check-use-registry-parity.ts`)
+ * REQUIRES a Tier-2 row exactly when the composable's own source references
+ * `isClient` (mechanically checkable — pure `/math` composables with no DOM
+ * touch are auto-exempt); otherwise it's optional. `entry` is
+ * slash-qualified for a family member (`'math/useClamp'`), matching every
+ * other manifest's join key.
  */
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { withSSR } from './_ssr.ts'
 
@@ -31,7 +49,104 @@ function withGlobalSpies(run: () => void): void {
   }
 }
 
-/** One row per composable entry. New composables MUST add a row. */
+// ---------------------------------------------------------------------------
+// Tier 1 — auto-discovered import-time safety
+// ---------------------------------------------------------------------------
+
+interface FamilyDef {
+  aggregate: boolean
+  autoImport: boolean
+  peers: Record<string, string[]>
+}
+
+const SRC_DIR = join(import.meta.dirname, '../src')
+const FAMILIES_PATH = join(import.meta.dirname, '../families.json')
+
+function loadFamilies(): Record<string, FamilyDef> {
+  if (!existsSync(FAMILIES_PATH)) return {}
+  const parsed = JSON.parse(readFileSync(FAMILIES_PATH, 'utf8')) as {
+    families?: Record<string, FamilyDef>
+  }
+  return parsed.families ?? {}
+}
+
+interface DiscoveredEntry {
+  /** Slash-qualified for a family member (`math/useClamp`), bare for CORE. */
+  name: string
+  /** Relative to THIS file, for the dynamic `import()` below. */
+  relPath: string
+}
+
+/** Every composable entry under `packages/use/src` — CORE dirs (excluding
+ * `shared`) plus one level inside each declared family directory. Mirrors
+ * `scripts/check-use-registry-parity.ts`'s `discoverComposableDirs`, kept as
+ * a local copy (this file has no reason to import a `scripts/` script). */
+function discoverEntries(): DiscoveredEntry[] {
+  const families = loadFamilies()
+  const out: DiscoveredEntry[] = []
+  for (const entry of readdirSync(SRC_DIR, { withFileTypes: true })) {
+    if (!entry.isDirectory() || entry.name === 'shared') continue
+    if (families[entry.name]) {
+      const familyDir = join(SRC_DIR, entry.name)
+      for (const member of readdirSync(familyDir, { withFileTypes: true })) {
+        if (!member.isDirectory()) continue
+        if (existsSync(join(familyDir, member.name, 'index.ts'))) {
+          out.push({
+            name: `${entry.name}/${member.name}`,
+            relPath: `../src/${entry.name}/${member.name}/index.ts`,
+          })
+        }
+      }
+      continue
+    }
+    if (existsSync(join(SRC_DIR, entry.name, 'index.ts'))) {
+      out.push({ name: entry.name, relPath: `../src/${entry.name}/index.ts` })
+    }
+  }
+  return out
+}
+
+/** Spies span the dynamic `import()` itself (module EVALUATION), not just a
+ * subsequent call — that's the whole point of Tier 1. */
+async function assertImportTimeIsClean(relPath: string): Promise<void> {
+  await withSSR(
+    async () => {
+      const g = globalThis as unknown as Record<string, AnyFn>
+      const names = ['addEventListener', 'setTimeout', 'setInterval', 'requestAnimationFrame']
+      const spies = names.filter((n) => typeof g[n] === 'function').map((n) => vi.spyOn(g, n))
+      try {
+        // @vite-ignore — `relPath` is intentionally computed (discovered
+        // from the src tree, not a literal); this is Vite's documented
+        // escape hatch for a dynamic specifier it cannot statically analyze.
+        await import(/* @vite-ignore */ relPath)
+        for (const s of spies) expect(s).not.toHaveBeenCalled()
+      } finally {
+        for (const s of spies) s.mockRestore()
+      }
+    },
+    () => {},
+  )
+}
+
+describe('@aihu/use — Tier 1: auto-discovered import-time SSR safety', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.resetModules()
+  })
+
+  for (const { name, relPath } of discoverEntries()) {
+    it(`${name}: importing the module under SSR touches no side-effect global`, () =>
+      assertImportTimeIsClean(relPath))
+  }
+})
+
+// ---------------------------------------------------------------------------
+// Tier 2 — hand-written, call-time assertions
+// ---------------------------------------------------------------------------
+
+/** One row per composable whose CALLED behavior needs a human-written
+ * assertion. New CORE composables MUST add a row; family composables should
+ * whenever the parity gate requires one (source references `isClient`). */
 const entries: Array<{ entry: string; run: () => Promise<void> }> = [
   {
     entry: 'useEventListener',
@@ -403,6 +518,19 @@ const entries: Array<{ entry: string; run: () => Promise<void> }> = [
       ),
   },
   {
+    entry: 'motion/useReducedMotion',
+    run: () =>
+      withSSR(
+        () => import('../src/motion/useReducedMotion/index.ts'),
+        ({ useReducedMotion }) => {
+          withGlobalSpies(() => {
+            const { prefersReduced } = useReducedMotion()
+            expect(prefersReduced()).toBe(false)
+          })
+        },
+      ),
+  },
+  {
     entry: 'watch',
     run: () =>
       withSSR(
@@ -424,7 +552,7 @@ const entries: Array<{ entry: string; run: () => Promise<void> }> = [
   },
 ]
 
-describe('@aihu/use — SSR-safety gate (isClient no-op invariant)', () => {
+describe('@aihu/use — Tier 2: hand-written call-time SSR safety (isClient no-op invariant)', () => {
   afterEach(() => {
     vi.unstubAllGlobals()
     vi.resetModules()

@@ -251,35 +251,19 @@ Per-package gates enforced by `bun run size`:
 | `@aihu/primitives/radio-group` | 2.91 kB | 4 KB | pass |
 | `@aihu/store` | 1.81 kB | 2.5 KB | pass |
 | `@aihu/use/shared` | 288 B | 320 B | pass |
-| `@aihu/use/useEventListener` | 352 B | 390 B | pass |
-| `@aihu/use/useEventListenerMap` | 435 B | 490 B | pass |
-| `@aihu/use/useMouse` | 519 B | 570 B | pass |
-| `@aihu/use/useToggle` | 179 B | 250 B | pass |
-| `@aihu/use/useCounter` | 275 B | 350 B | pass |
-| `@aihu/use/usePrevious` | 255 B | 350 B | pass |
-| `@aihu/use/useSupported` | 139 B | 200 B | pass |
-| `@aihu/use/useIntervalFn` | 325 B | 400 B | pass |
-| `@aihu/use/useTimeoutFn` | 330 B | 400 B | pass |
-| `@aihu/use/useRafFn` | 372 B | 450 B | pass |
-| `@aihu/use/useNow` | 512 B | 600 B | pass |
-| `@aihu/use/useDebounced` | 305 B | 350 B | pass |
-| `@aihu/use/useThrottle` | 360 B | 450 B | pass |
-| `@aihu/use/useElementSize` | 484 B | 1200 B | pass |
-| `@aihu/use/useElementVisibility` | 446 B | 1150 B | pass |
-| `@aihu/use/useScroll` | 543 B | 1200 B | pass |
-| `@aihu/use/useWindowSize` | 482 B | 950 B | pass |
-| `@aihu/use/useMediaQuery` | 340 B | 400 B | pass |
-| `@aihu/use/usePreferredDark` | 383 B | 450 B | pass |
-| `@aihu/use/useColorScheme` | 481 B | 550 B | pass |
-| `@aihu/use/useDocumentVisibility` | 441 B | 520 B | pass |
-| `@aihu/use/useLocalStorage` | 604 B | 650 B | pass |
-| `@aihu/use/useClipboard` | 416 B | 480 B | pass |
-| `@aihu/use/watch` | 368 B | 370 B | pass |
+| `@aihu/use/math` | 158 B | 1200 B | pass |
+| `@aihu/use/motion` | 385 B | 3 KB | pass |
+| `@aihu/use/router` | 316 B | 1500 B | pass |
 | `@aihu/auth` | 1.16 kB | 1.5 KB | pass |
 | `@aihu/magna` | 758 B | 1.8 KB | pass |
 | `@aihu/magna/codegen` | 1.04 kB | 1.2 KB | pass |
 | `@aihu/editor` | 13.56 kB | 14 KB | pass |
 | `@aihu/editor/safe-href` | 134 B | 300 B | pass |
+| `@aihu/use` (24 composables) | 139 B – 604 B | 17 distinct limits | pass |
+| `@aihu/use/integrations` (1 composable) | 338 B | 600 B | pass |
+| `@aihu/use/math` (1 composable) | 158 B | 250 B | pass |
+| `@aihu/use/motion` (1 composable) | 385 B | 900 B | pass |
+| `@aihu/use/router` (1 composable) | 316 B | 500 B | pass |
 
 <sub><i>Auto-generated — run `bun scripts/sync-readme.ts` to update.</i></sub>
 
