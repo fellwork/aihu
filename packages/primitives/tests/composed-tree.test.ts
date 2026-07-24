@@ -164,6 +164,27 @@ describe('composedParent / composedContains — multi-hop shadow-boundary crossi
     expect(composedParent(projected)).toBe(slot)
   })
 
+  it('an UNSLOTTED light-DOM child of a shadow host is NOT reported as contained (agrees with the downward walk)', () => {
+    // Regression for the disagreement between directions: `composedChildren`
+    // already excludes an unslotted light child (shadow supersedes it
+    // entirely — see the very first test in this file), but `composedParent`
+    // used to fall through to the ordinary `parentNode` hop and land back on
+    // `host`, so `composedContains` reported it as contained anyway even
+    // though nothing downward-facing (queryTabbables, composedQuerySelectorAll,
+    // walkComposedTree, ...) can ever reach it. Both directions must agree.
+    const host = document.createElement('div')
+    document.body.appendChild(host)
+    const unslotted = document.createElement('span')
+    unslotted.id = 'unslotted-light-child'
+    host.appendChild(unslotted) // light-DOM child, added before attachShadow
+
+    host.attachShadow({ mode: 'open' }) // no <slot> at all — supersedes light children entirely
+
+    expect(composedChildren(host)).not.toContain(unslotted)
+    expect(composedContains(host, unslotted)).toBe(false)
+    expect(composedParent(unslotted)).toBeNull()
+  })
+
   it('composedContains finds a slotted descendant of a container that receives content via <slot>', () => {
     // The exact shadow-opt-in consumer scenario: a focus-trap container lives
     // inside a shadow tree and receives its tabbable content via <slot>. The
@@ -329,5 +350,112 @@ describe('isTabbable / queryTabbables', () => {
     // without throwing and doesn't override disabled.
     el.disabled = true
     expect(isTabbable(el, { includeElement: el })).toBe(false)
+  })
+
+  it('matches contenteditable="" and contenteditable="plaintext-only", not just contenteditable="true"', () => {
+    document.body.innerHTML = `
+      <div id="root">
+        <div id="empty-value" contenteditable="">empty</div>
+        <div id="bare-attr" contenteditable>bare</div>
+        <div id="plaintext" contenteditable="plaintext-only">plaintext</div>
+        <div id="explicit-true" contenteditable="true">true</div>
+        <div id="explicit-false" contenteditable="false">false</div>
+        <div id="not-editable">plain</div>
+      </div>`
+    const root = document.getElementById('root') as HTMLElement
+    const ids = queryTabbables(root).map((el) => el.id)
+    expect(ids).toEqual(['empty-value', 'bare-attr', 'plaintext', 'explicit-true'])
+  })
+
+  it('visits positive-tabindex elements first (ascending, ties by doc order), scoped PER SHADOW ROOT — not globally', () => {
+    document.body.innerHTML = `
+      <div id="root">
+        <button id="c" tabindex="3">c</button>
+        <button id="a">a</button>
+        <button id="b" tabindex="1">b</button>
+      </div>`
+    const root = document.getElementById('root') as HTMLElement
+
+    // Same-scope reorder: ascending tabindex first, then naturals in doc order.
+    expect(queryTabbables(root).map((el) => el.id)).toEqual(['b', 'c', 'a'])
+
+    // A nested shadow root is its OWN scope: its positive-tabindex elements
+    // reorder among themselves but never jump ahead of (or behind) an
+    // element that belongs to a DIFFERENT (outer) scope, no matter its
+    // tabindex value.
+    const wrapper = document.createElement('div')
+    wrapper.id = 'wrapper'
+    root.appendChild(wrapper)
+    const shadow = wrapper.attachShadow({ mode: 'open' })
+    const shadowHigh = document.createElement('button')
+    shadowHigh.id = 'shadow-high'
+    shadowHigh.tabIndex = 20
+    const shadowLow = document.createElement('button')
+    shadowLow.id = 'shadow-low'
+    shadowLow.tabIndex = 1
+    shadow.append(shadowHigh, shadowLow) // source order: high then low
+
+    expect(queryTabbables(root).map((el) => el.id)).toEqual([
+      'b',
+      'c',
+      'a',
+      'shadow-low',
+      'shadow-high',
+    ])
+  })
+
+  it('a nested scope travels WITH its host when the host is naturally-ordered but a LATER sibling has positive tabindex', () => {
+    // Regression for FEL-400: the platform visits [b, a, x] here — `b` first
+    // (positive tabindex), then the rest in tree order, with the shadow
+    // host's nested content (`x`) spliced in right where the host (`a`'s
+    // sibling `host`) sits AFTER reordering, not pinned at the host's
+    // original document position. A naive "reorder each scope, then drop
+    // entries back into their original per-scope document slots" approach
+    // gets this wrong: it would leave `x` sitting at the DFS position the
+    // host originally occupied (between `a` and `b`), yielding [b, x, a]
+    // instead of the correct [b, a, x].
+    document.body.innerHTML = `
+      <div id="root">
+        <button id="a">a</button>
+      </div>`
+    const root = document.getElementById('root') as HTMLElement
+    const host = document.createElement('div')
+    host.id = 'host'
+    root.appendChild(host) // host is natural (no tabindex), sits after `a`
+    const shadow = host.attachShadow({ mode: 'open' })
+    const x = document.createElement('button')
+    x.id = 'x'
+    shadow.appendChild(x)
+    const b = document.createElement('button')
+    b.id = 'b'
+    b.tabIndex = 1
+    root.appendChild(b) // `b` sits after `host` in document order
+
+    expect(queryTabbables(root).map((el) => el.id)).toEqual(['b', 'a', 'x'])
+  })
+
+  it('a positive-tabindex shadow HOST is itself ordered by its own tabindex, and its nested scope is spliced in immediately after it', () => {
+    // Regression for FEL-400: the platform enters a positive-tabindex host's
+    // shadow tree immediately after the host, visiting [host, x, a] — not
+    // [host, a, x]. `host` participates in the outer scope's tabindex
+    // ordering using its OWN tabindex attribute (it is also itself tabbable
+    // here, since `[tabindex]` is a focusable selector), and its nested
+    // scope (`x`) must travel with it rather than staying pinned at the
+    // host's original DFS position.
+    document.body.innerHTML = `<div id="root"></div>`
+    const root = document.getElementById('root') as HTMLElement
+    const host = document.createElement('div')
+    host.id = 'host'
+    host.tabIndex = 1
+    root.appendChild(host)
+    const shadow = host.attachShadow({ mode: 'open' })
+    const x = document.createElement('button')
+    x.id = 'x'
+    shadow.appendChild(x)
+    const a = document.createElement('button')
+    a.id = 'a'
+    root.appendChild(a) // natural, sits after `host` in document order
+
+    expect(queryTabbables(root).map((el) => el.id)).toEqual(['host', 'x', 'a'])
   })
 })
