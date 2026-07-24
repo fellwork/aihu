@@ -17,6 +17,7 @@
  */
 
 import { effect, type Read, signal } from '@aihu/signals'
+import { composedQuerySelector, composedQuerySelectorAll } from '../composed-tree.ts'
 import { createDomContext, provideContext } from '../dom-context.ts'
 
 export { attachHiddenInput, type HiddenInputOptions } from './hidden-input.ts'
@@ -135,9 +136,12 @@ export class AihuFormControl extends HTMLElement {
     this._invalid[1](this.hasAttribute('invalid'))
   }
 
-  /** The slotted control element (input/select/textarea/[data-fc-control]). */
+  /** The slotted control element (input/select/textarea/[data-fc-control]).
+   * Composed-tree aware: a control nested behind an intervening shadow-DOM'd
+   * wrapper (legitimate opt-in shadow composition) is still found. */
   private _control(): HTMLElement | null {
-    return this.querySelector<HTMLElement>(
+    return composedQuerySelector<HTMLElement>(
+      this,
       '[data-fc-control], input, select, textarea, [role="textbox"]',
     )
   }
@@ -149,8 +153,8 @@ export class AihuFormControl extends HTMLElement {
       else this._controlId[1](control.id)
     }
 
-    // Associate a slotted label.
-    const label = this.querySelector<HTMLElement>('label, [data-fc-label]')
+    // Associate a slotted label (composed-tree aware — see `_control` above).
+    const label = composedQuerySelector<HTMLElement>(this, 'label, [data-fc-label]')
     if (label && control) {
       if (label instanceof HTMLLabelElement) {
         label.htmlFor = control.id
@@ -165,9 +169,13 @@ export class AihuFormControl extends HTMLElement {
       }
     }
 
-    // Collect description + error ids into aria-describedby.
+    // Collect description + error ids into aria-describedby (composed-tree
+    // aware — a shadow-wrapped description/error node is still discovered).
     const described: string[] = []
-    for (const el of this.querySelectorAll<HTMLElement>('[data-fc-description], [data-fc-error]')) {
+    for (const el of composedQuerySelectorAll<HTMLElement>(
+      this,
+      '[data-fc-description], [data-fc-error]',
+    )) {
       if (!el.id) el.id = nextId()
       described.push(el.id)
     }

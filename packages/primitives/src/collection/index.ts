@@ -11,6 +11,7 @@
  */
 
 import { type Read, signal } from '@aihu/signals'
+import { composedCompareOrder } from '../composed-tree.ts'
 import { createDomContext, provideContext } from '../dom-context.ts'
 
 export interface CollectionContextValue {
@@ -22,14 +23,17 @@ export interface CollectionContextValue {
 
 export const collectionContext = createDomContext<CollectionContextValue>('collection')
 
-/** Sort a set of elements into DOM (document) order. */
+/**
+ * Sort a set of elements into composed (rendered) order. Uses
+ * `composedCompareOrder` rather than raw `compareDocumentPosition`: members
+ * that live in different shadow roots (e.g. each roving-focus/radio-group item
+ * is itself shadow-DOM'd) are "disconnected" per the DOM spec from each
+ * other's perspective, so `compareDocumentPosition` alone is implementation-
+ * specific there — the composed-tree comparator walks both elements' ancestor
+ * chains (crossing shadow boundaries) to a common ancestor first.
+ */
 function sortDomOrder(els: Set<Element>): Element[] {
-  return [...els].sort((a, b) => {
-    const rel = a.compareDocumentPosition(b)
-    if (rel & Node.DOCUMENT_POSITION_FOLLOWING) return -1
-    if (rel & Node.DOCUMENT_POSITION_PRECEDING) return 1
-    return 0
-  })
+  return [...els].sort(composedCompareOrder)
 }
 
 /** The registration mechanism, usable standalone (roving-focus reuses it). */

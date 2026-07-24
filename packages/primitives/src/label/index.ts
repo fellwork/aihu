@@ -28,6 +28,7 @@
  */
 
 import { effect, type Read, signal } from '@aihu/signals'
+import { composedClosest, composedContains, composedParent } from '../composed-tree.ts'
 import { injectValue } from '../dom-context.ts'
 import {
   AihuFormControl,
@@ -72,14 +73,16 @@ export class AihuLabel extends HTMLElement {
     if (this._fc) {
       // The form-control connected (and wired) before this label existed in
       // its eyes — ask it to re-derive associations so the control gains
-      // aria-labelledby pointing at this label.
-      let node: Element | null = this.parentElement
-      while (node) {
+      // aria-labelledby pointing at this label. Composed-tree ancestor walk
+      // (crosses shadow boundaries via `composedParent`'s ShadowRoot -> .host
+      // hop) — a plain `.parentElement` loop stops dead at a shadow root.
+      let node: Node | null = composedParent(this)
+      while (node !== null) {
         if (node instanceof AihuFormControl) {
           node.recomputeDescribedBy()
           break
         }
-        node = node.parentElement
+        node = composedParent(node)
       }
     } else if (!this._isNativeLabel) {
       // Standalone: stamp aria-labelledby on the resolved target reactively.
@@ -133,14 +136,21 @@ export class AihuLabel extends HTMLElement {
     const target = this._resolveTarget()
     if (!target) return
 
-    const origin = ev.target instanceof Element ? ev.target : null
+    // `composedPath()[0]` is the true originating target, pre-retargeting —
+    // native `ev.target` is already retargeted to the outermost host visible
+    // from this label's own root, which would hide a nested interactive child
+    // living inside a further-nested shadow root.
+    const path = ev.composedPath()
+    const origin =
+      path[0] instanceof Element ? path[0] : ev.target instanceof Element ? ev.target : null
     // Clicks originating on a nested interactive child (that is not the
-    // labelled target) are the child's business — don't forward.
-    const interactive = origin?.closest('button,input,select,textarea,a') ?? null
+    // labelled target) are the child's business — don't forward. Composed-
+    // tree `closest`/`contains` so this still holds across shadow boundaries.
+    const interactive = origin ? composedClosest(origin, 'button,input,select,textarea,a') : null
     if (interactive !== null && interactive !== target) return
     // Clicks already on/inside the target need no forwarding (and forwarding
     // a click back to the target would recurse).
-    if (origin !== null && (origin === target || target.contains(origin))) return
+    if (origin !== null && (origin === target || composedContains(target, origin))) return
 
     // Disabled targets don't get forwarded interactions.
     if (
