@@ -20,11 +20,18 @@ import { useMouse } from '@aihu/use/useMouse'
 const { x, y } = useMouse()
 ```
 
-The barrel (`@aihu/use`) re-exports everything and is convenient in app code, but the subpath entry is what keeps the shipped bytes proportional to what you actually imported.
+The barrel (`@aihu/use`) re-exports every **root** composable and is convenient in app code, but the subpath entry is what keeps the shipped bytes proportional to what you actually imported.
+
+The namespaced families — `math/`, `motion/`, `router/`, `integrations/` — are **subpath-only** and are deliberately not re-exported from the barrel, since `router/` and `integrations/` carry optional peer dependencies. Import those from their own subpath:
+
+```ts
+import { useClamp } from '@aihu/use/math/useClamp'   // ✓
+import { useClamp } from '@aihu/use'                 // ✗ not exported
+```
 
 ## Reading composable values in templates: call the getter — `{x()}`
 
-Every composable returns **an object of named getters** (signals under the hood). In `.aihu` templates they are read **with parens**:
+Composables return **getters** — usually an object of named ones, sometimes a tuple (`useToggle`) or a single bare getter (`usePrevious`, `useSupported`). They are signals under the hood, so in `.aihu` templates they are read **with parens**:
 
 ```aihu
 <span>{x()} / {y()}</span>   <!-- ✓ reactive -->
@@ -74,7 +81,7 @@ import {
 | `useEventListener` | Attach a listener with scope-owned auto-cleanup **and** a manual `stop()`. Getter targets (`$ref`, signal reads) rebind reactively. Handler event types are inferred from the DOM event maps for `Window` / `Document` / `HTMLElement` targets. |
 | `useEventListenerMap` | Attach several event/handler pairs to one target in a single call. |
 | `useMouse` | Reactive mouse position (`client` / `page` / `screen` coordinates, configurable target and initial value). |
-| `useScroll` | Reactive scroll position and direction for an element or the window. |
+| `useScroll` | Reactive scroll position (`x` / `y`) for an element or the window. Position only — no direction. |
 | `useWindowSize` | Reactive viewport width/height. |
 | `useElementSize` | Element dimensions via `ResizeObserver`. |
 | `useElementVisibility` | Whether an element is in the viewport, via `IntersectionObserver`. |
@@ -88,7 +95,7 @@ import {
 | `useToggle` | Boolean with a toggle setter. |
 | `usePrevious` | The previous value of a reactive source. |
 | `useLocalStorage` | Signal backed by `localStorage`, synced across tabs. |
-| `useClipboard` | Read/write the system clipboard with a `copied` flag. |
+| `useClipboard` | Copy text to the system clipboard. Returns `copy` / `copied` / `isSupported` — write-only, there is no clipboard read. |
 
 ### Time and scheduling
 
@@ -123,7 +130,7 @@ import {
 | `@aihu/use/math/useClamp` | Clamp a reactive number between reactive bounds. |
 | `@aihu/use/motion/useReducedMotion` | Whether the user prefers reduced motion. |
 | `@aihu/use/router/useRouteParams` | Reactive route params from [`@aihu/router`](/docs/api-reference). |
-| `@aihu/use/integrations/useJwt` | Decode and reactively track a JWT. |
+| `@aihu/use/integrations/useJwt` | Decode a JWT. Takes a plain `string`, decoded once per call — the returned `payload` / `error` signals settle when the async `jwt-decode` import resolves; a changing token is not tracked. |
 
 ## How it relates
 

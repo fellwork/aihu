@@ -2,7 +2,7 @@
 
 Fine-grained, Proxy-backed deep reactive trees on aihu signals — lazily allocated per-`(object, key)` tracking nodes, plain-assignment writes, and in-place `mutate` / `reconcile`.
 
-Built entirely on the public [`@aihu/signals`](/docs/api-reference) API. `@aihu/signals` is `external` to this package's bundle, so `@aihu/reactive` adds **zero bytes** to the signals core size row.
+Built entirely on the public [`@aihu/signals`](/docs/api-reference) API. `@aihu/signals` is `external` to this package's bundle, so `@aihu/reactive`'s own size row carries **no duplicate copy of signals** — you pay for the node model, not a second reactivity core.
 
 ## Install
 
