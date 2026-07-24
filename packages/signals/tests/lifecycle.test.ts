@@ -11,9 +11,9 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { effectScope, getCurrentScope } from '@aihu/signals'
-import { _attachLifecycleHost, getLifecycleHost, type LifecycleHost } from '@aihu/signals/lifecycle'
 import { describe, expect, it } from 'vitest'
+import { effectScope, getCurrentScope } from '../src/index.ts'
+import { _attachLifecycleHost, getLifecycleHost, type LifecycleHost } from '../src/lifecycle.ts'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 
