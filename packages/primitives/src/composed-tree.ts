@@ -97,7 +97,22 @@ export function composedParent(node: Node): Node | null {
   if (slot !== null) return slot
   const parent = node.parentNode
   if (parent === null) return null
-  return parent instanceof ShadowRoot ? parent.host : parent
+  if (parent instanceof ShadowRoot) return parent.host
+  // `parent` is an ordinary element whose OWN shadow root supersedes its
+  // light-DOM children entirely (see `composedChildren`). If `node` reached
+  // here, it has no `assignedSlot` — it is UNSLOTTED light-DOM content, which
+  // is invisible to the downward walk (`composedChildren(parent)` resolves to
+  // the shadow root's children, never `parent`'s light children). Chosen
+  // semantic: composed-tree containment/closest/order-comparison must agree
+  // with the downward walk rather than silently diverge from it, so an
+  // unslotted light child has NO composed-tree parent either — it is off the
+  // composed tree in both directions, not "contained via its host" in one
+  // direction only. (The alternative — treating it as still contained via its
+  // host — would make `composedContains` report `true` for elements that
+  // `queryTabbables`/`composedQuerySelectorAll`/etc. can never reach, which is
+  // the exact inconsistency this module exists to avoid.)
+  if (isElement(parent) && parent.shadowRoot !== null) return null
+  return parent
 }
 
 /**
@@ -238,7 +253,12 @@ function composedAncestorChain(node: Node): Node[] {
 const FOCUSABLE_SELECTOR =
   'a[href], area[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), ' +
   'select:not([disabled]), textarea:not([disabled]), [tabindex], ' +
-  '[contenteditable="true"], audio[controls], video[controls], details>summary:first-of-type'
+  // `contenteditable=""` (including the bare `contenteditable` attribute,
+  // which HTML parses to an empty-string value) means "true" per spec — only
+  // `[contenteditable="true"]` missed that. `"plaintext-only"` is also an
+  // editing-host state that participates in the tab order.
+  '[contenteditable=""], [contenteditable="true"], [contenteditable="plaintext-only"], ' +
+  'audio[controls], video[controls], details>summary:first-of-type'
 
 /** jsdom does not lay out, so `offsetParent` is always null — treat all as visible there. */
 function isInJsdom(): boolean {
@@ -303,13 +323,109 @@ export function isTabbable(el: Element, opts: TabbableOptions = {}): boolean {
 }
 
 /**
- * All tabbable elements in `container`'s composed subtree, in rendered order.
- * The shadow-DOM/slot-aware replacement for
- * `container.querySelectorAll(FOCUSABLE_SELECTOR)`.
+ * Positive `tabindex` value of `el`, or `null` if absent/zero/negative/
+ * non-numeric. The platform visits positive-`tabindex` elements FIRST, in
+ * ascending order — see `orderScope`.
+ */
+function getPositiveTabindex(el: Element): number | null {
+  const attr = el.getAttribute('tabindex')
+  if (attr === null) return null
+  const n = Number.parseInt(attr, 10)
+  return Number.isFinite(n) && n > 0 ? n : null
+}
+
+/** A scope member during `orderScope`'s construction, before within-scope sorting. */
+interface ScopeMember {
+  /** The member itself — a plain scope participant, or the HOST anchor of a nested scope. */
+  el: Element
+  /** Original tree-order index within this scope, for stable tie-breaking. */
+  index: number
+  /**
+   * Already-ordered contents of the nested scope this member hosts (its own
+   * open shadow root), or `[]` if `el` isn't a shadow host. This is what
+   * travels WITH `el` once `el`'s position in the scope is decided — see
+   * `orderScope`.
+   */
+  nested: Element[]
+}
+
+/**
+ * Recursively builds real sequential-focus-navigation order for the
+ * focus-navigation scope rooted at `root` — the HTML spec's flattened,
+ * tabindex-ordered construction, NOT a plain composed-DFS walk reordered
+ * in place.
+ *
+ * A new scope begins at each open shadow root, exactly where
+ * `composedChildren` crosses a shadow boundary. The shadow HOST is a member
+ * of the PARENT scope (participating in that scope's tabindex ordering via
+ * its OWN `tabindex` attribute, even when the host itself isn't tabbable) —
+ * but critically, the host's entire nested scope travels WITH it: once a
+ * scope's direct members are ordered (positive `tabindex` ascending, ties in
+ * tree order, then naturals in tree order), each host's already-ordered
+ * nested contents are spliced in immediately after that host in the
+ * PARENT's ordered sequence. A nested scope never stays pinned at the
+ * document position it happened to occupy — it moves with its host, which is
+ * what makes a positive-`tabindex` shadow host's contents visited right
+ * after the host, matching the platform's real Tab sequence. (Slotted
+ * content keeps the scope it is composed INTO, i.e. the shadow tree owning
+ * the `<slot>`, not its light-DOM origin — consistent with how
+ * `composedChildren`/`walkComposedTree` already define scope boundaries
+ * elsewhere in this file.)
+ *
+ * Returns every scope member in final order, INCLUDING non-tabbable hosts
+ * and non-tabbable plain elements — callers filter with `isTabbable`
+ * afterward (see `queryTabbables`), since a host's position must be kept as
+ * the splice point for its nested scope even when the host itself is never
+ * actually focusable.
+ */
+function orderScope(root: ComposedRoot): Element[] {
+  const members: ScopeMember[] = []
+  let index = 0
+
+  function walk(node: ComposedRoot): void {
+    for (const child of composedChildren(node)) {
+      if (child.shadowRoot !== null) {
+        // `child` hosts a new nested scope: it is itself a member of THIS
+        // scope (ordered below by its own tabindex), and its shadow content
+        // is a fully-ordered nested scope that gets spliced in right after
+        // it once this scope's own ordering is decided.
+        members.push({ el: child, index: index++, nested: orderScope(child.shadowRoot) })
+      } else {
+        members.push({ el: child, index: index++, nested: [] })
+        walk(child) // descend further within the SAME scope
+      }
+    }
+  }
+  walk(root)
+
+  const positive = members.filter((m) => getPositiveTabindex(m.el) !== null)
+  positive.sort((a, b) => {
+    const diff = getPositiveTabindex(a.el)! - getPositiveTabindex(b.el)!
+    return diff !== 0 ? diff : a.index - b.index
+  })
+  const natural = members.filter((m) => getPositiveTabindex(m.el) === null)
+
+  const out: Element[] = []
+  for (const m of [...positive, ...natural]) {
+    out.push(m.el, ...m.nested)
+  }
+  return out
+}
+
+/**
+ * All tabbable elements in `container`'s composed subtree, in real
+ * sequential-focus-navigation order: the shadow-DOM/slot-aware replacement
+ * for `container.querySelectorAll(FOCUSABLE_SELECTOR)` — but ALSO correct
+ * about ordering, not just reach. The platform does not visit tabbables in
+ * plain document order: within each focus-navigation scope (the container
+ * itself, and independently within each open shadow root), positive-
+ * `tabindex` elements are visited first, ascending, and a scope nested
+ * inside a positive-`tabindex` host travels WITH that host rather than
+ * staying pinned at its original document position — see `orderScope`.
  */
 export function queryTabbables(container: ComposedRoot, opts: TabbableOptions = {}): HTMLElement[] {
   const out: HTMLElement[] = []
-  for (const el of walkComposedTree(container)) {
+  for (const el of orderScope(container)) {
     if (isTabbable(el, opts)) out.push(el as HTMLElement)
   }
   return out
