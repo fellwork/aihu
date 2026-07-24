@@ -280,6 +280,41 @@
     "limit": "370 B"
   },
   {
+    "name": "@aihu/use/math",
+    "bytes": 158,
+    "limit": "1200 B"
+  },
+  {
+    "name": "@aihu/use/math/useClamp",
+    "bytes": 158,
+    "limit": "250 B"
+  },
+  {
+    "name": "@aihu/use/motion",
+    "bytes": 385,
+    "limit": "3 KB"
+  },
+  {
+    "name": "@aihu/use/motion/useReducedMotion",
+    "bytes": 385,
+    "limit": "900 B"
+  },
+  {
+    "name": "@aihu/use/integrations/useJwt",
+    "bytes": 338,
+    "limit": "600 B"
+  },
+  {
+    "name": "@aihu/use/router",
+    "bytes": 316,
+    "limit": "1500 B"
+  },
+  {
+    "name": "@aihu/use/router/useRouteParams",
+    "bytes": 316,
+    "limit": "500 B"
+  },
+  {
     "name": "@aihu/auth",
     "bytes": 1184,
     "limit": "1.5 KB"

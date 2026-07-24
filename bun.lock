@@ -658,16 +658,16 @@
         "@aihu/css-engine": "workspace:*",
       },
       "optionalDependencies": {
-        "@aihu/compiler-darwin-arm64": "0.1.28",
-        "@aihu/compiler-darwin-x64": "0.1.28",
-        "@aihu/compiler-linux-arm64-gnu": "0.1.28",
-        "@aihu/compiler-linux-x64-gnu": "0.1.28",
+        "@aihu/compiler-darwin-arm64": "0.1.29",
+        "@aihu/compiler-darwin-x64": "0.1.29",
+        "@aihu/compiler-linux-arm64-gnu": "0.1.29",
+        "@aihu/compiler-linux-x64-gnu": "0.1.29",
         "@aihu/compiler-native-darwin-arm64": "0.1.0",
         "@aihu/compiler-native-darwin-x64": "0.1.0",
         "@aihu/compiler-native-linux-arm64-gnu": "0.1.0",
         "@aihu/compiler-native-linux-x64-gnu": "0.1.0",
         "@aihu/compiler-native-win32-x64-msvc": "0.1.0",
-        "@aihu/compiler-win32-x64-msvc": "0.1.28",
+        "@aihu/compiler-win32-x64-msvc": "0.1.29",
       },
       "peerDependencies": {
         "vite": ">=5.0.0",
@@ -941,10 +941,22 @@
     },
     "packages/use": {
       "name": "@aihu/use",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "dependencies": {
         "@aihu/signals": "workspace:*",
       },
+      "devDependencies": {
+        "@aihu/router": "workspace:*",
+        "jwt-decode": "^4.0.0",
+      },
+      "peerDependencies": {
+        "@aihu/router": "workspace:*",
+        "jwt-decode": ">=4",
+      },
+      "optionalPeers": [
+        "@aihu/router",
+        "jwt-decode",
+      ],
     },
     "packages/vscode-aihu": {
       "name": "vscode-aihu",
@@ -2904,6 +2916,8 @@
     "jwa": ["jwa@2.0.1", "", { "dependencies": { "buffer-equal-constant-time": "^1.0.1", "ecdsa-sig-formatter": "1.0.11", "safe-buffer": "^5.0.1" } }, "sha512-hRF04fqJIP8Abbkq5NKGN0Bbr3JxlQ+qhZufXVr0DvujKy93ZCbXZMHDL4EOtodSbCWxOqR8MS1tXA5hwqCXDg=="],
 
     "jws": ["jws@4.0.1", "", { "dependencies": { "jwa": "^2.0.1", "safe-buffer": "^5.0.1" } }, "sha512-EKI/M/yqPncGUUh44xz0PxSidXFr/+r0pA70+gIYhjv+et7yxM+s29Y+VGDkovRofQem0fs7Uvf4+YmAdyRduA=="],
+
+    "jwt-decode": ["jwt-decode@4.0.0", "", {}, "sha512-+KJGIyHgkGuIq3IEBNftfhW/LfWhXUIY6OmyVWjliu5KH1y0fw7VQ8YndE2O4qZdMSd9SqbnC8GOcZEy0Om7sA=="],
 
     "keytar": ["keytar@7.9.0", "", { "dependencies": { "node-addon-api": "^4.3.0", "prebuild-install": "^7.0.1" } }, "sha512-VPD8mtVtm5JNtA2AErl6Chp06JBfy7diFQ7TQQhdpWOl6MrCRB+eRbvAZUsbGQS9kiMq0coJsy0W0vHpDCkWsQ=="],
 

@@ -197,14 +197,31 @@ function fmtBytes(n: number): string {
   return n < 1024 ? `${Math.round(n)} B` : `${(n / 1024).toFixed(2)} kB`
 }
 
+/**
+ * Walk UP from `entryPath`'s directory to find the nearest `package.json` —
+ * see `scripts/size.ts`'s identical `peerDepsOf` for the full rationale. A
+ * fixed `dirname(entryPath)/../package.json` hop resolves correctly for a
+ * flat entry but silently breaks for a nested family entry
+ * (`packages/use/dist/math/useClamp.js`), leaving its declared peers
+ * un-externalized. Keep this copy in sync with `scripts/size.ts`'s.
+ */
 async function peerDepsOf(entryPath: string): Promise<string[]> {
-  const pkgPath = join(dirname(entryPath), '..', 'package.json')
-  try {
-    const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'))
-    return Object.keys(pkg.peerDependencies ?? {})
-  } catch {
-    return []
+  let dir = dirname(entryPath)
+  for (let i = 0; i < 6; i++) {
+    const pkgPath = join(dir, 'package.json')
+    if (existsSync(pkgPath)) {
+      try {
+        const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'))
+        return Object.keys(pkg.peerDependencies ?? {})
+      } catch {
+        return []
+      }
+    }
+    const parent = dirname(dir)
+    if (parent === dir) break
+    dir = parent
   }
+  return []
 }
 
 async function measureSizes(): Promise<
@@ -236,16 +253,102 @@ async function measureSizes(): Promise<
   return out
 }
 
+/**
+ * `@aihu/use` grows a `.size-limit.json` row per composable — 24 CORE rows
+ * today, ~40 after namespace-wave0, ~170 by wave 12 (one per family member,
+ * per families.json's per-composable-entry model). `sync-readme --check` is
+ * the real landing gate, so a one-line-per-row README would turn every wave
+ * into a 100+-line diff. Collapse:
+ *   - every CORE composable row (`@aihu/use/<name>`, no further slash, `name`
+ *     not `shared` and not a declared family name) into ONE summary line.
+ *   - every FAMILY MEMBER row (`@aihu/use/<family>/<name>`) into one summary
+ *     line PER family (this is where the wave-12 growth actually happens).
+ * Left as explicit, individual lines (never collapsed): `.` / `@aihu/use`
+ * itself, `@aihu/use/shared`, and every family AGGREGATE row
+ * (`@aihu/use/<family>`, bare) — there is at most one aggregate row per
+ * family, so it never becomes a diff-growth problem.
+ */
+function loadUseFamilyNames(): Set<string> {
+  const path = join(REPO_ROOT, 'packages/use/families.json')
+  if (!existsSync(path)) return new Set()
+  try {
+    const parsed = JSON.parse(readFileSync(path, 'utf8')) as { families?: Record<string, unknown> }
+    return new Set(Object.keys(parsed.families ?? {}))
+  } catch {
+    return new Set()
+  }
+}
+
+function summarizeGroup(
+  label: string,
+  group: Array<{ name: string; bytes: number; limit: string; ok: boolean }>,
+): string {
+  const measured = group.filter((m) => m.bytes >= 0).map((m) => m.bytes)
+  const size =
+    measured.length > 0
+      ? measured.length > 1 && Math.min(...measured) !== Math.max(...measured)
+        ? `${fmtBytes(Math.min(...measured))} – ${fmtBytes(Math.max(...measured))}`
+        : fmtBytes(measured[0] ?? 0)
+      : '—'
+  const limits = [...new Set(group.map((m) => m.limit))]
+  const limit = limits.length > 1 ? `${limits.length} distinct limits` : (limits[0] ?? '—')
+  const status = group.every((m) => m.ok)
+    ? 'pass'
+    : group.some((m) => m.bytes < 0)
+      ? '_no dist_'
+      : 'OVER'
+  return `| \`${label}\` (${group.length} composable${group.length === 1 ? '' : 's'}) | ${size} | ${limit} | ${status} |`
+}
+
 async function genBundleSizesSection(
   measurements: Array<{ name: string; bytes: number; limit: string; ok: boolean }>,
 ): Promise<SectionResult> {
+  const families = loadUseFamilyNames()
+  const prefix = '@aihu/use/'
+
+  const coreGroup: typeof measurements = []
+  const familyGroups = new Map<string, typeof measurements>()
+  const individual: typeof measurements = []
+
+  for (const m of measurements) {
+    if (m.name.startsWith(prefix)) {
+      const rest = m.name.slice(prefix.length)
+      const slash = rest.indexOf('/')
+      if (slash === -1) {
+        // Bare: 'shared' or a family aggregate stay individual; every other
+        // bare name is a CORE composable, collapsed.
+        if (rest === 'shared' || families.has(rest)) {
+          individual.push(m)
+        } else {
+          coreGroup.push(m)
+        }
+        continue
+      }
+      // `<family>/<member>` — grouped per family.
+      const family = rest.slice(0, slash)
+      const group = familyGroups.get(family) ?? []
+      group.push(m)
+      familyGroups.set(family, group)
+      continue
+    }
+    individual.push(m)
+  }
+
   const lines: string[] = []
   lines.push(`| Package | Size (gz) | Limit | Status |`)
   lines.push(`|---|---:|---:|:---:|`)
-  for (const m of measurements) {
+  for (const m of individual) {
     const size = m.bytes >= 0 ? fmtBytes(m.bytes) : '—'
     const status = m.bytes < 0 ? '_no dist_' : m.ok ? 'pass' : 'OVER'
     lines.push(`| \`${m.name}\` | ${size} | ${m.limit} | ${status} |`)
+  }
+  if (coreGroup.length > 0) {
+    lines.push(summarizeGroup('@aihu/use', coreGroup))
+  }
+  for (const [family, group] of [...familyGroups.entries()].sort(([a], [b]) =>
+    a.localeCompare(b),
+  )) {
+    lines.push(summarizeGroup(`@aihu/use/${family}`, group))
   }
   return { key: 'bundle-sizes', body: lines.join('\n') }
 }

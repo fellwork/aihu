@@ -1,0 +1,40 @@
+{
+  "$comment": "Single source of truth for @aihu/use's family subpaths (ratified architecture: CORE stays dependency-free; FAMILY subpaths may declare optional peers, isolated per-composable entry). Consumed by scripts/dep-check.ts (subpath purity + peer ownership), scripts/check-use-registry-parity.ts (family-aware parity), and scripts/gen-use.ts (the --family scaffolder). A family entry here is a deliberate, reviewed edit — never a scaffolder side effect (see scripts/gen-use.ts validateFamily). Declaring a family (and its eventual peer map) ahead of its first member is intentional: it fixes the shape so 150 authors can't improvise a different one, and it costs nothing at the npm level because no peerDependencies/devDependencies are added until a real composable claims a peer (see dep-check.ts's 'active peer' scoping).",
+  "families": {
+    "math": {
+      "aggregate": true,
+      "autoImport": true,
+      "memberLimit": "250 B",
+      "aggregateLimit": "1200 B",
+      "peers": {}
+    },
+    "motion": {
+      "aggregate": true,
+      "autoImport": true,
+      "memberLimit": "900 B",
+      "aggregateLimit": "3 KB",
+      "peers": {}
+    },
+    "router": {
+      "aggregate": true,
+      "autoImport": false,
+      "memberLimit": "500 B",
+      "aggregateLimit": "1500 B",
+      "peers": {
+        "*": ["@aihu/router", "@aihu/context"]
+      }
+    },
+    "integrations": {
+      "aggregate": false,
+      "autoImport": false,
+      "memberLimit": "600 B",
+      "peers": {
+        "useAxios": ["axios"],
+        "useCookies": ["universal-cookie"],
+        "useJwt": ["jwt-decode"],
+        "useDrauu": ["drauu"],
+        "useAsyncValidator": ["async-validator"]
+      }
+    }
+  }
+}

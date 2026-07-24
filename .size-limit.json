@@ -409,6 +409,55 @@
     "ignore": ["@aihu/signals"]
   },
   {
+    "name": "@aihu/use/math",
+    "path": "packages/use/dist/math.js",
+    "limit": "1200 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
+    "name": "@aihu/use/math/useClamp",
+    "path": "packages/use/dist/math/useClamp.js",
+    "limit": "250 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
+    "name": "@aihu/use/motion",
+    "path": "packages/use/dist/motion.js",
+    "limit": "3 KB",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
+    "name": "@aihu/use/motion/useReducedMotion",
+    "path": "packages/use/dist/motion/useReducedMotion.js",
+    "limit": "900 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
+    "name": "@aihu/use/integrations/useJwt",
+    "path": "packages/use/dist/integrations/useJwt.js",
+    "limit": "600 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals", "jwt-decode"]
+  },
+  {
+    "name": "@aihu/use/router",
+    "path": "packages/use/dist/router.js",
+    "limit": "1500 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals", "@aihu/router"]
+  },
+  {
+    "name": "@aihu/use/router/useRouteParams",
+    "path": "packages/use/dist/router/useRouteParams.js",
+    "limit": "500 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals", "@aihu/router"]
+  },
+  {
     "name": "@aihu/auth",
     "path": "packages/auth/dist/index.js",
     "limit": "1.5 KB",

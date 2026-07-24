@@ -29,7 +29,7 @@
     "format": "biome format --write .",
     "check": "biome check --write .",
     "check:lint": "biome ci .",
-    "check:ci": "bun run check:lint && bun run typecheck && bun run test && bun run build && bun run size && bun run check:size-rows && bun run check:use-registry-parity && bun run check:runtime-purity && bun run check:grammar-v2 && bun run check:cookbook",
+    "check:ci": "bun run check:lint && bun run typecheck && bun run test && bun run build && bun run size && bun run check:size-rows && bun run check:use-registry-parity && bun run check:deps && bun run check:runtime-purity && bun run check:grammar-v2 && bun run check:cookbook",
     "check:pre-push": "bun run check:lint && bun run typecheck",
     "size": "bun scripts/size.ts",
     "check:size-rows": "bun scripts/check-size-rows.ts",

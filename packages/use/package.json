@@ -110,6 +110,34 @@
     "./watch": {
       "types": "./dist/watch.d.ts",
       "import": "./dist/watch.js"
+    },
+    "./integrations/useJwt": {
+      "types": "./dist/integrations/useJwt.d.ts",
+      "import": "./dist/integrations/useJwt.js"
+    },
+    "./math": {
+      "types": "./dist/math.d.ts",
+      "import": "./dist/math.js"
+    },
+    "./math/useClamp": {
+      "types": "./dist/math/useClamp.d.ts",
+      "import": "./dist/math/useClamp.js"
+    },
+    "./motion": {
+      "types": "./dist/motion.d.ts",
+      "import": "./dist/motion.js"
+    },
+    "./motion/useReducedMotion": {
+      "types": "./dist/motion/useReducedMotion.d.ts",
+      "import": "./dist/motion/useReducedMotion.js"
+    },
+    "./router": {
+      "types": "./dist/router.d.ts",
+      "import": "./dist/router.js"
+    },
+    "./router/useRouteParams": {
+      "types": "./dist/router/useRouteParams.d.ts",
+      "import": "./dist/router/useRouteParams.js"
     }
   },
   "files": [
@@ -120,6 +148,27 @@
   "sideEffects": false,
   "dependencies": {
     "@aihu/signals": "workspace:*"
+  },
+  "peerDependencies": {
+    "@aihu/context": "workspace:*",
+    "@aihu/router": "workspace:*",
+    "jwt-decode": ">=4"
+  },
+  "peerDependenciesMeta": {
+    "@aihu/context": {
+      "optional": true
+    },
+    "@aihu/router": {
+      "optional": true
+    },
+    "jwt-decode": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@aihu/context": "workspace:*",
+    "@aihu/router": "workspace:*",
+    "jwt-decode": "^4.0.0"
   },
   "scripts": {
     "build": "rm -rf dist && rolldown -c",

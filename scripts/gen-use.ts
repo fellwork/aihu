@@ -1,31 +1,91 @@
 #!/usr/bin/env bun
 import { spawnSync } from 'node:child_process'
 /**
- * `gen:use` — scaffold a new `@aihu/use` composable's six touch points.
+ * `gen:use` — scaffold a new `@aihu/use` composable's touch points, family-aware.
  *
- * A composable has FIVE file touch points (src dir, barrel, package.json
- * exports, rolldown input, .size-limit.json row) PLUS a sixth
- * (USE_COMPOSABLES tuple in packages/compiler/src/codegen/use_registry.rs
- * for compiler auto-import). Forgetting one is easy and previously silent —
- * this script creates the src stub and idempotently patches the other five,
- * so re-running it after partial hand-edits never duplicates an entry.
+ * A CORE composable has SIX touch points (src dir, barrel, package.json
+ * exports, rolldown input, .size-limit.json row, USE_COMPOSABLES tuple) PLUS
+ * an optional 7th (a Tier-2 row in tests/ssr-safety.test.ts, required only
+ * when the implementation references `isClient`). A FAMILY composable
+ * (`--family math`) has the same shape, except: its barrel lives at
+ * `src/<family>/index.ts` (never the CORE barrel — the one-way rule forbids
+ * it), and its USE_COMPOSABLES tuple is emitted ONLY when the family's
+ * `autoImport` flag (in `packages/use/families.json`) is `true`.
  *
  * Usage:
- *   bun scripts/gen-use.ts <name> [--bare]
- *   bun run gen:use <name> [--bare]
+ *   bun scripts/gen-use.ts <name> [<name>...] [--bare] [--family <family>]
+ *   bun run gen:use <name> [<name>...] [--bare] [--family <family>]
  *
  * `<name>` must match `^use[A-Z]` (e.g. `useMap`) unless `--bare` is passed,
  * for the rare non-`use`-prefixed case (e.g. `watch`) — the scaffolder does
  * not force every future composable into the `useX` mold, but requires the
  * author to consciously opt out of the convention.
  *
- * Every patch step (2-6 below) is "check first, patch if absent, log
- * SKIPPED if present" — running this twice in a row is a no-op the second
- * time, which is what makes step 8's self-check safe to run unconditionally.
+ * `--family <family>` must name a family already declared in
+ * `packages/use/families.json` — adding a NEW family is a deliberate,
+ * reviewed edit to that file (plus a dep-check/parity review), never a
+ * scaffolder side effect.
+ *
+ * Multiple names in one invocation land together — this matters because
+ * every USE_COMPOSABLES registry edit is a Rust source change and
+ * `check:compiler-binary-bump` reads the COMMITTED diff: scaffolding a wave
+ * one composable at a time means one 5-platform version bump PER composable.
+ * One wave = one PR = one batched registry commit = one bump.
+ *
+ * Every patch step is "check first, patch if absent, log SKIPPED if
+ * present" — running this twice in a row is a no-op the second time, which
+ * is what makes the self-check safe to run unconditionally.
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+
+// ---------- families.json ----------
+
+export interface FamilyDef {
+  aggregate: boolean
+  autoImport: boolean
+  memberLimit: string
+  aggregateLimit?: string
+  peers: Record<string, string[]>
+}
+
+export interface FamiliesFile {
+  families: Record<string, FamilyDef>
+}
+
+export function loadFamilies(familiesJsonSrc: string): Record<string, FamilyDef> {
+  return (JSON.parse(familiesJsonSrc) as FamiliesFile).families ?? {}
+}
+
+export function validateFamily(
+  family: string | undefined,
+  families: Record<string, FamilyDef>,
+): void {
+  if (family === undefined) return
+  if (!Object.hasOwn(families, family)) {
+    const known = Object.keys(families).sort().join(', ') || '(none declared)'
+    throw new Error(
+      `'--family ${family}' is not declared in packages/use/families.json. Known families: ${known}. ` +
+        `Adding a new family is a deliberate edit to families.json (plus a dep-check/parity review) — ` +
+        `never a scaffolder side effect.`,
+    )
+  }
+}
+
+/** Peer package(s) THIS composable (as opposed to the whole family) is
+ * allowed to import — `peers['*']` (family-wide) union `peers[name]`
+ * (member-specific). Empty for dep-free families (math, motion). */
+export function peersFor(
+  family: string | undefined,
+  name: string,
+  families: Record<string, FamilyDef>,
+): string[] {
+  if (!family) return []
+  const def = families[family]
+  if (!def) return []
+  return [...(def.peers['*'] ?? []), ...(def.peers[name] ?? [])]
+}
 
 // ---------- Naming ----------
 
@@ -60,8 +120,16 @@ export function validateName(name: string, bare: boolean): void {
 
 // ---------- 1. src stub ----------
 
-export function stubContent(name: string): string {
+export function stubContent(name: string, family: string | undefined, peers: string[]): string {
   const pascal = pascalSuffix(name)
+  const sharedImportPath = family ? '../../shared/index.ts' : '../shared/index.ts'
+  const peerNote =
+    peers.length > 0
+      ? `\n * Optional peer(s): ${peers.join(', ')}. This file is the ONLY place that specifier\n` +
+        ' * may appear (dep-check enforces this per-entry, not just per-package). The composable\n' +
+        ' * must fail gracefully at CALL time if the peer is missing at runtime — never at module\n' +
+        ' * scope (a top-level throw would break every consumer, even ones that never call this).\n'
+      : ''
   return `/**
  * \`${name}\` — TODO: one-line description
  * (docs/plans/2026-07-22-effect-scope-and-composables.md §5).
@@ -70,9 +138,9 @@ export function stubContent(name: string): string {
  * the hood. Readers in .aihu templates MUST call getters with parens:
  * \`{value()}\`, never bare \`{value}\`.
  *
- * SSR (\`isClient === false\`): TODO — describe the static/no-op return.
+ * SSR (\`isClient === false\`): TODO — describe the static/no-op return.${peerNote}
  */
-import { isClient } from '../shared/index.ts'
+import { isClient } from '${sharedImportPath}'
 
 export interface Use${pascal}Options {}
 export interface Use${pascal}Return {}
@@ -89,7 +157,7 @@ export function ${name}(options: Use${pascal}Options = {}): Use${pascal}Return {
 `
 }
 
-// ---------- 2. barrel (packages/use/src/index.ts) ----------
+// ---------- 2. barrel (packages/use/src/index.ts OR src/<family>/index.ts) ----------
 
 interface BarrelMatch {
   name: string
@@ -125,6 +193,7 @@ function findBarrelInsertionOffset(src: string, name: string): number {
   return composableMatches[composableMatches.length - 1].end
 }
 
+/** CORE barrel patch — unchanged behavior, used only when `--family` is absent. */
 export function patchBarrel(barrelSrc: string, name: string): { text: string; changed: boolean } {
   const alreadyPresent = new RegExp(`from '\\./${name}/index\\.ts'`).test(barrelSrc)
   if (alreadyPresent) return { text: barrelSrc, changed: false }
@@ -138,56 +207,205 @@ export function patchBarrel(barrelSrc: string, name: string): { text: string; ch
   return { text, changed: true }
 }
 
+/**
+ * Family barrel patch — `src/<family>/index.ts`. Creates the file (with a
+ * header comment naming the family) if absent. Only called for
+ * `aggregate: true` families — `aggregate: false` families (e.g.
+ * `integrations`) never get a barrel; the caller skips this step entirely
+ * and logs why (a bare aggregate import is a hard `vite build` resolution
+ * break for a family whose members carry different optional peers).
+ */
+export function patchFamilyBarrel(
+  familyBarrelSrc: string | undefined,
+  family: string,
+  name: string,
+): { text: string; changed: boolean; created: boolean } {
+  const created = familyBarrelSrc === undefined
+  const base =
+    familyBarrelSrc ??
+    `/**\n * \`@aihu/use/${family}\` — family aggregate barrel (namespace-wave0).\n` +
+      ` * Re-exports every ${family} member for the bare \`@aihu/use/${family}\` entry.\n */\n`
+  const alreadyPresent = new RegExp(`from '\\./${name}/index\\.ts'`).test(base)
+  if (alreadyPresent) return { text: base, changed: false, created: false }
+
+  const pascal = pascalSuffix(name)
+  const block =
+    `export type { Use${pascal}Options, Use${pascal}Return } from './${name}/index.ts'\n` +
+    `export { ${name} } from './${name}/index.ts'\n`
+  const offset = findBarrelInsertionOffset(base, name)
+  const text = base.slice(0, offset) + block + base.slice(offset)
+  return { text, changed: true, created }
+}
+
 // ---------- 3. packages/use/package.json exports ----------
+
+/**
+ * Sort rank for a non-fixed exports key, used by `patchPackageExports`'s
+ * comparator: `[0, coreName]` sorts CORE keys alphabetically among
+ * themselves; `[1, family, isMember, memberName]` groups every family
+ * key together, aggregate (`isMember: 0`) before its members
+ * (`isMember: 1`, alphabetical). Without this, `./math` and `./motion`
+ * interleave alphabetically into the middle of the core list and every
+ * future scaffold produces a scattered diff.
+ */
+export function exportKeyRank(
+  key: string,
+  families: Record<string, FamilyDef>,
+): [number, string, number, string] {
+  const name = key.slice(2) // strip leading './'
+  const slash = name.indexOf('/')
+  if (slash === -1) {
+    if (families[name]) return [1, name, 0, ''] // family aggregate
+    return [0, name, 0, ''] // CORE composable
+  }
+  return [1, name.slice(0, slash), 1, name.slice(slash + 1)]
+}
 
 export function patchPackageExports(
   pkg: { exports?: Record<string, unknown> },
   name: string,
-): boolean {
-  const key = `./${name}`
+  family: string | undefined,
+  families: Record<string, FamilyDef>,
+): { memberAdded: boolean; aggregateAdded: boolean } {
+  const memberKey = family ? `./${family}/${name}` : `./${name}`
+  const memberPath = family ? `${family}/${name}` : name
   const exportsMap = pkg.exports ?? {}
-  if (Object.hasOwn(exportsMap, key)) return false
+  let memberAdded = false
+  let aggregateAdded = false
+
+  if (!Object.hasOwn(exportsMap, memberKey)) {
+    exportsMap[memberKey] = {
+      types: `./dist/${memberPath}.d.ts`,
+      import: `./dist/${memberPath}.js`,
+    }
+    memberAdded = true
+  }
+
+  if (family && families[family]?.aggregate) {
+    const aggKey = `./${family}`
+    if (!Object.hasOwn(exportsMap, aggKey)) {
+      exportsMap[aggKey] = { types: `./dist/${family}.d.ts`, import: `./dist/${family}.js` }
+      aggregateAdded = true
+    }
+  }
+
+  if (!memberAdded && !aggregateAdded) {
+    pkg.exports = exportsMap
+    return { memberAdded, aggregateAdded }
+  }
 
   const entries = Object.entries(exportsMap)
-  // '.' and './shared' are fixed at the front (not alphabetical with the
-  // rest); every other subpath is a composable name, kept sorted.
   const fixed = entries.filter(([k]) => k === '.' || k === './shared')
   const rest = entries.filter(([k]) => k !== '.' && k !== './shared')
-  rest.push([key, { types: `./dist/${name}.d.ts`, import: `./dist/${name}.js` }])
-  rest.sort((a, b) => a[0].localeCompare(b[0]))
+  rest.sort((a, b) => {
+    const ra = exportKeyRank(a[0], families)
+    const rb = exportKeyRank(b[0], families)
+    if (ra[0] !== rb[0]) return ra[0] - rb[0]
+    if (ra[1] !== rb[1]) return ra[1].localeCompare(rb[1])
+    if (ra[2] !== rb[2]) return ra[2] - rb[2]
+    return ra[3].localeCompare(rb[3])
+  })
   pkg.exports = Object.fromEntries([...fixed, ...rest])
-  return true
+  return { memberAdded, aggregateAdded }
 }
 
 // ---------- 4. packages/use/rolldown.config.ts input ----------
 
-export function patchRolldownConfig(src: string, name: string): { text: string; changed: boolean } {
-  const alreadyPresent = new RegExp(`^\\s*${name}:\\s*'src/${name}/index\\.ts',?\\s*$`, 'm').test(
-    src,
-  )
-  if (alreadyPresent) return { text: src, changed: false }
+interface RolldownEntryMatch {
+  key: string
+  start: number
+  end: number
+  indent: string
+}
 
-  const entryRe = /^(\s*)(\w+):\s*'src\/(\w+)\/index\.ts',?\s*$/gm
-  const entries: Array<{ key: string; start: number; end: number; indent: string }> = []
+/** Widened to accept both the bare CORE form (`useCounter: '...'`) and the
+ * quoted family form (`'math/useClamp': '...'`) — the plain `\w+` key regex
+ * cannot match a slash. */
+function findRolldownEntries(src: string): RolldownEntryMatch[] {
+  const entryRe = /^(\s*)'?([\w/]+)'?:\s*'src\/[\w/]+\/index\.ts',?\s*$/gm
+  const entries: RolldownEntryMatch[] = []
   let m: RegExpExecArray | null
   while ((m = entryRe.exec(src)) !== null) {
-    entries.push({ key: m[2], start: m.index, end: m.index + m[0].length, indent: m[1] })
+    // `$` (no `s` flag) matches before the line's `\n`, not after it — bump
+    // `end` past the newline too, or an "insert after the last match"
+    // splice glues the new line onto the tail of the previous one instead
+    // of starting a fresh line.
+    let end = m.index + m[0].length
+    if (src[end] === '\n') end += 1
+    entries.push({ key: m[2], start: m.index, end, indent: m[1] })
   }
+  return entries
+}
+
+function rolldownLine(indent: string, key: string, valuePath: string): string {
+  const quotedKey = key.includes('/') ? `'${key}'` : key
+  return `${indent}${quotedKey}: '${valuePath}',\n`
+}
+
+/**
+ * Insert one rolldown input entry (member OR aggregate — same shape, an
+ * aggregate key is just a bare family name with `src/<family>/index.ts`).
+ * CORE entries keep the existing alphabetical-within-the-core-block
+ * behavior; family entries land in a family-grouped block AFTER every core
+ * entry (aggregate before its own members, families alphabetical among
+ * themselves) — see `exportKeyRank`'s ordering, mirrored here without the
+ * dependency on `families` (rank is derivable from the key shape alone:
+ * no-slash-and-unclassified = core, else family).
+ */
+export function patchRolldownEntry(
+  src: string,
+  key: string,
+  valuePath: string,
+  isFamilyKey: boolean,
+): { text: string; changed: boolean } {
+  const alreadyPresent = findRolldownEntries(src).some((e) => e.key === key)
+  if (alreadyPresent) return { text: src, changed: false }
+
+  const entries = findRolldownEntries(src)
   if (entries.length === 0) {
     throw new Error(
       "rolldown.config.ts: no `key: 'src/.../index.ts'` entries found to anchor insertion",
     )
   }
 
-  // 'index' and 'shared' land first, unsorted; everything after is a
-  // composable entry kept in alphabetical order.
-  const composableEntries = entries.filter((e) => e.key !== 'index' && e.key !== 'shared')
-  const indent = (composableEntries[0] ?? entries[entries.length - 1]).indent
-  const newLine = `${indent}${name}: 'src/${name}/index.ts',\n`
-  const target = composableEntries.find((e) => e.key > name)
-  const insertAt = target ? target.start : entries[entries.length - 1].end
-  const text = src.slice(0, insertAt) + newLine + src.slice(insertAt)
-  return { text, changed: true }
+  if (!isFamilyKey) {
+    // CORE — unchanged behavior: 'index'/'shared' first, unsorted; every
+    // other CORE entry alphabetical. Family entries (slash key, or a bare
+    // key matching a family name) are never a valid insertion target here.
+    const coreEntries = entries.filter(
+      (e) => e.key !== 'index' && e.key !== 'shared' && !e.key.includes('/'),
+    )
+    const indent = (coreEntries[0] ?? entries[entries.length - 1]).indent
+    const newLine = rolldownLine(indent, key, valuePath)
+    const target = coreEntries.find((e) => e.key > key)
+    const insertAt = target ? target.start : entries[entries.length - 1].end
+    return { text: src.slice(0, insertAt) + newLine + src.slice(insertAt), changed: true }
+  }
+
+  // Family entry: `key` is either `<family>` (aggregate) or `<family>/<member>`.
+  const family = key.includes('/') ? key.slice(0, key.indexOf('/')) : key
+  const sameFamilyEntries = entries.filter(
+    (e) => e.key === family || e.key.startsWith(`${family}/`),
+  )
+  const indent = (sameFamilyEntries[0] ?? entries[entries.length - 1]).indent
+  const newLine = rolldownLine(indent, key, valuePath)
+
+  if (sameFamilyEntries.length === 0) {
+    // First entry ever for this family — append at the very end of the block.
+    const insertAt = entries[entries.length - 1].end
+    return { text: src.slice(0, insertAt) + newLine + src.slice(insertAt), changed: true }
+  }
+
+  // Aggregate key always sorts first within its family block; members are
+  // inserted in alphabetical order after it.
+  if (!key.includes('/')) {
+    const insertAt = sameFamilyEntries[0].start
+    return { text: src.slice(0, insertAt) + newLine + src.slice(insertAt), changed: true }
+  }
+  const memberEntries = sameFamilyEntries.filter((e) => e.key.includes('/'))
+  const target = memberEntries.find((e) => e.key > key)
+  const insertAt = target ? target.start : sameFamilyEntries[sameFamilyEntries.length - 1].end
+  return { text: src.slice(0, insertAt) + newLine + src.slice(insertAt), changed: true }
 }
 
 // ---------- 5. root .size-limit.json ----------
@@ -200,18 +418,24 @@ export function patchRolldownConfig(src: string, name: string): { text: string; 
  * structure would reformat the ENTIRE file into a mass of unrelated diff
  * noise. Splicing new text in preserves everyone else's formatting exactly,
  * touching only the lines this composable adds.
+ *
+ * The anchor regex is widened from `"name": "@aihu\/use\/\w+"` to
+ * `"name": "@aihu\/use\/[\w/]+"` — the old pattern stops finding the LAST
+ * `@aihu/use/*` row once a nested family row (`@aihu/use/math/useClamp`)
+ * exists, silently anchoring insertion to the wrong place.
  */
-export function patchSizeLimit(src: string, name: string): { text: string; changed: boolean } {
-  const rowName = `@aihu/use/${name}`
-  if (new RegExp(`"name": "${rowName}"`).test(src)) return { text: src, changed: false }
+export function patchSizeLimit(
+  src: string,
+  rowName: string,
+  path: string,
+  limit: string,
+  ignore: string[],
+): { text: string; changed: boolean } {
+  if (new RegExp(`"name": "${rowName.replace(/\//g, '\\/')}"`).test(src)) {
+    return { text: src, changed: false }
+  }
 
-  // Each `@aihu/use/*` row is a flat (no nested braces) two-space-indented
-  // object literal ending in `  },\n` — match the whole block, including its
-  // trailing comma, so the new block can be spliced in right after it. The
-  // array is grouped by package family, not globally alphabetical — append-
-  // within-family (right after the LAST existing @aihu/use/* row) is the
-  // only safe, idempotent insertion strategy.
-  const blockRe = / {2}\{\n {4}"name": "@aihu\/use\/\w+",\n(?:.*\n)*? {2}\},\n/g
+  const blockRe = / {2}\{\n {4}"name": "@aihu\/use\/[\w/]+",\n(?:.*\n)*? {2}\},\n/g
   let m: RegExpExecArray | null
   let lastBlockEnd = -1
   while ((m = blockRe.exec(src)) !== null) {
@@ -223,15 +447,14 @@ export function patchSizeLimit(src: string, name: string): { text: string; chang
     )
   }
 
+  const ignoreJson = JSON.stringify(ignore)
   const newBlock =
     '  {\n' +
     `    "name": "${rowName}",\n` +
-    `    "path": "packages/use/dist/${name}.js",\n` +
-    // Placeholder — MUST be replaced with a real measured `bun run size`
-    // number before merging. Never ship a guessed limit.
-    '    "limit": "<TODO-CALIBRATE> B",\n' +
+    `    "path": "${path}",\n` +
+    `    "limit": "${limit}",\n` +
     '    "gzip": true,\n' +
-    '    "ignore": ["@aihu/signals"]\n' +
+    `    "ignore": ${ignoreJson}\n` +
     '  },\n'
   const text = src.slice(0, lastBlockEnd) + newBlock + src.slice(lastBlockEnd)
   return { text, changed: true }
@@ -239,8 +462,12 @@ export function patchSizeLimit(src: string, name: string): { text: string; chang
 
 // ---------- 6. packages/compiler/src/codegen/use_registry.rs ----------
 
-export function patchUseRegistryRs(src: string, name: string): { text: string; changed: boolean } {
-  const alreadyPresent = new RegExp(`\\("${name}",`).test(src)
+export function patchUseRegistryRs(
+  src: string,
+  callName: string,
+  subpath: string,
+): { text: string; changed: boolean } {
+  const alreadyPresent = new RegExp(`\\("${callName}",`).test(src)
   if (alreadyPresent) return { text: src, changed: false }
 
   const marker = 'USE_COMPOSABLES: &[(&str, &str)] = &['
@@ -253,7 +480,7 @@ export function patchUseRegistryRs(src: string, name: string): { text: string; c
     throw new Error('could not find the closing `];` for USE_COMPOSABLES in use_registry.rs')
   }
   // Landing order, not alphabetical — append-only is the safe move here too.
-  const line = `    ("${name}", "@aihu/use/${name}"),\n`
+  const line = `    ("${callName}", "@aihu/use/${subpath}"),\n`
   const text = src.slice(0, closeIdx) + line + src.slice(closeIdx)
   return { text, changed: true }
 }
@@ -275,131 +502,271 @@ function findRepoRoot(start: string): string {
   )
 }
 
-function main(): void {
-  const args = process.argv.slice(2)
-  const bare = args.includes('--bare')
-  const name = args.find((a) => !a.startsWith('--'))
-  if (!name) {
-    console.error('Usage: bun scripts/gen-use.ts <name> [--bare]')
-    console.error('  e.g. bun scripts/gen-use.ts useMap')
-    console.error('       bun scripts/gen-use.ts watch --bare')
-    process.exit(2)
-  }
-  validateName(name, bare)
-
-  const here = dirname(fileURLToPath(import.meta.url))
-  const repoRoot = findRepoRoot(resolve(here))
+function scaffoldOne(
+  repoRoot: string,
+  name: string,
+  bare: boolean,
+  family: string | undefined,
+  families: Record<string, FamilyDef>,
+): void {
   const useDir = join(repoRoot, 'packages/use')
+  const def = family ? families[family] : undefined
+  const peers = peersFor(family, name, families)
 
-  console.log(`\n  gen:use — scaffolding '${name}'\n`)
+  console.log(`\n  gen:use — scaffolding '${family ? `${family}/${name}` : name}'\n`)
 
-  // 1. src/<name>/index.ts stub — never overwrites a hand-authored file.
-  const srcDir = join(useDir, 'src', name)
+  // 1. src stub — never overwrites a hand-authored file.
+  const srcDir = family ? join(useDir, 'src', family, name) : join(useDir, 'src', name)
   const stubPath = join(srcDir, 'index.ts')
+  const relStub = family
+    ? `packages/use/src/${family}/${name}/index.ts`
+    : `packages/use/src/${name}/index.ts`
   if (existsSync(stubPath)) {
-    console.log(`  [skip] packages/use/src/${name}/index.ts already exists`)
+    console.log(`  [skip] ${relStub} already exists`)
   } else {
     mkdirSync(srcDir, { recursive: true })
-    writeFileSync(stubPath, stubContent(name))
-    console.log(`  [ok]   created packages/use/src/${name}/index.ts`)
+    writeFileSync(stubPath, stubContent(name, family, peers))
+    console.log(`  [ok]   created ${relStub}`)
   }
 
   // 2. barrel
-  const barrelPath = join(useDir, 'src/index.ts')
-  const barrelResult = patchBarrel(readFileSync(barrelPath, 'utf8'), name)
-  if (barrelResult.changed) {
-    writeFileSync(barrelPath, barrelResult.text)
-    console.log('  [ok]   patched packages/use/src/index.ts (barrel export)')
+  if (!family) {
+    const barrelPath = join(useDir, 'src/index.ts')
+    const barrelResult = patchBarrel(readFileSync(barrelPath, 'utf8'), name)
+    if (barrelResult.changed) {
+      writeFileSync(barrelPath, barrelResult.text)
+      console.log('  [ok]   patched packages/use/src/index.ts (barrel export)')
+    } else {
+      console.log(`  [skip] packages/use/src/index.ts already exports '${name}'`)
+    }
+  } else if (def?.aggregate) {
+    const familyBarrelPath = join(useDir, 'src', family, 'index.ts')
+    const existingSrc = existsSync(familyBarrelPath)
+      ? readFileSync(familyBarrelPath, 'utf8')
+      : undefined
+    const result = patchFamilyBarrel(existingSrc, family, name)
+    if (result.changed) {
+      mkdirSync(join(useDir, 'src', family), { recursive: true })
+      writeFileSync(familyBarrelPath, result.text)
+      console.log(
+        `  [ok]   ${result.created ? 'created' : 'patched'} packages/use/src/${family}/index.ts (family barrel)`,
+      )
+    } else {
+      console.log(`  [skip] packages/use/src/${family}/index.ts already exports '${name}'`)
+    }
   } else {
-    console.log(`  [skip] packages/use/src/index.ts already exports '${name}'`)
+    console.log(
+      `  [skip] family '${family}' has aggregate: false — no family barrel is ever created for it ` +
+        `(a bare aggregate import is a hard vite-build resolution break for a family whose members ` +
+        `carry different optional peers).`,
+    )
   }
 
   // 3. package.json exports
   const pkgPath = join(useDir, 'package.json')
   const pkg = JSON.parse(readFileSync(pkgPath, 'utf8')) as { exports?: Record<string, unknown> }
-  if (patchPackageExports(pkg, name)) {
+  const { memberAdded, aggregateAdded } = patchPackageExports(pkg, name, family, families)
+  if (memberAdded || aggregateAdded) {
     writeFileSync(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`)
-    console.log('  [ok]   patched packages/use/package.json (exports)')
+    if (memberAdded) {
+      console.log(
+        `  [ok]   patched packages/use/package.json (exports: './${family ? `${family}/${name}` : name}')`,
+      )
+    }
+    if (aggregateAdded) {
+      console.log(`  [ok]   patched packages/use/package.json (exports: './${family}' aggregate)`)
+    }
   } else {
-    console.log(`  [skip] packages/use/package.json already has './${name}'`)
+    console.log(`  [skip] packages/use/package.json already has the required exports key(s)`)
   }
 
   // 4. rolldown.config.ts input
   const rolldownPath = join(useDir, 'rolldown.config.ts')
-  const rolldownResult = patchRolldownConfig(readFileSync(rolldownPath, 'utf8'), name)
-  if (rolldownResult.changed) {
-    writeFileSync(rolldownPath, rolldownResult.text)
-    console.log('  [ok]   patched packages/use/rolldown.config.ts (input)')
-  } else {
-    console.log(`  [skip] packages/use/rolldown.config.ts already has an input for '${name}'`)
+  let rolldownSrc = readFileSync(rolldownPath, 'utf8')
+  let rolldownChanged = false
+  if (family && def?.aggregate) {
+    const aggResult = patchRolldownEntry(rolldownSrc, family, `src/${family}/index.ts`, true)
+    if (aggResult.changed) {
+      rolldownSrc = aggResult.text
+      rolldownChanged = true
+      console.log(`  [ok]   patched packages/use/rolldown.config.ts (input: '${family}' aggregate)`)
+    }
   }
+  const memberKey = family ? `${family}/${name}` : name
+  const memberResult = patchRolldownEntry(
+    rolldownSrc,
+    memberKey,
+    `src/${memberKey}/index.ts`,
+    Boolean(family),
+  )
+  if (memberResult.changed) {
+    rolldownSrc = memberResult.text
+    rolldownChanged = true
+    console.log(`  [ok]   patched packages/use/rolldown.config.ts (input: '${memberKey}')`)
+  } else {
+    console.log(`  [skip] packages/use/rolldown.config.ts already has an input for '${memberKey}'`)
+  }
+  if (rolldownChanged) writeFileSync(rolldownPath, rolldownSrc)
 
   // 5. root .size-limit.json
   const sizeLimitPath = join(repoRoot, '.size-limit.json')
-  const sizeLimitResult = patchSizeLimit(readFileSync(sizeLimitPath, 'utf8'), name)
-  if (sizeLimitResult.changed) {
-    writeFileSync(sizeLimitPath, sizeLimitResult.text)
-    console.log('  [ok]   patched .size-limit.json (placeholder row added)')
-    console.log(
-      `  [!!!]  REMINDER: '<TODO-CALIBRATE> B' is a PLACEHOLDER. Run ` +
-        '`bun run build && bun run size` once ' +
-        `'${name}' is implemented and replace it with the real measured gzip size before merging.`,
+  let sizeLimitSrc = readFileSync(sizeLimitPath, 'utf8')
+  let sizeLimitChanged = false
+  const distPathFor = (key: string) => `packages/use/dist/${key}.js`
+  if (family && def?.aggregate) {
+    const aggResult = patchSizeLimit(
+      sizeLimitSrc,
+      `@aihu/use/${family}`,
+      distPathFor(family),
+      def.aggregateLimit ?? '<TODO-CALIBRATE> B',
+      ['@aihu/signals', ...new Set(Object.values(def.peers).flat())],
     )
-  } else {
-    console.log(`  [skip] .size-limit.json already has a row for '@aihu/use/${name}'`)
+    if (aggResult.changed) {
+      sizeLimitSrc = aggResult.text
+      sizeLimitChanged = true
+      console.log(`  [ok]   patched .size-limit.json (aggregate row for '@aihu/use/${family}')`)
+    }
   }
+  const rowName = family ? `@aihu/use/${family}/${name}` : `@aihu/use/${name}`
+  const limit = def?.memberLimit ?? '<TODO-CALIBRATE> B'
+  const ignore = ['@aihu/signals', ...peers]
+  const memberSizeResult = patchSizeLimit(
+    sizeLimitSrc,
+    rowName,
+    distPathFor(memberKey),
+    limit,
+    ignore,
+  )
+  if (memberSizeResult.changed) {
+    sizeLimitSrc = memberSizeResult.text
+    sizeLimitChanged = true
+    console.log(`  [ok]   patched .size-limit.json (row for '${rowName}')`)
+    if (!def) {
+      console.log(
+        '  [!!!]  REMINDER: `<TODO-CALIBRATE> B` is a PLACEHOLDER. Run `bun run build && bun run size` ' +
+          `once '${name}' is implemented and replace it with the real measured gzip size before merging.`,
+      )
+    } else {
+      console.log(
+        `  [note] limit '${limit}' comes from families.json's memberLimit for '${family}' — a ` +
+          'measured FAMILY CEILING, not a per-composable guess. Confirm the ceiling still holds once ' +
+          "'" +
+          name +
+          "' is implemented (`bun run build && bun run size`); re-tighten once the family has >=3 members.",
+      )
+    }
+  } else {
+    console.log(`  [skip] .size-limit.json already has a row for '${rowName}'`)
+  }
+  if (sizeLimitChanged) writeFileSync(sizeLimitPath, sizeLimitSrc)
 
   // 6. packages/compiler/src/codegen/use_registry.rs
   const registryPath = join(repoRoot, 'packages/compiler/src/codegen/use_registry.rs')
-  const registryResult = patchUseRegistryRs(readFileSync(registryPath, 'utf8'), name)
-  if (registryResult.changed) {
-    writeFileSync(registryPath, registryResult.text)
-    console.log('  [ok]   patched packages/compiler/src/codegen/use_registry.rs (USE_COMPOSABLES)')
-    if (bare) {
-      console.log(
-        `  [note] '${name}' is not \`use\`-prefixed — a slightly higher collision-risk bare ` +
-          'identifier than the rest of the registry. Add a one-line comment in use_registry.rs ' +
-          "explaining why it's safe here (or add it to REGISTRY_EXEMPT in " +
-          'scripts/check-use-registry-parity.ts to opt it out instead).',
-      )
-    }
+  const autoImport = family ? (def?.autoImport ?? false) : true
+  if (!autoImport) {
     console.log(
-      '  [!!!]  REMINDER: this is a Rust-source change under packages/compiler/src/ — it WILL ' +
-        'trip check:compiler-binary-bump. Bump all 5 packages/compiler/npm/<platform>/package.json ' +
-        'versions and repoint packages/compiler/package.json optionalDependencies before pushing.',
+      `  [note] '${name}' is in an optional-peer family (autoImport: false) — deliberately NOT ` +
+        'auto-imported; authors import it explicitly. Injecting this import would hard-break bundling ' +
+        `in apps without its peer (verified: vite fails at resolution, before tree-shaking).`,
     )
   } else {
+    const registryResult = patchUseRegistryRs(readFileSync(registryPath, 'utf8'), name, memberKey)
+    if (registryResult.changed) {
+      writeFileSync(registryPath, registryResult.text)
+      console.log(
+        '  [ok]   patched packages/compiler/src/codegen/use_registry.rs (USE_COMPOSABLES)',
+      )
+      if (bare) {
+        console.log(
+          `  [note] '${name}' is not \`use\`-prefixed — a slightly higher collision-risk bare ` +
+            'identifier than the rest of the registry. Add a one-line comment in use_registry.rs ' +
+            "explaining why it's safe here (or add it to REGISTRY_EXEMPT in " +
+            'scripts/check-use-registry-parity.ts to opt it out instead).',
+        )
+      }
+    } else {
+      console.log(
+        `  [skip] packages/compiler/src/codegen/use_registry.rs already has a tuple for '${name}'`,
+      )
+    }
+  }
+
+  // 7. manual checklist
+  console.log('\n  Manual follow-ups (this scaffolder deliberately does NOT do these):')
+  const implPath = family
+    ? `packages/use/src/${family}/${name}/index.ts`
+    : `packages/use/src/${name}/index.ts`
+  console.log(`   - Implement the composable body in ${implPath} (replace the TODOs).`)
+  const testPath = family
+    ? `packages/use/tests/${family}/${toKebabCase(name)}.test.ts`
+    : `packages/use/tests/${toKebabCase(name)}.test.ts`
+  console.log(`   - Add a test file: ${testPath}.`)
+  console.log(
+    `   - Add a row to packages/use/tests/ssr-safety.test.ts's Tier-2 \`entries\` array for ` +
+      `'${memberKey}' — REQUIRED (the parity gate enforces it) if your implementation references ` +
+      '`isClient`; optional otherwise.',
+  )
+  console.log(
+    '   - Run `bun run build && bun run size`, then confirm/replace the .size-limit.json limit.',
+  )
+  if (peers.length > 0) {
     console.log(
-      `  [skip] packages/compiler/src/codegen/use_registry.rs already has a tuple for '${name}'`,
+      `   - '${name}' has declared optional peer(s) ${peers.join(', ')} — add them to ` +
+        'packages/use/package.json devDependencies if not already present (needed for ' +
+        'tsc --noEmit / vitest to resolve them), and confirm peerDependencies + ' +
+        'peerDependenciesMeta.<peer>.optional are set.',
+    )
+  }
+}
+
+function main(): void {
+  const args = process.argv.slice(2)
+  const bare = args.includes('--bare')
+  const familyIdx = args.indexOf('--family')
+  const family = familyIdx !== -1 ? args[familyIdx + 1] : undefined
+  const names = args.filter((a, i) => !a.startsWith('--') && i !== familyIdx + 1)
+
+  if (names.length === 0) {
+    console.error('Usage: bun scripts/gen-use.ts <name> [<name>...] [--bare] [--family <family>]')
+    console.error('  e.g. bun scripts/gen-use.ts useMap')
+    console.error('       bun scripts/gen-use.ts watch --bare')
+    console.error('       bun scripts/gen-use.ts useClamp useSum useMin --family math')
+    process.exit(2)
+  }
+
+  const here = dirname(fileURLToPath(import.meta.url))
+  const repoRoot = findRepoRoot(resolve(here))
+  const familiesPath = join(repoRoot, 'packages/use/families.json')
+  const families: Record<string, FamilyDef> = existsSync(familiesPath)
+    ? loadFamilies(readFileSync(familiesPath, 'utf8'))
+    : {}
+
+  validateFamily(family, families)
+  for (const name of names) validateName(name, bare)
+
+  if (names.length > 1) {
+    console.log(
+      `\n  Scaffolding ${names.length} composables together: ${names.join(', ')}` +
+        (family ? ` (family: ${family})` : '') +
+        `.\n  This is intentional — every USE_COMPOSABLES edit is a Rust source change and ` +
+        `check:compiler-binary-bump reads the COMMITTED diff. One wave = one PR = one batched ` +
+        `registry commit = one 5-platform binary bump.\n`,
     )
   }
 
-  // 7. manual checklist — real touch points this scaffolder deliberately
-  // does NOT handle (discovered by tracing useEventListener/useMouse across
-  // the actual test suite).
-  console.log('\n  Manual follow-ups (this scaffolder deliberately does NOT do these):')
-  console.log(
-    `   - Implement the composable body in packages/use/src/${name}/index.ts (replace the TODOs).`,
-  )
-  console.log(`   - Add a test file: packages/use/tests/${toKebabCase(name)}.test.ts.`)
-  console.log(
-    "   - Add a row to packages/use/tests/ssr-safety.test.ts's hand-maintained `entries` array " +
-      `for '${name}'. Nothing fails CI today if this is forgotten — it just silently under-covers ` +
-      'SSR safety for the new export.',
-  )
-  console.log(
-    '   - Run `bun run build && bun run size`, then replace the .size-limit.json placeholder limit.',
-  )
+  for (const name of names) {
+    scaffoldOne(repoRoot, name, bare, family, families)
+  }
 
   // 8. self-verify — immediate feedback instead of waiting for CI.
   const parityScriptPath = join(repoRoot, 'scripts/check-use-registry-parity.ts')
   if (existsSync(parityScriptPath)) {
     console.log('\n  Self-check — bun run check:use-registry-parity\n')
-    const result = spawnSync('bun', ['run', 'check:use-registry-parity'], {
+    const parityResult = spawnSync('bun', ['run', 'check:use-registry-parity'], {
       cwd: repoRoot,
       stdio: 'inherit',
     })
-    if (result.status !== 0) {
+    if (parityResult.status !== 0) {
       console.log(
         '\n  (parity check reported issues above — expected until the manual follow-ups are ' +
           'done, e.g. an unimplemented stub or a missing ssr-safety.test.ts row is NOT what this ' +
@@ -408,6 +775,12 @@ function main(): void {
     }
   } else {
     console.log('\n  (scripts/check-use-registry-parity.ts not present yet — skipping self-check)')
+  }
+
+  console.log('\n  Self-check — bun run check:deps (subpath purity + peer ownership)\n')
+  const depCheckPath = join(repoRoot, 'scripts/dep-check.ts')
+  if (existsSync(depCheckPath)) {
+    spawnSync('bun', ['run', 'check:deps'], { cwd: repoRoot, stdio: 'inherit' })
   }
 
   console.log('')

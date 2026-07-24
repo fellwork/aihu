@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import { existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { gzipSync } from 'node:zlib'
 /**
@@ -33,14 +34,36 @@ function fmtBytes(n: number): string {
   return n < 1024 ? `${n} B` : `${(n / 1024).toFixed(2)} kB`
 }
 
+/**
+ * Walk UP from `entryPath`'s directory to find the nearest `package.json`
+ * (stopping at `dist/`'s parent, i.e. the package root) — NOT a fixed
+ * `dirname(entryPath)/../package.json` hop. A single-level-up join resolves
+ * correctly for a flat entry (`packages/use/dist/useMouse.js` ->
+ * `packages/use/dist/../package.json` = `packages/use/package.json`, right)
+ * but silently breaks for a NESTED family entry
+ * (`packages/use/dist/math/useClamp.js` -> `packages/use/dist/package.json`,
+ * which does not exist) — peers then fail to externalize and a devDependency
+ * peer (e.g. `jwt-decode`) gets INLINED into the measurement instead of
+ * excluded, which can blow the row's limit for the wrong reason. This same
+ * bug silently affects the existing `@aihu/css-engine/runtime/*` rows today.
+ */
 async function peerDepsOf(entryPath: string): Promise<string[]> {
-  const pkgPath = join(dirname(entryPath), '..', 'package.json')
-  try {
-    const pkg = JSON.parse(await Bun.file(pkgPath).text())
-    return Object.keys(pkg.peerDependencies ?? {})
-  } catch {
-    return []
+  let dir = dirname(entryPath)
+  for (let i = 0; i < 6; i++) {
+    const pkgPath = join(dir, 'package.json')
+    if (existsSync(pkgPath)) {
+      try {
+        const pkg = JSON.parse(await Bun.file(pkgPath).text())
+        return Object.keys(pkg.peerDependencies ?? {})
+      } catch {
+        return []
+      }
+    }
+    const parent = dirname(dir)
+    if (parent === dir) break
+    dir = parent
   }
+  return []
 }
 
 const entries: Entry[] = JSON.parse(await Bun.file('.size-limit.json').text())
