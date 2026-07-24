@@ -37,11 +37,11 @@ use crate::parser::state_wrappers::WrapperTargets;
 use crate::types::CompileError;
 
 use oxc_ast::ast::{
-    AssignmentExpression, AssignmentOperator, AssignmentTarget, BindingIdentifier, Expression,
-    ForInStatement, ForOfStatement, ForStatementLeft, IdentifierReference, ObjectProperty,
-    SimpleAssignmentTarget, Statement, TSType, TSTypeAnnotation, TSTypeParameterDeclaration,
-    TSTypeParameterInstantiation, UpdateExpression, UpdateOperator, VariableDeclaration,
-    VariableDeclarationKind,
+    AssignmentExpression, AssignmentOperator, AssignmentTarget, BindingIdentifier, BindingPattern,
+    Expression, ForInStatement, ForOfStatement, ForStatementLeft, IdentifierReference,
+    ObjectProperty, SimpleAssignmentTarget, Statement, TSType, TSTypeAnnotation,
+    TSTypeParameterDeclaration, TSTypeParameterInstantiation, UpdateExpression, UpdateOperator,
+    VariableDeclaration, VariableDeclarationKind, VariableDeclarator,
 };
 use oxc_ast_visit::{walk, Visit};
 use oxc_span::GetSpan;
@@ -422,6 +422,48 @@ impl<'a> Visit<'a> for StateRwVisitor<'_, '_> {
         if let Some(frame) = self.scopes.last_mut() {
             frame.insert(it.name.to_string());
         }
+    }
+
+    /// Bug 9 TDZ fix: `process_state_body` now splices a `let x = state(init)`
+    /// wrapper binding's lowered form — `const [x, __x_set] = signal(init)` —
+    /// INLINE into `plain_body`, at its original source position (instead of
+    /// deferring it to the `macro_code` block emitted after ALL of
+    /// plain_body; see the wrapper-span-skip branch in
+    /// `codegen/state_emit.rs`). That means THIS pass — which walks the fully
+    /// assembled plain_body text as one AST — now sees that declaration too.
+    ///
+    /// Without this override, `visit_binding_identifier` (default walk) would
+    /// register `x` and `__x_set` as ordinary local bindings in the current
+    /// scope frame, and `is_shadowed` would then treat every LATER reference
+    /// to `x` in the rest of the body as a plain local variable instead of
+    /// the wrapper's reactive getter — silently undoing the read/write
+    /// rewrite (`x` → `x()`, `x = v` → `__x_set(v)`) for everything that
+    /// follows the declaration. Recognize exactly the shape this fix
+    /// produces — a 2-element array pattern `[name, setter]` whose names
+    /// match a registered `state` target's binding + setter — and skip
+    /// adding those two identifiers to `scopes`, so the target stays live for
+    /// the rest of the walk. `init` is still visited normally, so a `state()`
+    /// initializer that itself reads another wrapper target gets rewritten.
+    fn visit_variable_declarator(&mut self, it: &VariableDeclarator<'a>) {
+        if let BindingPattern::ArrayPattern(arr) = &it.id {
+            if arr.rest.is_none() && arr.elements.len() == 2 {
+                if let (
+                    Some(BindingPattern::BindingIdentifier(name_id)),
+                    Some(BindingPattern::BindingIdentifier(setter_id)),
+                ) = (&arr.elements[0], &arr.elements[1])
+                {
+                    if let Some((setter, _)) = self.targets.states.get(name_id.name.as_str()) {
+                        if setter.as_str() == setter_id.name.as_str() {
+                            if let Some(init) = &it.init {
+                                self.visit_expression(init);
+                            }
+                            return;
+                        }
+                    }
+                }
+            }
+        }
+        walk::walk_variable_declarator(self, it);
     }
 
     fn visit_expression_statement(&mut self, it: &oxc_ast::ast::ExpressionStatement<'a>) {
