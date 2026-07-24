@@ -2,8 +2,11 @@
 // Exported as an IIFE (window.__aihu) so compiled component code can run
 // without a bundler. _setMount/_setSignal are included so the iframe can
 // wire the runtime before executing each compiled component.
+export { registerAgentMetadata } from '@aihu/agent'
 export { branch, each, leaf, mount, slot, when } from '@aihu/arbor'
+export { contextKey, inject, provide } from '@aihu/context'
 export {
+  _registerAgentServerBinding,
   _setMount,
   _setSignal,
   defineComponent,

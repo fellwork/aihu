@@ -49,6 +49,8 @@
         "@aihu-plugin/agent-readiness": "workspace:*",
         "@aihu-plugin/kindly-note": "workspace:*",
         "@aihu/adapter-cloudflare": "workspace:*",
+        "@aihu/agent": "workspace:*",
+        "@aihu/context": "workspace:*",
         "@aihu/server": "workspace:*",
         "@codemirror/commands": "^6.6.0",
         "@codemirror/lang-javascript": "^6.2.2",

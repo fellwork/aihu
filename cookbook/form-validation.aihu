@@ -32,7 +32,7 @@ related: [aria-form]
   const isValid = derived(() => value.trim().length >= 2)
 
   const onInput = action((e: Event) => {
-      value = (e.target as HTMLInputElement).value
+      value = e.target.value
       touched = true
     })
   const onBlur = action(() => { touched = true })

@@ -253,6 +253,12 @@ async function loadBundle(host: PlaygroundEmbed): Promise<string | null> {
  *     `as unknown as string` behind → SyntaxError → blank preview (the `route`
  *     preset). Match the whole `as unknown as <Type>` up to a delimiter.
  *   - ` as ShadowRoot` cast in the style-injection setup line.
+ *   - ` as any` single casts, emitted when a template expression reads a
+ *     member off a value the compiler cannot type — e.g. the `aihu-tabs`
+ *     preset lowers `{selected.content}` to
+ *     `leaf([() => (selected() as any).content, () => {}])`. The
+ *     `as unknown as` pattern above does NOT cover this (no `unknown` hop),
+ *     so it survived → SyntaxError → blank preview.
  *   - `export const __agentBinding = {…}` from an `@agent` block. The preview
  *     runs the compiled code inside a non-module `<script>` IIFE, where an ESM
  *     `export` is a SyntaxError — the whole script fails to parse and nothing
@@ -267,6 +273,7 @@ function stripTs(js: string): string {
     .replace(/^import .+ from ['"]@aihu\/[^'"]+['"];?$/gm, '')
     .replace(/ as unknown as [^,;)\n]+/g, '')
     .replace(/ as ShadowRoot/g, '')
+    .replace(/ as any\b/g, '')
     .replace(/^export /gm, '')
 }
 
@@ -332,6 +339,15 @@ function buildPreviewDoc(bundle: string, userJs: string): string {
     'var defineComponent=_a.defineComponent,defineElement=_a.defineElement;',
     'var _setMount=_a._setMount,_setSignal=_a._setSignal;',
     'var onMount=_a.onMount,onCleanup=_a.onCleanup,onAdopt=_a.onAdopt,onAttributeChange=_a.onAttributeChange;',
+    // Presets carrying an @agent surface (expose/describe) compile to
+    // registerAgentMetadata() + _registerAgentServerBinding() calls, and
+    // @context presets compile to contextKey/provide/inject. None of these
+    // were destructured, so such a preset died with "<sym> is not defined"
+    // (the agent-weather preset). Keep this list in sync with
+    // preview-runtime.ts — the union of every symbol a compiled preset can
+    // reference is what has to be in scope here.
+    'var registerAgentMetadata=_a.registerAgentMetadata,_registerAgentServerBinding=_a._registerAgentServerBinding;',
+    'var contextKey=_a.contextKey,provide=_a.provide,inject=_a.inject;',
     '_setMount(mount);_setSignal(signal);',
     safeUserJs,
     'var c=document.createElement("aihu-component");',
