@@ -1,10 +1,16 @@
 # Light-DOM Leaf Default Flip + `@aihu/css-engine` Rescope
 
 **Date:** 2026-07-24
-**Status:** **PROPOSED — awaiting founder approval.** The direction (flip the leaf default to
-light DOM) is founder-ratified; what is proposed here is the *mechanism*, the *sequencing*, and
-one non-trivial pushback: the flip must not be the first commit. Everything below is a design,
-not an authorization to land.
+**Status:** **RATIFIED (mechanism + sequencing) — 2026-07-24.** The founder has ratified both
+load-bearing calls this doc exists to make: the flip-last sequencing, and the `data-a` attribute
+marker as the scoping mechanism. See "Founder decisions (ratified 2026-07-24)" immediately below
+for the record of what's decided and why. Migration §10 steps 1-5 are cleared to start now — they
+are net improvements to the already-shipped light-DOM page path independent of whether/when the
+final flip (step 8) lands. The sub-decisions in §11 (conditional vs. unconditional marker
+stamping, `data-a` vs. `data-aihu-s` naming, the daisyUI recipe layer, whether pages keep a
+global-CSS escape beyond `$global`, and whether `css.shadowMode` gains a `legacy` value) remain
+OPEN — each carries a recommendation but none is a founder sign-off, and none blocks starting the
+arc.
 **Scope:** `@aihu/compiler` (`emit.rs` style/shadow emission, template codegen element stamping,
 SSR string emit, the Vite plugin's fold + precedence resolution), `@aihu/css-engine`
 (`aihu-css-core`: `emit.rs`, `theme.rs`, `variants.rs`, a NEW selector-rewrite pass; the TS
@@ -46,6 +52,61 @@ generalizes it and collapses the two-tier precedence chain into one.
 
 ---
 
+## Founder decisions (ratified 2026-07-24)
+
+These two calls are **ratified**. They are the mechanism and sequencing decisions this document
+exists to make; everything else below — options weighed, risks, migration steps — is the
+supporting evidence and execution plan for them, not a pending ask. Sub-decisions not listed here
+(attribute naming, conditional stamping, the daisyUI layer question, etc.) are unchanged in status
+and remain OPEN in §11.
+
+### Decision 1 — Flip last
+
+The leaf-default flip is **approved as an arc**. The literal `?? 'shadow'` → `?? 'light'` change
+(§7) is the **last commit** of that arc, not the first. Ratified sequence:
+
+1. **Scoping mechanism** (§1) — the `data-a` marker, the selector-rewrite pass, and the escape
+   hatch for runtime-created content (§1.5).
+2. **`:host` / `::slotted` / `::part` lowering** (§2).
+3. **Token / `:root` global-block fix** (§6) — `emit_host_tokens()` becomes mode-aware.
+4. **`useId`** (§3).
+5. **Then, and only then, flip the default** (§7).
+
+Steps 1-4 are net improvements to the already-shipped light-DOM **page** path and land
+independently of whether the flip itself is ever pulled — that property is exactly what makes
+this arc safe to start now, ahead of the final commit. Migration §10 steps 1-5 implement this
+sequence in order; step 8 (the flip) does not start until 1-5 have landed and been verified.
+
+### Decision 2 — Scoping mechanism: the `data-a` attribute marker
+
+**Chosen:** a per-element hashed attribute marker (`data-a="<scope-id>"`), stamped on both sides
+of a descendant combinator, emitted identically in shadow mode and light mode (§1.3, §1.4).
+**Rejected:** native CSS `@scope`, and hashed classes (Svelte-style scoping).
+
+Decisive rationale:
+
+- **(a) One emission shape serves both modes.** `data-a` is a single emission shape used
+  identically whether a component is shadow or light — redundant but harmless in shadow (a
+  `[data-a]` qualifier on a selector that already only matches inside its own shadow tree).
+  `@scope (aihu-card)` **cannot match from inside `aihu-card`'s own shadow tree**, so choosing it
+  would force a **second emission shape and a doubled test matrix** for a framework whose entire
+  premise is that both modes stay live indefinitely. That cost recurs for the lifetime of the
+  dual-mode contract; the attribute marker's cost is paid once, in the compiler.
+- **(b) Browser floor and failure mode.** `@scope` raises the browser floor by roughly a year over
+  the existing `adoptedStyleSheets`/`replaceSync` requirement already in place, and its failure
+  mode is categorically worse: an unsupported `@scope` block **drops all its rules** — the
+  component goes unstyled — rather than degrading to "slightly wrong," which is the worst-case
+  failure mode of the attribute marker (at most a specific selector fails to match).
+
+**This choice is reversible.** Scoping is compiler-emitted; authors never see `data-a` or write
+selectors against it. Swapping it for `@scope` later — if the shadow-mode contract is ever
+retired and the "one shape for both modes" argument in (a) stops applying — is a codegen change
+plus a test-corpus sweep, **not a consumer migration**: no `.aihu` file's authored `@style` block
+or template needs to change. `@scope` is the designated fallback **if and only if** shadow mode
+is retired; it does not compete with `data-a` while both modes stay live.
+
+---
+
 ## 0. Verdict
 
 **Flip — but not first, and not as one commit.**
@@ -71,8 +132,9 @@ means building them broken.
 not a scoping mechanism — it is an escape from one.** The css-engine emits `.label { … }`,
 `.error { … }`, `p { … }`, `[hidden] { display: none }` and a global
 `*, ::before, ::after { border-style: solid; border-width: 0 }` preflight reset, and the light
-path (`_foldCssEngineStylesGlobal` / `_globalizeAuthoredStyle`,
-`packages/compiler/js/index.ts:742-874`) relocates that string **verbatim** into the document
+path (`_foldCssEngineStylesGlobal`, `packages/compiler/js/index.ts:859-874`, and
+`_globalizeAuthoredStyle`, `packages/compiler/js/index.ts:165-172`) relocates that string
+**verbatim** into the document
 cascade with zero selector rewriting. That is survivable for 23 pages, one of which is on
 screen at a time. Applied to 168 leaves — 110 of which have an authored `@style` block — it is
 not a migration, it is a regression: every generic class name in the repo becomes a global
@@ -162,7 +224,9 @@ year over the existing `adoptedStyleSheets`/`replaceSync` requirement, with no d
 unstyled," not "the component is slightly wrong." (3) `@scope`'s proximity-based cascade is a
 third ordering axis on top of specificity and layers; debugging a three-axis cascade in a
 framework whose users have already been surprised by shadow-boundary behavior is a cost we
-should not volunteer for.
+should not volunteer for. (This is a founder-ratified call, not a live tradeoff — see "Founder
+decisions" above, including the note that the choice is reversible if shadow mode is ever
+retired.)
 
 The decisive property of the attribute marker is the one in column 2: **one emission shape
 serves both modes.** In shadow mode the marker is redundant but harmless (a `[data-a="…"]`
@@ -245,6 +309,32 @@ target). This is not hypothetical: `examples/hacker-news/src/components/hn-comme
 `aihu-css-core` recognizes it today (it currently passes through unstamped only because *nothing*
 is stamped pre-flip; post-flip it would be silently rewritten like any other selector unless
 handled explicitly).
+
+**Resolution — options weighed.** Three shapes were considered for closing this gap:
+
+- **(a) An opt-in looser per-component scope** — e.g. a blanket `[data-a] *` fallback rule
+  emitted for any component that uses `html=`, accepting descendant bleed into runtime-injected
+  content as the price of coverage.
+- **(b) A documented limitation** — state that `@style` selectors never target `html=`-injected
+  content, and require such content to carry its own (unscoped or `$global`) classes.
+- **(c) Runtime stamping of `html=` output** — walk the injected string/fragment at mount time
+  and stamp `data-a` onto it, the same way the compiler stamps template-created elements, so the
+  marker's coverage is complete rather than partial.
+
+**Recommendation: neither (a), (b), nor (c) as stated — a narrower shape that keeps the useful
+half of each.** (c) is rejected outright: it requires parsing or DOM-walking runtime-injected
+content (a raw HTML string, or reaching into a d3-managed subtree) on every mount, on a path the
+compiler cannot reason about statically — real per-mount cost and real fragility for a case that
+is rare today (2 in-repo components). (a) is rejected because a blanket, component-wide fallback
+bleeds scoping for the **entire** component the instant it contains one `html=` block, quietly
+defeating the bleed-out guarantee in §4 for content the author never intended to expose. What
+ships is closest to (b) — a documented limitation — but sharpened from a prose warning into an
+explicit, parsed, **selector-level** operator: `:global(sel)` / `:deep(sel)` (below) let an
+author opt exactly the selectors that must reach runtime-created content out of stamping, leaving
+every other selector in the same component fully scoped. This is strictly narrower than (a)
+(per-selector, not per-component) and strictly more actionable than (b) (a parsed, testable
+operator an author writes once, rather than a convention they must remember and self-police).
+This is the resolution, not merely a noted gap; see "Mechanism" below.
 
 **Mechanism.** The rewrite pass (§1.4) recognizes two operators before running the default
 both-sides-stamp rule, matching the prior art already in the wild plus Vue's `:deep()` precedent:
@@ -456,6 +546,11 @@ advisory diagnostic (it is probably a deep-link anchor target, and rewriting it 
 3. Utilities are global *by design*; their names are content-derived and identical across
    emitters, so "collision" is dedup, not conflict.
 4. `$global` remains the explicit, greppable opt-out for CSS that genuinely must be global.
+5. Authored `@keyframes` are hash-suffixed with the component's `data-a` scope id, and referencing
+   `animation`/`animation-name` declarations are rewritten to match (§1.6) — two components both
+   authoring `@keyframes spin` cannot collide in the single document-level keyframes namespace
+   that light mode introduces (shadow mode gets this isolation for free; light mode does not).
+   Utility-emitted keyframes are exempt and stay global/deduplicated by design.
 
 **Specificity strategy.** The attribute adds exactly `(0,1,0)` to every scoped selector,
 uniformly — intra-component ordering is preserved exactly. Selectors are **not** wrapped in
@@ -785,35 +880,61 @@ before the endpoint is approved; the default flip is step 8.
 
 ## 11. Open questions
 
+Everything below is genuinely open — none of it is the founder decisions recorded above, and none
+of it should be read as ratified. Each item carries a recommendation so implementers have a
+default to work from, but each default is still waiting on a call.
+
 1. **Should the marker be stamped unconditionally rather than only for `@style`-bearing
    components?** Conditional stamping saves bytes on 58 leaves but means a component's scoping
    posture changes the instant someone adds a style block — and `::slotted` lowering needs the
    marker even for a utilities-only component that projects slotted content it wants to style.
-   Recommendation leans conditional-with-an-override; wants a decision.
+   **Recommendation: conditional, with an override** (a component can opt into unconditional
+   stamping, e.g. because it projects slotted content today and doesn't want its scoping posture
+   to shift later) — but this is a recommendation, not a decision; it needs one.
 2. **Do pages and layouts keep truly-global authored CSS as an option?** Step 3 scopes them.
-   Some page CSS legitimately wants to be global (body backgrounds, view transitions). `$global`
-   covers it, but 23 pages would need auditing for which blocks should convert.
-3. ~~**`useId` layer**~~ — **Resolved (2026-07-24), not open.** The element-reading core does
-   not live in `@aihu/runtime`; it lives in a dependency-free shared module (`primitives-internal`
-   entry point or a zero-dependency micro-package), with `@aihu/runtime` wrapping it for compiled
-   components — see §3.2 and step 5. Left in this list only as a record that the first draft
-   posed it as open while its migration step simultaneously committed to the wrong answer; the
-   remaining choice (in-package entry point vs. a new micro-package) is packaging, not layering,
-   and is left to whoever implements step 5.
+   Some page CSS legitimately wants to be global (body backgrounds, view transitions).
+   **Recommendation: no new mechanism** — `$global` already covers this case and adding a second
+   escape hatch multiplies the surface for a marginal ergonomic win. The cost is the one-time
+   audit of 23 pages to reclassify which blocks should convert; that audit cost, not the
+   mechanism choice, is why this stays open rather than closed here.
+3. **`useId` layer vs. packaging.** The *layering* half of this question is resolved, not open:
+   the element-reading core does not live in `@aihu/runtime` — it lives in a dependency-free
+   shared module, with `@aihu/runtime` wrapping it for compiled components (§3.2, step 5). That
+   follows directly from the hard rule that `@aihu/primitives` never imports `@aihu/runtime`, so
+   it is not being reopened here even though founder sign-off on the arc invites revisiting
+   sub-decisions — reopening it would contradict a rule already verified against three call
+   sites. **What remains genuinely OPEN is the packaging choice**: a `primitives-internal` entry
+   point inside the existing `@aihu/primitives` package, vs. a new zero-dependency micro-package
+   (e.g. `@aihu/id-scope`). **Recommendation: the in-package entry point** — it ships the same
+   dependency-free core without adding a new package to publish, version, and document for a
+   single shared function; a standalone micro-package only earns its keep if a *third* consumer
+   outside `@aihu/primitives`/`@aihu/runtime` needs the core directly. Left to whoever implements
+   step 5 to confirm.
 4. **Marker attribute naming and production stripping.** `data-a` is terse but generic enough to
    collide with an app's own attributes. `data-aihu-s` is safe and 6 bytes worse per element on
-   every SSR'd page. Worth a size measurement rather than a taste call.
+   every SSR'd page. **Recommendation: keep `data-a`.** The collision surface is narrow in
+   practice — it is a fixed-shape `data-*` attribute holding an 8-hex-char value, not a name an
+   app is likely to have chosen independently — and the byte cost compounds across every element
+   of every `@style`-bearing component on every SSR'd page (R11), which is the more certain cost
+   of the two. This should still get a repo-wide grep for pre-existing `data-a` usage before
+   landing step 3, and that check, not taste, is what should close the question.
 5. **Does the daisyUI recipe port change layer assignment?** Recipes like `.btn` are
    component-shaped but ship as global classes — `aihu.components` or `aihu.utilities`? It
-   determines whether `class="btn mt-4"` resolves the way daisyUI users expect.
+   determines whether `class="btn mt-4"` resolves the way daisyUI users expect. **Recommendation:
+   `aihu.utilities`** — §8 already treats `.btn`, `.btn-primary`, `.card-body` as "plain global
+   class rules" belonging in the utilities channel, unscoped and deduplicated, which is the shape
+   daisyUI itself ships and is what makes `class="btn mt-4"` resolve utilities-last as authors
+   expect. That's a leaning carried over from §8's framing, not a ratified layer assignment — it
+   should be confirmed as part of the Option 4 design pass, not assumed.
 6. **Vendoring daisyUI's compiled CSS as a light-only `StylePack`** (§8): now coherent, still
    fails shadow-mode components. Is a light-only convenience layer worth carrying alongside the
    transcription, or does it just fragment the story?
 7. **Should `css.shadowMode` gain a `'legacy'` value** reproducing the pre-flip pages-light /
-   leaves-shadow split, purely as a migration aid for `fellwork/web`? The recommendation is no —
-   a per-app pin to `'shadow'` for one release is simpler and does not add a permanently
-   supported third mode — but it is the founder's call whether one release of full-shadow is an
-   acceptable interim for the web app.
+   leaves-shadow split, purely as a migration aid for `fellwork/web`? **Recommendation: no** — a
+   per-app pin to `'shadow'` for one release (§7, §10 step 10) is simpler and does not add a
+   permanently supported third mode — but it is the founder's call whether one release of
+   full-shadow is an acceptable interim for the web app, so this stays open rather than closed by
+   this design alone.
 8. **Do we owe a codemod?** 196 files change behavior but ~0 change source (lowering and
    scoping are compiler-side). The exceptions are the 8 literal-`id` files and any `$global`
    conversions from Q2. Probably a lint rule, not a codemod — but that presumes Q2 lands "no."
