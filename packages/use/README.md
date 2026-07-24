@@ -118,6 +118,7 @@ bun add @aihu/use
 | `./useElementSize` | `./dist/useElementSize.js` | `—` |
 | `./useElementVisibility` | `./dist/useElementVisibility.js` | `—` |
 | `./useEventListener` | `./dist/useEventListener.js` | `—` |
+| `./useEventListenerMap` | `./dist/useEventListenerMap.js` | `—` |
 | `./useIntervalFn` | `./dist/useIntervalFn.js` | `—` |
 | `./useLocalStorage` | `./dist/useLocalStorage.js` | `—` |
 | `./useMediaQuery` | `./dist/useMediaQuery.js` | `—` |
@@ -132,6 +133,7 @@ bun add @aihu/use
 | `./useTimeoutFn` | `./dist/useTimeoutFn.js` | `—` |
 | `./useToggle` | `./dist/useToggle.js` | `—` |
 | `./useWindowSize` | `./dist/useWindowSize.js` | `—` |
+| `./watch` | `./dist/watch.js` | `—` |
 
 <sub><i>Auto-generated against `@aihu/use@0.3.0`.</i></sub>
 

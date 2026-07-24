@@ -62,6 +62,31 @@ const entries: Array<{ entry: string; run: () => Promise<void> }> = [
       ),
   },
   {
+    entry: 'useEventListenerMap',
+    run: () =>
+      withSSR(
+        () => import('../src/useEventListenerMap/index.ts'),
+        ({ useEventListenerMap }) => {
+          withGlobalSpies(() => {
+            const target = { addEventListener: vi.fn(), removeEventListener: vi.fn() }
+            const el = target as unknown as Element
+            // Static AND getter targets, multi-entry map: nothing
+            // registered, combined stop is a no-op (the isClient gate in
+            // the underlying useEventListener precedes the typeof-function
+            // branch, so no effect is created either).
+            const stopStatic = useEventListenerMap(el, { click: () => {}, mouseover: () => {} })
+            const stopGetter = useEventListenerMap(() => el, { click: () => {} })
+            expect(() => {
+              stopStatic()
+              stopGetter()
+            }).not.toThrow()
+            expect(target.addEventListener).not.toHaveBeenCalled()
+            expect(target.removeEventListener).not.toHaveBeenCalled()
+          })
+        },
+      ),
+  },
+  {
     entry: 'useMouse',
     run: () =>
       withSSR(
@@ -373,6 +398,26 @@ const entries: Array<{ entry: string; run: () => Promise<void> }> = [
             const { isSupported, copied } = useClipboard()
             expect(isSupported()).toBe(false)
             expect(copied()).toBe(false)
+          })
+        },
+      ),
+  },
+  {
+    entry: 'watch',
+    run: () =>
+      withSSR(
+        () => import('../src/watch/index.ts'),
+        ({ watch }) => {
+          withGlobalSpies(() => {
+            const callback = vi.fn(() => {
+              throw new Error('callback must not run under SSR')
+            })
+            let stop: (() => void) | undefined
+            expect(() => {
+              stop = watch(() => 1, callback, { immediate: true })
+            }).not.toThrow()
+            expect(callback).not.toHaveBeenCalled()
+            expect(() => stop?.()).not.toThrow()
           })
         },
       ),

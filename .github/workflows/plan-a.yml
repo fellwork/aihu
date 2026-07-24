@@ -79,6 +79,14 @@ jobs:
       # Guard: a compiler Rust change must bump the platform binary packages,
       # or the rebuilt binary is silently skipped at publish (see the script).
       - run: bun run check:compiler-binary-bump
+      # @aihu/use registry parity — a composable's six touch points (src dir,
+      # barrel, package.json exports, rolldown input, .size-limit.json row,
+      # USE_COMPOSABLES tuple) must all agree, bidirectionally. Needs no build
+      # output — only reads source/manifest text — so it runs early, right
+      # after the other cheap Rust-source-adjacent guard above and before the
+      # full build+coverage run, to fail fast and cheaply on a forgotten
+      # touch point.
+      - run: bun run check:use-registry-parity
         # Use the pinned local biome (node_modules/.bin via check:lint), NOT
         # `bunx biome`, which resolves its own latest copy and made CI flap when
         # biome 2.4.15 published mid-day (see PR pinning @biomejs/biome to 2.4.14).

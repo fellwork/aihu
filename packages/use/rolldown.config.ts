@@ -23,6 +23,7 @@ export default defineConfig({
     useElementSize: 'src/useElementSize/index.ts',
     useElementVisibility: 'src/useElementVisibility/index.ts',
     useEventListener: 'src/useEventListener/index.ts',
+    useEventListenerMap: 'src/useEventListenerMap/index.ts',
     useIntervalFn: 'src/useIntervalFn/index.ts',
     useLocalStorage: 'src/useLocalStorage/index.ts',
     useMediaQuery: 'src/useMediaQuery/index.ts',
@@ -37,6 +38,7 @@ export default defineConfig({
     useTimeoutFn: 'src/useTimeoutFn/index.ts',
     useToggle: 'src/useToggle/index.ts',
     useWindowSize: 'src/useWindowSize/index.ts',
+    watch: 'src/watch/index.ts',
   },
   output: {
     dir: 'dist',
