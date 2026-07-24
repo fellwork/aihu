@@ -64,6 +64,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "vscode:prepublish": "tsc -p tsconfig.json",
     "build:vsix": "vsce package",
     "vsce:package": "vsce package",
     "vsce:publish": "vsce publish"
