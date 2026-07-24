@@ -9,25 +9,82 @@ name: Deploy aihu-docs
 #   CLOUDFLARE_API_TOKEN   — CF API token with Pages:Edit permission
 #   CLOUDFLARE_ACCOUNT_ID  — Cloudflare account ID
 
+# WHEN THIS RUNS — and why it is narrower than it used to be.
+#
+# The deployed docs consume the PUBLISHED `@aihu/compiler-<platform>` binary,
+# not the one built from the checkout (see `resolveCompilerBinary()` in
+# packages/compiler/js/resolve-binary.ts — the published per-platform package is
+# resolved BEFORE any locally staged binary). So rebuilding docs on every PR
+# that touched packages/compiler/** told us nothing about that PR: it recompiled
+# the docs with the already-published compiler and burned ~12 minutes doing it.
+#
+# The docs therefore only need to rebuild when one of three things changes:
+#   1. the docs themselves (apps/docs/**),
+#   2. a package apps/docs imports FROM SOURCE (see the path list below), or
+#   3. the published compiler — i.e. a release actually shipped new binaries.
+#
+# (3) is handled by `workflow_run` on the release workflow rather than by
+# source-path filters, so it fires when a version is genuinely published, not
+# when a version-bump commit happens to touch packages/compiler/.
+#
+# `packages/arbor/**` was dropped from the old list: apps/docs consumes arbor
+# through normal package resolution, not a source import, so an arbor change
+# reaches the docs only once it is built and published — the same reasoning
+# that applies to the compiler binary.
+#
+# A compiler PR that DOES want to prove it hasn't broken the docs opts in with
+# `workflow_dispatch` against its branch (gh workflow run "Deploy aihu-docs"
+# --ref <branch>). Note a `docs-check` PR label CANNOT work here: GitHub applies
+# the `paths` filter to every pull_request activity type, so a label event on a
+# compiler-only PR never matches and would silently never fire.
+#
+# Every run now builds the docs with AIHU_COMPILE_BIN pointed at the checkout's
+# freshly built compiler, so when it does run it exercises this tree's compiler
+# rather than the published one.
 "on":
   push:
     branches:
       - main
     paths:
       - 'apps/docs/**'
-      - 'packages/arbor/**'
-      - 'packages/compiler/**'
-      - 'packages/plugin-agent-readiness/**'
+      # Packages apps/docs imports FROM SOURCE (not via a published dist), so a
+      # change to them really does change the docs build output:
+      #   build.ts            -> packages/server/src/{head-lowering,ssr}.ts
+      #   build.ts            -> packages/plugin-agent-readiness/src/sitemap.ts
+      #   build.ts            -> packages/plugin-kindly-note/src/render-markdown.ts
+      #   rolldown.config.ts  -> packages/compiler/js/index.ts
       - 'packages/server/**'
+      - 'packages/plugin-agent-readiness/**'
+      - 'packages/plugin-kindly-note/**'
+      # ONLY the JS plugin, deliberately not packages/compiler/**. The Rust
+      # crate compiles to a binary the docs consume from the PUBLISHED
+      # per-platform package, so Rust-source edits, Cargo changes, and
+      # version-bump commits cannot affect this build and must not trigger it.
+      - 'packages/compiler/js/**'
       - '.github/workflows/deploy-docs.yml'
   pull_request:
     paths:
       - 'apps/docs/**'
-      - 'packages/arbor/**'
-      - 'packages/compiler/**'
-      - 'packages/plugin-agent-readiness/**'
+      # Packages apps/docs imports FROM SOURCE (not via a published dist), so a
+      # change to them really does change the docs build output:
+      #   build.ts            -> packages/server/src/{head-lowering,ssr}.ts
+      #   build.ts            -> packages/plugin-agent-readiness/src/sitemap.ts
+      #   build.ts            -> packages/plugin-kindly-note/src/render-markdown.ts
+      #   rolldown.config.ts  -> packages/compiler/js/index.ts
       - 'packages/server/**'
+      - 'packages/plugin-agent-readiness/**'
+      - 'packages/plugin-kindly-note/**'
+      # ONLY the JS plugin, deliberately not packages/compiler/**. The Rust
+      # crate compiles to a binary the docs consume from the PUBLISHED
+      # per-platform package, so Rust-source edits, Cargo changes, and
+      # version-bump commits cannot affect this build and must not trigger it.
+      - 'packages/compiler/js/**'
       - '.github/workflows/deploy-docs.yml'
+  # A release published new compiler binaries — rebuild the docs against them.
+  workflow_run:
+    workflows: ["Release aihu-compile binaries"]
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -43,6 +100,12 @@ jobs:
   test:
     name: Smoke tests
     runs-on: ubuntu-22.04
+    # On the workflow_run trigger, only proceed when the release actually
+    # succeeded — a failed release published nothing, so there is no new
+    # compiler to rebuild the docs against. Every other trigger runs normally.
+    if: >-
+      github.event_name != 'workflow_run' ||
+      github.event.workflow_run.conclusion == 'success'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -96,16 +159,30 @@ jobs:
         env:
           AIHU_SKIP_POSTINSTALL: "1"
 
-      - name: Build docs
-        run: bun run build
-        working-directory: apps/docs
-
       # Doc-coverage gate (default/non-strict): hard-fails on undocumented
       # A1-owned packages; A3/A4 doc gaps are a tracked WARNING (exit 0) so an
       # A1 docs deploy is not blocked on other tracks. A3/A4 closeout PRs run
       # this with --strict to block their own landing on missing docs.
+      #
+      # Runs BEFORE the docs build: it only reads source + manifest text, so it
+      # is cheap, and running it first fails fast. It used to sit between the
+      # build and the Playwright run, where a hard-fail silently masked every
+      # downstream test — that is how 13 broken Playwright specs went unnoticed
+      # for two days while the gate was red for an unrelated reason.
       - name: Doc-coverage gate
         run: bun apps/docs/scripts/check-doc-coverage.ts
+
+      # AIHU_COMPILE_BIN: without it `resolveCompilerBinary()` prefers the
+      # PUBLISHED @aihu/compiler-<platform> package over the binary staged
+      # above, so this job would build the docs with the released compiler and
+      # quietly fail to test the checkout at all. The staging step, the artifact
+      # upload, and the deploy job's download all exist to use this binary —
+      # this is what actually makes them take effect.
+      - name: Build docs
+        run: bun run build
+        working-directory: apps/docs
+        env:
+          AIHU_COMPILE_BIN: ${{ github.workspace }}/packages/compiler/bin/aihu-compile
 
       - name: Install Node.js
         uses: actions/setup-node@v4
@@ -190,9 +267,15 @@ jobs:
         env:
           AIHU_SKIP_POSTINSTALL: "1"
 
+      # Same reasoning as the test job: the binary downloaded from the artifact
+      # above is only actually used if AIHU_COMPILE_BIN points at it. Without
+      # this the deploy would ship docs compiled by the published binary,
+      # silently discarding the download.
       - name: Build docs
         run: bun run build
         working-directory: apps/docs
+        env:
+          AIHU_COMPILE_BIN: ${{ github.workspace }}/packages/compiler/bin/aihu-compile
 
       # The Lighthouse quality gate runs in the always-on `test` job (above),
       # which this deploy job `needs:` — so a perf regression already blocks the
