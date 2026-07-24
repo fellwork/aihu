@@ -311,6 +311,22 @@ describe('effectScope', () => {
     warn.mockRestore()
   })
 
+  it('onScopeDispose inside an active scope registers silently (no dev-warn)', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    let disposed = false
+    const scope = effectScope()
+    scope.run(() => {
+      onScopeDispose(() => {
+        disposed = true
+      })
+    })
+    expect(warn).not.toHaveBeenCalled()
+    scope.stop()
+    expect(disposed).toBe(true)
+    expect(warn).not.toHaveBeenCalled()
+    warn.mockRestore()
+  })
+
   it('P0-1: an effect created inside a foreign effect re-run during a scoped block is NOT scope-owned', () => {
     // Synchronous push: the unbatched setTrigger(1) below drains the effect
     // queue inline at the write site, re-running the foreign effect while

@@ -248,6 +248,13 @@
     "ignore": ["@aihu/signals"]
   },
   {
+    "name": "@aihu/use/useEventListenerMap",
+    "path": "packages/use/dist/useEventListenerMap.js",
+    "limit": "490 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
     "name": "@aihu/use/useMouse",
     "path": "packages/use/dist/useMouse.js",
     "limit": "570 B",
@@ -391,6 +398,13 @@
     "name": "@aihu/use/useClipboard",
     "path": "packages/use/dist/useClipboard.js",
     "limit": "480 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
+    "name": "@aihu/use/watch",
+    "path": "packages/use/dist/watch.js",
+    "limit": "370 B",
     "gzip": true,
     "ignore": ["@aihu/signals"]
   },
