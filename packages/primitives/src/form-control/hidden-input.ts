@@ -5,7 +5,9 @@
  * native `FormData` / form submission with zero re-implementation.
  *
  * The input only exists while BOTH conditions hold: the host is inside a
- * `<form>` (`host.closest('form')`) AND `name()` is non-null. When `name()`
+ * `<form>` (composed-tree `closest('form')` — crosses shadow boundaries so an
+ * intervening shadow-DOM'd wrapper doesn't hide the form) AND `name()` is
+ * non-null. When `name()`
  * becomes null the input is removed (reactively, inside the effect). The
  * inline visually-hidden styles are behavioral plumbing on a functional
  * element, not appearance — they do not violate the zero-CSS contract.
@@ -19,6 +21,7 @@
  */
 
 import { effect, type Read } from '@aihu/signals'
+import { composedClosest } from '../composed-tree.ts'
 
 export interface HiddenInputOptions {
   type: 'checkbox' | 'radio'
@@ -51,7 +54,7 @@ export function attachHiddenInput(host: HTMLElement, opts: HiddenInputOptions): 
     const required = opts.required()
     const disabled = opts.disabled()
 
-    if (name === null || host.closest('form') === null) {
+    if (name === null || composedClosest(host, 'form') === null) {
       remove()
       return
     }

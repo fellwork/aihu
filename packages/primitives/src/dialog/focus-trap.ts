@@ -1,14 +1,13 @@
 /**
  * `createFocusTrap` — a tiny native-DOM focus trap (no library). Queries the
- * focusable descendants of a container, wraps Tab at the edges, moves focus to
- * the first focusable (or the container) on activate, and restores focus to the
- * previously-active element on deactivate. Used by `dialog-content`.
+ * focusable descendants of a container via the composed-tree substrate (so it
+ * correctly descends into any nested custom element's OPEN shadow root), wraps
+ * Tab at the edges, moves focus to the first focusable (or the container) on
+ * activate, and restores focus to the previously-active element on deactivate.
+ * Used by `dialog-content`.
  */
 
-const FOCUSABLE =
-  'a[href], area[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), ' +
-  'select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"]), ' +
-  '[contenteditable="true"], audio[controls], video[controls], details>summary:first-of-type'
+import { composedActiveElement, composedContains, queryTabbables } from '../composed-tree.ts'
 
 export interface FocusTrap {
   activate(): void
@@ -16,14 +15,12 @@ export interface FocusTrap {
 }
 
 function focusables(container: Element): HTMLElement[] {
-  return Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(
-    (el) => el.offsetParent !== null || el === document.activeElement || isInJsdom(el),
-  )
-}
-
-/** jsdom does not lay out, so `offsetParent` is always null — treat all as visible there. */
-function isInJsdom(_el: HTMLElement): boolean {
-  return typeof navigator !== 'undefined' && navigator.userAgent.includes('jsdom')
+  // Include the currently-focused element even if it reports zero layout
+  // (e.g. mid-transition) — same carve-out the old implementation had, now
+  // resolved via the composed-tree activeElement so it still applies when the
+  // focused node is nested inside a shadow root.
+  const active = composedActiveElement(container.getRootNode() as Document | ShadowRoot)
+  return queryTabbables(container, { includeElement: active })
 }
 
 export function createFocusTrap(container: Element): FocusTrap {
@@ -39,12 +36,12 @@ export function createFocusTrap(container: Element): FocusTrap {
       ev.preventDefault()
       return
     }
-    const current = (container.getRootNode() as Document | ShadowRoot).activeElement as HTMLElement
+    const current = composedActiveElement(container.getRootNode() as Document | ShadowRoot)
 
-    if (ev.shiftKey && (current === first || !container.contains(current))) {
+    if (ev.shiftKey && (current === first || !composedContains(container, current))) {
       ev.preventDefault()
       last.focus()
-    } else if (!ev.shiftKey && (current === last || !container.contains(current))) {
+    } else if (!ev.shiftKey && (current === last || !composedContains(container, current))) {
       ev.preventDefault()
       first.focus()
     }
@@ -54,7 +51,7 @@ export function createFocusTrap(container: Element): FocusTrap {
     activate(): void {
       if (active) return
       active = true
-      previouslyFocused = document.activeElement as HTMLElement | null
+      previouslyFocused = composedActiveElement(document) as HTMLElement | null
       const items = focusables(container)
       const target = items[0] ?? (container as HTMLElement)
       // Ensure the container itself is focusable as a fallback.
