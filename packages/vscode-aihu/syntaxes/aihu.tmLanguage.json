@@ -164,9 +164,54 @@
       "patterns": [{ "include": "#expression-nested-braces" }, { "include": "source.ts" }]
     },
 
+    "template-directive-attr": {
+      "comment": "attr:<name>=\"...\" / attr:<name>={expr} — §2.7 literal-attribute escape hatch (directives.rs ~line 352). Scoped like the sibling colon-directive rule.",
+      "patterns": [
+        {
+          "begin": "\\b(attr)(:)([A-Za-z_$][\\w$-]*)\\s*(=)\\s*(\\{)",
+          "end": "\\}",
+          "beginCaptures": {
+            "1": { "name": "keyword.control.aihu support.type.directive.aihu" },
+            "2": { "name": "punctuation.separator.namespace.aihu" },
+            "3": { "name": "entity.other.attribute-name.aihu" },
+            "4": { "name": "punctuation.separator.key-value.aihu" },
+            "5": { "name": "punctuation.definition.template-expression.begin.aihu" }
+          },
+          "endCaptures": {
+            "0": { "name": "punctuation.definition.template-expression.end.aihu" }
+          },
+          "name": "meta.directive.attr.aihu",
+          "contentName": "source.ts",
+          "patterns": [{ "include": "#expression-nested-braces" }, { "include": "source.ts" }]
+        },
+        {
+          "match": "\\b(attr)(:)([A-Za-z_$][\\w$-]*)\\s*(=)\\s*(\"[^\"]*\")",
+          "captures": {
+            "1": { "name": "keyword.control.aihu support.type.directive.aihu" },
+            "2": { "name": "punctuation.separator.namespace.aihu" },
+            "3": { "name": "entity.other.attribute-name.aihu" },
+            "4": { "name": "punctuation.separator.key-value.aihu" },
+            "5": { "name": "string.quoted.double.aihu" }
+          },
+          "name": "meta.directive.attr.aihu"
+        },
+        {
+          "match": "\\b(attr)(:)([A-Za-z_$][\\w$-]*)\\s*(=)\\s*('[^']*')",
+          "captures": {
+            "1": { "name": "keyword.control.aihu support.type.directive.aihu" },
+            "2": { "name": "punctuation.separator.namespace.aihu" },
+            "3": { "name": "entity.other.attribute-name.aihu" },
+            "4": { "name": "punctuation.separator.key-value.aihu" },
+            "5": { "name": "string.quoted.single.aihu" }
+          },
+          "name": "meta.directive.attr.aihu"
+        }
+      ]
+    },
+
     "template-directive-naked": {
-      "comment": "Naked (prefix-less) grammar v2 directives: if, elseif, each, key, show, html, memo — all require a braced expression.",
-      "begin": "\\b(if|elseif|each|key|show|html|memo)\\b\\s*(=)\\s*(\\{)",
+      "comment": "Naked (prefix-less) grammar v2 directives: if, elseif, each, key, show, html, ref, memo — all require a braced expression (GRAMMAR_WORDS_EXPR, directives.rs).",
+      "begin": "\\b(if|elseif|each|key|show|html|ref|memo)\\b\\s*(=)\\s*(\\{)",
       "end": "\\}",
       "beginCaptures": {
         "1": { "name": "keyword.control.aihu support.type.directive.aihu" },
@@ -208,6 +253,7 @@
       "name": "meta.tag.open.aihu",
       "patterns": [
         { "include": "#template-directive-colon" },
+        { "include": "#template-directive-attr" },
         { "include": "#template-directive-naked" },
         { "include": "#template-directive-bare" },
         { "include": "#template-attr-expr" },
@@ -238,6 +284,7 @@
       "name": "meta.tag.self-close.aihu",
       "patterns": [
         { "include": "#template-directive-colon" },
+        { "include": "#template-directive-attr" },
         { "include": "#template-directive-naked" },
         { "include": "#template-directive-bare" },
         { "include": "#template-attr-expr" },
