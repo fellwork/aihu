@@ -724,7 +724,9 @@ function main(): void {
   const bare = args.includes('--bare')
   const familyIdx = args.indexOf('--family')
   const family = familyIdx !== -1 ? args[familyIdx + 1] : undefined
-  const names = args.filter((a, i) => !a.startsWith('--') && i !== familyIdx + 1)
+  const names = args.filter(
+    (a, i) => !a.startsWith('--') && !(familyIdx !== -1 && i === familyIdx + 1),
+  )
 
   if (names.length === 0) {
     console.error('Usage: bun scripts/gen-use.ts <name> [<name>...] [--bare] [--family <family>]')

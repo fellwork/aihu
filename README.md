@@ -255,17 +255,17 @@ Per-package gates enforced by `bun run size`:
 | `@aihu/reactive/helpers` | 528 B | 700 B | pass |
 | `@aihu/use/shared` | 288 B | 320 B | pass |
 | `@aihu/use/math` | 158 B | 1200 B | pass |
-| `@aihu/use/motion` | 385 B | 3 KB | pass |
+| `@aihu/use/motion` | 423 B | 3 KB | pass |
 | `@aihu/use/router` | 165 B | 1500 B | pass |
 | `@aihu/auth` | 1.16 kB | 1.5 KB | pass |
 | `@aihu/magna` | 758 B | 1.8 KB | pass |
 | `@aihu/magna/codegen` | 1.04 kB | 1.2 KB | pass |
 | `@aihu/editor` | 13.56 kB | 14 KB | pass |
 | `@aihu/editor/safe-href` | 134 B | 300 B | pass |
-| `@aihu/use` (24 composables) | 139 B – 604 B | 17 distinct limits | pass |
+| `@aihu/use` (57 composables) | 139 B – 740 B | 33 distinct limits | pass |
 | `@aihu/use/integrations` (1 composable) | 338 B | 600 B | pass |
 | `@aihu/use/math` (1 composable) | 158 B | 250 B | pass |
-| `@aihu/use/motion` (1 composable) | 385 B | 900 B | pass |
+| `@aihu/use/motion` (1 composable) | 423 B | 900 B | pass |
 | `@aihu/use/router` (1 composable) | 165 B | 500 B | pass |
 
 <sub><i>Auto-generated — run `bun scripts/sync-readme.ts` to update.</i></sub>

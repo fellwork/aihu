@@ -479,6 +479,237 @@
     "ignore": ["@aihu/signals", "@aihu/router"]
   },
   {
+    "name": "@aihu/use/usePreferredContrast",
+    "path": "packages/use/dist/usePreferredContrast.js",
+    "limit": "480 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
+    "name": "@aihu/use/usePreferredReducedTransparency",
+    "path": "packages/use/dist/usePreferredReducedTransparency.js",
+    "limit": "450 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
+    "name": "@aihu/use/useInterval",
+    "path": "packages/use/dist/useInterval.js",
+    "limit": "425 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
+    "name": "@aihu/use/usePreferredLanguages",
+    "path": "packages/use/dist/usePreferredLanguages.js",
+    "limit": "520 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
+    "name": "@aihu/use/useBrowserLanguage",
+    "path": "packages/use/dist/useBrowserLanguage.js",
+    "limit": "500 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
+    "name": "@aihu/use/useTimeout",
+    "path": "packages/use/dist/useTimeout.js",
+    "limit": "425 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
+    "name": "@aihu/use/useOperatingSystem",
+    "path": "packages/use/dist/useOperatingSystem.js",
+    "limit": "450 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
+    "name": "@aihu/use/useTimer",
+    "path": "packages/use/dist/useTimer.js",
+    "limit": "450 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
+    "name": "@aihu/use/useTextDirection",
+    "path": "packages/use/dist/useTextDirection.js",
+    "limit": "500 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
+    "name": "@aihu/use/useCountdown",
+    "path": "packages/use/dist/useCountdown.js",
+    "limit": "550 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
+    "name": "@aihu/use/useStopwatch",
+    "path": "packages/use/dist/useStopwatch.js",
+    "limit": "525 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
+    "name": "@aihu/use/useDateFormat",
+    "path": "packages/use/dist/useDateFormat.js",
+    "limit": "275 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
+    "name": "@aihu/use/useTimeAgo",
+    "path": "packages/use/dist/useTimeAgo.js",
+    "limit": "675 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
+    "name": "@aihu/use/useAsyncAbortable",
+    "path": "packages/use/dist/useAsyncAbortable.js",
+    "limit": "550 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
+    "name": "@aihu/use/useNetworkState",
+    "path": "packages/use/dist/useNetworkState.js",
+    "limit": "700 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
+    "name": "@aihu/use/useIdle",
+    "path": "packages/use/dist/useIdle.js",
+    "limit": "800 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
+    "name": "@aihu/use/useMap",
+    "path": "packages/use/dist/useMap.js",
+    "limit": "400 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
+    "name": "@aihu/use/useSet",
+    "path": "packages/use/dist/useSet.js",
+    "limit": "350 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
+    "name": "@aihu/use/useMeasure",
+    "path": "packages/use/dist/useMeasure.js",
+    "limit": "750 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
+    "name": "@aihu/use/useFocusWithin",
+    "path": "packages/use/dist/useFocusWithin.js",
+    "limit": "450 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
+    "name": "@aihu/use/useIntersectionObserver",
+    "path": "packages/use/dist/useIntersectionObserver.js",
+    "limit": "530 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
+    "name": "@aihu/use/useMutationObserver",
+    "path": "packages/use/dist/useMutationObserver.js",
+    "limit": "400 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
+    "name": "@aihu/use/usePerformanceObserver",
+    "path": "packages/use/dist/usePerformanceObserver.js",
+    "limit": "300 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
+    "name": "@aihu/use/useBreakpoints",
+    "path": "packages/use/dist/useBreakpoints.js",
+    "limit": "620 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
+    "name": "@aihu/use/useDevicePixelRatio",
+    "path": "packages/use/dist/useDevicePixelRatio.js",
+    "limit": "440 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
+    "name": "@aihu/use/useOrientation",
+    "path": "packages/use/dist/useOrientation.js",
+    "limit": "550 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
+    "name": "@aihu/use/useDeviceOrientation",
+    "path": "packages/use/dist/useDeviceOrientation.js",
+    "limit": "610 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
+    "name": "@aihu/use/useDeviceMotion",
+    "path": "packages/use/dist/useDeviceMotion.js",
+    "limit": "630 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
+    "name": "@aihu/use/usePageLeave",
+    "path": "packages/use/dist/usePageLeave.js",
+    "limit": "480 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
+    "name": "@aihu/use/usePreferredReducedMotion",
+    "path": "packages/use/dist/usePreferredReducedMotion.js",
+    "limit": "450 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
+    "name": "@aihu/use/useAsync",
+    "path": "packages/use/dist/useAsync.js",
+    "limit": "450 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
+    "name": "@aihu/use/useResizeObserver",
+    "path": "packages/use/dist/useResizeObserver.js",
+    "limit": "380 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
+    "name": "@aihu/use/useTimestamp",
+    "path": "packages/use/dist/useTimestamp.js",
+    "limit": "575 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
     "name": "@aihu/auth",
     "path": "packages/auth/dist/index.js",
     "limit": "1.5 KB",
