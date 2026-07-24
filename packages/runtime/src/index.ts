@@ -23,6 +23,7 @@ export {
   _onAdopt as onAdopt,
   _onAttributeChange as onAttributeChange,
   _onCleanup as onCleanup,
+  _onCommit as onCommit,
   _onMount as onMount,
   _setMount,
   _setSignal,

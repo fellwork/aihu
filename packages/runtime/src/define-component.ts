@@ -7,7 +7,15 @@ import {
   runWithScope,
   type signal as SignalFactory,
 } from '@aihu/signals'
+// Ownership contract (docs/plans/2026-07-24-lifecycle-ownership-dx.md §6):
+// `@aihu/runtime` is the ONE package that attaches a `LifecycleHost` to a
+// component's root scope. `@aihu/use` (a future workstream, not this one)
+// reads it back via `getLifecycleHost()`; the bare `onCommit` export below
+// reads it back too, through the same public entry point, just gated
+// tighter (`_cur`-only) than the contract itself requires.
+import { _attachLifecycleHost, getLifecycleHost, type LifecycleHost } from '@aihu/signals/lifecycle'
 import { _takeAgentServerBinding } from './agent-dispatch.ts'
+import { _dropCommitsFor, _scheduleCommit } from './commit.ts'
 import type {
   ComponentOptions,
   MountFn,
@@ -84,16 +92,83 @@ const _scopes = new WeakMap<HTMLElement, _ScopeRef>()
 // NOT a per-class closure symbol — because `_hmrReplace` and define-element's
 // hydration disconnect bridge must reach it across class boundaries.
 const _componentScopes = new WeakMap<HTMLElement, EffectScope>()
+// `connected` signal setter for THIS connection (lifecycle-ownership plan
+// §4). Module-level, keyed the same way as `_componentScopes` and always
+// set/deleted together — `_stopComponentScope` is the one place both are
+// torn down, so they can never drift out of sync.
+const _connections = new WeakMap<HTMLElement, (v: boolean) => void>()
 
-/** @internal — stop + delete an element's component effect scope, if any.
- * Called by define-element's hydration branch, which bypasses this module's
- * `disconnectedCallback` (early return on `_HS`) but still runs `_build()`
- * and therefore opened the scope. Rethrows the first disposer error
- * (scope.stop's collect-run-all-rethrow-first contract). */
+/**
+ * @internal — a `connected` getter/setter pair. Uses the injected `_signal`
+ * factory when one has been wired (`_setSignal`, always true for real
+ * `.aihu` builds via the compiler's auto-injected `_setSignal(signal)`), so
+ * `connected()` is reactive and safe to read inside `effect()`. Falls back
+ * to a plain non-reactive closure when no signal factory is wired — a
+ * test-harness-only case: hand-written `defineComponent()` calls in tests
+ * that never touch attrs/props (and so never call `_setSignal`) still get
+ * a working, if non-reactive, `connected()`.
+ */
+function _makeConnectedSignal(): [() => boolean, (v: boolean) => void] {
+  if (_signal !== null) {
+    return _signal!(true) as unknown as [() => boolean, (v: boolean) => void]
+  }
+  let v = true
+  return [
+    () => v,
+    (next: boolean) => {
+      v = next
+    },
+  ]
+}
+
+/**
+ * @internal — create this connection's `connected` signal, register its
+ * setter for `_stopComponentScope` to flip, and attach the `LifecycleHost`
+ * (lifecycle-ownership plan §6.3) to `es` so `@aihu/use`'s future
+ * `getLifecycleHost()` consumers (and this module's own `_onCommit`) can
+ * resolve it. Called from every `_build()` call site (both class forms —
+ * covers the normal-connect AND the hydration path, since define-element's
+ * hydration branch calls `_build()` directly, §2.6) and from `_hmrReplace`.
+ * Returns the `connected` getter for the caller to fold into `SetupContext`.
+ */
+function _installLifecycle(el: HTMLElement, es: EffectScope): () => boolean {
+  const [connected, setConnected] = _makeConnectedSignal()
+  _connections.set(el, setConnected)
+  const host: LifecycleHost = {
+    connected,
+    onCommit(fn) {
+      _scheduleCommit(fn, connected, es)
+    },
+  }
+  _attachLifecycleHost(es, host)
+  return connected
+}
+
+/** @internal — stop + delete an element's component effect scope, if any,
+ * flipping its `connected` signal to `false` FIRST (lifecycle-ownership
+ * plan §4.2(c): `onCleanup` bodies and in-flight `await` continuations must
+ * observe `false`, so the flip has to land before `scope.stop()` drains
+ * them). Called by define-element's hydration branch, which bypasses this
+ * module's `disconnectedCallback` (early return on `_HS`) but still runs
+ * `_build()` and therefore opened the scope AND registered a connection —
+ * and, since FEL-401, by BOTH of this module's own `disconnectedCallback`
+ * forms too, making this the one real shared teardown choke point for
+ * `connected`'s flip (see the FEL-401 note below `disconnectedCallback`).
+ * Rethrows the first disposer error (scope.stop's collect-run-all-rethrow-
+ * first contract).
+ *
+ * Also drops any commits queued for `es` from the rAF-coalesced commit
+ * queue (`_dropCommitsFor`, commit.ts) BEFORE stopping the scope — a queued
+ * `onCommit` entry otherwise strongly retains the dead scope (and whatever
+ * its closure captured) until the next animation frame fires, which may
+ * never happen in a suspended/hidden background tab. */
 export function _stopComponentScope(el: HTMLElement): void {
   const es = _componentScopes.get(el)
   if (es !== undefined) {
     _componentScopes.delete(el)
+    _connections.get(el)?.(false)
+    _connections.delete(el)
+    _dropCommitsFor(es)
     es.stop()
   }
 }
@@ -269,13 +344,22 @@ export function defineComponent(setupOrOptions: Setup | ComponentOptions): typeo
         // disconnect; DOM removal cascades.
         const es = effectScope(true)
         _componentScopes.set(this, es)
+        // Lifecycle-ownership plan §2.6/§4.1: attach right after
+        // `_componentScopes.set`, BEFORE `es.run(setup)` — this is the one
+        // `_build()` call site shared by both the normal-connect path
+        // (connectedCallback below) and define-element's hydration branch
+        // (which calls `_build()` directly), so `connected` and `onCommit`
+        // work identically on both without any hydration special-casing.
+        const connected = _installLifecycle(this, es)
         _cur = lc
         const prevCtx = _enterOwnerContext(this as unknown as Record<symbol, unknown>)
         try {
           // es.run wraps ONLY the setup call (P0-2a, structural): `_mount`
           // runs later in connectedCallback, after _build returns, OUTSIDE
           // the scope — binding effects belong to the MountScope, never here.
-          return es.run(() => setup({ host, element: this } as SetupContext)) as ReturnType<Setup>
+          return es.run(() =>
+            setup({ host, element: this, connected } as SetupContext),
+          ) as ReturnType<Setup>
         } finally {
           _exitContext(prevCtx)
           _cur = null
@@ -343,13 +427,18 @@ export function defineComponent(setupOrOptions: Setup | ComponentOptions): typeo
         // (bindings + DOM removal last). NOTE a throwing MountScope-INTERNAL
         // binding disposer still aborts _makeScope's own LIFO loop —
         // pre-existing gap, separate fix.
+        //
+        // FEL-401: routed through `_stopComponentScope` (rather than the
+        // formerly-inlined `_componentScopes.get(this)?.stop()`) so
+        // `connected` flips to `false` here — the design doc this shipped
+        // against claimed this call site already went through that helper;
+        // it did not. This call site is the fix, not a doc correction.
         try {
-          _componentScopes.get(this)?.stop()
+          _stopComponentScope(this)
         } finally {
           this[S]?.dispose()
           this[S] = this[LC_SYM] = null
           _scopes.delete(this)
-          _componentScopes.delete(this)
         }
       }
       // R2 (Director r6 §3): adoptedCallback dispatches userland onAdopt.
@@ -570,6 +659,11 @@ export function defineComponent(setupOrOptions: Setup | ComponentOptions): typeo
       // (P0-2a). See the function-form _build for the full rationale.
       const es = effectScope(true)
       _componentScopes.set(this, es)
+      // Lifecycle-ownership plan §2.6/§4.1: attach right after
+      // `_componentScopes.set`, BEFORE `es.run(setup)` — see the
+      // function-form `_build()` for the full rationale (shared by both
+      // the normal-connect path and define-element's hydration branch).
+      const connected = _installLifecycle(this, es)
       _cur = lc
       const prevCtx = _enterOwnerContext(this as unknown as Record<symbol, unknown>)
       try {
@@ -579,6 +673,7 @@ export function defineComponent(setupOrOptions: Setup | ComponentOptions): typeo
             element: this,
             attrs: attrSignals,
             props: propSignals,
+            connected,
           } as Parameters<typeof setup>[0]),
         ) as ReturnType<typeof setup>
       } finally {
@@ -691,14 +786,18 @@ export function defineComponent(setupOrOptions: Setup | ComponentOptions): typeo
       // removal last) or the base's teardown. (A throwing MountScope-
       // internal binding disposer still aborts _makeScope's own loop —
       // pre-existing gap, separate fix.)
+      //
+      // FEL-401: routed through `_stopComponentScope` (rather than the
+      // formerly-inlined `_componentScopes.get(this)?.stop()`) so
+      // `connected` flips to `false` here — see the function-form
+      // `disconnectedCallback` for the full note.
       try {
-        _componentScopes.get(this)?.stop()
+        _stopComponentScope(this)
       } finally {
         this[S]?.dispose()
         this[S] = this[LC_SYM] = null
         this[PROPS_SYM] = null
         _scopes.delete(this)
-        _componentScopes.delete(this)
         // §9.4 class-extension: let the base tear down its own listeners/
         // effects (e.g. AihuButton's disposer array). Last, after our scope
         // stop + MountScope dispose.
@@ -794,10 +893,14 @@ export function _hmrReplace(element: HTMLElement, newSetup: Setup): void {
   // so a post-HMR disconnect already leaks the replacement MountScope. The
   // component scope avoids replicating that divergence by living in the
   // module-level `_componentScopes` map, which both paths share.
+  //
+  // Routed through `_stopComponentScope` (flips the OLD connection's
+  // `connected` to `false`, same as a real disconnect) rather than an
+  // inlined `.stop()` — consistent with the FEL-401 fix elsewhere in this
+  // module.
   try {
-    _componentScopes.get(element)?.stop()
+    _stopComponentScope(element)
   } finally {
-    _componentScopes.delete(element)
     _scopes.get(element)?.dispose()
     _scopes.delete(element)
   }
@@ -808,6 +911,10 @@ export function _hmrReplace(element: HTMLElement, newSetup: Setup): void {
   // es.run wraps ONLY newSetup — NOT the _mount around it (P0-2a).
   const es = effectScope(true)
   _componentScopes.set(element, es)
+  // Lifecycle-ownership plan: a fresh `connected`/`LifecycleHost` for the
+  // replacement scope too, so `ctx.connected`/`onCommit` keep working
+  // across an HMR replace exactly as they do across a real reconnect.
+  const connected = _installLifecycle(element, es)
   const lc: _LC = { m: [], a: [], ac: [] }
   ;(element as unknown as Record<symbol, unknown>)[LC_SYM] = lc
   try {
@@ -815,7 +922,9 @@ export function _hmrReplace(element: HTMLElement, newSetup: Setup): void {
     const prevCtx = _enterOwnerContext(element as unknown as Record<symbol, unknown>)
     let tree: ReturnType<Setup>
     try {
-      tree = es.run(() => newSetup({ host, element } as SetupContext)) as ReturnType<Setup>
+      tree = es.run(() =>
+        newSetup({ host, element, connected } as SetupContext),
+      ) as ReturnType<Setup>
     } finally {
       _exitContext(prevCtx)
       _cur = null
@@ -839,6 +948,53 @@ export function _hmrReplace(element: HTMLElement, newSetup: Setup): void {
 export function _onMount(fn: () => void | (() => void)): void {
   if (!_cur) throw new RuntimeError('SCR-R0010', 'no owner')
   _cur.m.push(fn)
+}
+
+/**
+ * Run `fn` after the browser's next layout opportunity, before paint.
+ * docs/plans/2026-07-24-lifecycle-ownership-dx.md §2.2.
+ *
+ * Registered via the `_cur` owner pointer — the SAME convention `onMount`
+ * uses, so this bare export is **setup-only**: `_cur` is non-null only for
+ * the duration of `_build()`'s `es.run(setup)` call. This is a TIGHTER gate
+ * than `LifecycleHost.onCommit` (§6.3, `@aihu/signals/lifecycle`), which
+ * resolves via `getCurrentScope()` and is therefore also legal from inside
+ * an `onMount` body — that wider window is deliberate for `@aihu/use`'s
+ * future `tryOnCommit` (deferred; not part of this track), not for this
+ * entry point. Delegates to the exact same underlying queue via
+ * `getLifecycleHost()` — there is only one commit mechanism, just two
+ * differently-gated ways to reach it.
+ *
+ * Fires once per connection, in registration order, coalesced with every
+ * other pending commit into one rAF callback per frame; skipped entirely
+ * if the element disconnects before the frame fires (gated on `connected`).
+ * Runs inside `runWithScope(componentScope)`, so effects it creates are
+ * scope-owned and a returned teardown joins the unified LIFO list —
+ * identical to `onMount`'s contract.
+ *
+ * @throws RuntimeError (SCR-R0014) when called outside setup, OR when
+ * called from a position where `_cur` is set but the current scope is not
+ * (or is no longer) the component root scope — e.g. synchronously inside an
+ * `effect()` body during setup (signals P0-1 clears the current scope for
+ * the duration of every effect run) or inside a nested `effectScope().run()`
+ * during setup. Both shapes are misuse of this setup-only entry point; the
+ * design's fail-loud contract (§7.2) requires this to throw rather than
+ * silently drop the callback. Use `getLifecycleHost()?.onCommit(fn)`
+ * directly for the wider, scope-resolved entry point instead.
+ */
+export function _onCommit(fn: () => void | (() => void)): void {
+  if (!_cur) throw new RuntimeError('SCR-R0014', 'no owner')
+  // `_cur` is non-null for the whole duration of `_build()`'s
+  // `es.run(setup)` call, but the CURRENT SCOPE tracked by
+  // `getCurrentScope()` can diverge from it within that window — e.g.
+  // inside a synchronous `effect()` body (P0-1 clears the current scope for
+  // every effect run) or inside a nested `effectScope().run()`. In either
+  // case `getLifecycleHost()` resolves no host, and that must fail loud
+  // (matching `onMount`'s fail-loud sibling) rather than silently drop the
+  // callback via `?.`.
+  const host = getLifecycleHost()
+  if (host === undefined) throw new RuntimeError('SCR-R0014', 'no owner')
+  host.onCommit(fn)
 }
 
 // Unified into the component scope (effect-scope plan §2): onCleanup routes

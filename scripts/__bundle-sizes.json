@@ -6,8 +6,13 @@
   },
   {
     "name": "@aihu/signals",
-    "bytes": 2232,
+    "bytes": 2234,
     "limit": "2350 B"
+  },
+  {
+    "name": "@aihu/signals/lifecycle",
+    "bytes": 112,
+    "limit": "300 B"
   },
   {
     "name": "@aihu/arbor",
@@ -16,8 +21,8 @@
   },
   {
     "name": "@aihu/runtime",
-    "bytes": 4319,
-    "limit": "4500 B"
+    "bytes": 4717,
+    "limit": "4750 B"
   },
   {
     "name": "@aihu/agent",
@@ -81,7 +86,7 @@
   },
   {
     "name": "@aihu/primitives/form-control",
-    "bytes": 1661,
+    "bytes": 1668,
     "limit": "4 KB"
   },
   {
@@ -91,17 +96,17 @@
   },
   {
     "name": "@aihu/primitives/roving-focus",
-    "bytes": 1723,
+    "bytes": 1733,
     "limit": "4 KB"
   },
   {
     "name": "@aihu/primitives/collection",
-    "bytes": 840,
+    "bytes": 847,
     "limit": "4 KB"
   },
   {
     "name": "@aihu/primitives/dialog",
-    "bytes": 2519,
+    "bytes": 2674,
     "limit": "4 KB"
   },
   {
@@ -121,7 +126,7 @@
   },
   {
     "name": "@aihu/primitives/label",
-    "bytes": 2128,
+    "bytes": 2135,
     "limit": "4 KB"
   },
   {
@@ -136,17 +141,17 @@
   },
   {
     "name": "@aihu/primitives/checkbox",
-    "bytes": 1927,
+    "bytes": 1933,
     "limit": "4 KB"
   },
   {
     "name": "@aihu/primitives/switch",
-    "bytes": 1838,
+    "bytes": 1844,
     "limit": "4 KB"
   },
   {
     "name": "@aihu/primitives/radio-group",
-    "bytes": 3280,
+    "bytes": 3287,
     "limit": "4 KB"
   },
   {

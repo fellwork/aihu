@@ -57,6 +57,12 @@ export default defineConfig({
       '@aihu/context/ssr': new URL('./packages/context/src/ssr.ts', import.meta.url).pathname,
       '@aihu/compiler': new URL('./packages/compiler/js/index.ts', import.meta.url).pathname,
       '@aihu/tsc': new URL('./packages/tsc/src/index.ts', import.meta.url).pathname,
+      // Order matters: the subpath alias must precede the package alias
+      // (same pattern as '@aihu/runtime/ssr' below) so
+      // '@aihu/signals/lifecycle' resolves to the DOM-free ownership
+      // contract module, not '<index.ts>/lifecycle'.
+      '@aihu/signals/lifecycle': new URL('./packages/signals/src/lifecycle.ts', import.meta.url)
+        .pathname,
       '@aihu/signals': new URL('./packages/signals/src/index.ts', import.meta.url).pathname,
       '@aihu/store': new URL('./packages/store/src/index.ts', import.meta.url).pathname,
       // `@aihu/reactive/helpers` self-imports `@aihu/reactive` by package
