@@ -1,6 +1,23 @@
 # yaml-language-server: $schema=https://moonrepo.dev/schemas/project.json
 language: typescript
 layer: library
+
+# plugin-agent-readiness's package.json depends on @aihu/server and @aihu/agent,
+# but had zero `dependsOn` entries — so Moon's `^:build` (see .moon/tasks/tasks.yml)
+# expanded to nothing and never guaranteed those were built first. Its tsconfig
+# `paths` alias @aihu/server straight to raw source (../server/src/index.ts),
+# which pulls in server/src/native.ts and server/src/ssr.ts — both of which
+# import @aihu/signals — with no matching `paths` override here (see the fix
+# there too), so that import fell through to normal node_modules resolution
+# and needed packages/signals/dist/index.d.ts to exist. This is the same
+# FEL-399 root cause as packages/seo, just surfacing here instead:
+# "plugin-agent-readiness:typecheck | ../server/src/native.ts: Cannot find
+# module '@aihu/signals'" — confirmed actively failing on main's required
+# `check` job.
+dependsOn:
+  - 'server'
+  - 'agent'
+
 tasks:
   check-boundary:
     command: "bash ../../scripts/check-boundary.sh"
