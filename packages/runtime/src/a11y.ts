@@ -82,6 +82,62 @@ const _Q =
 let _trapSeq = 0
 
 /**
+ * Shadow-DOM-aware `querySelector`: `Document`/`Element.querySelector` never
+ * descends into shadow roots, so a trap host rendered inside a component that
+ * opts into `shadowMode: 'shadow'` (arch-5 thesis DA4 — leaf/design-system
+ * components keep shadow encapsulation) is otherwise unfindable from
+ * `document`. Falls through into every element's OPEN shadow root (recursing
+ * for arbitrarily nested shadow trees) when a direct match isn't found in the
+ * current root. Closed shadow roots are unavoidably invisible here (same
+ * documented limitation as `@aihu/primitives/composed-tree.ts`'s
+ * `composedQuerySelector`, the canonical multi-consumer version of this same
+ * rule) — this is a deliberately minimal, single-selector inline kept local
+ * to `@aihu/runtime` rather than a `@aihu/primitives` dependency: the a11y
+ * primitives here are budgeted at ~800 B total (see file header), and
+ * `composed-tree.ts`'s tabbable-detection machinery (`queryTabbables`,
+ * `composedActiveElement`, `walkComposedTree`, etc.) needed for its full
+ * generality would blow that on its own, on top of `@aihu/runtime`'s
+ * whole-package 4500 B size-limit gate it is already close to (see
+ * `.size-limit.json` / `bun run size`).
+ */
+function _deepQuerySelector<T extends Element = HTMLElement>(
+  root: ParentNode,
+  selector: string,
+): T | null {
+  const direct = root.querySelector<T>(selector)
+  if (direct) return direct
+  for (const el of Array.from(root.querySelectorAll('*'))) {
+    const shadow = (el as HTMLElement).shadowRoot
+    if (shadow) {
+      const found = _deepQuerySelector<T>(shadow, selector)
+      if (found) return found
+    }
+  }
+  return null
+}
+
+/**
+ * Shadow-DOM-aware `document.activeElement`: plain `document.activeElement`
+ * stops at the outermost OPEN shadow host — it never drills in to the
+ * actually-focused leaf inside that host's shadow tree — so a trap wired
+ * inside a shadow root would otherwise compare Tab's "current focus" against
+ * the wrong element and never fire. Recurses through nested shadow roots'
+ * own `.activeElement` (mirrors `@aihu/primitives/composed-tree.ts`'s
+ * `composedActiveElement`, kept local here for the same budget reason as
+ * `_deepQuerySelector` above).
+ */
+function _deepActiveElement(): HTMLElement | null {
+  if (typeof document === 'undefined') return null
+  let active: Element | null = document.activeElement
+  while (active !== null && active.shadowRoot !== null) {
+    const inner: Element | null = active.shadowRoot.activeElement
+    if (inner === null) break
+    active = inner
+  }
+  return active as HTMLElement | null
+}
+
+/**
  * Focus-trap boundary. Renders `<div data-aihu-focustrap="N">` containing
  * `childFn()`. While `active` is truthy, Tab cycles within the host's
  * focusable descendants. `active` may be a boolean or `() => boolean`
@@ -103,7 +159,7 @@ export function createFocusTrap(
 
   const wire = (): void => {
     if (typeof document === 'undefined') return
-    const host = document.querySelector<HTMLElement>(`[data-aihu-focustrap="${id}"]`)
+    const host = _deepQuerySelector<HTMLElement>(document, `[data-aihu-focustrap="${id}"]`)
     if (!host) {
       setTimeout(wire, 0)
       return
@@ -114,7 +170,7 @@ export function createFocusTrap(
       if (a === lastActive) return
       lastActive = a
       if (a) {
-        prevFocus = (document.activeElement as HTMLElement) ?? null
+        prevFocus = _deepActiveElement()
         const init = initialFocus ? host.querySelector<HTMLElement>(initialFocus) : focusables()[0]
         init?.focus()
       } else if (returnFocus && prevFocus) {
@@ -131,9 +187,21 @@ export function createFocusTrap(
       }
       const first = items[0]
       const last = items[items.length - 1]
-      const t = document.activeElement as HTMLElement | null
+      const t = _deepActiveElement()
+      // `host.contains(t)` is shadow-blind: `Node.contains()` walks light-DOM
+      // tree order only, so when `t` is the deep leaf inside a nested OPEN
+      // shadow root (the DA4-expected composition — a shadow-mode leaf
+      // component sitting inside this trap), a genuinely-in-bounds focus
+      // reads as "escaped" and gets wrongly yanked to `last`. `e` reached
+      // this listener by bubbling (composed) up through however many shadow
+      // boundaries separate `t` from `host`, so `e.composedPath()` reflects
+      // the true composed ancestry and correctly reports containment where
+      // `host.contains()` cannot. (`focusables()` above is still light-DOM-only
+      // — see the follow-up filed for full shadow-aware enumeration — so this
+      // fixes the wrongful-yank direction; it does not yet make `first`/`last`
+      // resolve to a focusable living inside a nested shadow root.)
       if (e.shiftKey) {
-        if (t === first || !host.contains(t)) {
+        if (t === first || !e.composedPath().includes(host)) {
           e.preventDefault()
           last?.focus()
         }

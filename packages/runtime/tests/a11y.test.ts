@@ -217,6 +217,111 @@ describe('createFocusTrap — RFC-A5-018', () => {
     expect(ev.defaultPrevented).toBe(false)
   })
 
+  it('finds the trap container and wires Tab-cycling when rendered inside a shadow root', async () => {
+    // Regression for fellwork/aihu#537: `wire()` used to locate its host via
+    // plain `document.querySelector`, which never descends into shadow
+    // roots — so a `<focusTrap>` rendered inside a shadow-DOM component
+    // never got wired at all and Tab silently escaped the trap. This
+    // reproduces exactly that placement: the `data-aihu-focustrap` host is
+    // attached under an OPEN shadow root, not directly under `document.body`.
+    const node = createFocusTrap(true, true, null, () => {
+      return {
+        kind: 'branch',
+        tag: 'div',
+        attrs: null,
+        children: [
+          { kind: 'branch', tag: 'button', attrs: { id: 'm' }, children: [] } as Branch,
+          { kind: 'branch', tag: 'button', attrs: { id: 'n' }, children: [] } as Branch,
+        ],
+      } as Branch
+    })
+    const trapHost = materialize(node)
+
+    const shadowHost = document.createElement('div')
+    document.body.appendChild(shadowHost)
+    const shadow = shadowHost.attachShadow({ mode: 'open' })
+    shadow.appendChild(trapHost)
+
+    // Sanity check the premise: a plain document-level query cannot see
+    // inside the shadow root at all.
+    expect(document.querySelector('[data-aihu-focustrap]')).toBeNull()
+
+    // Let createFocusTrap's queueMicrotask wire the listener.
+    vi.useRealTimers()
+    await tick()
+    vi.useFakeTimers()
+
+    const m = shadow.querySelector('#m') as HTMLButtonElement
+    const n = shadow.querySelector('#n') as HTMLButtonElement
+    expect(m).toBeTruthy()
+    expect(n).toBeTruthy()
+
+    n.focus()
+    const ev = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true })
+    n.dispatchEvent(ev)
+
+    // Without the fix, `wire()` never finds the host (it keeps retrying via
+    // `setTimeout` forever), no keydown listener is ever attached, and Tab
+    // is left completely unhandled.
+    expect(ev.defaultPrevented).toBe(true)
+    expect(shadow.activeElement).toBe(m)
+  })
+
+  it('does not yank focus out of a nested shadow-DOM leaf on Shift+Tab (regression for the composed-containment gap)', async () => {
+    // Regression for fellwork/aihu#537 (follow-up): the earlier fix made
+    // `wire()`'s host lookup and the active-element read shadow-aware, but
+    // left the containment check shadow-blind — `host.contains(t)` walks
+    // light-DOM tree order only, so a shadow-mode leaf component sitting
+    // *inside* the trap (the DA4-expected composition per the a11y helpers'
+    // own doc comments) was misread as "focus escaped the host" the instant
+    // it held focus, and Shift+Tab yanked focus straight to `last` even
+    // though it was legitimately still inside.
+    const node = createFocusTrap(true, true, null, () => {
+      return {
+        kind: 'branch',
+        tag: 'div',
+        attrs: null,
+        children: [
+          { kind: 'branch', tag: 'button', attrs: { id: 'a' }, children: [] } as Branch,
+          { kind: 'branch', tag: 'div', attrs: { id: 'leaf-host' }, children: [] } as Branch,
+          { kind: 'branch', tag: 'button', attrs: { id: 'c' }, children: [] } as Branch,
+        ],
+      } as Branch
+    })
+    const host = materialize(node)
+    document.body.appendChild(host)
+
+    // Nest an open shadow root *inside* the trap containing its own
+    // focusable — a leaf component, not the trap host itself.
+    const leafHost = host.querySelector('#leaf-host') as HTMLElement
+    const leafShadow = leafHost.attachShadow({ mode: 'open' })
+    const inner = document.createElement('button')
+    inner.id = 'inner'
+    leafShadow.appendChild(inner)
+
+    vi.useRealTimers()
+    await tick()
+    vi.useFakeTimers()
+
+    const c = host.querySelector('#c') as HTMLButtonElement
+    inner.focus()
+    const ev = new KeyboardEvent('keydown', {
+      key: 'Tab',
+      shiftKey: true,
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+    })
+    inner.dispatchEvent(ev)
+
+    // Before the fix: `host.contains(inner)` is false (shadow-blind), so
+    // this was misread as an escape and forcibly refocused to `c` (`last`).
+    // After the fix: `e.composedPath().includes(host)` correctly reports
+    // containment via the composed tree, so the trap leaves this Tab alone.
+    expect(ev.defaultPrevented).toBe(false)
+    expect(c.matches(':focus')).toBe(false)
+  })
+
   it.skip('returns focus to trigger when active=false (requires browser focus model)', () => {
     // Focus return depends on real focus events crossing shadow boundaries
     // and a reactive `active` toggle observable to the trap. Skipped in
