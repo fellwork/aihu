@@ -145,7 +145,17 @@ relitigated by a future reader of the raw matrix:
 3. The P1 Browser batch was padded with exotic hardware APIs (`useBluetooth`, `useGamepad`,
    `useMemory`, and similarly `useEyeDropper`, `useOtpCredential`, `useWakeLock`,
    `usePictureInPicture`, `useVirtualKeyboard`) — down-ranked to an on-demand tail (Wave 12)
-   rather than treated as P1 volume.
+   rather than treated as P1 volume. **Flagged in second fable review:** ruling D's only
+   authorized subtraction from "build out P1+P2+P3" is the broad integrations sweep (the
+   non-named P3 Integrations items). This Wave-12 down-rank — roughly 18 P1/P2 Browser items,
+   the ~9 above plus `useSpeechRecognition`, `useSpeechSynthesis`, `usePointerLock`,
+   `useScreenSafeArea`, `useSSRWidth`, `useCopy`, plus the `useMediaStream`/`useUserMedia`/
+   `useDisplayMedia` trio — is a **second, unratified scope cut** the rulings as recorded
+   above do not authorize. It is carried in this doc as a **proposed amendment to ruling D**,
+   not as settled scope: it needs the same explicit founder sign-off the other rulings got
+   before Wave 12 can be treated as "correctly out of the schedule" rather than "not yet
+   scheduled." Until that sign-off happens, treat Wave 12's contents as P1/P2 backlog that
+   still owes a wave assignment, not as ratified deferral — see the Wave 12 note in §4.
 4. `usePortal` is **not** already covered by an existing primitive (the matrix's original
    claim was false — verified: no portal/top-layer mechanism exists in
    `packages/primitives/src`, only the compiler's `<portal>` known-tag). Not in this doc's
@@ -270,9 +280,10 @@ fable-correction #3: demand-backed items scheduled now, exotic hardware down-ran
 | `useDocumentTitle`/`useTitle`, `useFavicon` | `@aihu/seo` (see SEO category) |
 | `useBrowserLocation` | `@aihu/use/router` (router-model access, ruling B's router-layering rule) |
 
-| Missing (down-ranked — exotic hardware, Wave 12 on-demand, not scheduled P1) | Target |
+| Missing (down-ranked — exotic hardware, Wave 12 on-demand, **proposed** deferral pending founder ratification — see fable correction #3) | Target |
 |---|---|
 | `useBattery`, `useBluetooth`, `useGamepad`, `useMemory`, `useEyeDropper`, `useOtpCredential`, `useWakeLock`, `usePictureInPicture`, `useVirtualKeyboard`, `useSpeechRecognition`, `useSpeechSynthesis`, `usePointerLock`, `useScreenSafeArea`, `useSSRWidth`, `useCopy` (low-value near-dup of shipped `useClipboard`) | CORE, deferred |
+| `useMediaStream`/`useUserMedia`/`useDisplayMedia` (also down-ranked into Wave 12 — see the relocated-items table above) | `@aihu/primitives`, deferred |
 
 `useScreenOrientation` is a duplicate of Sensors' `useOrientation` — list once, under Sensors.
 
@@ -447,12 +458,36 @@ part of this category's `/integrations` scope — see ruling B, they're primitiv
 
 ### SEO (title / favicon / head meta) — P3 → `@aihu/seo`
 
+**`@aihu/seo` is not greenfield — verified against this repo.** It already exists as a
+**server-side** package: it's listed in `SERVER_SIDE` in `scripts/check-size-rows.ts` (line
+40), which exempts it from both the browser-bundle `check:deps` gate and size-limit budgets,
+and its `package.json` hard-depends on `@aihu/plugin`, `@aihu/server`, and
+`@aihu-plugin/agent-readiness` (it's presently a "DEPRECATED compatibility shim over
+`@aihu-plugin/agent-readiness`" for sitemap/robots/llms.txt/JSON-LD — a different job than
+reactive browser composables). Routing `useTitle`/`useFavicon`/`useHead` into `@aihu/seo` as-is
+would place reactive browser composables in a package with no browser-bundle gate, whose hard
+deps would pull `@aihu/server` toward client bundles.
+
+**Required work** (the same class of "real engineering, not a one-line edit" §2 calls out for
+`check:deps`):
+1. Split a **browser-eligible client entry** off `@aihu/seo` — a subpath (e.g. `@aihu/seo/client`)
+   or a sibling entry point — that depends only on `@aihu/signals` and does **not** import the
+   plugin/server/agent-readiness surface.
+2. Update the `SERVER_SIDE` classification in `scripts/check-size-rows.ts` — it's a per-package
+   set today, so a single package with both a server-side entry and a browser-eligible entry
+   needs either a per-entry answer or a package split, not a blanket add/remove from the set.
+3. Add `.size-limit.json` rows for the new browser-eligible entries so they're actually budgeted
+   like every other client-facing surface.
+
+Ruling B's destination for `useHead`/schema.org (`@aihu/seo`) is unchanged by this — only the
+missing split/reclassification work is added.
+
 | Missing | Target | Notes |
 |---|---|---|
-| `useTitle`/`useDocumentTitle` (cross-referenced from Browser) | `@aihu/seo` | |
-| `useFavicon` (cross-referenced from Browser) | `@aihu/seo` | |
-| `useHead`/`createHead`-equivalent | `@aihu/seo` | Reference `unhead`'s **current** API, not the sunset `@vueuse/head` wrapper (ruling B). |
-| Schema.org helper | `@aihu/seo` (or a thin sibling `@aihu/schema-org`) | Reference `unhead`'s current schema-org package, not the sunset `@vueuse/schema-org` wrapper. |
+| `useTitle`/`useDocumentTitle` (cross-referenced from Browser) | `@aihu/seo` client entry (new — see split above) | |
+| `useFavicon` (cross-referenced from Browser) | `@aihu/seo` client entry (new — see split above) | |
+| `useHead`/`createHead`-equivalent | `@aihu/seo` client entry (new — see split above) | Reference `unhead`'s **current** API, not the sunset `@vueuse/head` wrapper (ruling B). |
+| Schema.org helper | `@aihu/seo` (server-side entry is fine here — schema.org generation is not a reactive browser composable) or a thin sibling `@aihu/schema-org` | Reference `unhead`'s current schema-org package, not the sunset `@vueuse/schema-org` wrapper. |
 
 ### Humor (joke hooks) — skip, not a real category
 
@@ -513,8 +548,14 @@ every family-subpath wave depends on.
   `useBrowserLocation`/`useLink`-active-state/nav-guard wrapper/`useScrollReset` (composable
   half) in the new subpath; scroll-restoration policy + history/nav plumbing in
   `@aihu/router` itself (re-scoped FEL-346). Requires Wave 0's namespace infrastructure.
-- **Wave 8 (P3, SEO).** `useTitle`/`useFavicon`/`useHead`-equivalent → `@aihu/seo`, referencing
-  `unhead`'s current API. Optional follow-on: a schema.org helper.
+- **Wave 8 (P3, SEO).** First split `@aihu/seo`'s browser-eligible client entry out from its
+  existing server-side package (it's currently `SERVER_SIDE`-classified in
+  `scripts/check-size-rows.ts` with hard deps on `@aihu/plugin`/`@aihu/server`/
+  `@aihu-plugin/agent-readiness` — see the SEO category callout in §3) and update the
+  `check:deps`/size-limit classification to cover the new entry. Then land
+  `useTitle`/`useFavicon`/`useHead`-equivalent → the new `@aihu/seo` client entry, referencing
+  `unhead`'s current API. Optional follow-on: a schema.org helper on the existing server-side
+  entry.
 - **Wave 9 (P3, utilities polish, CORE).** `useDebounceFn`/`useThrottleFn`/
   `useBatchedCallback`/`useDebounceEffect`/`useThrottleEffect`/`useMemoize`/`useEventBus`/
   `useConst`/`useLastChanged`/`useBase64`/`useAsyncQueue`-redesigned/`useLogger`/
@@ -527,11 +568,18 @@ every family-subpath wave depends on.
   infrastructure. The rest of the P3 Integrations category is explicitly out of scope (§5) —
   do not schedule `useFuse`/`useQRCode`/`useIDBKeyval`/`useNProgress` here or later without a
   fresh founder call.
-- **Wave 12 (P3, on-demand tail, not scheduled).** The down-ranked exotic Browser batch
-  (`useBattery`/`useBluetooth`/`useGamepad`/`useMemory`/`useEyeDropper`/`useOtpCredential`/
-  `useWakeLock`/`usePictureInPicture`/`useVirtualKeyboard`/`useSpeechRecognition`/
-  `useSpeechSynthesis`/`usePointerLock`/`useScreenSafeArea`/`useSSRWidth`/`useCopy`) plus
-  `useMediaStream`/`useUserMedia`/`useDisplayMedia`. Build only on real demand.
+- **Wave 12 (P3, on-demand tail — proposed, NOT founder-ratified).** The down-ranked exotic
+  Browser batch (`useBattery`/`useBluetooth`/`useGamepad`/`useMemory`/`useEyeDropper`/
+  `useOtpCredential`/`useWakeLock`/`usePictureInPicture`/`useVirtualKeyboard`/
+  `useSpeechRecognition`/`useSpeechSynthesis`/`usePointerLock`/`useScreenSafeArea`/
+  `useSSRWidth`/`useCopy`, target CORE) plus `useMediaStream`/`useUserMedia`/`useDisplayMedia`
+  (target `@aihu/primitives`, per the Browser category's relocated-items table in §3). **This
+  down-rank is this doc's proposal, not ratified scope** — ruling D authorizes exactly one
+  subtraction from "build out P1+P2+P3" (the broad P3 integrations sweep), and this ~18-item
+  Browser deferral is a second cut the ratified rulings don't cover (fable correction #3 in
+  §1). Carry it as an open item for explicit founder sign-off alongside rulings A–E; until
+  that happens, do not treat "Wave 12 = correctly deferred" as settled — these items remain
+  unscheduled P1/P2 backlog, not ratified non-goals.
 
 ---
 
