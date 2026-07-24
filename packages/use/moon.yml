@@ -2,12 +2,32 @@
 language: typescript
 layer: library
 
-# @aihu/use imports @aihu/signals only (effect-scope plan §5: signals is the
-# sole hard dep — the library is signals+scope; only the later `useMounted`
-# entry will touch @aihu/runtime). Declare the project dep so Moon's
-# `^:build` builds signals' dist + .d.ts BEFORE use's typecheck.
+# @aihu/use imports @aihu/signals only as a HARD dep (effect-scope plan §5:
+# signals is the sole hard dep — the library is signals+scope; only the
+# later `useMounted` entry will touch @aihu/runtime). Declare the project dep
+# so Moon's `^:build` builds signals' dist + .d.ts BEFORE use's typecheck.
+#
+# `router` and `context` below are different: they are OPTIONAL PEER
+# workspace packages (families.json's `router` family — see
+# packages/use/src/router/useRouteParams), declared as
+# peerDependencies+devDependencies in package.json, never as a regular
+# `dependencies` entry. That's the correct package contract, but it means
+# Moon cannot infer a task-graph edge from package.json the way it does for
+# a real `dependencies` entry — `dependsOn` is project-graph-level, not
+# derived from npm dependency type. Without an explicit entry here,
+# `use:typecheck`'s inherited `deps: ["^:build"]` (.moon/tasks/tasks.yml)
+# has no edge to `router:build`/`context:build`, so on a clean checkout Moon
+# may run use's typecheck before those packages' `dist/*.d.ts` exist,
+# failing with TS2307 (this bit PR #541: router only, because context's
+# build happened to finish first in that CI run — a race, not a fix).
+#
+# Wave 0's design means MORE optional-peer workspace packages will show up
+# as families grow (see families.json's `peers` map) — anyone adding a new
+# one must add its project name here too, or hit the same race.
 dependsOn:
   - 'signals'
+  - 'router'
+  - 'context'
 
 tasks:
   build:
