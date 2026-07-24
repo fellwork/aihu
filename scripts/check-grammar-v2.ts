@@ -34,8 +34,6 @@ const EXCLUDES = [
   // Hover-table keys are stable internal identifiers, not surface syntax.
   'packages/language-server/src/core/hover.ts',
   'packages/language-server/tests/hover-coverage.test.ts',
-  'packages/vscode-aihu/', // TextMate grammar ships legacy scopes until the
-  // editor-grammar refresh (tracked; not template code).
   'CHANGELOG.md',
   'node_modules',
   '/dist/', // build artifacts (rebuilt from migrated sources)
