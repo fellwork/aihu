@@ -65,64 +65,64 @@
     "body": "const [${1:value}, set${1/(.*)/${1:/capitalize}/}] = signal(${2:undefined})"
   },
 
-  "Event handler binding ($on)": {
+  "Event handler binding (on:)": {
     "prefix": "on",
-    "description": "$on.event directive (v2 dot-form)",
-    "body": "\\$on.${1:click}={() => ${2:handler}}"
+    "description": "on:event={handler} — colon-namespaced event directive (grammar v2)",
+    "body": "on:${1:click}={${2:handler}}"
   },
 
   "Emit event ($emit)": {
     "prefix": "emit",
-    "description": "$emit.eventName(payload) — dispatch a typed custom event (v2 dot-form)",
+    "description": "$emit.eventName(payload) — dispatch a typed custom event (@state macro, dot-form)",
     "body": "\\$emit.${1:eventName}(${2:payload})"
   },
 
-  "Attribute binding ($bind)": {
+  "Attribute binding (bind:)": {
     "prefix": "bind",
-    "description": "$bind.attr={expr} — two-way attribute binding (v2 dot-form)",
-    "body": "\\$bind.${1:value}={${2:signal}}"
+    "description": "bind:prop={expr} — colon-namespaced two-way attribute binding (grammar v2)",
+    "body": "bind:${1:value}={${2:signal}}"
   },
 
   "Template interpolation": {
     "prefix": "{",
-    "description": "Template interpolation expression (v2 single-brace form)",
+    "description": "Template interpolation expression (single-brace form)",
     "body": "{${1:value}}"
   },
 
-  "If block": {
+  "If attribute": {
     "prefix": "if",
-    "description": "{#if condition}...{/if} conditional block (v2 block-tag form)",
-    "body": ["{#if ${1:condition}}", "  $0", "{/if}"]
+    "description": "if={condition} — naked conditional directive on the governed element (grammar v2)",
+    "body": "<${1:div} if={${2:condition}}>\n  $0\n</${1:div}>"
   },
 
-  "If-else block": {
+  "If-else attribute": {
     "prefix": "if-else",
-    "description": "{#if condition}...{:else}...{/if} conditional block (v2 block-tag form)",
-    "body": ["{#if ${1:condition}}", "  $2", "{:else}", "  $3", "{/if}"]
+    "description": "if={condition} on one element, else on its immediate sibling (grammar v2)",
+    "body": "<${1:div} if={${2:condition}}>\n  $3\n</${1:div}>\n<${1:div} else>\n  $4\n</${1:div}>"
   },
 
-  "Each block": {
+  "Each attribute": {
     "prefix": "each",
-    "description": "{#each items as item}...{/each} iteration block (v2 block-tag form)",
-    "body": ["{#each ${1:items} as ${2:item}}", "  $0", "{/each}"]
+    "description": "each={item of items} — naked iteration directive on the repeated element (grammar v2)",
+    "body": "<${1:li} each={${2:item} of ${3:items}}>\n  $0\n</${1:li}>"
   },
 
-  "Each block with key": {
+  "Each attribute with key": {
     "prefix": "each-key",
-    "description": "{#each items as item, idx (key)}...{/each} iteration block with key (v2 block-tag form)",
-    "body": ["{#each ${1:items} as ${2:item}, ${3:idx} (${3:idx})}", "  $0", "{/each}"]
+    "description": "each={item of items} key={expr} — naked iteration directive with an explicit key (grammar v2)",
+    "body": "<${1:li} each={${2:item} of ${3:items}} key={${4:item.id}}>\n  $0\n</${1:li}>"
   },
 
-  "Action declaration ($action)": {
+  "Action declaration (action())": {
     "prefix": "action",
-    "description": "$action collection in @state block — callable from template (v2 collection form)",
-    "body": ["\\$action: {", "  ${1:name}: (${2:arg}: ${3:type}) => {", "    $0", "  },", "}"]
+    "description": "action(fn) in @state — callable from the template",
+    "body": ["const ${1:name} = action((${2:arg}: ${3:type}) => {", "  $0", "})"]
   },
 
-  "HTML injection ({@html})": {
+  "HTML injection (html attribute)": {
     "prefix": "html",
-    "description": "{@html expr} — raw HTML injection (v2 Svelte-style block form)",
-    "body": "{@html ${1:htmlContent}}"
+    "description": "html={expr} — naked raw-HTML directive on the containing element (grammar v2)",
+    "body": "html={${1:htmlContent}}"
   },
 
   "State block": {

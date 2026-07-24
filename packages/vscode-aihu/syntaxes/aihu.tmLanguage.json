@@ -60,7 +60,6 @@
       "name": "meta.block.template.aihu",
       "patterns": [
         { "include": "#template-interpolation" },
-        { "include": "#template-macro-attr" },
         { "include": "#template-tag" },
         { "include": "#comment-line" },
         { "include": "#comment-block" }
@@ -125,8 +124,8 @@
     },
 
     "template-interpolation": {
-      "begin": "\\{\\{",
-      "end": "\\}\\}",
+      "begin": "\\{",
+      "end": "\\}",
       "beginCaptures": {
         "0": { "name": "punctuation.definition.template-expression.begin.aihu" }
       },
@@ -135,41 +134,57 @@
       },
       "name": "meta.template.expression.aihu",
       "contentName": "source.ts",
-      "patterns": [{ "include": "source.ts" }]
+      "patterns": [{ "include": "#expression-nested-braces" }, { "include": "source.ts" }]
     },
 
-    "template-macro-attr": {
-      "patterns": [
-        {
-          "comment": "$on:event={handler} — event binding",
-          "match": "(\\$on:[a-zA-Z][a-zA-Z0-9-]*)(?:(=)(\\{[^}]*\\}))?",
-          "captures": {
-            "1": { "name": "keyword.operator.aihu entity.other.attribute-name.aihu" },
-            "2": { "name": "punctuation.separator.key-value.aihu" },
-            "3": { "name": "meta.expression.aihu" }
-          }
-        },
-        {
-          "comment": "$bind:prop={expr} — property binding",
-          "match": "(\\$bind:[a-zA-Z][a-zA-Z0-9-]*)(?:(=)(\\{[^}]*\\}))?",
-          "captures": {
-            "1": { "name": "keyword.operator.aihu entity.other.attribute-name.aihu" },
-            "2": { "name": "punctuation.separator.key-value.aihu" },
-            "3": { "name": "meta.expression.aihu" }
-          }
-        },
-        {
-          "comment": "$each, $if, $html, $show, etc.",
-          "match": "(\\$[a-zA-Z][a-zA-Z0-9]*)(?:(=)(?:(\\{[^}]*\\})|(\"[^\"]*\")|('[^']*')))?",
-          "captures": {
-            "1": { "name": "keyword.operator.aihu support.type.directive.aihu" },
-            "2": { "name": "punctuation.separator.key-value.aihu" },
-            "3": { "name": "meta.expression.aihu" },
-            "4": { "name": "string.quoted.double.aihu" },
-            "5": { "name": "string.quoted.single.aihu" }
-          }
-        }
-      ]
+    "expression-nested-braces": {
+      "comment": "Balanced-brace matcher so object literals, arrow-fn blocks, and template-literal ${…} inside a `{expr}`/`={…}` region don't prematurely close the enclosing expression.",
+      "begin": "\\{",
+      "end": "\\}",
+      "name": "source.ts",
+      "patterns": [{ "include": "#expression-nested-braces" }, { "include": "source.ts" }]
+    },
+
+    "template-directive-colon": {
+      "comment": "on:<event>[.modifier...]={expr} / bind:<prop>={expr} / class:<name>={expr} — grammar v2 colon directives",
+      "begin": "\\b(on|bind|class)(:)([A-Za-z_$][\\w$-]*(?:\\.[a-z]+)*)\\s*(=)\\s*(\\{)",
+      "end": "\\}",
+      "beginCaptures": {
+        "1": { "name": "keyword.control.aihu support.type.directive.aihu" },
+        "2": { "name": "punctuation.separator.namespace.aihu" },
+        "3": { "name": "entity.other.attribute-name.aihu" },
+        "4": { "name": "punctuation.separator.key-value.aihu" },
+        "5": { "name": "punctuation.definition.template-expression.begin.aihu" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.definition.template-expression.end.aihu" }
+      },
+      "name": "meta.directive.event.aihu",
+      "contentName": "source.ts",
+      "patterns": [{ "include": "#expression-nested-braces" }, { "include": "source.ts" }]
+    },
+
+    "template-directive-naked": {
+      "comment": "Naked (prefix-less) grammar v2 directives: if, elseif, each, key, show, html, memo — all require a braced expression.",
+      "begin": "\\b(if|elseif|each|key|show|html|memo)\\b\\s*(=)\\s*(\\{)",
+      "end": "\\}",
+      "beginCaptures": {
+        "1": { "name": "keyword.control.aihu support.type.directive.aihu" },
+        "2": { "name": "punctuation.separator.key-value.aihu" },
+        "3": { "name": "punctuation.definition.template-expression.begin.aihu" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.definition.template-expression.end.aihu" }
+      },
+      "name": "meta.directive.aihu",
+      "contentName": "source.ts",
+      "patterns": [{ "include": "#expression-nested-braces" }, { "include": "source.ts" }]
+    },
+
+    "template-directive-bare": {
+      "comment": "Bare boolean grammar v2 directives with no value: once, raw, else, empty.",
+      "match": "(?<=[\\s<])(once|raw|else|empty)(?=[\\s/>])",
+      "name": "keyword.control.aihu support.type.directive.aihu"
     },
 
     "template-tag": {
@@ -192,7 +207,9 @@
       },
       "name": "meta.tag.open.aihu",
       "patterns": [
-        { "include": "#template-macro-attr" },
+        { "include": "#template-directive-colon" },
+        { "include": "#template-directive-naked" },
+        { "include": "#template-directive-bare" },
         { "include": "#template-attr-expr" },
         { "include": "#template-attr-static" }
       ]
@@ -220,19 +237,29 @@
       },
       "name": "meta.tag.self-close.aihu",
       "patterns": [
-        { "include": "#template-macro-attr" },
+        { "include": "#template-directive-colon" },
+        { "include": "#template-directive-naked" },
+        { "include": "#template-directive-bare" },
         { "include": "#template-attr-expr" },
         { "include": "#template-attr-static" }
       ]
     },
 
     "template-attr-expr": {
-      "match": "([a-zA-Z][a-zA-Z0-9-]*)(?:(=)(\\{[^}]*\\}))",
-      "captures": {
+      "comment": "Generic name={expr} HTML/component attribute (class, href, style, custom props, ...). Colon-namespaced (on:/bind:) and the naked control-flow directives are matched first by dedicated rules above.",
+      "begin": "([a-zA-Z][a-zA-Z0-9-]*)\\s*(=)\\s*(\\{)",
+      "end": "\\}",
+      "beginCaptures": {
         "1": { "name": "entity.other.attribute-name.aihu" },
         "2": { "name": "punctuation.separator.key-value.aihu" },
-        "3": { "name": "meta.expression.aihu" }
-      }
+        "3": { "name": "punctuation.definition.template-expression.begin.aihu" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.definition.template-expression.end.aihu" }
+      },
+      "name": "meta.attribute.expression.aihu",
+      "contentName": "source.ts",
+      "patterns": [{ "include": "#expression-nested-braces" }, { "include": "source.ts" }]
     },
 
     "template-attr-static": {
