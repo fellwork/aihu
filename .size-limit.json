@@ -234,6 +234,20 @@
     "ignore": ["@aihu/signals", "@aihu/context"]
   },
   {
+    "name": "@aihu/reactive",
+    "path": "packages/reactive/dist/index.js",
+    "limit": "1900 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
+    "name": "@aihu/reactive/helpers",
+    "path": "packages/reactive/dist/helpers.js",
+    "limit": "700 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals", "@aihu/reactive"]
+  },
+  {
     "name": "@aihu/use/shared",
     "path": "packages/use/dist/shared.js",
     "limit": "320 B",

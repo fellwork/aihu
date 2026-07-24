@@ -252,6 +252,12 @@
     "isPlatform": false
   },
   {
+    "name": "@aihu/reactive",
+    "version": "0.1.0",
+    "dir": "packages/reactive",
+    "isPlatform": false
+  },
+  {
     "name": "@aihu/router",
     "version": "0.4.1",
     "dir": "packages/router",

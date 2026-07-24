@@ -16,7 +16,7 @@
   },
   {
     "name": "@aihu/runtime",
-    "bytes": 4402,
+    "bytes": 4319,
     "limit": "4500 B"
   },
   {
@@ -153,6 +153,16 @@
     "name": "@aihu/store",
     "bytes": 1856,
     "limit": "2.5 KB"
+  },
+  {
+    "name": "@aihu/reactive",
+    "bytes": 1309,
+    "limit": "1900 B"
+  },
+  {
+    "name": "@aihu/reactive/helpers",
+    "bytes": 528,
+    "limit": "700 B"
   },
   {
     "name": "@aihu/use/shared",
@@ -306,12 +316,12 @@
   },
   {
     "name": "@aihu/use/router",
-    "bytes": 316,
+    "bytes": 165,
     "limit": "1500 B"
   },
   {
     "name": "@aihu/use/router/useRouteParams",
-    "bytes": 316,
+    "bytes": 165,
     "limit": "500 B"
   },
   {
