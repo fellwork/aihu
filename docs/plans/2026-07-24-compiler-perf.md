@@ -1,9 +1,76 @@
 # Compiler + runtime performance: where the headroom actually is
 
 **Date:** 2026-07-24
-**Status:** PROPOSED — awaiting founder approval
+**Status:** RATIFIED — founder decisions locked 2026-07-24 (see section below). Phase 0–2 cleared to proceed; Phase 3 remains conditionally approved, gated on the corpus census clearing the ratified threshold.
 **Scope:** `@aihu/arbor` (hot-path allocation), `@aihu/compiler` (`codegen/template_emit.rs`, `codegen/ssr_string_emit.rs`, napi backend), `bench/` (new `compiled-mount` harness + control workloads), `bench/ssr-string` (assertion fix)
-**Depends on / extends:** the wave-3 SSR keystone (`packages/compiler/src/codegen/ssr_string_emit.rs`) and the in-process napi backend (`packages/compiler/src-native`, `packages/compiler/js/envelope.ts`)
+**Depends on / extends:** the wave-3 SSR keystone (`packages/compiler/src/codegen/ssr_string_emit.rs`) and the in-process napi backend (`packages/compiler/src-native`, `packages/compiler/js/envelope.ts`). **Hard sequencing edge:** Phase 3 is additionally gated on PR #540 (`design/light-dom-leaf-flip`) — see Founder decision 3 below.
+
+## Founder decisions (ratified 2026-07-24)
+
+These are ratified answers to the open questions the original draft raised in
+§Founder decisions this approval commits to. They are binding on the phase
+plan below; where the phase text still describes alternatives, the ratified
+choice here wins.
+
+1. **Phase 1 = `signalRegistry` OPT-IN.** Adopt `MountOptions.trackSignals`,
+   defaulted **OFF** for plain client mounts and **ON** for SSR/hydrate and for
+   components that need serialization. Option (b) (deferred-tuple redesign) is
+   rejected — not because it's wrong, but because the opt-in flag is the
+   smaller, shippable change and the naive "gate on `registry != null`" framing
+   the plan originally floated is *also* rejected: it never fires on a real
+   top-level `mount()`/`hydrate()` call (both unconditionally allocate the
+   registry today), so it would have delivered ~0% of the ablation ceiling.
+   **Consequence that ships with this decision:** `serialize()` returns `{}`
+   when the tree was mounted untracked — a public-API contract change, not an
+   internal optimization. The two client consumers,
+   `packages/agent-server/src/bridge-client.ts` and `packages/store/src/ssr.ts`,
+   MUST be audited against this contract and, where they depend on
+   `serialize()`'s output, must opt in via `trackSignals`. That audit is an
+   explicit Phase-1 task (see Phase 1 below), not a follow-up.
+
+2. **Phase 3 go/no-go threshold ACCEPTED**, decided before the corpus census
+   runs: Phase 3 (clone units — codegen + the arbor `clone()` node kind +
+   hydration integration) proceeds **only if** the corpus census finds
+   fully-inert subtrees of **≥5 nodes in ≥30% of components** *and* an
+   aggregate inert-node share **≥25%**. Below that bar, the measured
+   6.9–18.6% (clone+STAMP) / −40.2% (fully-inert) ceiling from M1 cannot
+   justify the engineering cost. This threshold is ratified and gates **all**
+   of Phase 3, including the arbor `clone()` node kind — not codegen emission
+   alone.
+
+3. **Unify `data-a` scoping-attribute stamping BEFORE (or jointly with) Phase
+   3.** Phase 3 reuses `ssr_string_emit.rs`'s static serialization, but the
+   in-flight light-DOM leaf flip (PR #540, branch `design/light-dom-leaf-flip`,
+   commit `330ce41c`) makes `template_emit.rs` and `ssr_string_emit.rs` each
+   stamp a `data-a` scoping attribute — which breaks the "one shared
+   serializer" safety argument this plan relies on unless the two emitters are
+   unified first. **HARD SEQUENCING EDGE: PR #540's stamping work gates #542
+   Phase 3.** A rendered-DOM (not string-only) conformance check between the
+   two emit paths is required before Phase 3 can merge. See §Interaction with
+   the light-DOM leaf flip below; cross-reference PR #540.
+
+4. **`__tpl` = a real `<template>` element, never a `div.innerHTML` shim.**
+   Two reasons, both ratified as the record for why this isn't optional:
+   `<template>` content is **inert** — no script execution, no image loads, no
+   custom-element upgrades at parse time — whereas a `div`'s content is not;
+   and table-section elements (`<tr>`/`<td>`/`<tbody>`) are silently dropped
+   when parsed inside a `div` but parse correctly inside a `<template>`.
+   **SVG rule (precise, not blanket):** **ALLOW** a clone unit whose root **IS**
+   the `<svg>` element — `<template><svg>…</svg></template>` triggers namespace
+   switching and parses correctly, and this is the valuable large-inert case
+   (icon blocks). **REFUSE** units rooted at an SVG **descendant** — a bare
+   `<path>` root parses as an unknown HTML element and never renders. Enforce
+   this precisely in the `is_inert` pass (not a blanket SVG refusal).
+   **`<pre>`/`<textarea>`:** **EXCLUDE** from `is_inert` in v1 — the parser
+   strips a leading newline immediately after those start tags, so a naive
+   round-trip through `<template>` loses one character. The doubled-newline
+   normalization fix is deferred, with a test pinning the exclusion.
+
+**Independent of all four decisions above: Phase 2** (wiring the
+already-written napi compile backend) **is not gated by any of this and can
+start immediately.** Compile wall-clock is ~99% process spawn today; wiring
+the existing addon is a measured ~90–95% per-file cut from code that already
+exists. It is the highest-ROI item in this plan and nothing above blocks it.
 
 ## Summary
 
@@ -274,28 +341,34 @@ mounts pays nothing.
 **`__tpl`'s parsing contract must be specified, not assumed.** Two correctness
 gaps in the naive `innerHTML`-shim reading of `__tpl`:
 
-- **SVG namespace.** A static icon block — the archetypal large, fully-inert
-  clone unit expected in real apps — is commonly rooted at `<svg>`. Parsing
-  markup via a `div.innerHTML = '<svg>…</svg>'` shim creates HTML-namespace
-  elements (`HTMLUnknownElement`) that never paint; `_materialize` guards
-  exactly this case today via the `SVG_TAGS` set →
-  `createElementNS` (`packages/arbor/src/materialize.ts:8-43,169`). Clone-lowering
-  an SVG-rooted unit through a namespace-naive `__tpl` would silently regress
-  what branch-lowering renders correctly today. `__tpl` must therefore be
-  backed by a real `<template>` element (never `div.innerHTML`), and must carry
-  an SVG mode — e.g. wrap the literal in `<svg>…</svg>` before parsing and clone
-  the wrapper's first child — selected by the compiler, which already knows the
-  unit's root tag statically. Until that mode exists, `is_inert` should refuse
-  to select SVG-rooted units as clone units, with a conformance test proving
-  the refusal.
+- **SVG namespace — ratified rule (Founder decision 4).** A static icon block —
+  the archetypal large, fully-inert clone unit expected in real apps — is
+  commonly rooted at `<svg>`. Parsing markup via a
+  `div.innerHTML = '<svg>…</svg>'` shim creates HTML-namespace elements
+  (`HTMLUnknownElement`) that never paint; `_materialize` guards exactly this
+  case today via the `SVG_TAGS` set → `createElementNS`
+  (`packages/arbor/src/materialize.ts:8-43,169`). `__tpl` is therefore backed by
+  a real `<template>` element (never `div.innerHTML`), never a shim, full stop.
+  Given that, the rule is precise rather than a blanket refusal: **a clone unit
+  whose root IS the `<svg>` element is ALLOWED** —
+  `<template><svg>…</svg></template>` triggers namespace switching in the
+  parser and parses correctly, and this is the valuable large-inert case
+  (icon blocks, static illustrations). **A unit rooted at an SVG DESCENDANT is
+  REFUSED** — a bare `<path>` (or any other SVG element) as the clone-unit root
+  parses as an unknown HTML element outside an `<svg>` ancestor and never
+  renders. `is_inert` must enforce exactly this distinction — root-is-svg
+  qualifies, descendant-of-svg-root does not — with a conformance test proving
+  both the allow and the refusal.
 - **Parser normalization deltas.** The HTML parser strips a leading newline
   immediately after `<pre>` (and `<textarea>`), so a clone-lowered `<pre>` unit
   can differ from the current `createTextNode` lowering by one leading
   character. `<tr>`/`<td>`-rooted units are safe to clone from a real
-  `<template>` (per the in-template parsing mode), but only if `__tpl` uses an
-  actual `<template>` and not a div shim. v1 should either exclude
-  `<pre>`/`<textarea>`-rooted units from `is_inert`, or normalize the
-  leading-newline case explicitly.
+  `<template>` (per the in-template parsing mode), because `__tpl` uses an
+  actual `<template>` and not a div shim. **Ratified (Founder decision 4): v1
+  excludes `<pre>`/`<textarea>`-rooted units from `is_inert`.** The
+  leading-newline normalization fix is deferred to a follow-on, with a test
+  pinning the v1 exclusion so the gap can't silently regress into a correctness
+  bug if someone lifts the exclusion later.
 
 Golden fixtures for both cases (SVG-rooted unit, `<pre>`-rooted unit) belong in
 `bench/compiler-conformance` alongside the existing plan for that harness.
@@ -388,13 +461,16 @@ serializer safety argument above in two ways:
    land before or independently of the flip's stamping pass, or every clone-unit
    template literal already emitted is invalidated the moment the flip lands.
 
-Required before Phase 3 ships: the `data-a` stamping must live in (or feed) a
-single attribute-normalization step consumed by **both** `template_emit` and
-`ssr_string_emit`, and the Phase-3 conformance invariant must compare **rendered
-DOM** (attributes included) of clone-lowered vs. branch-lowered variants of the
-same fixture — not just the SSR strings, which is what the current conformance
-framing checks. Phase 3 should be explicitly sequenced after, or jointly with,
-the light-DOM flip in the phase list, not treated as independent parallel work.
+**Ratified (Founder decision 3): HARD SEQUENCING EDGE — PR #540's `data-a`
+stamping work gates #542 Phase 3.** Required before Phase 3 ships: the `data-a`
+stamping must live in (or feed) a single attribute-normalization step consumed
+by **both** `template_emit` and `ssr_string_emit`, and the Phase-3 conformance
+invariant must compare **rendered DOM** (attributes included) of clone-lowered
+vs. branch-lowered variants of the same fixture — not just the SSR strings,
+which is what the current conformance framing checks. Phase 3 does not start
+until PR #540 (`design/light-dom-leaf-flip`, commit `330ce41c`) has landed and
+unified the stamping, or lands jointly with it; it is not independent parallel
+work. Cross-link: PR #540.
 
 ### Island classification
 
@@ -421,31 +497,17 @@ census (below) exists to find out. The honest target for this design is
 blocks, card scaffolding — not list rows, and Phase 3 should not be justified
 by row-shape numbers.
 
-## Founder decisions this approval commits to
+## Founder decisions this approval commits to — RESOLVED, see top of doc
 
-Approving this plan is not just "yes, build it" — it commits to specific
-choices that a code-grounding pass surfaced as unresolved:
-
-1. **Phase 1 mechanism.** Pick (a) an opt-in `MountOptions.trackSignals` public
-   API (registry off by default on plain client mounts, on for SSR/hydrate/
-   agent-bound components; `serialize()` documented to return `{}` when
-   untracked) or (b) a deferred-tuple redesign of the path-producing call sites
-   (no public-API change, more invasive internally). Both require re-measuring
-   against the 14.4%/5.5% ablation ceiling once implemented, not assuming it.
-2. **Phase-3 go/no-go threshold**, decided *before* the corpus census runs, so
-   it can't be re-litigated after the mechanism is half-built (e.g. "≥N clone
-   units of ≥M nodes across the real app corpus"). This threshold gates **all**
-   of Phase 3, including the arbor `clone()` node kind — not only codegen
-   emission.
-3. **Sequencing Phase 3 against `design/light-dom-leaf-flip`.** Commit to
-   unifying `data-a` stamping across `template_emit.rs` and `ssr_string_emit.rs`
-   before or jointly with Phase 3, and to a rendered-DOM (not string-only)
-   conformance invariant between clone-lowered and branch-lowered markup.
-4. **`__tpl`'s parsing contract**, ahead of Phase 3's codegen-emission step: a
-   real `<template>` element (never a `div.innerHTML` shim), an explicit SVG
-   mode or an `is_inert` refusal of SVG-rooted units in v1, and a decision on
-   `<pre>`/`<textarea>`-rooted units (exclude from `is_inert`, or normalize the
-   leading-newline delta).
+This section originally posed four open questions that a code-grounding pass
+surfaced as unresolved. All four are now **ratified** — see
+§Founder decisions (ratified 2026-07-24) near the top of this document for the
+binding answers (opt-in `trackSignals`, the ≥5-node/≥30%-of-components/≥25%
+aggregate-share census threshold, the #540 hard sequencing edge, and the
+real-`<template>` + precise SVG-root rule + `<pre>`/`<textarea>` exclusion).
+The phase plan below has been reconciled against those answers; where earlier
+prose in this doc still frames any of the four as an open choice, the ratified
+section governs.
 
 ## Plan
 
@@ -483,8 +545,10 @@ assertion to compare template bytes rather than template-plus-state-channel
 
 **Ablation ceiling: −12…−14% mount on the krausest shape, −5…−7% on the
 binding-free shape, with no compiler change and no hydration exposure. The
-realized number depends on a founder decision this plan did not make in its
-first draft — see below.**
+mechanism to realize it is now ratified (Founder decision 1, opt-in
+`trackSignals`) — the number below is still an upper bound taken by removing
+the strings outright, not by the opt-in flag as implemented, so it must be
+re-measured once built, not assumed.**
 
 **The naive gate does not fire where it matters.** `registry != null` is not a
 usable proxy for "something will consume this path" on the real call graph:
@@ -500,43 +564,50 @@ krausest-row-list shape but none of a component's own top-level tree, and
 none of the binding-free data-table shape unless it happens to be
 `each()`-rendered.
 
-Two real designs, either of which requires a founder call before
-implementation:
+**Ratified mechanism (Founder decision 1): make the top-level registry
+opt-in.** Add a `MountOptions.trackSignals` flag, defaulted **on** for SSR and
+hydrate paths and for any component tree that declares `__agentBinding` or
+otherwise needs serialization, defaulted **off** for a plain client mount.
+`serialize()` returns `{}` when the tree was mounted untracked — that contract
+is now part of the public API surface, not an internal detail.
 
-- **(a) Make the top-level registry opt-in.** Add a `MountOptions.trackSignals`
-  flag, defaulted on for SSR and hydrate paths and for any component tree that
-  declares `__agentBinding`, defaulted off for a plain client mount. Document
-  that `serialize()` returns `{}` when the tree was mounted untracked, and audit
-  `bridge-client.ts` / `store/src/ssr.ts` call sites against that contract
-  before it ships — this is a public-API behavior change, not an internal
-  optimization, and needs explicit sign-off.
-- **(b) Defer path materialization instead of gating it.** Store a
-  `(parentPathRef, index, kind)` tuple per node/binding instead of a formatted
-  string, and build the string lazily only inside `registry.set`, `__DEV__`,
-  and the throw path. This avoids the public-API question entirely but is more
-  invasive (touches all seven call sites' data shape, not just their gating)
-  and needs its own before/after ablation once implemented — the 14.4% number
-  was taken by removing the strings outright, not by deferring them, so it is
-  an upper bound on this variant too, not a prediction of it.
+A deferred-tuple redesign (storing a `(parentPathRef, index, kind)` tuple per
+node/binding instead of a formatted string, and building the string lazily
+only inside `registry.set`, `__DEV__`, and the throw path) was considered and
+**rejected** in favor of the opt-in flag: it avoids the public-API question but
+is more invasive — it touches all seven call sites' data shape, not just their
+gating — for no measured advantage over the flag. It is not being pursued.
+
+**Explicit Phase-1 task, not optional cleanup: audit the two client
+`serialize()` consumers against the new contract before this ships.**
+`packages/agent-server/src/bridge-client.ts` and `packages/store/src/ssr.ts`
+both call `serialize()` today assuming a populated registry. Each call site
+must be checked and, where it depends on `serialize()`'s output, updated to
+pass `trackSignals: true` (or otherwise land on a mount/hydrate path that
+defaults it on) — otherwise it silently starts receiving `{}` the moment this
+ships. This audit is a merge-blocking Phase-1 deliverable, tracked alongside
+the flag itself, not a follow-up.
 
 The `errorHandler(err, path)` case is cold either way and keeps a useful path
 by reconstructing it at throw time from the DOM (`node.el` back-references
 already exist at `materialize.ts:170`), so error reporting does not regress
-under either design.
+under the opt-in design.
 
-**Founder decision required:** pick (a) or (b) before implementation. Ship
-behind the Phase-0 bench with the controls green, and re-run the ablation-style
-measurement against the *chosen* mechanism (not the original all-strings-removed
-patch) before pricing Phase 3 against a Phase-1 number, per the Risks section.
+Ship behind the Phase-0 bench with the controls green, and re-run the
+ablation-style measurement against the opt-in mechanism as implemented (not the
+original all-strings-removed patch) before pricing Phase 3 against a Phase-1
+number, per the Risks section.
 
 ### Phase 2 — compile throughput: build the napi addon
 
-Not a Rust change. `packages/compiler/src-native` exists and
-`js/envelope.ts` already prefers it; it simply is not built or installed in this
-workspace, so every `.aihu` file pays the 14.7 ms spawn measured in M4. Build
-it, wire it into the workspace install, and assert in CI that the CLI-spawn
-fallback is not silently in use. Expected ~90–95% cut in per-file compile
-wall-clock, from already-written code.
+**Independent of all four ratified decisions above — can start immediately,
+gated on nothing in this plan.** Not a Rust change. `packages/compiler/src-native`
+exists and `js/envelope.ts` already prefers it; it simply is not built or
+installed in this workspace, so every `.aihu` file pays the 14.7 ms spawn
+measured in M4. Build it, wire it into the workspace install, and assert in CI
+that the CLI-spawn fallback is not silently in use. Expected ~90–95% cut in
+per-file compile wall-clock, from already-written code — the highest-ROI item
+in this entire plan.
 
 Add a minimal criterion harness around `compile_envelope()` at the same time —
 compiler throughput currently has **zero** bench coverage, and Phase 4 must not
@@ -545,25 +616,36 @@ be attempted without one.
 ### Phase 3 — static-subtree clone units
 
 Only after Phases 0–2, and only if the Phase-0 bench shows the remaining
-DOM-construction share is still the top cost. Order within the phase:
+DOM-construction share is still the top cost. **Additionally gated, before any
+step below can start, on PR #540 (`design/light-dom-leaf-flip`) landing and
+unifying `data-a` stamping across `template_emit.rs`/`ssr_string_emit.rs`, per
+Founder decision 3 — this is a hard sequencing edge, not an ordering
+preference.** Order within the phase:
 
+0. **Sequencing precondition: PR #540's `data-a` stamping unification.**
+   Confirm `template_emit.rs` and `ssr_string_emit.rs` stamp `data-a` through a
+   single shared attribute-normalization step, and that a rendered-DOM
+   conformance check (not string-only) exists comparing clone-lowered vs.
+   branch-lowered output. Do not start step 1 until this is true.
 1. **Corpus census, hard precondition for all of Phase 3 — not just codegen
    emission.** `is_inert` bottom-up pass + clone-unit selection (Rust, no emit
    change), run behind a flag against real apps, counting qualifying units by
    size under the fully-inert-only restriction (not the clone+STAMP variant the
-   18.6%/6.9% numbers came from). **Decide the acceptance threshold before
-   running the census** — e.g. "≥N units of ≥M nodes across the corpus" — so it
-   cannot be re-litigated after the fact. If the corpus does not clear the
-   threshold, **stop here**: this includes step 2 (the arbor `clone()` node
-   kind), which an earlier draft treated as conceptually independent of the
-   census result and thus separately fundable. It is not — building the
-   `_materialize`/`_hydrateNode` machinery for a node kind the codegen will
-   almost never emit is unjustified cost with no measured payoff.
+   18.6%/6.9% numbers came from). **Ratified acceptance threshold (Founder
+   decision 2), decided before the census runs: fully-inert subtrees of ≥5
+   nodes present in ≥30% of components, AND an aggregate inert-node share
+   ≥25%.** Below that bar, **stop here**: this includes step 2 (the arbor
+   `clone()` node kind), which an earlier draft treated as conceptually
+   independent of the census result and thus separately fundable. It is not —
+   building the `_materialize`/`_hydrateNode` machinery for a node kind the
+   codegen will almost never emit is unjustified cost with no measured payoff.
 2. `clone()` node kind + `_materialize` case + `_hydrateNode` skip case (arbor).
-3. Codegen emission reusing `ssr_string_emit` in `__h = false` mode, plus
-   golden fixtures in `bench/compiler-conformance` and the sandwiched-hydration
-   differential test (including the text-adjacency fixture from the
-   corrected §SSR and hydration analysis above).
+3. Codegen emission reusing `ssr_string_emit` in `__h = false` mode, respecting
+   the ratified `is_inert` rules for SVG-root vs. SVG-descendant and the
+   `<pre>`/`<textarea>` exclusion (Founder decision 4), plus golden fixtures in
+   `bench/compiler-conformance` and the sandwiched-hydration differential test
+   (including the text-adjacency fixture from the corrected §SSR and hydration
+   analysis above).
 
 ### Phase 4 — conditional, gated on Phase 3 data
 
@@ -628,31 +710,40 @@ Only with a number attached, from the Phase-0 bench:
   attempt showed a 2–8x "regression" that was pure contention. The in-band
   control workloads in Phase 0 exist specifically for this and should be
   mandatory in every run, including CI.
-- **Phase 1's ceiling is an ablation, not an implementation, and the naive
-  implementation does not work.** 14.4% comes from removing the strings
-  entirely; `registry != null` is not a usable gate because `mount()`/
-  `hydrate()` unconditionally allocate the registry on every top-level client
-  mount (see Phase 1). Realizing any of this ceiling requires the founder to
-  pick between an opt-in-registry public-API change and a deferred-tuple
-  redesign, and either variant needs its own before/after measurement — treat
-  the 14.4%/5.5% figures as an upper bound on Phase 1, not a committed number.
-  If the realized number lands materially below ~8%, re-price Phase 3 against
-  it before proceeding.
+- **Phase 1's ceiling is an ablation, not an implementation.** 14.4% comes from
+  removing the strings entirely; `registry != null` is not a usable gate
+  because `mount()`/`hydrate()` unconditionally allocate the registry on every
+  top-level client mount (see Phase 1). The mechanism is now ratified
+  (Founder decision 1: opt-in `trackSignals`), but it still needs its own
+  before/after measurement once implemented — treat the 14.4%/5.5% figures as
+  an upper bound on Phase 1, not a committed number. If the realized number
+  lands materially below ~8%, re-price Phase 3 against it before proceeding.
+  Separately, the `bridge-client.ts` / `store/src/ssr.ts` audit (Phase 1,
+  Founder decision 1) is merge-blocking: shipping the opt-in default without
+  it silently breaks any caller of `serialize()` that assumed a populated
+  registry.
 - **The light-DOM leaf flip (`data-a` scoping) and Phase 3 can invalidate each
   other if unsequenced.** `template_emit.rs` and `ssr_string_emit.rs` are
   separate emitters; if the flip's stamping pass isn't unified across both
   before clone units reuse `ssr_string_emit`, clone-lowered markup can silently
-  drop scoped styles that branch-lowered markup keeps. See §Interaction with
-  the light-DOM leaf flip.
-- **`__tpl`'s parsing contract is unspecified today** and, read naively (a
-  `div.innerHTML` shim), mis-renders SVG-rooted clone units (wrong namespace)
-  and subtly corrupts `<pre>`-rooted ones (stripped leading newline). Must be
-  pinned by fixture before Phase 3's codegen-emission step, not discovered by a
-  bug report after.
+  drop scoped styles that branch-lowered markup keeps. **Ratified as a hard
+  sequencing edge (Founder decision 3): PR #540 gates Phase 3**, not merely a
+  risk to manage in parallel. See §Interaction with the light-DOM leaf flip.
+- **`__tpl`'s parsing contract is now specified (Founder decision 4)** — a real
+  `<template>` element, root-is-svg allowed, svg-descendant-root refused,
+  `<pre>`/`<textarea>` excluded from `is_inert` in v1 — but it still must be
+  pinned by conformance fixture before Phase 3's codegen-emission step, not
+  merely documented in this plan. Read naively (a `div.innerHTML` shim, or a
+  blanket "no SVG" rule instead of the precise root-vs-descendant rule), the
+  unspecified version mis-renders SVG-rooted clone units or forfeits the
+  large-inert icon-block case entirely.
 - **Corpus may not contain many large inert subtrees.** Phase 3 step 1 is
   explicitly a stop-or-go measurement for exactly this reason: a codebase of
   small, densely-bound templates gets little from clone units regardless of how
-  well the mechanism is built.
+  well the mechanism is built. The ratified threshold (Founder decision 2:
+  ≥5-node subtrees in ≥30% of components, ≥25% aggregate inert-node share) is
+  what the census is checked against — it does not guarantee the corpus clears
+  it, only that the bar can't be moved after the fact.
 - **`bench/compiled-mount` depends on the release binary and a real browser**,
   making it heavier than the existing JSDOM benches. It should stay a
   non-required CI job like `bench` and `bench-arbor`, run on demand, with the
