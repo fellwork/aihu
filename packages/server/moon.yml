@@ -1,6 +1,20 @@
 # yaml-language-server: $schema=https://moonrepo.dev/schemas/project.json
 language: typescript
 layer: library
+
+# server's package.json depends on these workspace packages. Declaring them
+# here is what makes Moon's `^:build` (see .moon/tasks/tasks.yml) actually
+# resolve to something: without a `dependsOn` entry, Moon has no project-graph
+# edge and `^:build` expands to an empty set, so nothing guarantees these are
+# built before server (or, transitively, anything that pulls server's raw
+# source via tsconfig `paths` — see packages/seo) gets typechecked. This is
+# the FEL-399 root cause: server had no `dependsOn` at all.
+dependsOn:
+  - 'signals'
+  - 'agent'
+  - 'agent-service'
+  - 'plugin'
+
 tasks:
   check-boundary:
     command: "bash ../../scripts/check-boundary.sh"

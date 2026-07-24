@@ -10,7 +10,8 @@
       "@aihu/agent": ["../agent/src/index.ts"],
       "@aihu/agent-service": ["../agent-service/src/index.ts"],
       "@aihu/server": ["../server/src/index.ts"],
-      "@aihu/plugin": ["../plugin/src/index.ts"]
+      "@aihu/plugin": ["../plugin/src/index.ts"],
+      "@aihu/signals": ["../signals/src/index.ts"]
     }
   },
   "include": ["src/**/*.ts"]

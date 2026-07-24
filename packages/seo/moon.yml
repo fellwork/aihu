@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=https://moonrepo.dev/schemas/project.json
+language: typescript
+layer: library
+
+# seo had no moon.yml at all, so it carried zero project-graph edges and
+# Moon's `^:build` typecheck dep (.moon/tasks/tasks.yml) was always a no-op
+# for it. seo's tsconfig `paths` alias @aihu/server straight to server's raw
+# source (../server/src/index.ts) rather than its dist — which means
+# seo:typecheck also typechecks server/src/native.ts and server/src/ssr.ts,
+# both of which import @aihu/signals. seo's tsconfig has no `paths` override
+# for @aihu/signals (see the fix there too), so that import falls through to
+# normal node_modules resolution and needs packages/signals/dist/index.d.ts
+# to exist. Declaring dependsOn here (mirroring package.json `dependencies`)
+# closes the gap transitively: seo:typecheck -> server:build -> signals:build.
+#
+# This is the exact chain behind FEL-399's intermittent
+# "seo:typecheck | ../server/src/native.ts: Cannot find module '@aihu/signals'".
+dependsOn:
+  - 'plugin'
+  - 'server'
+  - 'plugin-agent-readiness'
