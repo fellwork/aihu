@@ -105,11 +105,51 @@ The commit that actually shipped this is **`3a875483`** (2026-07-19,
 > already-correct maps take effect (**their paths were never wrong; bun ignored
 > the block for want of baseUrl**).
 
+### Exactly which baseline rows are invalid
+
+Counting real DOM mutations per timed op at `a16fa989`, as committed vs. with
+`baseUrl` added and nothing else changed:
+
+| workload | as recorded (2026-05-25) | with bindings live | baseline row |
+| --- | --- | --- | --- |
+| `mount-10k-leaves` | 10,000 `nodeValue` | 10,000 | **valid** (static leaves) |
+| `mount-deep-100x10` | 1,010 `nodeValue` | 1,010 | **valid** (static leaves) |
+| `mount-wide-1000` | 1,000 `nodeValue` | 1,000 | **valid** (mount-only; the effect fires once either way) |
+| `krausest-1k-cycle` | 2,000 `nodeValue` | 2,100 | **partially invalid** — the entire update phase (100 writes) was lost |
+| `update-1-of-10k-leaves` | **0** | 1 | **INVALID — measured a total no-op** |
+| `attr-thrash-100x100` | **0** `setAttribute` | 10,000 | **INVALID — measured a total no-op** |
+
+So two of the six baseline rows are pure fiction, one is missing its update
+phase, and three are sound. Note this also means the three `mount-*` rows are
+*not* explained by the binding bug — see §3.
+
 **Verdict (B): not a regression.** `git log a16fa989..HEAD -- bench/arbor/`
 is **empty** — the workload definitions are byte-identical. What changed is that
 the benchmark started doing the work it always claimed to do. The `+474x` and
 `+26x` are the cost of correctness arriving, and `3a875483` is a fix, not a
 regression. It should never have been compared against the old baseline at all.
+
+### A second fidelity problem, found along the way
+
+Because the bench loads **source**, and `NODE_ENV` is unset under
+`bun bench/arbor/src/runner.ts`, `packages/signals` is measured with
+**`__DEV__ === true`**:
+
+```ts
+// packages/signals/src/signal.ts:3
+const __DEV__ = typeof process !== 'undefined' && process.env.NODE_ENV !== 'production'
+// …
+if (__DEV__) read[__HOST] = host          // signal.ts:524  — per signal() creation
+if (__DEV__) read[__HOST] = node          // computed.ts:214 — per computed() creation
+```
+
+In the shipped `dist`, rolldown's `define` folds these to `false` and DCEs them.
+In the bench they run, adding a property store (and a hidden-class transition) to
+**every signal creation**. `mount-wide-1000` and `krausest-1k-cycle` create 1,000
+signals per op; `attr-thrash-100x100` creates 10,000. The bench therefore
+overstates signal-creation cost relative to what users actually install. This is
+pre-existing, not a regression — but it means bench numbers are not
+publishable as product claims without qualification.
 
 ---
 
