@@ -21,6 +21,63 @@ verified against source, not memory).
 
 ---
 
+> **AMENDED (light-DOM leaf flip), 2026-07-24 — do not silently rewrite history, read this
+> before §3(a)/§1/Founder-decision #2 below.**
+>
+> [`2026-07-24-light-dom-leaf-flip.md`](./2026-07-24-light-dom-leaf-flip.md) proposes flipping
+> `@aihu/css-engine`'s leaf-component default from shadow DOM to light DOM. That is a separate,
+> not-yet-approved design; it does **not** retroactively change what was ratified here on
+> 2026-07-23. What it does change is **the stated rationale** for the ratified decision.
+>
+> **What is now VOID.** Founder-decision #2 and §3(a)/§1 justify Option 4 and reject Option 3
+> partly on the grounds that Option 3 "re-introduces the exact global-cascade / second-
+> vocabulary problem **css-engine's shadow-DOM-scoped design exists to avoid**." That clause —
+> and any reading of "shadow-DOM-scoped" as css-engine's defining, permanent property — is void
+> if the flip lands. Post-flip, css-engine's *default* leaf output is itself global-cascade CSS
+> (attribute-scoped for authored `@style` recipes, but genuinely global for the utility
+> channel — see the flip doc §1.2/§1.4). An argument of the form "daisyUI is global, we are
+> scoped, therefore structural conflict" no longer holds as stated.
+>
+> **What survives, and why — the current recommendation.** Option 4 (hybrid: transcribe daisyUI
+> recipes/theme catalog onto our own css-engine, do not run a second Tailwind/daisyUI pipeline)
+> still stands, but on grounds that do not depend on shadow vs. light at all:
+> 1. **Dual-mode coverage** — `$shadow: 'shadow'` remains a live, supported per-component opt-in
+>    even after the flip. A vendored global Tailwind+daisyUI stylesheet cannot cross a shadow
+>    boundary, so any component that opts back into shadow would silently lose all daisyUI
+>    styling under Option 3. css-engine folds its output per-component and therefore works in
+>    both modes — this is now the *strongest* argument for Option 4, and the flip doc notes the
+>    2026-07-23 draft did not make it.
+> 2. **One utility vocabulary** — Option 3 runs *alongside* css-engine, not instead of it. Two
+>    independent emitters scanning the same templates and both emitting `.p-4`/`.flex`/
+>    `.md\:grid`, with different theme registries and no defined ordering between the two output
+>    sheets, is a real structural conflict that has nothing to do with shadow DOM and would only
+>    dissolve if css-engine were retired outright.
+> 3. **No second build pipeline** — Option 3 still adds a PostCSS/Tailwind plugin, a `@source`
+>    scan config, a second config surface, and a second cache-invalidation model to a build that
+>    currently spawns one Rust binary.
+>
+> **What gets easier, not harder, if the flip lands** (fold into the in-progress Option 4 design
+> pass rather than treat as a new risk): daisyUI's `.btn`/`.btn-primary`/`.card-body` recipes are
+> already global class rules, so they transcribe near-literally into the flip's **utilities**
+> channel with no reshaping into `:host`-relative selectors; the theme catalog transcribes into
+> the flip's **tokens** channel at `:root` rather than fighting `:host`; and the `.dark`-class →
+> `data-theme` reconciliation named in Founder-decision #3 gets *easier* under the flip, because
+> `[data-theme]` on `<html>` cascades natively into light-DOM leaves with no `:host([data-theme])`
+> half of a dual selector required for the leaf side. The "tree-shake like Tailwind's JIT"
+> requirement (already ratified here) becomes *more* urgent under the flip, not less: 168 light
+> leaves each pulling a virtual CSS module makes unshaken output multiply across modules where it
+> previously stayed inside one shared shadow stylesheet per component.
+>
+> **Action for the in-progress Option 4 design pass**: when that design lands, its own text
+> should replace "shadow-DOM-scoped model" wherever it appears in §3(a) below with "css-engine's
+> own scoping model (attribute-scoped for authored recipes, global for utilities)," and replace
+> the parenthetical in Founder-decision #2 with the three reasons above — **once the flip itself
+> is founder-approved**, not before. Until then this amendment note is the authoritative
+> correction; §3(a) and Founder-decision #2's original text below are left unedited as the
+> historical record of what was actually ratified on 2026-07-23.
+
+---
+
 ## Founder decisions (ratified 2026-07-23)
 
 These four rulings resolve every open question below that asked the founder to pick a
