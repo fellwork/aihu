@@ -1,0 +1,68 @@
+# Ported from apps/docs/public/_headers so the cutover does not silently drop
+# aihu.dev's security headers, agent-surface CORS, or asset caching.
+#
+# Differences from apps/docs, all because docs-next is a different app:
+#   - no `wasm-unsafe-eval` / no `cdnjs.cloudflare.com` — docs-next has no WASM
+#     playground and loads no third-party scripts or styles.
+#   - no `/playground` COOP+COEP block — that route does not exist here.
+#   - no `/pagefind/*` block — docs-next does not ship pagefind.
+#   - explicit Content-Type on the extensionless `/.well-known/webmcp` alias,
+#     which apps/docs' worker set in code and Pages cannot infer from the name.
+
+/.well-known/*
+  Access-Control-Allow-Origin: *
+  Access-Control-Allow-Methods: GET, OPTIONS
+  Cache-Control: public, max-age=3600
+
+/.well-known/webmcp
+  Content-Type: application/json; charset=utf-8
+
+/llms.txt
+  Access-Control-Allow-Origin: *
+  Cache-Control: public, max-age=3600
+
+/llms-full.txt
+  Access-Control-Allow-Origin: *
+  Cache-Control: public, max-age=3600
+
+/ai.txt
+  Access-Control-Allow-Origin: *
+  Cache-Control: public, max-age=3600
+
+/agents.json
+  Access-Control-Allow-Origin: *
+  Cache-Control: public, max-age=3600
+
+/openapi.json
+  Access-Control-Allow-Origin: *
+  Cache-Control: public, max-age=3600
+
+/robots.txt
+  Access-Control-Allow-Origin: *
+  Cache-Control: public, max-age=3600
+
+/sitemap.xml
+  Access-Control-Allow-Origin: *
+  Cache-Control: public, max-age=3600
+
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/fonts/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/
+  Cache-Control: public, max-age=0, must-revalidate
+  Link: </.well-known/mcp/server-card.json>; rel="mcp-server", </llms.txt>; rel="ai-content-discovery", </openapi.json>; rel="openapi", </.well-known/agent-card.json>; rel="agent-card"
+
+/*.html
+  Cache-Control: public, max-age=0, must-revalidate
+  Link: </.well-known/mcp/server-card.json>; rel="mcp-server", </llms.txt>; rel="ai-content-discovery", </openapi.json>; rel="openapi", </.well-known/agent-card.json>; rel="agent-card"
+
+/*
+  Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=()
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: https:; connect-src 'self' https:; frame-ancestors 'none'; object-src 'none'

@@ -92,6 +92,9 @@ jobs:
       # rebuilds its @aihu/* workspace deps.
       - name: Build workspace packages
         run: bun run build
+        env:
+          # See the note on the docs-next build step below — same reason.
+          AIHU_COMPILE_BIN: ${{ github.workspace }}/packages/compiler/bin/aihu-compile
 
       - name: Build docs-next
         # gen:css (prebuild) + vite build → dist. public/ (including the
@@ -99,6 +102,15 @@ jobs:
         # .well-known/*) is copied into dist/ by vite as static assets.
         run: bun run build
         working-directory: apps/docs-next
+        env:
+          # WITHOUT this, the two steps above ("Build compiler binary" / "Stage
+          # compiler binary") are dead weight. packages/compiler/js/envelope.ts
+          # gates on `AIHU_COMPILER_NATIVE === '0' || AIHU_COMPILE_BIN` — an
+          # `||` — so with neither set it loads the PUBLISHED napi addon
+          # in-process and never spawns the binary this job just built. A
+          # compiler fix would then be invisible to its own CI. This is what hid
+          # the TDZ bug in apps/docs; deploy-docs.yml carries the same two hunks.
+          AIHU_COMPILE_BIN: ${{ github.workspace }}/packages/compiler/bin/aihu-compile
 
       - name: Ensure Pages project exists
         # Idempotent: creates aihu-docs-next on first run; continue-on-error lets

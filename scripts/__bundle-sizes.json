@@ -21,8 +21,8 @@
   },
   {
     "name": "@aihu/runtime",
-    "bytes": 4761,
-    "limit": "4800 B"
+    "bytes": 4731,
+    "limit": "4750 B"
   },
   {
     "name": "@aihu/agent",
@@ -241,12 +241,12 @@
   },
   {
     "name": "@aihu/use/useElementSize",
-    "bytes": 484,
+    "bytes": 528,
     "limit": "1200 B"
   },
   {
     "name": "@aihu/use/useElementVisibility",
-    "bytes": 446,
+    "bytes": 596,
     "limit": "1150 B"
   },
   {
@@ -391,12 +391,12 @@
   },
   {
     "name": "@aihu/use/useTimeAgo",
-    "bytes": 632,
+    "bytes": 639,
     "limit": "675 B"
   },
   {
     "name": "@aihu/use/useAsyncAbortable",
-    "bytes": 514,
+    "bytes": 519,
     "limit": "550 B"
   },
   {
@@ -406,7 +406,7 @@
   },
   {
     "name": "@aihu/use/useIdle",
-    "bytes": 740,
+    "bytes": 750,
     "limit": "800 B"
   },
   {
@@ -421,7 +421,7 @@
   },
   {
     "name": "@aihu/use/useMeasure",
-    "bytes": 699,
+    "bytes": 723,
     "limit": "750 B"
   },
   {
@@ -431,7 +431,7 @@
   },
   {
     "name": "@aihu/use/useIntersectionObserver",
-    "bytes": 468,
+    "bytes": 470,
     "limit": "530 B"
   },
   {

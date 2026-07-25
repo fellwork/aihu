@@ -669,3 +669,68 @@ fn v069_fixture_client_elides_agent_js() {
         "client build must not emit manifest_json"
     );
 }
+
+// ─── SSR string emission for `html={expr}` ──────────────────────────────────
+
+/// `html={expr}` must land in `__ssrString`, not only in the client's
+/// mount-time `replaceChildren` effect.
+///
+/// Regression: `html` was classified as an SSR-transparent element effect, so
+/// a page whose body IS an `html` binding serialized as an empty element. Every
+/// apps/docs-next guide prerendered to nav chrome plus a hollow `<article>`,
+/// which is invisible to crawlers, agents, and agent-readiness graders — while
+/// looking correct in a browser, because JS filled it in after load.
+#[test]
+fn html_binding_is_emitted_into_ssr_string() {
+    let src = r#"
+@state {
+  const body = '<h1>Real content</h1>'
+}
+@template {
+  <article class="prose" html={body}></article>
+}
+"#;
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full_with_target(&parsed, BuildTarget::Server).unwrap();
+    let js = emit(&unit, "x-page").js;
+
+    let ssr = js
+        .lines()
+        .find(|l| l.contains("__out +=") && l.contains("<article"))
+        .unwrap_or_else(|| panic!("no __ssrString chunk emitted for <article>:\n{js}"));
+
+    assert!(
+        ssr.contains("body"),
+        "SSR chunk must interpolate the `html` expression, got: {ssr}"
+    );
+    assert!(
+        !ssr.contains("<article class=\"prose\"></article>"),
+        "SSR chunk must not serialize the element empty, got: {ssr}"
+    );
+}
+
+/// `raw` still suppresses children, and wins over `html`.
+#[test]
+fn raw_attr_still_suppresses_html_binding_in_ssr() {
+    let src = r#"
+@state {
+  const body = '<h1>Real content</h1>'
+}
+@template {
+  <article raw html={body}></article>
+}
+"#;
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full_with_target(&parsed, BuildTarget::Server).unwrap();
+    let js = emit(&unit, "x-page").js;
+
+    if let Some(ssr) = js
+        .lines()
+        .find(|l| l.contains("__out +=") && l.contains("<article"))
+    {
+        assert!(
+            !ssr.contains("String((body)"),
+            "`raw` must suppress the html interpolation, got: {ssr}"
+        );
+    }
+}
