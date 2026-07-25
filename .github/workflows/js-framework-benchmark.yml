@@ -13,9 +13,9 @@ on:
         required: false
         default: '10'
       compare-with:
-        description: 'Space-separated krausest framework dirs under frameworks/ (e.g. "vanillajs-1-keyed solid-1.x.x-keyed")'
+        description: 'Space-separated krausest framework dirs under frameworks/keyed/ (e.g. "vanillajs solid")'
         required: false
-        default: 'vanillajs-1-keyed'
+        default: 'vanillajs'
 
 jobs:
   bench:
@@ -50,18 +50,23 @@ jobs:
 
       - name: Stage aihu impl into harness
         run: |
+          set -euo pipefail
           mkdir -p /tmp/jsb/frameworks/keyed/aihu
           # Copy dist contents (index.html + assets/) directly into the framework
           # root — krausest serves /frameworks/keyed/<name>/index.html, not
           # /frameworks/keyed/<name>/dist/index.html. The trailing /. on the
           # source copies contents instead of the dist/ directory itself.
           cp -r bench/js-framework-benchmark/keyed/aihu/dist/. /tmp/jsb/frameworks/keyed/aihu/
-          cat > /tmp/jsb/frameworks/keyed/aihu/package.json <<'EOF'
+
+          RUNTIME_VERSION="$(node -p "require('./packages/runtime/package.json').version")"
+          echo "staging aihu runtime version ${RUNTIME_VERSION}"
+
+          cat > /tmp/jsb/frameworks/keyed/aihu/package.json <<EOF
           {
             "name": "js-framework-benchmark-aihu",
-            "version": "0.1.0",
+            "version": "${RUNTIME_VERSION}",
             "js-framework-benchmark": {
-              "frameworkVersion": "0.1.0",
+              "frameworkVersion": "${RUNTIME_VERSION}",
               "frameworkHomeURL": "https://aihu.dev",
               "issues": []
             },
@@ -70,20 +75,58 @@ jobs:
             }
           }
           EOF
+
+          # REQUIRED, do not delete: the harness server's framework scanner
+          # (server/src/frameworks/frameworksServices.ts -> isFrameworkDir) only
+          # lists a directory on GET /ls when BOTH package.json AND
+          # package-lock.json exist. Without the lockfile the framework is
+          # silently skipped, `webdriver-ts` benchmarks an empty framework list,
+          # and every benchmark reports "0.00 ms" while the run still exits 0.
+          # We build with bun, so there is no npm lockfile to copy — synthesize
+          # the minimal valid one. `frameworkVersion` (not
+          # `frameworkVersionFromPackage`) is used above precisely so the
+          # scanner never has to resolve versions out of this stub.
+          cat > /tmp/jsb/frameworks/keyed/aihu/package-lock.json <<EOF
+          {
+            "name": "js-framework-benchmark-aihu",
+            "version": "${RUNTIME_VERSION}",
+            "lockfileVersion": 3,
+            "requires": true,
+            "packages": {
+              "": {
+                "name": "js-framework-benchmark-aihu",
+                "version": "${RUNTIME_VERSION}"
+              }
+            }
+          }
+          EOF
+
           ls -la /tmp/jsb/frameworks/keyed/aihu/
 
       - name: Resolve framework arg list
         id: fws
         run: |
+          set -euo pipefail
           ARGS="keyed/aihu"
+          MISSING=0
           for fw in ${{ inputs.compare-with }}; do
             target="/tmp/jsb/frameworks/keyed/${fw}"
             if [ -d "$target" ]; then
               ARGS="$ARGS keyed/${fw}"
             else
-              echo "::warning::framework not found in krausest: keyed/${fw} (skipping)"
+              # Hard failure, not a warning: krausest renames framework dirs
+              # (vanillajs-1-keyed -> vanillajs), and a silently skipped
+              # baseline means aihu numbers get published with nothing to
+              # compare against.
+              echo "::error::framework not found in krausest: keyed/${fw}"
+              MISSING=1
             fi
           done
+          if [ "$MISSING" = "1" ]; then
+            echo "Available keyed frameworks:"
+            ls /tmp/jsb/frameworks/keyed
+            exit 1
+          fi
           echo "list=$ARGS" >> "$GITHUB_OUTPUT"
           echo "Will run: $ARGS"
 
@@ -121,13 +164,163 @@ jobs:
           curl -fsS http://localhost:8080/frameworks/keyed/aihu/index.html > /dev/null \
             || (echo "::error::aihu impl not reachable from harness server"; cat /tmp/server.log; exit 1)
 
+      # A 200 on index.html is NOT proof the harness will benchmark us: the
+      # runner discovers frameworks exclusively through GET /ls, which applies
+      # its own directory validation. Assert discovery explicitly, before we
+      # spend 20 minutes measuring nothing.
+      - name: Assert harness discovers every requested framework
+        id: discovery
+        run: |
+          set -euo pipefail
+          curl -fsS http://localhost:8080/ls > /tmp/ls.json
+          WANTED="${{ steps.fws.outputs.list }}" node - <<'EOF'
+          const fs = require("node:fs");
+          const wanted = process.env.WANTED.trim().split(/\s+/).filter(Boolean);
+          const listed = JSON.parse(fs.readFileSync("/tmp/ls.json", "utf8"));
+          const byFullName = new Map(
+            listed.map((f) => [`${f.type}/${f.directory}`, f])
+          );
+
+          const missing = [];
+          const broken = [];
+          for (const name of wanted) {
+            const entry = byFullName.get(name);
+            if (!entry) {
+              missing.push(name);
+            } else if (entry.error) {
+              broken.push(`${name}: ${entry.error}`);
+            } else if (!entry.frameworkVersionString) {
+              broken.push(`${name}: no frameworkVersionString`);
+            }
+          }
+
+          if (missing.length || broken.length) {
+            for (const m of missing) {
+              console.log(
+                `::error::harness /ls does not list ${m} — it will be silently skipped and every benchmark will report 0.00 ms. ` +
+                  `Most likely the staged framework directory is missing package.json or package-lock.json ` +
+                  `(both are required by server/src/frameworks/frameworksServices.ts isFrameworkDir).`
+              );
+            }
+            for (const b of broken) console.log(`::error::harness /ls rejected ${b}`);
+            console.log(`/ls listed ${listed.length} frameworks; wanted: ${wanted.join(", ")}`);
+            process.exit(1);
+          }
+
+          const aihu = byFullName.get("keyed/aihu");
+          console.log(`/ls lists all ${wanted.length} requested framework(s).`);
+          console.log(`aihu frameworkVersionString = ${aihu.frameworkVersionString}`);
+          fs.appendFileSync(
+            process.env.GITHUB_OUTPUT,
+            `aihu-result-prefix=${aihu.frameworkVersionString}\n`
+          );
+          EOF
+
       - name: Run benchmark
         working-directory: /tmp/jsb/webdriver-ts
         run: |
+          set -euo pipefail
+          set -o pipefail
           npm run bench -- \
             --headless true \
             --count ${{ inputs.iterations }} \
-            --framework ${{ steps.fws.outputs.list }}
+            --framework ${{ steps.fws.outputs.list }} 2>&1 | tee /tmp/bench.log
+
+          # Belt-and-braces: the runner prints an empty array and exits 0 when
+          # discovery produced nothing. Never let that read as a green run.
+          if grep -q "Frameworks that will be benchmarked \[\]" /tmp/bench.log; then
+            echo "::error::benchmark runner had an empty framework list — nothing was measured"
+            exit 1
+          fi
+
+      # The runner exits 0 on an empty framework list and PlausibilityCheck
+      # happily prints "successful run" over zero results. Verify against the
+      # result JSON that we actually measured something.
+      - name: Assert benchmark produced real measurements
+        working-directory: /tmp/jsb/webdriver-ts
+        run: |
+          set -euo pipefail
+          PREFIX="${{ steps.discovery.outputs.aihu-result-prefix }}" node - <<'EOF'
+          const fs = require("node:fs");
+          const path = require("node:path");
+
+          const prefix = process.env.PREFIX;
+          const required = [
+            "01_run1k",
+            "02_replace1k",
+            "03_update10th1k_x16",
+            "04_select1k",
+            "05_swap1k",
+            "06_remove-one-1k",
+            "07_create10k",
+            "08_create1k-after1k_x2",
+            "09_clear1k_x8",
+            "21_ready-memory",
+            "22_run-memory",
+            "25_run-clear-memory",
+            "41_size-uncompressed",
+            "42_size-compressed",
+            "43_first-paint",
+          ];
+
+          const failures = [];
+          const rows = [];
+
+          for (const benchmark of required) {
+            const file = path.join("results", `${prefix}_${benchmark}.json`);
+            if (!fs.existsSync(file)) {
+              failures.push(`${benchmark}: no result file (${file})`);
+              continue;
+            }
+
+            let parsed;
+            try {
+              parsed = JSON.parse(fs.readFileSync(file, "utf8"));
+            } catch (error) {
+              failures.push(`${benchmark}: unreadable result file (${error.message})`);
+              continue;
+            }
+
+            // values is keyed by metric ("total"/"script"/"paint" for cpu,
+            // "DEFAULT" for memory + size). The headline metric is "total"
+            // when present, otherwise the single DEFAULT series.
+            const metrics = parsed.values ?? {};
+            const headline = metrics.total ?? metrics.DEFAULT;
+            if (!headline) {
+              failures.push(
+                `${benchmark}: no total/DEFAULT metric (got ${Object.keys(metrics).join(", ") || "nothing"})`
+              );
+              continue;
+            }
+
+            const samples = headline.values ?? [];
+            if (samples.length === 0) {
+              failures.push(`${benchmark}: zero samples recorded`);
+              continue;
+            }
+            if (!(headline.median > 0)) {
+              failures.push(`${benchmark}: median is ${headline.median} — nothing was measured`);
+              continue;
+            }
+
+            rows.push(
+              `${benchmark.padEnd(24)} median=${headline.median.toFixed(2).padStart(9)}  n=${samples.length}`
+            );
+          }
+
+          console.log(`=== ${prefix} ===`);
+          for (const row of rows) console.log(row);
+
+          if (failures.length) {
+            for (const f of failures) console.log(`::error::${f}`);
+            console.log(
+              "::error::benchmark reported success but measured nothing — refusing to mark this run green"
+            );
+            process.exit(1);
+          }
+
+          console.log(`\nAll ${required.length} benchmarks produced non-zero measurements.`);
+          EOF
 
       - name: Generate results table
         if: always()
