@@ -245,7 +245,8 @@ Historian  ←── reads all in-session delta pages, writes retro page,
 |---|---|
 | CI workflow files | One session's gate change silently invalidates the other's green run |
 | Lockfiles (`bun.lock`, `package-lock.json`) | Regenerated, never merged; a hand-merge desyncs the tooling from the tree |
-| Generated artifacts (size budgets, bundle-size caches, autogen READMEs, package inventories) | Regenerate on build; two sessions produce different drift on different machines |
+| Generated artifacts (size budgets, bundle-size caches, autogen READMEs, package inventories) | Regenerate on build; two sessions produce different drift on different machines. **Regenerating from an UNBUILT tree silently downgrades real measurements to absent ones** — a generator reports what it can measure, so a package you have not built emits `_no dist_` (or a zero) where a real number belongs. Invisible in review: the diff looks like an ordinary regeneration. Always `build` before you regenerate, and read the regenerated values, not just the fact that it ran. |
+| Version manifests when a peer has bumped them too | Two sessions can independently pick the same next version. Whoever resolves the conflict by keeping their own side ships a build claiming a version another tree already claims — and if that version ever reaches the registry, the publish step **skips it as already-published** and the artifact is silently stale. Re-derive the next free version at resolve time; never keep "my side" by default. |
 | The compiler / any build-time codegen | Changes output for **every** consumer, not just the one you tested |
 | Version manifests + platform binary pins | A bump claimed twice means the second PR reclaims a taken version |
 | The primary checkout itself | A branch switch or clean destroys another session's uncommitted work |
