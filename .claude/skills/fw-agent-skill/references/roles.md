@@ -193,7 +193,7 @@ Investigation precedes fix. Lesson #10 documents the cost of skipping this — h
 
 **Output:**
 - `retro.md` — session retrospective: what was attempted, what worked, what failed, lessons for next session
-- Updated `state-<track>.md` — single-pointer state at repo root
+- Updated `docs/state/<track>.md` — single-pointer state at repo root
 
 **Does NOT:**
 - Dispatch further agents
@@ -221,8 +221,8 @@ Every role above has both a **file-output convention** (the `.md` artifact descr
 
 The base layer is **never** written from automated work. Promotion to base requires human review.
 
-**Why most subagent writes go "via Team Lead":** GBrain enforces a `wiki/agents/<subagent-id>/.+` slug prefix on subagent `put_page` calls by default. Project-scoped writes (`<project>/delta/...`, `<project>/user/...`) must originate from a non-subagent caller — so subagents return content in their STATUS payload and the Team Lead, having verified STATUS against the artifact, calls `mcp__gbrain__put_page` with the project-scoped slug.
+**Why most subagent writes go "via Team Lead":** GBrain enforces a `wiki/agents/<subagent-id>/.+` slug prefix on subagent `put_page` calls by default. Project-scoped writes (`<project>/delta/...`, `<project>/user/...`) must originate from a non-subagent caller — so subagents return content in their STATUS payload and the Team Lead, having verified STATUS against the artifact, calls `PUT_PAGE` with the project-scoped slug.
 
-**The Historian's promotion authority is the formal "earned learning" gate.** A finding becomes durable team knowledge only when the Historian decides it has earned promotion at end-of-session — survived a Director routing pass, been Verifier-PASSed (for specs), or affirmed by the user (for domain hints). Promotion is implemented as writing a new page under `<project>/user/<topic>/...` and linking back to the originating delta page via `mcp__gbrain__add_link`.
+**The Historian's promotion authority is the formal "earned learning" gate.** A finding becomes durable team knowledge only when the Historian decides it has earned promotion at end-of-session — survived a Director routing pass, been Verifier-PASSed (for specs), or affirmed by the user (for domain hints). Promotion is implemented as writing a new page under `<project>/user/<topic>/...` and linking back to the originating delta page via `ADD_LINK`.
 
 Full layer model, slug/tag conventions, search conventions, promotion criteria, and setup are in `references/middleware.md`.

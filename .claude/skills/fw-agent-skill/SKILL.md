@@ -1,13 +1,15 @@
 ---
 name: fw-agent-skill
-description: Multi-agent team orchestration playbook for non-trivial coding work, with GBrain (Supabase + pgvector) as the storage and recall middleware. Use when acting as Team Lead in a Claude Code session that warrants subagent orchestration — starting or resuming a multi-round build or refactor, running an investigate-then-fix defect loop, executing a hypothesis-sweep experiment loop, dispatching specialized subagents (Topic Director, Synthesizer, Scout, Architect, Builder, Verifier, Investigator, Historian), picking an operating mode (Mode 1 experiment loop, Mode 2 build/refactor, Mode 3 defect fix), briefing an agent, deciding what to do after a Verifier round, handling cross-repo branch coordination, judging whether to surface to the user, writing session retros, or managing the GBrain layered context store (base/user/delta/local mapped to slug prefixes + tags) that backs the team's durable knowledge. Trigger on phrases like "team lead", "dispatch", "spawn", "subagent", "Builder/Verifier/Director/Scout/Architect/Investigator/Synthesizer/Historian", "next round", "scope shift", "iteration budget", "topic director", "synthesizer", "historian", "paired branches", "ping-pong loop", "another iteration", "gbrain", "GBrain", "mcp__gbrain__search", "mcp__gbrain__put_page", "delta layer", "promote findings", or "context store". Also use proactively when the user asks for a complex build or fix that should be decomposed into Architect → Builder → Verifier cycles, or whenever a workflow involves dispatching multiple subagents in sequence rather than one-shot help.
+description: Multi-agent team orchestration playbook for non-trivial coding work, with a pluggable storage substrate (committed files by default; GBrain/Supabase when a server is actually reachable). Use when acting as Team Lead in a Claude Code session that warrants subagent orchestration — starting or resuming a multi-round build or refactor, running an investigate-then-fix defect loop, executing a hypothesis-sweep experiment loop, dispatching specialized subagents (Topic Director, Synthesizer, Scout, Architect, Builder, Verifier, Investigator, Historian), picking an operating mode (Mode 1 experiment loop, Mode 2 build/refactor, Mode 3 defect fix), briefing an agent, deciding what to do after a Verifier round, handling cross-repo branch coordination, judging whether to surface to the user, writing session retros, or managing the GBrain layered context store (base/user/delta/local mapped to slug prefixes + tags) that backs the team's durable knowledge. Trigger on phrases like "team lead", "dispatch", "spawn", "subagent", "Builder/Verifier/Director/Scout/Architect/Investigator/Synthesizer/Historian", "next round", "scope shift", "iteration budget", "topic director", "synthesizer", "historian", "paired branches", "ping-pong loop", "another iteration", "gbrain", "GBrain", "mcp__gbrain__search", "mcp__gbrain-local__search", "put_page", "substrate", "delta layer", "promote findings", or "context store". Also use proactively when the user asks for a complex build or fix that should be decomposed into Architect → Builder → Verifier cycles, or whenever a workflow involves dispatching multiple subagents in sequence rather than one-shot help.
 ---
 
 # Agent Team Orchestration
 
 You are the **Team Lead** for a multi-agent coding effort. This skill is your playbook. Read it before doing anything in a Team Lead capacity.
 
-The methodology in this skill has been tuned three times against observed agent behavior. The lessons in `references/lessons.md` are not theoretical — they are 11 specific failure patterns that have actually occurred in real sessions. Trust them.
+The methodology in this skill has been tuned four times against observed agent behavior. The lessons in `references/lessons.md` are not theoretical — they are 21 specific failure patterns that have actually occurred in real sessions. Trust them.
+
+**Before anything else, run the substrate preflight in Step 0.** Lesson #20 exists because an entire session ran on a substrate nobody had verified, against tool names that did not exist, and nothing visibly failed.
 
 ---
 
@@ -28,11 +30,77 @@ This split is the single most important rule in the playbook. Lesson #11 in `ref
 
 ---
 
-## Storage substrate: GBrain middleware
+## Step 0 — Substrate preflight (run before briefing ANYONE)
 
-The team's durable knowledge — director-notes, topic summaries, retros, investigations, build-manifests — lives in **[GBrain](https://github.com/garrytan/gbrain)**, a Supabase + pgvector wiki-style brain that exposes ~74 MCP tools over stdio. Agents query it mid-dispatch via `mcp__gbrain__search` and write outputs via `mcp__gbrain__put_page` at handoff.
+The team's durable knowledge — director-notes, topic summaries, retros, investigations, build-manifests — has to live *somewhere*. **Which somewhere is a per-session fact you MUST establish before your first dispatch, not an assumption you inherit from this document.**
 
-> **Substrate is optional; the methodology is not.** GBrain is one home for durable artifacts, not a requirement. When GBrain is absent, unreachable, or deliberately skipped (a valid, common choice), the **file substrate is first-class**: durable artifacts live under `docs/` — `docs/plans/<slice>/` for delta (build-manifests, architecture-specs, director-notes, verification-reports), `docs/domain-hints/` and `docs/lessons/` for user-layer, `docs/architecture/` for base. The roster, modes, spine, promotion discipline, and every lesson are identical either way — only the read/write verb changes (`Read`/`Write` a file vs. `mcp__gbrain__get_page`/`put_page`). Do not block a session on GBrain setup; pick the substrate that exists and proceed. Verify STATUS against whichever substrate is in use (a committed file on the branch is as good as a page).
+**The file substrate is the default.** Committed markdown under `docs/plans/<slice>/` is always available, always reviewable, always survives the session, and needs no server. A gbrain server is an *upgrade* on top of it — queryable, cross-session, cross-agent — and you use it only after you have confirmed a live one **and learned its actual tool namespace**.
+
+### The preflight, in one call
+
+```
+ToolSearch  query: "gbrain search put_page get_page"
+```
+
+Read the tool names in the result. That is ground truth:
+
+| Preflight result | Substrate | What you write into briefs |
+|---|---|---|
+| Returns `mcp__<server>__search` / `…__put_page` / `…__get_page` | **gbrain, namespace `<server>`** | the literal resolved names, e.g. `mcp__gbrain-local__search` |
+| Returns nothing gbrain-shaped | **file** | `Read` / `Write` / `Grep` under `docs/plans/<slice>/` |
+
+**`<server>` is whatever the live server registered under. Do NOT assume it is `gbrain`.** As of 2026-07 in this repo the live server is registered at *user* scope as **`gbrain-local`**, so the tools are `mcp__gbrain-local__*`. A brief that says `mcp__gbrain__search` names a tool that does not exist; the agent cannot distinguish that from an empty result, so it improvises and you never find out.
+
+Optional shell cross-check (diagnostic only — it reports registration, not usability):
+
+```bash
+claude mcp list 2>&1 | grep -i gbrain
+```
+
+### Why this preflight exists
+
+This repo ships `.mcp.json` with a project-scope server literally named `gbrain` that has never once started:
+
+```jsonc
+"gbrain": { "command": "bash", "args": [".claude/scripts/gbrain-mcp.sh"] }
+```
+
+`.claude/scripts/gbrain-mcp.sh` exits before it ever reaches `exec gbrain mcp serve` unless **both** `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are exported:
+
+```
+[gbrain-mcp] SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set.
+```
+
+Those variables are absent from a normal local checkout, so that server no-ops **silently** — no `mcp__gbrain__*` tool is ever registered, and nothing in the session reports it. Meanwhile a *different*, working server may be registered under a *different* name. That is exactly the state this repo has been in. Do not set or invent those credentials to "fix" it; run the preflight and use what is actually there.
+
+### Notation used throughout this playbook
+
+Because the namespace is not knowable in advance, this playbook and its templates write storage operations as **capabilities in caps**:
+
+| Capability | gbrain substrate | File substrate |
+|---|---|---|
+| `SEARCH` | `mcp__<server>__search` | `Grep` / `Glob` over `docs/plans/`, `docs/lessons/`, `docs/domain-hints/` |
+| `GET_PAGE` | `mcp__<server>__get_page` | `Read` the file at the slug's path |
+| `PUT_PAGE` | `mcp__<server>__put_page` | `Write` the file, then `git add` + commit |
+| `LIST_PAGES` | `mcp__<server>__list_pages` | `ls` / `Glob` the slug-prefix directory |
+| `ADD_TAG` | `mcp__<server>__add_tag` | a `tags:` line in the file's front-matter |
+| `ADD_LINK` | `mcp__<server>__add_link` | a relative markdown link in the body |
+| `GET_BACKLINKS` | `mcp__<server>__get_backlinks` | `Grep` for the target filename |
+| `DELETE_PAGE` | `mcp__<server>__delete_page` | `git rm` |
+
+**Slug → path mapping on the file substrate:** `<project>/delta/<topic>/<round>/<kind>` → `docs/plans/<topic>/<round>-<kind>.md`; `<project>/user/<topic>/<id>` → `docs/lessons/<id>.md` or `docs/domain-hints/<id>.md`; `<project>/base/...` → `docs/architecture/...`.
+
+**Resolve the capabilities ONCE, in the preflight, and write the resolved form into every brief.** Never ship a brief containing a bare `SEARCH` or `PUT_PAGE` — a subagent cannot resolve it.
+
+> **Substrate is optional; the methodology is not.** The roster, modes, spine, promotion discipline, and every lesson are identical either way — only the read/write verb changes. Do not block a session on gbrain setup. Verify STATUS against whichever substrate is in use: **a committed file on the branch is as good as a page**, and is in fact easier to verify, because `git log` proves it exists.
+
+---
+
+## Storage substrate: GBrain middleware (only if the preflight found one)
+
+Everything in this section applies **only** if Step 0 resolved to a gbrain substrate. If it resolved to files, read on with the capability table above substituted in, and skip the setup notes.
+
+**[GBrain](https://github.com/garrytan/gbrain)** is a Supabase + pgvector wiki-style brain exposing ~74 MCP tools over stdio. Agents query it mid-dispatch via `SEARCH` and write outputs via `PUT_PAGE` at handoff.
 
 This is **middleware, not a methodology change** — the roster, modes, spine, and lessons all stand. GBrain just gives the durable artifacts a queryable home, which:
 
@@ -117,6 +185,8 @@ The 10 universal spawn principles:
 
 **Pre-flight checklist (run before every dispatch):**
 
+- ☐ **Substrate resolved (Step 0) and the brief names CONCRETE tools?** No bare `SEARCH`/`PUT_PAGE`, no assumed `mcp__gbrain__*`. (Lesson #20.)
+- ☐ **Every factual premise in this brief verified, not inherited?** Named CI gates, file counts, "X is already fixed" — briefs propagate wrong claims at full confidence. (Lesson #19.)
 - ☐ All 10 universal principles honored in this brief?
 - ☐ Has Topic Director set direction for this round? (If not, dispatch Director first.)
 - ☐ Does my brief use the Director's most recent guidance? (If briefing on stale guidance, re-dispatch Director.)
@@ -147,14 +217,14 @@ raw prior findings. Loops back to top.
 
 End of session:
 Historian  ←── reads all in-session delta pages, writes retro page,
-                promotes earned findings delta → user, updates state-<track>.md
+                promotes earned findings delta → user, updates docs/state/<track>.md
 ```
 
 **Per-round protocol (Modes 2 and 3):**
 
 1. **Researcher** ships findings; reports `STATUS: DONE | PARTIAL | BLOCKED` with concrete numbers per acceptance item, plus the slug of any page they wrote.
-2. **You (Team Lead)** verify the STATUS report against the artifact. **Don't trust self-reports** — run a quick automated check (does the file exist, does the test pass, does git log show the commit, does `mcp__gbrain__get_page` return the claimed page). Then dispatch Topic Director.
-3. **Topic Director** reads findings + latest topic summary + prior director-notes (via `mcp__gbrain__search`). Outputs a director-note covering: on-thesis assessment, routing for synthesis, priority, scope signal (continue/switch/surface), refined brief for next Researcher, surface-to-user triggers, continuity check.
+2. **You (Team Lead)** verify the STATUS report against the artifact. **Don't trust self-reports** — run a quick automated check (does the file exist, does the test pass, does git log show the commit, does `GET_PAGE` return the claimed page). Then dispatch Topic Director.
+3. **Topic Director** reads findings + latest topic summary + prior director-notes (via `SEARCH`). Outputs a director-note covering: on-thesis assessment, routing for synthesis, priority, scope signal (continue/switch/surface), refined brief for next Researcher, surface-to-user triggers, continuity check.
 4. **You** dispatch Synthesizer if Director routed for synthesis.
 5. **Synthesizer** updates the topic summary. Synthesizer doesn't make priority calls — Director already did.
 6. **You** brief the next Researcher *from the updated summary*, incorporating Director's refined-brief content. You handle logistics around it.
@@ -195,11 +265,18 @@ The Topic Director is the substance-surface authority. You are the logistical-su
 
 When starting or resuming a session:
 
-1. **Read** the project state file (e.g., `state-<track>.md`) for the orientation pointer.
-2. **Pull recent durable context** via `mcp__gbrain__search`:
-   - `mcp__gbrain__search` query: `"kind:topic_summary topic:<active-topic> layer:delta"` — latest summary
-   - `mcp__gbrain__search` query: `"kind:director_note topic:<active-topic>"` — last 3 notes
-   - `mcp__gbrain__search` query: `"kind:retro topic:<active-topic>"` — last retro
+0. **Run the Step 0 substrate preflight.** Resolve `SEARCH` / `GET_PAGE` / `PUT_PAGE` to concrete calls before you read or brief anything.
+1. **Read the project state file: `docs/state/<track>.md`.**
+   **Do not look for `state-<track>.md` at repo root — in this repo `.gitignore:98` matches `state-*.md`, so any such file is untracked, invisible to every other clone, and lost on a fresh worktree.** That is why resume step 1 has been a silent no-op. The tracked location is `docs/state/<track>.md`.
+   If no state file exists, do not stall — derive orientation in this order and *then* create one:
+   a. the newest `docs/plans/*/RETRO.md`;
+   b. `git log --oneline -30` on `main` plus `gh pr list --state merged --limit 20`;
+   c. `gh pr list --state open` for in-flight work.
+2. **Pull recent durable context** via `SEARCH` (resolved form from Step 0):
+   - `"kind:topic_summary topic:<active-topic> layer:delta"` — latest summary
+   - `"kind:director_note topic:<active-topic>"` — last 3 notes
+   - `"kind:retro topic:<active-topic>"` — last retro
+   On the file substrate these are `Glob`/`Grep` over `docs/plans/<topic>/` and `docs/plans/*/RETRO.md`.
 3. **Dispatch Topic Director** with search-guidance brief. Director sets direction for this session.
 4. **Dispatch Researchers** per Director's direction.
 5. **Loop the spine** (Researcher → Director → Synthesizer → next-Researcher).
@@ -213,10 +290,10 @@ When starting or resuming a session:
 
 This skill is methodology-only. Per project, you also need:
 
-- **GBrain installed and registered as MCP** (see `references/middleware.md` for setup; gstack's `/setup-gbrain` is the canonical install path). Supabase credentials (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`) must be in the environment.
+- **A substrate, resolved by the Step 0 preflight.** The file substrate under `docs/` needs no setup and is always available — that alone satisfies this requirement. GBrain is optional: if you want it, gstack's `/setup-gbrain` is the canonical install path, and `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` must be exported in the environment that launches the server or `.claude/scripts/gbrain-mcp.sh` exits silently and no `mcp__gbrain__*` tool is registered. Record the **resolved namespace** (e.g. `gbrain-local`) in `docs/state/<track>.md` so the next session does not re-derive it. See `references/middleware.md`.
 - **A project slug prefix** — typically the repo name (e.g., `aihu`). All durable team pages live under `<project>/{base,user,delta}/...`.
 - **Linked repositories** with branch conventions (e.g., `feat/<topic>`, `fix/<topic>`, `verify/<topic>`). When work spans multiple repos, use **paired branch names** and cross-reference PR descriptions. See `references/operations.md` for full cross-repo branch hygiene.
-- **State files**: typically `state-<track>.md` at repo root, one per parallel track. (These persist alongside GBrain; the file is the human-reviewable single-pointer state, GBrain is the queryable history.)
+- **State files**: `docs/state/<track>.md`, one per parallel track — **tracked, committed, PR-reviewable**. (`state-*.md` at repo root is gitignored in this repo and MUST NOT be used.) The file is the human-reviewable single-pointer state; a gbrain brain, if present, is the queryable history.
 - **Topic identifiers and track identifiers** — string conventions agents tag pages with. Use `topic:<id>` and `track:<id>` tags so searches scope correctly.
 - **Safety mode**: a writability matrix per mode (which files are writable, read-only, or frozen) AND the GBrain layer-write matrix per role. Both worked examples in `references/operations.md` and `references/middleware.md`.
 - **Success criteria**: explicit "done" definition, ideally a runnable acceptance check.
@@ -230,12 +307,20 @@ If the project doesn't have these yet, the first session creates them. Treat tha
 These are summarized from `references/lessons.md` — read it for the full account. The most common Team Lead mistakes:
 
 - **Don't make substance decisions inline.** When you find yourself deciding which defect to fix next, what acceptance bar applies, or whether to scope-shift — stop. Dispatch the Topic Director.
-- **Don't trust self-reported STATUS.** Verify against the artifact (git log, test run, `mcp__gbrain__get_page` on the claimed slug) before moving on.
+- **Don't trust self-reported STATUS.** Verify against the artifact (git log, test run, `GET_PAGE` on the claimed slug) before moving on.
 - **Don't accept "PASS conditional" with deferrals.** Either it passes or it doesn't. Deferrals become the actual blockers.
 - **Don't let Builders revise targets.** Compare reported numbers to the original spec.
 - **Don't ship Builders without explicit deliverable framing.** "Implement X" is not enough — say "produce artifact Y on branch Z, committed and pushed; write build_manifest page to `<project>/delta/<topic>/<round>/build-manifest`."
 - **Don't skip the investigation step on ambiguous defects.** Iron Law: investigation page (kind:investigation_report) before any fix code.
 - **Don't put two concurrent agents on the same branch.** Use paired branch names for cross-repo.
+- **Don't report a blocker closed because its enabler shipped.** Acceptance is a diff in the *consuming* package. `git show <sha> --stat | grep <consumer>`; empty means open. (Lesson #14.)
+- **Don't trust a result without identifying the artifact that produced it.** Resolver fallback chains and reused dev servers make "the fix works" and "the fix ran" diverge. (Lesson #15.)
+- **Don't read a required check's color instead of its definition.** Read what it depends on and whether it passes when those are skipped. (Lesson #16.)
+- **Don't size a defect from its ticket.** Serial-masking chains are normal; a changed error message is round N+1, not a failure. (Lesson #17.)
+- **Don't ask an agent to satisfy a guard you haven't run on pristine `main`.** A permanently-red guard teaches `--no-verify`. (Lesson #18.)
+- **Don't ship a brief whose premises you haven't checked** — named CI gates, file counts, "X already handles this." (Lesson #19.)
+- **Don't name a storage tool you didn't resolve this session.** (Lesson #20.)
+- **Don't exempt yourself from the rules you put in briefs.** Check your own working tree at session start and end. (Lesson #21.)
 
 ---
 
@@ -245,7 +330,7 @@ Read these on demand based on what you're doing:
 
 - **`references/roles.md`** — Full roster: per-role concern, output schema, when to spawn, gotchas, plus per-role GBrain slug/layer write permissions.
 - **`references/modes.md`** — The three operating modes in detail: when to use, researchers, substance cadence, iteration discipline.
-- **`references/templates.md`** — Spawn prompt templates: T-DIR (Topic Director), T-SYN (Synthesizer), Mode 1/2/3 templates, Verifier-only audit dispatch. All updated to use `mcp__gbrain__search` for context retrieval and `mcp__gbrain__put_page` for output.
+- **`references/templates.md`** — Spawn prompt templates: T-DIR (Topic Director), T-SYN (Synthesizer), Mode 1/2/3 templates, Verifier-only audit dispatch. All updated to use `SEARCH` for context retrieval and `PUT_PAGE` for output.
 - **`references/operations.md`** — Operational reference: file safety-mode writability matrices, GBrain layer-write matrices, cross-repo branch hygiene, checkpoint state mediums.
 - **`references/middleware.md`** — GBrain storage and recall middleware: slug/tag conventions, layer model, per-role permissions, search conventions, promotion discipline, setup instructions, worked example, anti-patterns, and how each lesson is partly addressed by the middleware. **Read before your first dispatch.**
-- **`references/lessons.md`** — 11 observed failure patterns from real sessions. Each one has a mitigation tied to a universal principle. Read this before your first dispatch in any new session.
+- **`references/lessons.md`** — 21 observed failure patterns from real sessions. Each one has a mitigation tied to a universal principle. Read this before your first dispatch in any new session.

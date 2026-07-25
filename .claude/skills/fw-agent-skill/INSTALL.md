@@ -1,6 +1,12 @@
 # Installing & Using
 
-This skill needs two things in place: the skill files where Claude Code can find them, and GBrain (Supabase + pgvector) running as an MCP server. After that, Claude auto-loads the skill when you describe orchestration work.
+This skill needs **one** thing in place: the skill files where Claude Code can find them. After that, Claude auto-loads the skill when you describe orchestration work.
+
+GBrain (Supabase + pgvector) as an MCP server is an **optional upgrade**, not a prerequisite. Without it the team runs on the **file substrate** — durable artifacts committed under `docs/plans/`, `docs/lessons/`, `docs/domain-hints/`, `docs/architecture/` — which is the default and is fully sufficient. Steps 3–4 below are only for the optional gbrain path.
+
+> **Whichever you end up with, the Team Lead resolves it at session start** with the Step 0 preflight in `SKILL.md` (`ToolSearch query: "gbrain search put_page get_page"`). Two things make this non-negotiable:
+> 1. **The tool namespace follows the registered server NAME**, and project scope and user scope frequently disagree — a user-scope `gbrain-local` yields `mcp__gbrain-local__*`, not `mcp__gbrain__*`.
+> 2. **A misconfigured server fails silently.** `.claude/scripts/gbrain-mcp.sh` exits before starting unless both `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are exported, and nothing in the session reports it. See `references/middleware.md`.
 
 ---
 
@@ -12,7 +18,7 @@ This skill needs two things in place: the skill files where Claude Code can find
 | Bash shell (Git Bash on Windows) | `bash --version` | https://git-scm.com (Windows) |
 | Node.js (for gbrain CLI via npm) | `node --version` | https://nodejs.org |
 | A git repo to use it in | `git status` in your project | `git init` |
-| A Supabase project | URL + service-role key | https://supabase.com (or auto-provision via `/setup-gbrain`) |
+| *(optional)* A Supabase project | URL + service-role key, **both exported into the environment that launches the MCP server** | https://supabase.com (or auto-provision via `/setup-gbrain`) — or skip it and use the file substrate |
 
 ---
 
@@ -87,7 +93,7 @@ claude mcp add --transport stdio --scope user gbrain -- gbrain mcp serve
 
 ## Step 3 — Register this project's repos as GBrain sources (optional)
 
-GBrain can index your repo's code so searches across `mcp__gbrain__search` can surface code context alongside the team's durable knowledge:
+GBrain can index your repo's code so searches across `SEARCH` can surface code context alongside the team's durable knowledge:
 
 ```bash
 cd /path/to/your/project
@@ -133,7 +139,7 @@ GBrain pages live under slug prefixes. Pick a short, stable identifier for your 
 | delta | `<project>/delta/<topic>/<round>/<kind>` | `aihu/delta/cache-invalidation/3/build-manifest` |
 | local | `wiki/agents/<subagent-id>/...` (enforced) | `wiki/agents/builder-7f3/scratch/probe-1` |
 
-This convention is what the per-role permission matrix (in `references/roles.md` and `references/middleware.md`) is built around. Pick the project slug **once** and put it in the project's `state-<track>.md` so every agent uses the same one.
+This convention is what the per-role permission matrix (in `references/roles.md` and `references/middleware.md`) is built around. Pick the project slug **once** and put it in the project's `docs/state/<track>.md` so every agent uses the same one.
 
 ---
 
@@ -155,14 +161,14 @@ The skill auto-triggers when you describe orchestration work. You don't need to 
 > I want to investigate and fix [specific defect]. This is non-trivial and probably needs the investigate-then-fix loop. Use the fw-agent-skill playbook.
 
 **To resume work:**
-> Resume the orchestration session. Read state-<track>.md and let's pick up where we left off.
+> Resume the orchestration session. Read docs/state/<track>.md and let's pick up where we left off.
 
 **What to expect on the first dispatch:**
 
 1. Claude reads `SKILL.md` and identifies which mode applies.
 2. Since no director-note exists yet, the first dispatch is a **Topic Director** — it sets initial direction.
-3. The Director calls `mcp__gbrain__search` against your Supabase brain (you'll see the MCP tool calls in the UI).
-4. Director writes a `kind:director_note` page to `<project>/delta/<topic>/0/director-note` via `mcp__gbrain__put_page`, then tags it with `topic:<id>`, `track:<id>`, `layer:delta`, `round:0` via `mcp__gbrain__add_tag`.
+3. The Director calls `SEARCH` against your Supabase brain (you'll see the MCP tool calls in the UI).
+4. Director writes a `kind:director_note` page to `<project>/delta/<topic>/0/director-note` via `PUT_PAGE`, then tags it with `topic:<id>`, `track:<id>`, `layer:delta`, `round:0` via `ADD_TAG`.
 5. Claude then dispatches the first **Scout** or **Architect** per the Director's brief.
 6. Loop continues per the synthesis spine.
 
@@ -192,7 +198,7 @@ After all six steps, run through this:
 | Supabase env set | `echo $SUPABASE_URL` | URL prints |
 | MCP registered | `claude mcp list` | `gbrain` listed |
 | Brain reachable | `gbrain search "test" --limit 1` | No connection error |
-| First-session test | Tell Claude to start a Mode 2 session, watch for `mcp__gbrain__search` calls | MCP tool calls visible in transcript |
+| First-session test | Tell Claude to start a Mode 2 session, watch for `SEARCH` calls | MCP tool calls visible in transcript |
 
 If all six pass, you're ready.
 
@@ -202,7 +208,7 @@ If all six pass, you're ready.
 
 **Skill doesn't trigger.** Mention specific keywords from the skill's description: "team lead", "Mode 2 build", "dispatch a subagent", "topic director", "fw-agent-skill playbook", "GBrain". If still no, check Claude Code can see the skill — type `/` in a session and look for it in the slash-command list.
 
-**`mcp__gbrain__search` returns nothing.** First-run brain is empty by design — durable knowledge accumulates session-over-session. If you want the skill itself indexed for `mcp__gbrain__search` retrieval, register it as a source: `gbrain sources add ~/.claude/skills/fw-agent-skill --label fw-agent-skill && gbrain sync`.
+**`SEARCH` returns nothing.** First-run brain is empty by design — durable knowledge accumulates session-over-session. If you want the skill itself indexed for `SEARCH` retrieval, register it as a source: `gbrain sources add ~/.claude/skills/fw-agent-skill --label fw-agent-skill && gbrain sync`.
 
 **MCP server fails to start.** Check `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are set in the environment Claude Code launches the MCP server with. The wrapper at `.claude/scripts/gbrain-mcp.sh` fails fast with a clear message if either is missing.
 

@@ -23,7 +23,7 @@ This is the matrix used by an actual project (translation research) in three mod
 | Pipeline scripts (e.g., `prepare*.py`, `evaluate*.py`, `score*.py`) | read-only | writable on feature branch | writable on fix branch |
 | Fixture data (e.g., `data/fixtures/*`) | read-only | writable | writable |
 | Gold/test corpus and rubric (e.g., `gold/`, `gold/rubric.md`) | read-only | read-only | **frozen** (never modified during automated work) |
-| State files (e.g., `state-<track>.md`) | writable (Historian only) | read-only | read-only |
+| State files (e.g., `docs/state/<track>.md`) | writable (Historian only) | read-only | read-only |
 | GBrain pages under `<project>/{base,user,delta}/` | per layer-write matrix below | per layer-write matrix below | per layer-write matrix below |
 | Topic summaries (e.g., `docs/topic-summaries/*.md`) | writable (Synthesizer only) | writable (Synthesizer only) | writable (Synthesizer only) |
 | Director notes (e.g., `docs/topic-director-notes/*.md`) | writable (Director only) | writable (Director only) | writable (Director only) |
@@ -55,10 +55,10 @@ The durable-knowledge analog of the file matrix above. Same discipline, differen
 
 Empty cell = read-only. The base layer is **never** written from automated work; promotion to base requires a deliberate human PR adding a page under `<project>/base/...`.
 
-**Why most subagent writes route through the Team Lead:** GBrain enforces a `wiki/agents/<subagent-id>/.+` slug prefix on subagent `put_page` calls by default. Project-scoped slugs (`<project>/delta/...`, `<project>/user/...`) must originate from a non-subagent caller. Subagents return content in their STATUS payload; the Team Lead, having verified STATUS against the artifact, calls `mcp__gbrain__put_page` with the project-scoped slug and follows up with `mcp__gbrain__add_tag` for the standard tag set.
+**Why most subagent writes route through the Team Lead:** GBrain enforces a `wiki/agents/<subagent-id>/.+` slug prefix on subagent `put_page` calls by default. Project-scoped slugs (`<project>/delta/...`, `<project>/user/...`) must originate from a non-subagent caller. Subagents return content in their STATUS payload; the Team Lead, having verified STATUS against the artifact, calls `PUT_PAGE` with the project-scoped slug and follows up with `ADD_TAG` for the standard tag set.
 
 **Key disciplines:**
-- Only the Historian moves pages from delta → user during automated work. This is the formal "earned learning" gate. Promotion is "write a new page under `<project>/user/<topic>/...` and link back to the delta page via `mcp__gbrain__add_link`."
+- Only the Historian moves pages from delta → user during automated work. This is the formal "earned learning" gate. Promotion is "write a new page under `<project>/user/<topic>/...` and link back to the delta page via `ADD_LINK`."
 - The Team Lead is the only role allowed to write `domain_hint` pages directly to user, and only when the user supplies the hint in the conversation. Tag with `source:user`.
 - Builders and Verifiers never write to user. If they find something user-worthy, content goes to delta (via Team Lead commit) and the Historian promotes.
 
@@ -93,7 +93,7 @@ Adapt to project, but a sensible default:
 
 Durable session state lives in four places, with four different update cadences and four different consumption patterns.
 
-### 1. `state-<track>.md` — single-pointer state
+### 1. `docs/state/<track>.md` — single-pointer state
 
 Markdown at repo root, one per track. Updated by **Historian only**, at end-of-session. Schema (suggested):
 
@@ -116,16 +116,16 @@ What the next session should pick up.
 
 ## Pointer to active topic summary
 Pull via:
-  mcp__gbrain__search query: "kind:topic_summary topic:<topic> layer:delta" --limit 1
+  SEARCH query: "kind:topic_summary topic:<topic> layer:delta" --limit 1
 or by slug:
-  mcp__gbrain__get_page slug: "<project>/delta/<topic>/topic-summary-<N>"
+  GET_PAGE slug: "<project>/delta/<topic>/topic-summary-<N>"
 ```
 
 This is what the next session reads first on resume. It's intentionally human-readable and PR-reviewable — a quick orientation document, not a knowledge store.
 
 ### 2. GBrain (the queryable knowledge store)
 
-Supabase + pgvector wiki-style brain with layer-as-slug-prefix convention (`<project>/base/`, `<project>/user/`, `<project>/delta/`, `wiki/agents/<id>/`). Updated continuously by all roles (within their layer permissions, see matrix below). This is the **primary consumption surface** mid-session — agents query it via `mcp__gbrain__search` instead of reading files.
+Supabase + pgvector wiki-style brain with layer-as-slug-prefix convention (`<project>/base/`, `<project>/user/`, `<project>/delta/`, `wiki/agents/<id>/`). Updated continuously by all roles (within their layer permissions, see matrix below). This is the **primary consumption surface** mid-session — agents query it via `SEARCH` instead of reading files.
 
 Full detail in `references/middleware.md`.
 
@@ -143,12 +143,12 @@ Schema in `roles.md` under Synthesizer.
 
 ## Resume protocol (canonical sequence)
 
-1. **Team Lead** reads `state-<track>.md` (the orientation document).
+1. **Team Lead** reads `docs/state/<track>.md` (the orientation document).
 2. **Team Lead** runs (via the MCP tools):
    ```
-   mcp__gbrain__search query: "kind:topic_summary topic:<active-topic> layer:delta" --limit 1
-   mcp__gbrain__search query: "kind:director_note topic:<active-topic> layer:delta" --limit 3
-   mcp__gbrain__search query: "kind:retro topic:<active-topic>" --limit 1
+   SEARCH query: "kind:topic_summary topic:<active-topic> layer:delta" --limit 1
+   SEARCH query: "kind:director_note topic:<active-topic> layer:delta" --limit 3
+   SEARCH query: "kind:retro topic:<active-topic>" --limit 1
    ```
    This loads the recent durable context without inlining files.
 3. **Team Lead** dispatches Topic Director with search guidance (T-DIR template). Director sets direction for this session.
@@ -156,14 +156,14 @@ Schema in `roles.md` under Synthesizer.
 5. Loop the synthesis spine (Researcher → Director → Synthesizer → next-Researcher).
 6. **End of session**: Team Lead dispatches Historian. Historian writes the retro page AND runs delta → user promotion for any earned findings.
 
-If the state file doesn't exist on first session, the first dispatch creates it (the GBrain Supabase backend is provisioned at install time per `INSTALL.md`). Treat the state-file bootstrap as a Mode 2 micro-build: Architect specs the schema, Builder writes the file, Verifier confirms format, Director sets first direction. See `references/middleware.md` for GBrain setup.
+If the state file does not exist, do NOT stall and do NOT skip step 1 — derive orientation from the newest `docs/plans/*/RETRO.md`, then `git log --oneline -30` on the default branch plus `gh pr list --state merged --limit 20`, then `gh pr list --state open`; write `docs/state/<track>.md` from what you found before the session ends. Creating it is a Historian duty, not a Mode 2 micro-build. **Never create `state-<track>.md` at repo root: `.gitignore:98` matches `state-*.md`, so the file would be untracked and invisible to the next clone — this is exactly why resume step 1 was a silent no-op for multiple sessions.**
 
 ---
 
 ## Common operational gotchas
 
 - **Don't dispatch a Builder before a Director has set direction this session.** Stale Director notes from prior session are not enough — too much may have shifted in the user's intent.
-- **Don't accept a Builder's STATUS without verifying the artifact.** A 30-second `git log`, file existence check, test run, or `mcp__gbrain__get_page` on the claimed slug catches lesson #2 before it costs a round.
+- **Don't accept a Builder's STATUS without verifying the artifact.** A 30-second `git log`, file existence check, test run, or `GET_PAGE` on the claimed slug catches lesson #2 before it costs a round.
 - **Don't merge fellwork-style paired-repo work in the wrong order.** The producer side merges first; the consumer side merges second. Out-of-order merges leave broken intermediate states.
 - **Don't dispatch two agents to the same branch concurrently.** Even if you "know" they'll touch different files. Branch isolation is a hard rule.
 - **Don't skip the Historian at end of session.** Tomorrow's resume cost depends entirely on today's Historian output.
