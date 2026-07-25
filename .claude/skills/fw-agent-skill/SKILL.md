@@ -195,6 +195,8 @@ The 10 universal spawn principles:
 - ☐ Single-defect (or single-direction) scope? Multi-defect dispatches converge slowly.
 - ☐ **Repo topology confirmed?** Does the session's working dir belong to the *target* repo? If the target lives in a sibling worktree/repo, `isolation: "worktree"` builds the WRONG repo's worktree — pre-create the target worktree and hand the Builder its literal path instead. (Lesson #12.)
 - ☐ **Will you be able to score the result unambiguously?** A bare `grep` can match a substring of a *failure* message and read as a pass — assert on exit code or a full anchored line. (Lesson #13.)
+- ☐ **Concurrent-session check.** Does this brief touch a shared surface (CI workflows, lockfiles, generated artifacts, the compiler, version manifests, the primary checkout)? If another session shares this repo: has it been announced on the peer channel, and have you READ the channel since your last dispatch? Briefing on a stale ownership map is how two sessions rebase each other.
+- ☐ **Checkout ownership VERIFIED, not asserted.** Run `git status --porcelain` + `rev-parse --abbrev-ref HEAD` on the primary checkout before telling an agent what state it should be in. Boilerplate like "leave the checkout on `main` and clean" is *dangerous when false* — an agent that believes it may "restore" a peer's uncommitted work out of existence. When it is in use, say so explicitly and hand over a worktree path instead.
 
 ---
 
@@ -228,8 +230,27 @@ Historian  ←── reads all in-session delta pages, writes retro page,
 4. **You** dispatch Synthesizer if Director routed for synthesis.
 5. **Synthesizer** updates the topic summary. Synthesizer doesn't make priority calls — Director already did.
 6. **You** brief the next Researcher *from the updated summary*, incorporating Director's refined-brief content. You handle logistics around it.
-7. Loop until topic-complete or scope-shift.
-8. **End of session:** dispatch Historian.
+7. **Peer-channel checkpoint** (only when another session shares this repo — see `references/peer-channel.md`). Post ONLY when one of these is true, never as a heartbeat:
+   - a finding touches a **shared surface** another session owns or depends on (see the shared-surface registry below),
+   - a **scope shift** changed what you own,
+   - you are about to take an **irreversible or outward-facing** step (merge to main, publish, domain move, force-push a shared branch),
+   - a peer asked a direct question and you now have the answer.
+   Then READ the channel before the next dispatch — a peer's blast radius may have changed under you, and briefing an agent on a stale ownership map is how two sessions end up rebasing each other.
+8. Loop until topic-complete or scope-shift.
+9. **End of session:** dispatch Historian, and post a close-out to the peer channel: what you merged, what you left open, what you still own. The next session's Resume protocol reads it.
+
+**The shared-surface registry.** Instantiate per project; these are the files where two sessions collide *silently* rather than with a merge conflict. Touching one is a peer-channel trigger, not a judgement call:
+
+| Surface | Why it collides |
+|---|---|
+| CI workflow files | One session's gate change silently invalidates the other's green run |
+| Lockfiles (`bun.lock`, `package-lock.json`) | Regenerated, never merged; a hand-merge desyncs the tooling from the tree |
+| Generated artifacts (size budgets, bundle-size caches, autogen READMEs, package inventories) | Regenerate on build; two sessions produce different drift on different machines |
+| The compiler / any build-time codegen | Changes output for **every** consumer, not just the one you tested |
+| Version manifests + platform binary pins | A bump claimed twice means the second PR reclaims a taken version |
+| The primary checkout itself | A branch switch or clean destroys another session's uncommitted work |
+
+**Why this is in the spine and not just a reference.** Concurrent sessions do not fail loudly. They fail as: a rebase war, a duplicated fix, a green CI run that proved nothing because the other session changed the gate, or a checkout reset out from under uncommitted work. None of those announce themselves — which is exactly why the announcement has to be a scheduled step rather than something you remember to do.
 
 **Anti-patterns the Director explicitly checks for** (and you should escalate if missed):
 - Did the Researcher revise targets? (Compare reported numbers to spec.)
@@ -259,6 +280,14 @@ Spawn templates for Director, Synthesizer, and each mode are in `references/temp
 
 The Topic Director is the substance-surface authority. You are the logistical-surface authority. **Both can trigger surface; both should.**
 
+**Surface to the PEER CHANNEL (not the user) when** another session shares the repo and:
+- you are about to touch a shared surface, or your blast radius changed;
+- you are about to do something irreversible or outward-facing — merge to main, publish, move a domain, force-push a shared branch. Post *before* and *again after*, with the observable result (byte count, HTTP status, the version that actually resolved), not "done";
+- you discovered something that invalidates a peer's assumptions — a gate that no longer means what it did, a published artifact that lies, a fix that changes output for every consumer rather than just yours;
+- a peer asked a direct question and you now have the answer. Answer the question first; status can wait.
+
+These are *different* audiences with different thresholds. The user wants decisions and blockers. The peer wants collisions and invalidated premises. A finding can easily warrant one and not the other — do not conflate them, and do not make the user relay between two agents that can talk directly.
+
 ---
 
 ## Resume protocol (any mode)
@@ -266,6 +295,11 @@ The Topic Director is the substance-surface authority. You are the logistical-su
 When starting or resuming a session:
 
 0. **Run the Step 0 substrate preflight.** Resolve `SEARCH` / `GET_PAGE` / `PUT_PAGE` to concrete calls before you read or brief anything.
+0b. **Establish who else is working this repo, BEFORE reading state or dispatching anything.**
+   - `git -C <repo> status --porcelain` + `rev-parse --abbrev-ref HEAD` — a dirty checkout on an unfamiliar branch means a peer owns it. Do not clean it, do not switch it, work in a worktree.
+   - `git worktree list` and `gh pr list --state open` — other worktrees and unfamiliar open PRs are other sessions.
+   - If a peer channel exists, READ IT FIRST and then POST: your role name, your blast radius, and what you intend to touch. A session that starts working without announcing itself is the one that causes the collision.
+   The state file tells you where the *work* stands. This step tells you who else is standing there.
 1. **Read the project state file: `docs/state/<track>.md`.**
    **Do not look for `state-<track>.md` at repo root — in this repo `.gitignore:98` matches `state-*.md`, so any such file is untracked, invisible to every other clone, and lost on a fresh worktree.** That is why resume step 1 has been a silent no-op. The tracked location is `docs/state/<track>.md`.
    If no state file exists, do not stall — derive orientation in this order and *then* create one:
