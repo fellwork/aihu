@@ -267,6 +267,55 @@ Director will route findings post-audit.
 
 ---
 
+## Two dispatch rules that are the TEAM LEAD's job, not the agent's
+
+Both of these were learned the expensive way. They belong in every brief that
+touches a branch.
+
+### 1. CI polling belongs to the Team Lead. Never ask an agent to wait for it.
+
+**Do NOT write** "push, then wait for CI and report the results." An agent
+cannot observe CI across a turn boundary. What actually happens: it pushes,
+starts a poller, ends its turn with *"I'll wait for the watcher to notify
+me"* — and delivers **no report at all**. Its context is spent, and the Team
+Lead has to check CI anyway.
+
+Observed three times in one session, on three different agents, all from this
+exact brief wording.
+
+**Instead, write:** *"Push the branch, then STOP and report immediately. Do not
+wait for CI — the Team Lead owns CI polling. In your final message give the
+pushed SHA, the branch name, and every local acceptance exit code you actually
+ran."*
+
+Then the Team Lead polls (a backgrounded `gh pr view … --json statusCheckRollup`
+loop) and merges. If CI comes back red, re-dispatch the agent with the failure —
+resuming by name preserves its context, so this is cheap.
+
+Corollary: local acceptance evidence is what you demand from the agent; CI
+status is what you verify yourself. Do not conflate them.
+
+### 2. Never assert the state of a shared checkout. VERIFY it first.
+
+Boilerplate like *"the user's checkout MUST stay on `main` and clean"* is
+**dangerous when it is not true**. Other agents, other Conductor workspaces, and
+the user can all be working in the same checkout. An agent handed that line and
+finding the checkout on a feature branch with uncommitted work may "restore" it
+and destroy someone else's in-progress work.
+
+Before writing that line, run `git -C <repo> status --porcelain` and
+`git -C <repo> rev-parse --abbrev-ref HEAD`. Then either:
+- the checkout is genuinely idle → keep the line, naming the branch you expect; or
+- someone else owns it → write *"the primary checkout at `<path>` is IN USE by
+  another agent (branch `<x>`, uncommitted work present). Do NOT touch it, do not
+  clean it, do not switch its branch. Work only in your worktree."*
+
+Always give the agent a worktree path so it never needs the primary checkout at
+all. This is the same asymmetry as lesson #21 — a rule enforced on agents while
+the orchestrator's own assumptions go unchecked.
+
+---
+
 ## Filling in templates — Team Lead checklist
 
 Before sending any of the above:
@@ -282,5 +331,8 @@ Before sending any of the above:
 - ☐ Surface conditions explicit?
 - ☐ Output instructions specify the exact slug + tags Team Lead will commit on subagent's behalf?
 - ☐ Agent's role does not exceed its layer-write permissions (see `roles.md` and `middleware.md`)?
+- ☐ **Brief says "push, then STOP and report" — NOT "wait for CI"?** (See rule 1 above. Team Lead owns CI polling.)
+- ☐ **Shared-checkout claim VERIFIED, not assumed?** Ran `git status --porcelain` + `rev-parse --abbrev-ref HEAD` on the primary checkout before telling the agent what state it should be in. (See rule 2 above.)
+- ☐ Worktree path supplied, so the agent never needs the primary checkout?
 
 If any unchecked, fix before dispatching.
