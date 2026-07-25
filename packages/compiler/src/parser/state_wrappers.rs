@@ -90,6 +90,19 @@ impl WrapperScan {
             .find(|(s, e)| pos >= *s && pos < *e)
             .map(|(_, e)| *e)
     }
+
+    /// The macro whose recognized span contains `pos` (`None` otherwise).
+    /// `spans` and `macros` are parallel (built together in `scan_state_wrappers`
+    /// via `for (mac, span) in all { out.macros.push(mac); out.spans.push(span); }`),
+    /// so the matching index is shared. Used by the Bug 9 TDZ fix (`StateLet`
+    /// inline-splice, see `process_state_body` in `codegen/state_emit.rs`) to
+    /// look up WHICH construct is being skipped, not just where it ends.
+    pub fn macro_for(&self, pos: usize) -> Option<&StateMacro> {
+        self.spans
+            .iter()
+            .position(|(s, e)| pos >= *s && pos < *e)
+            .and_then(|idx| self.macros.get(idx))
+    }
 }
 
 /// Scan an `@state` body for new-dialect wrapper constructs.
