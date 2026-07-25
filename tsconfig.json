@@ -7,6 +7,8 @@
       "@aihu/arbor": ["./packages/arbor/src/index.ts"],
       "@aihu/runtime": ["./packages/runtime/src/index.ts"],
       "@aihu/agent": ["./packages/agent/src/index.ts"],
+      "@aihu/context": ["./packages/context/src/index.ts"],
+      "@aihu/context/ssr": ["./packages/context/src/ssr.ts"],
       "@aihu/server": ["./packages/server/src/index.ts"],
       "@aihu/router": ["./packages/router/src/index.ts"],
       "@aihu/router/server": ["./packages/router/src/server.ts"],
