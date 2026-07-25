@@ -242,6 +242,85 @@ fn event_statement_call_feeds_emit_lowering() {
     assert!(ts.contains("select: (payload: { id: string }) => void;"), "{ts}");
 }
 
+// ─── §4.3 — navigation guards are imperative positions too ───────────────────
+
+#[test]
+fn after_navigate_callback_write_takes_the_state_rewrite() {
+    // Regression: the guard callback was spliced verbatim, so an authored
+    // `path = …` survived into the emit and re-assigned the `const` tuple
+    // binding — the bundler rejects that with ILLEGAL_REASSIGNMENT.
+    let js = emit_src(
+        "@state {\n  let path = state('')\n  afterNavigate(() => {\n    path = '/next'\n  })\n}\n@template {\n  <p>{path}</p>\n}",
+    )
+    .js;
+    assert!(
+        js.contains("const [path, __path_set] = signal('');"),
+        "{js}"
+    );
+    assert!(
+        js.contains("__aihuRouter.__router_registerAfterGuard("),
+        "guard must still register\n{js}"
+    );
+    assert!(
+        js.contains("__path_set('/next')"),
+        "guard write must notify\n{js}"
+    );
+    assert!(
+        !js.contains("path = '/next'"),
+        "authored const re-assignment must be gone\n{js}"
+    );
+}
+
+#[test]
+fn before_navigate_callback_write_takes_the_state_rewrite() {
+    let js = emit_src(
+        "@state {\n  let pending = state(false)\n  beforeNavigate((to, from, next) => {\n    pending = true\n    next()\n  })\n}\n@template {\n  <p>{pending}</p>\n}",
+    )
+    .js;
+    assert!(
+        js.contains("const [pending, __pending_set] = signal(false);"),
+        "{js}"
+    );
+    assert!(
+        js.contains("__aihuRouter.__router_registerBeforeGuard("),
+        "guard must still register\n{js}"
+    );
+    assert!(
+        js.contains("__pending_set(true)"),
+        "guard write must notify\n{js}"
+    );
+    assert!(
+        !js.contains("pending = true"),
+        "authored const re-assignment must be gone\n{js}"
+    );
+}
+
+#[test]
+fn navigate_guard_reads_take_the_getter_splice() {
+    // The read half of §4.2 applies in the same position; a guard that only
+    // reads must not be left holding the bare binding.
+    let js = emit_src(
+        "@state {\n  let path = state('')\n  afterNavigate(() => {\n    console.log(path)\n  })\n}\n@template {\n  <p>{path}</p>\n}",
+    )
+    .js;
+    assert!(js.contains("console.log(path())"), "{js}");
+}
+
+#[test]
+fn old_dialect_navigate_guard_is_unchanged() {
+    // Negative control: with no wrapper declarations the targets are empty and
+    // the rewrite early-returns, so the OLD `$afterNavigate` dialect emits the
+    // author's callback byte-for-byte.
+    let js = emit_src(
+        "@state {\n  $afterNavigate((to, from) => log(to))\n}\n@template {\n  <div></div>\n}",
+    )
+    .js;
+    assert!(
+        js.contains("__aihuRouter.__router_registerAfterGuard((to, from) => log(to));"),
+        "{js}"
+    );
+}
+
 // ─── §4.4 — W627 (warning; ratified §9.6) ────────────────────────────────────
 
 #[test]

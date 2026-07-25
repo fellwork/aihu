@@ -1255,14 +1255,33 @@ pub(crate) fn emit_state_macro_code(
                     "{indent}const {name} = computed(() => __aihuRouter.useRoute());"
                 ));
             }
+            // #487 — the guard callback is a spliced running-code position
+            // like every other imperative arm: a write to a `let x = state(v)`
+            // binding inside it must become `__x_set(…)`. Without the pass the
+            // authored `x = …` survives into the emit and re-assigns the
+            // `const [x, __x_set] = signal(…)` destructuring binding, which the
+            // bundler rejects (ILLEGAL_REASSIGNMENT). With no wrapper targets
+            // the rewrite is a no-op, so OLD-dialect files stay byte-identical.
             StateMacro::BeforeNavigate { expr } => {
+                let expr_rw = rewrite_wrapper_code(
+                    expr,
+                    &wrapper_targets,
+                    &mut needs_state_upd_helper,
+                    &mut needs_prop_upd_helper,
+                );
                 lines.push(format!(
-                    "{indent}__aihuRouter.__router_registerBeforeGuard({expr});"
+                    "{indent}__aihuRouter.__router_registerBeforeGuard({expr_rw});"
                 ));
             }
             StateMacro::AfterNavigate { expr } => {
+                let expr_rw = rewrite_wrapper_code(
+                    expr,
+                    &wrapper_targets,
+                    &mut needs_state_upd_helper,
+                    &mut needs_prop_upd_helper,
+                );
                 lines.push(format!(
-                    "{indent}__aihuRouter.__router_registerAfterGuard({expr});"
+                    "{indent}__aihuRouter.__router_registerAfterGuard({expr_rw});"
                 ));
             }
             // arch-3 M2 (RFC-003) — magna `$query` shorthand.
