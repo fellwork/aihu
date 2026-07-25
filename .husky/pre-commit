@@ -4,13 +4,6 @@
 bunx biome check --write --staged --no-errors-on-unmatched
 
 # README autogen sync — keeps the data-heavy sections of README.md and every
-# packages/**/README.md fresh on every commit. Stages any files the script
-# regenerated. CI also runs `bun scripts/sync-readme.ts --check`, so author
-# does not need to remember.
-bun scripts/sync-readme.ts
-git add scripts/__bundle-sizes.json
-git add README.md scripts/__package-inventory.json
-# Stage every regenerated package README, including platform binaries at
-# packages/server/npm/<plat>/. `git ls-files -mo` enumerates modified +
-# untracked files; the grep filters down to README.md anywhere under packages/.
-git ls-files -mo --exclude-standard packages/ | grep -E 'README\.md$' | xargs -r git add
+# packages/**/README.md fresh on every commit. Must stay in sync: fail the commit
+# if drift is detected and prompt the author to run `bun scripts/sync-readme.ts`.
+bun scripts/sync-readme.ts --check
