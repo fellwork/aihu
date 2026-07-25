@@ -66,10 +66,27 @@ Add the lifecycle-ownership DX contract
   this row's limit bump was covering for.
 - `packages/signals/scripts/mangle-dist.mjs` now mangles every emitted
   `dist/*.js` file (not just `index.js`) with the same replacement table —
-  the multi-entry split (`index` + `lifecycle`) can produce a shared
-  `scope-<hash>.js` chunk, and mangling only one file would silently desync
-  property names the moment a mangled field's declaration and its access
-  land in different emitted files.
+  `dist/` is no longer a single self-contained file, and mangling only one
+  file would silently desync property names the moment a mangled field's
+  declaration and its access land in different emitted files.
+- **No shared chunk on the reactivity hot path.** `rolldown.config.ts`
+  builds `index` and `lifecycle` as two INDEPENDENT single-entry builds
+  rather than one multi-entry build. A multi-entry build hoisted `scope.ts`
+  into a shared `scope-<hash>.js` chunk, putting `getCurrentScope` /
+  `setCurrentScope`, the scope cleanup register/unregister pair, and the
+  live `_currentScope` binding across a module boundary that the minifier
+  cannot inline through — an interleaved A/B against `main` (n=12 fresh
+  processes per arm) measured a range-DISJOINT slowdown on `dynamic-deps`,
+  with a byte-identical control arm at ~0 %. `dist/lifecycle.js` instead
+  takes `getCurrentScope` as an EXTERNAL import of the sibling entry
+  (`import{getCurrentScope}from"./index.js"`), which keeps exactly ONE
+  `_currentScope` instance — duplicating `scope.ts` into both bundles would
+  give the package two, and a scope entered through `@aihu/signals` would
+  be invisible to `getLifecycleHost()`. `dist/index.js` is now
+  `cmp`-byte-identical to `main`'s, and the same A/B puts `dynamic-deps` at
+  −0.3 % and `creation-1to1000` at +0.4 % (both ranges overlapping `main`).
+  The `@aihu/signals/lifecycle` size row measures 170 B (limit 300 B); the
+  guarded `@aihu/signals` row returns to 2232 B.
 - `packages/signals/tests/lifecycle.test.ts` adds a source-level guard
   asserting `src/index.ts` never imports `src/lifecycle.ts` and that no
   other non-lifecycle source file references the `LifecycleHost`

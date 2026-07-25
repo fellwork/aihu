@@ -26,19 +26,25 @@
  * Applied AFTER rolldown minification so renames hit single-char variable
  * forms (e.g. e.flags becomes e.fl).
  *
- * CHUNK-AWARE (post lifecycle-ownership-dx multi-entry split): rolldown's
- * config now builds TWO entries (`index`, `lifecycle`) that share a common
- * `scope-<hash>.js` chunk, instead of one self-contained `dist/index.js`.
- * This script therefore mangles EVERY `dist/*.js` file with the SAME
- * replacement table, not just `index.js` — mangling only `index.js` would
- * silently desync property names the moment a mangled field lives in (or
- * moves into) the shared chunk: `index.js` would read the short form
- * (`.fl`) while the chunk still wrote the long form (`.flags`), breaking
- * the PUBLISHED package while every src-based test stayed green (no test
- * exercises the mangled dist output). Applying the same substitutions to
- * every emitted file keeps cross-chunk property access consistent by
- * construction, whichever file a given field's declaration or access ends
- * up in.
+ * MULTI-FILE (post lifecycle-ownership-dx): `dist/` now holds TWO emitted
+ * entries — `index.js` (the self-contained reactivity core) and
+ * `lifecycle.js` (the ownership contract, which imports `getCurrentScope`
+ * from `./index.js` as an external). `rolldown.config.ts` deliberately
+ * keeps these as two INDEPENDENT single-entry builds so no shared
+ * `scope-<hash>.js` chunk is emitted — a chunk boundary on the scope hot
+ * path measured a real, range-disjoint slowdown on `dynamic-deps` (see the
+ * comment on `indexBuild` in `rolldown.config.ts` and the A/B write-up in
+ * PR #549).
+ *
+ * This script nevertheless mangles EVERY `dist/*.js` file with the SAME
+ * replacement table, not just `index.js`. That is the safe default: if a
+ * mangled field ever lives in (or moves into) a second emitted file,
+ * mangling only `index.js` would silently desync property names —
+ * `index.js` would read the short form (`.fl`) while the other file still
+ * wrote the long form (`.flags`), breaking the PUBLISHED package while
+ * every src-based test stayed green (no test exercises the mangled dist
+ * output). Applying the same substitutions to every emitted file keeps
+ * cross-file property access consistent by construction.
  *
  * Remove this script once rolldown wires mangle.properties — replace with:
  *   output: { minify: { mangle: { properties: { regex: /^(flags|subsHead|...)$/ } } } }

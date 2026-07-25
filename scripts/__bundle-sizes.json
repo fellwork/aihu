@@ -6,12 +6,12 @@
   },
   {
     "name": "@aihu/signals",
-    "bytes": 2234,
+    "bytes": 2232,
     "limit": "2350 B"
   },
   {
     "name": "@aihu/signals/lifecycle",
-    "bytes": 112,
+    "bytes": 170,
     "limit": "300 B"
   },
   {
