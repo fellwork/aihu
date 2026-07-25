@@ -19,6 +19,8 @@ export {
   tryOnScopeDispose,
   unrefElement,
 } from './shared/index.ts'
+export type { UseActiveElementReturn } from './useActiveElement/index.ts'
+export { useActiveElement } from './useActiveElement/index.ts'
 export type { UseAsyncOptions, UseAsyncReturn } from './useAsync/index.ts'
 export { useAsync } from './useAsync/index.ts'
 export type {
@@ -33,6 +35,8 @@ export type {
   UseBrowserLanguageReturn,
 } from './useBrowserLanguage/index.ts'
 export { useBrowserLanguage } from './useBrowserLanguage/index.ts'
+export type { UseClickOutsideOptions } from './useClickOutside/index.ts'
+export { onClickOutside, useClickOutside } from './useClickOutside/index.ts'
 export type { UseClipboardOptions, UseClipboardReturn } from './useClipboard/index.ts'
 export { useClipboard } from './useClipboard/index.ts'
 export type {
@@ -68,6 +72,8 @@ export { useEventListener } from './useEventListener/index.ts'
 export { useEventListenerMap } from './useEventListenerMap/index.ts'
 export type { UseFocusWithinOptions, UseFocusWithinReturn } from './useFocusWithin/index.ts'
 export { useFocusWithin } from './useFocusWithin/index.ts'
+export type { UseHoverOptions, UseHoverReturn } from './useHover/index.ts'
+export { useHover } from './useHover/index.ts'
 export type { UseIdleOptions, UseIdleReturn } from './useIdle/index.ts'
 export { useIdle } from './useIdle/index.ts'
 export type {
@@ -89,6 +95,11 @@ export type { UseMediaQueryOptions, UseMediaQueryReturn } from './useMediaQuery/
 export { useMediaQuery } from './useMediaQuery/index.ts'
 export type { UseMouseCoordType, UseMouseOptions, UseMouseReturn } from './useMouse/index.ts'
 export { useMouse } from './useMouse/index.ts'
+export type {
+  UseMouseInElementOptions,
+  UseMouseInElementReturn,
+} from './useMouseInElement/index.ts'
+export { useMouseInElement } from './useMouseInElement/index.ts'
 export type { UseMutationObserverReturn } from './useMutationObserver/index.ts'
 export { useMutationObserver } from './useMutationObserver/index.ts'
 export type { UseNetworkStateOptions, UseNetworkStateReturn } from './useNetworkState/index.ts'

@@ -1074,6 +1074,62 @@ const entries: Array<{ entry: string; run: () => Promise<void> }> = [
         },
       ),
   },
+  {
+    entry: 'useActiveElement',
+    run: () =>
+      withSSR(
+        () => import('../src/useActiveElement/index.ts'),
+        ({ useActiveElement }) => {
+          withGlobalSpies(() => {
+            const { activeElement } = useActiveElement()
+            expect(activeElement()).toBeNull()
+          })
+        },
+      ),
+  },
+  {
+    entry: 'useClickOutside',
+    run: () =>
+      withSSR(
+        () => import('../src/useClickOutside/index.ts'),
+        ({ useClickOutside }) => {
+          withGlobalSpies(() => {
+            const handler = vi.fn()
+            const stop = useClickOutside(null, handler)
+            expect(() => stop()).not.toThrow()
+            expect(handler).not.toHaveBeenCalled()
+          })
+        },
+      ),
+  },
+  {
+    entry: 'useHover',
+    run: () =>
+      withSSR(
+        () => import('../src/useHover/index.ts'),
+        ({ useHover }) => {
+          withGlobalSpies(() => {
+            const { isHovering } = useHover()
+            expect(isHovering()).toBe(false)
+          })
+        },
+      ),
+  },
+  {
+    entry: 'useMouseInElement',
+    run: () =>
+      withSSR(
+        () => import('../src/useMouseInElement/index.ts'),
+        ({ useMouseInElement }) => {
+          withGlobalSpies(() => {
+            const { x, y, isOutside } = useMouseInElement()
+            expect(x()).toBe(0)
+            expect(y()).toBe(0)
+            expect(isOutside()).toBe(true)
+          })
+        },
+      ),
+  },
 ]
 
 describe('@aihu/use — Tier 2: hand-written call-time SSR safety (isClient no-op invariant)', () => {

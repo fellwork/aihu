@@ -15,6 +15,10 @@
       "types": "./dist/shared.d.ts",
       "import": "./dist/shared.js"
     },
+    "./useActiveElement": {
+      "types": "./dist/useActiveElement.d.ts",
+      "import": "./dist/useActiveElement.js"
+    },
     "./useAsync": {
       "types": "./dist/useAsync.d.ts",
       "import": "./dist/useAsync.js"
@@ -30,6 +34,10 @@
     "./useBrowserLanguage": {
       "types": "./dist/useBrowserLanguage.d.ts",
       "import": "./dist/useBrowserLanguage.js"
+    },
+    "./useClickOutside": {
+      "types": "./dist/useClickOutside.d.ts",
+      "import": "./dist/useClickOutside.js"
     },
     "./useClipboard": {
       "types": "./dist/useClipboard.d.ts",
@@ -91,6 +99,10 @@
       "types": "./dist/useFocusWithin.d.ts",
       "import": "./dist/useFocusWithin.js"
     },
+    "./useHover": {
+      "types": "./dist/useHover.d.ts",
+      "import": "./dist/useHover.js"
+    },
     "./useIdle": {
       "types": "./dist/useIdle.d.ts",
       "import": "./dist/useIdle.js"
@@ -126,6 +138,10 @@
     "./useMouse": {
       "types": "./dist/useMouse.d.ts",
       "import": "./dist/useMouse.js"
+    },
+    "./useMouseInElement": {
+      "types": "./dist/useMouseInElement.d.ts",
+      "import": "./dist/useMouseInElement.js"
     },
     "./useMutationObserver": {
       "types": "./dist/useMutationObserver.d.ts",
