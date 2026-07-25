@@ -1046,3 +1046,98 @@ describe('each() — FEL-408: keyed reorder performs the minimum number of DOM m
     scope.dispose()
   })
 })
+
+// ---------------------------------------------------------------------------
+// FEL-408 follow-up regressions (adversarial review of a993aa19 — see
+// docs/plans/2026-07-25-lis-adversarial-review.md). Both tests FAIL on
+// a993aa19 without the fix and PASS on its parent: they are repros first,
+// regression locks second.
+//
+// R1: `pos` doubles as LIS scratch during a reconcile, and the final walk is
+// the ONLY writer that restores real DOM indexes. A mid-reconcile lgrow()
+// throw (the no-onError retry flow E3 above blesses as supported) exits
+// before the walk, leaving scratch run-lengths in committed survivors' pos.
+// The NEXT reconcile then trusts scratch as DOM order, flags out-of-order
+// rows "stable", skips their moves, and silently commits the wrong order —
+// then stamps pos = i as if the order were right, concealing the corruption.
+//
+// R2: duplicate keys collapse to one Map scope, but the new sl cache can hold
+// that scope at several indexes. A later same-key occurrence with a different
+// item ref tears the scope down (FEL-395) while sl[earlier] still points at
+// it; the walk then re-inserts the DISPOSED nodes (a zombie row whose effects
+// are dead).
+// ---------------------------------------------------------------------------
+describe('each() — FEL-408 follow-up: pos scratch + duplicate keys', () => {
+  function mountStrings(init: string[]) {
+    const host = document.createElement('div')
+    const sig: ReturnType<typeof signal<string[]>> = signal(init)
+    const scope = mount(
+      branch('ul', undefined, [
+        each(
+          sig,
+          (item) => item as string,
+          (item) => {
+            if (item === 'boom') throw new Error('grow-boom')
+            return branch('li', undefined, [leaf(item as string)])
+          },
+        ),
+      ]),
+      host,
+    )
+    return { host, set: sig[1], scope }
+  }
+  const texts = (host: HTMLElement) =>
+    Array.from(host.querySelectorAll('li')).map((li) => li.textContent)
+
+  it('R1: retry after a mid-reconcile throw renders the LIST order, not the scratch order', () => {
+    const { host, set, scope } = mountStrings(['c', 'b', 'a'])
+    expect(texts(host)).toEqual(['c', 'b', 'a'])
+    // The throwing update processes survivors a, c, b BEFORE hitting 'boom',
+    // leaving scratch pos a=0, c=0, b=1; the walk never runs, so the DOM
+    // stays [c, b, a].
+    expect(() => set(['a', 'c', 'b', 'boom'])).toThrow('grow-boom')
+    expect(texts(host)).toEqual(['c', 'b', 'a'])
+    // Clean retry (exactly the E3 flow). Pre-fix: scratch [a=0, b=1] reads as
+    // an already-increasing chain -> zero moves -> DOM stays [b, a] while the
+    // list says [a, b], with no error anywhere.
+    set(['a', 'b'])
+    expect(texts(host)).toEqual(['a', 'b'])
+    scope.dispose()
+    expect(host.childNodes.length).toBe(0)
+  })
+
+  it('R1b: same corruption, retry keeping all keys', () => {
+    const { host, set, scope } = mountStrings(['c', 'b', 'a'])
+    expect(() => set(['a', 'c', 'b', 'boom'])).toThrow('grow-boom')
+    // Pre-fix this rendered [b, c, a].
+    set(['a', 'b', 'c'])
+    expect(texts(host)).toEqual(['a', 'b', 'c'])
+    scope.dispose()
+  })
+
+  it('R2: duplicate key with differing refs must not resurrect disposed nodes', () => {
+    type Row = { id: string; label: string }
+    const b: Row = { id: 'b', label: 'B' }
+    const host = document.createElement('div')
+    const sig: ReturnType<typeof signal<Row[]>> = signal([b])
+    const scope = mount(
+      branch('ul', undefined, [
+        each(
+          sig,
+          (item) => (item as Row).id,
+          (item) => branch('li', undefined, [leaf((item as Row).label)]),
+        ),
+      ]),
+      host,
+    )
+    // Degenerate input: key 'a' appears twice with DIFFERENT refs. The second
+    // occurrence tears down the scope grown for the first (FEL-395) — the
+    // walk must not re-insert the disposed 'A1' nodes. Pre-fix the DOM ended
+    // as [A1, B, A2]: three rows for two keys, A1 dead but visible.
+    sig[1]([{ id: 'a', label: 'A1' }, b, { id: 'a', label: 'A2' }])
+    expect(host.querySelectorAll('li').length).toBe(2)
+    expect(texts(host)).not.toContain('A1')
+    scope.dispose()
+    expect(host.childNodes.length).toBe(0)
+  })
+})

@@ -118,6 +118,15 @@ export interface ChildScope {
    * only the rows genuinely out of order, and reuses the field to carry that
    * pass's intermediate bookkeeping. Unused by `when()`, whose single child
    * scope is never repositioned.
+   *
+   * INVARIANT the scratch reuse depends on: between reconciles, `pos` MUST
+   * hold a real DOM-order index (or -1 = never placed / force-move). During a
+   * reconcile the patience pass overwrites it with run-length SCRATCH, and
+   * the final walk is the ONLY writer that restores real indexes. Therefore
+   * any path that exits `_reconcileEach` without running the walk (today:
+   * the lgrow/materialize catch) MUST reset every already-processed row's
+   * `pos` to -1 before propagating — otherwise the NEXT reconcile interprets
+   * scratch as DOM order and silently commits wrong row order.
    */
   pos?: number
 }
