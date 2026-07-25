@@ -70,11 +70,11 @@ bun add @aihu/compiler
 - `@aihu/compiler-linux-x64-gnu` — `0.1.33`
 - `@aihu/compiler-linux-arm64-gnu` — `0.1.33`
 - `@aihu/compiler-win32-x64-msvc` — `0.1.33`
-- `@aihu/compiler-native-darwin-arm64` — `0.1.0`
-- `@aihu/compiler-native-darwin-x64` — `0.1.0`
-- `@aihu/compiler-native-linux-x64-gnu` — `0.1.0`
-- `@aihu/compiler-native-linux-arm64-gnu` — `0.1.0`
-- `@aihu/compiler-native-win32-x64-msvc` — `0.1.0`
+- `@aihu/compiler-native-darwin-arm64` — `0.1.1`
+- `@aihu/compiler-native-darwin-x64` — `0.1.1`
+- `@aihu/compiler-native-linux-x64-gnu` — `0.1.1`
+- `@aihu/compiler-native-linux-arm64-gnu` — `0.1.1`
+- `@aihu/compiler-native-win32-x64-msvc` — `0.1.1`
 
 <sub><i>Auto-generated against `@aihu/compiler@1.1.0`.</i></sub>
 
