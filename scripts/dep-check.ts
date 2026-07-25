@@ -198,6 +198,20 @@ export function extractSpecifiers(src: string): string[] {
   return specs
 }
 
+/**
+ * Package-boundary-aware membership check: a specifier passes if it names an
+ * allowed package exactly OR a subpath of one (`@aihu/signals/lifecycle`
+ * passes when `@aihu/signals` is allowed). Deliberately NOT a plain prefix
+ * match — `spec.startsWith(pkg)` alone would also admit an unrelated
+ * sibling package that merely shares a string prefix (e.g. `@aihu/signals2`).
+ */
+export function isAllowedExternal(spec: string, allowed: Set<string>): boolean {
+  for (const pkg of allowed) {
+    if (spec === pkg || spec.startsWith(`${pkg}/`)) return true
+  }
+  return false
+}
+
 function resolveRelativeSpecifier(fromFile: string, specifier: string): string {
   const p = resolve(dirname(fromFile), specifier)
   if (existsSync(p) && !p.endsWith('.ts')) return p
@@ -283,7 +297,7 @@ export function checkUseSubpathPurity(usePkgDir: string = join(packagesDir, 'use
           )
         }
         walk(entryKey, cls, resolved, allowed)
-      } else if (!allowed.has(spec)) {
+      } else if (!isAllowedExternal(spec, allowed)) {
         errors.push(
           `FAIL [@aihu/use] '${entryKey}' imports '${spec}', which is not in its allowed externals ` +
             `(${[...allowed].join(', ') || '(none)'}). CORE may import @aihu/signals only; a family ` +

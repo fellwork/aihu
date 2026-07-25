@@ -72,5 +72,15 @@ export default defineConfig({
   // would be silently inlined into whichever family bundle imports them.
   // Harmless today: `peerDependencies` is empty until a family's first
   // peer-bearing composable lands.
-  external: ['@aihu/signals', ...Object.keys(pkg.peerDependencies ?? {})],
+  //
+  // Package-boundary-aware, not a bare array: an array is exact-match only,
+  // so a subpath import (`@aihu/signals/lifecycle`) would fail to match
+  // `'@aihu/signals'` and rolldown would silently INLINE it into every
+  // consuming entry, inflating that entry's `.size-limit.json` row. Match on
+  // the package-name boundary — exact name or `<name>/...` — never a bare
+  // prefix (which would also admit an unrelated package sharing a prefix).
+  external: (id: string) =>
+    ['@aihu/signals', ...Object.keys(pkg.peerDependencies ?? {})].some(
+      (name) => id === name || id.startsWith(`${name}/`),
+    ),
 })
