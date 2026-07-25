@@ -165,10 +165,8 @@ function _reconcileWhen(
   try {
     st.c = {
       anchor: ca,
-      key: 'when',
       disposers: cd,
       appendedNodes: _mc(grow(), par, cd, `${pb}.conditional.true`, mfn, eh, anc.nextSibling),
-      item: null,
     }
   } catch (err) {
     // Error-only path: grow()/materialize threw BEFORE the st.c commit, so
@@ -194,73 +192,122 @@ function _reconcileEach(
   sc: Map<string | number, ChildScope>,
 ): void {
   const items = list[0]()
+  const n = items.length
   const ks = new Set<string | number>()
-  for (let i = 0; i < items.length; i++) ks.add(kfn(items[i]))
+  for (let i = 0; i < n; i++) ks.add(kfn(items[i]))
   const par = anc.parentNode as Element | ShadowRoot
   for (const [k, s] of sc)
     if (!ks.has(k)) {
       _teardownChildScope(s)
       sc.delete(k)
     }
-  for (let i = 0; i < items.length; i++) {
+  // FEL-408: grow/reuse each row AND, in the same pass, run patience sorting
+  // over the surviving scopes' CURRENT DOM order (`pos`) to find the longest
+  // increasing subsequence — the rows that are already in the right relative
+  // order and therefore need no move at all. Without it the walk at the bottom
+  // is a naive left-to-right cursor: pulling one row forward displaces every
+  // row behind it and each is then relocated individually, so a 2-row swap in
+  // a 1000-row list cost 997 scope moves (1994 DOM nodes — every scope carries
+  // an anchor comment alongside its content) where 2 suffice.
+  //
+  // `t[u]` is the smallest tail seen so far among increasing runs of length
+  // u+1; the slot a row lands in is the length-1 of the longest run ENDING at
+  // that row, which is parked back in `pos` (the field is rewritten with the
+  // row's final index by the walk below, so it is free to carry this in the
+  // meantime). `sl` holds the scope per NEW index so neither later pass has to
+  // re-key or re-look-up an item.
+  const sl: ChildScope[] = []
+  const t: number[] = []
+  for (let i = 0; i < n; i++) {
     const k = kfn(items[i])
-    const existing = sc.get(k)
-    if (existing) {
-      // FEL-395: key unchanged does NOT mean the item is unchanged. Row
-      // bodies are grown once from `items[i]` BY VALUE (compiler-emitted
-      // `lgrow(item, idx)` closes over the argument, it is not re-read
-      // reactively per field) — so keeping this scope when a NEW item object
-      // with the same key but different fields arrives would leave stale
-      // values rendered forever. Reference-compare against the value this
-      // scope was last grown from; on a mismatch, tear down and fall through
-      // to re-grow fresh below, same as a brand-new key.
-      if (existing.item === items[i]) continue
-      _teardownChildScope(existing)
-      sc.delete(k)
+    let s = sc.get(k)
+    // FEL-395: key unchanged does NOT mean the item is unchanged. Row bodies
+    // are grown once from `items[i]` BY VALUE (compiler-emitted
+    // `lgrow(item, idx)` closes over the argument, it is not re-read
+    // reactively per field) — so keeping this scope when a NEW item object
+    // with the same key but different fields arrives would leave stale values
+    // rendered forever. Reference-compare against the value this scope was
+    // last grown from; on a mismatch, tear down and re-grow fresh below, same
+    // as a brand-new key.
+    // (`s &&` not `s?.` — an `undefined` list item must not compare equal to
+    // the absent scope's absent `item`.)
+    if (s && s.item === items[i]) sl[i] = s
+    else {
+      if (s) {
+        _teardownChildScope(s)
+        sc.delete(k)
+      }
+      const cd: Dispose[] = []
+      const ca = document.createComment('e')
+      par.appendChild(ca)
+      try {
+        // `pos < 0` marks a scope that has never been placed: it was just
+        // appended to the END OF THE PARENT — past every survivor AND past
+        // anything that follows the each() region — so it is never "already
+        // in order" and is held out of the subsequence below.
+        s = {
+          anchor: ca,
+          disposers: cd,
+          appendedNodes: _mc(
+            lgrow(items[i]!, i),
+            par,
+            cd,
+            `${pb}.list.${String(k).replace(/\./g, '_')}`,
+            mfn,
+            eh,
+            null,
+          ),
+          item: items[i],
+          pos: -1,
+        }
+        sc.set(k, (sl[i] = s))
+      } catch (err) {
+        // Error-only path, mirroring _reconcileWhen: lgrow()/materialize threw
+        // BEFORE this item's sc.set commit, so no teardown path (stale-key
+        // sweep or scope dispose) can ever find the just-appended anchor or
+        // the partially-built child disposers. Tear down the in-flight item
+        // eagerly and rethrow; already-committed siblings stay in sc and
+        // remain disposable as usual.
+        _abortChild(cd, ca, par)
+        throw err
+      }
     }
-    const cd: Dispose[] = []
-    const ca = document.createComment('e')
-    par.appendChild(ca)
-    try {
-      sc.set(k, {
-        anchor: ca,
-        key: k,
-        disposers: cd,
-        appendedNodes: _mc(
-          lgrow(items[i]!, i),
-          par,
-          cd,
-          `${pb}.list.${String(k).replace(/\./g, '_')}`,
-          mfn,
-          eh,
-          null,
-        ),
-        item: items[i],
-      })
-    } catch (err) {
-      // Error-only path, mirroring _reconcileWhen: lgrow()/materialize threw
-      // BEFORE this item's sc.set commit, so no teardown path (stale-key sweep
-      // or scope dispose) can ever find the just-appended anchor or the
-      // partially-built child disposers. Tear down the in-flight item eagerly
-      // and rethrow; already-committed siblings stay in sc and remain
-      // disposable as usual.
-      _abortChild(cd, ca, par)
-      throw err
+    const p = sl[i]!.pos as number
+    let u = -2
+    if (p >= 0) {
+      let v = t.length
+      u = 0
+      while (u < v) {
+        const c = (u + v) >> 1
+        ;(t[c] as number) < p ? (u = c + 1) : (v = c)
+      }
+      t[u] = p
     }
+    sl[i]!.pos = u
   }
+  // Reconstruct right-to-left by taking the first row at each descending run
+  // length — no predecessor array needed: when a row recorded length w+1,
+  // `t[w]` held the value of the nearest EARLIER row that recorded w and was
+  // strictly smaller, so the first match scanning left is always a valid link.
+  // Everything else is flagged `pos = -1`: a mover.
+  for (let i = n, w = t.length - 1; i--; ) sl[i]!.pos === w ? w-- : (sl[i]!.pos = -1)
+
   let ref: globalThis.Node | null = anc.nextSibling
-  for (let i = 0; i < items.length; i++) {
-    const k = kfn(items[i])
-    const s = sc.get(k)
-    if (!s) continue
+  for (let i = 0; i < n; i++) {
+    const s = sl[i]!
     const nl = s.appendedNodes
     // FEL-396: reposition via _moveNode (moveBefore where supported) instead
     // of a bare insertBefore — a reorder of an UNCHANGED (same key, same
     // value — see the FEL-395 tear-down above) scope must not destroy the
     // state of any custom element it contains.
-    if (s.anchor !== ref) _moveNode(par, s.anchor, ref)
-    else ref = s.anchor.nextSibling
-    for (const n of nl) n === ref ? (ref = n.nextSibling) : _moveNode(par, n, ref)
+    if ((s.pos as number) < 0) {
+      if (s.anchor !== ref) _moveNode(par, s.anchor, ref)
+      else ref = s.anchor.nextSibling
+      for (const nd of nl) nd === ref ? (ref = nd.nextSibling) : _moveNode(par, nd, ref)
+    }
+    // The index this pass just gave the row IS the DOM order the next
+    // reconcile runs its subsequence against.
+    s.pos = i
     ref = (nl[nl.length - 1] ?? s.anchor).nextSibling
   }
 }

@@ -98,7 +98,6 @@ export interface StructuralNode {
  */
 export interface ChildScope {
   readonly anchor: Comment
-  readonly key: string | number
   readonly disposers: Dispose[]
   appendedNodes: globalThis.Node[]
   /**
@@ -109,7 +108,18 @@ export interface ChildScope {
    * "same key, different value" and re-grow — otherwise a same-keyed
    * replacement object's field changes never reach the DOM.
    */
-  readonly item: unknown
+  readonly item?: unknown
+  /**
+   * FEL-408: this scope's position in the CURRENT DOM order of its `each()`
+   * region — the index the previous reposition pass gave it. `-1` marks a
+   * scope that has never been placed (it was appended to the end of the
+   * parent, past everything, so it is never "already in order").
+   * `_reconcileEach` runs a longest-increasing-subsequence over these to move
+   * only the rows genuinely out of order, and reuses the field to carry that
+   * pass's intermediate bookkeeping. Unused by `when()`, whose single child
+   * scope is never repositioned.
+   */
+  pos?: number
 }
 
 /**
