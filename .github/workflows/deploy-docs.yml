@@ -4,10 +4,18 @@ name: Deploy aihu-docs
 #
 # Production deploy: push to main → branch "main" → aihu.dev
 # Preview deploy:    pull_request  → branch name   → <branch>.aihu-docs.pages.dev
+# Post-release deploy: workflow_run (below) → branch "main" → aihu.dev
 #
 # Required repository secrets:
 #   CLOUDFLARE_API_TOKEN   — CF API token with Pages:Edit permission
 #   CLOUDFLARE_ACCOUNT_ID  — Cloudflare account ID
+#
+# NOTE on the `paths:` filters below: PR #556 previously proposed narrowing
+# these (dropping packages/compiler/** and packages/arbor/**, on the theory
+# that the docs consume the PUBLISHED compiler binary, not the checkout) and
+# was closed without landing. That narrowing is deliberately NOT reproduced
+# here — only #556's other idea, the workflow_run trigger below, is revived.
+# Do not re-propose the paths narrowing as a follow-up to this change.
 
 "on":
   push:
@@ -28,6 +36,16 @@ name: Deploy aihu-docs
       - 'packages/plugin-agent-readiness/**'
       - 'packages/server/**'
       - '.github/workflows/deploy-docs.yml'
+  # Rebuild + redeploy the docs after a release publishes, so the site
+  # reflects the post-release picture (new version numbers in install
+  # snippets, llms.txt, package references). Guarded below (job-level `if:`)
+  # to only proceed when the release actually succeeded — `workflow_run`
+  # fires on completion regardless of outcome, and a failed release
+  # published nothing new to rebuild against.
+  workflow_run:
+    workflows: ["Release aihu-compile binaries"]
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -43,6 +61,13 @@ jobs:
   test:
     name: Smoke tests
     runs-on: ubuntu-22.04
+    # On workflow_run, only proceed if the upstream release actually
+    # succeeded — a failed release published nothing, so there is nothing
+    # new to rebuild the docs against. `on.workflow_run` has no `if:` key of
+    # its own, so the guard has to live here at job level. push / pull_request
+    # / workflow_dispatch are untouched: for those, github.event_name !=
+    # 'workflow_run' is true and the job runs exactly as it did before.
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -160,7 +185,15 @@ jobs:
     name: Build & deploy
     needs: test
     runs-on: ubuntu-22.04
+    # Same guard as `test` (see comment there) — belt-and-suspenders with
+    # `needs: test`, which already skips this job when `test` is skipped.
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     steps:
+      # actions/checkout@v4 with no `ref:` defaults to github.sha, which for
+      # workflow_run is documented as "last commit on default branch" — i.e.
+      # main's current HEAD, including the release's version-bump commit.
+      # That's the desired post-release checkout, so no explicit `ref:` pin
+      # is needed here.
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -202,6 +235,13 @@ jobs:
       # which this deploy job `needs:` — so a perf regression already blocks the
       # pipeline before deploy. No need to re-run it here.
 
+      # `github.head_ref` is only ever set for pull_request(_target) events, so
+      # for workflow_run it is empty and the expression falls through to
+      # `github.ref_name`. For workflow_run, GitHub documents github.ref (and
+      # therefore github.ref_name) as the repository's DEFAULT branch — which
+      # is "main" here — not the branch the upstream (release) workflow ran
+      # on. So this expression already resolves to "main" on a post-release
+      # run, i.e. a PRODUCTION deploy, with no change needed.
       - name: Deploy to Cloudflare Pages
         id: deploy
         uses: cloudflare/wrangler-action@v3
