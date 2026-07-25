@@ -140,7 +140,18 @@ export function useMeasure(options: UseMeasureOptions = {}): UseMeasureReturn {
       // off it rather than re-resolving `target` avoids any question of
       // which element a reactive getter target currently points to.
       const rect = entry.target.getBoundingClientRect()
-      const boxSize = box === 'border-box' ? entry.borderBoxSize?.[0] : entry.contentBoxSize?.[0]
+      // Must actually honor all three `ResizeObserverBoxOptions` members —
+      // silently folding `device-pixel-content-box` into `contentBoxSize`
+      // would report CSS-pixel content-box numbers while claiming
+      // device-pixel-box semantics (FEL-406 #3). Falls through to the
+      // `contentRect` branch below in engines that don't populate
+      // `devicePixelContentBoxSize` (Safari, at time of writing).
+      const boxSize =
+        box === 'border-box'
+          ? entry.borderBoxSize?.[0]
+          : box === 'device-pixel-content-box'
+            ? entry.devicePixelContentBoxSize?.[0]
+            : entry.contentBoxSize?.[0]
       // Batched: observers see ONE consistent 8-field update per resize,
       // never an intermediate half-written rect.
       batch(() => {

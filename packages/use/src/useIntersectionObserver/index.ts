@@ -93,13 +93,20 @@ export function useIntersectionObserver(
     // has been permanently stopped.
     if (stopped) return
     if (disposeEffect !== null) return
-    setIsActive(true)
     // Reactive target: the effect tracks the getter; per-run onCleanup
     // disconnects the previous observer before the re-run observes the new
     // element — the observer follows the target ($ref null → element).
+    // `isActive` is set FROM WITHIN the effect body (both branches), not
+    // before it — it must reflect whether an observer is actually attached
+    // right now, including a target that resolves to null on this run OR a
+    // later re-run (e.g. a $ref going from element back to null), not just
+    // "resume() was called".
     disposeEffect = effect((onCleanup) => {
       const el = unrefElement(target)
-      if (el == null) return
+      if (el == null) {
+        setIsActive(false)
+        return
+      }
       // Built incrementally — `exactOptionalPropertyTypes` rejects an
       // explicit `undefined` for `rootMargin`/`threshold` even though both
       // are optional on `IntersectionObserverInit`.
@@ -108,6 +115,7 @@ export function useIntersectionObserver(
       if (threshold !== undefined) init.threshold = threshold
       const observer = new IntersectionObserver((entries) => callback(entries, observer), init)
       observer.observe(el)
+      setIsActive(true)
       onCleanup(() => observer.disconnect())
     })
   }

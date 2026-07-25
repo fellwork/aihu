@@ -17,6 +17,7 @@ interface FakeEntry {
   contentRect: { width: number; height: number }
   contentBoxSize: Array<{ inlineSize: number; blockSize: number }>
   borderBoxSize: Array<{ inlineSize: number; blockSize: number }>
+  devicePixelContentBoxSize?: Array<{ inlineSize: number; blockSize: number }>
 }
 
 class FakeResizeObserver {
@@ -44,6 +45,11 @@ class FakeResizeObserver {
       width: rect.width + 10,
       height: rect.height + 10,
     },
+    // Distinct from both content/border box so `box:
+    // 'device-pixel-content-box'` is actually observable, not just falling
+    // through to contentBoxSize by coincidence. `undefined` simulates an
+    // engine that doesn't populate this (experimental) array.
+    devicePixelSize?: { width: number; height: number },
   ): void {
     // Stub the element's getBoundingClientRect for this fire — useMeasure
     // reads x/y/top/right/bottom/left off it, not off contentRect.
@@ -64,6 +70,13 @@ class FakeResizeObserver {
         contentRect: { width: rect.width, height: rect.height },
         contentBoxSize: [{ inlineSize: rect.width, blockSize: rect.height }],
         borderBoxSize: [{ inlineSize: borderSize.width, blockSize: borderSize.height }],
+        ...(devicePixelSize !== undefined
+          ? {
+              devicePixelContentBoxSize: [
+                { inlineSize: devicePixelSize.width, blockSize: devicePixelSize.height },
+              ],
+            }
+          : {}),
       },
     ])
   }
@@ -115,12 +128,38 @@ describe('@aihu/use/useMeasure', () => {
 
   it('box: "border-box" reads the border box size', () => {
     const el = document.createElement('div')
-    useMeasure({ target: el, box: 'border-box' })
+    const { width, height } = useMeasure({ target: el, box: 'border-box' })
+    const observer = FakeResizeObserver.instances[0]
+    // Default borderSize is rect + 10 on each axis (see fire()'s default).
+    observer?.fire(el, { x: 0, y: 0, width: 20, height: 30 })
+    expect(width()).toBe(30)
+    expect(height()).toBe(40)
+  })
+
+  it('box: "device-pixel-content-box" reads devicePixelContentBoxSize, not content/border box (FEL-406 #3)', () => {
+    const el = document.createElement('div')
+    const { width, height } = useMeasure({ target: el, box: 'device-pixel-content-box' })
+    const observer = FakeResizeObserver.instances[0]
+    observer?.fire(
+      el,
+      { x: 0, y: 0, width: 20, height: 30 },
+      { width: 30, height: 40 },
+      { width: 39, height: 59 },
+    )
+    // Must come from devicePixelContentBoxSize (39, 59), NOT contentBoxSize
+    // (20, 30) or borderBoxSize (30, 40) — that silent fold to content-box
+    // is exactly the bug FEL-406 #3 flags.
+    expect(width()).toBe(39)
+    expect(height()).toBe(59)
+  })
+
+  it('box: "device-pixel-content-box" falls back to contentRect when the engine omits devicePixelContentBoxSize', () => {
+    const el = document.createElement('div')
+    const { width, height } = useMeasure({ target: el, box: 'device-pixel-content-box' })
     const observer = FakeResizeObserver.instances[0]
     observer?.fire(el, { x: 0, y: 0, width: 20, height: 30 })
-    // (assert indirectly via width/height on a fresh call to avoid
-    // re-deriving the observer's box option from the private instance)
-    expect(observer).toBeDefined()
+    expect(width()).toBe(20)
+    expect(height()).toBe(30)
   })
 
   it('scope.stop() disconnects the underlying observer', () => {

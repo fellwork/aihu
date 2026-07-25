@@ -25,6 +25,21 @@
  * computed ONCE at call time (`source` is read once, mirroring
  * `useDebounced`'s SSR path) and no-op `pause`/`resume` — registers no
  * timer, the `isClient` no-op invariant.
+ *
+ * `date` is POLLED, not reactively tracked (FEL-406 #3 review note,
+ * deliberate — see `tick()` below): each read happens inside the plain
+ * `setTimeout` callback, outside any effect, so a change to `date` is only
+ * picked up at the next scheduled poll, not the instant it happens. This is
+ * intentional, not an oversight, for two reasons: (1) `date` is a
+ * `MaybeGetter` — callers may pass a plain closure with no signal underneath
+ * it at all (see the "reactive getter source" test), so effect-based
+ * tracking wouldn't universally help even if added, only for the
+ * signal-backed subset; and (2) the adaptive cadence already re-polls as
+ * often as the DISPLAYED unit could plausibly need to change, so the
+ * worst-case staleness after a `date` change is bounded by that same cadence
+ * (capped at an hour), not unbounded. A caller needing sub-cadence
+ * responsiveness to a changing `date` should key/remount the composable
+ * (e.g. an `#key` block) rather than rely on it re-tracking mid-flight.
  */
 
 import { signal } from '@aihu/signals'
@@ -118,6 +133,10 @@ export function useTimeAgo(
     // Belt-and-suspenders: a self-rescheduling chain must not survive
     // dispose even if something upstream still calls tick() directly.
     if (disposed) return
+    // POLLED, not tracked — this `toValue(date)` read is a plain function
+    // call, not inside an `effect()`, so it establishes no reactive
+    // dependency. See the module doc's "POLLED, not reactively tracked"
+    // note for why that's the deliberate contract here, not a bug.
     const [text, nextDelay] = formatTimeAgo(rtf, Date.now() - toMs(toValue(date)))
     // Arm the NEXT timer before publishing the signal update. `setTimeAgo`
     // can synchronously run subscriber effects (e.g. one that calls
