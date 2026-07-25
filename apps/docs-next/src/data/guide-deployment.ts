@@ -1,0 +1,184 @@
+/**
+ * Deployment guide body. Adapted from the real
+ * apps/docs/src/content/docs/guides/deployment.md — no retired-dialect code
+ * samples here (build config, Cloudflare/Vercel adapters, Bun/Deno/Node
+ * servers) so the content carries over verbatim. Fenced code uses the ~~~
+ * delimiter and inline code uses <code> tags so the source carries no
+ * backticks.
+ */
+export const DEPLOYMENT = `# Deployment
+
+## Build for production
+
+~~~bash
+bun run build
+bun run preview
+~~~
+
+<code>bun run build</code> compiles all <code>.aihu</code> SFCs through the Rust compiler, bundles with Vite/Rolldown, and validates against the per-package size budgets in <code>.size-limit.json</code>. <code>bun run preview</code> serves the production build locally to verify output before deploying.
+
+## <code>defineAihuConfig</code>
+
+The app configuration lives in <code>aihu.config.ts</code>:
+
+~~~typescript
+import { defineAihuConfig } from '@aihu/server'
+
+export default defineAihuConfig({
+  build: {
+    target: 'universal',
+    outDir: 'dist',
+    sourcemap: false,
+  },
+  plugins: [],
+})
+~~~
+
+Build target options: <code>'client'</code> (browser bundle only), <code>'server'</code> (server bundle only), <code>'universal'</code> (both, default).
+
+## Cloudflare Workers
+
+Use <code>@aihu/adapter-cloudflare</code> to deploy to Cloudflare Workers or Pages:
+
+~~~typescript
+// aihu.config.ts
+import { defineConfig } from '@aihu/app'
+import { cloudflare } from '@aihu/adapter-cloudflare'
+
+export default defineConfig({
+  adapter: cloudflare({ name: 'my-worker' }),
+})
+~~~
+
+The adapter:
+- Writes <code>_worker.js</code> to the Vite output directory (SPA mode — all page requests served from Cloudflare CDN via the <code>ASSETS</code> binding).
+- Optionally creates <code>wrangler.toml</code> in the project root if absent (never overwrites an existing one).
+
+Adapter options:
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| <code>name</code> | <code>string</code> | from <code>package.json</code> | Cloudflare Worker name in <code>wrangler.toml</code> |
+| <code>mode</code> | <code>'workers' \\| 'pages'</code> | <code>'workers'</code> | Deployment target |
+| <code>generateWrangler</code> | <code>boolean</code> | <code>true</code> | Write <code>wrangler.toml</code> if absent |
+
+Deploy after build:
+
+~~~bash
+wrangler deploy --config wrangler.toml
+~~~
+
+For a manual Worker without the adapter, use <code>@aihu/server</code>'s request router directly:
+
+~~~typescript
+import { createRequestRouter, defineRoute, json } from '@aihu/server'
+
+const router = createRequestRouter({
+  routes: [
+    defineRoute('/api/hello', () => json({ hello: 'world' })),
+  ],
+})
+
+// Cloudflare Worker
+export default { fetch: router }
+~~~
+
+## Vercel
+
+Use <code>@aihu/adapter-vercel</code> to deploy using the Vercel Build Output API v3:
+
+~~~typescript
+// aihu.config.ts
+import { defineConfig } from '@aihu/app'
+import { vercel } from '@aihu/adapter-vercel'
+
+export default defineConfig({
+  adapter: vercel(),
+})
+~~~
+
+The adapter:
+- Copies static assets to <code>.vercel/output/static/</code>.
+- Writes an Edge Function entry (default) or Serverless Function entry.
+- Emits <code>config.json</code> with the Build Output API v3 routes manifest.
+
+Adapter options:
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| <code>runtime</code> | <code>'edge' \\| 'serverless'</code> | <code>'edge'</code> | Vercel function runtime |
+| <code>outputDir</code> | <code>string</code> | <code>'.vercel/output'</code> | Build Output API output directory |
+| <code>nodeVersion</code> | <code>string</code> | <code>'nodejs18.x'</code> | Node.js version for serverless runtime |
+
+Deploy after build:
+
+~~~bash
+vercel deploy --prebuilt
+~~~
+
+## Bun server
+
+Run aihu server-side on Bun using <code>@aihu/server</code>'s fetch-API router:
+
+~~~typescript
+import { createRequestRouter, defineRoute, json } from '@aihu/server'
+import { createAgentReadinessRoutes } from '@aihu-plugin/agent-readiness'
+
+const ar = createAgentReadinessRoutes({
+  name: 'My App',
+  endpoint: 'https://myapp.example.com/mcp',
+  summary: 'An aihu-powered app.',
+})
+
+const router = createRequestRouter({
+  routes: [
+    defineRoute('/llms.txt', ar.llmsTxt),
+    defineRoute('/.well-known/mcp/server-card.json', ar.mcpServerCard),
+    defineRoute('/robots.txt', ar.robotsTxt),
+    defineRoute('/api/hello', () => json({ hello: 'world' })),
+  ],
+})
+
+Bun.serve({ fetch: router })
+~~~
+
+## Deno
+
+The same router works on Deno Deploy — aihu uses only Web Standard APIs (Fetch, ReadableStream, URL):
+
+~~~typescript
+import { createRequestRouter, defineRoute, json } from '@aihu/server'
+
+const router = createRequestRouter({
+  routes: [
+    defineRoute('/api/hello', () => json({ hello: 'world' })),
+  ],
+})
+
+Deno.serve(router)
+~~~
+
+## Node.js
+
+aihu output is standard ESM. Any Node.js ≥20.18.0 runtime can serve an aihu application:
+
+~~~bash
+npm run build
+node dist/server/entry.js
+~~~
+
+The server entry is generated by the universal build and uses <code>@aihu/server</code>'s request router.
+
+On supported Node platforms <code>@aihu/server</code> lazily loads a native Rust addon to render SSR. Edge runtimes (Cloudflare, Vercel Edge, Deno) automatically skip it and use the TypeScript fallback. To force the fallback on Node — e.g. on an unsupported platform or to debug a parity issue — set <code>SCRIBE_NATIVE_SKIP=1</code> in the server environment.
+
+## <code>viteRouterIntegration()</code> at build time
+
+The Vite plugin performs these steps at build time:
+
+1. <code>scanPages(dir)</code> — discovers all <code>.aihu</code> files under <code>src/pages/</code>.
+2. For each page, reads the <code>.route.json</code> sidecar emitted by the Rust compiler.
+3. Assembles the route manifest into the <code>virtual:aihu-routes</code> module.
+4. Emits <code>dist/routes.json</code> for runtime consumption.
+
+Route manifests are fully static after build — no filesystem scanning at runtime.
+`

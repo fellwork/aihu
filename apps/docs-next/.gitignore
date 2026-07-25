@@ -1,0 +1,5 @@
+dist/
+node_modules/
+src/styles/utilities.generated.css
+test-results/
+# .design-review/ is committed intentionally — the founder's design-review renders.

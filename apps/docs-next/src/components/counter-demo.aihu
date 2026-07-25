@@ -1,0 +1,70 @@
+// counter-demo — a real, runnable aihu component embedded live in the examples
+// playground panel. Local numeric `state` count with increment / decrement /
+// reset actions. It compiles at build, ships as an island, and is fully
+// interactive on the page — the "runnable block".
+//
+// NOTE: uses state(0), not prop({ default: 0 }). A prop is attribute-backed, so
+// the value arrives as a STRING and `count++` lowers to `count + 1` → string
+// concat ("0"→"01"→"011"). A counter's value is component-local state, not a
+// parent input.
+
+@state {
+  let count = state(0)
+
+  const increment = action(() => { count++ })
+  const decrement = action(() => { count-- })
+  const reset = action(() => { count = 0 })
+}
+
+@template {
+  <section class="dn-counter">
+    <output class="dn-counter-value">{count}</output>
+    <div class="dn-counter-controls">
+      <button class="dn-counter-btn" on:click={decrement} aria-label="Decrement">−</button>
+      <button class="dn-counter-btn dn-counter-ghost" on:click={reset}>Reset</button>
+      <button class="dn-counter-btn" on:click={increment} aria-label="Increment">+</button>
+    </div>
+  </section>
+}
+
+@style {
+  .dn-counter {
+    display: grid;
+    gap: 1rem;
+    place-items: center;
+    padding: 1.75rem 1.5rem;
+  }
+  .dn-counter-value {
+    font-family: var(--font-mono);
+    font-size: 3.25rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: var(--accent);
+    line-height: 1;
+  }
+  .dn-counter-controls {
+    display: flex;
+    gap: 0.5rem;
+  }
+  .dn-counter-btn {
+    min-width: 3rem;
+    padding: 0.55rem 0.9rem;
+    font: inherit;
+    font-weight: 600;
+    font-size: 1.05rem;
+    cursor: pointer;
+    color: var(--fg);
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--r-sm);
+    transition: border-color 0.12s, background 0.12s;
+  }
+  .dn-counter-btn:hover {
+    border-color: var(--accent-line);
+    background: var(--hover-bg);
+  }
+  .dn-counter-ghost {
+    color: var(--muted);
+    font-size: var(--fs-sm);
+  }
+}

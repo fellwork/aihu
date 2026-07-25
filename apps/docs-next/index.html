@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <title>aihu — docs</title>
+    <!-- Set the theme before first paint to avoid a flash. Honors a saved
+         choice, else the OS preference. The theme-toggle island keeps it in
+         sync at runtime. -->
+    <script>
+      (() => {
+        try {
+          const saved = localStorage.getItem('dn-theme')
+          const dark =
+            saved === 'dark' ||
+            (saved === null &&
+              window.matchMedia('(prefers-color-scheme: dark)').matches)
+          if (dark) document.documentElement.classList.add('dark')
+        } catch {}
+      })()
+    </script>
+  </head>
+  <body>
+    <div id="outlet"></div>
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>

@@ -1,0 +1,396 @@
+@route {
+  path: "/examples",
+  name: "examples-page",
+  layout: "docs",
+  head: {
+    title: "Examples & Cookbook — aihu",
+    description: "Browse the governed example set and the aihu fluency cookbook — with a live, runnable playground.",
+    canonical: "/examples"
+  }
+}
+
+@state {
+  import { COOKBOOK, GOVERNED, LIVE_ISLANDS, COUNTER_SOURCE } from '../data/gallery.ts'
+  import { codeBlock } from '../lib/code-block.ts'
+
+  const cookbook = COOKBOOK.map((r) => ({
+    id: r.id,
+    href: `/cookbook/${r.id}`,
+    title: r.title,
+    type: r.type,
+    description: r.description,
+    constructs: r.constructs.slice(0, 4),
+    more: r.constructs.length > 4 ? r.constructs.length - 4 : 0,
+    runnable: !!LIVE_ISLANDS[r.id],
+  }))
+  const governed = GOVERNED.map((g) => ({
+    id: g.id,
+    example: g.example,
+    subsystem: g.subsystem,
+    ci: g.ci,
+    exercises: g.exercises.slice(0, 6),
+    more: g.exercises.length > 6 ? g.exercises.length - 6 : 0,
+  }))
+  const counterCode = codeBlock(COUNTER_SOURCE, { name: 'aihu-counter.aihu', lang: 'aihu' })
+}
+
+@template {
+  <div class="dn-gallery dn-article">
+    <header class="dn-gallery-head">
+      <p class="dn-sec-num"><b>EX</b> examples &amp; cookbook</p>
+      <h1>The corpus that teaches humans and agents idiomatic aihu</h1>
+      <p>A governed example set that exercises every subsystem <em>live</em>, and a
+         fluency cookbook of focused recipes — each one a real, compiled
+         <code>.aihu</code> component.</p>
+    </header>
+
+    <!-- Playground — a dual surface: source + the live island it compiles to. -->
+    <section id="playground" class="dn-pg">
+      <div class="dn-pg-head">
+        <span class="dn-status dn-status-accent">
+          <span class="dn-dot dn-dot-live"></span>live · runnable
+        </span>
+        <span class="dn-pg-name dn-rail">aihu-counter</span>
+      </div>
+      <div class="dn-pg-body">
+        <div class="dn-pg-preview">
+          <span class="dn-pg-label">
+            <span class="dn-dot"></span>Human render — try it
+          </span>
+          <counter-demo count="3"></counter-demo>
+        </div>
+        <div class="dn-pg-source" html={counterCode}></div>
+      </div>
+      <p class="dn-pg-note">
+        This counter is the real <code>aihu-counter</code> recipe, compiled at
+        build and hydrated as an island — fully interactive right here.
+        In-browser recompilation (the WASM playground) is the next phase.
+      </p>
+    </section>
+
+    <section id="governed" class="dn-sec">
+      <div class="dn-sec-head">
+        <h2>Governed examples</h2>
+        <span class="dn-status dn-status-graphite dn-sec-count">
+          <span class="dn-dot dn-dot-graphite"></span>{governed.length} · CI-built
+        </span>
+      </div>
+      <div class="dn-gov-grid">
+        <div class="dn-gov-card" each={g of governed} key={g.id}>
+          <span class="dn-gov-id">{g.id}</span>
+          <div class="dn-gov-body">
+            <div class="dn-gov-top">
+              <code class="dn-gov-name">{g.example}</code>
+              <span class="dn-gov-ci dn-rail">{g.ci}</span>
+            </div>
+            <span class="dn-gov-sub">{g.subsystem}</span>
+            <div class="dn-card-tags">
+              <code each={ex of g.exercises} key={ex}>{ex}</code>
+              <code class="dn-card-more" if={g.more > 0}>+{g.more}</code>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="cookbook" class="dn-sec">
+      <div class="dn-sec-head">
+        <h2>Cookbook recipes</h2>
+        <span class="dn-sec-count dn-rail">{cookbook.length} shown</span>
+      </div>
+      <div class="dn-card-grid">
+        <a class="dn-card" each={r of cookbook} key={r.id} href={r.href}>
+          <div class="dn-card-top">
+            <span class="dn-card-type">{r.type}</span>
+            <span class="dn-card-run" if={r.runnable}>
+              <span class="dn-dot"></span>Run
+            </span>
+          </div>
+          <h3 class="dn-card-title">{r.title}</h3>
+          <p class="dn-card-desc">{r.description}</p>
+          <div class="dn-card-tags">
+            <code each={construct of r.constructs} key={construct}>{construct}</code>
+            <code class="dn-card-more" if={r.more > 0}>+{r.more}</code>
+          </div>
+        </a>
+      </div>
+    </section>
+  </div>
+}
+
+@style {
+  .dn-gallery {
+    max-width: 62rem;
+  }
+  .dn-gallery-head .dn-sec-num {
+    margin: 0 0 1.1rem;
+  }
+  .dn-gallery-head h1 {
+    font-size: var(--fs-3xl);
+    font-weight: 700;
+    letter-spacing: var(--tracking-tighter);
+    line-height: 1.08;
+    margin: 0 0 0.75rem;
+    text-wrap: balance;
+    max-width: 24ch;
+  }
+  .dn-gallery-head p {
+    color: var(--muted);
+    font-size: var(--fs-md);
+    line-height: 1.6;
+    max-width: 42rem;
+    margin: 0 0 2rem;
+  }
+  .dn-gallery-head em {
+    color: var(--accent);
+    font-style: normal;
+    font-weight: 600;
+  }
+  .dn-gallery-head code {
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+    color: var(--accent-strong);
+  }
+
+  /* playground */
+  .dn-pg {
+    border: 1px solid var(--border-strong);
+    border-radius: var(--r-lg);
+    background: var(--surface);
+    overflow: hidden;
+    box-shadow: var(--shadow-md);
+    margin-bottom: 3.5rem;
+    scroll-margin-top: calc(var(--header-h) + 1rem);
+  }
+  .dn-pg-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.75rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface-2);
+  }
+  .dn-pg-body {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+  .dn-pg-preview {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    padding: 1.5rem;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    box-shadow: inset 3px 0 0 var(--accent);
+  }
+  .dn-pg-label {
+    align-self: flex-start;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+    letter-spacing: 0.03em;
+    color: var(--muted);
+  }
+  .dn-pg-source .cb {
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+  .dn-pg-note {
+    padding: 0.9rem 1.25rem;
+    margin: 0;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: var(--fs-sm);
+    line-height: 1.55;
+  }
+  .dn-pg-note code {
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+    color: var(--accent);
+  }
+
+  /* sections */
+  .dn-sec {
+    margin-bottom: 3.5rem;
+    scroll-margin-top: calc(var(--header-h) + 1rem);
+  }
+  .dn-sec-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+    padding-bottom: 0.6rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .dn-sec-head h2 {
+    font-size: var(--fs-xl);
+    letter-spacing: var(--tracking-tight);
+    margin: 0;
+  }
+  .dn-sec-count {
+    align-self: center;
+  }
+
+  /* governed grid */
+  .dn-gov-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.6rem;
+  }
+  .dn-gov-card {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    padding: 0.85rem 1rem;
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    background: var(--surface);
+  }
+  .dn-gov-id {
+    font-family: var(--font-mono);
+    font-weight: 600;
+    font-size: var(--fs-sm);
+    color: var(--accent-contrast);
+    background: var(--graphite);
+    border-radius: var(--r-sm);
+    padding: 0.2rem 0.5rem;
+    min-width: 2.3rem;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+  }
+  .dn-gov-body {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    gap: 0.35rem;
+    flex: 1;
+  }
+  .dn-gov-top {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.6rem;
+  }
+  .dn-gov-name {
+    font-family: var(--font-mono);
+    font-weight: 550;
+    color: var(--fg-strong);
+    font-size: var(--fs-sm);
+  }
+  .dn-gov-ci {
+    flex-shrink: 0;
+  }
+  .dn-gov-sub {
+    color: var(--muted);
+    font-size: var(--fs-xs);
+  }
+
+  /* cookbook cards */
+  .dn-card-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  .dn-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 1.25rem;
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    background: var(--surface);
+    color: var(--fg);
+    text-decoration: none;
+    transition: border-color 0.14s, transform 0.12s, box-shadow 0.16s;
+  }
+  .dn-card:hover {
+    text-decoration: none;
+    border-color: var(--accent-line);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+  }
+  .dn-card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .dn-card-type {
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--graphite);
+  }
+  .dn-card-run {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+    font-weight: 500;
+    color: var(--accent);
+  }
+  .dn-card-title {
+    font-size: var(--fs-lg);
+    letter-spacing: var(--tracking-tight);
+    margin: 0;
+  }
+  .dn-card-desc {
+    color: var(--muted);
+    font-size: var(--fs-sm);
+    line-height: 1.5;
+    margin: 0;
+    flex: 1;
+  }
+  .dn-card-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    margin-top: 0.25rem;
+  }
+  .dn-card-tags code {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    color: var(--muted);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    padding: 0.05rem 0.4rem;
+    border-radius: 4px;
+  }
+  .dn-card-more {
+    color: var(--faint) !important;
+    background: transparent !important;
+    border-color: transparent !important;
+  }
+
+  @media (min-width: 640px) {
+    .dn-gov-grid {
+      grid-template-columns: 1fr 1fr;
+    }
+    .dn-card-grid {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+  @media (min-width: 900px) {
+    .dn-pg-body {
+      grid-template-columns: 0.85fr 1.15fr;
+    }
+    .dn-pg-preview {
+      border-bottom: 0;
+      border-right: 1px solid var(--border);
+    }
+    .dn-card-grid {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+}

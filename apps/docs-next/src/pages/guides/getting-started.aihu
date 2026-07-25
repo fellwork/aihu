@@ -1,0 +1,85 @@
+@route {
+  path: "/guides/getting-started",
+  name: "guide-getting-started",
+  layout: "docs",
+  head: {
+    title: "Getting Started — aihu",
+    description: "Build your first aihu component from scratch: @state, @template, @route, props, actions, and the agent surface.",
+    canonical: "/guides/getting-started"
+  }
+}
+
+@state {
+  // Dogfood the markdown pipeline AT PRERENDER: renderMarkdown (marked + the
+  // shared code-block chrome + slugged headings) runs in the page's own @state,
+  // so the guide body lands in the page's DOM-free __ssrString and ships as real
+  // static HTML — not a SPA shell, not an un-rendered attribute. (A child
+  // <markdown-doc> element would instead hydrate client-side as an island.)
+  import { renderMarkdown } from '../../lib/markdown.ts'
+  import { GETTING_STARTED } from '../../data/guide-getting-started.ts'
+
+  const body = renderMarkdown(GETTING_STARTED)
+}
+
+@template {
+  <div class="dn-guide">
+    <p class="dn-sec-num"><b>G · 01</b> guides</p>
+    <p class="dn-breadcrumb dn-rail"><a href="/guides/getting-started">Guides</a> / Getting Started</p>
+    <article class="dn-prose dn-article" html={body}></article>
+    <nav class="dn-page-nav" aria-label="Guide pagination">
+      <span class="dn-page-nav-spacer"></span>
+      <a class="dn-page-next" href="/guides/installation">
+        <span>Next</span>
+        <strong>Installation →</strong>
+      </a>
+    </nav>
+  </div>
+}
+
+@style {
+  .dn-guide {
+    max-width: var(--content-max);
+  }
+  .dn-guide > .dn-sec-num {
+    margin: 0 0 1rem;
+  }
+  .dn-breadcrumb {
+    margin: 0 0 2rem;
+  }
+  .dn-breadcrumb a {
+    color: var(--muted);
+  }
+  .dn-page-nav {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-top: 3.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border);
+  }
+  .dn-page-next {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.15rem;
+    padding: 0.85rem 1.2rem;
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    text-decoration: none;
+    color: var(--fg);
+  }
+  .dn-page-next:hover {
+    text-decoration: none;
+    border-color: var(--accent-line);
+  }
+  .dn-page-next span {
+    font-size: var(--fs-xs);
+    color: var(--faint);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .dn-page-next strong {
+    color: var(--accent);
+    font-weight: 600;
+  }
+}

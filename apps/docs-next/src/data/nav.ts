@@ -1,0 +1,71 @@
+/**
+ * The docs sidebar model. In this representative slice only the pages that
+ * actually exist are wired live; the rest are shown as "soon" so the shape of
+ * the full information architecture is judgeable. Full content migration
+ * (docs/collapse-to-apps-docs unified corpus) is the next phase.
+ */
+export interface NavLink {
+  readonly label: string
+  readonly href: string
+  /** true = a built page in this slice; false = placeholder in the IA. */
+  readonly ready: boolean
+}
+export interface NavSection {
+  readonly title: string
+  readonly links: readonly NavLink[]
+}
+
+export const NAV: readonly NavSection[] = [
+  {
+    title: 'Guides',
+    links: [
+      { label: 'Getting Started', href: '/guides/getting-started', ready: true },
+      { label: 'Installation', href: '/guides/installation', ready: true },
+      { label: 'Reactivity', href: '/guides/reactivity', ready: true },
+      { label: 'Authoring Components', href: '/guides/authoring-components', ready: true },
+      { label: 'Routing & Layouts', href: '/guides/routing-layouts', ready: true },
+      { label: 'SSR & Hydration', href: '/guides/ssr-hydration', ready: true },
+      { label: 'Agent Discovery', href: '/guides/agent-discovery', ready: true },
+      { label: 'Deployment', href: '/guides/deployment', ready: true },
+    ],
+  },
+  // --- API (track A) ---
+  // Generated datasheet (scripts/gen-api.ts): one page per documentable
+  // package. All 37 are live; the sidebar surfaces the index + a curated
+  // shortlist (the exemplar + the packages a getting-started reader hits
+  // first) rather than all 37 rows.
+  {
+    title: 'API Reference',
+    links: [
+      { label: 'All 37 packages', href: '/api', ready: true },
+      { label: '@aihu/signals', href: '/api/signals', ready: true },
+      { label: '@aihu/store', href: '/api/store', ready: true },
+      { label: '@aihu/runtime', href: '/api/runtime', ready: true },
+      { label: '@aihu/router', href: '/api/router', ready: true },
+      { label: '@aihu/server', href: '/api/server', ready: true },
+      { label: '@aihu/app', href: '/api/app', ready: true },
+    ],
+  },
+  // --- /API (track A) ---
+  // --- Cookbook (track B) ---
+  // Gallery data (scripts/gen-gallery.ts): 20 cookbook recipes + the 9
+  // founder-ratified governed examples, derived from packages/mcp/src/
+  // cookbook-index.json + examples/<name>/coverage.manifest.json. Every
+  // recipe below is a real, prerendered /cookbook/<id> detail page; the
+  // in-browser WASM playground is deferred (see cookbook build follow-up).
+  {
+    title: 'Examples',
+    links: [
+      { label: 'Gallery', href: '/examples', ready: true },
+      { label: 'Governed set (9)', href: '/examples#governed', ready: true },
+    ],
+  },
+  {
+    title: 'Cookbook',
+    links: [
+      { label: 'All recipes (20)', href: '/cookbook', ready: true },
+      { label: 'Live demo', href: '/examples#playground', ready: true },
+    ],
+  },
+  // --- /Cookbook (track B) ---
+]
