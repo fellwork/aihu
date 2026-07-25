@@ -168,6 +168,22 @@ Two further caveats before this number is reused anywhere:
    10,000x change in sibling count). That property is genuine and is the honest
    engineering point the docs should be making.
 
+### The honest end-to-end number
+
+Running the **unmodified committed workload** (`update-1-of-10k-leaves`) for both
+the `@aihu/arbor` and `vanilla` competitors, in the same process, 5 fresh
+processes, paired per-process ratio:
+
+| statistic | arbor | vanilla | **paired ratio** |
+| --- | ---: | ---: | ---: |
+| `p50` | 1,035 ns | 14,703 ns | **12.19x** |
+| `min` | 479 ns | 6,987 ns | **13.18x** |
+
+So the defensible headline, against the bench's own `vanilla` competitor, is
+**~12x — not 122x.** And that 12x is still measured against a vanilla adapter
+that re-assigns `element.textContent`; against a vanilla adapter that caches the
+text node (arm A above) the ratio is ~1x.
+
 **Recommendation:** the 122x figure appears in `README.md` (x3), `CLAUDE.md`,
 `apps/docs/.../getting-started.md`, `introduction.md`, and
 `authoring-components.md`. All six sites are sourced from a broken measurement
