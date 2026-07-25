@@ -513,12 +513,25 @@ done
 # (a symlink to the main checkout's node_modules silently resolves @aihu/signals
 #  to the main checkout and invalidates the comparison — this bit matters)
 
-# single-cell runner, aihu rows only, faithful to runner.ts's protocol:
+# single-cell runner over the UNMODIFIED committed workloads, aihu rows only:
 #   for (const wl of workloads) { if (wl.name !== ONLY) continue
 #     const ctx = wl.build(aihu); for (let i=0;i<5;i++) ctx.run()
-#     await measure(ctx.run, { min_cpu_time: 1e9, warmup_samples: 5 }) }
-# then interleave arms A,B,C,D within each rep; 9 reps; report medians + spreads.
+#     await measure(ctx.run, { min_cpu_time: BUDGET, warmup_samples: 5 }) }
+#
+# pass 1 — BUDGET=1e9, report p50   (reproduces the gate's own configuration)
+# pass 2 — BUDGET=2e9, report min   (15 reps; mount-deep, mount-10k)
+# pass 3 — BUDGET=2e9, report min   ( 9 reps; mount-wide, krausest, update-1)
+# interleave arms A,B,C,D within each rep; compare MEDIAN OF PER-REP PAIRED
+# RATIOS plus a sign test, not medians of separately-pooled distributions.
 ```
+
+The two controls are what make the negative result trustworthy, and both are
+free — they fall out of the commit graph rather than being constructed:
+
+* **A vs B** on `mount-deep-100x10` / `mount-10k-leaves` — different commits,
+  *identical executed code* (§3.2).
+* **C vs D** on everything — `cmp`-byte-identical `dist/index.js` for both
+  `@aihu/arbor` and `@aihu/signals`.
 
 Driver, raw JSONL, and worktrees lived in the session scratchpad and were
 removed on completion. The checkout at `/Users/smcguirt/conductor/repos/aihu`
