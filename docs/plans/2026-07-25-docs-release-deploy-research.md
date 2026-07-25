@@ -191,6 +191,9 @@ Ranked by how often it appears:
    Vite's `scripts/docs-check.sh` diffs `docs package.json pnpm-lock.yaml netlify.toml
    packages/vite/package.json scripts/docs-check.sh`. That is the exact problem aihu is
    trying to solve, solved with a **paths filter**, not a release trigger.
+   **aihu already does the build-time read** (`apps/docs/build.ts:297-302` reads
+   `packages/runtime/package.json` into the nav version badge) but has *not* done the
+   corresponding filter widening — see the recommendation.
 3. **The docs site depends on the packages as ordinary npm deps.** lit.dev carries
    `"@lit/context": "^1.1.0"` etc. and picks up new versions on rebuild.
 4. **A cron refreshes the resolved versions.** TanStack's weekly `pnpm up "@tanstack/*"
@@ -236,19 +239,10 @@ Three lessons:
 
 ### The honest answer
 
-**Most projects don't do this, and aihu already has the simpler thing — it is just
-mis-configured.**
+**Most projects don't do this, and aihu already gets ~86% of the intended behaviour by
+accident. The right fix is to make that deliberate, not to add a new trigger.**
 
-Look at aihu's actual release-shaped main push. Commit `e54b72b5`
-("chore(release): version packages (#530)") touched:
-
-```
-.changeset/use-fanout.md, README.md, packages/*/README.md (15 files),
-packages/use/CHANGELOG.md, packages/use/package.json,
-scripts/__bundle-sizes.json, scripts/__package-inventory.json
-```
-
-Now compare against the current filter in `.github/workflows/deploy-docs.yml` (origin/main):
+The current filter in `.github/workflows/deploy-docs.yml` (origin/main) is:
 
 ```yaml
 paths:
@@ -260,12 +254,67 @@ paths:
   - '.github/workflows/deploy-docs.yml'
 ```
 
-**Nothing in that version-bump commit matches.** That is the bug. It is not that the docs
-deploy is uncoupled from releases — it is that the paths filter enumerates five packages out
-of ~20 and excludes the root `README.md`, all `CHANGELOG.md`s, and every other package's
-`package.json`. A `@aihu/use` release cannot rebuild the docs today, and neither can a
-`@aihu/signals` one. Conversely, if the release had bumped `packages/compiler/package.json`,
-the docs deploy **would already have fired** on the version PR merge.
+Measured against every `chore(release): version packages` merge in aihu's history
+(49 commits on `origin/main`):
+
+| | Count |
+|---|---|
+| Version-PR merges that **already** matched the paths filter and deployed docs | **42 / 49** |
+| Version-PR merges that matched nothing and did **not** deploy docs | **7 / 49** |
+
+The 42 match incidentally, because changesets rewrites the dependency tables in
+`packages/*/README.md` — so almost any release touches `packages/arbor/README.md` or
+`packages/compiler/README.md` and trips the filter. Example: `e54b72b5`
+("version packages (#530)") was a `@aihu/use`-only release, and the *only* file in it that
+matched the filter was `packages/arbor/README.md`.
+
+The 7 misses are the interesting ones. `3823e4ec` ("version packages (#380)") touched only:
+
+```
+.changeset/agent-template-durable.md, README.md,
+packages/cli/{CHANGELOG.md,README.md,package.json},
+packages/create-aihu/{CHANGELOG.md,README.md,package.json},
+scripts/__package-inventory.json
+```
+
+None of that matches, so the docs did not rebuild — for a **`@aihu/cli` + `create-aihu`
+release**, i.e. precisely the release whose docs pages (`installation.md`, `packages/cli.md`)
+a reader is most likely to be following verbatim.
+
+So the real defect is not "docs are uncoupled from releases." It is that the coupling exists
+but is **accidental and unreliable**: it depends on whether changesets happened to touch one
+of five enumerated packages. That is a paths-filter bug, and it wants a paths-filter fix.
+
+#### aihu is already running the Vite/Vitest pattern — it just isn't in the filter
+
+`apps/docs/build.ts:297-302` does exactly what Vite's and Vitest's VitePress configs do:
+
+```ts
+const runtimePkgJson = JSON.parse(
+  await readFile(join(__dir, '../../packages/runtime/package.json'), 'utf8'),
+)
+const runtimeVersion: string = runtimePkgJson.version ?? '0'
+const indexDist = indexSrc
+  .replace('./dist/docs.js', './docs.js')
+  .replace('>v0<', `>v${runtimeVersion}<`)
+```
+
+The site's version badge is **read from `packages/runtime/package.json` at build time**
+(also applied to every prerendered page at `build.ts:360`). This is the single piece of
+aihu's docs whose correctness genuinely depends on rebuilding after a version bump — and
+**`packages/runtime/**` is not in the `deploy-docs.yml` paths filter.**
+
+Historically it has never gone stale: every version-packages commit that bumped
+`packages/runtime/package.json` also happened to touch one of the five filtered packages
+(0 misses across all 49). But that is luck, not design. A runtime-only release would ship a
+site whose version badge still reads the previous version, and no trigger in the repo would
+notice.
+
+This is the strongest argument for the paths-filter fix and against `workflow_run`: the one
+version-sensitive artefact aihu has is keyed to a **file in the tree**, so the correct
+trigger is **that file changing**, which is a `push` + `paths` concern. A release-completion
+event is a strictly worse proxy for "the version string in `packages/runtime/package.json`
+changed."
 
 ### Preferred fix: widen the paths filter (Vite/Vitest pattern)
 
@@ -275,11 +324,17 @@ in their Netlify ignore commands:
 ```yaml
 paths:
   - 'apps/docs/**'
-  - 'packages/*/package.json'      # every changesets version bump
+  - 'packages/*/package.json'      # every changesets version bump; incl. the
+                                   # runtime version read by build.ts:297
   - 'packages/*/CHANGELOG.md'      # release notes surfaced in docs
   - 'README.md'                    # rewritten by the version PR
   # ... existing entries
 ```
+
+`packages/*/package.json` alone closes all 7 historical misses, because a changesets version
+PR by definition bumps at least one `package.json`. This turns a 42/49 accidental hit rate
+into 49/49 by construction, **and** makes the `runtimeVersion` badge's dependency explicit —
+one line, no new trigger semantics.
 
 Cited precedent: Vitest gates on `docs/ package.json pnpm-lock.yaml`
 ([`netlify.toml:4`](https://github.com/vitest-dev/vitest/blob/main/netlify.toml)); Vite gates
