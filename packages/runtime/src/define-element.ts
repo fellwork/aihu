@@ -71,6 +71,19 @@ function wrapClass(
       ;(_proto.connectedCallback as (() => void) | undefined)?.call(this)
     }
 
+    // FEL-396: opt-in marker for `moveBefore()` state preservation — see
+    // define-component.ts for the full rationale and the DI/context CAVEAT.
+    // `Ctor` (produced by defineComponent) already defines its own
+    // connectedMoveCallback, which Wrapped instances inherit through the
+    // prototype chain regardless — this override is not load-bearing for the
+    // platform's detection. Declared anyway for explicitness/symmetry with
+    // the connectedCallback/disconnectedCallback overrides right below, and
+    // so a future non-empty base implementation is forwarded rather than
+    // silently shadowed.
+    connectedMoveCallback(): void {
+      ;(_proto.connectedMoveCallback as (() => void) | undefined)?.call(this)
+    }
+
     disconnectedCallback(): void {
       const hs = this[_HS]
       if (hs !== null) {

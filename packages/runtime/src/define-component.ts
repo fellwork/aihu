@@ -441,6 +441,18 @@ export function defineComponent(setupOrOptions: Setup | ComponentOptions): typeo
           _scopes.delete(this)
         }
       }
+      // FEL-396: opt-in marker for the WHATWG `moveBefore()` API. The spec
+      // requires a custom element class to define `connectedMoveCallback`
+      // (an EMPTY body is sufficient) before the platform will preserve its
+      // state across a `moveBefore()` reparent — without it, `moveBefore`
+      // itself falls back to firing disconnectedCallback + connectedCallback,
+      // which is exactly the state-destroying behavior this exists to avoid.
+      // No body needed: this callback runs neither `_build()` nor
+      // `connectedCallback`, so nothing here needs to re-run on a move.
+      // CAVEAT: DI/context does NOT re-resolve on a move — a moved component
+      // keeps whatever ancestor `provides` chain it resolved at first
+      // connect, even if the move relocates it under a different provider.
+      connectedMoveCallback(): void {}
       // R2 (Director r6 §3): adoptedCallback dispatches userland onAdopt.
       adoptedCallback(): void {
         const lc = this[LC_SYM]
@@ -530,6 +542,7 @@ export function defineComponent(setupOrOptions: Setup | ComponentOptions): typeo
   type _LifecycleProto = {
     connectedCallback?: () => void
     disconnectedCallback?: () => void
+    connectedMoveCallback?: () => void
     attributeChangedCallback?: (n: string, o: string | null, v: string | null) => void
   }
   const _baseProto = Base.prototype as _LifecycleProto
@@ -769,6 +782,14 @@ export function defineComponent(setupOrOptions: Setup | ComponentOptions): typeo
       }
     }
 
+    // FEL-396: opt-in marker for `moveBefore()` state preservation — see the
+    // function-form class above for the full rationale and the DI/context
+    // CAVEAT. Forwarded to the base primitive (§9.4 class-extension) for
+    // symmetry with connectedCallback/disconnectedCallback, though no shipped
+    // primitive currently defines one.
+    connectedMoveCallback(): void {
+      _baseProto.connectedMoveCallback?.call(this)
+    }
     // R2 (Director r6 §3): adoptedCallback dispatches userland onAdopt. A base
     // primitive's adoptedCallback is NOT forwarded — no primitive defines one,
     // and document-adoption of a custom element is a rare edge the recipe layer
