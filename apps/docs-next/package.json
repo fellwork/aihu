@@ -26,6 +26,7 @@
     "marked": "^15.0.0"
   },
   "devDependencies": {
+    "@aihu-plugin/agent-readiness": "workspace:*",
     "@aihu/compiler": "workspace:*",
     "@playwright/test": "1.59.1",
     "vite": "^8.0.0"

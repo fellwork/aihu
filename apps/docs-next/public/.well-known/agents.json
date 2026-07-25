@@ -1,0 +1,16 @@
+{
+  "agents": [
+    {
+      "name": "aihu Documentation Agent",
+      "description": "Browse and search the aihu Web Components framework documentation, API reference, and examples",
+      "url": "https://aihu.dev/.well-known/agent.json",
+      "protocol": "a2a"
+    },
+    {
+      "name": "aihu MCP Server",
+      "description": "Access aihu framework documentation and tools via the Model Context Protocol",
+      "url": "https://aihu.dev/.well-known/mcp/server-card.json",
+      "protocol": "mcp"
+    }
+  ]
+}
