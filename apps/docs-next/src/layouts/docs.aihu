@@ -21,12 +21,22 @@
   // On client-side navigation: sync the active-link path AND reset scroll to the
   // top (unless targeting an in-page anchor) — otherwise the previous page's
   // scroll offset carries over and pages open scrolled halfway down.
-  afterNavigate(() => {
+  //
+  // Hoisted into a plain-body binding rather than written inline in the
+  // `afterNavigate(...)` argument: the guard arms of the compiler's @state
+  // emit splice their callback verbatim, so a `path = …` written there
+  // survives un-rewritten and re-assigns the `const [path, __path_set]`
+  // tuple (ILLEGAL_REASSIGNMENT at bundle time). Plain-body arrows DO take
+  // the write rewrite. Fixed compiler-side in #557 — this hoist can be
+  // inlined again once that lands.
+  const syncPath = () => {
     if (typeof location !== 'undefined') path = location.pathname
     if (typeof window !== 'undefined' && !location.hash) {
       window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
     }
-  })
+  }
+
+  afterNavigate(syncPath)
 }
 
 @template {
