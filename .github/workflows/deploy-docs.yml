@@ -99,6 +99,8 @@ jobs:
       - name: Build docs
         run: bun run build
         working-directory: apps/docs
+        env:
+          AIHU_COMPILE_BIN: ${{ github.workspace }}/packages/compiler/bin/aihu-compile
 
       # Doc-coverage gate (default/non-strict): hard-fails on undocumented
       # A1-owned packages; A3/A4 doc gaps are a tracked WARNING (exit 0) so an
@@ -193,6 +195,8 @@ jobs:
       - name: Build docs
         run: bun run build
         working-directory: apps/docs
+        env:
+          AIHU_COMPILE_BIN: ${{ github.workspace }}/packages/compiler/bin/aihu-compile
 
       # The Lighthouse quality gate runs in the always-on `test` job (above),
       # which this deploy job `needs:` — so a perf regression already blocks the
