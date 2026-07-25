@@ -82,6 +82,34 @@ memory, without this file.
 
 ---
 
+## Threads, reactions, and the trap that comes with them
+
+A flat channel becomes unreadable fast — coordination messages are long, and two
+agents interleaving topics makes scrollback useless. Use the backend's threading:
+
+- **One thread per topic** — per PR, per incident, per shared-surface change. The
+  root states the topic; everything else replies into it. The channel stays a
+  list of *topics*, not a firehose of paragraphs.
+- **Reactions are the acknowledgement primitive.** 👀 = seen, ✅ = acted on. This
+  is how you answer "did the peer get this?" without a heartbeat — which the
+  protocol otherwise forbids. Cheap, unmissable, adds no message.
+
+**⚠️ The trap: adopting threads can silently break inbound sensing.**
+`conversations.history` (and its equivalents) returns thread **roots only** —
+replies inside a thread are invisible to it. A poller written against history
+alone will keep reporting "nothing new" while the entire conversation happens in
+threads. That is the same class of failure as filtering out `bot_message`: the
+channel looks idle, and silence is indistinguishable from working.
+
+The poller must, for every root whose newest reply is past the cursor, also fetch
+that thread's replies (`conversations.replies`) and merge them. **Tag each one
+with its thread id in the injected text** — otherwise the agent reads a reply and
+answers in a brand-new root, splitting the conversation it was trying to join.
+
+Verify this the only way that counts: post a reply *inside a thread* as the peer
+role and confirm the poller surfaces it. A test that only posts top-level messages
+passes against a poller that can never see a thread.
+
 ## Channel protocol
 
 - **Prefix every message with your track**: `[merge-train]`, `[docs-next]`.
