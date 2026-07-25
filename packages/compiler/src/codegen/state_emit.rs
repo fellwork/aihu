@@ -207,8 +207,59 @@ pub(crate) fn process_state_body(
         // #487 — skip recognized wrapper-construct spans (they are lowered
         // from `macros`, exactly like `$`-macro spans below). Spans start at
         // the construct's first non-whitespace byte.
-        let line_start = i + (line_raw.len() - line_raw.trim_start().len());
+        let lead = line_raw.len() - line_raw.trim_start().len();
+        let line_start = i + lead;
         if let Some(end) = wrapper_scan.skip_to(line_start) {
+            // Bug 9 TDZ fix: `let x = state(init)` is NOT excised like every
+            // other wrapper span — its signal-tuple declaration is spliced
+            // back into `plain_body` INLINE, at this exact source position,
+            // instead of being deferred to `macro_code` (emitted, as a block,
+            // after ALL of plain_body — see `emit_state_macro_code`'s now-dead
+            // `StateMacro::StateLet` arm and the body-assembly comment in
+            // `codegen/emit.rs`).
+            //
+            // Why not just hoist it above plain_body wholesale, the way the
+            // Bug 8 `$prop`-binding fix does? `signal(init)` EAGERLY evaluates
+            // `init` at declaration time, and `init` may call an earlier
+            // plain-body helper (e.g. `pageFromLocation()` in
+            // apps/docs/src/components/docs-shell.aihu) that hasn't been
+            // spliced back in yet — hoisting the signal above ALL of
+            // plain_body would just relocate the TDZ ReferenceError onto that
+            // helper instead of fixing it. `$prop` bindings are safe to
+            // blanket-hoist because they are PURE reads of `ctx.props.<name>`
+            // with zero dependency on anything else in the body; `state()`
+            // inits carry no such guarantee.
+            //
+            // Splicing in place instead preserves the author's ordering in
+            // BOTH directions: anything plain_body defines earlier (like
+            // `pageFromLocation`) is already initialized by the time
+            // `signal(init)` runs, and anything plain_body defines later
+            // (like a synchronously-invoked `seedFromPrerender()` that reads
+            // the signal) finds the declaration already in scope — exactly
+            // matching what the source ordering promised.
+            //
+            // The raw `init` is spliced VERBATIM (unrewritten). The
+            // whole-plain_body §4.2/§4.3 read/write rewrite pass
+            // (`rewrite_state_body`, run by the caller in `codegen/emit.rs`
+            // right after `process_state_body` returns) walks a real
+            // scope-aware oxc AST over the assembled plain_body text, so it
+            // rewrites bare reads/writes of OTHER wrapper targets inside
+            // `init` exactly as it already does for the rest of plain_body —
+            // and correctly leaves the `[name, setter]` destructuring
+            // pattern's BindingIdentifiers alone (they are declarations, not
+            // references), so it can't mistake this splice for a read site
+            // (see the matching `visit_variable_declarator` override in
+            // `expr/state_rw.rs`, which keeps the visitor's own scope-shadow
+            // tracking from making the SAME mistake).
+            if let Some(crate::types::StateMacro::StateLet { name, init, .. }) =
+                wrapper_scan.macro_for(line_start)
+            {
+                let setter = crate::parser::state_wrappers::state_setter_name(name);
+                plain_lines.push(format!(
+                    "{}const [{name}, {setter}] = signal({init});",
+                    &line_raw[..lead]
+                ));
+            }
             i = end;
             if i < bytes.len() && bytes[i] == b'\n' {
                 i += 1;
@@ -1230,20 +1281,24 @@ pub(crate) fn emit_state_macro_code(
             // §9.4 / GX — consumed at the assembly/fan-out layer; no body JS.
             StateMacro::Extends { .. } | StateMacro::Shadow { .. } | StateMacro::Extract { .. } => {}
             // #487 — `let x = state(v)` lowers to the signal tuple the runtime
-            // already serves (state-model spec §2.1). The initializer takes
-            // the read rewrite (it may read earlier-declared bindings).
-            StateMacro::StateLet { name, init, .. } => {
-                let init_rw = rewrite_wrapper_code(
-                    init,
-                    &wrapper_targets,
-                    &mut needs_state_upd_helper,
-                    &mut needs_prop_upd_helper,
-                );
-                lines.push(format!(
-                    "{indent}const [{name}, {setter}] = signal({init_rw});",
-                    setter = crate::parser::state_wrappers::state_setter_name(name)
-                ));
-            }
+            // already serves (state-model spec §2.1).
+            //
+            // Bug 9 TDZ fix: the body-side declaration is NOT emitted here
+            // anymore. `signal(init)` runs eagerly, so emitting it here (in
+            // `macro_code`, a block spliced AFTER the entire `plain_body`)
+            // meant any plain-body statement that synchronously ran BEFORE
+            // the end of plain_body and read the getter — e.g.
+            // `seedFromPrerender()` in apps/docs/src/components/docs-shell.aihu
+            // calling `cacheSet(activePage(), ...)` — hit
+            // `ReferenceError: Cannot access 'activePage' before
+            // initialization`. It is now spliced into `plain_body` INLINE, at
+            // its original source position, by `process_state_body` (see the
+            // wrapper-span-skip branch in this file). See also the `$prop`
+            // hoist above (issue #279 / Bug 8) for the sibling fix — that one
+            // is a global hoist because a prop read has zero ordering
+            // dependency; this one must stay positional because `init` can
+            // depend on earlier plain-body code.
+            StateMacro::StateLet { .. } => {}
             // #487 — `const x = consume(key)`: the shipped synchronous
             // prototype-chain DI, binding name decoupled from the key.
             StateMacro::ConsumeBinding { name, key } => {
