@@ -22,5 +22,17 @@ export default defineConfig({
   // needs its own entry or the ownership-contract module would get bundled
   // (and duplicated) into runtime's dist instead of staying a real import of
   // the shared WeakMap in @aihu/signals/lifecycle.
-  external: ['@aihu/arbor', '@aihu/signals', '@aihu/signals/lifecycle'],
+  //
+  // '@aihu/context' MUST be external too — it is a declared peerDependency,
+  // and, critically, it is MODULE-STATE-based: `_enterContext`/`_exitContext`
+  // (called by define-component's owner-context scope) write the same
+  // module-level `_activeProvides`/`_onOwnProvides` slots that userland
+  // `provide()`/`inject()` read. Bundling a private copy into runtime's dist
+  // split-brains that state in published builds: runtime's inlined
+  // `_enterContext` sets the COPY's slots while the app's real
+  // `@aihu/context.provide()` reads the original's — hierarchical client DI
+  // silently no-ops. (Workspace tests alias src, so only dist consumers hit
+  // it.) Externalizing also stops double-shipping the bytes against the
+  // size gate, which already lists `@aihu/context` as a peer/external.
+  external: ['@aihu/arbor', '@aihu/signals', '@aihu/signals/lifecycle', '@aihu/context'],
 })
