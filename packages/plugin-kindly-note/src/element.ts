@@ -187,9 +187,10 @@ export function getAihuCodeElement(): AihuCodeElementConstructor {
       )
     }
 
-    // Plain-text paint. Uses nodeValue on a single text node when possible
-    // (122x faster targeted update, per aihu convention); the DOM escapes the
-    // text natively, so no manual entity handling is needed.
+    // Plain-text paint. Assigns nodeValue on the single existing text node when
+    // possible (per aihu convention: a targeted write should not rebuild the
+    // parent's child list); the DOM escapes the text natively, so no manual
+    // entity handling is needed.
     #paintText(id: number, text: string): void {
       if (id !== this.#renderId) return
       const node = this.#codeEl.firstChild

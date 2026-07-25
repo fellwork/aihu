@@ -39,8 +39,8 @@ held out of the stable subsequence and always placed by the walk.
 
 Introduced by `9195d20d`, the original v1 reconciler; pre-existing rather than
 a regression. See `docs/plans/2026-07-25-swap1k-investigation.md` for the
-measurement that isolated it (a framework-free control doing 997 moves instead
-of 2 reproduced ~8x of the ~8.2x gap on its own).
+measurement that isolated it: a framework-free control doing 997 moves instead
+of 2 reproduced the regression with no framework code involved.
 
 Internal cleanup rolled in: `ChildScope.key` was written on every row and read
 nowhere, and `when()`'s child scope carried an `item: null` the conditional

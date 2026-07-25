@@ -147,7 +147,7 @@ The `@template` block defines the DOM output using aihu's template DSL.
 
 ### Text interpolation
 
-- `{expr}` — reactive text node. Uses `nodeValue` for targeted updates (122x faster than `textContent` on targeted nodes).
+- `{expr}` — reactive text node. Updates set `nodeValue` on that node directly instead of reassigning the parent's `textContent`, so the parent's child list is never rebuilt.
 
 ### Event handlers
 

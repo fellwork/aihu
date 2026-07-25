@@ -90,7 +90,7 @@ Named effects (with optional dependency pinning) use the collection form:
 
 `@template` defines the component's DOM structure using aihu's template DSL:
 
-- `{expr}` — interpolates a reactive expression. Updates use `nodeValue` for 122× faster targeted writes.
+- `{expr}` — interpolates a reactive expression. Updates assign `nodeValue` on the text node itself, leaving the parent's other children untouched.
 - `href={expr}` — binds an HTML attribute reactively (`$`-prefixed curly; one per attribute).
 - `on:click={handler}` — attaches an event listener.
 - `$show` — toggles visibility based on a boolean signal.

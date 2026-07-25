@@ -11,7 +11,7 @@ aihu builds **durable Web Components your AI agent can read and drive — not di
 - **Vanilla custom elements output** — no framework lock-in at the consumer boundary, no global context, no hydration step.
 - **Sub-2 kB runtime** — `@aihu/signals` (~1.71 kB gz) and `@aihu/arbor` (~2.72 kB gz) together cover signals, computeds, effects, and direct DOM diffing.
 - **Dep-free** — zero non-`@aihu/*` runtime dependencies across all packages. Every bundle that ships to a browser or edge runtime is self-contained.
-- **Targeted updates** — aihu uses `nodeValue` rather than `textContent` for reactive text nodes, which is 122× faster on targeted updates.
+- **Targeted updates** — reactive text binds to a cached text node and writes `nodeValue` rather than reassigning a parent's `textContent`. Updating one value is O(1) in the parent's child count instead of rebuilding its child list.
 
 ## Why "meta-framework"?
 

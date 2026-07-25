@@ -26,7 +26,7 @@ npx create-aihu my-app --template agent   # one component, two audiences — run
 
 An agent never fabricates a throwaway interface for the turn — it steers the component already on screen. Where generative UI renders once and vanishes, an aihu component persists and holds its own state. That persistence is what lets both audiences drive the same instance over time, and it means the user always sees the thing the agent touched. Durable wins when the UI has to be trusted, styled, and reused.
 
-Under the hood it's a complete meta-framework — routing, SSR, auth, data loading, and cloud adapters included. The runtime is sub-2 kB, the output is vanilla custom elements with zero runtime dependencies, and reactive updates run 122× faster than vanilla DOM on targeted writes ([benchmarks below](#performance)).
+Under the hood it's a complete meta-framework — routing, SSR, auth, data loading, and cloud adapters included. The runtime is sub-2 kB, the output is vanilla custom elements with zero runtime dependencies, and reactive text updates bind directly to a cached text node, so a targeted write costs the same whether its parent has three children or ten thousand ([benchmarks below](#performance)).
 
 > **Status:** actively developed and shipping in `v1.0.x` releases — the reactive runtime, compiler, router, server, agent surface, CLI, styling engine, and UI primitives all work today. See [Project status](#project-status).
 
@@ -118,7 +118,7 @@ Most component libraries give you a way to build *components*. Aihu gives you a 
 
 ### Reactive runtime
 - Push-based signals, computeds, and effects with batched writes (`@aihu/signals`, ~1.8 kB gz)
-- Direct DOM updates, no virtual DOM (`@aihu/arbor`, ~2.1 kB gz — **122× faster than vanilla** on targeted updates)
+- Direct DOM updates, no virtual DOM (`@aihu/arbor`, ~2.1 kB gz — targeted text writes land on a cached text node, never through the parent's child list)
 - In `.aihu` files, reactivity is declared with `state` / `prop` / `derived` / `action` wrappers — plain-value reads, plain-assignment writes, no `.value` ceremony
 - Synchronous mount with predictable teardown
 - Compiled components register as standard custom elements (`@aihu/runtime`)
@@ -206,7 +206,7 @@ All results from `bench/`. Measured with [mitata](https://github.com/nicolo-riba
 
 <!-- END_AUTOGEN: performance -->
 
-> The `update-1-of-10k-leaves` 122× win comes from arbor's `leaf()` binding to `textNode.nodeValue` (direct property set) vs. vanilla's `element.textContent` (child-list walk). This is not a measurement artifact — it reflects the bind-target choice in `materialize.ts`.
+> `update-1-of-10k-leaves` exercises arbor's `leaf()` binding, which keeps the text node it created at materialize time and assigns `textNode.nodeValue` directly (see `materialize.ts`). That write is O(1) in the parent's child count; reassigning `element.textContent` instead rebuilds the child list. The JSDOM timings in this table are directional only — they move with machine and load, and are not product claims.
 
 > solid-js and @vue/runtime-dom ERROR in all JSDOM workloads (client-only API / `SVGElement` not defined). Browser-native comparison deferred to Round N+2 Playwright runner.
 
