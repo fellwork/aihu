@@ -259,7 +259,42 @@ at all. C and D also produce **byte-identical `dist/index.js` for both packages*
 > commit touches only `structural.ts` + `types.ts` (keyed lists / `each()`),
 > which none of these four workloads exercise, so arm D remains representative.
 
-### 3.2 Results — 9 interleaved reps per arm, fresh process per sample
+### 3.2 The structural argument, made before measuring
+
+**Neither suspect can move `mount-deep-100x10` or `mount-10k-leaves`, because
+those two workloads create zero effects.** Both build their trees from
+`leaf(String(i))` — a plain string, not a Signal — and `materialize.ts` takes the
+non-reactive branch:
+
+```ts
+// packages/arbor/src/materialize.ts
+if (Array.isArray(value)) {
+  // Signal<string> — wire reactive update via mountEffect(...)
+} else {
+  textNode.nodeValue = value as string | null   // <- static leaves land here
+}
+```
+
+No `mountEffect`, therefore no `effect()`, therefore nothing in `effect.ts`,
+`scope.ts`, or `_mountEffect` is reached. Against that:
+
+* **A → B (`061eefb3`)** changes `arbor/src/hydrate.ts` and
+  `signals/src/computed.ts`. `hydrate.ts` is only *re-exported* from `index.ts`
+  — `mount.ts` and `materialize.ts` never import it — and these workloads create
+  no computeds. **Arms A and B execute identical code on these two workloads;
+  only the loaded module bytes differ.** That makes A → B a rigorous control.
+* **B → C (`18e5f6dd`)** adds exactly one thing to this path: a
+  `runWithoutScope(() => { … })` wrapper around the whole `_materialize` call —
+  **one extra function call per mount op**, against an op costing 3–70 ms.
+
+So before measuring, the prediction is: no resolvable effect on either workload.
+
+### 3.3 Results — interleaved, fresh process per sample
+
+Two passes. Pass 1 used the gate's own statistic (`p50`, `min_cpu_time` 1e9) and
+was inconclusive for the reason §5 explains. Pass 2 raised the budget to 2 s
+(12 → ~146 samples/cell) and reports **`min`**, which is the appropriate
+estimator when noise is one-sided.
 
 <!--BISECT_TABLE-->
 
