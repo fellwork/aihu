@@ -1,7 +1,7 @@
 # Composed-tree event substrate for `@aihu/use` Wave 2
 
 **Date:** 2026-07-24
-**Status:** Design ratified by evidence below; implementation lands in the same PR (later commits).
+**Status:** Design ratified by evidence below; **implemented and verified** (PR #564) — see §8.
 **Scope:** ONE shared substrate module unblocking Wave 2's five shadow-DOM-blocked composables.
 Substrate only — none of the five composables ship here.
 **Parent plan:** [`2026-07-24-use-categorical-parity.md`](./2026-07-24-use-categorical-parity.md)
@@ -234,6 +234,23 @@ The same four **event-layer** functions (`composedPathOf`, `composedEventTarget`
 functions are already there and are not touched. This is what unblocks `useContextMenu`
 without it becoming hand-roll #5.
 
+### 5c. A constraint discovered during implementation — binding on all five consumers
+
+`composedPath()` is **only populated during dispatch**. Once the event finishes propagating
+the platform returns an empty array, so:
+
+> `isEventInside` / `composedEventTarget` must be called **synchronously inside the
+> listener**. A deferred call (`setTimeout`, microtask, or a stashed event object) degrades
+> **silently** back to the `event.target` up-walk — i.e. back to the broken behaviour, with no
+> error.
+
+This was found by an initially-failing test that read the substrate after `dispatchEvent`
+returned, and is now (a) documented on both module headers, (b) asserted by an executable test
+(`'DOCUMENTED GOTCHA: after dispatch ends the path empties and precision is lost'`). Every
+Wave 2 composable must hit-test in the handler and store the **boolean**, never the event.
+`useClickOutside`'s `pointerdown`/`pointerup` pairing in particular must record two booleans,
+not two events.
+
 ### Deliberate non-goals
 
 - No `queryTabbables` / focus-order port into `@aihu/use`. Focus-navigation order belongs to
@@ -250,7 +267,7 @@ without it becoming hand-roll #5.
 
 | Composable | Target | Unblocked by | Still needs (NOT in this PR) |
 |---|---|---|---|
-| `useClickOutside` / `onClickOutside` | CORE | `isEventInsideAny` — the whole reason the composable was blocked | `pointerdown`/`pointerup` pairing (ignore drags that *start* inside), capture-phase document listener, `ignore` target resolution (`MaybeElementGetter`), `isClient` no-op guard, `onScopeDispose` teardown |
+| `useClickOutside` / `onClickOutside` | CORE | `isEventInsideAny` — the whole reason the composable was blocked | `pointerdown`/`pointerup` pairing (ignore drags that *start* inside) storing **booleans, not events** (§5c), capture-phase document listener, `ignore` target resolution (`MaybeElementGetter`), `isClient` no-op guard, `onScopeDispose` teardown |
 | `useActiveElement` | CORE | `composedActiveElement` — complete, drop-in | `focusin`/`focusout` listeners on `document`, signal wiring, initial read, SSR static getter. Also owes a decision on collapsing `runtime`'s `_deepActiveElement` (3rd copy) — track separately |
 | `useHover` | CORE | `isEventInside` on `pointerover`/`pointerout` | `relatedTarget` handling (also retargeted — resolve via `composedContains`, §2b's *correct* use), `delayEnter`/`delayLeave`, touch/pen suppression |
 | `useMouseInElement` / `useElementByPoint` | CORE | `isEventInside` + `composedEventTarget` | `getBoundingClientRect` math, `elementX`/`elementY`/`isOutside` getters, scroll/resize invalidation. `elementsFromPoint` does **not** pierce shadow roots — that sub-feature needs its own design |
@@ -264,8 +281,11 @@ row for no behavioural gain).
 
 ## 7. Size budget
 
-**Rows touched by this PR: zero.** Reported explicitly because the brief asks for the budget
-being worked within:
+**Rows touched by this PR: zero — measured, not asserted.** A full `bun run build` +
+`bun run size` was run against a baseline (this branch with `packages/primitives/src/composed-tree.ts`
+reverted) and again with the change applied; the two reports are **byte-identical**
+(`diff` returns nothing). Reported explicitly because the brief asks for the budget being
+worked within:
 
 | Row | Limit | Why unmoved |
 |---|---|---|
@@ -281,14 +301,47 @@ the event layer alone is the cheap part; `composedParent` + `composedContains` +
 event layer *and* the `composedContains` fallback it references. Wave 2 rows should be sized
 with that in mind rather than copied from the light-DOM VueUse equivalents.
 
-## 8. Verification contract
+## 8. Verification — results
 
-Beyond the standard gates (`build`, `typecheck`, `size`, `check:deps`), this PR must show:
+| Gate | Result |
+|---|---|
+| `bun run build` | **0** |
+| `bun run typecheck` | **0** (59 tasks) |
+| `bun run check:deps` | **0** — "All packages pass dep-free check (v3 thesis)" |
+| `bun run check:lint` | **0** — 35 warnings, identical to base |
+| `bun run size` | **0** — report byte-identical to the baseline build |
+| Scoped tests (`packages/use` + `packages/primitives`) | **0** — 96 files, 789 tests |
+| Substrate tests alone | **0** — 41 tests across 3 files |
 
-1. A test that **FAILS** against a naive `el.contains(event.target)` implementation and
-   **PASSES** against `isEventInside` — both runs pasted, same fixture.
-2. A test that **FAILS** against `document.activeElement` and **PASSES** against
-   `composedActiveElement` — both runs pasted.
-3. Coverage of **nested** shadow roots (≥2 deep), **slotted** content, and **closed** roots
-   (asserting the documented degradation, not pretending it works).
-4. The parity test binding the two implementations (§4).
+**Naive-vs-substrate proof.** `packages/use/tests/composed-tree-naive-proof.test.ts` runs the
+same two assertions against either implementation, selected by `AIHU_NAIVE=1`:
+
+```
+$ AIHU_NAIVE=1 bunx vitest run packages/use/tests/composed-tree-naive-proof.test.ts
+  Tests  2 failed (2)
+    ✗ a click inside a shadow-hosted panel counts as INSIDE that panel
+        expected false to be true
+    ✗ the focused element is the deep leaf, not the outermost shadow host
+        expected <div></div> to be <input></input>
+
+$ bunx vitest run packages/use/tests/composed-tree-naive-proof.test.ts
+  Tests  2 passed (2)
+```
+
+`AIHU_NAIVE=1` is the reviewer's one-command re-confirmation that the bug is real. The default
+path is the substrate, so the file is a normal green test in CI.
+
+**Shadow-boundary coverage** (`composed-tree.test.ts`, 25 tests): single and doubly-nested open
+roots, slotted light content projected into a shadow wrapper, unslotted light children of a
+shadow host, closed roots (path truncation, the closed-host fallback, and its bounds), the
+post-dispatch degradation, and negative controls asserting that `Element.contains` **and**
+`composedContains` both give the wrong answer where `isEventInside` gives the right one.
+
+**Parity** (`composed-tree-parity.test.ts`, 14 tests): one behavioural table run against both
+implementations via `describe.each`.
+
+**Pre-existing, unrelated:** `packages/compiler/tests/state-model-sidecar-tsc.test.ts` and
+`packages/css-engine/tests/resolve-binary.test.ts` fail identically on base and on this branch
+(compiler binary resolution). A further ~12 compiler/language-server files fail only under the
+full parallel `bun run test` and pass in isolation on both base and branch — resource
+contention, not a regression.
