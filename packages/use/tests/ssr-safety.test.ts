@@ -347,6 +347,140 @@ const entries: Array<{ entry: string; run: () => Promise<void> }> = [
       ),
   },
   {
+    entry: 'useTimestamp',
+    run: () =>
+      withSSR(
+        () => import('../src/useTimestamp/index.ts'),
+        ({ useTimestamp }) => {
+          withGlobalSpies(() => {
+            const { timestamp, pause, resume } = useTimestamp()
+            expect(typeof timestamp()).toBe('number')
+            expect(timestamp()).toBe(timestamp())
+            expect(() => {
+              pause()
+              resume()
+            }).not.toThrow()
+          })
+        },
+      ),
+  },
+  {
+    entry: 'useInterval',
+    run: () =>
+      withSSR(
+        () => import('../src/useInterval/index.ts'),
+        ({ useInterval }) => {
+          withGlobalSpies(() => {
+            const { counter, reset, pause, resume } = useInterval(100)
+            expect(counter()).toBe(0)
+            expect(() => {
+              reset()
+              pause()
+              resume()
+            }).not.toThrow()
+          })
+        },
+      ),
+  },
+  {
+    entry: 'useTimeout',
+    run: () =>
+      withSSR(
+        () => import('../src/useTimeout/index.ts'),
+        ({ useTimeout }) => {
+          withGlobalSpies(() => {
+            const { ready, start, stop } = useTimeout(100)
+            expect(ready()).toBe(false)
+            expect(() => {
+              start()
+              stop()
+            }).not.toThrow()
+          })
+        },
+      ),
+  },
+  {
+    entry: 'useTimer',
+    run: () =>
+      withSSR(
+        () => import('../src/useTimer/index.ts'),
+        ({ useTimer }) => {
+          withGlobalSpies(() => {
+            const { elapsed, isRunning, start, pause, resume, reset } = useTimer()
+            expect(elapsed()).toBe(0)
+            expect(isRunning()).toBe(false)
+            expect(() => {
+              start()
+              pause()
+              resume()
+              reset()
+            }).not.toThrow()
+          })
+        },
+      ),
+  },
+  {
+    entry: 'useCountdown',
+    run: () =>
+      withSSR(
+        () => import('../src/useCountdown/index.ts'),
+        ({ useCountdown }) => {
+          withGlobalSpies(() => {
+            const { remaining, isRunning, isComplete, start, pause, resume, reset } =
+              useCountdown(1000)
+            expect(remaining()).toBe(1000)
+            expect(isRunning()).toBe(false)
+            expect(isComplete()).toBe(false)
+            expect(() => {
+              start()
+              pause()
+              resume()
+              reset()
+            }).not.toThrow()
+          })
+        },
+      ),
+  },
+  {
+    entry: 'useStopwatch',
+    run: () =>
+      withSSR(
+        () => import('../src/useStopwatch/index.ts'),
+        ({ useStopwatch }) => {
+          withGlobalSpies(() => {
+            const { elapsed, laps, isRunning, start, pause, resume, lap, reset } = useStopwatch()
+            expect(elapsed()).toBe(0)
+            expect(laps()).toEqual([])
+            expect(isRunning()).toBe(false)
+            expect(() => {
+              start()
+              pause()
+              resume()
+              lap()
+              reset()
+            }).not.toThrow()
+          })
+        },
+      ),
+  },
+  {
+    entry: 'useTimeAgo',
+    run: () =>
+      withSSR(
+        () => import('../src/useTimeAgo/index.ts'),
+        ({ useTimeAgo }) => {
+          withGlobalSpies(() => {
+            const { timeAgo, pause, resume } = useTimeAgo(Date.now() - 60_000)
+            expect(typeof timeAgo()).toBe('string')
+            expect(() => {
+              pause()
+              resume()
+            }).not.toThrow()
+          })
+        },
+      ),
+  },
+  {
     entry: 'useDebounced',
     run: () =>
       withSSR(
@@ -405,6 +539,161 @@ const entries: Array<{ entry: string; run: () => Promise<void> }> = [
       ),
   },
   {
+    entry: 'useResizeObserver',
+    run: () =>
+      withSSR(
+        () => import('../src/useResizeObserver/index.ts'),
+        ({ useResizeObserver }) => {
+          withGlobalSpies(() => {
+            const callback = vi.fn()
+            const { stop } = useResizeObserver(null, callback)
+            expect(callback).not.toHaveBeenCalled()
+            expect(() => stop()).not.toThrow()
+          })
+        },
+      ),
+  },
+  {
+    entry: 'useIntersectionObserver',
+    run: () =>
+      withSSR(
+        () => import('../src/useIntersectionObserver/index.ts'),
+        ({ useIntersectionObserver }) => {
+          withGlobalSpies(() => {
+            const callback = vi.fn()
+            const { isActive, pause, resume, stop } = useIntersectionObserver(null, callback)
+            expect(isActive()).toBe(false)
+            expect(callback).not.toHaveBeenCalled()
+            expect(() => {
+              pause()
+              resume()
+              stop()
+            }).not.toThrow()
+          })
+        },
+      ),
+  },
+  {
+    entry: 'useMutationObserver',
+    run: () =>
+      withSSR(
+        () => import('../src/useMutationObserver/index.ts'),
+        ({ useMutationObserver }) => {
+          withGlobalSpies(() => {
+            const callback = vi.fn()
+            const { stop, takeRecords } = useMutationObserver(null, callback, {
+              childList: true,
+            })
+            expect(callback).not.toHaveBeenCalled()
+            expect(takeRecords()).toEqual([])
+            expect(() => stop()).not.toThrow()
+          })
+        },
+      ),
+  },
+  {
+    entry: 'usePerformanceObserver',
+    run: () =>
+      withSSR(
+        () => import('../src/usePerformanceObserver/index.ts'),
+        ({ usePerformanceObserver }) => {
+          withGlobalSpies(() => {
+            const callback = vi.fn()
+            const { stop } = usePerformanceObserver(callback, { entryTypes: ['mark'] })
+            expect(callback).not.toHaveBeenCalled()
+            expect(() => stop()).not.toThrow()
+          })
+        },
+      ),
+  },
+  {
+    entry: 'useBreakpoints',
+    run: () =>
+      withSSR(
+        () => import('../src/useBreakpoints/index.ts'),
+        ({ useBreakpoints }) => {
+          withGlobalSpies(() => {
+            const bp = useBreakpoints({ sm: 100, md: 200 })
+            expect(bp.sm()).toBe(false)
+            expect(bp.current()).toEqual([])
+          })
+        },
+      ),
+  },
+  {
+    entry: 'useDevicePixelRatio',
+    run: () =>
+      withSSR(
+        () => import('../src/useDevicePixelRatio/index.ts'),
+        ({ useDevicePixelRatio }) => {
+          withGlobalSpies(() => {
+            const { pixelRatio } = useDevicePixelRatio()
+            expect(pixelRatio()).toBe(1)
+          })
+        },
+      ),
+  },
+  {
+    entry: 'useOrientation',
+    run: () =>
+      withSSR(
+        () => import('../src/useOrientation/index.ts'),
+        ({ useOrientation }) => {
+          withGlobalSpies(() => {
+            const { angle, type } = useOrientation()
+            expect(angle()).toBe(0)
+            expect(type()).toBe('portrait-primary')
+          })
+        },
+      ),
+  },
+  {
+    entry: 'useDeviceOrientation',
+    run: () =>
+      withSSR(
+        () => import('../src/useDeviceOrientation/index.ts'),
+        ({ useDeviceOrientation }) => {
+          withGlobalSpies(() => {
+            const { isSupported, alpha, beta, gamma, absolute } = useDeviceOrientation()
+            expect(isSupported()).toBe(false)
+            expect(alpha()).toBeNull()
+            expect(beta()).toBeNull()
+            expect(gamma()).toBeNull()
+            expect(absolute()).toBe(false)
+          })
+        },
+      ),
+  },
+  {
+    entry: 'useDeviceMotion',
+    run: () =>
+      withSSR(
+        () => import('../src/useDeviceMotion/index.ts'),
+        ({ useDeviceMotion }) => {
+          withGlobalSpies(() => {
+            const { isSupported, acceleration, rotationRate, interval } = useDeviceMotion()
+            expect(isSupported()).toBe(false)
+            expect(acceleration()).toBeNull()
+            expect(rotationRate()).toBeNull()
+            expect(interval()).toBe(0)
+          })
+        },
+      ),
+  },
+  {
+    entry: 'usePageLeave',
+    run: () =>
+      withSSR(
+        () => import('../src/usePageLeave/index.ts'),
+        ({ usePageLeave }) => {
+          withGlobalSpies(() => {
+            const isLeft = usePageLeave()
+            expect(isLeft()).toBe(false)
+          })
+        },
+      ),
+  },
+  {
     entry: 'useScroll',
     run: () =>
       withSSR(
@@ -457,6 +746,97 @@ const entries: Array<{ entry: string; run: () => Promise<void> }> = [
           withGlobalSpies(() => {
             const { prefersDark } = usePreferredDark()
             expect(prefersDark()).toBe(false)
+          })
+        },
+      ),
+  },
+  {
+    entry: 'usePreferredReducedMotion',
+    run: () =>
+      withSSR(
+        () => import('../src/usePreferredReducedMotion/index.ts'),
+        ({ usePreferredReducedMotion }) => {
+          withGlobalSpies(() => {
+            const { preference } = usePreferredReducedMotion()
+            expect(preference()).toBe('no-preference')
+          })
+        },
+      ),
+  },
+  {
+    entry: 'usePreferredContrast',
+    run: () =>
+      withSSR(
+        () => import('../src/usePreferredContrast/index.ts'),
+        ({ usePreferredContrast }) => {
+          withGlobalSpies(() => {
+            const { preference } = usePreferredContrast()
+            expect(preference()).toBe('no-preference')
+          })
+        },
+      ),
+  },
+  {
+    entry: 'usePreferredReducedTransparency',
+    run: () =>
+      withSSR(
+        () => import('../src/usePreferredReducedTransparency/index.ts'),
+        ({ usePreferredReducedTransparency }) => {
+          withGlobalSpies(() => {
+            const { preference } = usePreferredReducedTransparency()
+            expect(preference()).toBe('no-preference')
+          })
+        },
+      ),
+  },
+  {
+    entry: 'usePreferredLanguages',
+    run: () =>
+      withSSR(
+        () => import('../src/usePreferredLanguages/index.ts'),
+        ({ usePreferredLanguages }) => {
+          withGlobalSpies(() => {
+            const { languages } = usePreferredLanguages()
+            expect(languages()).toEqual([])
+          })
+        },
+      ),
+  },
+  {
+    entry: 'useBrowserLanguage',
+    run: () =>
+      withSSR(
+        () => import('../src/useBrowserLanguage/index.ts'),
+        ({ useBrowserLanguage }) => {
+          withGlobalSpies(() => {
+            const { language } = useBrowserLanguage()
+            expect(language()).toBeUndefined()
+          })
+        },
+      ),
+  },
+  {
+    entry: 'useOperatingSystem',
+    run: () =>
+      withSSR(
+        () => import('../src/useOperatingSystem/index.ts'),
+        ({ useOperatingSystem }) => {
+          withGlobalSpies(() => {
+            const { os } = useOperatingSystem()
+            expect(os()).toBe('unknown')
+          })
+        },
+      ),
+  },
+  {
+    entry: 'useTextDirection',
+    run: () =>
+      withSSR(
+        () => import('../src/useTextDirection/index.ts'),
+        ({ useTextDirection }) => {
+          withGlobalSpies(() => {
+            const { direction } = useTextDirection()
+            expect(direction()).toBe('ltr')
           })
         },
       ),
@@ -546,6 +926,150 @@ const entries: Array<{ entry: string; run: () => Promise<void> }> = [
             }).not.toThrow()
             expect(callback).not.toHaveBeenCalled()
             expect(() => stop?.()).not.toThrow()
+          })
+        },
+      ),
+  },
+  {
+    entry: 'useAsync',
+    run: () =>
+      withSSR(
+        () => import('../src/useAsync/index.ts'),
+        ({ useAsync }) => {
+          withGlobalSpies(() => {
+            const fn = vi.fn(async () => 'x')
+            const { data, error, isLoading, isFinished, execute } = useAsync(fn, {
+              initialData: 'seed',
+            })
+            expect(data()).toBe('seed')
+            expect(error()).toBeUndefined()
+            expect(isLoading()).toBe(false)
+            expect(isFinished()).toBe(false)
+            expect(fn).not.toHaveBeenCalled() // immediate is a documented no-op under SSR
+            return execute().then((result) => {
+              expect(result).toBeUndefined()
+              expect(fn).not.toHaveBeenCalled()
+              expect(data()).toBe('seed')
+            })
+          })
+        },
+      ),
+  },
+  {
+    entry: 'useAsyncAbortable',
+    run: () =>
+      withSSR(
+        () => import('../src/useAsyncAbortable/index.ts'),
+        ({ useAsyncAbortable }) => {
+          withGlobalSpies(() => {
+            const fn = vi.fn(async () => 'x')
+            const { data, isLoading, execute, abort } = useAsyncAbortable(fn, {
+              initialData: 'seed',
+            })
+            expect(data()).toBe('seed')
+            expect(isLoading()).toBe(false)
+            expect(fn).not.toHaveBeenCalled()
+            expect(() => abort()).not.toThrow()
+            return execute().then((result) => {
+              expect(result).toBeUndefined()
+              expect(fn).not.toHaveBeenCalled()
+            })
+          })
+        },
+      ),
+  },
+  {
+    entry: 'useNetworkState',
+    run: () =>
+      withSSR(
+        () => import('../src/useNetworkState/index.ts'),
+        ({ useNetworkState }) => {
+          withGlobalSpies(() => {
+            const { isOnline, effectiveType, isSupported } = useNetworkState()
+            expect(isOnline()).toBe(true)
+            expect(effectiveType()).toBeUndefined()
+            expect(isSupported()).toBe(false)
+          })
+        },
+      ),
+  },
+  {
+    entry: 'useIdle',
+    run: () =>
+      withSSR(
+        () => import('../src/useIdle/index.ts'),
+        ({ useIdle }) => {
+          withGlobalSpies(() => {
+            const { idle, lastActive, reset } = useIdle({ initialState: true })
+            expect(idle()).toBe(true)
+            expect(lastActive()).toBe(0)
+            expect(() => reset()).not.toThrow()
+            expect(idle()).toBe(true) // reset is a documented no-op under SSR
+          })
+        },
+      ),
+  },
+  {
+    entry: 'useMap',
+    run: () =>
+      withSSR(
+        () => import('../src/useMap/index.ts'),
+        ({ useMap }) => {
+          withGlobalSpies(() => {
+            const { size, get, has, set, delete: del } = useMap<string, number>([['a', 1]])
+            expect(size()).toBe(1)
+            expect(get('a')).toBe(1)
+            expect(has('a')).toBe(true)
+            set('b', 2)
+            expect(size()).toBe(1) // SSR mutators are documented no-ops
+            expect(del('a')).toBe(false)
+          })
+        },
+      ),
+  },
+  {
+    entry: 'useSet',
+    run: () =>
+      withSSR(
+        () => import('../src/useSet/index.ts'),
+        ({ useSet }) => {
+          withGlobalSpies(() => {
+            const { size, has, add, delete: del } = useSet<string>(['a'])
+            expect(size()).toBe(1)
+            expect(has('a')).toBe(true)
+            add('b')
+            expect(size()).toBe(1) // SSR mutators are documented no-ops
+            expect(del('a')).toBe(false)
+          })
+        },
+      ),
+  },
+  {
+    entry: 'useMeasure',
+    run: () =>
+      withSSR(
+        () => import('../src/useMeasure/index.ts'),
+        ({ useMeasure }) => {
+          withGlobalSpies(() => {
+            const { x, width, height } = useMeasure({ initialRect: { x: 3, width: 4, height: 5 } })
+            expect(x()).toBe(3)
+            expect(width()).toBe(4)
+            expect(height()).toBe(5)
+            const zero = useMeasure()
+            expect(zero.top()).toBe(0)
+          })
+        },
+      ),
+  },
+  {
+    entry: 'useFocusWithin',
+    run: () =>
+      withSSR(
+        () => import('../src/useFocusWithin/index.ts'),
+        ({ useFocusWithin }) => {
+          withGlobalSpies(() => {
+            const { focused } = useFocusWithin()
+            expect(focused()).toBe(false)
           })
         },
       ),

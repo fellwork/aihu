@@ -15,6 +15,22 @@
       "types": "./dist/shared.d.ts",
       "import": "./dist/shared.js"
     },
+    "./useAsync": {
+      "types": "./dist/useAsync.d.ts",
+      "import": "./dist/useAsync.js"
+    },
+    "./useAsyncAbortable": {
+      "types": "./dist/useAsyncAbortable.d.ts",
+      "import": "./dist/useAsyncAbortable.js"
+    },
+    "./useBreakpoints": {
+      "types": "./dist/useBreakpoints.d.ts",
+      "import": "./dist/useBreakpoints.js"
+    },
+    "./useBrowserLanguage": {
+      "types": "./dist/useBrowserLanguage.d.ts",
+      "import": "./dist/useBrowserLanguage.js"
+    },
     "./useClipboard": {
       "types": "./dist/useClipboard.d.ts",
       "import": "./dist/useClipboard.js"
@@ -23,13 +39,33 @@
       "types": "./dist/useColorScheme.d.ts",
       "import": "./dist/useColorScheme.js"
     },
+    "./useCountdown": {
+      "types": "./dist/useCountdown.d.ts",
+      "import": "./dist/useCountdown.js"
+    },
     "./useCounter": {
       "types": "./dist/useCounter.d.ts",
       "import": "./dist/useCounter.js"
     },
+    "./useDateFormat": {
+      "types": "./dist/useDateFormat.d.ts",
+      "import": "./dist/useDateFormat.js"
+    },
     "./useDebounced": {
       "types": "./dist/useDebounced.d.ts",
       "import": "./dist/useDebounced.js"
+    },
+    "./useDeviceMotion": {
+      "types": "./dist/useDeviceMotion.d.ts",
+      "import": "./dist/useDeviceMotion.js"
+    },
+    "./useDeviceOrientation": {
+      "types": "./dist/useDeviceOrientation.d.ts",
+      "import": "./dist/useDeviceOrientation.js"
+    },
+    "./useDevicePixelRatio": {
+      "types": "./dist/useDevicePixelRatio.d.ts",
+      "import": "./dist/useDevicePixelRatio.js"
     },
     "./useDocumentVisibility": {
       "types": "./dist/useDocumentVisibility.d.ts",
@@ -51,6 +87,22 @@
       "types": "./dist/useEventListenerMap.d.ts",
       "import": "./dist/useEventListenerMap.js"
     },
+    "./useFocusWithin": {
+      "types": "./dist/useFocusWithin.d.ts",
+      "import": "./dist/useFocusWithin.js"
+    },
+    "./useIdle": {
+      "types": "./dist/useIdle.d.ts",
+      "import": "./dist/useIdle.js"
+    },
+    "./useIntersectionObserver": {
+      "types": "./dist/useIntersectionObserver.d.ts",
+      "import": "./dist/useIntersectionObserver.js"
+    },
+    "./useInterval": {
+      "types": "./dist/useInterval.d.ts",
+      "import": "./dist/useInterval.js"
+    },
     "./useIntervalFn": {
       "types": "./dist/useIntervalFn.d.ts",
       "import": "./dist/useIntervalFn.js"
@@ -58,6 +110,14 @@
     "./useLocalStorage": {
       "types": "./dist/useLocalStorage.d.ts",
       "import": "./dist/useLocalStorage.js"
+    },
+    "./useMap": {
+      "types": "./dist/useMap.d.ts",
+      "import": "./dist/useMap.js"
+    },
+    "./useMeasure": {
+      "types": "./dist/useMeasure.d.ts",
+      "import": "./dist/useMeasure.js"
     },
     "./useMediaQuery": {
       "types": "./dist/useMediaQuery.d.ts",
@@ -67,13 +127,53 @@
       "types": "./dist/useMouse.d.ts",
       "import": "./dist/useMouse.js"
     },
+    "./useMutationObserver": {
+      "types": "./dist/useMutationObserver.d.ts",
+      "import": "./dist/useMutationObserver.js"
+    },
+    "./useNetworkState": {
+      "types": "./dist/useNetworkState.d.ts",
+      "import": "./dist/useNetworkState.js"
+    },
     "./useNow": {
       "types": "./dist/useNow.d.ts",
       "import": "./dist/useNow.js"
     },
+    "./useOperatingSystem": {
+      "types": "./dist/useOperatingSystem.d.ts",
+      "import": "./dist/useOperatingSystem.js"
+    },
+    "./useOrientation": {
+      "types": "./dist/useOrientation.d.ts",
+      "import": "./dist/useOrientation.js"
+    },
+    "./usePageLeave": {
+      "types": "./dist/usePageLeave.d.ts",
+      "import": "./dist/usePageLeave.js"
+    },
+    "./usePerformanceObserver": {
+      "types": "./dist/usePerformanceObserver.d.ts",
+      "import": "./dist/usePerformanceObserver.js"
+    },
+    "./usePreferredContrast": {
+      "types": "./dist/usePreferredContrast.d.ts",
+      "import": "./dist/usePreferredContrast.js"
+    },
     "./usePreferredDark": {
       "types": "./dist/usePreferredDark.d.ts",
       "import": "./dist/usePreferredDark.js"
+    },
+    "./usePreferredLanguages": {
+      "types": "./dist/usePreferredLanguages.d.ts",
+      "import": "./dist/usePreferredLanguages.js"
+    },
+    "./usePreferredReducedMotion": {
+      "types": "./dist/usePreferredReducedMotion.d.ts",
+      "import": "./dist/usePreferredReducedMotion.js"
+    },
+    "./usePreferredReducedTransparency": {
+      "types": "./dist/usePreferredReducedTransparency.d.ts",
+      "import": "./dist/usePreferredReducedTransparency.js"
     },
     "./usePrevious": {
       "types": "./dist/usePrevious.d.ts",
@@ -83,21 +183,53 @@
       "types": "./dist/useRafFn.d.ts",
       "import": "./dist/useRafFn.js"
     },
+    "./useResizeObserver": {
+      "types": "./dist/useResizeObserver.d.ts",
+      "import": "./dist/useResizeObserver.js"
+    },
     "./useScroll": {
       "types": "./dist/useScroll.d.ts",
       "import": "./dist/useScroll.js"
+    },
+    "./useSet": {
+      "types": "./dist/useSet.d.ts",
+      "import": "./dist/useSet.js"
+    },
+    "./useStopwatch": {
+      "types": "./dist/useStopwatch.d.ts",
+      "import": "./dist/useStopwatch.js"
     },
     "./useSupported": {
       "types": "./dist/useSupported.d.ts",
       "import": "./dist/useSupported.js"
     },
+    "./useTextDirection": {
+      "types": "./dist/useTextDirection.d.ts",
+      "import": "./dist/useTextDirection.js"
+    },
     "./useThrottle": {
       "types": "./dist/useThrottle.d.ts",
       "import": "./dist/useThrottle.js"
     },
+    "./useTimeAgo": {
+      "types": "./dist/useTimeAgo.d.ts",
+      "import": "./dist/useTimeAgo.js"
+    },
+    "./useTimeout": {
+      "types": "./dist/useTimeout.d.ts",
+      "import": "./dist/useTimeout.js"
+    },
     "./useTimeoutFn": {
       "types": "./dist/useTimeoutFn.d.ts",
       "import": "./dist/useTimeoutFn.js"
+    },
+    "./useTimer": {
+      "types": "./dist/useTimer.d.ts",
+      "import": "./dist/useTimer.js"
+    },
+    "./useTimestamp": {
+      "types": "./dist/useTimestamp.d.ts",
+      "import": "./dist/useTimestamp.js"
     },
     "./useToggle": {
       "types": "./dist/useToggle.d.ts",

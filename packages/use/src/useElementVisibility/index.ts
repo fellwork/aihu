@@ -7,17 +7,26 @@
  * the hood. Readers in .aihu templates MUST call getters with parens:
  * `{isVisible()}`, never bare `{isVisible}`.
  *
+ * REFACTORED (Wave 1a review): this is now the consumer-shaped wrapper
+ * built ON TOP OF the general {@link useIntersectionObserver} sensor
+ * (mirrors the `useReducedMotion` -> `usePreferredReducedMotion`
+ * precedent) — the raw observer construction, target-rebind effect, and
+ * teardown all live in `useIntersectionObserver` exactly once; this file
+ * only derives the single `isVisible()` getter from the entries it
+ * receives (ignoring the pause/resume/stop controls the general sensor
+ * exposes — this composable is always-on for as long as its target is
+ * set).
+ *
  * SSR (`isClient === false`): returns a static getter of `false` and
  * registers no observer — the isClient no-op invariant.
  */
 
-import { effect, signal } from '@aihu/signals'
+import { signal } from '@aihu/signals'
+import { isClient, type MaybeElementGetter } from '../shared/index.ts'
 import {
-  isClient,
-  type MaybeElementGetter,
-  tryOnScopeDispose,
-  unrefElement,
-} from '../shared/index.ts'
+  type UseIntersectionObserverOptions,
+  useIntersectionObserver,
+} from '../useIntersectionObserver/index.ts'
 
 export interface UseElementVisibilityOptions {
   /** Element to observe. Omitted/`null` observes nothing — the getter stays
@@ -60,40 +69,28 @@ export function useElementVisibility(
 
   const [isVisible, setIsVisible] = signal(iv)
 
-  let stopped = false
-  let observer: IntersectionObserver | null = null
+  // Built incrementally (not as an object literal with possibly-undefined
+  // properties) — `exactOptionalPropertyTypes` rejects an explicit
+  // `undefined` for `root`/`rootMargin`/`threshold` even though all three
+  // are optional on `UseIntersectionObserverOptions`.
+  const observerOptions: UseIntersectionObserverOptions = {}
+  if (root !== undefined) observerOptions.root = root
+  if (rootMargin !== undefined) observerOptions.rootMargin = rootMargin
+  if (threshold !== undefined) observerOptions.threshold = threshold
 
-  // Reactive target: the effect tracks the getter; per-run onCleanup
-  // disconnects the previous observer before the re-run observes the new
-  // element — the observer follows the target ($ref null → element).
-  const disposeEffect = effect((onCleanup) => {
-    const el = unrefElement(target)
-    if (el == null) return
-    // Built incrementally (not as an object literal with possibly-undefined
-    // properties) — `exactOptionalPropertyTypes` rejects an explicit
-    // `undefined` for `rootMargin`/`threshold` even though both are
-    // optional on `IntersectionObserverInit`.
-    const init: IntersectionObserverInit = { root: unrefElement(root) ?? null }
-    if (rootMargin !== undefined) init.rootMargin = rootMargin
-    if (threshold !== undefined) init.threshold = threshold
-    observer = new IntersectionObserver((entries) => {
+  // `useIntersectionObserver` owns the target-rebind effect, the observer
+  // instance, and teardown (registered with whatever scope is current
+  // right now — the same one this composable would have registered with
+  // itself). Only the last-entry -> boolean derivation lives here.
+  useIntersectionObserver(
+    target,
+    (entries) => {
       const entry = entries[entries.length - 1]
       if (entry == null) return
       setIsVisible(entry.isIntersecting)
-    }, init)
-    observer.observe(el)
-    onCleanup(() => {
-      observer?.disconnect()
-      observer = null
-    })
-  })
-
-  const stop = (): void => {
-    if (stopped) return
-    stopped = true
-    disposeEffect()
-  }
-  tryOnScopeDispose(stop)
+    },
+    observerOptions,
+  )
 
   return { isVisible }
 }

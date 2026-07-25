@@ -7,18 +7,21 @@
  * the hood. Readers in .aihu templates MUST call getters with parens:
  * `{width()}`, never bare `{width}`.
  *
+ * REFACTORED (Wave 1a review): this is now the consumer-shaped wrapper
+ * built ON TOP OF the general {@link useResizeObserver} sensor (mirrors the
+ * `useReducedMotion` -> `usePreferredReducedMotion` precedent) — the raw
+ * observer construction, target-rebind effect, and teardown all live in
+ * `useResizeObserver` exactly once; this file only derives `width()`/
+ * `height()` from the entries it receives.
+ *
  * SSR (`isClient === false`): returns static getters of the initial size
  * (or a safe default) and registers no observer — the isClient no-op
  * invariant.
  */
 
-import { batch, effect, signal } from '@aihu/signals'
-import {
-  isClient,
-  type MaybeElementGetter,
-  tryOnScopeDispose,
-  unrefElement,
-} from '../shared/index.ts'
+import { batch, signal } from '@aihu/signals'
+import { isClient, type MaybeElementGetter } from '../shared/index.ts'
+import { useResizeObserver } from '../useResizeObserver/index.ts'
 
 export interface UseElementSizeOptions {
   /** Element to observe. Omitted/`null` observes nothing — the getters stay
@@ -64,16 +67,13 @@ export function useElementSize(options: UseElementSizeOptions = {}): UseElementS
   const [width, setWidth] = signal(iw)
   const [height, setHeight] = signal(ih)
 
-  let stopped = false
-  let observer: ResizeObserver | null = null
-
-  // Reactive target: the effect tracks the getter; per-run onCleanup
-  // disconnects the previous observer before the re-run observes the new
-  // element — the observer follows the target ($ref null → element).
-  const disposeEffect = effect((onCleanup) => {
-    const el = unrefElement(target)
-    if (el == null) return
-    observer = new ResizeObserver((entries) => {
+  // `useResizeObserver` owns the target-rebind effect, the observer
+  // instance, and teardown (registered with whatever scope is current
+  // right now — the same one this composable would have registered with
+  // itself). Only the box-size derivation lives here.
+  useResizeObserver(
+    target,
+    (entries) => {
       const entry = entries[0]
       if (entry == null) return
       // Batched: observers see ONE consistent (width, height) update per
@@ -90,20 +90,9 @@ export function useElementSize(options: UseElementSizeOptions = {}): UseElementS
           setHeight(entry.contentRect.height)
         }
       })
-    })
-    observer.observe(el, { box })
-    onCleanup(() => {
-      observer?.disconnect()
-      observer = null
-    })
-  })
-
-  const stop = (): void => {
-    if (stopped) return
-    stopped = true
-    disposeEffect()
-  }
-  tryOnScopeDispose(stop)
+    },
+    { box },
+  )
 
   return { width, height }
 }
