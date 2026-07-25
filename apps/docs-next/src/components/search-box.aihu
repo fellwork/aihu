@@ -1,0 +1,203 @@
+// search-box — the header search affordance + a ⌘K command palette island.
+// Static button prerenders in the header; the overlay is an interactive island
+// that filters the docs nav model. A real search index (over the unified
+// content corpus) is a next-phase item — the interaction + IA are proven here.
+
+@state {
+  import { NAV } from '../data/nav.ts'
+
+  const ALL = NAV.flatMap((section) =>
+    section.links.map((l) => ({ label: l.label, href: l.href, group: section.title, ready: l.ready })),
+  )
+
+  let open = state(false)
+  let query = state('')
+
+  const results = derived(() => {
+    const q = query.trim().toLowerCase()
+    const base = q === '' ? ALL : ALL.filter((r) => (r.label + ' ' + r.group).toLowerCase().includes(q))
+    return base.slice(0, 8)
+  })
+
+  const show = action(() => {
+    open = true
+    query = ''
+  })
+  const hide = action(() => {
+    open = false
+  })
+
+  onMount(() => {
+    if (typeof window === 'undefined') return
+    window.addEventListener('keydown', (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault()
+        open = true
+      } else if (e.key === 'Escape') {
+        open = false
+      }
+    })
+  })
+}
+
+@template {
+  <div class="dn-search">
+    <button class="dn-search-trigger" on:click={show} aria-label="Search docs">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <circle cx="11" cy="11" r="7"></circle>
+        <path d="M21 21l-4.3-4.3"></path>
+      </svg>
+      <span class="dn-search-label">Search</span>
+      <kbd class="dn-kbd">⌘K</kbd>
+    </button>
+
+    <div class="dn-search-overlay" class:dn-open={open} on:click={hide}>
+      <div class="dn-search-panel" on:click={(e) => e.stopPropagation()}>
+        <div class="dn-search-field">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <circle cx="11" cy="11" r="7"></circle>
+            <path d="M21 21l-4.3-4.3"></path>
+          </svg>
+          <input
+            class="dn-search-input"
+            type="text"
+            placeholder="Search guides, API, examples…"
+            bind:value={query}
+            autofocus
+          />
+          <kbd class="dn-kbd">ESC</kbd>
+        </div>
+        <ul class="dn-search-results">
+          <li each={r of results} key={r.href} class="dn-search-result">
+            <a href={r.href}>
+              <span class="dn-search-group">{r.group}</span>
+              <span class="dn-search-hit">{r.label}</span>
+              <span class="dn-search-soon" show={!r.ready}>soon</span>
+            </a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </div>
+}
+
+@style {
+  .dn-search-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    height: 34px;
+    padding: 0 0.6rem;
+    border-radius: var(--r-sm);
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--muted);
+    cursor: pointer;
+    font: inherit;
+    font-size: var(--fs-sm);
+    transition: border-color 0.12s, color 0.12s;
+  }
+  .dn-search-trigger:hover {
+    border-color: var(--border-strong);
+    color: var(--fg);
+  }
+  .dn-search-label {
+    display: none;
+  }
+  .dn-kbd {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    color: var(--faint);
+    border: 1px solid var(--border-strong);
+    border-radius: 4px;
+    padding: 0.05rem 0.3rem;
+    background: var(--surface-2);
+  }
+  .dn-search-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 90;
+    background: rgba(20, 14, 10, 0.42);
+    backdrop-filter: blur(3px);
+    display: none;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 12vh;
+  }
+  .dn-search-overlay.dn-open {
+    display: flex;
+  }
+  .dn-search-panel {
+    width: min(560px, 92vw);
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--r-lg);
+    box-shadow: var(--shadow-lg);
+    overflow: hidden;
+  }
+  .dn-search-field {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--muted);
+  }
+  .dn-search-input {
+    flex: 1;
+    border: 0;
+    outline: none;
+    background: none;
+    font: inherit;
+    font-size: var(--fs-md);
+    color: var(--fg);
+  }
+  .dn-search-results {
+    list-style: none;
+    margin: 0;
+    padding: 0.4rem;
+    max-height: 46vh;
+    overflow-y: auto;
+  }
+  .dn-search-result a {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.6rem 0.7rem;
+    border-radius: var(--r-sm);
+    color: var(--fg);
+    text-decoration: none;
+  }
+  .dn-search-result a:hover {
+    background: var(--accent-soft);
+  }
+  .dn-search-group {
+    font-size: var(--fs-xs);
+    color: var(--faint);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    min-width: 6.5rem;
+  }
+  .dn-search-hit {
+    font-weight: 550;
+    flex: 1;
+  }
+  .dn-search-soon {
+    font-size: var(--fs-xs);
+    color: var(--graphite);
+    border: 1px solid var(--graphite-line);
+    border-radius: var(--r-full);
+    padding: 0.02rem 0.45rem;
+  }
+  @media (min-width: 720px) {
+    .dn-search-label {
+      display: inline;
+    }
+    .dn-search-trigger {
+      min-width: 172px;
+    }
+    .dn-search-trigger .dn-kbd {
+      margin-left: auto;
+    }
+  }
+}

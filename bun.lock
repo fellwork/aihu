@@ -72,6 +72,25 @@
         "concurrently": "^9.0.0",
       },
     },
+    "apps/docs-next": {
+      "name": "aihu-docs-next",
+      "version": "0.0.0",
+      "dependencies": {
+        "@aihu/app": "workspace:*",
+        "@aihu/arbor": "workspace:*",
+        "@aihu/css-engine": "workspace:*",
+        "@aihu/router": "workspace:*",
+        "@aihu/runtime": "workspace:*",
+        "@aihu/server": "workspace:*",
+        "@aihu/signals": "workspace:*",
+        "marked": "^15.0.0",
+      },
+      "devDependencies": {
+        "@aihu/compiler": "workspace:*",
+        "@playwright/test": "1.59.1",
+        "vite": "^8.0.0",
+      },
+    },
     "apps/storybook": {
       "name": "aihu-storybook",
       "dependencies": {
@@ -660,16 +679,16 @@
         "@aihu/css-engine": "workspace:*",
       },
       "optionalDependencies": {
-        "@aihu/compiler-darwin-arm64": "0.1.30",
-        "@aihu/compiler-darwin-x64": "0.1.30",
-        "@aihu/compiler-linux-arm64-gnu": "0.1.30",
-        "@aihu/compiler-linux-x64-gnu": "0.1.30",
+        "@aihu/compiler-darwin-arm64": "0.1.33",
+        "@aihu/compiler-darwin-x64": "0.1.33",
+        "@aihu/compiler-linux-arm64-gnu": "0.1.33",
+        "@aihu/compiler-linux-x64-gnu": "0.1.33",
         "@aihu/compiler-native-darwin-arm64": "0.1.0",
         "@aihu/compiler-native-darwin-x64": "0.1.0",
         "@aihu/compiler-native-linux-arm64-gnu": "0.1.0",
         "@aihu/compiler-native-linux-x64-gnu": "0.1.0",
         "@aihu/compiler-native-win32-x64-msvc": "0.1.0",
-        "@aihu/compiler-win32-x64-msvc": "0.1.30",
+        "@aihu/compiler-win32-x64-msvc": "0.1.33",
       },
       "peerDependencies": {
         "vite": ">=5.0.0",
@@ -2178,6 +2197,8 @@
     "aggregate-error": ["aggregate-error@3.1.0", "", { "dependencies": { "clean-stack": "^2.0.0", "indent-string": "^4.0.0" } }, "sha512-4I7Td01quW/RpocfNayFdFVk1qSuoh0E7JrbRJ16nH01HhKFQ88INq9Sd+nd72zqRySlr9BmDA8xlEJ6vJMrYA=="],
 
     "aihu-docs": ["aihu-docs@workspace:apps/docs"],
+
+    "aihu-docs-next": ["aihu-docs-next@workspace:apps/docs-next"],
 
     "aihu-example-css-pluggability": ["aihu-example-css-pluggability@workspace:examples/css-pluggability"],
 

@@ -1,0 +1,578 @@
+@route {
+  path: "/",
+  name: "home-page",
+  layout: "site",
+  head: {
+    title: "aihu — the framework that equally governs humans and AI",
+    description: "aihu is a web meta-framework that equally governs the security and experience of humans and AI. Real components, a real agent surface, static output, and islands.",
+    canonical: "/",
+    og: {
+      title: "aihu",
+      description: "The web meta-framework that equally governs the security and experience of humans and AI.",
+      type: "website"
+    }
+  }
+}
+
+@state {
+  import { codeBlock } from '../lib/code-block.ts'
+  import { HERO_SOURCE, AGENT_SURFACE } from '../data/gallery.ts'
+
+  const heroCode = codeBlock(HERO_SOURCE, { name: 'weather.aihu', lang: 'aihu' })
+  const heroSource = HERO_SOURCE
+  const surface = AGENT_SURFACE
+}
+
+@template {
+  <div class="dn-home">
+
+    <section class="dn-hero">
+      <div class="dn-hero-copy">
+        <span class="dn-status dn-status-accent dn-hero-eyebrow">
+          <span class="dn-dot"></span>The governed web meta-framework
+        </span>
+        <h1 class="dn-hero-title">
+          One component. <span class="dn-ink-human">Rendered for people,</span>
+          <span class="dn-ink-agent">exposed for agents.</span>
+        </h1>
+        <p class="dn-hero-sub">
+          Write a single <code>.aihu</code> component. It renders as a fast custom
+          element for humans <em>and</em> exposes a discoverable, permissioned
+          surface for AI — the same reactivity, the same governance, no second
+          codebase.
+        </p>
+        <div class="dn-hero-cta">
+          <a class="dn-btn dn-btn-primary" href="/guides/getting-started">Get started →</a>
+          <a class="dn-btn dn-btn-ghost" href="/examples">Browse examples</a>
+        </div>
+        <dl class="dn-spec">
+          <div class="dn-spec-row">
+            <dt>reactive core</dt>
+            <dd class="dn-num">≤ 2 kB</dd>
+          </div>
+          <div class="dn-spec-row">
+            <dt>packages</dt>
+            <dd class="dn-num">37</dd>
+          </div>
+          <div class="dn-spec-row">
+            <dt>output</dt>
+            <dd>SSG + islands</dd>
+          </div>
+          <div class="dn-spec-row">
+            <dt>agent protocols</dt>
+            <dd>MCP · A2A · ACP</dd>
+          </div>
+        </dl>
+      </div>
+
+      <!-- THE dual-surface card — one source, two governed projections. -->
+      <figure class="dn-ds">
+        <figcaption class="dn-ds-cap">
+          <span class="dn-sec-num"><b>SRC</b> one component</span>
+        </figcaption>
+        <!--
+          Raw-HTML `html={...}` lowers to an empty `<span data-aihu-html>`
+          that a client-only `onMount` effect fills via `replaceChildren` —
+          SSR/SSG renders NO text (see compiler codegen/ssr_string_emit.rs +
+          template_emit.rs). That silently dropped the hero source from the
+          static output crawlers and agents read. Fix: a plain interpolated
+          `heroSource` `<pre>` sits alongside it as an always-prerendered fallback (real
+          interpolated text, so it lands in __ssrString like any other
+          export). CSS hides the fallback once the live span is populated
+          (`:not(:empty)` is a live DOM state, so this needs no extra JS).
+        -->
+        <div class="dn-ds-source-live" html={heroCode}></div>
+        <pre class="dn-ds-source-plain"><code>{heroSource}</code></pre>
+
+        <div class="dn-ds-split">
+          <div class="dn-ds-pane dn-ds-human">
+            <div class="dn-ds-head">
+              <span class="dn-status dn-status-accent">
+                <span class="dn-dot dn-dot-live"></span>Human render
+              </span>
+              <span class="dn-rail">live</span>
+            </div>
+            <weather-demo city="London"></weather-demo>
+          </div>
+
+          <div class="dn-ds-pane dn-ds-agent">
+            <div class="dn-ds-head">
+              <span class="dn-status dn-status-graphite">
+                <span class="dn-dot dn-dot-graphite"></span>Agent surface
+              </span>
+              <span class="dn-rail">via MCP · A2A</span>
+            </div>
+            <ul class="dn-surface-list">
+              <li class="dn-surface-row" each={s of surface} key={s.name}>
+                <span class="dn-surface-kind">{s.kind}</span>
+                <code class="dn-surface-name">{s.name}</code>
+                <span class="dn-surface-desc">{s.describe}</span>
+                <span class="dn-chip dn-chip-expose">expose: {s.expose}</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </figure>
+    </section>
+
+    <!-- 01 — the duality, drawn in the two brand colors -->
+    <section class="dn-block">
+      <p class="dn-sec-num"><b>01</b> the duality</p>
+      <div class="dn-duality">
+        <div class="dn-duality-card dn-human">
+          <span class="dn-status dn-status-accent">
+            <span class="dn-dot"></span>humans / experience
+          </span>
+          <h3>Experience, governed</h3>
+          <p>Static-first HTML that hydrates into interactive islands. Accessible
+             primitives, theming, and a real css-engine — the fast, crafted
+             surface people actually touch.</p>
+        </div>
+        <div class="dn-duality-card dn-ai">
+          <span class="dn-status dn-status-graphite">
+            <span class="dn-dot dn-dot-graphite"></span>AI / security
+          </span>
+          <h3>Security, governed</h3>
+          <p>Every prop and action can carry <code>describe</code> /
+             <code>expose</code> and scope guards, so agents discover and invoke
+             exactly what you permit — over MCP, A2A, and ACP.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 02 — where to go -->
+    <section class="dn-block">
+      <p class="dn-sec-num"><b>02</b> start here</p>
+      <div class="dn-jobs">
+        <a class="dn-job" href="/guides/getting-started">
+          <span class="dn-job-num dn-rail">G · 8</span>
+          <h3>Guides</h3>
+          <p>Learn the model — state, templates, routing, SSR, and the agent surface.</p>
+          <span class="dn-job-go">Start learning →</span>
+        </a>
+        <a class="dn-job" href="/api">
+          <span class="dn-job-num dn-rail">API · 37</span>
+          <h3>API Reference</h3>
+          <p>Typed signatures for every export across all 37 packages.</p>
+          <span class="dn-job-go">Read the API →</span>
+        </a>
+        <a class="dn-job" href="/examples">
+          <span class="dn-job-num dn-rail">EX · 9 + 12</span>
+          <h3>Examples &amp; Cookbook</h3>
+          <p>A governed example set and a fluency cookbook — with a live playground.</p>
+          <span class="dn-job-go">Explore →</span>
+        </a>
+      </div>
+    </section>
+
+    <!-- 03 — the datasheet spec -->
+    <section class="dn-block">
+      <p class="dn-sec-num"><b>03</b> specification</p>
+      <dl class="dn-features">
+        <div class="dn-feature">
+          <dt>Static output</dt>
+          <dd>Every route prerenders to real HTML, then hydrates. Crawlers and
+              agents read content; humans get the live app.</dd>
+        </div>
+        <div class="dn-feature">
+          <dt>Islands</dt>
+          <dd>Ship ~0 JS on static pages. Only the interactive components hydrate.</dd>
+        </div>
+        <div class="dn-feature">
+          <dt>One agent contract</dt>
+          <dd>The serving gate is a supersede chain plus sign-off — governance is
+              a first-class primitive, not a bolt-on.</dd>
+        </div>
+        <div class="dn-feature">
+          <dt>css-engine</dt>
+          <dd>Design tokens and a utility layer compiled by a real Rust engine —
+              the one styling this very site.</dd>
+        </div>
+      </dl>
+    </section>
+
+  </div>
+}
+
+@style {
+  .dn-home {
+    max-width: var(--page-max);
+    margin: 0 auto;
+    padding: 0 1.25rem;
+  }
+
+  /* ---------- hero ---------- */
+  .dn-hero {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 2.75rem;
+    align-items: center;
+    padding: 3.5rem 0 3.5rem;
+  }
+  .dn-hero-eyebrow {
+    margin-bottom: 1.5rem;
+  }
+  .dn-hero-title {
+    font-size: clamp(2.1rem, 5vw, 3.4rem);
+    line-height: 1.06;
+    letter-spacing: var(--tracking-tighter);
+    font-weight: 700;
+    color: var(--fg-strong);
+    text-wrap: balance;
+    margin: 0 0 1.35rem;
+  }
+  .dn-ink-human,
+  .dn-ink-agent {
+    display: block;
+  }
+  .dn-ink-human {
+    color: var(--accent);
+  }
+  .dn-ink-agent {
+    color: var(--graphite);
+  }
+  .dn-hero-sub {
+    font-size: var(--fs-lg);
+    line-height: 1.55;
+    color: var(--muted);
+    max-width: 34rem;
+    margin: 0 0 1.75rem;
+  }
+  .dn-hero-sub code {
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+    color: var(--accent-strong);
+  }
+  .dn-hero-sub em {
+    font-style: normal;
+    color: var(--fg);
+    font-weight: 550;
+  }
+  .dn-hero-cta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-bottom: 2rem;
+  }
+  .dn-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.68rem 1.3rem;
+    border-radius: var(--r-md);
+    font-weight: 600;
+    font-size: var(--fs-md);
+    text-decoration: none;
+    transition: transform 0.1s, background 0.12s, border-color 0.12s;
+  }
+  .dn-btn:hover {
+    text-decoration: none;
+    transform: translateY(-1px);
+  }
+  .dn-btn-primary {
+    background: var(--accent);
+    color: var(--accent-contrast);
+  }
+  .dn-btn-primary:hover {
+    background: var(--accent-strong);
+  }
+  .dn-btn-ghost {
+    background: var(--surface);
+    color: var(--fg);
+    border: 1px solid var(--border-strong);
+  }
+  .dn-btn-ghost:hover {
+    border-color: var(--accent-line);
+    color: var(--accent);
+  }
+
+  /* datasheet spec rail under the hero copy */
+  .dn-spec {
+    display: grid;
+    gap: 0;
+    margin: 0;
+    max-width: 24rem;
+    border-top: 1px solid var(--border);
+  }
+  .dn-spec-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .dn-spec-row dt {
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+    letter-spacing: 0.03em;
+    color: var(--faint);
+    text-transform: uppercase;
+  }
+  .dn-spec-row dd {
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: var(--fs-sm);
+    font-weight: 500;
+    color: var(--fg-strong);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ---------- the dual-surface card ---------- */
+  .dn-ds {
+    margin: 0;
+    min-width: 0;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--r-lg);
+    background: var(--surface);
+    box-shadow: var(--shadow-lg);
+    overflow: hidden;
+  }
+  .dn-ds-cap {
+    display: flex;
+    align-items: center;
+    padding: 0.7rem 1rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface-2);
+  }
+  .dn-ds-source-live .cb {
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    background: var(--code-bg);
+  }
+  /* Prerendered plain fallback for the hero source (see the SSR-vs-hydration
+     comment in @template). Same position/looks as the syntax-highlighted
+     `.cb` block; auto-hidden once the live span mounts and fills in. */
+  .dn-ds-source-plain {
+    margin: 0;
+    padding: 0.9rem 1.1rem;
+    overflow-x: auto;
+    background: var(--code-bg);
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    line-height: 1.6;
+    color: var(--fg);
+  }
+  .dn-ds-source-live:not(:empty) ~ .dn-ds-source-plain {
+    display: none;
+  }
+  .dn-ds-split {
+    display: grid;
+    grid-template-columns: 1fr;
+    border-top: 1px solid var(--border);
+  }
+  .dn-ds-pane {
+    min-width: 0;
+    padding: 0;
+  }
+  .dn-ds-human {
+    border-bottom: 1px solid var(--border);
+  }
+  .dn-ds-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.6rem 1rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .dn-ds-human .dn-ds-head {
+    box-shadow: inset 3px 0 0 var(--accent);
+  }
+  .dn-ds-agent {
+    background: var(--graphite-soft);
+  }
+  .dn-ds-agent .dn-ds-head {
+    box-shadow: inset 3px 0 0 var(--graphite);
+    background: var(--surface);
+  }
+
+  /* agent surface contract rows */
+  .dn-surface-list {
+    list-style: none;
+    margin: 0;
+    padding: 0.4rem 0.5rem;
+    display: grid;
+    gap: 0.15rem;
+  }
+  .dn-surface-row {
+    display: grid;
+    grid-template-columns: auto auto 1fr;
+    align-items: center;
+    gap: 0.4rem 0.6rem;
+    padding: 0.5rem 0.6rem;
+    border-radius: var(--r-sm);
+  }
+  .dn-surface-row:hover {
+    background: var(--surface-2);
+  }
+  .dn-surface-kind {
+    font-family: var(--font-mono);
+    font-size: 0.64rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--faint);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.02rem 0.3rem;
+  }
+  .dn-surface-name {
+    font-family: var(--font-mono);
+    font-size: var(--fs-sm);
+    font-weight: 550;
+    color: var(--fg-strong);
+  }
+  .dn-surface-desc {
+    font-size: var(--fs-xs);
+    color: var(--muted);
+    min-width: 0;
+  }
+  .dn-surface-row .dn-chip-expose {
+    grid-column: 2 / 4;
+    justify-self: start;
+  }
+
+  /* ---------- section blocks ---------- */
+  .dn-block {
+    padding: 2.5rem 0;
+  }
+  .dn-block .dn-sec-num {
+    margin: 0 0 1.5rem;
+  }
+
+  /* duality */
+  .dn-duality {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  .dn-duality-card {
+    padding: 1.75rem;
+    border-radius: var(--r-lg);
+    border: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .dn-duality-card h3 {
+    font-size: var(--fs-xl);
+    letter-spacing: var(--tracking-tight);
+    margin: 0.85rem 0 0.6rem;
+  }
+  .dn-duality-card p {
+    color: var(--muted);
+    margin: 0;
+    line-height: 1.6;
+  }
+  .dn-duality-card code {
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+    color: var(--graphite);
+  }
+  .dn-human {
+    box-shadow: inset 3px 0 0 var(--accent);
+  }
+  .dn-ai {
+    box-shadow: inset 3px 0 0 var(--graphite);
+  }
+
+  /* jobs */
+  .dn-jobs {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  .dn-job {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    padding: 1.5rem;
+    border-radius: var(--r-lg);
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--fg);
+    text-decoration: none;
+    transition: border-color 0.14s, transform 0.12s, box-shadow 0.16s;
+  }
+  .dn-job:hover {
+    text-decoration: none;
+    border-color: var(--accent-line);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+  }
+  .dn-job-num {
+    color: var(--accent);
+  }
+  .dn-job h3 {
+    font-size: var(--fs-lg);
+    letter-spacing: var(--tracking-tight);
+    margin: 0.35rem 0 0;
+  }
+  .dn-job p {
+    color: var(--muted);
+    margin: 0;
+    font-size: var(--fs-sm);
+    line-height: 1.55;
+  }
+  .dn-job-go {
+    margin-top: auto;
+    padding-top: 0.6rem;
+    color: var(--accent);
+    font-weight: 600;
+    font-size: var(--fs-sm);
+  }
+
+  /* features — datasheet rows */
+  .dn-features {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0;
+    margin: 0;
+    border-top: 1px solid var(--border);
+  }
+  .dn-feature {
+    display: grid;
+    gap: 0.3rem;
+    padding: 1.15rem 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .dn-feature dt {
+    font-size: var(--fs-md);
+    font-weight: 650;
+    letter-spacing: var(--tracking-tight);
+    color: var(--fg-strong);
+  }
+  .dn-feature dd {
+    margin: 0;
+    color: var(--muted);
+    font-size: var(--fs-sm);
+    line-height: 1.55;
+  }
+
+  @media (min-width: 680px) {
+    .dn-jobs {
+      grid-template-columns: repeat(3, 1fr);
+    }
+    .dn-duality {
+      grid-template-columns: 1fr 1fr;
+    }
+    .dn-features {
+      grid-template-columns: 1fr 1fr;
+      column-gap: 2.5rem;
+    }
+    .dn-ds-split {
+      grid-template-columns: 1fr 1fr;
+    }
+    .dn-ds-human {
+      border-bottom: 0;
+      border-right: 1px solid var(--border);
+    }
+  }
+  @media (min-width: 960px) {
+    .dn-hero {
+      grid-template-columns: 1fr 1fr;
+      gap: 3.5rem;
+      padding: 5rem 0 4.5rem;
+    }
+  }
+}

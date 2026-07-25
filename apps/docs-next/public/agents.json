@@ -1,0 +1,4 @@
+{
+  "_todo": "regenerate from docs-next content post-launch — the old site's aihu.dev/.well-known/agent.json (A2A) and aihu.dev/.well-known/mcp/server-card.json (MCP) entries came from packages/plugin-agent-readiness, which is not yet wired into apps/docs-next. Do not re-add those two entries until the corresponding routes actually exist on this app, or agents will be pointed at 404s.",
+  "agents": []
+}

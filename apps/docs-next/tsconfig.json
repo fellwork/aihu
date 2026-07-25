@@ -1,0 +1,9 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["node"],
+    "moduleDetection": "force"
+  },
+  "include": ["src/lib", "src/data", "scripts", "gen-css.ts", "aihu.config.ts", "vite.config.ts"]
+}

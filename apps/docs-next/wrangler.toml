@@ -1,0 +1,6 @@
+# docs-next deploys as static assets to Cloudflare Pages. `output: 'static'`
+# prerenders every route to `dist/<pattern>/index.html`, so there is no server
+# runtime — Pages serves the prerendered HTML + hydrating island bundle.
+name = "aihu-docs-next"
+compatibility_date = "2026-05-28"
+pages_build_output_dir = "dist"

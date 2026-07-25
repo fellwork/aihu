@@ -1,0 +1,64 @@
+@route {
+  path: "/api",
+  name: "api-index",
+  layout: "docs",
+  head: {
+    title: "API Reference — all 37 packages — aihu",
+    description: "The aihu API datasheet: typed signatures for every public export across all 37 packages, grouped by tier — runtime core, app & routing, authoring & UI, compiler & tooling, agents & governance, and plugins.",
+    canonical: "/api"
+  }
+}
+
+@state {
+  // The index groups all 37 documentable packages by tier from the generated
+  // roll-up. Package rows are plain interpolated markup, so they land in the
+  // DOM-free __ssrString and ship as real static HTML for crawlers + agents.
+  import { PACKAGES, TIERS } from '../../data/api/generated/index.ts'
+
+  const pkgCount = PACKAGES.length
+  const totalExports = PACKAGES.reduce((n, p) => n + p.exportCount, 0)
+
+  const tiers = TIERS.map((title) => ({ title, packages: PACKAGES.filter((p) => p.tier === title) }))
+}
+
+@template {
+  <div class="dn-api dn-article">
+    <p class="dn-breadcrumb dn-rail">API</p>
+
+    <header class="dn-api-head">
+      <div class="dn-api-titles">
+        <h1 class="dn-api-pkg">API Reference</h1>
+        <span class="dn-status dn-status-accent dn-api-badge">
+          <span class="dn-dot"></span>{pkgCount} packages
+        </span>
+      </div>
+      <p class="dn-api-tagline">
+        Typed signatures for every public export across the aihu monorepo — one
+        datasheet per package. Terracotta is the human/experience surface;
+        graphite marks the agent-discoverable, governed surface.
+      </p>
+      <dl class="dn-api-spec">
+        <div><dt>packages</dt><dd class="dn-num">{pkgCount}</dd></div>
+        <div><dt>exports</dt><dd class="dn-num">{totalExports}</dd></div>
+        <div><dt>tiers</dt><dd class="dn-num">{tiers.length}</dd></div>
+        <div><dt>output</dt><dd>datasheet</dd></div>
+      </dl>
+    </header>
+
+    <section class="dn-apidx-tier" each={tier of tiers} key={tier.title}>
+      <p class="dn-sec-num"><b>{tier.title}</b></p>
+      <ul class="dn-apidx-list">
+        <li class="dn-apidx-row" each={p of tier.packages} key={p.slug}>
+          <a class="dn-apidx-name" href={`/api/${p.slug}`}><code>{p.name}</code></a>
+          <span class="dn-apidx-tag">{p.tagline}</span>
+          <span class="dn-apidx-meta">
+            <span class="dn-chip dn-chip-expose dn-apidx-agent" if={p.agent}>
+              <span class="dn-dot dn-dot-graphite"></span>agent
+            </span>
+            <span class="dn-apidx-count">{p.exportCount}</span>
+          </span>
+        </li>
+      </ul>
+    </section>
+  </div>
+}

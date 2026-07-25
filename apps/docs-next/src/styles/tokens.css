@@ -1,0 +1,158 @@
+/* =============================================================================
+   docs-next design tokens — "Warm Technical / Governed"
+   -----------------------------------------------------------------------------
+   Visual thesis: aihu "equally governs the security and experience of humans
+   and AI". The brand is SINGLE-ACCENT — terracotta is the one and only hue.
+   The humans/AI duality is drawn with the brand's OWN two colors, not a second
+   hue: the HUMAN / experience axis is terracotta; the AI / governance axis is
+   graphite — a cool neutral derived straight from the brand ink (#1a1d24). The
+   ramp sits on warm editorial paper (#faf8f4).
+     --accent    terracotta #c8543a  → the HUMAN / experience axis (the brand dot)
+     --graphite  ink-graphite        → the AI / governance / security axis (neutral)
+   Light + dark are both first-class; `.dark` on <html> is authoritative, and
+   prefers-color-scheme seeds the pre-paint default (see index.html).
+   ============================================================================ */
+
+:root {
+  /* ---- warm neutral ramp (light) ---- */
+  --paper: #faf8f4; /* page background — warm paper (brand canvas) */
+  --surface: #ffffff; /* cards / raised */
+  --surface-2: #f4f0ea; /* sunken / subtle fills */
+  --fg: #1a1d24; /* brand ink — cool near-black text */
+  --fg-strong: #101319;
+  --muted: #5a5a55; /* secondary text — brand warm-grey */
+  --faint: #938a7f; /* tertiary / meta */
+  --border: #ece9e2; /* hairlines — brand warm neutral */
+  --border-strong: #ddd4c8;
+  --hover-bg: #f3eee7;
+
+  /* ---- accent: terracotta is the ONE brand hue ---- */
+  --accent: #c8543a; /* terracotta — human / experience (the brand dot) */
+  --accent-strong: #a8402b;
+  --accent-contrast: #ffffff;
+  --accent-soft: rgba(200, 84, 58, 0.1);
+  --accent-line: rgba(200, 84, 58, 0.28);
+  /* ---- graphite: the AI / governance axis — a neutral from brand ink, NOT a 2nd hue ---- */
+  --graphite: #363c47; /* ink-graphite — cool, technical, on-brand */
+  --graphite-strong: #1a1d24; /* the brand ink itself */
+  --graphite-soft: rgba(26, 29, 36, 0.06);
+  --graphite-line: rgba(26, 29, 36, 0.2);
+
+  /* ---- code surface ---- */
+  --code-bg: #f7f3ee;
+  --code-border: #ebe3d8;
+  --code-inline-bg: #f1ece4;
+
+  /* ---- syntax tokens (light) ---- */
+  --tok-comment: #a1978a;
+  --tok-keyword: #b0432c;
+  --tok-string: #4d7a3d;
+  --tok-number: #a86a1f;
+  --tok-fn: #4a5061;
+  --tok-tag: #b0432c;
+  --tok-attr: #7d6fa6;
+  --tok-decorator: #9a5b00;
+  --tok-intrinsic: #4a5061;
+  --tok-punct: #8a8178;
+
+  /* ---- type — Geist + Geist Mono, the canonical brand type (brand/README.md).
+     Self-hosted variable woff2 (public/fonts/Geist-Variable.woff2 +
+     GeistMono-Variable.woff2, OFL, via the `geist` npm package). NO CDN — the
+     @font-face lives in base.css and points only at same-origin /fonts/. ---- */
+  --font-sans: "Geist", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, "SF Mono", "Fira Code", monospace;
+  --fs-xs: 0.78rem;
+  --fs-sm: 0.875rem;
+  --fs-base: 1rem;
+  --fs-md: 1.075rem;
+  --fs-lg: 1.25rem;
+  --fs-xl: 1.5rem;
+  --fs-2xl: 1.95rem;
+  --fs-3xl: 2.6rem;
+  --fs-4xl: 3.5rem;
+  --lh-tight: 1.12;
+  --lh-snug: 1.35;
+  --lh-normal: 1.7;
+  --tracking-tight: -0.022em;
+  --tracking-tighter: -0.035em;
+
+  /* ---- space (4px grid) ---- */
+  --sp-1: 0.25rem;
+  --sp-2: 0.5rem;
+  --sp-3: 0.75rem;
+  --sp-4: 1rem;
+  --sp-5: 1.5rem;
+  --sp-6: 2rem;
+  --sp-7: 3rem;
+  --sp-8: 4rem;
+  --sp-9: 6rem;
+
+  /* ---- radius ---- */
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 16px;
+  --r-full: 999px;
+
+  /* ---- elevation (warm-tinted) ---- */
+  --shadow-sm: 0 1px 2px rgba(60, 40, 30, 0.06);
+  --shadow-md: 0 4px 16px rgba(60, 40, 30, 0.08), 0 1px 3px rgba(60, 40, 30, 0.06);
+  --shadow-lg: 0 18px 48px rgba(50, 34, 24, 0.14), 0 4px 12px rgba(50, 34, 24, 0.08);
+  --shadow-accent: 0 10px 30px rgba(200, 84, 58, 0.24);
+
+  /* ---- layout metrics ---- */
+  --header-h: 60px;
+  --sidebar-w: 264px;
+  --toc-w: 224px;
+  --content-max: 46rem;
+  --page-max: 1440px;
+
+  color-scheme: light;
+}
+
+:root.dark {
+  /* ---- cool dark ramp, derived from brand ink #1a1d24 / paper #faf8f4 ---- */
+  --paper: #14161c; /* below the ink — cool near-black canvas */
+  --surface: #1a1d24; /* brand ink as the raised surface */
+  --surface-2: #21242c;
+  --fg: #ece9e2; /* brand warm off-white text */
+  --fg-strong: #faf8f4; /* brand paper as strongest text */
+  --muted: #9a9ca3;
+  --faint: #70727a;
+  --border: #282b33;
+  --border-strong: #3a3e48;
+  --hover-bg: #21242c;
+
+  /* terracotta stays the one hue — lightened for legibility on dark ground */
+  --accent: #e8705a;
+  --accent-strong: #f08d78;
+  --accent-contrast: #14161c;
+  --accent-soft: rgba(232, 112, 90, 0.14);
+  --accent-line: rgba(232, 112, 90, 0.32);
+  /* graphite inverts to a light cool grey on dark */
+  --graphite: #aab0bd;
+  --graphite-strong: #c9cdd6;
+  --graphite-soft: rgba(170, 176, 189, 0.14);
+  --graphite-line: rgba(170, 176, 189, 0.28);
+
+  --code-bg: #191b21;
+  --code-border: #2a2e37;
+  --code-inline-bg: #24272f;
+
+  --tok-comment: #70727a;
+  --tok-keyword: #f0917a;
+  --tok-string: #9dcf83;
+  --tok-number: #e2b167;
+  --tok-fn: #aab6c4;
+  --tok-tag: #f0917a;
+  --tok-attr: #c6b9ea;
+  --tok-decorator: #e2b167;
+  --tok-intrinsic: #aab6c4;
+  --tok-punct: #8a8178;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.44), 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 20px 52px rgba(0, 0, 0, 0.56), 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-accent: 0 10px 30px rgba(232, 112, 90, 0.26);
+
+  color-scheme: dark;
+}

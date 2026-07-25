@@ -1,0 +1,89 @@
+@route {
+  path: "/guides/authoring-components",
+  name: "guide-authoring-components",
+  layout: "docs",
+  head: {
+    title: "Authoring Components — aihu",
+    description: "The full @state/@template/@style/@agent reference: prop/derived/action/resource wrapper intrinsics, the prefix-less template grammar, and common compiler diagnostics.",
+    canonical: "/guides/authoring-components"
+  }
+}
+
+@state {
+  import { renderMarkdown } from '../../lib/markdown.ts'
+  import { AUTHORING_COMPONENTS } from '../../data/guide-authoring-components.ts'
+
+  const body = renderMarkdown(AUTHORING_COMPONENTS)
+}
+
+@template {
+  <div class="dn-guide">
+    <p class="dn-sec-num"><b>G · 04</b> guides</p>
+    <p class="dn-breadcrumb dn-rail"><a href="/guides/getting-started">Guides</a> / Authoring Components</p>
+    <article class="dn-prose dn-article" html={body}></article>
+    <nav class="dn-page-nav" aria-label="Guide pagination">
+      <a class="dn-page-prev" href="/guides/reactivity">
+        <span>Previous</span>
+        <strong>← Reactivity</strong>
+      </a>
+      <a class="dn-page-next" href="/guides/routing-layouts">
+        <span>Next</span>
+        <strong>Routing &amp; Layouts →</strong>
+      </a>
+    </nav>
+  </div>
+}
+
+@style {
+  .dn-guide {
+    max-width: var(--content-max);
+  }
+  .dn-guide > .dn-sec-num {
+    margin: 0 0 1rem;
+  }
+  .dn-breadcrumb {
+    margin: 0 0 2rem;
+  }
+  .dn-breadcrumb a {
+    color: var(--muted);
+  }
+  .dn-page-nav {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-top: 3.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border);
+  }
+  .dn-page-prev,
+  .dn-page-next {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    padding: 0.85rem 1.2rem;
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    text-decoration: none;
+    color: var(--fg);
+  }
+  .dn-page-next {
+    align-items: flex-end;
+  }
+  .dn-page-prev:hover,
+  .dn-page-next:hover {
+    text-decoration: none;
+    border-color: var(--accent-line);
+  }
+  .dn-page-prev span,
+  .dn-page-next span {
+    font-size: var(--fs-xs);
+    color: var(--faint);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .dn-page-prev strong,
+  .dn-page-next strong {
+    color: var(--accent);
+    font-weight: 600;
+  }
+}

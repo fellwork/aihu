@@ -1,0 +1,208 @@
+@route {
+  path: "/cookbook",
+  name: "cookbook-page",
+  layout: "docs",
+  head: {
+    title: "Cookbook — aihu",
+    description: "The aihu fluency cookbook: 20 focused, single-construct recipes — each a real, compiled .aihu component with a live, in-browser-runnable playground.",
+    canonical: "/cookbook"
+  }
+}
+
+@state {
+  import { COOKBOOK, LIVE_ISLANDS } from '../data/gallery.ts'
+
+  const recipes = COOKBOOK.map((r) => ({
+    id: r.id,
+    href: `/cookbook/${r.id}`,
+    title: r.title,
+    type: r.type,
+    description: r.description,
+    // Cap the chip row so cards stay uniform; the detail page shows them all.
+    constructs: r.constructs.slice(0, 4),
+    more: r.constructs.length > 4 ? r.constructs.length - 4 : 0,
+    // "Run" pips only where a real hydrated island exists — not the corpus'
+    // WASM-playground-preset label, which nothing currently serves (deferred).
+    runnable: !!LIVE_ISLANDS[r.id],
+  }))
+  const runnable = recipes.filter((r) => r.runnable).length
+}
+
+@template {
+  <div class="dn-gallery dn-article">
+    <header class="dn-gallery-head">
+      <p class="dn-sec-num"><b>CB</b> cookbook</p>
+      <h1>Twenty recipes that teach humans and agents idiomatic aihu</h1>
+      <p>Each recipe is one focused, real, compiled <code>.aihu</code> component —
+         a single construct done right. Open any card for its source, its
+         governed surface, and a <em>live</em> in-browser Run.</p>
+    </header>
+
+    <div class="dn-sec-head">
+      <h2>All recipes</h2>
+      <span class="dn-status dn-status-accent dn-sec-count">
+        <span class="dn-dot"></span>{runnable} runnable
+      </span>
+    </div>
+
+    <div class="dn-card-grid">
+      <a class="dn-card" each={r of recipes} key={r.id} href={r.href}>
+        <div class="dn-card-top">
+          <span class="dn-card-type">{r.type}</span>
+          <span class="dn-card-run" if={r.runnable}>
+            <span class="dn-dot"></span>Run
+          </span>
+        </div>
+        <h3 class="dn-card-title">{r.title}</h3>
+        <p class="dn-card-desc">{r.description}</p>
+        <div class="dn-card-tags">
+          <code each={construct of r.constructs} key={construct}>{construct}</code>
+          <code class="dn-card-more" if={r.more > 0}>+{r.more}</code>
+        </div>
+      </a>
+    </div>
+  </div>
+}
+
+@style {
+  .dn-gallery {
+    max-width: 62rem;
+  }
+  .dn-gallery-head .dn-sec-num {
+    margin: 0 0 1.1rem;
+  }
+  .dn-gallery-head h1 {
+    font-size: var(--fs-3xl);
+    font-weight: 700;
+    letter-spacing: var(--tracking-tighter);
+    line-height: 1.08;
+    margin: 0 0 0.75rem;
+    text-wrap: balance;
+    max-width: 22ch;
+  }
+  .dn-gallery-head p {
+    color: var(--muted);
+    font-size: var(--fs-md);
+    line-height: 1.6;
+    max-width: 42rem;
+    margin: 0 0 2rem;
+  }
+  .dn-gallery-head em {
+    color: var(--accent);
+    font-style: normal;
+    font-weight: 600;
+  }
+  .dn-gallery-head code {
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+    color: var(--accent-strong);
+  }
+
+  .dn-sec-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+    padding-bottom: 0.6rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .dn-sec-head h2 {
+    font-size: var(--fs-xl);
+    letter-spacing: var(--tracking-tight);
+    margin: 0;
+  }
+  .dn-sec-count {
+    align-self: center;
+  }
+
+  /* cookbook cards */
+  .dn-card-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  .dn-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 1.25rem;
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    background: var(--surface);
+    color: var(--fg);
+    text-decoration: none;
+    transition: border-color 0.14s, transform 0.12s, box-shadow 0.16s;
+  }
+  .dn-card:hover {
+    text-decoration: none;
+    border-color: var(--accent-line);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+  }
+  .dn-card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .dn-card-type {
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--graphite);
+  }
+  .dn-card-run {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+    font-weight: 500;
+    color: var(--accent);
+  }
+  .dn-card-title {
+    font-size: var(--fs-lg);
+    letter-spacing: var(--tracking-tight);
+    margin: 0;
+  }
+  .dn-card-desc {
+    color: var(--muted);
+    font-size: var(--fs-sm);
+    line-height: 1.5;
+    margin: 0;
+    flex: 1;
+  }
+  .dn-card-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    margin-top: 0.25rem;
+  }
+  .dn-card-tags code {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    color: var(--muted);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    padding: 0.05rem 0.4rem;
+    border-radius: 4px;
+  }
+  .dn-card-more {
+    color: var(--faint) !important;
+    background: transparent !important;
+    border-color: transparent !important;
+  }
+
+  @media (min-width: 640px) {
+    .dn-card-grid {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+  @media (min-width: 900px) {
+    .dn-card-grid {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+}
