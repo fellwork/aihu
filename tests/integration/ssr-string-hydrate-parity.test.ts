@@ -282,5 +282,4 @@ describe.skipIf(!hasBinary)('string-rendered pages: STORE state adopts (the wave
     // server's nodes instead of replacing them.
     expect(countOccurrences(host.textContent ?? '', PRIMARY)).toBe(1)
   })
-
 })
