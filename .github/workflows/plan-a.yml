@@ -79,6 +79,12 @@ jobs:
       # Guard: a compiler Rust change must bump the platform binary packages,
       # or the rebuilt binary is silently skipped at publish (see the script).
       - run: bun run check:compiler-binary-bump
+      # Guard: every non-private package under packages/ must be in
+      # publish-all.sh's hand-maintained PKGS array, or changesets bumps it
+      # forever while it never reaches npm — silently, with the release job
+      # green throughout. Has already bitten ui, seo, store, editor and magna.
+      # Reads only manifest text, so it runs with the other cheap guards.
+      - run: bun run check:publish-manifest
       # @aihu/use registry parity — a composable's six touch points (src dir,
       # barrel, package.json exports, rolldown input, .size-limit.json row,
       # USE_COMPOSABLES tuple) must all agree, bidirectionally. Needs no build
