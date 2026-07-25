@@ -1,7 +1,7 @@
 //! D5 — `$form` collection acceptance tests.
 //!
 //! Covers:
-//! - `$form: { value: expr }` — emits `setFormValue` + `static formAssociated = true`
+//! - `$form: { value: expr }` — emits `setFormValue` + the `formAssociated` define option
 //! - `$form: { validity: () => ({ ... }) }` — emits `setValidity` call
 //! - Combined `$form: { value, validity }` — single `attachInternals()` guard
 //! - `$form` + `$aria` — only one `attachInternals()` call emitted
@@ -29,10 +29,11 @@ fn form_basic_value() {
 }"#;
     let js = compile_fixture(src, "x-form-basic");
 
-    // static formAssociated = true must be set on the class.
+    // The registration must carry the formAssociated define option — the
+    // runtime stamps it on the class BEFORE customElements.define().
     assert!(
-        js.contains("formAssociated = true"),
-        "expected formAssociated = true: {js}"
+        js.contains("{ formAssociated: true }"),
+        "expected the formAssociated define option: {js}"
     );
 
     // setFormValue must be emitted.
@@ -49,7 +50,7 @@ fn form_basic_value() {
 
     // attachInternals guard must be emitted.
     assert!(
-        js.contains("this._internals = this.attachInternals()"),
+        js.contains("__aihu_el._internals = __aihu_el.attachInternals()"),
         "expected attachInternals call: {js}"
     );
 }
@@ -66,10 +67,10 @@ fn form_validity() {
 }"#;
     let js = compile_fixture(src, "x-form-validity");
 
-    // formAssociated must be emitted.
+    // The formAssociated define option must be emitted.
     assert!(
-        js.contains("formAssociated = true"),
-        "expected formAssociated = true: {js}"
+        js.contains("{ formAssociated: true }"),
+        "expected the formAssociated define option: {js}"
     );
 
     // setValidity must be emitted.
@@ -86,7 +87,7 @@ fn form_validity() {
 
     // attachInternals guard must be emitted.
     assert!(
-        js.contains("this._internals = this.attachInternals()"),
+        js.contains("__aihu_el._internals = __aihu_el.attachInternals()"),
         "expected attachInternals call: {js}"
     );
 
@@ -109,10 +110,10 @@ fn form_value_and_validity() {
 }"#;
     let js = compile_fixture(src, "x-form-both");
 
-    // formAssociated must be emitted.
+    // The formAssociated define option must be emitted.
     assert!(
-        js.contains("formAssociated = true"),
-        "expected formAssociated = true: {js}"
+        js.contains("{ formAssociated: true }"),
+        "expected the formAssociated define option: {js}"
     );
 
     // Both setFormValue and setValidity must be emitted.
@@ -126,7 +127,7 @@ fn form_value_and_validity() {
     );
 
     // The attachInternals guard must appear exactly once.
-    let guard_count = js.matches("this.attachInternals()").count();
+    let guard_count = js.matches("__aihu_el.attachInternals()").count();
     assert_eq!(
         guard_count, 1,
         "expected exactly one attachInternals() call but got {guard_count}: {js}"
@@ -148,8 +149,8 @@ fn form_and_aria_share_internals() {
 
     // Both form and aria features must be present.
     assert!(
-        js.contains("formAssociated = true"),
-        "expected formAssociated = true: {js}"
+        js.contains("{ formAssociated: true }"),
+        "expected the formAssociated define option: {js}"
     );
     assert!(
         js.contains("setFormValue"),
@@ -161,7 +162,7 @@ fn form_and_aria_share_internals() {
     );
 
     // Only ONE attachInternals() call must be emitted (shared guard).
-    let guard_count = js.matches("this.attachInternals()").count();
+    let guard_count = js.matches("__aihu_el.attachInternals()").count();
     assert_eq!(
         guard_count, 1,
         "expected exactly one attachInternals() call when $aria + $form present, got {guard_count}: {js}"

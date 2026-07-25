@@ -111,5 +111,10 @@ export function defineElement(
   const mode: ShadowMode = options?.shadowMode ?? 'shadow'
   const enableHydration = options?.hydrate === true
   const Wrapped = wrapClass(Ctor, mode, name, enableHydration)
+  // D5 — must be stamped BEFORE define(); the definition algorithm reads it
+  // off the constructor there and never looks again.
+  if (options?.formAssociated) {
+    ;(Wrapped as unknown as { formAssociated: boolean }).formAssociated = true
+  }
   customElements.define(name, Wrapped)
 }

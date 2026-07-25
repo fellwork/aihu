@@ -46,7 +46,7 @@ Agent-surface async fetch — prop city and action fetchForecast carry expose/de
           if (!res.ok) throw new Error(`HTTP ${res.status}`)
           forecast = await res.text()
         } catch (e) {
-          errorMsg = (e as Error).message
+          errorMsg = e instanceof Error ? e.message : String(e)
         } finally {
           loading = false
         }
@@ -405,7 +405,7 @@ Tabs — derived() computes the selected tab, each/key renders the tablist, onMo
       if (tabs.length > 0) activeId = tabs[0].id
     })
 
-  const selectTab = action((id: string) => { activeId = id })
+  const selectTab = action((id) => { activeId = id })
 }
 
 @template {
@@ -804,7 +804,7 @@ Live validation — form() exposes value/validity, derived() computes the error 
   const isValid = derived(() => value.trim().length >= 2)
 
   const onInput = action((e: Event) => {
-      value = (e.target as HTMLInputElement).value
+      value = e.target.value
       touched = true
     })
   const onBlur = action(() => { touched = true })
@@ -991,7 +991,7 @@ Debounced search — bind:value feeds the query, effect() debounces 300ms into a
 @state {
   let query = state('')
   let debouncedQuery = state('')
-  let _debounceTimer: number | null = null
+  let _debounceTimer = null
 
   effect(() => {
     if (_debounceTimer !== null) clearTimeout(_debounceTimer)

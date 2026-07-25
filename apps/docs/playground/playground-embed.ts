@@ -245,14 +245,23 @@ async function loadBundle(host: PlaygroundEmbed): Promise<string | null> {
  *
  * The compiler emits these TS-specific constructs:
  *   - `import type { Signal }` lines (type-only imports)
- *   - `… as unknown as <Type>` double-casts inside leaf()/binding calls. The
- *     <Type> varies: `Signal<string>` for plain signal leaves, but `string`
- *     (and others) for computed/derived leaves — e.g. a computed text node
- *     compiles to `leaf([() => x() as unknown as string, () => {}] as unknown
- *     as Signal<string>)`. A narrow `Signal<string>`-only strip left the inner
- *     `as unknown as string` behind → SyntaxError → blank preview (the `route`
- *     preset). Match the whole `as unknown as <Type>` up to a delimiter.
- *   - ` as ShadowRoot` cast in the style-injection setup line.
+ *   - `as` type assertions, in three shapes: ` as ShadowRoot` (style-injection
+ *     setup line), ` as any` (template expression reading a member off a value
+ *     the compiler cannot type — `aihu-tabs` lowers `{selected.content}` to
+ *     `leaf([() => (selected() as any).content, …])`), and the ` as unknown as
+ *     <Type>` double-cast inside leaf()/binding calls, where <Type> is
+ *     `Signal<string>` for plain signal leaves but `string`/`number` for
+ *     computed leaves and `setTimeout` handles. One rule covers all three:
+ *     an optional `unknown as` hop followed by a single type REFERENCE.
+ *     Bounding the match to a type reference matters — the earlier
+ *     `[^,;)\n]+` form was greedy across `}`, so `setTimeout(…, 300) as
+ *     unknown as number });` in `search-debounce` lost the arrow body's
+ *     closing brace and the script stopped parsing.
+ *   - Parameter type annotations on the `function` declarations that `action()`
+ *     lowers to — `function onInput(e: Event)` (`form-validation`),
+ *     `function setTheme(t: 'light' | 'dark')` (`theme-toggle`). Nothing
+ *     stripped these, so the whole `<script>` was a SyntaxError and the preview
+ *     came up empty with no catchable error. See stripParamAnnotations.
  *   - `export const __agentBinding = {…}` from an `@agent` block. The preview
  *     runs the compiled code inside a non-module `<script>` IIFE, where an ESM
  *     `export` is a SyntaxError — the whole script fails to parse and nothing
@@ -262,12 +271,99 @@ async function loadBundle(host: PlaygroundEmbed): Promise<string | null> {
  * already available via window.__aihu in the preview iframe.
  */
 function stripTs(js: string): string {
-  return js
-    .replace(/^import type .+$/gm, '')
-    .replace(/^import .+ from ['"]@aihu\/[^'"]+['"];?$/gm, '')
-    .replace(/ as unknown as [^,;)\n]+/g, '')
-    .replace(/ as ShadowRoot/g, '')
-    .replace(/^export /gm, '')
+  return stripParamAnnotations(
+    js
+      .replace(/^import type .+$/gm, '')
+      .replace(/^import .+ from ['"]@aihu\/[^'"]+['"];?$/gm, '')
+      // ` as [unknown as] Type` / `Type<Arg>` / `Type.Sub` — a single type
+      // reference, so the match can never run past the expression it annotates.
+      .replace(/ as (?:unknown as )*[A-Za-z_$][\w$.]*(?:<[^<>]*>)?/g, '')
+      .replace(/^export /gm, ''),
+  )
+}
+
+/**
+ * Erase parameter type annotations from `function name(…)` declarations.
+ *
+ * Scans for each declaration header and rewrites only the text between its
+ * parentheses, matched by depth so a parenthesised type (`cb: () => void`) or
+ * a destructured default does not truncate the list. Within the list, each
+ * top-level comma-separated parameter drops everything from its top-level `:`
+ * up to a top-level `=` (so a default value survives) or the end.
+ *
+ * Only `function` declarations are touched: those are the sole shape the
+ * compiler emits user-authored (and therefore possibly annotated) parameters
+ * in — `action((e: Event) => …)` lowers to `function onInput(e: Event) {…}`.
+ * Every arrow the compiler generates itself is untyped.
+ */
+function stripParamAnnotations(js: string): string {
+  const header = /\bfunction\s+[A-Za-z_$][\w$]*\s*\(/g
+  let out = ''
+  let cursor = 0
+  let m: RegExpExecArray | null
+  while ((m = header.exec(js)) !== null) {
+    const open = m.index + m[0].length - 1
+    const close = matchingParen(js, open)
+    if (close < 0) continue
+    out += js.slice(cursor, open + 1) + stripAnnotationsInParams(js.slice(open + 1, close))
+    cursor = close
+    header.lastIndex = close
+  }
+  return out + js.slice(cursor)
+}
+
+/** Index of the `)` closing the `(` at `open`, or -1 if unbalanced. */
+function matchingParen(js: string, open: number): number {
+  let depth = 0
+  for (let i = open; i < js.length; i++) {
+    if (js[i] === '(') depth++
+    else if (js[i] === ')' && --depth === 0) return i
+  }
+  return -1
+}
+
+/** Split a parameter list on its top-level commas. */
+function splitParams(params: string): string[] {
+  const parts: string[] = []
+  let depth = 0
+  let start = 0
+  for (let i = 0; i < params.length; i++) {
+    const ch = params[i] as string
+    if ('([{'.includes(ch)) depth++
+    else if (')]}'.includes(ch)) depth--
+    else if (ch === ',' && depth === 0) {
+      parts.push(params.slice(start, i))
+      start = i + 1
+    }
+  }
+  parts.push(params.slice(start))
+  return parts
+}
+
+/**
+ * Drop `: Type` from every top-level parameter in a parameter list.
+ *
+ * The annotation runs from the parameter's first top-level `:` to its default
+ * (a top-level `=` that is not the `=>` of a function type) or to the end.
+ */
+function stripAnnotationsInParams(params: string): string {
+  return splitParams(params)
+    .map((param) => {
+      let depth = 0
+      let colon = -1
+      let eq = -1
+      for (let i = 0; i < param.length; i++) {
+        const ch = param[i] as string
+        if ('([{'.includes(ch)) depth++
+        else if (')]}'.includes(ch)) depth--
+        else if (depth > 0) continue
+        else if (ch === ':' && colon < 0) colon = i
+        else if (ch === '=' && param[i + 1] !== '>' && colon >= 0 && eq < 0) eq = i
+      }
+      if (colon < 0) return param
+      return param.slice(0, colon) + (eq < 0 ? '' : ` ${param.slice(eq)}`)
+    })
+    .join(',')
 }
 
 /**
@@ -332,6 +428,15 @@ function buildPreviewDoc(bundle: string, userJs: string): string {
     'var defineComponent=_a.defineComponent,defineElement=_a.defineElement;',
     'var _setMount=_a._setMount,_setSignal=_a._setSignal;',
     'var onMount=_a.onMount,onCleanup=_a.onCleanup,onAdopt=_a.onAdopt,onAttributeChange=_a.onAttributeChange;',
+    // Presets carrying an @agent surface (expose/describe) compile to
+    // registerAgentMetadata() + _registerAgentServerBinding() calls, and
+    // @context presets compile to contextKey/provide/inject. None of these
+    // were destructured, so such a preset died with "<sym> is not defined"
+    // (the agent-weather preset). Keep this list in sync with
+    // preview-runtime.ts — the union of every symbol a compiled preset can
+    // reference is what has to be in scope here.
+    'var registerAgentMetadata=_a.registerAgentMetadata,_registerAgentServerBinding=_a._registerAgentServerBinding;',
+    'var contextKey=_a.contextKey,provide=_a.provide,inject=_a.inject;',
     '_setMount(mount);_setSignal(signal);',
     safeUserJs,
     'var c=document.createElement("aihu-component");',

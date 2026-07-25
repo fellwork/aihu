@@ -1485,6 +1485,20 @@ const FOCUSABLE_ROLES: &[&str] = &[
 /// auto-keyboard handler is suppressed when the root element is one of these.
 const NATIVE_INTERACTIVE_TAGS: &[&str] = &["button", "a", "input", "select", "textarea"];
 
+/// Prologue line shared by the `$aria` (B4) and `$form` (D5) wiring: bind the
+/// custom element and lazy-attach its `ElementInternals`.
+///
+/// It binds `ctx.element`, not `this`. The wiring is spliced into the setup
+/// body, and the setup is an ARROW (`setup: (ctx) => …` / `defineComponent((ctx)
+/// => …)`), so `this` there is the enclosing module's `this` — `undefined`
+/// under ESM — never the element. Every `$aria`/`$form` component therefore
+/// threw `Cannot read properties of undefined (reading '_internals')` the
+/// moment it was constructed; both collections were emit-tested but never
+/// executed. Whichever collection emits first emits this line; `emit()` strips
+/// the duplicate when both are declared, so keep it a SINGLE line and keep this
+/// constant the single source of truth for that match.
+pub(crate) const INTERNALS_GUARD: &str = "const __aihu_el = ctx.element; if (!__aihu_el._internals) __aihu_el._internals = __aihu_el.attachInternals();";
+
 /// Emit the $aria wiring code for the SFC setup body.
 /// Returns (setup_code, needs_mount_effect, tabindex_to_inject_on_root).
 /// `needs_mount_effect` indicates whether `mountEffect` must be imported.
@@ -1579,7 +1593,7 @@ pub(crate) fn emit_aria_wiring(
     let mut needs_effect = false;
 
     // attachInternals — lazy-attach guard (only emitted when $aria is declared).
-    lines.push(format!("{indent}if (!this._internals) this._internals = this.attachInternals();"));
+    lines.push(format!("{indent}{guard}", indent = indent, guard = INTERNALS_GUARD));
 
     // Emit per-key ARIA wiring.
     for entry in &aria_entries {
@@ -1594,14 +1608,14 @@ pub(crate) fn emit_aria_wiring(
             if is_thunk(value.trim()) {
                 needs_effect = true;
                 lines.push(format!(
-                    "{indent}effect(() => {{ this._internals.ariaDescribedByElements = [this.getRootNode().getElementById(({value})())]; }});",
+                    "{indent}effect(() => {{ __aihu_el._internals.ariaDescribedByElements = [__aihu_el.getRootNode().getElementById(({value})())]; }});",
                     indent = indent, value = value.trim()
                 ));
             } else {
                 // Static id string.
                 let id_str = value.trim().trim_matches(|c| c == '\'' || c == '"');
                 lines.push(format!(
-                    "{indent}this._internals.ariaDescribedByElements = [this.getRootNode().getElementById('{id_str}')];",
+                    "{indent}__aihu_el._internals.ariaDescribedByElements = [__aihu_el.getRootNode().getElementById('{id_str}')];",
                     indent = indent, id_str = id_str
                 ));
             }
@@ -1640,12 +1654,12 @@ pub(crate) fn emit_aria_wiring(
             needs_effect = true;
             if is_bool_cast || is_number_cast {
                 lines.push(format!(
-                    "{indent}effect(() => {{ this._internals.{prop} = String(({value})()); }});",
+                    "{indent}effect(() => {{ __aihu_el._internals.{prop} = String(({value})()); }});",
                     indent = indent, prop = idl_prop_name, value = value_trimmed
                 ));
             } else {
                 lines.push(format!(
-                    "{indent}effect(() => {{ this._internals.{prop} = ({value})(); }});",
+                    "{indent}effect(() => {{ __aihu_el._internals.{prop} = ({value})(); }});",
                     indent = indent, prop = idl_prop_name, value = value_trimmed
                 ));
             }
@@ -1653,7 +1667,7 @@ pub(crate) fn emit_aria_wiring(
             // Static value — write once at connect.
             let static_val = value_trimmed.to_string();
             lines.push(format!(
-                "{indent}this._internals.{prop} = {val};",
+                "{indent}__aihu_el._internals.{prop} = {val};",
                 indent = indent, prop = idl_prop_name, val = static_val
             ));
         }
@@ -1662,7 +1676,7 @@ pub(crate) fn emit_aria_wiring(
     // Auto-keyboard-promotion (only when role is a keyboard role and root is not native interactive).
     if should_promote_keyboard {
         lines.push(format!(
-            "{indent}this.addEventListener('keydown', (e) => {{ if (e.key === 'Enter' || e.key === ' ') {{ e.preventDefault(); this.click(); }} }});",
+            "{indent}__aihu_el.addEventListener('keydown', (e) => {{ if (e.key === 'Enter' || e.key === ' ') {{ e.preventDefault(); __aihu_el.click(); }} }});",
             indent = indent
         ));
     }
@@ -1679,13 +1693,24 @@ pub(crate) fn emit_aria_wiring(
 // singleton guard with `$aria` — when both are declared, only one
 // `attachInternals()` call is emitted (the guard pattern handles this).
 //
-// `static formAssociated = true` is emitted as a class field via the returned
-// boolean flag. The setup-body wiring (effects) is returned as a string.
+// `formAssociated` is not emitted here — the returned boolean makes `emit()`
+// pass `{ formAssociated: true }` to `defineElement`. The setup-body wiring
+// (effects) is returned as a string.
 
 /// Emit the $form wiring code for the SFC setup body.
 /// Returns (setup_code, has_form) where `has_form` indicates whether
-/// `static formAssociated = true` must be emitted as a class field.
-pub(crate) fn emit_form_wiring(macros: &[crate::types::StateMacro]) -> (String, bool) {
+/// `defineElement` must be given the `formAssociated` option.
+///
+/// Entry expressions go through the same signal-read rewrite the template and
+/// `derived`/`action` bodies get: inside `@state`, `value` names the getter, so
+/// `$form: { value: () => value }` has to lower to `() => value()`. Without the
+/// rewrite the emitted `setFormValue` received the getter FUNCTION and the call
+/// threw (`The provided value is not of type '(File or USVString or FormData)?'`),
+/// and `validity` read `.trim()` off a function.
+pub(crate) fn emit_form_wiring(
+    macros: &[crate::types::StateMacro],
+    signal_map: &crate::codegen::signals::SignalMap,
+) -> (String, bool) {
     use crate::types::{CollectionKind, StateMacro};
 
     // Find $form entries. Distinguish "not present" from "present but empty".
@@ -1716,7 +1741,7 @@ pub(crate) fn emit_form_wiring(macros: &[crate::types::StateMacro]) -> (String, 
     let mut lines: Vec<String> = Vec::new();
 
     // attachInternals guard — lazy-attach (shared with $aria).
-    lines.push(format!("{indent}if (!this._internals) this._internals = this.attachInternals();"));
+    lines.push(format!("{indent}{guard}", indent = indent, guard = INTERNALS_GUARD));
 
     // Emit per-entry wiring.
     for entry in &form_entries {
@@ -1727,26 +1752,37 @@ pub(crate) fn emit_form_wiring(macros: &[crate::types::StateMacro]) -> (String, 
         } else {
             entry.value_raw.clone()
         };
-        let expr = value.trim();
+        let rewritten = crate::codegen::template_emit::rewrite_template_expr(
+            value.trim(),
+            signal_map,
+            crate::expr::ExprParserMode::Legacy,
+        )
+        .source;
+        let expr = rewritten.trim();
+        // A thunk entry has to be CALLED to reach the value it wraps; the
+        // effect re-runs on signal change either way.
+        let read = if is_thunk(expr) {
+            format!("({expr})()")
+        } else {
+            expr.to_string()
+        };
 
         match entry.name.as_str() {
             "value" => {
-                if is_thunk(expr) {
-                    lines.push(format!(
-                        "{indent}effect(() => {{ this._internals.setFormValue(({expr})()); }});",
-                        indent = indent, expr = expr
-                    ));
-                } else {
-                    lines.push(format!(
-                        "{indent}effect(() => {{ this._internals.setFormValue({expr}); }});",
-                        indent = indent, expr = expr
-                    ));
-                }
+                lines.push(format!(
+                    "{indent}effect(() => {{ __aihu_el._internals.setFormValue({read}); }});",
+                    indent = indent, read = read
+                ));
             }
             "validity" => {
+                // `setValidity(flags)` THROWS when any flag is true and no
+                // message is given. `$form` has no `message` key, so the
+                // one-argument call could only ever work while the field was
+                // valid — the first failing flag took the component down.
+                // Derive a fallback message from the failing flag names.
                 lines.push(format!(
-                    "{indent}effect(() => {{ const _fv = {expr}; const _fk = _fv && Object.keys(_fv); this._internals.setValidity(_fk && _fk.length ? _fv : {{}}); }});",
-                    indent = indent, expr = expr
+                    "{indent}effect(() => {{ const _fv = {read}; const _fk = _fv ? Object.keys(_fv) : []; const _bad = _fk.filter((k) => _fv[k]); __aihu_el._internals.setValidity(_fk.length ? _fv : {{}}, _bad.length ? `Invalid: ${{_bad.join(', ')}}` : ''); }});",
+                    indent = indent, read = read
                 ));
             }
             _ => {} // already rejected in parse

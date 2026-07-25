@@ -17,7 +17,7 @@ related: [data-table, fetch-resource]
 @state {
   let query = state('')
   let debouncedQuery = state('')
-  let _debounceTimer: number | null = null
+  let _debounceTimer = null
 
   effect(() => {
     if (_debounceTimer !== null) clearTimeout(_debounceTimer)

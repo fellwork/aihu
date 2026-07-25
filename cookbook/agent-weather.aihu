@@ -37,7 +37,7 @@ related: [fetch-resource, guard-ui]
           if (!res.ok) throw new Error(`HTTP ${res.status}`)
           forecast = await res.text()
         } catch (e) {
-          errorMsg = (e as Error).message
+          errorMsg = e instanceof Error ? e.message : String(e)
         } finally {
           loading = false
         }

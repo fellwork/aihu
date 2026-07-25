@@ -25,6 +25,8 @@
   },
   "dependencies": {
     "@aihu/adapter-cloudflare": "workspace:*",
+    "@aihu/agent": "workspace:*",
+    "@aihu/context": "workspace:*",
     "@aihu-plugin/agent-readiness": "workspace:*",
     "@aihu-plugin/kindly-note": "workspace:*",
     "@aihu/server": "workspace:*",

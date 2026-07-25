@@ -732,12 +732,12 @@ pub(crate) fn emit_function_form(
         emit_aria_wiring(&macros, &template_owned);
 
     // D5 — $form wiring. Lazy: only emitted when $form is declared.
-    let (form_wiring_raw, has_form) = emit_form_wiring(&macros);
+    let (form_wiring_raw, has_form) = emit_form_wiring(&macros, &signal_map);
     // If $aria is already declared, it emits the attachInternals guard; suppress
     // the duplicate guard from $form by stripping it when both are present.
     let form_wiring = if has_form && !aria_wiring.is_empty() {
         // The aria wiring already emitted the guard; strip the guard line from form_wiring.
-        let guard = "  if (!this._internals) this._internals = this.attachInternals();";
+        let guard = crate::codegen::state_emit::INTERNALS_GUARD;
         form_wiring_raw
             .lines()
             .filter(|l| l.trim() != guard.trim())
@@ -958,10 +958,12 @@ pub(crate) fn emit_function_form(
         (String::new(), String::new())
     };
 
-    // `ctx` is only needed for the style injection (`ctx.host`) or the
-    // options-form config reads; the SSR artifact drops the style injection,
-    // so it falls back to `_ctx` when nothing else needs the context.
-    let ctx_param = if uses_ctx || (!ssr_no_dom && unit.source.style.is_some()) {
+    // `ctx` is only needed for the style injection (`ctx.host`), the
+    // options-form config reads, or the `$aria`/`$form` wiring (`ctx.element`);
+    // the SSR artifact drops the style injection, so it falls back to `_ctx`
+    // when nothing else needs the context.
+    let wiring_uses_ctx = !aria_wiring.is_empty() || !form_wiring.is_empty();
+    let ctx_param = if uses_ctx || wiring_uses_ctx || (!ssr_no_dom && unit.source.style.is_some()) {
         "ctx"
     } else {
         "_ctx"
@@ -1162,16 +1164,20 @@ pub(crate) fn emit_function_form(
         merged_imports = format!("// @aihu:shadow-default light\n{}", merged_imports);
     }
 
-    // D5 — $form: `static formAssociated = true` must be set on the returned
-    // component class so the browser recognises the element as form-associated.
-    // We emit it as a post-define static property assignment on the class.
-    let form_associated_suffix = if has_form {
-        format!(
-            "// form-associated custom element (D5)\n_aihuFormEl_{tag_name}.formAssociated = true\n",
-            tag_name = tag_name.replace('-', "_")
-        )
+    // D5 — $form: `formAssociated = true` must be on the component class BEFORE
+    // it is registered. `customElements.define()` reads `formAssociated` off the
+    // constructor at definition time (HTML §custom-element-definition step 14),
+    // so the old shape — bind the `defineElement(...)` result to
+    // `const _aihuFormEl_<tag>` and assign the static afterwards — could never
+    // work: `defineElement` returns void, so the assignment threw
+    // `Cannot set properties of undefined` at module evaluation, and even with a
+    // returned class the write would land after registration and be ignored.
+    // Pass it as a `defineElement` option instead; the runtime stamps it on the
+    // wrapped class ahead of `customElements.define`.
+    let define_opts = if has_form {
+        ", { formAssociated: true }"
     } else {
-        String::new()
+        ""
     };
 
     let component_code = if uses_options_form {
@@ -1238,43 +1244,29 @@ pub(crate) fn emit_function_form(
                 ssr_props = ssr_props,
                 string_export = string_export,
             )
-        } else if has_form {
+        } else {
             format!(
-                "{merged_imports}\n\n{module_decl}{helpers_decl}const _aihuFormEl_{tvar} = defineElement('{tag_name}', defineComponent({{\n{config_block}\n  setup: ({ctx_param}) => {{\n{body}  }},\n}}))\n{form_associated_suffix}",
+                "{merged_imports}\n\n{module_decl}{helpers_decl}defineElement('{tag_name}', defineComponent({{\n{config_block}\n  setup: ({ctx_param}) => {{\n{body}  }},\n}}){define_opts})\n",
                 merged_imports = merged_imports,
                 module_decl = module_decl,
                 helpers_decl = helpers_decl,
-                tvar = tag_name.replace('-', "_"),
                 tag_name = tag_name,
                 config_block = config_block,
                 ctx_param = ctx_param,
                 body = body,
-                form_associated_suffix = form_associated_suffix,
-            )
-        } else {
-            format!(
-                "{}\n\n{}{}{}defineElement('{}', defineComponent({{\n{}\n  setup: ({}) => {{\n{}  }},\n}}))\n",
-                merged_imports,
-                module_decl,
-                helpers_decl,
-                "",
-                tag_name,
-                config_block,
-                ctx_param,
-                body
+                define_opts = define_opts,
             )
         }
     } else if has_form {
         format!(
-            "{merged_imports}\n\n{module_decl}{helpers_decl}const _aihuFormEl_{tvar} = defineElement('{tag_name}', defineComponent(({ctx_param}) => {{\n{body}}}))\n{form_associated_suffix}",
+            "{merged_imports}\n\n{module_decl}{helpers_decl}defineElement('{tag_name}', defineComponent(({ctx_param}) => {{\n{body}}}){define_opts})\n",
             merged_imports = merged_imports,
             module_decl = module_decl,
             helpers_decl = helpers_decl,
-            tvar = tag_name.replace('-', "_"),
             tag_name = tag_name,
             ctx_param = ctx_param,
             body = body,
-            form_associated_suffix = form_associated_suffix,
+            define_opts = define_opts,
         )
     } else if ssr_standalone {
         // GX P3 — standalone-SSR server artifact. Three structural changes vs.

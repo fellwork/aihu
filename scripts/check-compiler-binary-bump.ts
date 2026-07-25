@@ -53,7 +53,7 @@ export function checkBump(changedFiles: string[]): BumpCheck {
   }
   const message = [
     'Compiler Rust source changed but no platform binary package was bumped:',
-    ...rustChanged.map((f) => '  - ' + f),
+    ...rustChanged.map((f) => `  - ${f}`),
     '',
     'The fix would build but never publish: release.yml skips versions already on',
     'npm, so the rebuilt @aihu/compiler-<platform> binary would not ship and',
@@ -67,15 +67,15 @@ export function checkBump(changedFiles: string[]): BumpCheck {
 
 function changedFilesVsBase(): string[] {
   const base = process.env.BASE_REF || process.env.GITHUB_BASE_REF || 'main'
-  const ref = 'origin/' + base
+  const ref = `origin/${base}`
   let mergeBase: string
   try {
-    mergeBase = execSync('git merge-base ' + ref + ' HEAD', { encoding: 'utf8' }).trim()
+    mergeBase = execSync(`git merge-base ${ref} HEAD`, { encoding: 'utf8' }).trim()
   } catch {
     // No shared history / detached — nothing to compare against.
     return []
   }
-  return execSync('git diff --name-only ' + mergeBase + ' HEAD', { encoding: 'utf8' })
+  return execSync(`git diff --name-only ${mergeBase} HEAD`, { encoding: 'utf8' })
     .split('\n')
     .map((l) => l.trim())
     .filter(Boolean)
@@ -85,7 +85,7 @@ function changedFilesVsBase(): string[] {
 if (import.meta.main) {
   const result = checkBump(changedFilesVsBase())
   if (!result.ok) {
-    console.error('FAIL: ' + result.message)
+    console.error(`FAIL: ${result.message}`)
     process.exit(1)
   }
   console.log('compiler binary bump guard: ok')

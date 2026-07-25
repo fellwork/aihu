@@ -31,7 +31,7 @@ related: [aihu-accordion]
       if (tabs.length > 0) activeId = tabs[0].id
     })
 
-  const selectTab = action((id: string) => { activeId = id })
+  const selectTab = action((id) => { activeId = id })
 }
 
 @template {

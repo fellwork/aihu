@@ -34,19 +34,19 @@ fn b4_aria_basic_role_emit() {
 
     // Static role must be written directly (no effect wrapper).
     assert!(
-        js.contains("this._internals.role = 'button'"),
+        js.contains("__aihu_el._internals.role = 'button'"),
         "expected static role assignment: {js}"
     );
 
     // Static label must be written directly too.
     assert!(
-        js.contains("this._internals.ariaLabel = 'Close'"),
+        js.contains("__aihu_el._internals.ariaLabel = 'Close'"),
         "expected static ariaLabel assignment: {js}"
     );
 
     // attachInternals guard must be emitted.
     assert!(
-        js.contains("this._internals = this.attachInternals()"),
+        js.contains("__aihu_el._internals = __aihu_el.attachInternals()"),
         "expected attachInternals call: {js}"
     );
 }
@@ -69,13 +69,13 @@ fn b4_aria_reactive_label() {
         "expected effect() wrapping for reactive label: {js}"
     );
     assert!(
-        js.contains("this._internals.ariaLabel"),
+        js.contains("__aihu_el._internals.ariaLabel"),
         "expected ariaLabel write inside effect: {js}"
     );
 
     // Must NOT be a static write.
     assert!(
-        !js.contains("this._internals.ariaLabel = mySignal()"),
+        !js.contains("__aihu_el._internals.ariaLabel = mySignal()"),
         "reactive label must not be a static write: {js}"
     );
 }
@@ -102,8 +102,8 @@ fn b4_aria_keyboard_promotion() {
         "expected e.preventDefault() in keydown handler: {js}"
     );
     assert!(
-        js.contains("this.click()"),
-        "expected this.click() call in keydown handler: {js}"
+        js.contains("__aihu_el.click()"),
+        "expected __aihu_el.click() call in keydown handler: {js}"
     );
 }
 
@@ -264,7 +264,7 @@ fn b4_aria_multiple_keys() {
     let js = compile_fixture(src, "x-b4-multi");
 
     assert!(
-        js.contains("this._internals.role = 'switch'"),
+        js.contains("__aihu_el._internals.role = 'switch'"),
         "expected static role: {js}"
     );
     assert!(
