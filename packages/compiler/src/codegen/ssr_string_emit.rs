@@ -41,9 +41,14 @@
 //! set is: `<$suspense>`, `<$shield>`, `<$guard>`, `<$warp>`, `<$focusTrap>`,
 //! `<$router>`, `<$link>`, `<$outlet>`, `<$navigate>`, unknown macro
 //! elements, and elements with duplicate attribute names (object-literal
-//! last-wins semantics). Everything else — including `show`/`class:`/`ref`/
-//! `html` effects (mount-time behaviors, SSR-transparent), enhanced `<a>`
-//! anchors, `<group>`, `<slot>`, and the a11y primitives — lowers.
+//! last-wins semantics). Everything else — including `show`/`class:`/`ref`
+//! effects (mount-time behaviors, SSR-transparent), enhanced `<a>` anchors,
+//! `<group>`, `<slot>`, and the a11y primitives — lowers.
+//!
+//! `html={expr}` is NOT SSR-transparent: its value is the element's content,
+//! so it is interpolated unescaped into the string (see `emit_element_base`).
+//! It was transparent once, which silently prerendered an empty element for
+//! every page whose body is an `html` binding.
 
 use std::collections::BTreeSet;
 
@@ -629,11 +634,40 @@ impl Emitter {
             tag.to_string()
         };
 
+        // `html={expr}` is a mount-time effect on the client (the element's
+        // children are `replaceChildren`'d from a parsed fragment), so it used
+        // to be SSR-transparent: the element serialized empty and the content
+        // existed only once JS ran. That silently hollowed out every page whose
+        // body IS an `html` binding — apps/docs-next' guides prerendered ~60
+        // bytes of nav chrome and nothing else, so crawlers, agents, and
+        // readiness graders saw empty documents.
+        //
+        // The binding's value is a plain string at render time, so SSR can
+        // simply interpolate it unescaped — that is what `html` means, and it
+        // matches the fragment the client parses from the same expression. The
+        // client effect still runs on hydrate and replaces these children with
+        // an identical tree.
+        //
+        // `raw` wins: it already suppresses children wholesale.
+        let html_expr = if is_raw {
+            None
+        } else {
+            attrs.iter().find_map(|a| match a {
+                Attr::Macro { name, value } if name == "html" => Some(macro_value_expr(value)),
+                _ => None,
+            })
+        };
+
         self.lit(&format!("<{}", rendered_tag));
         self.emit_attr_list(&filtered, sm, sn);
         self.path_attr(path);
         self.lit(">");
-        if !is_raw {
+        if let Some(raw_html) = html_expr {
+            // Nullish → empty string, mirroring the client path, where
+            // createContextualFragment(undefined) would yield "undefined".
+            let resolved = rewrite_template_expr(&raw_html, sm, self.mode).source;
+            self.expr(format!("String(({}) ?? '')", resolved));
+        } else if !is_raw {
             self.emit_children(children, path, sm, sn);
         }
         // The walker's branch arm closes EVERY tag (it never consults the
