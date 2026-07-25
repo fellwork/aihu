@@ -89,6 +89,17 @@ pub(crate) const USE_COMPOSABLES: &[(&str, &str)] = &[
     ("useAsync", "@aihu/use/useAsync"),
     ("useResizeObserver", "@aihu/use/useResizeObserver"),
     ("useTimestamp", "@aihu/use/useTimestamp"),
+    ("useClickOutside", "@aihu/use/useClickOutside"),
+    // `onClickOutside` (the VueUse-familiar alias exported alongside
+    // `useClickOutside` from the same module) deliberately has NO tuple
+    // here: `checkRegistryTupleNames` requires every bare call name to
+    // equal its subpath's last segment, which this registry format cannot
+    // express for a second exported name over the same specifier. A bare
+    // `onClickOutside(...)` call in a `@state` script is not auto-imported;
+    // authors using that spelling must import it explicitly.
+    ("useActiveElement", "@aihu/use/useActiveElement"),
+    ("useHover", "@aihu/use/useHover"),
+    ("useMouseInElement", "@aihu/use/useMouseInElement"),
 ];
 
 /// The registry entries to auto-import for this `@state` script.
