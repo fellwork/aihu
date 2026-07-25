@@ -1,15 +1,22 @@
 # Spawn Prompt Templates
 
 Every template assumes you (Team Lead) have already:
+0. **Run the Step 0 substrate preflight** (`SKILL.md`) and know the concrete names behind `SEARCH` / `GET_PAGE` / `PUT_PAGE`
 1. Decided the operating mode
 2. Run the universal pre-flight checklist
 3. Dispatched the Topic Director (or have a recent enough director-note to brief from)
 
+> **Substitute the capabilities before you send.** These templates are written in capability notation (`SEARCH`, `PUT_PAGE`, …) because the tool namespace differs per machine and per scope. **A brief that ships with a bare `SEARCH` in it — or with an unverified `mcp__gbrain__search` — is a defective brief.** Replace each capability with what the preflight resolved:
+> - gbrain substrate → `mcp__<server>__search` etc., using the **resolved** `<server>` (in this repo: `gbrain-local`, *not* `gbrain`).
+> - file substrate (**the default**) → `Grep`/`Glob` for `SEARCH`, `Read` for `GET_PAGE`, `Write`+commit for `PUT_PAGE`, with slugs mapped to `docs/plans/<topic>/<round>-<kind>.md`.
+>
+> Subagents cannot distinguish "this tool does not exist" from "this search found nothing." They will improvise, and their STATUS will read as success.
+
 Every template includes a **"Substance from Topic Director"** line near the top, pointing to the latest director-note. **You fill this in based on the most recent Director output.** If you don't have one, dispatch T-DIR first.
 
-Project-specific paths and conventions (state files, branch naming, paired repos, the project slug used in GBrain page prefixes) need to be substituted in at dispatch time. Defaults shown use generic placeholders.
+Project-specific paths and conventions (state files, branch naming, paired repos, the project slug used in page prefixes) need to be substituted in at dispatch time. Defaults shown use generic placeholders. The state file is `docs/state/<track>.md` — **tracked**; repo-root `state-*.md` is gitignored here and must not be used.
 
-**A note on subagent namespace:** GBrain wraps subagent `put_page` calls to `wiki/agents/<subagent-id>/.+` by default. When a subagent's brief calls for writing a *durable* page (to `<project>/delta/...` or `<project>/user/...`), the standard pattern is for the subagent to return content in its STATUS report and for **the Team Lead** to write the page after verifying the STATUS. The templates below frame this as "write outputs as a STATUS payload; Team Lead will commit the page to GBrain." For scratch/probes/in-flight work, the subagent writes directly under its own `wiki/agents/<id>/` namespace.
+**A note on subagent namespace (gbrain substrate only):** GBrain wraps subagent `put_page` calls to `wiki/agents/<subagent-id>/.+` by default. When a subagent's brief calls for writing a *durable* page (to `<project>/delta/...` or `<project>/user/...`), the standard pattern is for the subagent to return content in its STATUS report and for **the Team Lead** to write the page after verifying the STATUS. The templates below frame this as "write outputs as a STATUS payload; Team Lead will commit the page to GBrain." For scratch/probes/in-flight work, the subagent writes directly under its own `wiki/agents/<id>/` namespace.
 
 ---
 
@@ -23,12 +30,12 @@ Round <N> just closed. Round findings live in GBrain at slugs:
   <project>/delta/<topic-id>/<N>/verification-report
   <project>/delta/<topic-id>/<N>/<other> (if any)
 
-Search guidance — run these before writing your director-note (use mcp__gbrain__search):
+Search guidance — run these before writing your director-note (use SEARCH):
 - query: "kind:director_note topic:<topic-id> layer:delta continuity"   (recent priors)
 - query: "kind:topic_summary topic:<topic-id> layer:delta"               (latest summary)
 - query: "kind:verification_report topic:<topic-id> layer:delta"         (round results)
 - query: "kind:investigation_report topic:<topic-id>"                    (related root-cause work)
-Pull only what's needed. Use mcp__gbrain__get_page for known slugs; do not inline full prior notes.
+Pull only what's needed. Use GET_PAGE for known slugs; do not inline full prior notes.
 
 Your job: governance. Write a director-note as a STATUS payload; Team Lead will commit
 the page to GBrain at slug:
@@ -62,10 +69,10 @@ STATUS: SCOPE_SHIFT_NEEDED with the specific surface request, or STATUS: BLOCKED
 ```
 Synthesizer dispatch for topic:<topic-id> track:<track-id>.
 
-Search guidance — run these before writing the summary update (use mcp__gbrain__search):
+Search guidance — run these before writing the summary update (use SEARCH):
 - query: "kind:director_note topic:<topic-id> layer:delta" --limit 1     (latest only)
 - query: "kind:topic_summary topic:<topic-id> layer:delta" --limit 1     (current summary)
-- For each finding slug the Director routed: mcp__gbrain__get_page directly (no search).
+- For each finding slug the Director routed: GET_PAGE directly (no search).
 
 Your job: update the topic summary. The Director made the priority calls; you
 write the prose. Update sections:
@@ -96,15 +103,15 @@ Status: STATUS: UPDATED with diff summary + intended slug, or STATUS: BLOCKED.
 Mode 1 experiment-loop session for <DIRECTION> on topic:<topic-id> track:<track-id>.
 
 Substance from Topic Director: pull the latest director-note via
-  mcp__gbrain__search query: "kind:director_note topic:<topic-id> layer:delta" --limit 1
+  SEARCH query: "kind:director_note topic:<topic-id> layer:delta" --limit 1
 - Director's recommended focus this round: <copy from director-note>
 - Acceptance criteria: <copy from director-note>
 - Named samples to validate: <copy from director-note>
 
 Search guidance for context:
-- mcp__gbrain__search query: "kind:investigation_report topic:<topic-id> related defects"
-- mcp__gbrain__search query: "kind:domain_hint topic:<topic-id> layer:user"
-- mcp__gbrain__search query: "kind:verification_report topic:<topic-id> prior runs"
+- SEARCH query: "kind:investigation_report topic:<topic-id> related defects"
+- SEARCH query: "kind:domain_hint topic:<topic-id> layer:user"
+- SEARCH query: "kind:verification_report topic:<topic-id> prior runs"
 
 Repositories in scope:
 - <PRIMARY repo> (primary-write): branch <feature-tag>
@@ -113,7 +120,7 @@ Repositories in scope:
 - <PAIRED repo if any>: read-only — reference only
 
 Active state:
-- state-<track>.md (file-based, single-pointer)
+- docs/state/<track>.md (file-based, single-pointer, TRACKED)
 - GBrain Supabase brain (your durable outputs land here as pages)
 - Your subagent scratch: wiki/agents/<your-id>/ (your in-flight notes; gitignored equivalent)
 
@@ -144,17 +151,17 @@ Safety: Guarded mode. Iron Law: any crash → Investigator (separate spawn).
 Mode 2 build session for <COMPONENT> on topic:<topic-id> track:<track-id>.
 
 Substance from Topic Director: pull the latest director-note via
-  mcp__gbrain__search query: "kind:director_note topic:<topic-id> layer:delta" --limit 1
+  SEARCH query: "kind:director_note topic:<topic-id> layer:delta" --limit 1
 - Architect/Builder focus: <copy from director-note>
 - Acceptance criteria: <copy>
 - Named samples: <copy>
 
 Search guidance for context (run before each phase):
-- Scout phase: mcp__gbrain__search query: "kind:scout_report <component> existing landscape"
-- Architect phase: mcp__gbrain__search query: "kind:architecture_spec <component> related interfaces"
-- Builder phase: mcp__gbrain__search query: "kind:build_manifest <component> prior builds"
-                 mcp__gbrain__search query: "kind:investigation_report <component>"
-- Verifier phase: mcp__gbrain__search query: "kind:verification_report <component> prior audits"
+- Scout phase: SEARCH query: "kind:scout_report <component> existing landscape"
+- Architect phase: SEARCH query: "kind:architecture_spec <component> related interfaces"
+- Builder phase: SEARCH query: "kind:build_manifest <component> prior builds"
+                 SEARCH query: "kind:investigation_report <component>"
+- Verifier phase: SEARCH query: "kind:verification_report <component> prior audits"
 
 Repositories: <PRIMARY repo + branch> + <PAIRED repo + branch> if cross-repo.
 
@@ -186,15 +193,15 @@ Verifier PASS (Historian executes promotion at end of session).
 Mode 3 focused defect fix session on topic:<topic-id> track:<track-id>.
 
 Substance from Topic Director: pull the latest director-note via
-  mcp__gbrain__search query: "kind:director_note topic:<topic-id> layer:delta" --limit 1
+  SEARCH query: "kind:director_note topic:<topic-id> layer:delta" --limit 1
 - Defect class for THIS dispatch: <single defect, no bundling>
 - Root cause hypothesis (if any): <from director-note>
 - Acceptance criteria: <runnable script paths or precise checks>
 
 Search guidance — REQUIRED before any fix code (Iron Law):
-- mcp__gbrain__search query: "kind:investigation_report <defect class>"
-- mcp__gbrain__search query: "kind:domain_hint <defect class> layer:user"
-- mcp__gbrain__search query: "kind:verification_report <defect class> prior failures"
+- SEARCH query: "kind:investigation_report <defect class>"
+- SEARCH query: "kind:domain_hint <defect class> layer:user"
+- SEARCH query: "kind:verification_report <defect class> prior failures"
 If a prior investigation exists with overlapping root cause, cite its slug in your
 investigation_report. Do not redo work that's already in delta or user.
 
@@ -226,15 +233,15 @@ After Verifier: Team Lead dispatches Topic Director.
 Verifier-only audit dispatch on topic:<topic-id> track:<track-id>. Read-only.
 
 Substance from Topic Director: pull the latest director-note via
-  mcp__gbrain__search query: "kind:director_note topic:<topic-id> layer:delta" --limit 1
+  SEARCH query: "kind:director_note topic:<topic-id> layer:delta" --limit 1
 - Audit target: <branch / PR / directory>
-- Spec to verify against: mcp__gbrain__search query: "kind:architecture_spec topic:<topic-id>" --limit 1
+- Spec to verify against: SEARCH query: "kind:architecture_spec topic:<topic-id>" --limit 1
   (or path if no page yet)
 - Specific items to check (Director's priority list): <copy>
 
 Search guidance:
-- mcp__gbrain__search query: "kind:verification_report topic:<topic-id> prior audits"
-- mcp__gbrain__search query: "kind:investigation_report topic:<topic-id> known issues"
+- SEARCH query: "kind:verification_report topic:<topic-id> prior audits"
+- SEARCH query: "kind:investigation_report topic:<topic-id> known issues"
 
 Universal spawn principles apply. Bidirectional + sample-based + cite original spec.
 
@@ -264,8 +271,8 @@ Director will route findings post-audit.
 
 Before sending any of the above:
 
-- ☐ Substance line points to a fresh director-note (not stale, not made up)? Run `mcp__gbrain__search query: "kind:director_note topic:<topic-id> layer:delta" --limit 1` to verify recency.
-- ☐ Search guidance block includes 2–4 concrete `mcp__gbrain__search` queries the agent should run before working?
+- ☐ Substance line points to a fresh director-note (not stale, not made up)? Run `SEARCH query: "kind:director_note topic:<topic-id> layer:delta" --limit 1` to verify recency.
+- ☐ Search guidance block includes 2–4 concrete `SEARCH` queries the agent should run before working?
 - ☐ Acceptance criteria are runnable, not interpretive?
 - ☐ Named samples specified (not "spot-check a few")? Searchable as pages?
 - ☐ Branch name decided; doesn't collide with another active agent?
