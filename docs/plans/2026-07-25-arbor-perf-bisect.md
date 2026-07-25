@@ -277,13 +277,102 @@ at all. C and D also produce **byte-identical `dist/index.js` for both packages*
 
 ## 5. Recommended gate policy
 
-<!--GATE_POLICY-->
+The gate has five independent defects. Threshold is the *least* important one.
+
+**D1 — the baseline is invalid, not merely stale.** Two of six rows recorded
+no-ops (§1). No threshold makes a comparison against fiction meaningful.
+
+**D2 — a checked-in baseline cannot track the runner.** Hardware, Bun, and JSDOM
+all move; `RESULTS.md` does not. Every such drift shows up as a "regression" on
+whichever PR happens to be open.
+
+**D3 — the estimator is unstable.** `min_cpu_time: 1e9` against a 50–100 ms/op
+workload yields **~10–12 samples**, and the gate reads `p50` of those. On the
+data here, per-process `p50` spreads **534–1,176 %** while per-process `min`
+spreads **~2–8 %** on the same runs. The gate is reading the noisiest available
+statistic.
+
+**D4 — one process per cell.** Per-process variance (JIT, GC, scheduler) is
+never averaged out; the run is a single sample of a very wide distribution.
+
+**D5 — the threshold.** 10 % is below the noise floor by a wide margin, so the
+gate fires constantly and `[bench-bump]` becomes routine — which is exactly how
+a real regression would slip through unnoticed.
+
+### Recommendations, in priority order
+
+**R1 (highest value) — replace the checked-in baseline with a same-job A/B
+against the merge base.** Build PR head *and* merge base in the same CI job and
+measure them interleaved, fresh process per sample. This kills D1 and D2
+outright: there is no stale artifact and no cross-hardware comparison. This is
+the single change that would make the gate trustworthy, and it is what this
+investigation had to do by hand to get any signal at all.
+
+**R2 — gate on `min`, not `p50`, and collect enough samples.** Raise
+`min_cpu_time` so each cell yields ≥100 samples (2 s was sufficient here:
+12 → 146 samples on `mount-deep-100x10`). Under one-sided noise — the scheduler
+and GC can only *add* time — the minimum is the best estimator of true cost.
+
+**R3 — ≥5 fresh processes per (workload, arm); gate on the median of
+per-process minima; interleave arms within each rep.**
+
+**R4 — require directional consistency, not just magnitude.** A failure should
+need the delta to hold the same sign in ≥80 % of reps (a sign test), not merely
+exceed a percentage once. Both control arms in §3 would pass a naive threshold
+test on some workloads and fail this one.
+
+**R5 — tier the workloads.** With R1–R4 in place:
+
+| workload | ms/op | measured behaviour | recommendation |
+| --- | ---: | --- | --- |
+| `update-1-of-10k-leaves` | ~0.0005 | thousands of samples, tight | **GATE** |
+| `mount-deep-100x10` | ~3–9 | tight on `min`, wild on `p50` | **GATE on `min` only** |
+| `mount-10k-leaves` | ~65–100 | ~12 samples at 1 s budget | **report-only** until R2 lands |
+| `mount-wide-1000` | ~20–35 | 1,038 % `p50` spread | **report-only** |
+| `krausest-1k-cycle` | ~50–90 | 969 % `p50` spread | **report-only** |
+| `attr-thrash-100x100` | ~20–260 | 16x range across reps; ~10 samples | **report-only — never gate** |
+
+`attr-thrash-100x100` in particular is unfit for gating in any configuration:
+one op is 10,000 signal writes plus 10,000 JSDOM `setAttribute` calls, so a
+1 s budget buys ~10 samples and GC dominates every one of them.
+
+**R6 — set `NODE_ENV=production` in the bench scripts, or measure `dist`.**
+Decide explicitly which artifact the bench is about (§1, §2) and write it down
+in `HARNESS.md`. Today it silently measures unminified source with signals in
+dev mode — which is neither what ships nor what `.size-limit.json` governs.
+
+**R7 — demote `[bench-bump]` from habit to exception.** It is currently
+load-bearing *because* the gate is broken; R1–R5 are what make it rare. Once
+they land, require a one-line justification in the commit body and have the gate
+print the measured delta alongside the override so the bypass is auditable.
 
 ---
 
 ## 6. Re-baselining: not yet, and not blindly
 
-<!--REBASELINE-->
+**Should the baseline be regenerated? Yes — it is provably invalid (§1), and
+leaving it in place means the gate keeps comparing against fiction.**
+
+**Must anything be fixed first? Yes — but not in `packages/arbor`.** The
+ordering that matters:
+
+1. **Fix the harness first (R6), then re-baseline.** Re-baselining today would
+   permanently bless (a) a bench that measures source rather than the shipped
+   artifact and (b) signals running in dev mode. Those two choices would get
+   frozen into the numbers every future PR is judged against.
+2. **Correct the published 122x claim before or with the re-baseline (§2).**
+   `RESULTS.md` is the cited source for a headline product claim in `README.md`
+   and `CLAUDE.md`. Regenerating the file without fixing the docs would leave
+   six public statements sourced to a number the new file no longer contains.
+3. **No arbor code fix is required as a precondition.** This is the one piece of
+   good news: §3 finds no arbor regression that re-baselining would bless. The
+   `mount-*` deltas CI reports are noise, and the two extreme deltas are the
+   binding fix. There is nothing here to hold the re-baseline hostage to.
+4. **Prefer R1 to re-baselining at all.** If the gate moves to a same-job A/B
+   against the merge base, `bench/*/RESULTS.md` stops being a gate input and
+   becomes a published-numbers artifact only. That is a better end state than a
+   freshly-blessed baseline that will be stale again in a month — which is
+   precisely how the repo arrived here.
 
 ---
 
