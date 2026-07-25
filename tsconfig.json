@@ -4,6 +4,7 @@
     "noEmit": true,
     "paths": {
       "@aihu/signals": ["./packages/signals/src/index.ts"],
+      "@aihu/signals/lifecycle": ["./packages/signals/src/lifecycle.ts"],
       "@aihu/arbor": ["./packages/arbor/src/index.ts"],
       "@aihu/runtime": ["./packages/runtime/src/index.ts"],
       "@aihu/agent": ["./packages/agent/src/index.ts"],

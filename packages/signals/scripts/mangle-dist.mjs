@@ -26,17 +26,35 @@
  * Applied AFTER rolldown minification so renames hit single-char variable
  * forms (e.g. e.flags becomes e.fl).
  *
+ * MULTI-FILE (post lifecycle-ownership-dx): `dist/` now holds TWO emitted
+ * entries — `index.js` (the self-contained reactivity core) and
+ * `lifecycle.js` (the ownership contract, which imports `getCurrentScope`
+ * from `./index.js` as an external). `rolldown.config.ts` deliberately
+ * keeps these as two INDEPENDENT single-entry builds so no shared
+ * `scope-<hash>.js` chunk is emitted — a chunk boundary on the scope hot
+ * path measured a real, range-disjoint slowdown on `dynamic-deps` (see the
+ * comment on `indexBuild` in `rolldown.config.ts` and the A/B write-up in
+ * PR #549).
+ *
+ * This script nevertheless mangles EVERY `dist/*.js` file with the SAME
+ * replacement table, not just `index.js`. That is the safe default: if a
+ * mangled field ever lives in (or moves into) a second emitted file,
+ * mangling only `index.js` would silently desync property names —
+ * `index.js` would read the short form (`.fl`) while the other file still
+ * wrote the long form (`.flags`), breaking the PUBLISHED package while
+ * every src-based test stayed green (no test exercises the mangled dist
+ * output). Applying the same substitutions to every emitted file keeps
+ * cross-file property access consistent by construction.
+ *
  * Remove this script once rolldown wires mangle.properties — replace with:
  *   output: { minify: { mangle: { properties: { regex: /^(flags|subsHead|...)$/ } } } }
  */
-import { readFileSync, writeFileSync } from 'node:fs'
-import { dirname, resolve } from 'node:path'
+import { readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const here = dirname(fileURLToPath(import.meta.url))
-const distPath = resolve(here, '../dist/index.js')
-
-let code = readFileSync(distPath, 'utf8')
+const distDir = resolve(here, '../dist')
 
 const replacements = [
   // recomputeIfNeeded first — longest name, highest per-occurrence savings
@@ -120,9 +138,23 @@ const replacements = [
   [/\bfn(?=[=;,}])/g, 'f'],
 ]
 
-for (const [regex, replacement] of replacements) {
-  code = code.replace(regex, replacement)
+// Every emitted JS file (index.js, lifecycle.js, and any shared
+// `scope-<hash>.js` chunk rolldown splits out) gets the identical
+// replacement table applied, in file order, so a field that lives in one
+// file and is accessed from another still agrees on the short name.
+const jsFiles = readdirSync(distDir)
+  .filter((f) => f.endsWith('.js'))
+  .sort()
+
+for (const file of jsFiles) {
+  const filePath = join(distDir, file)
+  let code = readFileSync(filePath, 'utf8')
+  for (const [regex, replacement] of replacements) {
+    code = code.replace(regex, replacement)
+  }
+  writeFileSync(filePath, code, 'utf8')
 }
 
-writeFileSync(distPath, code, 'utf8')
-console.log('mangle-dist: property mangling applied to dist/index.js')
+console.log(
+  `mangle-dist: property mangling applied to ${jsFiles.length} dist file(s): ${jsFiles.join(', ')}`,
+)

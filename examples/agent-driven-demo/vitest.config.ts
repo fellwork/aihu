@@ -22,6 +22,9 @@ export default defineConfig({
   },
   resolve: {
     alias: {
+      // Subpath before package: string aliases are PREFIX replacements, so the
+      // '/lifecycle' subpath must not resolve as '<index.ts>/lifecycle'.
+      '@aihu/signals/lifecycle': pkg('signals/src/lifecycle.ts'),
       '@aihu/signals': pkg('signals/src/index.ts'),
       '@aihu/arbor': pkg('arbor/src/index.ts'),
       '@aihu/runtime': pkg('runtime/src/index.ts'),

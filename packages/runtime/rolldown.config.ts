@@ -17,5 +17,10 @@ export default defineConfig({
     minify: true,
   },
   plugins: [dts()],
-  external: ['@aihu/arbor', '@aihu/signals'],
+  // '@aihu/signals/lifecycle' is a separate specifier string from bare
+  // '@aihu/signals' — rolldown's `external` matches exact specifiers, so it
+  // needs its own entry or the ownership-contract module would get bundled
+  // (and duplicated) into runtime's dist instead of staying a real import of
+  // the shared WeakMap in @aihu/signals/lifecycle.
+  external: ['@aihu/arbor', '@aihu/signals', '@aihu/signals/lifecycle'],
 })

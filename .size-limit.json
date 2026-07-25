@@ -12,6 +12,12 @@
     "gzip": true
   },
   {
+    "name": "@aihu/signals/lifecycle",
+    "path": "packages/signals/dist/lifecycle.js",
+    "limit": "300 B",
+    "gzip": true
+  },
+  {
     "name": "@aihu/arbor",
     "path": "packages/arbor/dist/index.js",
     "limit": "3200 B",
@@ -21,8 +27,9 @@
   {
     "name": "@aihu/runtime",
     "path": "packages/runtime/dist/index.js",
-    "limit": "4500 B",
-    "gzip": true
+    "limit": "4750 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals/lifecycle"]
   },
   {
     "name": "@aihu/agent",
