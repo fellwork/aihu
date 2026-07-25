@@ -881,3 +881,168 @@ describe('each() — FEL-396: reposition prefers moveBefore() when available', (
     scope.dispose()
   })
 })
+
+// ---------------------------------------------------------------------------
+// FEL-408 regression: MOVE COUNTS, not just final order.
+//
+// `_reconcileEach`'s reposition pass used to be a single left-to-right cursor
+// with no notion of a stable subsequence: it moved every scope that was not
+// already sitting at the cursor. Pulling one row forward therefore displaced
+// every row behind it, and each of those was then relocated individually — and
+// each row costs TWO DOM moves, because its scope carries an `<!--e-->` anchor
+// comment alongside its content. Instrumented, a 2-row swap in a 1000-row
+// keyed list performed 1994 DOM moves where 4 (= 2 scopes) suffice.
+//
+// Every assertion below is on the MOVE COUNT. The final-order assertions that
+// accompany them all passed against the 1994-move implementation too — which
+// is exactly how this survived from `9195d20d` (the original v1 reconciler)
+// until it showed up as the `05_swap1k` row in js-framework-benchmark. An
+// order-only test cannot catch this class of defect; do not weaken these to
+// order checks.
+//
+// jsdom has no native `moveBefore`, so `_moveNode` takes its `insertBefore`
+// fallback and every reposition is one `insertBefore` call. No rows are grown
+// or destroyed in a pure reorder (`_mc` is the only other caller and it never
+// runs here), so the spy count IS the DOM-node move count.
+// ---------------------------------------------------------------------------
+describe('each() — FEL-408: keyed reorder performs the minimum number of DOM moves', () => {
+  type Row = { id: number }
+
+  function mount1k(rows: Row[]) {
+    const host = document.createElement('div')
+    const sig: ReturnType<typeof signal<Row[]>> = signal(rows)
+    const scope = mount(
+      branch('ul', undefined, [
+        each(
+          sig,
+          (item) => (item as Row).id,
+          (item) => branch('li', undefined, [leaf(String((item as Row).id))]),
+        ),
+      ]),
+      host,
+    )
+    return { host, set: sig[1], scope }
+  }
+
+  const order = (host: HTMLElement): number[] =>
+    Array.from(host.querySelectorAll('li')).map((li) => Number(li.textContent))
+
+  /** DOM-node moves performed by `fn` (2 per scope: anchor comment + row). */
+  function domMoves(fn: () => void): number {
+    const spy = vi.spyOn(Element.prototype, 'insertBefore')
+    spy.mockClear()
+    fn()
+    const n = spy.mock.calls.length
+    spy.mockRestore()
+    return n
+  }
+
+  const N = 1000
+  const rows: Row[] = Array.from({ length: N }, (_, i) => ({ id: i }))
+
+  it('a 2-row swap in a 1000-row list moves exactly 2 scopes (4 DOM nodes), not 997 (1994)', () => {
+    const { host, set, scope } = mount1k(rows.slice())
+
+    const swapped = rows.slice()
+    const tmp = swapped[1] as Row
+    swapped[1] = swapped[998] as Row
+    swapped[998] = tmp
+
+    // THE assertion. Pre-fix this was 1994.
+    expect(domMoves(() => set(swapped))).toBe(4)
+
+    // ...and the swap actually happened (this part passed pre-fix too).
+    expect(order(host)[1]).toBe(998)
+    expect(order(host)[998]).toBe(1)
+    expect(order(host)[0]).toBe(0)
+    expect(order(host)[999]).toBe(999)
+
+    scope.dispose()
+  })
+
+  it('a no-op re-render moves nothing', () => {
+    const { host, set, scope } = mount1k(rows.slice())
+    expect(domMoves(() => set(rows.slice()))).toBe(0)
+    expect(order(host)).toEqual(rows.map((r) => r.id))
+    scope.dispose()
+  })
+
+  it('prepend / append / delete-middle stay at their minimum', () => {
+    const { host, set, scope } = mount1k(rows.slice())
+
+    // Append: the new row is grown at the end of the parent, which is already
+    // where it belongs — 1 insertBefore for the grow itself, 0 moves.
+    expect(domMoves(() => set([...rows, { id: -2 }]))).toBe(1)
+    set(rows.slice())
+
+    // Prepend: 1 grow + the new scope's 2 nodes moved to the front. Every
+    // pre-existing row stays put.
+    expect(domMoves(() => set([{ id: -1 }, ...rows]))).toBe(3)
+    set(rows.slice())
+
+    // Delete from the middle: nothing moves, the removed row is just gone.
+    const delMid = rows.slice()
+    delMid.splice(500, 1)
+    expect(domMoves(() => set(delMid))).toBe(0)
+    expect(order(host).length).toBe(N - 1)
+    expect(order(host).includes(500)).toBe(false)
+
+    scope.dispose()
+  })
+
+  it('a full reverse moves n-1 scopes — the longest stable subsequence really is 1', () => {
+    const { host, set, scope } = mount1k(rows.slice())
+    const reversed = rows.slice().reverse()
+    // 999 scopes x 2 nodes. One row is legitimately left in place; there is no
+    // longer stable subsequence in a reversal, so this is optimal, not a miss.
+    expect(domMoves(() => set(reversed))).toBe(1998)
+    expect(order(host)).toEqual(reversed.map((r) => r.id))
+    scope.dispose()
+  })
+
+  it('two independent far swaps use the LONGEST stable subsequence, not the longest RUN', () => {
+    // Swapping 1<->498 and 501<->998 breaks the list into two ~496-long
+    // ascending blocks. The longest stable SUBSEQUENCE spans both (996 rows),
+    // so only the 4 swapped scopes move: 8 DOM nodes. Two cheaper heuristics
+    // are excluded by this number:
+    //   - the pre-fix greedy left-to-right cursor moves 994 scopes (1988);
+    //   - keeping the longest CONTIGUOUS run stationary can only hold one of
+    //     the two blocks, so it moves ~500 scopes.
+    const { host, set, scope } = mount1k(rows.slice())
+    const twice = rows.slice()
+    const sw = (a: number, b: number) => {
+      const t = twice[a] as Row
+      twice[a] = twice[b] as Row
+      twice[b] = t
+    }
+    sw(1, 498)
+    sw(501, 998)
+    expect(domMoves(() => set(twice))).toBe(8)
+    expect(order(host)).toEqual(twice.map((r) => r.id))
+    scope.dispose()
+  })
+
+  it('a row appended AFTER trailing siblings is still pulled back into the region', () => {
+    // A fresh scope is appended to the end of the PARENT — past anything that
+    // follows the each() region. It must never be treated as "already in
+    // order" just because it is the newest thing in the list.
+    const host = document.createElement('div')
+    const sig: ReturnType<typeof signal<Row[]>> = signal([{ id: 1 }, { id: 2 }])
+    const scope = mount(
+      branch('ul', undefined, [
+        each(
+          sig,
+          (item) => (item as Row).id,
+          (item) => branch('li', undefined, [leaf(String((item as Row).id))]),
+        ),
+        branch('hr', undefined, []),
+      ]),
+      host,
+    )
+    const ul = host.firstChild as Element
+    sig[1]([{ id: 1 }, { id: 2 }, { id: 3 }])
+    expect(order(host)).toEqual([1, 2, 3])
+    expect(ul.lastChild?.nodeName).toBe('HR')
+    scope.dispose()
+  })
+})

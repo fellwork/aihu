@@ -11,7 +11,7 @@
  *
  * Renames applied:
  *   Arbor StructuralNode: structuralKind→sk, condition→cn, listGrow→lg, keyFn→kf
- *   Arbor ChildScope:     appendedNodes→an, disposers→ds, anchor→ac
+ *   Arbor ChildScope:     appendedNodes→an, disposers→ds, anchor→ac, item→im, pos→p
  *   Inlined signals (R7-arbor — investigation-arbor-restructure.md §Q2):
  *     Subscriber: flags→fl, subsHead→sh, subsTail→st, depsHead→dh, depsTail→dt
  *     MergeSubscriber: lastWave→lw
@@ -49,6 +49,13 @@ const replacements = [
   // anchor: must come after appendedNodes to avoid false matches
   [/\.anchor\b/g, '.ac'],
   [/anchor:/g, 'ac:'],
+  // FEL-408 subsequence bookkeeping. `\b` on both forms so substrings
+  // (`dispose`/`pose`/`position`, `.items`, `itemscope`) can never be hit;
+  // verified 1:1 against the unmangled dist (9 sites, all ChildScope).
+  [/\.item\b/g, '.im'],
+  [/\bitem:/g, 'im:'],
+  [/\.pos\b/g, '.p'],
+  [/\bpos:/g, 'p:'],
 
   // ─────── Inlined signals runtime (R7-arbor parity with signals mangler) ───────
   //
