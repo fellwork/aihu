@@ -268,7 +268,17 @@ function _reconcileEach(
         // the partially-built child disposers. Tear down the in-flight item
         // eagerly and rethrow; already-committed siblings stay in sc and
         // remain disposable as usual.
+        //
+        // pos invariant (see ChildScope.pos): rows processed before the throw
+        // hold LIS SCRATCH in `pos`, and the walk below — the only writer
+        // that restores real indexes — will not run. Reset every processed
+        // row to -1 (mover) so the next reconcile repositions them
+        // cursor-style instead of trusting scratch as DOM order: without
+        // this, a retry after the throw (the supported E3 flow) silently
+        // commits a WRONG ORDER by skipping moves for rows whose scratch
+        // happens to form an increasing chain.
         _abortChild(cd, ca, par)
+        for (const sn of sl) sn.pos = -1
         throw err
       }
     }
@@ -295,6 +305,14 @@ function _reconcileEach(
   let ref: globalThis.Node | null = anc.nextSibling
   for (let i = 0; i < n; i++) {
     const s = sl[i]!
+    // Duplicate keys collapse to ONE scope in `sc`, but `sl` can hold that
+    // scope at several indexes — and a LATER occurrence with a different item
+    // ref tears the earlier one down (FEL-395) while `sl[earlier]` still
+    // points at it. Walking a disposed scope would hand its detached anchor
+    // to _moveNode, whose insertBefore fallback RE-INSERTS disposed DOM (a
+    // zombie row with dead effects). A live row's anchor is always a child of
+    // `par` by construction, so parentage is exactly "was this torn down".
+    if (s.anchor.parentNode !== par) continue
     const nl = s.appendedNodes
     // FEL-396: reposition via _moveNode (moveBefore where supported) instead
     // of a bare insertBefore — a reorder of an UNCHANGED (same key, same
