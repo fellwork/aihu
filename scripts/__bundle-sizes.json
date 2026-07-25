@@ -10,14 +10,19 @@
     "limit": "2350 B"
   },
   {
+    "name": "@aihu/signals/lifecycle",
+    "bytes": 170,
+    "limit": "300 B"
+  },
+  {
     "name": "@aihu/arbor",
     "bytes": 3113,
     "limit": "3200 B"
   },
   {
     "name": "@aihu/runtime",
-    "bytes": 4420,
-    "limit": "4500 B"
+    "bytes": 4735,
+    "limit": "4750 B"
   },
   {
     "name": "@aihu/agent",

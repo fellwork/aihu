@@ -47,10 +47,37 @@ export interface DefineOptions {
  *   `shadowMode: 'light'`.
  * - `element` — the custom element instance (`this` inside the
  *   constructor).
+ * - `connected` — ownership/lifecycle DX (§4,
+ *   docs/plans/2026-07-24-lifecycle-ownership-dx.md): `true` for the
+ *   lifetime of THIS connection; latches `false` at disconnect and never
+ *   returns to `true`. A reconnect gets a fresh setup with a fresh signal,
+ *   so a stale async continuation's `connected()` call answers "am *I*
+ *   still the live instance?" — the liveness token an in-flight `await`
+ *   needs. Created in `_build()`, shared by both the normal-connect and
+ *   the hydration path (both call `_build()` directly).
+ *
+ *   REQUIRED, per the approved design (§4.1) — a prior revision of this
+ *   file declared it OPTIONAL to avoid breaking the compiler's host-less
+ *   SSR stub contexts (`emit.rs`'s `{ host: null, element: null, attrs: {},
+ *   props: {} }`) under `tsc --strict`. That justification did not hold:
+ *   those stubs are passed to `__aihu_setup__`, emitted as
+ *   `const __aihu_setup__ = (ctx) => {...}` with `ctx` UNANNOTATED — its
+ *   parameter type is inferred, `SetupContext` is never the contextual
+ *   type at that call site, and the stub object literals are never checked
+ *   against this interface at all (independent proof: those same stubs
+ *   already pass `host: null`, which would already violate the existing
+ *   REQUIRED `host: ShadowRoot | Element` field if they were being
+ *   checked). Weakening this field instead cost every REAL consumer:
+ *   `ctx.connected?.()` widened to `boolean | undefined`, and the design's
+ *   own DX recipes (§7.4 `if (!connected()) return`) stopped typechecking
+ *   as written. `_build()` and `_hmrReplace()` are the only two real call
+ *   sites and both always supply a real `connected`, so restoring
+ *   `required` costs nothing there.
  */
 export interface SetupContext {
   readonly host: ShadowRoot | Element
   readonly element: HTMLElement
+  readonly connected: () => boolean
 }
 
 /**

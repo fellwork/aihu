@@ -152,6 +152,7 @@ bun add @aihu/signals
 | Subpath | ESM | CJS |
 |---|---|---|
 | `.` | `./dist/index.js` | `—` |
+| `./lifecycle` | `./dist/lifecycle.js` | `—` |
 
 <sub><i>Auto-generated against `@aihu/signals@0.4.0`.</i></sub>
 

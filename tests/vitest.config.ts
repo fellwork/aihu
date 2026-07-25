@@ -20,6 +20,11 @@ export default defineConfig({
   },
   resolve: {
     alias: {
+      // Subpath before package: string aliases are PREFIX replacements, so the
+      // '/lifecycle' subpath must not resolve as '<index.ts>/lifecycle' (same
+      // pattern as '@aihu/runtime/ssr' below).
+      '@aihu/signals/lifecycle': new URL('../packages/signals/src/lifecycle.ts', import.meta.url)
+        .pathname,
       '@aihu/signals': new URL('../packages/signals/src/index.ts', import.meta.url).pathname,
       // Added for `ssr-state-channel.test.ts` — the wave-3 round-trip pipes
       // real @aihu/server state-script output into @aihu/store hydration and
