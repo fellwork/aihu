@@ -251,6 +251,8 @@ Historian  ←── reads all in-session delta pages, writes retro page,
 | Version manifests + platform binary pins | A bump claimed twice means the second PR reclaims a taken version |
 | The primary checkout itself | A branch switch or clean destroys another session's uncommitted work. **It also mutates when nobody switches it:** merging a PR with auto-delete-branch removes the branch a peer is standing on, and the next `pull` silently relocates them to the default branch. Their following commits land on `main` while they believe they are on their feature branch. The only tell is a rejected push — luck, not detection. Before merging a peer's PR, confirm they are not working in the shared checkout, or merge without deleting the branch. |
 
+**Announce INTENT, not just results.** Post *"opening a PR for X"* before you open it, not *"opened a PR for X"* after. Two agents that each spot a real gap and move immediately will duplicate each other — observed twice in one session, both times because both sides were behaving well and fast. The fix is not to move slower; it is to make the claim visible before the work rather than after it. The same applies to starting an investigation, taking a shared-surface change, or beginning a rebase of a shared branch.
+
 **Why this is in the spine and not just a reference.** Concurrent sessions do not fail loudly. They fail as: a rebase war, a duplicated fix, a green CI run that proved nothing because the other session changed the gate, or a checkout reset out from under uncommitted work. None of those announce themselves — which is exactly why the announcement has to be a scheduled step rather than something you remember to do.
 
 **Anti-patterns the Director explicitly checks for** (and you should escalate if missed):
