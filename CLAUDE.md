@@ -29,7 +29,7 @@ bun run typecheck           # tsc --noEmit across packages
 
 - **Per-package size gates are the contract.** Every browser-eligible package has a row in `.size-limit.json`; every PR validates each row via `bun run size`. The combined browser-bundle figure is reported (currently ~5.5 kB gz across browser-eligible packages post-v1 cutover, Plan 7.1) but is NOT itself a budget — the per-package rows are. New packages that enter the browser tier add a row; server-side and build-time-only packages MUST NOT add a row (per `.size-limit.README.md`).
 - Output is **vanilla custom elements**. No framework lock-in at the consumer boundary, no global context, no hydration step.
-- Reactive updates use `nodeValue` (not `textContent`) — 122× faster on targeted updates.
+- Reactive text updates assign `nodeValue` on a cached text node (not `textContent` on its parent), so a targeted write is O(1) in the parent's child count rather than rebuilding its child list.
 - llms.txt + MCP support is part of the contract, not optional.
 
 ## Multi-agent orchestration
