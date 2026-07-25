@@ -193,23 +193,59 @@ jobs:
 
   ci-ok:
     # Single stable REQUIRED status for branch protection. Always runs (even
-    # when `check` is skipped on a doc-only PR) so a required context is always
-    # reported. Passes when `check` succeeded OR was skipped (docs); fails when
-    # `check` failed or was cancelled. This lets doc-only PRs merge without an
-    # admin override while code PRs still gate on the real build.
-    needs: [check]
+    # when `check` / `examples` / `governed-examples` are skipped — e.g. a
+    # doc-only PR skips `check` via the `changes.code` filter, and
+    # `governed-examples` skips whenever `changes.governed` is false) so a
+    # required context is always reported. Passes when EVERY one of
+    # check/examples/governed-examples succeeded OR was skipped; fails if ANY
+    # of them failed or was cancelled. This lets doc-only PRs merge without an
+    # admin override while code PRs gate on the real build AND on the
+    # examples / governed-examples smoke lanes.
+    #
+    # examples + governed-examples were added after PR #549 merged
+    # ci-ok-green while both were RED — `ci-ok` only watched `check`, so
+    # branch protection (the sole required context on `main`) couldn't see
+    # them. That regression broke every downstream consumer app build.
+    #
+    # bench / bench-arbor are deliberately NOT included: their regression
+    # gate compares against the 2026-05-25 baseline RESULTS.md, whose noise
+    # floor now exceeds the 10% threshold, so they fail on noise rather than
+    # real regressions (see bench/signals/HARNESS.md). Wiring an unreliable
+    # gate into the required check would block every PR. Revisit once a
+    # fresh baseline lands.
+    #
+    # Each of check/examples/governed-examples is scheduled unconditionally
+    # in the job graph (their own `if:` decides run vs. skip; none of them
+    # can hang forever), so `needs` here can never deadlock — GitHub always
+    # resolves every needed job to a terminal state (success/failure/
+    # cancelled/skipped) before evaluating this job's `if: always()`, which
+    # then runs regardless of what that state was.
+    needs: [check, examples, governed-examples]
     if: always()
     runs-on: ubuntu-latest
     steps:
-      - name: Gate on check result
+      - name: Gate on required job results
+        env:
+          CHECK_RESULT: ${{ needs.check.result }}
+          EXAMPLES_RESULT: ${{ needs.examples.result }}
+          GOVERNED_EXAMPLES_RESULT: ${{ needs.governed-examples.result }}
         run: |
-          result="${{ needs.check.result }}"
-          echo "check result: $result"
-          if [ "$result" = "failure" ] || [ "$result" = "cancelled" ]; then
-            echo "::error::Required job 'check' did not pass (result=$result)."
+          echo "check:              $CHECK_RESULT"
+          echo "examples:           $EXAMPLES_RESULT"
+          echo "governed-examples:  $GOVERNED_EXAMPLES_RESULT"
+          fail=0
+          for pair in "check:$CHECK_RESULT" "examples:$EXAMPLES_RESULT" "governed-examples:$GOVERNED_EXAMPLES_RESULT"; do
+            name="${pair%%:*}"
+            result="${pair#*:}"
+            if [ "$result" = "failure" ] || [ "$result" = "cancelled" ]; then
+              echo "::error::Required job '$name' did not pass (result=$result)."
+              fail=1
+            fi
+          done
+          if [ "$fail" = "1" ]; then
             exit 1
           fi
-          echo "ci-ok: check=$result — gate green"
+          echo "ci-ok: gate green"
 
   changes:
     # Determine which subsystems changed in this push/PR. The bench job runs
