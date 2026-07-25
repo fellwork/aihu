@@ -155,7 +155,7 @@ The <code>@template</code> block defines the DOM output using aihu's template DS
 
 ### Text interpolation
 
-- <code>{expr}</code> — reactive text node. Uses <code>nodeValue</code> for targeted updates (122x faster than <code>textContent</code> on targeted nodes).
+- <code>{expr}</code> — reactive text node. Writes through <code>nodeValue</code>, which updates the text node in place instead of reparsing the element's children.
 
 ### Event handlers
 
@@ -185,7 +185,7 @@ A colon separates the directive from the event name: <code>on:&lt;event&gt;</cod
 
 ### HTML output
 
-- <code>html={expr}</code> — render raw HTML from an expression (trusted content only).
+- <code>html={expr}</code> — render raw HTML from an expression (trusted content only). Under <code>output: 'static'</code> this is prerendered too: the value is interpolated unescaped into the HTML you serve, not just injected into the DOM after load. Treat it as <code>innerHTML</code> at build time — never point it at untrusted or remote content.
 
 ### Memoization and DOM stability
 

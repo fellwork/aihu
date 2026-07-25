@@ -246,4 +246,41 @@ describe.skipIf(!hasBinary)('string-rendered pages: STORE state adopts (the wave
     expect((clientStore.count as () => number)()).toBe(41)
     expect((clientStore.double as () => number)()).toBe(82)
   })
+
+  it('html={expr}: SSR carries the content and hydration stays byte-stable', async () => {
+    // `html` used to emit nothing server-side, so this case could not
+    // mismatch — the SSR miss was guaranteed. Now the string carries the
+    // markup AND the client's onMount still runs replaceChildren over the
+    // same expression, so the two renderings have to agree exactly.
+    const mod = await compileToModule(
+      'hydrate-string-html-binding',
+      `@state {
+  const body = '<h2>${PRIMARY}</h2><p>static tail</p>'
+}
+
+@template {
+  <main id="page">
+    <article html={body}></article>
+  </main>
+}
+`,
+    )
+    const html = mod.__ssrString({}, { hydratable: true })
+    // The regression this guards: an empty <article> served to crawlers.
+    expect(html).toContain(PRIMARY)
+
+    const host = document.createElement('div')
+    host.innerHTML = html
+    const before = host.innerHTML
+    const rootBefore = host.firstElementChild
+
+    hydrate(mod.__ssr as () => never, host, {})
+
+    expect(host.innerHTML).toBe(before)
+    expect(host.firstElementChild).toBe(rootBefore)
+    // Doubling here would mean the client appended its fragment alongside the
+    // server's nodes instead of replacing them.
+    expect(countOccurrences(host.textContent ?? '', PRIMARY)).toBe(1)
+  })
+
 })
