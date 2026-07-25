@@ -177,8 +177,8 @@ function* closedShadowHostsAbove(node: Node): Generator<Element> {
  *    at that tree's host and `node` can never appear on it. We instead ask
  *    whether the event's true origin (`path[0]`) IS that host, which the
  *    platform reports exactly when the event came from inside the closed tree.
- *    That cannot distinguish "inside `node`" from "elsewhere inside the same
- *    closed tree, or on the host itself" — it is the most precise answer
+ *    That cannot distinguish being inside `node` versus elsewhere inside the
+ *    same closed tree, or on the host itself — it is the most precise answer
  *    closed mode allows, and it errs toward `true` (for a dismiss-on-outside
  *    caller, the conservative direction: don't dismiss).
  * 3. No composed path at all (synthetic event): fall back to an up-walk from

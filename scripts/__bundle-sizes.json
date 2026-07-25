@@ -495,6 +495,26 @@
     "limit": "575 B"
   },
   {
+    "name": "@aihu/use/useClickOutside",
+    "bytes": 835,
+    "limit": "900 B"
+  },
+  {
+    "name": "@aihu/use/useActiveElement",
+    "bytes": 487,
+    "limit": "520 B"
+  },
+  {
+    "name": "@aihu/use/useHover",
+    "bytes": 758,
+    "limit": "820 B"
+  },
+  {
+    "name": "@aihu/use/useMouseInElement",
+    "bytes": 946,
+    "limit": "1020 B"
+  },
+  {
     "name": "@aihu/auth",
     "bytes": 1184,
     "limit": "1.5 KB"

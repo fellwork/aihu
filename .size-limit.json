@@ -710,6 +710,34 @@
     "ignore": ["@aihu/signals"]
   },
   {
+    "name": "@aihu/use/useClickOutside",
+    "path": "packages/use/dist/useClickOutside.js",
+    "limit": "900 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
+    "name": "@aihu/use/useActiveElement",
+    "path": "packages/use/dist/useActiveElement.js",
+    "limit": "520 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
+    "name": "@aihu/use/useHover",
+    "path": "packages/use/dist/useHover.js",
+    "limit": "820 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
+    "name": "@aihu/use/useMouseInElement",
+    "path": "packages/use/dist/useMouseInElement.js",
+    "limit": "1020 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
     "name": "@aihu/auth",
     "path": "packages/auth/dist/index.js",
     "limit": "1.5 KB",

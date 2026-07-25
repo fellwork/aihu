@@ -262,7 +262,7 @@ Per-package gates enforced by `bun run size`:
 | `@aihu/magna/codegen` | 1.04 kB | 1.2 KB | pass |
 | `@aihu/editor` | 13.56 kB | 14 KB | pass |
 | `@aihu/editor/safe-href` | 134 B | 300 B | pass |
-| `@aihu/use` (57 composables) | 139 B – 740 B | 33 distinct limits | pass |
+| `@aihu/use` (61 composables) | 139 B – 946 B | 36 distinct limits | pass |
 | `@aihu/use/integrations` (1 composable) | 338 B | 600 B | pass |
 | `@aihu/use/math` (1 composable) | 158 B | 250 B | pass |
 | `@aihu/use/motion` (1 composable) | 423 B | 900 B | pass |
