@@ -34,7 +34,11 @@ export function isCompilerRustSource(file: string): boolean {
 
 /** True when the file is a platform binary package manifest (carries the version). */
 export function isPlatformManifest(file: string): boolean {
-  return file.startsWith('packages/compiler/npm/') && file.endsWith('/package.json')
+  return (
+    (file.startsWith('packages/compiler/npm/') ||
+      file.startsWith('packages/compiler/npm-native/')) &&
+    file.endsWith('/package.json')
+  )
 }
 
 export interface BumpCheck {
