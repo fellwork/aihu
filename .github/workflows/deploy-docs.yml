@@ -19,6 +19,17 @@ name: Deploy aihu-docs
       - 'packages/compiler/**'
       - 'packages/plugin-agent-readiness/**'
       - 'packages/server/**'
+      # Version-bearing manifests. `apps/docs/build.ts` reads
+      # `packages/runtime/package.json` to render the nav version badge
+      # (build.ts ~L296: `>v0<` -> `>v${runtimeVersion}<`), and a
+      # `chore(release): version packages` merge rewrites these manifests.
+      # Without this entry a release that bumps versions but touches none of
+      # the paths above would leave the published badge stale — 7 of aihu's
+      # 49 release merges historically missed the deploy for exactly this
+      # reason (the other 42 tripped `packages/arbor/**` only incidentally,
+      # via changesets' README rewrites). See
+      # docs/plans/2026-07-25-docs-release-deploy-research.md.
+      - 'packages/*/package.json'
       - '.github/workflows/deploy-docs.yml'
   pull_request:
     paths:
