@@ -239,6 +239,21 @@ Findings, separated carefully:
    (Also note: the claimed −13.4 %/−18.2 % WINs don't reproduce here either —
    mount rows are flat. Dead-field deletion appears to be worth ~0, as one
    would expect of two property writes.)
+
+   **To state the record plainly: EVERY number in that gate output — the
+   FAILs and the WINs alike — is noise against a baseline already proven
+   untrustworthy.** The merge commit (and the release discussion that quoted
+   it) reported the −13.4 %/−18.2 % rows as a genuine unlooked-for win from
+   deleting dead fields. That claim is wrong twice over: the same rows
+   measured +27.7 %/+29.5 % in the bypassed CI run itself, and the controlled
+   parent-vs-merged A/B shows the commit is flat on all six workloads. Numbers
+   quoted from a gate one has already proven broken carry no evidential
+   weight in either direction; the record should carry this paragraph, not
+   the WIN claim. Likewise the committed `[bench-bump]` justification ("the
+   two failing rows") is factually wrong — the artifact shows six — even
+   though its CONCLUSION (no regression from this commit) independently
+   survives via the A/B above. FEL-409 must not inherit either the WIN claim
+   or the two-row account.)
 5. **The residual risk is the four valid rows' +27.7…+52.6 % against the
    May 25 CI baseline.** Same mitata/Bun/JSDOM versions on both runs, so it is
    either GitHub-runner hardware variance or real code drift on `main`
@@ -253,6 +268,27 @@ Findings, separated carefully:
 UNVERIFIED for the other 4**; the commit message's account of the gate state is
 factually wrong (a records problem, not a performance problem — the local A/B
 clears this commit itself). No release-blocking perf regression found.
+
+### Written instruction for FEL-409 (baseline regeneration)
+
+**Do not regenerate the arbor bench baselines until a same-runner
+attribution run has been performed and its result recorded:**
+
+1. On ONE CI runner (same workflow, back-to-back jobs), run the bench at the
+   `a16fa989` tree AND at current `main`.
+2. Compare the four valid-baseline rows (`mount-10k-leaves`,
+   `mount-deep-100x10`, `mount-wide-1000`, `krausest-1k-cycle`). The
+   checked-in May baseline vs the July artifact shows +27.7 % … +52.6 % on
+   these rows with identical mitata/Bun/JSDOM versions — so the delta is
+   either GitHub-runner hardware variance or real code drift on `main`
+   between 2026-05-25 and 2026-07-22 (the bisect doc only cleared
+   Jul 22 → Jul 25).
+3. If the same-runner comparison is flat, the drift was hardware; regenerate
+   freely and note it. If it is not flat, bisect BEFORE regenerating —
+   regeneration would bless a real regression and erase the only evidence.
+
+This is the one step that turns the May→July drift from "silently blessed"
+into "attributed"; it costs one CI job.
 
 ---
 
@@ -329,7 +365,12 @@ both silent, both absent on the parent commit. Wrong DOM order with no error
 is this framework's worst failure class.
 
 The distance to GO is small and verified: land the 2-line fix plus the S1/S2/
-D2 regression tests (fits the size row at +6 B), then release. If the release
+D2 regression tests (fits the size row at +6 B), then release. **Update: that
+fix is now PR #581 (`fix/lis-pos-scratch-and-dup-key`) — both fixes, the
+repros as regression tests R1/R1b/R2 (confirmed to fail on the unfixed
+reconciler: 3 failed | 28 passed), the `pos` invariant documented at its
+declaration, and a `@aihu/arbor` patch changeset; measured 3.22 kB gz (+6 B
+headroom).** If the release
 cannot wait even for that, the honest fallback is reverting `a993aa19` — but
 given the fix is already validated end-to-end, patching is strictly better.
 
