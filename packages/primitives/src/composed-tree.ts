@@ -248,6 +248,111 @@ function composedAncestorChain(node: Node): Node[] {
   return chain.reverse()
 }
 
+// ─── event hit-testing ────────────────────────────────────────────────────────
+// Retargeting-proof event layer. Everything ABOVE this line answers "where is
+// this node in the tree?"; this section answers "did this EVENT come from
+// inside that node?" — a strictly different question that the up-walk above
+// CANNOT answer. `event.target` is retargeted UP to the outermost shadow host
+// visible to the listener's root, so the container being tested sits BELOW it
+// and is never on `composedParent`'s ancestor chain: `composedContains(panel,
+// event.target)` returns `false` for a click that genuinely happened inside
+// `panel`, exactly like the native `panel.contains(event.target)` does. Only
+// `event.composedPath()` — built by the browser BEFORE retargeting — recovers
+// it. See `docs/plans/2026-07-24-composed-tree-helper.md` §2b.
+//
+// Mirrored verbatim in `@aihu/use`'s `src/shared/composed-tree.ts`, which
+// cannot import this module (CORE is signals-only, founder ruling A, enforced
+// by `scripts/dep-check.ts`). `packages/use/tests/composed-tree-parity.test.ts`
+// runs one behavioural table against both so drift is a red test.
+//
+// IMPORTANT: `composedPath()` is only populated DURING dispatch — afterwards
+// the platform returns an empty array. `isEventInside`/`composedEventTarget`
+// must therefore be called SYNCHRONOUSLY inside the listener; a deferred call
+// degrades silently to the (broken) `event.target` up-walk. Hit-test in the
+// handler and store the boolean, never the event.
+
+/**
+ * The event's composed path — every node the event passes through that is
+ * VISIBLE to the listener's root, innermost first, before retargeting.
+ * Returns `[]` when the event has no `composedPath` (hand-built or legacy
+ * events) **or when dispatch has already finished**. Callers treat `[]` as
+ * "fall back to an up-walk", so a deferred call degrades silently.
+ */
+export function composedPathOf(event: Event): EventTarget[] {
+  return typeof event.composedPath === 'function' ? event.composedPath() : []
+}
+
+/**
+ * The TRUE originating node of `event` (`composedPath()[0]`), before
+ * retargeting rewrote `event.target` to an outer shadow host. Falls back to
+ * `event.target` when no composed path is available. (`label/index.ts` already
+ * hand-rolls exactly this — see its `composedPath()[0]` read.)
+ */
+export function composedEventTarget(event: Event): EventTarget | null {
+  // `path[0] ?? …`: an empty path (no composedPath, or dispatch already
+  // finished) means the pre-retargeting origin is unrecoverable, so the
+  // retargeted `event.target` is the best available answer.
+  return composedPathOf(event)[0] ?? event.target
+}
+
+/**
+ * All ancestor hosts of `node` whose shadow root is CLOSED. `ShadowRoot.host`
+ * is readable regardless of mode, so we can always walk OUT of a closed tree
+ * even though nothing can walk into one; a closed root is recognised by the
+ * hop target's own `shadowRoot` being `null` despite us standing in its tree.
+ */
+function* closedShadowHostsAbove(node: Node): Generator<Element> {
+  let cur: Node | null = node
+  while (cur !== null) {
+    const parent = cur.parentNode
+    if (parent instanceof ShadowRoot && parent.host.shadowRoot === null) yield parent.host
+    cur = composedParent(cur)
+  }
+}
+
+/**
+ * Did `event` originate inside `node`'s composed subtree? The shadow-correct
+ * replacement for `node.contains(event.target)`, and the hit-tester
+ * dismiss-on-outside behaviours (`useContextMenu`, dialog/tooltip light
+ * dismiss) are blocked on.
+ *
+ * Resolution order:
+ * 1. `composedPath().includes(node)` — the precise answer whenever the path is
+ *    available and every boundary in between is open.
+ * 2. If `node` itself lives inside a CLOSED shadow tree, the path is truncated
+ *    at that tree's host and `node` can never appear on it. We instead ask
+ *    whether the event's true origin (`path[0]`) IS that host, which the
+ *    platform reports exactly when the event came from inside the closed tree.
+ *    That cannot distinguish "inside `node`" from "elsewhere inside the same
+ *    closed tree, or on the host itself" — it is the most precise answer
+ *    closed mode allows, and it errs toward `true` (for a dismiss-on-outside
+ *    caller, the conservative direction: don't dismiss).
+ * 3. No composed path at all (synthetic event): fall back to an up-walk from
+ *    `event.target`, which is correct whenever the event was not retargeted.
+ */
+export function isEventInside(event: Event, node: Node | null | undefined): boolean {
+  if (node === null || node === undefined) return false
+  const path = composedPathOf(event)
+  if (path.length === 0) return composedContains(node, (event.target as Node | null) ?? null)
+  if (path.includes(node)) return true
+  for (const host of closedShadowHostsAbove(node)) {
+    if (path[0] === host) return true
+  }
+  return false
+}
+
+/**
+ * {@link isEventInside} over several nodes — a dismiss-on-outside "ignore"
+ * list (a trigger button plus the overlay it opens, etc.). `null`/`undefined`
+ * entries are skipped.
+ */
+export function isEventInsideAny(event: Event, nodes: Iterable<Node | null | undefined>): boolean {
+  for (const node of nodes) {
+    if (isEventInside(event, node)) return true
+  }
+  return false
+}
+
 // ─── tabbability ──────────────────────────────────────────────────────────────
 
 const FOCUSABLE_SELECTOR =
