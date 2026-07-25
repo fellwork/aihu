@@ -133,31 +133,31 @@
   },
   {
     "name": "@aihu/compiler-native-darwin-arm64",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "dir": "packages/compiler/npm-native/darwin-arm64",
     "isPlatform": false
   },
   {
     "name": "@aihu/compiler-native-darwin-x64",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "dir": "packages/compiler/npm-native/darwin-x64",
     "isPlatform": false
   },
   {
     "name": "@aihu/compiler-native-linux-arm64-gnu",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "dir": "packages/compiler/npm-native/linux-arm64-gnu",
     "isPlatform": false
   },
   {
     "name": "@aihu/compiler-native-linux-x64-gnu",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "dir": "packages/compiler/npm-native/linux-x64-gnu",
     "isPlatform": false
   },
   {
     "name": "@aihu/compiler-native-win32-x64-msvc",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "dir": "packages/compiler/npm-native/win32-x64-msvc",
     "isPlatform": false
   },
