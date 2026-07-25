@@ -1,7 +1,8 @@
 # @aihu/runtime size reduction — measured plan
 
-**Date:** 2026-07-25 · **Base:** `origin/main` = `9d8a49db` · **Author:** size-paydown pass
-(follow-up to the PR #546 bump-to-4800 decision)
+**Date:** 2026-07-25 · **Measured on:** `9d8a49db`, rebased onto `edc15f2a` (#546
+included) · **Author:** size-paydown pass (follow-up to the PR #546 bump-to-4800
+decision)
 
 ## Why
 
@@ -12,10 +13,12 @@ ranking measured *exactly as the gate measures*, a ranked candidate table where 
 byte figure is a real before/after `bun run size` measurement** (not an estimate), a
 recommended sequence, and one implemented, proven candidate.
 
-**Headline: the row is already back under the original 4750 B contract.** Candidate 1
-(implemented in this PR) lands the row at **4705 B (+45 B headroom)** — enough to absorb
-PR #546's +26 B (→ ~4731 B) *without* the 4800 B bump. The remaining candidates
-measured below can take the row to **~3604 B** if the founder chooses to sequence them.
+**Headline: the row is back under the original 4750 B contract, bump retired.**
+Candidate 1 (implemented in this PR) is worth −30 B; rebased onto #546 (+26 B) the
+row measures **4731 B**, so this PR also **restores the `.size-limit.json` limit
+from the approved 4800 B back to 4750 B** (+19 B headroom) — the trim debt is paid
+immediately rather than carried. The remaining candidates measured below can take
+the row to **~3604 B** if the founder chooses to sequence them.
 
 ## How the gate measures (so the numbers match)
 
@@ -139,8 +142,9 @@ Acceptance (all exit codes 0): `bun run build` 0 · `bun run typecheck` 0 ·
 
 ## Recommended sequence and recovery math
 
-1. **C1 (this PR)** — 4735 → 4705 B. Row back under the original 4750 B with +45 B;
-   absorbs #546's +26 B (→ ~4731 B). **The approved 4800 B bump is no longer needed.**
+1. **C1 (this PR)** — −30 B. Measured post-rebase on top of #546 (+26 B):
+   **4731 B**. **The approved 4800 B bump is retired in this PR** — the limit is
+   restored to the original 4750 B (+19 B headroom).
 2. **C3 stream subpath** — 4705 → 4287 B. Do before C2 only because it has no
    FEL-397 entanglement; otherwise interchangeable with C2.
 3. **C2 focus-trap subpath** — → 3830 B (also unlocks closing FEL-397 later).
@@ -148,13 +152,13 @@ Acceptance (all exit codes 0): `bun run build` 0 · `bun run typecheck` 0 ·
    payoff per risk, keep last among the code changes).
 5. **C4 resource subpath** — → ~3604 B.
 
-| Target | vs bumped 4800 B | vs original 4750 B |
+| Target | vs retired 4800 B bump | vs original 4750 B (restored in this PR) |
 |---|---:|---:|
-| After C1 (done) | +95 B headroom | **+45 B headroom** |
-| After C1 + #546 (+26 B) | +69 B | +19 B |
+| After C1 + #546 (**4731 B measured post-rebase**) | +69 B | **+19 B headroom** |
 | Full plan (~3604 B) | +1196 B | +1146 B |
 
-**Is returning to 4750 B achievable? Yes — it already is, with this PR alone.**
+**Is returning to 4750 B achievable? Yes — done in this PR** (limit restored to
+4750 B; the gate passes at 4731 B).
 The honest number for the full plan is **~3604 B**, at the cost of two compiler-emit
 changes (goldens + snapshots) and one runtime refactor; if all of it lands the
 contract could credibly be *re-tightened* to ~3900–4000 B rather than merely held.
