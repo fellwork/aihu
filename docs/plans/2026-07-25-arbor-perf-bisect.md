@@ -14,10 +14,11 @@ Three questions were asked:
 * **(C)** Does the headline claim — *"reactive updates use `nodeValue` (not
   `textContent`) — 122x faster on targeted updates"* — still hold?
 
-The short version: **(B) and (C) are the same bug**, and it is a
-measurement bug, not a runtime bug. **(A) is real but small and is not what
-the CI numbers say it is.** The 122x claim does not survive contact with a
-working benchmark.
+The short version: **all three are the same story, and it is a measurement
+story, not a runtime one.** There is no arbor performance regression. There is a
+benchmark that spent two months measuring nothing, a gate reading the noisiest
+statistic available to it, and a headline product claim sourced from the
+resulting number.
 
 ---
 
@@ -25,11 +26,13 @@ working benchmark.
 
 | # | Question | Verdict |
 | --- | --- | --- |
-| A | 07-22 `mount-*` regression | **Real, localized to `18e5f6dd`** (effect-scope). Magnitude **+7-9 %**, not the +27-41 % CI reports. |
-| B | `attr-thrash` +474x, `update-1-of-10k` +26x | **NOT a regression.** The 2026-05-25 baseline recorded an **inert no-op**. Caused by `3a875483` (a workspace-resolution *fix*) making the bench measure real work for the first time. |
-| C | `nodeValue` 122x faster than `textContent` | **Does not hold.** Same-node `nodeValue` vs `textContent` measures **0.83x — a tie.** The 122x came from the same dead-binding measurement as (B). |
+| A | 07-22 `mount-*` regression | **No regression. No commit to name.** Across 5 workloads the whole `331b0151`→main delta is **−1.0 % … +5.4 %**, every one of them *inconsistent in sign* and ≤ a byte-identical control arm. On `mount-10k-leaves` the "effect" (+5.4 %) is smaller than the +9.5 % measured between two arms that **execute identical code**. |
+| B | `attr-thrash` +474x, `update-1-of-10k` +26x | **NOT a regression.** The 2026-05-25 baseline recorded an **inert no-op** — 0 DOM writes/op. Caused by `3a875483` (a workspace-resolution *fix*) making the bench measure real work for the first time. |
+| C | `nodeValue` 122x faster than `textContent` | **Does not hold.** Same-node `nodeValue` vs `textContent` measures **0.83x — a tie.** End-to-end vs the bench's own vanilla adapter: **~12x**, not 122x. The published figure came from the same dead-binding row as (B). |
 
-**Nothing here should be re-baselined until (A) is fixed or accepted** — see §6.
+**The baseline does need regenerating — it is invalid, not merely stale — but
+fix the harness (§5 R6) and the docs (§2) first, or the re-baseline freezes both
+mistakes in place.** No arbor code fix is a precondition; see §6.
 
 ---
 
@@ -296,17 +299,105 @@ was inconclusive for the reason §5 explains. Pass 2 raised the budget to 2 s
 (12 → ~146 samples/cell) and reports **`min`**, which is the appropriate
 estimator when noise is one-sided.
 
-<!--BISECT_TABLE-->
+Reported as the **median of per-rep paired ratios** — within one rep the four
+arms run seconds apart under near-identical load, so the pairing cancels most
+common-mode variation. "consistent" means the delta held the same sign in ≥80 %
+of reps.
 
-### 3.3 Verdict
+**Pass 2 — `mount-deep-100x10`, `mount-10k-leaves` (15 reps/arm, `min`)**
 
-<!--BISECT_VERDICT-->
+| arm | n | median of per-process `min` | min–max |
+| --- | ---: | ---: | ---: |
+| `mount-deep-100x10` A `331b0151` | 15 | 3.32 ms | 3.16–3.59 ms |
+| `mount-deep-100x10` B `061eefb3` | 15 | 3.22 ms | 2.64–3.40 ms |
+| `mount-deep-100x10` C `18e5f6dd` | 15 | 3.32 ms | 2.75–3.41 ms |
+| `mount-deep-100x10` D main | 15 | 3.33 ms | 3.10–3.74 ms |
+| `mount-10k-leaves` A `331b0151` | 15 | 62.44 ms | 40.02–92.75 ms |
+| `mount-10k-leaves` B `061eefb3` | 15 | 65.37 ms | 32.79–98.27 ms |
+| `mount-10k-leaves` C `18e5f6dd` | 14 | 67.50 ms | 49.32–79.55 ms |
+| `mount-10k-leaves` D main | 14 | 68.78 ms | 50.93–102.63 ms |
+
+**Pass 3 — the workloads that DO create effects (9 reps/arm, `min`)**
+
+| workload | A | B | C | D |
+| --- | ---: | ---: | ---: | ---: |
+| `mount-wide-1000` (1k signals + 1k effects/op) | 9.59 ms | 9.78 ms | 9.46 ms | 9.82 ms |
+| `krausest-1k-cycle` (1k effects + 100 updates/op) | 25.78 ms | 26.50 ms | 26.68 ms | 26.22 ms |
+| `update-1-of-10k-leaves` | 464 ns | 458 ns | 460 ns | 460 ns |
+
+**Paired deltas — every arm transition, all five workloads**
+
+| workload | A→B (#514) | B→C (#524) | **A→C (the whole window)** | C→D (byte-identical control) |
+| --- | ---: | ---: | ---: | ---: |
+| `mount-deep-100x10` | −3.8 % | +1.6 % | **−1.0 %** | +0.9 % |
+| `mount-10k-leaves` | **+9.5 %** | −0.1 % | **+5.4 %** | +3.1 % |
+| `mount-wide-1000` | −2.2 % | +4.3 % | **+2.6 %** | −4.7 % |
+| `krausest-1k-cycle` | +2.1 % | −0.1 % | **+0.2 %** | −0.5 % |
+| `update-1-of-10k-leaves` | −0.8 % | +1.1 % | **+0.2 %** | +0.5 % |
+
+**Every single cell in that table is "inconsistent"** — no comparison, including
+the controls, held its sign in ≥80 % of reps.
+
+### 3.4 Verdict
+
+**(A): there is no regression at `061eefb3` or `18e5f6dd`, and none anywhere in
+the 07-22 window.** Across all five workloads the entire A→C delta spans
+**−1.0 % to +5.4 %**, and in every case it is comparable to or *smaller than* a
+control arm:
+
+* On `mount-10k-leaves` the apparent +5.4 % is **smaller than the +9.5 %
+  measured between arms A and B — which execute identical code** (§3.2). It is
+  also only marginally above the +3.1 % from the byte-identical C→D control.
+* On `mount-deep-100x10` the delta is **negative** (−1.0 %); arm C is if
+  anything a hair faster than the last known-good commit.
+* On `krausest-1k-cycle` — the workload CI reports at **+30…57 %** — the
+  measured delta is **+0.2 %**, a 4/4 coin flip.
+
+The prediction from §3.2 held: the two `mount-*` workloads create zero effects,
+so the effect-scope commit had nothing to slow down, and the measurement agrees.
+
+**The CI numbers in the brief's table are not measuring a code change.** They
+are `p50`-of-~12-samples against an invalid baseline, on a runner whose noise
+floor for those workloads is several hundred percent (§4). The apparent
+"sharp regression inside one day" is the gate resampling its own noise.
+
+*Named commit: none. There is no regression commit to name.*
 
 ---
 
 ## 4. Per-workload noise floors
 
-<!--NOISE_TABLE-->
+Measured on this machine, same session, arms that differ by nothing meaningful.
+"spread" = (max − min) / min across per-process results within one arm.
+
+| workload | `min` spread (worst arm) | `p50` spread, 2 s budget | `p50` spread, **gate's 1 s budget** | control C→D (`min`) |
+| --- | ---: | ---: | ---: | ---: |
+| `update-1-of-10k-leaves` | **8.6 %** | 19 % | n/a | +0.5 % |
+| `mount-deep-100x10` | 28.9 % | 275 % | **1,176 %** | +0.2 % |
+| `krausest-1k-cycle` | 31.3 % | 25 % | **970 %** | −1.7 % |
+| `mount-wide-1000` | 64.2 % | 44 % | **1,155 %** | +3.7 % |
+| `mount-10k-leaves` | 199.7 % | 127 % | **534 %** | +1.1 % |
+
+Three things this table says:
+
+1. **The gate's configuration is the worst of every available option.** The
+   right-hand column — `p50` at `min_cpu_time: 1e9`, exactly what
+   `runner.ts` + `gate.ts` do today — is 534–1,176 % on four of five workloads.
+   The 10 % threshold is not "a bit tight"; it is two orders of magnitude
+   inside the noise.
+2. **Changing the statistic buys more than any threshold change.** `min` at a
+   2 s budget takes `mount-deep-100x10` from 1,176 % to 28.9 % and
+   `update-1-of-10k-leaves` to 8.6 %.
+3. **Only one workload is genuinely tight.** `update-1-of-10k-leaves` at 8.6 %
+   spread (449–487 ns) is the sole candidate for a 10 %-class gate — and
+   ironically it is the workload whose baseline row is pure fiction (§1).
+
+Caveat, stated plainly: this machine was heavily loaded during measurement
+(load average 30–98, other build jobs running). That inflates the absolute
+spreads. It does **not** invalidate the comparisons — arms were interleaved
+within each rep and the controls absorb common-mode drift — and CI runners are
+themselves noisy shared hardware, so these figures are not unrepresentative of
+the environment the gate actually runs in.
 
 ---
 
