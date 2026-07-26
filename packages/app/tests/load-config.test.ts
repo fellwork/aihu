@@ -79,37 +79,41 @@ describe('the config marker plugin', () => {
   })
 })
 
-describe.skipIf(!RUN_LOADER)('loadAihuConfig reads vite.config.ts', () => {
-  it('returns the evaluated config, including computed values', async () => {
-    const loaded = await loadAihuConfig(FIXTURE)
-    expect(loaded, 'fixture must resolve').not.toBeNull()
-    expect(loaded?.configFile).toContain('vite.config.ts')
+describe.skipIf(!RUN_LOADER)(
+  'loadAihuConfig reads vite.config.ts',
+  () => {
+    it('returns the evaluated config, including computed values', async () => {
+      const loaded = await loadAihuConfig(FIXTURE)
+      expect(loaded, 'fixture must resolve').not.toBeNull()
+      expect(loaded?.configFile).toContain('vite.config.ts')
 
-    const cfg = loaded?.config as {
-      dir?: { pages?: string; components?: string }
-      build?: { bundler?: string }
-      dev?: { port?: number }
-      compiler?: { islands?: boolean }
-      app?: { head?: { title?: string } }
-    }
-    expect(cfg.dir?.pages).toBe('src/pages')
-    expect(cfg.dir?.components).toBe('src/components')
-    expect(cfg.build?.bundler).toBe('rolldown')
-    expect(cfg.dev?.port).toBe(4321)
-    expect(cfg.app?.head?.title).toBe('read-from-vite-config')
-    // The computed one — proves evaluation, not source parsing.
-    expect(cfg.compiler?.islands).toBe(true)
-  })
+      const cfg = loaded?.config as {
+        dir?: { pages?: string; components?: string }
+        build?: { bundler?: string }
+        dev?: { port?: number }
+        compiler?: { islands?: boolean }
+        app?: { head?: { title?: string } }
+      }
+      expect(cfg.dir?.pages).toBe('src/pages')
+      expect(cfg.dir?.components).toBe('src/components')
+      expect(cfg.build?.bundler).toBe('rolldown')
+      expect(cfg.dev?.port).toBe(4321)
+      expect(cfg.app?.head?.title).toBe('read-from-vite-config')
+      // The computed one — proves evaluation, not source parsing.
+      expect(cfg.compiler?.islands).toBe(true)
+    })
 
-  it('reports the files the config depends on, so a watcher can invalidate', async () => {
-    const loaded = await loadAihuConfig(FIXTURE)
-    expect(loaded?.dependencies.length).toBeGreaterThan(0)
-  })
+    it('reports the files the config depends on, so a watcher can invalidate', async () => {
+      const loaded = await loadAihuConfig(FIXTURE)
+      expect(loaded?.dependencies.length).toBeGreaterThan(0)
+    })
 
-  it('returns null for a directory with no vite config', async () => {
-    expect(await loadAihuConfig(join(HERE, 'fixtures'))).toBeNull()
-  })
-}, 60_000)
+    it('returns null for a directory with no vite config', async () => {
+      expect(await loadAihuConfig(join(HERE, 'fixtures'))).toBeNull()
+    })
+  },
+  60_000,
+)
 
 describe('the module contract — how coverage grows without a central registry', () => {
   it('declareAihuModule makes a package readable by name', () => {
