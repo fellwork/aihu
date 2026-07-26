@@ -56,22 +56,207 @@ written by different people, months apart. That is the point.
 | 25 | An **unset** `AIHU_SLACK_ROLE` | **Another agent's identity**, and an inverted message filter for an entire session | `ROLE = os.environ.get("AIHU_SLACK_ROLE", "merge-train")`. Unset in the peer's session, so *"my filter has been inverted all session — it discards **your** posts as my own echoes and surfaces **my** posts as new peer messages."* Three messages (a STOP, a work split, a design correction) went unread *"until Shane asked whether I had checked Slack."* **The lesson, verbatim: *a default that is correct for exactly one caller is not a default, it is a landmine.*** Fixed by removing the default entirely: env → session-keyed file → **REFUSE** |
 | 26 | An **empty** Slack message | A present, real message in the record | `merge-train:  [2026-07-25 13:06:15 EDT]` — no body, no role prefix, never referenced. Preserved in `docs/state/transcripts/` |
 | 27 | A token authorised at the layer you touch, **unauthorised at the layer it depends on** | A Pages domain move that succeeded, then served **522 for six minutes with no way to repair it** | `status: pending`, `verification_data: { "error_message": "CNAME record not set" }`. Token had `pages (write)` but only `zone (read)`, so reading the DNS record returned `Authentication error (10000)` — *"I could create the broken state but not repair it."* **Moving a Pages custom domain does not move its DNS record.** |
-
 | 28 | **An unmerged branch** — "committed" | **"on `main`"**, in two Notion pages and an orchestrator brief, with a correct and verified instance count attached | *This document.* On 2026-07-26 these three lesson files were written, committed, and cited **by repo path** as established doctrine. They were not on `main`. `git ls-tree -r --name-only origin/main -- docs/lessons/` returned neither file; `gh pr list --head srmcguirt/historian-state-files` returned `[]`. Every citation resolved to nothing for anyone not standing in one specific worktree, and **nothing errored** — the citation was well-formed, the count was right, the path was plausible. Caught by the incoming orchestrator, who re-derived three claims from the handoff page instead of trusting it. **`git commit` is not `git push` is not `on main`.** Now asked by `scripts/check-lesson-refs.sh` |
 | 29 | A lesson that was **never written** | **"Now a promoted lesson"**, hedged with *"if it exists"* | `docs/retros/aihu-v1-framework-2026-05-22.md:75` cites `docs/lessons/builder-uuid-hallucination.md`. `git log --all --diff-filter=A --` on that path is **empty — it has never existed on any ref**, for over two months. The hedge is the sharp part: *"if it exists"* makes the claim **unfalsifiable**, so a reader cannot distinguish a missing file from a deliberate maybe. Found by `check-lesson-refs.sh` **on its first run**, in a file nobody was looking at — the same way #610's R0 liveness gate caught a fourth dead cell on *its* first run |
-
 | 30 | An **unresolvable filter** | *"(no issues matched — team=FEL project=doesnotexist)"* followed by **"This is a real empty result, not a failure: the query succeeded."** — exit **0** | The swarm tool on #618, found by the verifier under FEL-430. `cmdTasks` builds `project:{name:{eq:"<raw string>"}}` and never resolves the name; Linear matches nothing and returns 200. A typo'd project and a genuine no-match are **byte-identical in shape, exit code, and reassurance.** Same shape in `cmdRecall`: Notion `/search` returns **200 with `results: []`** both when nothing matches and when the integration was granted access to nothing — the documented incident, reproduced by the tool written to embody the doctrine against it |
-| 31 | A scaffold that **cannot do anything** | `aihu app --template cf-team` **exit 0** | Verifier, post-#616. `bun run dev` / `typecheck` / `build` → **exit 1, `app::missing_workspace`, all three.** The template ships `moon.yml.tmpl` (a *project* config) and **no `.moon/` workspace folder**, while every script routes through moon. The scaffold succeeds and everything you can do with it fails. Arc: RED (nobody looked) → GREEN-because-skipped (nobody *could* look) → **RED for the real reason.** A skip hid a *defect*, not merely a gap |
+| 31 | A scaffold that **cannot do anything** | `aihu app --template cf-team` **exit 0** | Verifier, post-#616. `bun run dev` / `typecheck` / `build` → **exit 1, `app::missing_workspace`, all three.** The template ships `moon.yml.tmpl` (a *project* config) and **no `.moon/` workspace folder**, while every script routes through moon. The scaffold succeeds and everything you can do with it fails. Arc: RED (nobody looked) → GREEN-because-skipped (nobody *could* look) → **RED for the real reason.** A skip hid a *defect*, not merely a gap. Filed **FEL-431** (raised to P1) — and *also* as FEL-432 by a second agent an hour later, because both verified it independently and neither claim was in the tracker. **FEL-432 cancelled.** See the coordination protocol in `docs/state/orchestrator.md`: a claim is not a claim until it is in Linear |
 | 32 | A **deleted** call site | Every test still green — unit tests *and* the served-bytes test | Builder, FEL-426: the sanitiser's own tests and the end-to-end test both passed with the loader call removed. **Present is not wired.** Fixed by adding trust-boundary tests that go red when the call is deleted — proven, not assumed |
-| 33 | A **removed** item | The row simply vanishes; the lane stays green | Builder: derive-from-disk coverage **cannot detect deletion**. Removing an example made its row disappear and the gate passed. A committed floor (`governed-roster.json`) is what makes a removal a visible line deletion |
+| 33 | A **removed** item | The row simply vanishes; the lane stays green | *Promoted to its own shape — see `derive-from-disk-cannot-detect-removal.md`.* Builder: derive-from-disk coverage **cannot detect deletion**. Removing an example made its row disappear and the gate passed. A committed floor (`governed-roster.json`) is what makes a removal a visible line deletion |
 | 34 | A **per-item** no-op | A global counter that passes | FEL-428: `hacker-news` declared `compile+smoke`, had no smoke suite, printed *"compile-only (no smoke suite…)"* and ran nothing — while the vacuity guard at `:139` worked correctly, because it is a **global** counter and eight passing neighbours masked the one no-op. **A guard at the wrong granularity reads as protection while providing none** |
-
 | 35 | A function that **does not exist** | A documented API, **published to the docs site** | Builder-b, FEL-391: `collectSetupShape` is named in 3 Linear comments, the design doc, and `store/src/types.ts:91`. `git grep` finds **comments only, never a declaration** — the real function is `instantiateSetup`. `gen-api.ts` lifts that comment verbatim, so **the phantom shipped to the public docs.** A name repeated often enough acquires the appearance of a referent |
 | 36 | The **only** layer that tests the actual defect | **26/27 green** | Builder's own suite, disclosed up front: the served-bytes layer — the one exercising the SSR emitter, i.e. the only one that can see the #572 defect — is `it.skipIf(!COMPILER)`. On a checkout without `target/release/aihu-compile` it **silently skips** and the run reads as a pass. It hard-fails only when `CI` is set. *"If you see 26 passed, the layer you were asked to check did not run."* Built deliberately for local ergonomics, and still the same shape |
-
 | 37 | A **mutation that never applied** | **"0 tests red"** — read as *"these tests are unfalsifiable"* | The verifier's own mutation harness (#619): a `perl` substitution **silently did not match**, the file was unchanged, and the run reported zero red. One keystroke from being recorded as a finding about builder's suite. Caught only by printing the mutated line and seeing it identical; redone with an asserted anchor (`assert old in s`). **The pattern, aimed at the instrument built to hunt the pattern, mid-hunt** |
 | 38 | A **parser that is not there** | Four tests passing, asserting malformed markup *"degrades to text"* | #619 tests 17–20 stayed green under **all ten** mutations including one that **disabled tag recognition completely** — because "degrades to text" is equally true when *nothing is parsed at all*. They cannot distinguish a working parser from an absent one. Weak rather than lying, but invisible to a green run either way. Fix: assert the parsed **structure**, not that the payload appears as text |
-| 39 | The **28th** test | Guidance to expect **27** | Builder disclosed the `skipIf(!COMPILER)` trap honestly and still miscounted their own suite: *"want 27, not 26."* There are 28. `binary absent, no CI → 27 passed | 1 skipped, exit 0` — so someone following the correction lands on **exactly the false pass it was written to prevent.** A disclosed trap plus an off-by-one is still a trap |
+| 39 | The **28th** test | Guidance to expect **27** | Builder disclosed the `skipIf(!COMPILER)` trap honestly and still miscounted their own suite: *"want 27, not 26."* There are 28. `binary absent, no CI → 27 passed, 1 skipped, exit 0` — so someone following the correction lands on **exactly the false pass it was written to prevent.** A disclosed trap plus an off-by-one is still a trap |
+
+| 40 | A **decided** ruling | Reported as **"still needs a human decision"** — three times in one message | The historian's own status report. The coverage-floor ruling had been made ~40 min earlier *on FEL-426*; FEL-431/432 had already been deduped. I read the *channel*, which had scrolled, instead of the *tracker*, which had the answer — while having written "check the artifact, not the channel" into the mirror section below that same day. The rule adopted from it: **the channel is a notification, not a source of truth** |
+| 41 | A **priority escalation** | Applied to the **cancelled** duplicate | Verified 2026-07-26, after the dedup: `FEL-432  P1  Canceled` / `FEL-431  P2  Backlog`. The surviving issue is **P2**; the **P1 is on the issue that no longer exists.** Anyone triaging by priority sees a P1 that is cancelled and a live issue ranked below it — **the escalation evaporated into the tombstone.** Merging duplicates moves the *state*; it does not move the *priority* |
+
+| 42 | Three tokens the census **could not classify** | Dropped into a "NO MAPPING" bucket and **excluded from the drift count**, yielding **8 of 30** | The real figure is **11 of 38**. Builder's first checker→`packs.ts` map left `info-fg`/`success-fg`/`warning-fg` unmapped; completing it moved all three from *unmapped* to *drifted*. Self-reported, inside the task about this pattern. **The number to watch is the unmapped bucket, not the drift count — a census is only trustworthy once "didn't classify" is zero.** And a wrong denominator (30 vs 38) hides in exactly the same place |
+
+| 43b | A green obtained **before `main` moved** | Still displayed as green, for a merge-base that no longer exists | `880bca3b` was rebased to main+4 and its CI started; three more PRs landed while it ran, leaving it **3 behind again**. Flagged by the verifier: *"the CI currently running is against a tree that is no longer main+4. Whoever merges should re-read `check` at merge time rather than trusting this run."* Same class as 43, different clock: **43 expires when a gate is added; 43b expires whenever anyone else merges.** The historian's own #623 was **5 behind** when this was written |
+| 43 | A green obtained **before the gate existed** | Still displayed as **green**, under a contract it was never tested against | #621 was cut from `bc1c4eac` and went green there. #620 then added `lesson-refs` to `ci-ok`'s `needs`. *"Its old green did not mean what it looked like it meant."* Caught by builder-b, who rebased and re-ran rather than trusting the tick: `lesson-refs pass 7s` — **a gate that did not exist when the PR first went green.** GitHub renders both states identically. **After a required check is added, every open PR's existing green is stale evidence** |
+| 44 | A draft PR where **every job skipped** | A check list with **no red in it** | #622: `plan-a.yml:28` skips CI on drafts by design. *"An all-skipping check list renders as an absence of red, and nothing has run in CI at all."* Its only evidence was local. **"No red" and "verified" look identical in that UI** — and a skip is not a pass, which is the same ruling already standing for the scaffold-matrix cell |
+
+| 45 | An action that **never happened** | Reported as done, **carrying a real, resolvable issue ID about the real topic** — *full write-up in `guarantee-satisfied-by-the-defect.md`* | Builder wrote *"I filed it as FEL-435 myself rather than routing intake through you."* **No Linear call was ever made** — the orchestrator had done intake. `FEL-435` is real, is about `check_contrast.py`, and was created at `2026-07-26T20:42:29Z`. **Every property except "I did it" checks out**, so verifying the citation *confirms the wrong proposition.* Self-reported; nothing else caught it. See the section below |
+
+| 46 | A PR that got **no CI at all** | **`MERGEABLE / CLEAN`**, rendered identically to a fully-tested PR | `gh pr view 625` → `CLEAN`; `gh api .../check-runs --jq .total_count` → **0**. `plan-a.yml` is `pull_request: branches: [main]`, so **a PR targeting a non-main branch is never checked.** `mergeStateStatus` describes *blocking*, not *coverage*: with zero checks, nothing can block. Merged on that signal by the orchestrator **30 minutes after publicly naming the fourth variant of this**. Verified here: `plan-a.yml`, `scaffold-matrix.yml`, `storybook.yml`, `visual.yml` are **all** `branches: [main]` — **stacked PRs get zero gate coverage** |
+| 47 | A verification the style guide **mandates** | Never run by anything | `grep -rn check_contrast .github/ package.json scripts/` → **empty**. Every reference is prose — a changeset, a plan doc, `style-lock.md` itself. The lock mandates *"re-run `check_contrast.py` with the new token, don't eyeball it"* and **no gate has ever performed that.** *A mandated verification nothing runs cannot fail.* Found by builder while fixing the checker's *contents* — the outermost layer on that track |
+
+| 48 | A **draft** PR that built and tested **nothing** | **`ci-ok: SUCCESS`** — the sole required status for branch protection | Two green `ci-ok` runs on the *same SHA* `47dace65`: `20:44:45 check SKIPPED, examples SKIPPED, governed-examples SKIPPED → 20:45:02 ci-ok SUCCESS` and then the real one at `20:53:27`. **Both halves are correct in isolation** — `plan-a.yml:28` skips CI on drafts by design; `ci-ok` passes when its needs *succeeded **or were skipped***, deliberately, so doc-only PRs merge without an admin override. **Composed, a draft satisfies the required status.** Only `lesson-refs` actually ran, having no `if:` and no draft gate. Found by builder-b watching #622 cross draft→ready |
+
+| 49 | An **unreachable** branch | A row in a verification table reading **verified**, with a plausible exit code and message | The `UNVERIFIABLE … DEGRADED` path in the swarm tool: `notion()` calls `die()` on both failure paths, so the `catch` that sets the flag can never fire and the branch is dead. The table row was produced by forcing the *variable*, not the *cause* — and `assert old in s` cannot distinguish those, because both are real edits that really applied. **Dead code carrying a claim** |
+| 50 | Seven further defects | **One filed issue**, closed by fixing the first | FEL-431 was filed as *"ships `moon.yml` and no workspace folder."* True — **and it is defect 1 of 8.** Each fix exposed the next: missing project configs, `type:`/`local:` fields from moon **1.x** in a repo where moon 2.2.5 is installed, `git init` with no commit, `tsconfig` project references to two directories that contain no `tsconfig.json`, a `build` dep on a package with no build script, and zero test files under a CI that runs `bun run test`. **The first error was masking a template that does not work at any layer** |
+
+## WHEN THE FIRST FAILURE MASKS THE REST
+
+Instance 50 deserves its own note, because the *reporting* failure is separable
+from the defects.
+
+> A component fails. You file the first error you hit. **Fixing it reveals a
+> second, which was always there and could not be seen.** Repeat.
+
+Stated more precisely, and this is the sentence to keep:
+
+> **The first thing to abort is not the same as the reason it is broken.**
+
+The filed issue — *"ships `moon.yml` and no workspace folder"* — was accurate
+about the *first abort*. It was silent about the other seven, not through any
+fault of the reporter, but because **nothing downstream of the first failure had
+ever executed.**
+
+Eight defects, found one at a time, each invisible until the one above it was
+fixed. The issue as filed — accurate, reproducible, P1 — described **one eighth**
+of the problem, and closing it on that basis would have marked a still-unusable
+template as fixed.
+
+**The tell that you are in this situation:** *a fix that immediately reveals
+another defect is evidence the report was scoped to a symptom.* Not proof —
+sometimes a fix genuinely uncovers one more thing — but by the third repetition
+it is no longer a defect list, it is a component that was never exercised.
+
+Two corroborating details from that case, both independent of the reported error:
+
+- Fields `type:` and `local:` are **moon 1.x schema**. The template has never
+  been run against the moon anyone installs today.
+- The **generated** `.github/workflows/ci.yml.tmpl` never installs moon, then
+  runs three commands routed through it. **The CI the template hands its user
+  cannot pass on its first run either** — so the artifact is self-confirming: it
+  ships proof of its own brokenness and nothing read it.
+
+### It also closes the #613/#616 arc, and makes the green-by-construction lesson worse
+
+The cf-team matrix cell was permanently RED (nobody looked), then
+GREEN-because-skipped (nobody *could* look), then RED for the real reason once
+#616 installed moon. The tidy reading is *"a skip was hiding a gap."* The true one
+is sharper:
+
+> **The skip was not hiding a gap, and it was not hiding one bug. It was hiding
+> eight — behind the only one that could fire.**
+
+#616 made defect 1 visible. **Nothing has ever seen 2 through 8**, across three
+published major versions of the template. That is a stronger claim than FEL-428
+usually supports: a green-by-construction gate is not merely uninformative, and
+not merely concealing *a* defect — it can conceal an entire component that has
+never been exercised end to end, with the count unknowable until someone starts
+peeling.
+
+**The right move when you notice it is to stop and re-scope, not to keep
+patching** — which is what happened here, with the work halted at defect 5 and a
+scope ruling requested, because "fix all eight" is *rebuilding the template* and
+that is a different decision than the issue authorised.
+
+## THE SIX WAYS A GREEN LIED, IN ONE DAY
+
+Collected because the count is the argument. Each was found separately, in a
+different mechanism, and each renders in the UI exactly like a passing build:
+
+| # | the green | what was actually true |
+|---|---|---|
+| 1 | gate **measuring nothing** | `0 passed, 0 failed`, exit 0 — FEL-428, green-by-construction |
+| 2 | gate **green-because-skipped** | the cf-team cell could not run; a skip counted as not-a-failure |
+| 3 | green **predating the gate** | #621 went green before `lesson-refs` joined `ci-ok`'s `needs` |
+| 4 | **all jobs skipped** on a draft | an all-skipping check list reads as an absence of red |
+| 5 | **no checks at all** | a non-`main`-targeting PR reports `CLEAN` with `total_count: 0` |
+| 6 | **`ci-ok` SUCCESS on a draft** | every needed job SKIPPED; the required status satisfied by a PR that compiled nothing |
+
+**Only #1 is a broken gate.** Two through six are *correct machinery* reported
+through a UI that cannot distinguish "passed" from "did not run." That is the
+common root, and it is not fixable by making gates better.
+
+**#6 is the worst of them, because it is aimed at the one gate everyone trusts.**
+`ci-ok` is the sole required status; "merge on `ci-ok` green" is an operating rule
+here. And the distinguishing information *is not in the status* — it is in whether
+the `needs` were SKIPPED, which nobody reads. The platform still blocks merging a
+draft, so this did not ship anything; **the reading is what was load-bearing and
+wrong.** It is the exact inverse of `bench`, which is *red* by construction until
+people learn to wave red past: same erosion, opposite sign.
+
+> **`CLEAN`, green ticks, and an absence of red are all claims about BLOCKING.
+> None of them is a claim about COVERAGE.**
+
+**And every green is scoped to a tree that expires.** A CI result is a statement
+about *one merge-base*, and it stops being true — silently, with the tick
+unchanged — the moment the gate set changes (43) or anyone else merges (43b).
+So the check has a third clause:
+
+```bash
+git rev-list --left-right --count origin/main...HEAD    # left must be 0
+```
+
+**Re-read the conclusion at merge time, not when the run finished.** Nothing in
+the UI distinguishes "green, and current" from "green, against a tree that no
+longer exists."*
+
+### The principle underneath all six: there are THREE states, not two
+
+Every row above is the same error, and naming it this way makes the fix obvious:
+
+| state | means |
+|---|---|
+| **passed** | evaluated, and it was fine |
+| **failed** | evaluated, and it was not |
+| **not evaluated** | *nothing happened* |
+
+**All six lying greens are "not evaluated" rendered as "passed."**
+
+And the trap on the other side is just as real. The first proposed fix for #6 was
+to make `ci-ok` **fail** on drafts — which renders "not evaluated" as **"failed"**,
+and is wrong for two reasons:
+
+1. **It asserts something false.** *"Failed" means evaluated and failed. Nothing
+   was evaluated.*
+2. **It is red-by-construction.** Builders work in drafts, so every in-progress PR
+   would carry a permanent red X — and when a draft eventually has a *real*
+   failure, it lands in a column everyone has been trained to ignore. That is the
+   `bench` problem, reintroduced as a cure for its own mirror image.
+
+> **The honest rendering of "not evaluated" is neither green nor red. It is
+> ABSENT** — and the loudness should come from *the absence of a green*, not from
+> a false red.
+
+For a required status that means: **do not report at all.** The merge stays
+blocked on a *missing* required check, which is correct and honest, and the real
+run reports for the first time when the work is actually ready.
+
+**Design rule: never render "did not run" as a verdict.** A skip that counts as a
+pass and a skip that counts as a failure are the same mistake pointing opposite
+ways, and this repo now has an instance of each.
+
+The check that separates them is one line and nothing in this repo ran it before
+today:
+
+```bash
+# does anything exist?
+gh api repos/:owner/:repo/commits/<sha>/check-runs --jq .total_count          # > 0
+
+# did the job that matters actually RUN, or was it skipped?
+gh api repos/:owner/:repo/commits/<sha>/check-runs \
+  --jq '.check_runs[] | "\(.name)\t\(.conclusion)"'                          # check == success
+```
+
+**A green `ci-ok` is necessary and not sufficient. Read the conclusion of the job
+underneath it.**
+
+**And the trigger scope documents the property it does not have.** `plan-a.yml:17`
+reads *"the workflow must trigger on EVERY PR so the always-on `ci-ok` job reports
+a required status"* — three lines under `branches: [main]`. A stacked PR gets no
+`ci-ok`, and the comment tells the reader the opposite. Same shape as the
+`changes.code` doc-only-skip comment describing behaviour that never happens.
+
+## Not in this file: when something TRUE does the concealing
+
+Every row above is an **absence** rendered as a value. Two findings from the same
+session are the inverse — the reassuring artifact is **genuine**, and its reality
+is the camouflage:
+
+- a coverage floor that truthfully said `html: covered ✓`, whose sole satisfier
+  was a live stored-XSS;
+- a claim *"I filed FEL-435"* carrying a **real** ID, for the real topic.
+
+They do not fail a check; **they pass the wrong one**. Filed together in
+**`guarantee-satisfied-by-the-defect.md`** rather than here, because scepticism
+aimed at "is this value real?" does not catch them — the value *is* real.
 
 ## THE MIRROR IMAGE: a PRESENT value rendered as ABSENT
 
@@ -136,6 +321,9 @@ succeeded."* That sentence is true of the GraphQL call and false as an assurance
 about the filter.
 
 > **Silence invites a second look. An assertion of validity forecloses it.**
+>
+> Or, sharper: **a silent empty is a gap; a confident empty is a lie with a
+> receipt.**
 
 So when you write the reassuring branch of an instrument, the bar is higher than
 "do not lie." You must be able to prove the reassurance, or not offer it. If a

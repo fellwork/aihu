@@ -216,7 +216,7 @@ read showed blank. Re-ran clean.)
 
 **The tool never reads the shipped tokens.** Hardcoded `TOKENS` dict at line 32;
 never opens `packages/css-engine/src/packs.ts`. Its docstring admits the manual
-coupling. **8 of 30 values have already drifted:**
+coupling. **8 of 30 values have already drifted:** *(historian, later: the full census is **11 of 38** — see the note at the end of this file)*
 
 | token | mode | tool | ships |
 |---|---|---|---|
@@ -311,3 +311,94 @@ packages/cli/src/index.ts     true                   true
 applies and the leading `'**'` satisfies every file. **`code` is true for
 everything; the documented doc-only skip has never happened.** The historian had
 written the opposite into `#620` and corrected it there.
+
+## Correction to the #604 census — 11 of 38, not 8 of 30
+
+Re-counted 2026-07-26 by builder while starting the fix, and the denominator was
+wrong too. Verified by the historian by parsing the `TOKENS` dict rather than
+sampling: **19 rows x 2 modes = 38 values**, not 30.
+
+**How the original 8 happened, and it is the sharper half:** the first
+checker→`packs.ts` map left `info-fg` / `success-fg` / `warning-fg` **unmapped**,
+so they fell into a "NO MAPPING" bucket and were never counted as drift.
+Completing the map moved three rows from *unmapped* to *drifted*.
+
+> **8 is what you get when your instrument does not cover everything it claims
+> to.** The number to watch is the **unmapped bucket**, not the drift count — a
+> census is only trustworthy once "didn't classify" is zero.
+
+Found by builder, in their own work, inside the task about exactly this pattern.
+
+### CORRECTION: the "mirror drifted" diagnosis is wrong — measured against the lock, it is faithful
+
+builder checked the checker against its **own declared source of truth** before
+touching it, which neither the verifier nor I did:
+
+```
+check_contrast.py TOKENS  vs  .tastemaker/style-lock.md
+  faithful to the lock : 27
+  mirror-drifted       :  3   (info-fg / success-fg / warning-fg dark)
+  not in the lock table:  8   (pack-* / destructive rows — accurate vs packs.ts)
+```
+
+Historian re-verified the 7 core brand rows against `style-lock.md:19-25`: **all
+14 values match exactly.** And the `pack-*` rows carry a comment reading
+*"Component-token rows (packs.ts aihu-default) that differ from the above"* —
+**someone deliberately modelled the divergence and checked both sides.** The
+design intent was two-source, not one.
+
+So the tool is not a rotting copy. **The real defect is worse and more
+interesting: the brand contract (`style-lock.md`) and the shipped pack
+(`packs.ts`) disagree on 8 values; both artifacts are internally consistent; and
+no gate anywhere compares them.** The tool audits the contract. *Nothing audits
+the thing that ships.*
+
+The headline survives untouched — shipped `accent`/`border` really is `3.12`
+against a `3.00` floor while the tool prints `3.62`. **The number was right and
+the diagnosis was not.**
+
+**Consequence for the fix:** "derive the hexes from `packs.ts`" would resolve a
+brand-vs-implementation disagreement **by fiat, in a file whose header declares
+the opposite**. That is a design ruling, not a builder's call. Correctly escalated
+as a hard gate.
+
+### RESOLVED: the `graphite` row was a false positive. Census is 10, escalation is 7 pairs.
+
+Confirmed independently by the orchestrator, verified again here against
+`origin/main`:
+
+```
+style-lock.md:23  Graphite (AI axis)  --graphite       #363c47 L | #aab0bd D
+style-lock.md:70  Neutral (fill)      --color-neutral  #363c47 L | #636a72 D | fg #faf8f4
+packs.ts          color-neutral       #363c47 L | #636a72 D   -> matches :70 EXACTLY
+#aab0bd           appears nowhere in css-engine
+```
+
+**`color-neutral` does not diverge at all.** The census paired `--graphite` (brand
+ink) with `--color-neutral` (component fill) — two tokens `style-lock.md` defines
+*separately and deliberately*, with the E2 naming resolution recorded at `:86`.
+
+**The trap, and it is the durable part: in LIGHT mode both are `#363c47`. They
+diverge only in DARK.** A pairing that is right in one mode and wrong in the other
+will be confirmed by any spot-check done in light alone. *The single row where the
+two coincide is the row that made the wrong pairing look verified.* Recorded as
+instance 25 in `checked-thing-is-not-the-changed-thing.md`.
+
+`graphite dark` was reported as the largest drift, `#aab0bd -> #636a72`, "a
+different colour entirely." The mode alignment is right (`packs.ts:102` is inside
+the `dark` block). **The role alignment may not be:**
+
+- The checker's `graphite` comes from `style-lock.md:23` — `Graphite (AI axis)`,
+  `--graphite`, `#363c47` light / `#aab0bd` dark. A **brand-axis ink** value.
+- `packs.ts` `color-neutral: '#636a72'` sits beside `color-info`, `color-success`,
+  `color-warning`, **each with a `-foreground` partner** — and it has one too,
+  `color-neutral-foreground: '#faf8f4'`, a near-white. That is a **background**
+  token you put light text on.
+- `#aab0bd` appears **nowhere** in `packs.ts`.
+
+`--color-neutral` was ratified (E2) as *"the component realization of the graphite
+axis"* — related, but a realization is not an identity, and a contrast checker
+comparing a brand ink against a component background is comparing two different
+jobs. **If that mapping is not 1:1, the census is 10, not 11.**
+
+Open question for whoever owns the design tokens, not a verdict.

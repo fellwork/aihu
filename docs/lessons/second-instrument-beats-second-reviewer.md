@@ -206,6 +206,36 @@ A `sed`/`perl`/`replace()` that matches nothing exits successfully and changes
 nothing. Without the assert, "0 tests red" is indistinguishable from "the
 mutation never happened," and the two readings point in opposite directions.
 
+#### And the limit of that practice — necessary, not sufficient
+
+> **`assert old in s` proves the mutation APPLIED. It does not prove the mutation
+> corresponds to a REACHABLE real-world condition.**
+
+Recorded after it produced a false "verified" row. A verification table claimed
+`recall, forced probe failure → exit 1, "UNVERIFIABLE … DEGRADED"`. The verifier
+could not reproduce it by causing an *actual* probe failure:
+
+```
+probe → /search_bogus_probe_fail
+recall <nonsense>  →  exit 1  "swarm: Notion HTTP 400: Invalid request URL."
+                      NOT     "UNVERIFIABLE ... DEGRADED"
+```
+
+**The branch is dead.** `notion()` never throws — it calls `die()` on both the
+network path and the `!res.ok` path, so `catch { visible = null }` cannot fire
+and `if (visible === null)` is unreachable. The original row was almost certainly
+forced **at the variable or the branch** rather than **at the cause**, and the
+assert cannot tell those apart: both are real edits that really applied.
+
+**So mutate at the CAUSE, not at the symptom.** Point the dependency at a bad
+endpoint; drop the network; revoke the credential. If you can only make a branch
+fire by editing the branch, you have not shown the branch is reachable — **you
+have shown it exists**, which is what the code already told you.
+
+Contrast, from the same run, showing what a reachable branch looks like when
+forced at the cause: probe forced to a real HTTP 200 with zero results gave
+exactly `wiki layer is OFF, not empty`, exit 1. That one is real.
+
 ## When a reviewer *is* the right tool
 
 This lesson is not "stop reviewing." Diff review catches intent bugs, API misuse,
