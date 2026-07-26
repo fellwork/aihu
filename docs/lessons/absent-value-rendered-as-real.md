@@ -113,6 +113,41 @@ people learn to wave red past: same erosion, opposite sign.
 > **`CLEAN`, green ticks, and an absence of red are all claims about BLOCKING.
 > None of them is a claim about COVERAGE.**
 
+### The principle underneath all six: there are THREE states, not two
+
+Every row above is the same error, and naming it this way makes the fix obvious:
+
+| state | means |
+|---|---|
+| **passed** | evaluated, and it was fine |
+| **failed** | evaluated, and it was not |
+| **not evaluated** | *nothing happened* |
+
+**All six lying greens are "not evaluated" rendered as "passed."**
+
+And the trap on the other side is just as real. The first proposed fix for #6 was
+to make `ci-ok` **fail** on drafts — which renders "not evaluated" as **"failed"**,
+and is wrong for two reasons:
+
+1. **It asserts something false.** *"Failed" means evaluated and failed. Nothing
+   was evaluated.*
+2. **It is red-by-construction.** Builders work in drafts, so every in-progress PR
+   would carry a permanent red X — and when a draft eventually has a *real*
+   failure, it lands in a column everyone has been trained to ignore. That is the
+   `bench` problem, reintroduced as a cure for its own mirror image.
+
+> **The honest rendering of "not evaluated" is neither green nor red. It is
+> ABSENT** — and the loudness should come from *the absence of a green*, not from
+> a false red.
+
+For a required status that means: **do not report at all.** The merge stays
+blocked on a *missing* required check, which is correct and honest, and the real
+run reports for the first time when the work is actually ready.
+
+**Design rule: never render "did not run" as a verdict.** A skip that counts as a
+pass and a skip that counts as a failure are the same mistake pointing opposite
+ways, and this repo now has an instance of each.
+
 The check that separates them is one line and nothing in this repo ran it before
 today:
 
