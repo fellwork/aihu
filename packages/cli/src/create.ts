@@ -218,7 +218,13 @@ export interface ResolvedCreateOptions {
   readonly template: AppTemplate
   readonly pm: PkgManager
   readonly css: CssChoice
-  readonly shadowMode: ShadowChoice
+  /**
+   * Explicit shadow-mode choice, or `undefined` when the user did not choose —
+   * the scaffold then emits no plugin-global `css: { shadowMode }` block and
+   * the DA4 framework defaults apply (pages/layouts light, leaves shadow).
+   * Fabricating a default here would pin it into vite.config.ts (FEL-425).
+   */
+  readonly shadowMode: ShadowChoice | undefined
   readonly initGit: boolean
 }
 
@@ -233,7 +239,9 @@ export function resolveCreateOptions(opts: {
   detected: PkgManager
 }): ResolvedCreateOptions {
   const css: CssChoice = opts.css ?? 'none'
-  const shadowMode: ShadowChoice = css === 'engine' ? (opts.shadow ?? 'shadow') : 'shadow'
+  // Only a genuine `--shadow` choice survives; `undefined` means the scaffold
+  // emits no shadowMode and the framework defaults decide (FEL-425).
+  const shadowMode: ShadowChoice | undefined = css === 'engine' ? opts.shadow : undefined
   return {
     template: opts.template ?? 'minimal',
     pm: opts.pm ?? opts.detected,
@@ -285,7 +293,8 @@ export function usageText(): string {
     '  --template <id>     Template to scaffold from (see the list below)',
     '  --pm <bun|pnpm|npm|yarn>   Package manager (default: auto-detected)',
     '  --css <engine|none>        Include @aihu/css-engine (built-in templates only)',
-    '  --shadow <light|shadow>    Shadow mode when --css engine is set',
+    '  --shadow <light|shadow>    Force one shadow mode project-wide when --css engine is set',
+    '                             (default: framework defaults — light-DOM pages/layouts, shadow-DOM leaves)',
     '  --no-git            Skip git init',
     '  --no-install        Skip dependency install (npm templates only)',
     '  --yes, -y           Non-interactive; take documented defaults',
@@ -501,8 +510,13 @@ async function main(): Promise<void> {
     css = cssAnswer.trim().toLowerCase().startsWith('y') ? 'engine' : 'none'
   }
 
-  // Shadow mode only matters when css-engine is on.
-  let shadowMode: ShadowChoice = 'shadow'
+  // Shadow mode only matters when css-engine is on. `undefined` means the
+  // user made no explicit choice — the scaffold then emits no plugin-global
+  // `css: { shadowMode }` block and the DA4 framework defaults apply
+  // (pages/layouts light DOM, leaf components shadow DOM). Pressing Enter is
+  // NOT a choice: fabricating one would pin the framework default into
+  // vite.config.ts and freeze it (FEL-425).
+  let shadowMode: ShadowChoice | undefined
   if (css === 'engine') {
     const shadowArg = shadowFromArgv()
     if (shadowArg !== undefined) {
@@ -512,20 +526,22 @@ async function main(): Promise<void> {
       process.stdout.write('\n')
       process.stdout.write(`${dim('  Shadow mode:')}\n`)
       process.stdout.write(
-        `    ${cyan('1)')} shadow  ${dim('(default, scoped — utilities fold into the shadow style)')}\n`,
+        `    ${cyan('1)')} default ${dim('(framework defaults — light-DOM pages/layouts, shadow-DOM leaves)')}\n`,
       )
       process.stdout.write(
-        `    ${cyan('2)')} light   ${dim('(light DOM — global cascade; style slotted / external children)')}\n`,
+        `    ${cyan('2)')} shadow  ${dim('(force shadow project-wide — utilities fold into each shadow style)')}\n`,
+      )
+      process.stdout.write(
+        `    ${cyan('3)')} light   ${dim('(force light DOM project-wide — global cascade)')}\n`,
       )
       const shadowAnswer = await prompt(rl, `  ${dim('Shadow mode [1]:')} `)
       const shadowMap: Record<string, ShadowChoice> = {
-        '': 'shadow',
-        '1': 'shadow',
+        '2': 'shadow',
         shadow: 'shadow',
-        '2': 'light',
+        '3': 'light',
         light: 'light',
       }
-      shadowMode = shadowMap[shadowAnswer.trim().toLowerCase()] ?? 'shadow'
+      shadowMode = shadowMap[shadowAnswer.trim().toLowerCase()]
     }
   }
 
@@ -556,7 +572,7 @@ async function scaffoldAndReport(
 
   // ── Scaffold ──────────────────────────────────────────────────────────────
   process.stdout.write('\n')
-  const cssLabel = css === 'engine' ? ` / css-engine:${shadowMode}` : ''
+  const cssLabel = css === 'engine' ? ` / css-engine:${shadowMode ?? 'default'}` : ''
   process.stdout.write(
     `${dim('  Creating')} ${cyan(projectName)} ${dim(`(${template} / ${pm}${cssLabel})…`)}\n\n`,
   )

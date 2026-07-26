@@ -16,7 +16,9 @@ describe('resolveCreateOptions — documented defaults', () => {
       template: 'minimal',
       pm: 'pnpm',
       css: 'none',
-      shadowMode: 'shadow',
+      // FEL-425: no fabricated shadow choice — undefined means the scaffold
+      // emits no shadowMode and the DA4 framework defaults apply.
+      shadowMode: undefined,
       initGit: true,
     })
   })
@@ -39,9 +41,24 @@ describe('resolveCreateOptions — documented defaults', () => {
     })
   })
 
-  it('ignores shadow when css is none (forces shadow)', () => {
+  it('ignores shadow when css is none (nothing to pin)', () => {
     const r = resolveCreateOptions({ css: 'none', shadow: 'light', detected: 'bun' })
-    expect(r.shadowMode).toBe('shadow')
+    expect(r.shadowMode).toBeUndefined()
+  })
+
+  it('css engine with no shadow flag resolves to undefined — framework defaults (FEL-425)', () => {
+    const r = resolveCreateOptions({ css: 'engine', detected: 'bun' })
+    expect(r.css).toBe('engine')
+    expect(r.shadowMode).toBeUndefined()
+  })
+
+  it('css engine with an explicit shadow choice keeps it (deliberate-choice path)', () => {
+    expect(
+      resolveCreateOptions({ css: 'engine', shadow: 'shadow', detected: 'bun' }).shadowMode,
+    ).toBe('shadow')
+    expect(
+      resolveCreateOptions({ css: 'engine', shadow: 'light', detected: 'bun' }).shadowMode,
+    ).toBe('light')
   })
 
   it('git defaults on; --no-git (git:false) turns it off', () => {
