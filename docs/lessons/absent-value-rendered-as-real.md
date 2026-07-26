@@ -84,6 +84,41 @@ written by different people, months apart. That is the point.
 
 | 48 | A **draft** PR that built and tested **nothing** | **`ci-ok: SUCCESS`** — the sole required status for branch protection | Two green `ci-ok` runs on the *same SHA* `47dace65`: `20:44:45 check SKIPPED, examples SKIPPED, governed-examples SKIPPED → 20:45:02 ci-ok SUCCESS` and then the real one at `20:53:27`. **Both halves are correct in isolation** — `plan-a.yml:28` skips CI on drafts by design; `ci-ok` passes when its needs *succeeded **or were skipped***, deliberately, so doc-only PRs merge without an admin override. **Composed, a draft satisfies the required status.** Only `lesson-refs` actually ran, having no `if:` and no draft gate. Found by builder-b watching #622 cross draft→ready |
 
+| 49 | An **unreachable** branch | A row in a verification table reading **verified**, with a plausible exit code and message | The `UNVERIFIABLE … DEGRADED` path in the swarm tool: `notion()` calls `die()` on both failure paths, so the `catch` that sets the flag can never fire and the branch is dead. The table row was produced by forcing the *variable*, not the *cause* — and `assert old in s` cannot distinguish those, because both are real edits that really applied. **Dead code carrying a claim** |
+| 50 | Seven further defects | **One filed issue**, closed by fixing the first | FEL-431 was filed as *"ships `moon.yml` and no workspace folder."* True — **and it is defect 1 of 8.** Each fix exposed the next: missing project configs, `type:`/`local:` fields from moon **1.x** in a repo where moon 2.2.5 is installed, `git init` with no commit, `tsconfig` project references to two directories that contain no `tsconfig.json`, a `build` dep on a package with no build script, and zero test files under a CI that runs `bun run test`. **The first error was masking a template that does not work at any layer** |
+
+## WHEN THE FIRST FAILURE MASKS THE REST
+
+Instance 50 deserves its own note, because the *reporting* failure is separable
+from the defects.
+
+> A component fails. You file the first error you hit. **Fixing it reveals a
+> second, which was always there and could not be seen.** Repeat.
+
+Eight defects, found one at a time, each invisible until the one above it was
+fixed. The issue as filed — accurate, reproducible, P1 — described **one eighth**
+of the problem, and closing it on that basis would have marked a still-unusable
+template as fixed.
+
+**The tell that you are in this situation:** *a fix that immediately reveals
+another defect is evidence the report was scoped to a symptom.* Not proof —
+sometimes a fix genuinely uncovers one more thing — but by the third repetition
+it is no longer a defect list, it is a component that was never exercised.
+
+Two corroborating details from that case, both independent of the reported error:
+
+- Fields `type:` and `local:` are **moon 1.x schema**. The template has never
+  been run against the moon anyone installs today.
+- The **generated** `.github/workflows/ci.yml.tmpl` never installs moon, then
+  runs three commands routed through it. **The CI the template hands its user
+  cannot pass on its first run either** — so the artifact is self-confirming: it
+  ships proof of its own brokenness and nothing read it.
+
+**The right move when you notice it is to stop and re-scope, not to keep
+patching** — which is what happened here, with the work halted at defect 5 and a
+scope ruling requested, because "fix all eight" is *rebuilding the template* and
+that is a different decision than the issue authorised.
+
 ## THE SIX WAYS A GREEN LIED, IN ONE DAY
 
 Collected because the count is the argument. Each was found separately, in a
