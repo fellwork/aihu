@@ -50,6 +50,39 @@ export interface AihuPluginApi {
   getAihuConfig(): AihuConfig
 }
 
+/**
+ * The contract EVERY aihu package that contributes build behaviour satisfies.
+ *
+ * This is the growth mechanism. A package ships its own Vite plugin factory,
+ * attaches this handle, and becomes readable by the CLI, the language server,
+ * and anything else — without `@aihu/app` knowing the package exists and
+ * without a central registry to update.
+ *
+ * Deliberately NOT Nuxt's model. Nuxt generates `.nuxt/types/modules.d.ts` to
+ * recover option types, because Nuxt modules are registered by STRING
+ * (`modules: ['@nuxt/image']`) and a string erases the type. That machinery is
+ * recovery for a problem created by the registration form. We register by
+ * factory call — `ui({ prefix: 'app' })` — so the options type comes from the
+ * function signature for free, statically, with no codegen, no `prepare` step,
+ * and no chicken-and-egg where config typing does not exist until after a
+ * successful build.
+ *
+ * What remains is the RUNTIME half: something outside Vite needs the resolved
+ * values. That is what `getOptions()` is for, and it is all that is needed.
+ */
+export interface AihuModuleApi<TOptions = unknown> {
+  /**
+   * Stable module id — the package name, e.g. `'@aihu/ui'`.
+   *
+   * Keyed on this rather than the plugin `name` because a package may
+   * contribute several plugins (Vite has no dedupe and a factory returning an
+   * array is the norm), and consumers want the package, not each plugin.
+   */
+  readonly aihuModule: string
+  /** The resolved options for this module, after its own defaults. */
+  getOptions(): TOptions
+}
+
 export interface LoadedAihuConfig {
   /** The evaluated config. `{}` when the plugin was called with no argument. */
   readonly config: AihuConfig
@@ -61,6 +94,14 @@ export interface LoadedAihuConfig {
    * server restart on config edits.
    */
   readonly dependencies: ReadonlyArray<string>
+  /**
+   * Every aihu module registered in the Vite config, keyed by `aihuModule`.
+   *
+   * This is what gives the CLI coverage that grows on its own: a new package
+   * that ships a plugin with an `AihuModuleApi` handle shows up here with no
+   * change to `@aihu/app`, to this function, or to any consumer.
+   */
+  readonly modules: ReadonlyMap<string, unknown>
 }
 
 /** Structural shape of a Vite plugin carrying our api handle. */
@@ -74,6 +115,32 @@ function hasAihuApi(p: MaybeAihuPlugin): p is { name: string; api: AihuPluginApi
     p.name === AIHU_CONFIG_PLUGIN &&
     typeof (p.api as AihuPluginApi | undefined)?.getAihuConfig === 'function'
   )
+}
+
+/** Does this plugin carry the module contract? */
+function hasModuleApi(p: MaybeAihuPlugin): p is { api: AihuModuleApi } {
+  const api = p.api as AihuModuleApi | undefined
+  return typeof api?.aihuModule === 'string' && typeof api.getOptions === 'function'
+}
+
+/**
+ * Collect every aihu module's resolved options from a plugin array.
+ *
+ * Exported so a consumer that already has the plugins (a Vite plugin in its
+ * own `configResolved`, say) does not have to re-load the config file.
+ *
+ * First registration wins on a duplicate id: Vite does not dedupe plugins by
+ * name, so a package registered twice runs twice, and the first is the one
+ * whose options the build actually established.
+ */
+export function collectAihuModules(plugins: ReadonlyArray<unknown>): Map<string, unknown> {
+  const modules = new Map<string, unknown>()
+  for (const p of plugins as MaybeAihuPlugin[]) {
+    if (!p || !hasModuleApi(p)) continue
+    if (modules.has(p.api.aihuModule)) continue
+    modules.set(p.api.aihuModule, p.api.getOptions())
+  }
+  return modules
 }
 
 /**
@@ -133,5 +200,42 @@ export async function loadAihuConfig(
     config: marker.api.getAihuConfig(),
     configFile: loaded.path,
     dependencies: loaded.dependencies,
+    modules: collectAihuModules(plugins),
   }
+}
+
+/**
+ * Attach the module contract to a plugin (or plugin array).
+ *
+ * The one-liner a package uses so it becomes CLI-readable:
+ *
+ * ```ts
+ * // @aihu/ui
+ * export function ui(options: UiOptions = {}): Plugin[] {
+ *   const resolved = { ...UI_DEFAULTS, ...options }
+ *   validateUiOptions(resolved)          // the package owns its own schema
+ *   return declareAihuModule('@aihu/ui', resolved, [
+ *     { name: 'aihu:ui', ... },
+ *   ])
+ * }
+ * ```
+ *
+ * The handle rides the FIRST plugin, so a package contributing several plugins
+ * still reports one set of options. Options are captured by reference at call
+ * time — `getOptions()` returns what the build is actually using, not a copy
+ * that could drift.
+ */
+export function declareAihuModule<TOptions, TPlugins extends readonly unknown[]>(
+  aihuModule: string,
+  options: TOptions,
+  plugins: TPlugins,
+): TPlugins {
+  const first = plugins[0] as { api?: unknown } | undefined
+  if (first && typeof first === 'object') {
+    const api: AihuModuleApi<TOptions> = { aihuModule, getOptions: () => options }
+    // Merge rather than overwrite: a plugin may already publish its own api
+    // (Qwik-style handles are a normal thing to want alongside this).
+    first.api = Object.assign({}, first.api ?? {}, api)
+  }
+  return plugins
 }

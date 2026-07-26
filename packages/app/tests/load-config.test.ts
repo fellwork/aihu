@@ -16,7 +16,12 @@
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { AIHU_CONFIG_PLUGIN, loadAihuConfig } from '../src/load-config.ts'
+import {
+  AIHU_CONFIG_PLUGIN,
+  collectAihuModules,
+  declareAihuModule,
+  loadAihuConfig,
+} from '../src/load-config.ts'
 import { viteAihuPlugin } from '../src/vite-plugin.ts'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -85,3 +90,52 @@ describe('loadAihuConfig reads vite.config.ts', () => {
     expect(await loadAihuConfig(join(HERE, 'fixtures'))).toBeNull()
   })
 }, 60_000)
+
+describe('the module contract — how coverage grows without a central registry', () => {
+  it('declareAihuModule makes a package readable by name', () => {
+    const plugins = declareAihuModule('@aihu/example', { prefix: 'ex' }, [
+      { name: 'aihu:example' },
+      { name: 'aihu:example-post' },
+    ])
+    const modules = collectAihuModules(plugins)
+    expect(modules.get('@aihu/example')).toEqual({ prefix: 'ex' })
+  })
+
+  it('reports one entry per PACKAGE, not per plugin', () => {
+    // A factory returning several plugins is the norm (viteAihuPlugin returns
+    // ~9). Consumers want the package's options once.
+    const plugins = declareAihuModule('@aihu/multi', { a: 1 }, [
+      { name: 'p1' },
+      { name: 'p2' },
+      { name: 'p3' },
+    ])
+    expect(collectAihuModules(plugins).size).toBe(1)
+  })
+
+  it('preserves an api the plugin already published', () => {
+    const plugins = declareAihuModule('@aihu/dual', { x: 1 }, [
+      { name: 'p', api: { somethingElse: () => 42 } },
+    ])
+    const api = (plugins[0] as { api: { somethingElse(): number; getOptions(): unknown } }).api
+    expect(api.somethingElse()).toBe(42)
+    expect(api.getOptions()).toEqual({ x: 1 })
+  })
+
+  it('first registration wins — Vite does not dedupe plugins by name', () => {
+    const first = declareAihuModule('@aihu/dup', { v: 'first' }, [{ name: 'a' }])
+    const second = declareAihuModule('@aihu/dup', { v: 'second' }, [{ name: 'b' }])
+    expect(collectAihuModules([...first, ...second]).get('@aihu/dup')).toEqual({ v: 'first' })
+  })
+
+  it('@aihu/app declares itself under the same contract as any other package', async () => {
+    const loaded = await loadAihuConfig(FIXTURE)
+    expect(loaded?.modules.get('@aihu/app')).toBe(loaded?.config)
+  })
+
+  it('returns live options, not a snapshot that can drift', () => {
+    const opts: { n: number } = { n: 1 }
+    const plugins = declareAihuModule('@aihu/live', opts, [{ name: 'p' }])
+    opts.n = 2
+    expect(collectAihuModules(plugins).get('@aihu/live')).toEqual({ n: 2 })
+  })
+})
