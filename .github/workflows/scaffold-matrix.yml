@@ -77,6 +77,20 @@ jobs:
       - name: Install pnpm and yarn
         run: npm install --global pnpm yarn
 
+      # moon is NOT on the ubuntu image either, and the cf-team template's own
+      # scripts shell out to it. Without this, that cell SKIPs on every run —
+      # and since #613 made a skip exit 0, it skipped GREEN, forever.
+      #
+      # That is worse than the red it replaced. cf-team is the ONLY
+      # kind:"app-template" cell in TEMPLATES: the sole coverage of
+      # `aihu app --template <id>` resolving a template package FROM npm. The
+      # other four are compiled into the CLI. So the one cell exercising the
+      # npm-resolution path was permanently unexecuted behind a passing check —
+      # a false negative nobody can see, traded for one they could.
+      - uses: moonrepo/setup-toolchain@v0
+        with:
+          auto-install: true
+
       - name: Report toolchain
         run: |
           echo "bun  $(bun --version)"
@@ -84,6 +98,10 @@ jobs:
           echo "pnpm $(pnpm --version)"
           echo "yarn $(yarn --version)"
           echo "node $(node --version)"
+          # Loud on purpose. If moon is missing the cf-team cell skips green,
+          # so its absence must be visible in the log rather than inferred from
+          # a grid row that quietly says SKIP.
+          echo "moon $(moon --version 2>/dev/null || echo 'MISSING — cf-team will SKIP')"
 
       # Only needed for --mode local; harmless (and fast) otherwise.
       #
