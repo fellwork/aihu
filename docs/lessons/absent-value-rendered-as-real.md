@@ -82,7 +82,9 @@ written by different people, months apart. That is the point.
 | 46 | A PR that got **no CI at all** | **`MERGEABLE / CLEAN`**, rendered identically to a fully-tested PR | `gh pr view 625` → `CLEAN`; `gh api .../check-runs --jq .total_count` → **0**. `plan-a.yml` is `pull_request: branches: [main]`, so **a PR targeting a non-main branch is never checked.** `mergeStateStatus` describes *blocking*, not *coverage*: with zero checks, nothing can block. Merged on that signal by the orchestrator **30 minutes after publicly naming the fourth variant of this**. Verified here: `plan-a.yml`, `scaffold-matrix.yml`, `storybook.yml`, `visual.yml` are **all** `branches: [main]` — **stacked PRs get zero gate coverage** |
 | 47 | A verification the style guide **mandates** | Never run by anything | `grep -rn check_contrast .github/ package.json scripts/` → **empty**. Every reference is prose — a changeset, a plan doc, `style-lock.md` itself. The lock mandates *"re-run `check_contrast.py` with the new token, don't eyeball it"* and **no gate has ever performed that.** *A mandated verification nothing runs cannot fail.* Found by builder while fixing the checker's *contents* — the outermost layer on that track |
 
-## THE FIVE WAYS A GREEN LIED, IN ONE DAY
+| 48 | A **draft** PR that built and tested **nothing** | **`ci-ok: SUCCESS`** — the sole required status for branch protection | Two green `ci-ok` runs on the *same SHA* `47dace65`: `20:44:45 check SKIPPED, examples SKIPPED, governed-examples SKIPPED → 20:45:02 ci-ok SUCCESS` and then the real one at `20:53:27`. **Both halves are correct in isolation** — `plan-a.yml:28` skips CI on drafts by design; `ci-ok` passes when its needs *succeeded **or were skipped***, deliberately, so doc-only PRs merge without an admin override. **Composed, a draft satisfies the required status.** Only `lesson-refs` actually ran, having no `if:` and no draft gate. Found by builder-b watching #622 cross draft→ready |
+
+## THE SIX WAYS A GREEN LIED, IN ONE DAY
 
 Collected because the count is the argument. Each was found separately, in a
 different mechanism, and each renders in the UI exactly like a passing build:
@@ -94,10 +96,19 @@ different mechanism, and each renders in the UI exactly like a passing build:
 | 3 | green **predating the gate** | #621 went green before `lesson-refs` joined `ci-ok`'s `needs` |
 | 4 | **all jobs skipped** on a draft | an all-skipping check list reads as an absence of red |
 | 5 | **no checks at all** | a non-`main`-targeting PR reports `CLEAN` with `total_count: 0` |
+| 6 | **`ci-ok` SUCCESS on a draft** | every needed job SKIPPED; the required status satisfied by a PR that compiled nothing |
 
-**Only #1 is a broken gate.** Two through five are *correct machinery* reported
+**Only #1 is a broken gate.** Two through six are *correct machinery* reported
 through a UI that cannot distinguish "passed" from "did not run." That is the
 common root, and it is not fixable by making gates better.
+
+**#6 is the worst of them, because it is aimed at the one gate everyone trusts.**
+`ci-ok` is the sole required status; "merge on `ci-ok` green" is an operating rule
+here. And the distinguishing information *is not in the status* — it is in whether
+the `needs` were SKIPPED, which nobody reads. The platform still blocks merging a
+draft, so this did not ship anything; **the reading is what was load-bearing and
+wrong.** It is the exact inverse of `bench`, which is *red* by construction until
+people learn to wave red past: same erosion, opposite sign.
 
 > **`CLEAN`, green ticks, and an absence of red are all claims about BLOCKING.
 > None of them is a claim about COVERAGE.**
@@ -106,8 +117,16 @@ The check that separates them is one line and nothing in this repo ran it before
 today:
 
 ```bash
-gh api repos/:owner/:repo/commits/<sha>/check-runs --jq .total_count   # must be > 0
+# does anything exist?
+gh api repos/:owner/:repo/commits/<sha>/check-runs --jq .total_count          # > 0
+
+# did the job that matters actually RUN, or was it skipped?
+gh api repos/:owner/:repo/commits/<sha>/check-runs \
+  --jq '.check_runs[] | "\(.name)\t\(.conclusion)"'                          # check == success
 ```
+
+**A green `ci-ok` is necessary and not sufficient. Read the conclusion of the job
+underneath it.**
 
 **And the trigger scope documents the property it does not have.** `plan-a.yml:17`
 reads *"the workflow must trigger on EVERY PR so the always-on `ci-ok` job reports

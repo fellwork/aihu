@@ -115,6 +115,14 @@ than none.
   was still being used for load-bearing decisions.
 - **Check Linear before reporting anything as unowned or undecided.** The channel
   is a notification, not a source of truth.
+- **Merge authority for docs-only PRs is the historian's — under a stricter test
+  than "`ci-ok` green".** `ci-ok` passes when its needs *succeeded **or were
+  skipped***, and a draft skips them all, so the required status is satisfiable by
+  a PR that compiled nothing (instance 48). Before merging or arming auto-merge:
+  assert `check-runs.total_count > 0` **and** that `check` itself concluded
+  `success` — not merely that `ci-ok` is green. Scope stays narrow:
+  `docs/lessons/**`, `docs/state/**`, `docs/retros/**` only; anything touching
+  `scripts/`, `.github/` or `package.json` goes to the orchestrator.
 - **Ownership is by SURFACE, not by file.** `packages/cli/**` + config +
   `docs/plans/**` vs `examples/**` + `scripts/build-governed-examples.ts` +
   `governed-roster.json` + `.tastemaker/**` + `plan-a.yml`. Splitting a shared
