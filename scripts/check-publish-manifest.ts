@@ -43,16 +43,6 @@ const EXEMPT = new Set<string>([
   // marketplace via vsce. It is not an npm artifact and must not be in an npm
   // publish list. (Not `private: true` because vsce reads the manifest.)
   'vscode-aihu',
-
-  // UNRESOLVED — deliberately exempt pending a decision, not because it is fine.
-  // `@aihu/templates-cf-team` is 3.0.1 in-repo and 1.0.0 on npm: it IS a real
-  // npm package and it HAS drifted two majors behind via exactly the gap this
-  // check exists to catch. It is exempt only because adding it here would
-  // publish a two-major jump on a scaffolding template as a side effect of a
-  // CI fix. Decide explicitly: either add "templates/cf-team" to PKGS and let
-  // it ship, or set `"private": true` if templates are meant to be consumed
-  // from the repo rather than npm. Then delete this exemption.
-  'templates/cf-team',
 ])
 
 /**
