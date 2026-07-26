@@ -61,6 +61,7 @@
     "check:grammar-v2": "bun scripts/check-grammar-v2.ts",
     "check:cookbook": "bun scripts/check-cookbook-index.ts",
     "check:coverage-manifest": "bun scripts/check-coverage-manifest.ts",
+  "test:scaffold-matrix": "bun packages/cli/tests/scaffold-matrix-e2e.ts",
     "build:governed-examples": "bun scripts/build-governed-examples.ts"
   },
   "devDependencies": {
