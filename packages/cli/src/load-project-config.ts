@@ -49,15 +49,31 @@ export interface LoadedProjectConfig {
   readonly from: 'vite.config' | 'aihu.config'
 }
 
+/**
+ * `@aihu/app` is resolved at RUNTIME from the user's project, not linked at
+ * build time — `@aihu/cli` deliberately does not depend on it (Learning #49:
+ * zero non-Node-builtin dependencies), and a scaffolded project always has it.
+ *
+ * The specifier is held in a variable so TypeScript does not attempt to
+ * resolve it. A literal `import('@aihu/app')` makes tsc demand the module's
+ * types, which fails wherever `@aihu/app` is not built or not installed — CI
+ * typechecks the CLI without building `@aihu/app` first, so a literal here is
+ * green locally (a stale `dist/` satisfies it) and red in CI. Same class as
+ * the golden-fixture drift: the local loop and CI disagree about what exists.
+ */
+const AIHU_APP = '@aihu/app'
+
+interface AihuAppModule {
+  loadAihuConfig: (
+    root: string,
+    opts?: { mode?: string; command?: 'build' | 'serve' },
+  ) => Promise<{ config: ProjectConfig; configFile: string } | null>
+}
+
 /** Read config from `vite.config.*` via the aihu plugin's api handle. */
 async function fromViteConfig(cwd: string): Promise<LoadedProjectConfig | null> {
   try {
-    const { loadAihuConfig } = (await import('@aihu/app')) as {
-      loadAihuConfig: (
-        root: string,
-        opts?: { mode?: string; command?: 'build' | 'serve' },
-      ) => Promise<{ config: ProjectConfig; configFile: string } | null>
-    }
+    const { loadAihuConfig } = (await import(AIHU_APP)) as AihuAppModule
     const loaded = await loadAihuConfig(cwd)
     if (!loaded) return null
     return { config: loaded.config, source: loaded.configFile, from: 'vite.config' }
