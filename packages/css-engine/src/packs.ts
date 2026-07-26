@@ -48,6 +48,16 @@ export const aihuDefault: StylePack = defineStylePack({
     'color-ring': '#c8543a',
     'color-destructive': '#a8432b',
     'color-destructive-foreground': '#faf8f4',
+    // ── Semantic state tokens (daihui layer; values verified by
+    //    .tastemaker/check_contrast.py --pairings — update both together) ──
+    'color-info': '#3d5a75',
+    'color-info-foreground': '#faf8f4',
+    'color-success': '#3f6f4f',
+    'color-success-foreground': '#faf8f4',
+    'color-warning': '#945f0e',
+    'color-warning-foreground': '#faf8f4',
+    'color-neutral': '#363c47',
+    'color-neutral-foreground': '#faf8f4',
     // ── Radius scale ──
     'radius-sm': '4px',
     'radius-md': '8px',
@@ -83,6 +93,14 @@ export const aihuDefault: StylePack = defineStylePack({
     'color-ring': '#e8705a',
     'color-destructive': '#f08070',
     'color-destructive-foreground': '#1a1d24',
+    'color-info': '#8fadc8',
+    'color-info-foreground': '#1a1d24',
+    'color-success': '#84b898',
+    'color-success-foreground': '#1a1d24',
+    'color-warning': '#d8a848',
+    'color-warning-foreground': '#1a1d24',
+    'color-neutral': '#636a72',
+    'color-neutral-foreground': '#faf8f4',
   },
 })
 
@@ -111,6 +129,16 @@ export const aihuGraphite: StylePack = defineStylePack({
     'color-ring': 'oklch(0.35 0 0)',
     'color-destructive': 'oklch(0.4 0 0)',
     'color-destructive-foreground': 'oklch(0.98 0 0)',
+    // ── Semantic state tokens (monochrome — states differ by lightness only,
+    //    per this pack's chroma≈0 identity; pair with icons/copy for meaning) ──
+    'color-info': 'oklch(0.44 0 0)',
+    'color-info-foreground': 'oklch(0.98 0 0)',
+    'color-success': 'oklch(0.5 0 0)',
+    'color-success-foreground': 'oklch(0.98 0 0)',
+    'color-warning': 'oklch(0.54 0 0)',
+    'color-warning-foreground': 'oklch(0.98 0 0)',
+    'color-neutral': 'oklch(0.3 0 0)',
+    'color-neutral-foreground': 'oklch(0.98 0 0)',
     // ── Radius scale (shared contract) ──
     'radius-sm': '4px',
     'radius-md': '8px',
@@ -146,6 +174,14 @@ export const aihuGraphite: StylePack = defineStylePack({
     'color-ring': 'oklch(0.78 0 0)',
     'color-destructive': 'oklch(0.7 0 0)',
     'color-destructive-foreground': 'oklch(0.18 0 0)',
+    'color-info': 'oklch(0.72 0 0)',
+    'color-info-foreground': 'oklch(0.18 0 0)',
+    'color-success': 'oklch(0.74 0 0)',
+    'color-success-foreground': 'oklch(0.18 0 0)',
+    'color-warning': 'oklch(0.78 0 0)',
+    'color-warning-foreground': 'oklch(0.18 0 0)',
+    'color-neutral': 'oklch(0.52 0 0)',
+    'color-neutral-foreground': 'oklch(0.98 0 0)',
   },
 })
 
