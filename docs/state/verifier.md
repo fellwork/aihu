@@ -1,0 +1,313 @@
+# State — verifier
+
+**Project slug:** `aihu`
+**Role:** verifier — independent, adversarial, post-hoc. Verifies what is **on
+`main`**, not what a PR description claims, and reports verdicts that contradict
+the PR when they do.
+**Authored by:** the verifier agent, committed at `8fa428d2` on
+`srmcguirt/verify-pr-queue`. **Curated into `docs/state/` by the historian**
+2026-07-26 at the verifier's request and the orchestrator's ruling — one copy,
+not two. The verdicts, receipts and wording below are the verifier's.
+**Last updated:** 2026-07-26
+
+> **Historian's correction to my own earlier seed of this file.** I first seeded
+> `docs/state/verifier.md` from the Slack record and wrote that **#612 was
+> "CLAIMED, NEVER VERIFIED"**. That was wrong: the verifier had verified it, and
+> the finding was sharper than the claim — the *briefing* was false, and there are
+> **two live agent-surface dialects** for one capability (see Round 1, #612).
+> I inferred an absence from a channel that had scrolled. Reading the record is
+> not the same as reading the work.
+
+## The verifier's method — keep it
+
+- **Run the gate, do not read it.** Every verdict below came from executing the
+  check, not from reading the diff that added it.
+- **Mutation-test in both directions.** A gate that passes on good input proves
+  nothing until it also fails on bad input.
+- **Verify what is on `main`**, built from source — never against the published
+  napi addon.
+- **Announce the claim before starting**, and do not fix what you find.
+
+Independent verification of claims other agents made. Written at handoff, not
+at session end. Sessions end unexpectedly.
+
+Tree for all verdicts below: `origin/main` @ `d0c9200c`, clean, fetched twice.
+Compiler: `target/release/aihu-compile` **built from source at d0c9200c**
+(`cargo build --release -p aihu-compiler --bin aihu-compile`). The published
+napi addon is a stale v1 generation — verifying against it proves nothing.
+
+## Round 2 — verifying the remediations (origin/main @ `bc1c4eac`)
+
+#615, #616, #617 are fixes for findings in Round 1 below. I verified the fixes,
+not the diffs. Compiler binary still valid: `git diff d0c9200c..bc1c4eac --
+packages/compiler/ Cargo.*` is empty, so the d0c9200c build still applies.
+
+### #617 — TOPOLOGY.md reachable from main — HOLDS
+
+`git ls-tree -r origin/main` finds `docs/TOPOLOGY.md`, 18632 bytes.
+
+### #615 — sample gate in CI + floor assertion — HOLDS, BUT RESTS ON A BUG
+
+Re-ran my own Round-1 mutation in-place rather than reading the diff:
+
+| mutation | before #615 | after #615 |
+|---|---|---|
+| fence info strings drift (0 discoverable) | exit 0 | **exit 1**, "found 0, expected ≥11" |
+| partial drift, one file (8 discoverable) | — | **exit 1**, "found 8, expected ≥11" |
+| add a 12th valid sample | — | exit 0, 12 passed (floor is ≥) |
+| baseline | exit 0 | exit 0, 11 passed |
+
+Wiring verified past the "it's in package.json" bar: step at `plan-a.yml:102`
+in the `check` job, no `if:`, no `continue-on-error`; `check` is one of three
+jobs `ci-ok` requires; `cargo build --release` (:65) puts the binary in
+`target/release/` before :102; `AIHU_COMPILE_BIN` is set only in the
+deploy-docs workflows, **not** plan-a.yml — so the gate uses the source-built
+compiler, not the stale addon.
+
+**The fuse.** `check` is gated on `changes.code`, whose dorny/paths-filter rule
+is `["**", "!.team/**", "!docs/**", "!.claude/**", "!state-*.md", "!README.md",
+"!**/*.md"]`. dorny defaults to `predicate-quantifier: some` (filter.ts:106-115,
+`patterns.some(aPredicate)`) and `**` matches everything, so **every negation is
+inert**. Measured with real picomatch 4.0.5 + `{dot:true}`: `code` is `true` for
+every file including `README.md`. The documented doc-only skip
+(plan-a.yml:302-304, :229-237) never happens.
+
+So the sample gate runs *only because that filter is broken*. #615 guards
+`skills/aihu/**/*.md` — .md files. Add `predicate-quantifier: every`, or drop
+the `**`, and a PR touching only the skill samples yields `code=false`, `check`
+skips, the gate never runs, `ci-ok` green. **Whoever tidies that filter will
+disarm this gate without touching it.** Fix: own job triggered on `skills/**`,
+or add `skills/**` as an explicit positive in `code`.
+
+### #616 — moon installed — FIX CORRECT, OUTCOME IS RED, AND THAT IS RIGHT
+
+Sub-claims hold: `moonrepo/setup-toolchain@v0` resolves (`refs/tags/v0` exists —
+verified by `git ls-remote`; I wrongly suspected it did not because the tag list
+shows v0.6.x) and it is the same action plan-a.yml uses (5 call sites).
+
+**But nobody ran the cell after installing moon.** With moon 2.2.5 on PATH it no
+longer skips — it runs and fails:
+
+```
+✓ scaffold pass 2384ms   ✓ install pass 12ms   ✘ typecheck fail 714ms
+SUMMARY 0/1 cells passed, 1 failed          (exit 1)
+moon run :typecheck -> Error: app::missing_workspace
+  × Unable to determine workspace root. Please create a .moon or .config/moon
+```
+
+**Not a harness artifact.** Reproduced outside the matrix from a plain
+`aihu app cfdemo --template cf-team` (scaffold exits 0), then running the literal
+next step the CLI prints:
+
+```
+bun run dev       -> exit 1  app::missing_workspace
+bun run typecheck -> exit 1  app::missing_workspace
+bun run build     -> exit 1  app::missing_workspace
+```
+
+Root cause: `packages/templates/cf-team/template/` ships `moon.yml.tmpl` (a
+PROJECT config) and **no `.moon/` or `.config/moon/` WORKSPACE folder** (`find`
+for either returns empty), while `package.json.tmpl` routes every script through
+moon (`dev`/`build`/`typecheck`). A scaffolded cf-team project cannot dev, build
+or typecheck. The scaffold succeeds and everything you can do with it fails.
+
+Arc: RED (nobody looked) → GREEN-because-skipped (nobody could look) → **RED for
+the real reason**. Correct end state. **Do not re-skip it.** The template needs a
+`.moon/workspace.yml`; that is a template defect, not a CI defect. Unowned.
+
+A skip hid a *defect*, not merely a gap — worth generalising.
+
+## Round 1 — verdicts (origin/main @ `d0c9200c`)
+
+### PR #611 — aihu authoring skill — CLAIM HOLDS, GATE IS INERT
+
+`bun skills/aihu/check-samples.ts` → **exit 0, 11 passed / 0 failed**. Real.
+
+Mutation-tested before trusting it (both directions caught):
+
+- injected a broken ` ```aihu ` fence → exit 1 ✓
+- replaced the ` ```aihu-error ` body with the known-good body verbatim → exit 1,
+  "unexpectedly COMPILES" ✓
+
+Two findings:
+
+1. **Never run.** `git grep check-samples` returns exactly two hits, both inside
+   its own docstring. Not in `.github/workflows/*`, not in `package.json`, not in
+   `check:ci`, no `moon.yml`, no `.husky/*`. Verified today, unenforced tomorrow.
+2. **No floor assertion — green while checking nothing.** Rewriting fence info
+   strings to ` ```aihu title="good" ` (regex is `^```(\S+)(?:\s+path=(\S+))?\s*$`)
+   yields "0 passed, 0 failed", **exit 0**, with 11 fences still in the files.
+3. Minor: "11/11 samples compile" is imprecise — 10 must compile, 1
+   (`errors/SKILL.md:13`) must FAIL to; the script counts that failure as a pass.
+
+### PR #612 — scaffold agent tooling — SHIPPED CLAIMS HOLD; THE BRIEF WAS WRONG
+
+The briefing ("design doc samples use a superseded dialect") was false:
+
+- The design doc has **no `.aihu` samples at all** — 0 ` ```aihu ` fences, 0
+  `@state`/`@template`/`@route`, 0 `$action:`. Its fences are dir trees, `<head>`,
+  README markdown, JSON, CLI output.
+- **`$action: {}` is not superseded — it is the v2 target.** Compiler C440 on the
+  v1 form says: "Replace `$action name(args) { body }` with
+  `$action: { name: (args) => { body } }`". Codemod `*.expected.aihu` fixtures use it.
+- Compiled the exact scaffold output (imported `appIndexAihu()`, did not retype):
+  **exit 0**, 6929 B, `registerAgentMetadata` + all three describe strings.
+
+**Real finding nobody flagged — two live dialects for one capability:**
+
+| form | agent surface? |
+|---|---|
+| `action(fn)` | no — plain handler |
+| `action({describe, expose}, fn)` | **yes** — cookbook style, 15 of 21 files |
+| `$action: { name: {...} }` | **yes** — CLI template style |
+| `$action name() {}` | REJECTED — C440 |
+
+Both agent-surface forms emit real metadata (compiled `cookbook/agent-weather.aihu`:
+exit 0, `registerAgentMetadata` ×2 **and** an `agent-manifest.json` naming
+`fetchForecast`). So an agent scaffolds with `aihu`, gets `$action:` in its starter,
+then asks the bundled `aihu_example` MCP tool for an idiomatic example and is handed
+`prop({default: 0})` / `action(() => ...)`. **The scaffold and the MCP example server
+disagree about how to write aihu.** Not in any PR description.
+
+Shipped claims, all executed not read:
+
+- scaffolded off `dist/create.js`: `AGENTS.md` 4096 B, `CLAUDE.md` 11 B (exactly
+  `@AGENTS.md`), `.mcp.json` 141 B
+- `.mcp.json` → `command:"npx"`, `args:["aihu","mcp","serve"]` (not bare `aihu`) ✓
+- `--no-agent-tooling` → all three absent, app still scaffolds (8 files) ✓
+- MCP server is not a dead pointer: real stdio handshake → `initialize` returns
+  `serverInfo{name:aihu}`; `tools/list` returns `aihu_validate` + `aihu_example`;
+  `tools/call aihu_example` returns 1513 B of real SFC source ✓
+- honesty fix ✓ — 0 hits for "exposed to AI agents as MCP tools", 0 for the
+  `server-card.json` link; new text separates declaration from callable tools
+
+### PR #613 — matrix `--mode local` + SKIP — CLAIM HOLDS, CELL NOW NEVER RUNS
+
+Hid `moon` behind a sandboxed PATH (genuine ENOENT; `binExists()`→false), ran the
+real harness:
+
+```
+bun packages/cli/tests/scaffold-matrix-e2e.ts --mode local --template cf-team --pm bun
+→ SKIP cf-team needs moon on PATH — NOT tested, NOT passing
+→ SUMMARY 0/1 cells passed
+→ EXIT 0
+```
+
+Skipped cell exits 0 ✓ and is never counted a pass ✓ (tally line 970 filters
+`status==="pass"`; exit line 1057 fails only on `status==="fail"`).
+
+**But cf-team is now permanently untested behind a green check.**
+`.github/workflows/scaffold-matrix.yml` has **no step installing moon** (it installs
+pnpm and yarn explicitly; `grep -i moon` = 0 hits), and moon is absent from the
+runner image (`actions/runner-images` Ubuntu2404-Readme.md, 0 hits — manifest
+sanity-checked as genuine first; it lists Node 22.23.1/Python/Ruby). So cf-team
+skips on every PR and every 07:00 run, forever, exit 0.
+
+cf-team is the **only** `kind:"app-template"` cell — the only one exercising
+`aihu app --template` resolving from npm. The other four are `kind:"create"`,
+compiled into the CLI. #613 converted a permanently-RED cell into a permanently-
+GREEN unexecuted one. Fix: install moon in the workflow, or mark skip as neutral.
+
+### PR #604 — daisyUI slice 1 — CLAIM HOLDS, INSTRUMENT IS DECOUPLED
+
+`python3 .tastemaker/check_contrast.py --pairings` → "All claimed pairings hold",
+**exit 0**, 30 pairings. (Note: `${PIPESTATUS}` is bash; this shell is zsh — first
+read showed blank. Re-ran clean.)
+
+**The tool never reads the shipped tokens.** Hardcoded `TOKENS` dict at line 32;
+never opens `packages/css-engine/src/packs.ts`. Its docstring admits the manual
+coupling. **8 of 30 values have already drifted:**
+
+| token | mode | tool | ships |
+|---|---|---|---|
+| fg | dark | `#ece9e2` | `#ede8e0` |
+| accent | dark | `#e0674b` | `#e8705a` |
+| muted | dark | `#a39a92` | `#9e9890` |
+| border | light | `#ece9e2` | `#ddd9d2` |
+| border | dark | `#2b3038` | `#2e3240` |
+| info-fg / success-fg / warning-fg | dark | `#14161c` | `#1a1d24` |
+
+Recomputed all 30 pairings with the **shipped** hexes: **no tier actually breaks**.
+a11y is fine today. But margins are thinner than reported —
+`[light] accent/border` is **3.12** in reality vs **3.62** as printed, against a
+3.00 ui-safe floor. Next accent/border tweak can cross it with `--pairings` green.
+
+**Also never invoked** — `git grep check_contrast` outside the file returns only
+prose (style-lock.md, a changeset, a design doc, a comment in packs.ts). Not in
+`check:ci`. Both verification tools shipped today are manual-only.
+
+## Cross-cutting
+
+Three separate gates shipped today (#611 check-samples, #604 check_contrast,
+#613 matrix skip) each **exit 0 while measuring nothing** under a plausible
+condition, and two are wired to nothing at all. The repo is accumulating
+instruments that are green by construction.
+
+## My own error, on the record
+
+I first reported "cookbook .aihu files: 0". Bad glob — `cookbook/**/*.aihu` does
+not match flat files in git pathspec. **There are 21.** Caught only because the
+MCP tool returned real cookbook source while my count said the dir was empty.
+Same absent-value trap I am paid to find. Corrected in #aihu.
+
+## What the next instance must NOT redo
+
+- Do not re-verify #615/#616/#617 — done above, with commands and outputs.
+- Do not "fix" the cf-team matrix cell by re-skipping it. It is red for a real
+  reason: the template ships no `.moon/` workspace config.
+- Do not re-run #611/#612/#613/#604 verification — done above, with commands shown.
+- Do not verify against the published napi addon. Build from source or set
+  `AIHU_COMPILE_BIN`.
+- Do not conclude `$action:` is superseded. It is the v2 target (C440 says so).
+- Do not trust `cookbook/**/*.aihu`; use `cookbook/*.aihu` or `find`.
+- `PIPESTATUS` does not work in this zsh; capture `$?` directly.
+
+## Not yet verified / open
+
+- Whether the two agent-surface dialects are *intended* to coexist — needs a
+  ruling from whoever owns the compiler, not a verifier.
+- #609 (config in vite.config.ts) and #602 (release PR) — untouched.
+
+## Ownership — resolved 2026-07-26
+
+`docs/state/` is the historian's. This file was written by the verifier and
+committed at `8fa428d2` before that claim existed; per the orchestrator's ruling
+the content lands here and the verifier maintains **no second copy**.
+
+The substrate ruling that governs the rest:
+- **`docs/lessons/` stays in git.** It describes code and versions with the code.
+- **Live status — who is doing what — is Linear.** Not this file, not Slack.
+  Branch-scoped status is what went stale and misdirected an agent.
+- **Findings, decisions, roster — Notion.**
+
+This file is a *findings* record, not a status board. Treat the verdicts as
+durable and the queue at the bottom as the thing that will rot first.
+
+## What the historian added after the handoff
+
+Independently re-confirmed on `origin/main` before citing:
+- `git grep -n "check-samples"` → **2 hits, both inside the script's own header
+  comment.** The gate was unwired exactly as reported (fixed since, in #615).
+- `.tastemaker/check_contrast.py` contains **no file-reading call of any kind** —
+  `grep -n "packs\|open(\|read_text\|Path("` returns a single *comment* on line 41
+  claiming the values came from `packs.ts`. Three drifted rows diffed directly:
+  `border` light `#ece9e2`→`#ddd9d2`, `border` dark `#2b3038`→`#2e3240`,
+  `accent` dark `#e0674b`→`#e8705a`.
+
+And the verifier's paths-filter finding, reproduced by a third party before being
+acted on — because it falsified a claim the historian had already written into a
+PR body and a workflow comment:
+
+```
+picomatch 4.0.5, dorny MatchOptions {dot:true}, patterns exactly as in plan-a.yml
+file                          some (dorny default)   every (as documented)
+skills/aihu/SKILL.md          true                   false
+docs/plans/foo.md             true                   false
+README.md                     true                   false
+packages/cli/src/index.ts     true                   true
+```
+
+`predicate-quantifier` is **not set** in `plan-a.yml`, so the default `some`
+applies and the leading `'**'` satisfies every file. **`code` is true for
+everything; the documented doc-only skip has never happened.** The historian had
+written the opposite into `#620` and corrected it there.

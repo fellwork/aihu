@@ -117,3 +117,11 @@ docs/spec-headless.md
 # Local scratch / smoke-test output (never commit)
 .scratch-smoke/
 .scratch*/
+
+# gbrain's put_page write-through mirrors every page to <project-slug>/<layer>/…
+# relative to the repo root, so writing `aihu/delta/...` drops an untracked `aihu/`
+# directory into the checkout — and into whichever checkout the MCP server happens
+# to be running in, usually the primary one, on someone else's branch. The page
+# already lives in the gbrain DB; this copy is litter. The durable record belongs
+# in docs/state/ — see docs/state/historian.md.
+/aihu/
