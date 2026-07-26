@@ -1,5 +1,109 @@
 # @aihu/css-engine
 
+## 0.5.0
+
+### Minor Changes
+
+- [#608](https://github.com/fellwork/aihu/pull/608) [`3ac389f`](https://github.com/fellwork/aihu/commit/3ac389f55b9f8a2a956122d394639d3f9bf21bef) Thanks [@srmcguirt](https://github.com/srmcguirt)! - **Semantic state tokens for the daihui layer: `--color-info` / `--color-success` /
+  `--color-warning` / `--color-neutral` (+ `-foreground` each), in both built-in packs,
+  light and dark.**
+
+  The daisyUI recipe set (Option 4, PR [#604](https://github.com/fellwork/aihu/issues/604) §3.4) references four colour roles aihu had no
+  token for. Both founder escalations from that design doc are now ruled and implemented:
+
+  - **E1** — `info`/`success`/`warning` are added as _state_ hues under an explicit
+    amendment to the `.tastemaker/style-lock.md` single-accent rule: terracotta remains the
+    only _identity_ hue; state tokens are confined to a closed list of oklch hue bands
+    (terracotta 29–35, ochre 70–82, sage 153–158, graphite 245–267) with chroma strictly
+    below the accent's. The rule widening is stated in the lock, not smuggled.
+  - **E2** — `--color-neutral` is **added, not mapped to `--color-muted`** (a filled
+    neutral surface is not a de-emphasis text colour). Its light value is graphite
+    (`#363c47`) verbatim: neutral is the component-token realization of the graphite axis,
+    the way `--color-accent` realizes terracotta — no brand meaning is repurposed.
+
+  Values (aihu-default), all verified by the new contrast tool:
+
+  | Token             | Light     | Dark      | Foreground (light / dark) |
+  | ----------------- | --------- | --------- | ------------------------- |
+  | `--color-info`    | `#3d5a75` | `#8fadc8` | `#faf8f4` / `#1a1d24`     |
+  | `--color-success` | `#3f6f4f` | `#84b898` | `#faf8f4` / `#1a1d24`     |
+  | `--color-warning` | `#945f0e` | `#d8a848` | `#faf8f4` / `#1a1d24`     |
+  | `--color-neutral` | `#363c47` | `#636a72` | `#faf8f4` / `#faf8f4`     |
+
+  Unlike terracotta (ui-safe only), the state trio is **text-safe both ways** in both modes
+  (fill-on-bg and label-on-fill all ≥ 4.5; the sole ui-safe pairing is the dark neutral
+  fill at 3.30/3.08 vs bg/surface, with a 5.16 text-safe label). `aihu-graphite` carries
+  the same token names at chroma 0, per that pack's monochrome identity.
+
+  Also ships `.tastemaker/check_contrast.py` — the WCAG 2.x contrast tool the style lock
+  has mandated since it was written but which never existed. `--matrix` prints the full
+  token matrix; `--pairings` recomputes every legal-pairing claim in the lock and exits
+  non-zero if one no longer holds.
+
+  Scope notes: this is the colour slice only — the Rust-side utility resolution
+  (`is_brand_token` / `AIHU_BRAND_TOKENS`) and the non-colour daisyUI scalars
+  (`--size-*`, `--border`, `--depth`, `--noise`) are PR [#604](https://github.com/fellwork/aihu/issues/604) slice 3, unchanged here. Only
+  the two shipped pack bundles grow (16 declarations each); per-component emission is
+  untouched, and no `.size-limit.json` row moves (packs are build-time).
+
+- [#604](https://github.com/fellwork/aihu/pull/604) [`bba7e84`](https://github.com/fellwork/aihu/commit/bba7e8441a836b01a5927e5f7e3b8870b3d8c3ac) Thanks [@srmcguirt](https://github.com/srmcguirt)! - **`defineStylePack()` gains a named-theme dimension, and the dark block is dual-keyed on
+  `.dark` and `[data-theme="dark"]`.**
+
+  `StylePackInput` admitted exactly two themes: `tokens` (emitted at `:root`) and an optional
+  `dark` (emitted at `.dark`). There was no way to express a third named theme at all, which is
+  the dimension a swappable theme catalog needs. This is the first slice of the Option 4 design
+  (`docs/plans/2026-07-26-option-4-daisyui-design.md`).
+
+  **Named themes.** A pack may now declare `themes: Record<string, TokenMap>`; each entry emits
+  its own `[data-theme="<name>"] { … }` block and is selected by putting `data-theme="<name>"` on
+  an ancestor — per the founder-ratified convention, `<html>`.
+
+  ```ts
+  const pack = defineStylePack({
+    name: "acme",
+    tokens: { "color-primary": "#0a7" },
+    dark: { "color-primary": "#3fc" },
+    themes: { cupcake: { "color-primary": "#65c3c8" } },
+  });
+  pack.themeNames; // ['cupcake']
+  ```
+
+  A named theme is an **override layer over `tokens`**, not a standalone theme — only the names
+  that differ need listing, exactly as `dark` already works. The descriptor exposes `themes` and
+  `themeNames`.
+
+  **Dual-keyed dark.** The dark block's selector changes from `.dark` to
+  `.dark, [data-theme="dark"]` (exported as `DARK_SELECTOR`). One block, one comma-list, no
+  duplicated declarations. This is additive: every existing `.dark` consumer is untouched, and
+  `<html data-theme="dark">` now resolves correct token values for the first time.
+
+  **One thing it does not yet do.** `dark:`-variant _utility rules_ are still gated on
+  `:host([data-theme="dark"])` / `:root.dark` by the Rust emitter, neither of which matches
+  `data-theme` on the document root. So a page on `data-theme="dark"` **alone** gets correct token
+  values but not `dark:`-variant utilities until that follow-up lands. No shipped consumer is
+  affected — nothing in the repo sets `data-theme` on a document root today; the only writer is
+  the Storybook decorator, which stamps it on component hosts, the selector the emitter already
+  handles. This is a partially-complete new capability, not a regression.
+
+  **Emission order is load-bearing.** `:root`, `.dark`/`[data-theme="dark"]`, and each named theme
+  all weigh (0,1,0), so the last matching block wins. Named themes are therefore emitted last:
+  `<html class="dark" data-theme="cupcake">` resolves to cupcake, because an explicit selection
+  should beat an inherited one. Pinned by test.
+
+  Validation: `dark` is rejected as a named theme (it has its own dual-keyed selector); theme names
+  must match `/^[a-z][a-z0-9-]*$/`, since they become attribute selectors; a theme declaring no
+  tokens is rejected.
+
+  `toCss()` now renders comma-separated selector lists one selector per line. That is not
+  cosmetic: the generated bundles are byte-parity tested against `toCss()` _and_ biome-checked,
+  and biome's CSS formatter splits comma lists — so emitting one on a single line would let the
+  pre-commit hook reformat the generated file out from under the parity test. `formatSelectorList`
+  is exported and the canonical form is pinned by a test.
+
+  Neither shipped pack declares a named theme — `aihu-default.css` and `aihu-graphite.css` change
+  by exactly one line each, the dark selector. A test pins that, so a catalog landing on the
+  default pack is a visible diff rather than silent drift.
+
 ## 0.4.6
 
 ### Patch Changes
