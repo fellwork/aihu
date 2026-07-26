@@ -93,28 +93,42 @@ silently empty. These are unpiped `$?`.
 ```
 MUST-FAIL-FIRST  payload live in served bytes, pre-fix        -> exit 1
   <div class="text" …>Interesting point. <img src=x onerror="…"></div>
-delete example (roster tripwire)                              -> exit 1
-compile+smoke tier with no smoke suite                        -> exit 1
-break the SFC (smoke suite fails)                             -> exit 1
-sanitiser neutered to identity                -> 10 of 16 red, incl. served-bytes
-loader trust boundary removed                 -> 1 red (the wiring test)
-FIXED: bun run test (examples/hacker-news)                    -> exit 0, 16/16
-FIXED: build-governed-examples.ts hacker-news                 -> exit 0
-check:coverage-manifest                                       -> exit 0
-biome check (8 files)                                         -> exit 0
+
+Half A / B (examples/hacker-news, scripts/)
+  delete example (roster tripwire)                            -> 1
+  compile+smoke tier with no smoke suite                      -> 1
+  break the SFC (smoke suite fails)                           -> 1
+  reintroduce html={} in hn-rich-text     -> 2 red (A8 gate + served bytes)
+  remove decode-before-validate                               -> 1 red
+  remove loader trust boundary                                -> 1 red
+
+Half C (examples/ssg-site)
+  remove the html={} binding -> coverage-manifest             -> 1
+  remove the html={} binding -> governed lane prerender needle-> 1
+
+GREEN
+  hacker-news smoke suite                                     -> 0, 28/28
+  governed lane hacker-news                                   -> 0
+  governed lane ssg-site (prerender 4 needles asserted)       -> 0
+  check:coverage-manifest (9 examples, 54 rows, floor 48)     -> 0
+  biome                                                       -> 0
 ```
 
 Compiler was built **from this tree** (`cargo build --release --bin aihu-compile`),
 not the published napi addon.
 
-### Two assertion traps hit and fixed while writing this
+### Three assertion traps hit while writing this — all found by sabotage, not by reading green
 - `not.toContain('onerror=')` **fails on correct output** — the literal text
-  survives inside `&lt;img … onerror=&quot;`, which is inert. Assert the property
+  survives inside inert `&lt;img … onerror=&quot;`. Assert the property
   (`/<[a-zA-Z][^>]*\son[a-z]+\s*=/`), not the substring, or the next reader
-  weakens the sanitiser to satisfy a wrong test.
-- Sanitiser unit tests + the SSR test both pass with the loader call deleted.
-  Added `loader trust boundary` tests (stubbed `fetch`, `loader.fn(ctx)`) so the
-  fix is asserted **on the data path**, not merely present.
+  weakens the parser to satisfy a wrong test.
+- Unit tests AND the served-bytes test both stayed green with the loader call
+  deleted. Present is not wired. `loader trust boundary` tests close it.
+- **"Encoded scheme cannot smuggle" passed BEFORE and AFTER the fix.** `safeHref`
+  is an allowlist, so `&#106;avascript:` is rejected for matching nothing —
+  decoded or not. I had written *denylist* reasoning into the comment. Relabelled
+  honestly; replaced with `&#47;item?id=1 -> /item?id=1`, which is red without
+  the decode. A required test case that proved nothing.
 
 ## No changeset — deliberate, with receipt
 
