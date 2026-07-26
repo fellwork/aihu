@@ -124,18 +124,41 @@ echo "dist-tag: $DIST_TAG${DRY_RUN:+  (dry-run — no network write)}"
 PROVENANCE_PKGS=",${NPM_PROVENANCE_PKGS:-},"
 PROVENANCE_ALL="${NPM_PROVENANCE:-}"
 
+# Packages skipped for want of a publishable payload. Collected rather than
+# fatal-on-first so one bad package does not hide the rest, then asserted at
+# the end — a skip must never leave the job green.
+FAILED_PKGS=""
+
 for pkg in "${PKGS[@]}"; do
   PKG_DIR="$ROOT/packages/$pkg"
   # Resolve the real package name once for logging + idempotency checks.
   PKG_NAME="$(node -p "require('$PKG_DIR/package.json').name")"
   PKG_VERSION="$(node -p "require('$PKG_DIR/package.json').version")"
 
+  # Guard: refuse to publish a package whose payload was never built.
+  #
   # Most packages produce dist/index.js via rolldown; the moved-stub packages
   # ship a root-level index.js (no dist); @aihu/ui is SOURCE-distributed
   # (registry.json + .aihu recipe sources, no build); create-aihu ships a
-  # single committed bin.mjs (no build). Allow all four layouts.
-  if [ ! -d "$PKG_DIR/dist" ] && [ ! -f "$PKG_DIR/index.js" ] && [ ! -f "$PKG_DIR/registry.json" ] && [ ! -f "$PKG_DIR/bin.mjs" ]; then
-    echo "⚠  ${PKG_NAME}: missing dist and no root index.js — run 'moon run :build'. Skipping."
+  # single committed bin.mjs (no build).
+  #
+  # Those four hardcoded layouts are not exhaustive, and a package that
+  # matches none of them is SKIPPED WITH THE JOB STILL GREEN — the same silent
+  # class of failure that kept ui/seo/store/editor/magna off npm. So also
+  # accept any package whose declared `main` entry exists on disk, which is
+  # the condition npm itself cares about. @aihu/templates-cf-team is pure
+  # content (template/ + template.config.js, nothing to build) and matches
+  # ONLY via this check.
+  PKG_MAIN="$(node -p "require('$PKG_DIR/package.json').main || ''" 2>/dev/null || echo '')"
+  MAIN_PRESENT=0
+  if [ -n "$PKG_MAIN" ] && [ -f "$PKG_DIR/$PKG_MAIN" ]; then MAIN_PRESENT=1; fi
+
+  if [ ! -d "$PKG_DIR/dist" ] && [ ! -f "$PKG_DIR/index.js" ] && [ ! -f "$PKG_DIR/registry.json" ] && [ ! -f "$PKG_DIR/bin.mjs" ] && [ "$MAIN_PRESENT" = "0" ]; then
+    echo "✗ ${PKG_NAME}: no publishable payload." >&2
+    echo "  Looked for: dist/, index.js, registry.json, bin.mjs${PKG_MAIN:+, and main ($PKG_MAIN)}." >&2
+    echo "  Run 'moon run :build' — or, if this package has nothing to build," >&2
+    echo "  make sure its \"main\" points at a file that exists." >&2
+    FAILED_PKGS="${FAILED_PKGS}${PKG_NAME} "
     continue
   fi
   echo ""
@@ -195,6 +218,19 @@ for pkg in "${PKGS[@]}"; do
   rm -rf "$PACK_DIR"
   echo "✔  ${PKG_NAME}@${PKG_VERSION} published"
 done
+
+if [ -n "$FAILED_PKGS" ]; then
+  echo "" >&2
+  echo "✗ Release incomplete — these packages had no publishable payload and were NOT published:" >&2
+  for p in $FAILED_PKGS; do echo "    $p" >&2; done
+  echo "" >&2
+  echo "  Failing the job deliberately. Historically this was a warning and the" >&2
+  echo "  release stayed green, so the only symptom was a 404 on npm days later." >&2
+  echo "  Everything published above is already live; the publish step is" >&2
+  echo "  idempotent, so fixing these and re-running the tag publishes only the" >&2
+  echo "  missing packages." >&2
+  exit 1
+fi
 
 echo ""
 echo "Done. Verify at: https://www.npmjs.com/search?q=%40aihu"
