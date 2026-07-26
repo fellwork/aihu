@@ -19,7 +19,7 @@
  */
 
 import { spawnSync } from 'node:child_process'
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -77,7 +77,10 @@ function fences(src: string, lang: string): { code: string; path: string; line: 
 }
 
 function compile(code: string, virtualPath: string): { ok: boolean; stderr: string } {
-  const stem = virtualPath.split('/').pop()!.replace(/\.aihu$/, '')
+  const stem = virtualPath
+    .split('/')
+    .pop()!
+    .replace(/\.aihu$/, '')
   const tag = stem.includes('-') ? stem : `${stem}-el`
   const r = spawnSync(bin!, ['--stdin', '--tag', tag, '--path', virtualPath], {
     input: code,
