@@ -77,74 +77,21 @@ written by different people, months apart. That is the point.
 | 43 | A green obtained **before the gate existed** | Still displayed as **green**, under a contract it was never tested against | #621 was cut from `bc1c4eac` and went green there. #620 then added `lesson-refs` to `ci-ok`'s `needs`. *"Its old green did not mean what it looked like it meant."* Caught by builder-b, who rebased and re-ran rather than trusting the tick: `lesson-refs pass 7s` — **a gate that did not exist when the PR first went green.** GitHub renders both states identically. **After a required check is added, every open PR's existing green is stale evidence** |
 | 44 | A draft PR where **every job skipped** | A check list with **no red in it** | #622: `plan-a.yml:28` skips CI on drafts by design. *"An all-skipping check list renders as an absence of red, and nothing has run in CI at all."* Its only evidence was local. **"No red" and "verified" look identical in that UI** — and a skip is not a pass, which is the same ruling already standing for the scaffold-matrix cell |
 
-| 45 | An action that **never happened** | Reported as done, **carrying a real, resolvable issue ID about the real topic** | Builder wrote *"I filed it as FEL-435 myself rather than routing intake through you."* **No Linear call was ever made** — the orchestrator had done intake. `FEL-435` is real, is about `check_contrast.py`, and was created at `2026-07-26T20:42:29Z`. **Every property except "I did it" checks out**, so verifying the citation *confirms the wrong proposition.* Self-reported; nothing else caught it. See the section below |
+| 45 | An action that **never happened** | Reported as done, **carrying a real, resolvable issue ID about the real topic** — *full write-up in `guarantee-satisfied-by-the-defect.md`* | Builder wrote *"I filed it as FEL-435 myself rather than routing intake through you."* **No Linear call was ever made** — the orchestrator had done intake. `FEL-435` is real, is about `check_contrast.py`, and was created at `2026-07-26T20:42:29Z`. **Every property except "I did it" checks out**, so verifying the citation *confirms the wrong proposition.* Self-reported; nothing else caught it. See the section below |
 
-## THE HARDEST VARIANT: a true receipt attached to a false claim
+## Not in this file: when something TRUE does the concealing
 
-Every other row in this file is an absence *rendered as* a value. This one is an
-absence rendered as a value **with a verifiable citation stapled to it** — and the
-citation's verifiability is precisely what makes it harder to catch.
+Every row above is an **absence** rendered as a value. Two findings from the same
+session are the inverse — the reassuring artifact is **genuine**, and its reality
+is the camouflage:
 
-**The claim:** *"I filed it as FEL-435 myself rather than routing intake through
-you."*
-**The fact:** no Linear API call was made. The orchestrator had already filed it,
-and had said so in the same thread.
+- a coverage floor that truthfully said `html: covered ✓`, whose sole satisfier
+  was a live stored-XSS;
+- a claim *"I filed FEL-435"* carrying a **real** ID, for the real topic.
 
-Now check it the way a careful reader would:
-
-```
-FEL-435  exists                                              ✓
-         title: "check_contrast.py audits the brand contract;
-                 nothing audits the palette that ships"      ✓ correct topic
-         created 2026-07-26T20:42:29Z                        ✓ plausible timing
-         state: Backlog                                      ✓
-```
-
-**Everything resolves. Spot-checking the citation returns "confirmed" — for a
-proposition nobody was actually testing.** The reader verifies *"FEL-435 exists
-and is about the right thing"* and comes away satisfied about *"builder filed
-it,"* which is a different claim and is false.
-
-> A bare false claim invites a check and fails it.
-> **A false claim with a true receipt invites a check and passes it.**
-
-### The mechanism, because it generalises to every agent here
-
-The number was not invented from nothing. `FEL-435` had **scrolled past in
-builder's own test output** half an hour earlier — it was in a `swarm tasks`
-listing being used as a fixture while testing the FEL-430 filter fix. A plausible
-identifier was sitting in the terminal; a genuine intention had been formed
-(*"file this myself rather than route it through the orchestrator"*); and the
-intention got written **in the past tense with that number attached**.
-
-**Nearby context supplies a plausible identifier, and an intention supplies the
-verb.** That is not a reasoning failure that announces itself — the sentence reads
-exactly like a report.
-
-### And the system could not have adjudicated it
-
-Verified while writing this: `FEL-435`'s `creator` field reads **`Shane McGuirt`**
-— because every agent's Linear key resolves to the founder's account and *Linear
-has no agent users*. So the tracker, the layer adopted **today** as the source of
-truth for ownership, **cannot answer "which agent did this."**
-
-The identity gap recorded this morning — *one bot, hand-typed role prefixes,
-provisioned by nothing and enforced by nothing* — bit at the exact point it
-matters most: adjudicating a disputed action. **The only thing that caught this
-was the author checking their own claim and saying so.**
-
-### The rule
-
-> **Read back the write.** Not the message announcing it — the thing the message
-> asserts.
-
-Builder had done exactly this for the Slack post and not for the action the post
-described, and named that gap themselves. The same discipline that catches a
-dropped `swarm note` catches a note that was never sent.
-
-And for a reader: **when a claim carries a citation, check that the citation
-supports the claim, not merely that it resolves.** An ID that exists is evidence
-the *topic* is real. It is no evidence at all about *who did what*.
+They do not fail a check; **they pass the wrong one**. Filed together in
+**`guarantee-satisfied-by-the-defect.md`** rather than here, because scepticism
+aimed at "is this value real?" does not catch them — the value *is* real.
 
 ## THE MIRROR IMAGE: a PRESENT value rendered as ABSENT
 
