@@ -23,6 +23,7 @@ jobs:
   release-pr:
     name: Open release PR
     runs-on: ubuntu-22.04
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
         with:
