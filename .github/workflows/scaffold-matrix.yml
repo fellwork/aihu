@@ -86,8 +86,14 @@ jobs:
           echo "node $(node --version)"
 
       # Only needed for --mode local; harmless (and fast) otherwise.
+      #
+      # This condition MUST stay in step with the --mode expression below.
+      # `inputs.mode` is empty on `pull_request`, so a PR run resolves to
+      # 'local' — and without this build there would be no packages/cli/dist
+      # for local mode to drive. Two expressions, one meaning: keep them
+      # together or the gate silently tests nothing.
       - name: Build @aihu/cli
-        if: ${{ inputs.mode == 'local' }}
+        if: ${{ inputs.mode == 'local' || github.event_name == 'pull_request' }}
         run: |
           bun install --frozen-lockfile
           bun run --cwd packages/cli build
@@ -95,7 +101,7 @@ jobs:
       - name: Run scaffold DX matrix
         run: |
           bun packages/cli/tests/scaffold-matrix-e2e.ts \
-            --mode "${{ inputs.mode || 'npm' }}" \
+            --mode "${{ inputs.mode || (github.event_name == 'pull_request' && 'local' || 'npm') }}" \
             --version "${{ inputs.version || 'latest' }}" \
             --pm "${{ inputs.pm || 'bun,npm,pnpm,yarn' }}" \
             --template "${{ inputs.template || 'minimal,full,docs,agent,cf-team' }}" \

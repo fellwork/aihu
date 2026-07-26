@@ -127,6 +127,20 @@ interface TemplateSpec {
   readonly serverOnlyOnPm?: { readonly pms: readonly Pm[]; readonly reason: string }
   /** Extra flags appended to the scaffold command. */
   readonly extraScaffoldArgs?: readonly string[]
+  /**
+   * External binaries this template's own scripts shell out to. If one is not
+   * on PATH the whole cell is SKIPPED, not failed.
+   *
+   * A cell that cannot run is not a cell that failed. The harness already knew
+   * cf-team needs `moon` — it said so in `notes` — but the gate did not act on
+   * what it knew, so every run went red for a missing tool and the check became
+   * a permanently-red X that gated nothing. That trains people to scroll past
+   * failing checks, which is worse than either a green gate or no gate.
+   *
+   * Same treatment missing package managers already get: reported loudly as
+   * NOT tested and NOT passing, never silently counted as a pass.
+   */
+  readonly requiresBin?: readonly string[]
   readonly notes?: string
 }
 
@@ -180,9 +194,15 @@ const TEMPLATES: readonly TemplateSpec[] = [
       pms: ['bun'],
       reason: 'template declares engines.bun and its scripts shell out to `bun run vite` via moon',
     },
+    requiresBin: ['moon'],
     notes: 'bun-workspaces + moon monorepo; requires `moon` on PATH',
   },
 ]
+
+/** True when `bin` resolves on PATH. Used to skip, never to silently pass. */
+function binExists(bin: string): boolean {
+  return spawnSync(bin, ['--version'], { stdio: 'ignore', shell: false }).status === 0
+}
 
 const ALL_PMS: readonly Pm[] = ['bun', 'npm', 'pnpm', 'yarn']
 
@@ -703,6 +723,18 @@ async function runCell(spec: TemplateSpec, info: PmInfo, parentDir: string): Pro
   cell.dir = projectDir
 
   out(`\n${bold(`▶ cell ${spec.id} × ${pm}`)} ${dim(projectDir)}\n`)
+
+  // A cell that cannot run is not a cell that failed. Report it loudly as
+  // untested rather than red — and never as a pass.
+  const missing = (spec.requiresBin ?? []).filter((b) => !binExists(b))
+  if (missing.length > 0) {
+    cell.status = 'skip'
+    out(
+      `  ${bold('SKIP')}  ${spec.id} needs ${missing.join(', ')} on PATH — ` +
+        `NOT tested, NOT passing\n`,
+    )
+    return cell
+  }
 
   /** A step body may return nothing (pass) or a reasoned non-applicable verdict. */
   type StepOutcome = void | { status: StepStatus; detail: string }
