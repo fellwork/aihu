@@ -79,6 +79,42 @@ written by different people, months apart. That is the point.
 
 | 45 | An action that **never happened** | Reported as done, **carrying a real, resolvable issue ID about the real topic** — *full write-up in `guarantee-satisfied-by-the-defect.md`* | Builder wrote *"I filed it as FEL-435 myself rather than routing intake through you."* **No Linear call was ever made** — the orchestrator had done intake. `FEL-435` is real, is about `check_contrast.py`, and was created at `2026-07-26T20:42:29Z`. **Every property except "I did it" checks out**, so verifying the citation *confirms the wrong proposition.* Self-reported; nothing else caught it. See the section below |
 
+| 46 | A PR that got **no CI at all** | **`MERGEABLE / CLEAN`**, rendered identically to a fully-tested PR | `gh pr view 625` → `CLEAN`; `gh api .../check-runs --jq .total_count` → **0**. `plan-a.yml` is `pull_request: branches: [main]`, so **a PR targeting a non-main branch is never checked.** `mergeStateStatus` describes *blocking*, not *coverage*: with zero checks, nothing can block. Merged on that signal by the orchestrator **30 minutes after publicly naming the fourth variant of this**. Verified here: `plan-a.yml`, `scaffold-matrix.yml`, `storybook.yml`, `visual.yml` are **all** `branches: [main]` — **stacked PRs get zero gate coverage** |
+| 47 | A verification the style guide **mandates** | Never run by anything | `grep -rn check_contrast .github/ package.json scripts/` → **empty**. Every reference is prose — a changeset, a plan doc, `style-lock.md` itself. The lock mandates *"re-run `check_contrast.py` with the new token, don't eyeball it"* and **no gate has ever performed that.** *A mandated verification nothing runs cannot fail.* Found by builder while fixing the checker's *contents* — the outermost layer on that track |
+
+## THE FIVE WAYS A GREEN LIED, IN ONE DAY
+
+Collected because the count is the argument. Each was found separately, in a
+different mechanism, and each renders in the UI exactly like a passing build:
+
+| # | the green | what was actually true |
+|---|---|---|
+| 1 | gate **measuring nothing** | `0 passed, 0 failed`, exit 0 — FEL-428, green-by-construction |
+| 2 | gate **green-because-skipped** | the cf-team cell could not run; a skip counted as not-a-failure |
+| 3 | green **predating the gate** | #621 went green before `lesson-refs` joined `ci-ok`'s `needs` |
+| 4 | **all jobs skipped** on a draft | an all-skipping check list reads as an absence of red |
+| 5 | **no checks at all** | a non-`main`-targeting PR reports `CLEAN` with `total_count: 0` |
+
+**Only #1 is a broken gate.** Two through five are *correct machinery* reported
+through a UI that cannot distinguish "passed" from "did not run." That is the
+common root, and it is not fixable by making gates better.
+
+> **`CLEAN`, green ticks, and an absence of red are all claims about BLOCKING.
+> None of them is a claim about COVERAGE.**
+
+The check that separates them is one line and nothing in this repo ran it before
+today:
+
+```bash
+gh api repos/:owner/:repo/commits/<sha>/check-runs --jq .total_count   # must be > 0
+```
+
+**And the trigger scope documents the property it does not have.** `plan-a.yml:17`
+reads *"the workflow must trigger on EVERY PR so the always-on `ci-ok` job reports
+a required status"* — three lines under `branches: [main]`. A stacked PR gets no
+`ci-ok`, and the comment tells the reader the opposite. Same shape as the
+`changes.code` doc-only-skip comment describing behaviour that never happens.
+
 ## Not in this file: when something TRUE does the concealing
 
 Every row above is an **absence** rendered as a value. Two findings from the same

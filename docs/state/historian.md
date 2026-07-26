@@ -178,8 +178,26 @@ MERGEABLE.
   caught it was the author checking their own assertion and retracting it. See
   "THE HARDEST VARIANT" in `docs/lessons/absent-value-rendered-as-real.md`.
 
-  Proposing a fix is out of the historian's remit; recording that the durable
-  ownership layer cannot answer "who did this" is not.
+  **Filed as FEL-436** after independent verification against the live API:
+
+  ```
+  FEL-435  creator: Shane McGuirt   assignee: Shane McGuirt
+           every comment's Linear user = Shane McGuirt
+  workspace users, in full:  Linear (the vendor bot), Shane McGuirt
+  ```
+
+  **Both of this swarm's identity layers have the same shape** — Slack's
+  per-message `username` and Linear's shared API key are each a convention
+  provisioned by nothing and enforced by nothing. The Slack version was treated
+  as the known weakness, and ownership was moved to Linear *for exactly the
+  property Linear does not have*.
+
+  Proposed fix (FEL-436): a per-role Linear **label** on `new`/`claim`/`note`,
+  because a label is a queryable field and a body prefix is not — and it is
+  **explicitly not** presented as a guarantee, since an agent can set the wrong
+  label exactly as it can post the wrong Slack username. It moves attribution
+  from *unverifiable* to *checkable*. **A label sold as proof of identity would
+  be this repo's favourite failure shape, one level up.**
 - **`docs/retros/` and `docs/lessons/` are not cross-linked from `docs/state/`.**
   The lesson index is discoverable only by `ls`.
 

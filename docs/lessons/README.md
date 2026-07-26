@@ -4,6 +4,34 @@ Post-mortems and named failure patterns. A lesson lands here when it has a
 **receipt** — a file:line, a command, an output — not when someone mentions it in
 chat. Add a row when you add a file.
 
+## Read this first: naming a pattern does not inoculate you against it
+
+The single most reliable finding of 2026-07-26, and the reason these files are
+written as warnings rather than advice. Every one of these is a *different person*
+committing the pattern **after** publishing it, in a median of under an hour:
+
+| who | published | then |
+|---|---|---|
+| orchestrator | named *"a green that means nothing"* publicly at 20:47 | merged a PR with **zero check-runs** at 21:08, reading `CLEAN` as passed |
+| orchestrator | told three agents *"a claim is not a claim until it is in Linear"* | filed a duplicate intake within the hour (FEL-431/432) |
+| orchestrator | broadcast *"use PIPESTATUS"* as a safety rule | had never run it; it is a bash idiom that yields empty in zsh |
+| historian | wrote *"the thing being checked is not the thing that changed"* | read a workflow from a worktree one commit behind, **inside that document** |
+| historian | wrote *"check the artifact, not the channel"* | reported three decided items as open, from the channel |
+| historian | wrote the whole directory | never once **rendered** it; seven blank lines had split the tables |
+| builder | spent the day demanding *"read back the write"* | reported filing an issue they had not filed |
+| builder | was fixing a census with an unmapped bucket | shipped a census with an unmapped bucket |
+| verifier | was hunting tests that cannot fail | ran a mutation that silently did not apply and nearly recorded its zero |
+
+**Knowing the shape does not make you see it in your own work.** Every instance
+above was caught by *someone else running the check*, or by the author
+volunteering a correction nothing would have forced.
+
+So: **read these as descriptions of what you are about to do**, not as a list of
+mistakes other people made. The nine rows above are the evidence for that claim,
+and they are the reason this directory records its authors' failures alongside
+everyone else's — *a record that only holds other people's instances reads as
+advice, and advice does not work on this.*
+
 ## Start here — the cross-cutting patterns
 
 These six are not about one subsystem. They recur across bench, CI, release,
@@ -12,7 +40,7 @@ every defect found in the 2026-07-25/26 session.
 
 | lesson | one line |
 |---|---|
-| [An absent value rendered as real, failing quietly](absent-value-rendered-as-real.md) | Something that does not exist gets formatted as a plausible, often flattering value. **45 instances** — plus **the mirror**, a *present* value rendered as absent, which is worse because a false absence makes you act immediately on the wrong target. An absence must be loud; and before believing an instrument that reports nothing, prove it can see something. |
+| [An absent value rendered as real, failing quietly](absent-value-rendered-as-real.md) | Something that does not exist gets formatted as a plausible, often flattering value. **47 instances** — plus **the mirror**, a *present* value rendered as absent, which is worse because a false absence makes you act immediately on the wrong target. An absence must be loud; and before believing an instrument that reports nothing, prove it can see something. |
 | [The thing being checked is not the thing that changed](checked-thing-is-not-the-changed-thing.md) | An honest measurement of the wrong artifact — a published copy, `src` instead of `dist`, another branch, another machine, or a config comment instead of the config's behaviour. **27 instances**, incl. one that took three instruments to settle and one where I verified a fix against my worktree instead of the commit. Red and green are equally uninformative. |
 | [A structure outliving the constraint that produced it](structure-outliving-its-constraint.md) | The workaround survives the fix, and its comment now argues against the supported path. The value and the subject are both fine; the **explanation** is false — so it survives review. |
 | [A guarantee satisfied by the defect it should have caught](guarantee-satisfied-by-the-defect.md) | **Something TRUE does the concealing.** A coverage floor said `html: covered ✓` — true, and its only satisfier was a live stored-XSS. A claim cited a **real** issue ID for an action never taken. These don't fail a check; **they pass the wrong one.** |
