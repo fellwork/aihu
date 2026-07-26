@@ -1,4 +1,5 @@
 import { defineLoader } from '@aihu/server'
+import { sanitizeHnHtml } from '../../lib/sanitize-hn-html.ts'
 
 const HN_API = 'https://hacker-news.firebaseio.com/v0'
 const MAX_DEPTH = 6
@@ -32,9 +33,22 @@ interface ItemLoaderResult {
   readonly comments: ReadonlyArray<CommentNode>
 }
 
+/**
+ * The trust boundary for this route. `text` is stranger-authored HTML that
+ * reaches an `html={}` binding, which the SSR path interpolates RAW into the
+ * bytes we serve (`ssr_string_emit.rs`, since #572) — so an unsanitised value
+ * here is stored XSS, not merely a client-DOM one.
+ *
+ * Sanitising inside `fetchItem` rather than at the three render sites is
+ * deliberate: this is the single point every item — the story and every
+ * comment, at every depth — passes through, so nothing downstream has to
+ * remember to be careful.
+ */
 async function fetchItem(id: number): Promise<HnItem | null> {
   const r = await fetch(`${HN_API}/item/${id}.json`)
-  return (await r.json()) as HnItem | null
+  const item = (await r.json()) as HnItem | null
+  if (!item) return null
+  return item.text === undefined ? item : { ...item, text: sanitizeHnHtml(item.text) }
 }
 
 async function fetchComments(ids: ReadonlyArray<number>, depth: number): Promise<CommentNode[]> {

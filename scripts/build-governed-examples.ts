@@ -74,6 +74,39 @@ manifests.sort((a, b) => a.id.localeCompare(b.id))
 const failures: string[] = []
 let ran = 0
 
+// Deletion tripwire. Enumeration is derived from disk, which by construction
+// cannot notice an example LEAVING disk — delete one and the lane just stops
+// mentioning it and passes. Verified: removing examples/hacker-news made its
+// row vanish from the report with no failure. `examples/governed-roster.json`
+// is the committed floor; see the rationale in that file. Checked before the
+// per-example loop, and independently of any --tier/name filter, so a filtered
+// run cannot mask a missing example.
+{
+  const rosterPath = join(examplesDir, 'governed-roster.json')
+  if (!existsSync(rosterPath)) {
+    console.error(
+      `build:governed-examples — ${rosterPath} is missing. It is the deletion tripwire ` +
+        `for the governed set; without it, removing an example silently reduces coverage.`,
+    )
+    process.exit(1)
+  }
+  const { required } = JSON.parse(readFileSync(rosterPath, 'utf-8')) as { required: string[] }
+  const present = new Set(manifests.map((m) => m.example))
+  const missing = required.filter((name) => !present.has(name))
+  if (missing.length > 0) {
+    console.error(
+      `build:governed-examples — ${missing.length} governed example(s) named in ` +
+        `examples/governed-roster.json have no coverage.manifest.json on disk:`,
+    )
+    for (const name of missing) console.error(`  ✗ ${name}`)
+    console.error(
+      `\nIf the removal was intentional, delete the name from governed-roster.json in the ` +
+        `same commit — that keeps the coverage loss visible in review instead of silent.`,
+    )
+    process.exit(1)
+  }
+}
+
 for (const m of manifests) {
   if (only.size > 0 && !only.has(m.example)) continue
   const tier = m.ci ?? 'compile'
@@ -113,24 +146,39 @@ for (const m of manifests) {
       }
     }
   } else if (tier === 'compile+smoke') {
-    // SFC compile is covered by check:emit-parses; run the smoke suite if any.
+    // The tier is a PROMISE, and it is now binding. Declaring `compile+smoke`
+    // with no smoke suite used to print a reassuring "compile-only" line and
+    // run nothing — the whole-run `ran === 0` guard below could not see it,
+    // because the other examples incremented `ran` and masked the no-op.
+    //
+    // That is how examples/hacker-news — the ONLY governed example that
+    // declares it exercises `html`, the intentionally-unsafe primitive —
+    // shipped a served-bytes XSS (FEL-426) past a green lane. A per-example
+    // promise needs a per-example check; a global counter is one level too
+    // coarse to catch a single item silently doing nothing.
+    //
+    // Downgrade the manifest to `ci: "compile"` if an example genuinely only
+    // needs check:emit-parses. That is an honest declaration. This is not.
     const hasSmoke =
       existsSync(join(m.dir, 'tests', 'smoke.test.ts')) ||
       existsSync(join(m.dir, 'vitest.config.ts'))
-    if (hasSmoke) {
-      ran++
-      console.log(`\n▶ ${m.id} ${m.example} — smoke (compile guarded by check:emit-parses)`)
-      const r = spawnSync('bun', ['run', 'test'], {
-        cwd: m.dir,
-        stdio: 'inherit',
-        env: { ...process.env, SCRIBE_SKIP_POSTINSTALL: '1' },
-      })
-      if (r.status !== 0) failures.push(`${m.example}: smoke suite exited ${r.status}`)
-    } else {
-      console.log(
-        `\n· ${m.id} ${m.example} — compile-only (no smoke suite; check:emit-parses covers it)`,
+    if (!hasSmoke) {
+      failures.push(
+        `${m.example}: manifest declares ci: "compile+smoke" but has no smoke suite ` +
+          `(expected tests/smoke.test.ts or vitest.config.ts). Write one, or downgrade ` +
+          `the manifest to ci: "compile" — a tier that silently runs nothing is a gate ` +
+          `that is green by construction.`,
       )
+      continue
     }
+    ran++
+    console.log(`\n▶ ${m.id} ${m.example} — smoke (compile guarded by check:emit-parses)`)
+    const r = spawnSync('bun', ['run', 'test'], {
+      cwd: m.dir,
+      stdio: 'inherit',
+      env: { ...process.env, SCRIBE_SKIP_POSTINSTALL: '1' },
+    })
+    if (r.status !== 0) failures.push(`${m.example}: smoke suite exited ${r.status}`)
   } else {
     console.log(`\n· ${m.id} ${m.example} — compile-only (check:emit-parses covers it)`)
   }
