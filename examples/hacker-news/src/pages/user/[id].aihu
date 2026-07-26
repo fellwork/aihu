@@ -30,9 +30,9 @@
         <dt>submissions</dt>
         <dd>{(route().data.user.submitted ?? []).length}</dd>
       </dl>
-      <section class="about" if={!!route().data.user.about}>
+      <section class="about" if={route().data.aboutBody.length > 0}>
         <h2>about</h2>
-        <div html={route().data.user.about}></div>
+        <hn-rich-text blocks={route().data.aboutBody} />
       </section>
     </article>
   </main>

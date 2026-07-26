@@ -1,0 +1,40 @@
+@state {
+  import type { Block } from '../lib/parse-hn-markup.ts'
+
+  /**
+   * Renders parsed HN markup. There is deliberately NO `html={}` here.
+   *
+   * Every string below lands in an ordinary interpolation, which the compiler
+   * emits through `__aihu_stext` — escaped on the server and on the client, by
+   * construction. That is the point: the route cannot be made to serve live
+   * markup by feeding it a cleverer payload, because no code path on this data
+   * path turns a string back into HTML (FEL-426).
+   *
+   * `href` is already `safeHref`-validated at parse time, so a rejected scheme
+   * never reaches this component as a link — it arrives as plain text.
+   */
+  let blocks = prop<ReadonlyArray<Block>>()
+}
+
+@template {
+  <div class="rich">
+    <div class="blk" each={b of blocks()} key={b.k}>
+      <p if={b.kind === 'p'}>
+        <span each={s of b.spans} key={s.k}>
+          <span if={s.kind === 'text'}>{s.text}</span>
+          <i if={s.kind === 'em'}>{s.text}</i>
+          <code if={s.kind === 'code'}>{s.text}</code>
+          <a if={s.kind === 'link'} href={s.href} rel="nofollow noopener noreferrer">{s.text}</a>
+        </span>
+      </p>
+      <pre if={b.kind === 'pre'}><code each={s of b.spans} key={s.k}>{s.text}</code></pre>
+    </div>
+  </div>
+}
+
+@style {
+  .rich    { display: contents; }
+  .blk     { display: contents; }
+  .rich p  { margin: 0.4rem 0; }
+  .rich pre { background: var(--code-bg); padding: 0.5rem; overflow-x: auto; }
+}

@@ -15,6 +15,7 @@
     "each",
     "key",
     "interpolation",
+    "html",
     "a-enhanced",
     "prop",
     "prop.attribute",
@@ -42,8 +43,9 @@
     "about/index.html": [
       "About this example",
       "sole live exerciser of the SSG build path",
+      "<strong>Authored in this repo.</strong>",
       "data-aihu-path=\"0\""
     ]
   },
-  "notes": "NEW in Phase 2a. Sole live exerciser of output:'static', onAdopt, onAttributeChange, and the reflected prop attribute surface. `bun run build` prerenders every static route to a content-ful <pattern>/index.html (SSR string renderer via the compiler's server target) that hydrates into the SPA on load; the `prerender` block above asserts the rendered content is really in the bytes so a regression to the empty SPA shell is RED. SFCs compile clean; per-route head recovered from source via compileRouteMeta (parity with the SPA build)."
+  "notes": "NEW in Phase 2a. Sole live exerciser of output:'static', onAdopt, onAttributeChange, and the reflected prop attribute surface. `bun run build` prerenders every static route to a content-ful <pattern>/index.html (SSR string renderer via the compiler's server target) that hydrates into the SPA on load; the `prerender` block above asserts the rendered content is really in the bytes so a regression to the empty SPA shell is RED. SFCs compile clean; per-route head recovered from source via compileRouteMeta (parity with the SPA build). Also the governed set's live exerciser for `html={}` (FEL-426): the binding on about.aihu renders an AUTHORED in-repo constant, which is the only safe input for an intentionally-unsafe primitive. The row previously lived on hacker-news pointed at the HN API, i.e. the coverage floor was satisfied by the vulnerability. The prerender needle asserts the rendered markup in the built bytes, so 'covered' means covered by a correct usage that actually runs."
 }

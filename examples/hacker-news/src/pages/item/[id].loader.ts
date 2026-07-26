@@ -1,4 +1,6 @@
 import { defineLoader } from '@aihu/server'
+import type { Block } from '../../lib/parse-hn-markup.ts'
+import { parseHnMarkup } from '../../lib/parse-hn-markup.ts'
 
 const HN_API = 'https://hacker-news.firebaseio.com/v0'
 const MAX_DEPTH = 6
@@ -22,13 +24,19 @@ export interface HnItem {
 export interface CommentNode {
   readonly id: number
   readonly by: string
-  readonly text: string
+  /**
+   * Structured, NOT an HTML string. The route renders these spans through
+   * ordinary escaped bindings; there is no `html={}` on this data path.
+   */
+  readonly body: ReadonlyArray<Block>
   readonly time: number
   readonly children: ReadonlyArray<CommentNode>
 }
 
 interface ItemLoaderResult {
   readonly story: HnItem
+  /** Parsed form of `story.text` — see the note on CommentNode.body. */
+  readonly storyBody: ReadonlyArray<Block>
   readonly comments: ReadonlyArray<CommentNode>
 }
 
@@ -48,7 +56,10 @@ async function fetchComments(ids: ReadonlyArray<number>, depth: number): Promise
     out.push({
       id: c.id,
       by: c.by ?? 'anonymous',
-      text: c.text ?? '',
+      // The trust boundary. Stranger-authored markup becomes structured data
+      // HERE, once, for every comment at every depth — so no render site has
+      // to remember, and none of them needs `html={}`.
+      body: parseHnMarkup(c.text),
       time: c.time ?? 0,
       children,
     })
@@ -70,5 +81,5 @@ export const loader = defineLoader(async (ctx): Promise<ItemLoaderResult> => {
 
   const comments = story.kids?.length ? await fetchComments(story.kids, 0) : []
 
-  return { story, comments }
+  return { story, storyBody: parseHnMarkup(story.text), comments }
 })

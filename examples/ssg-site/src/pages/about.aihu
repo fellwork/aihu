@@ -8,9 +8,36 @@
   }
 }
 
+@state {
+  /**
+   * The governed set's live exerciser for `html={}` (FEL-426).
+   *
+   * This string is a CONSTANT IN THIS FILE. That is the entire reason the
+   * binding below is safe, and it is the only condition under which `html={}`
+   * is safe: the compiler documents it as intentionally unsafe by design
+   * (`emit.rs:12`), and since #572 the SSR path interpolates it unescaped into
+   * the bytes we serve, not just into client DOM.
+   *
+   * The row used to be held by `examples/hacker-news`, which pointed the same
+   * binding at the Hacker News API — so the coverage floor was being satisfied
+   * by a live stored-XSS hole. The guarantee and the defect were one line of
+   * code. Coverage now means "covered by a CORRECT usage".
+   *
+   * If you ever need this content to come from a loader, a CMS, or a user:
+   * it does not belong in `html={}`. Parse it to structured data and render
+   * escaped bindings — see `examples/hacker-news/src/lib/parse-hn-markup.ts`.
+   */
+  const AUTHORED_NOTICE_HTML =
+    '<strong>Authored in this repo.</strong> This block is rendered with ' +
+    '<code>html={}</code>, which interpolates its value raw — into the DOM ' +
+    'and into the prerendered bytes. Safe here only because the string is a ' +
+    'constant in <code>about.aihu</code>.'
+}
+
 @template {
   <main class="ssg-about">
     <h1>About this example</h1>
+    <div class="ssg-notice" html={AUTHORED_NOTICE_HTML}></div>
     <p>
       <code>ssg-site</code> is the governed example for aihu's static output
       mode. It is the sole live exerciser of the SSG build path and the

@@ -8,7 +8,9 @@
     "src/pages/item/[id].aihu",
     "src/pages/item/[id].loader.ts",
     "src/pages/user/[id].aihu",
-    "src/components/hn-comment.aihu"
+    "src/components/hn-comment.aihu",
+    "src/components/hn-rich-text.aihu",
+    "src/lib/parse-hn-markup.ts"
   ],
   "exercises": [
     "prop",
@@ -20,7 +22,6 @@
     "each",
     "key",
     "if",
-    "html",
     "interpolation",
     "a-enhanced",
     "prefetch",
@@ -32,5 +33,5 @@
   "planned": ["route.head", "beforeNavigate", "suspense", "slot", "reload-opt-out"],
   "absorbs": ["blog-loader"],
   "ci": "compile+smoke",
-  "notes": "SSR structural-walk hydration (#465), recursive <hn-comment>, enhanced <a> nav. Absorbs blog-loader's <suspense>+fallback slot in P3 (planned). Not vite-buildable in the default lane — server/SSR wiring; guarded by check:emit-parses + smoke."
+  "notes": "SSR structural-walk hydration (#465), recursive <hn-comment>, enhanced <a> nav. Absorbs blog-loader's <suspense>+fallback slot in P3 (planned). Not vite-buildable in the default lane \u2014 server/SSR wiring; guarded by check:emit-parses + the smoke suite in tests/. NO LONGER exercises `html`: FEL-426 removed all three html={} bindings because they pointed at untrusted HN API content and #572 made SSR interpolate them raw into served bytes. Remote content is now parsed to structured data and rendered through escaped bindings."
 }

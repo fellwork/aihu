@@ -1,0 +1,30 @@
+{
+  "$comment": [
+    "The DELETION TRIPWIRE for the governed example set (FEL-426).",
+    "",
+    "scripts/build-governed-examples.ts derives what to run by scanning examples/",
+    "for coverage.manifest.json. That is the right default — add a manifest and the",
+    "lane covers it, with no central list to keep in sync. But a set defined purely",
+    "by what is on disk cannot notice something LEAVING disk: delete an example and",
+    "the lane simply stops mentioning it and passes green. Coverage shrinks in",
+    "silence, which is the same shape of bug as the one this file was created for.",
+    "",
+    "So: enumeration stays derived, and this is only a FLOOR. Adding a governed",
+    "example still requires nothing here. REMOVING one requires deleting its line",
+    "here too — a deliberate, reviewable act in the diff, instead of a coverage",
+    "regression nobody sees.",
+    "",
+    "If a name below has no coverage.manifest.json on disk, the lane fails."
+  ],
+  "required": [
+    "agent-driven-demo",
+    "agent-hub",
+    "css-engine-utility",
+    "hacker-news",
+    "layouts",
+    "realtime-scores",
+    "ssg-site",
+    "storefront",
+    "todo-mvc"
+  ]
+}
