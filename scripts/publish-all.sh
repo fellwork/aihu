@@ -80,6 +80,13 @@ PKGS=(
                       # created by `npm create aihu` cannot type-check until this ships.
   "plugin-drizzle"    # @aihu-plugin/drizzle; depends on @aihu/server + @aihu-plugin/data (must follow them)
   "plugin-kindly-note" # @aihu-plugin/kindly-note; depends on @aihu/signals (must follow it)
+  "editor"             # @aihu/editor — depends on @aihu/signals only (must follow it). Public +
+                       # changeset-versioned (reached 0.1.1) but was missing from this manifest,
+                       # so it never reached npm — same silent gap that hit ui/seo/store.
+  "magna"              # @aihu/magna — depends on @aihu/signals + @aihu/plugin + @aihu/context +
+                       # @aihu-plugin/data (must follow them all). Same gap: reached 0.2.4 unpublished.
+                       # Its @aihu/magna-gqlmin optionalDependency is not a workspace package and is
+                       # unpublished; npm skips unresolvable optional deps, so installs still succeed.
   "_moved/data"
   "_moved/agent-readiness"
 )
