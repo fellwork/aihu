@@ -72,7 +72,24 @@
 ## What didn't work
 
 - **Recurring README/inventory drift.** `sync-readme.ts` ran in dev but not in Release-PR workflow → version step would commit stale READMEs. **Now fixed structurally** in `release-pr.yml` (regen + `bun install` in version step).
+
+  > **Historian's correction, 2026-07-26 — "now fixed structurally" was wrong, and the fix became the cause.**
+  > `release-pr.yml`'s only install is `bun install --frozen-lockfile`; **it never builds.** So the regen this
+  > line celebrates ran `sync-readme` in *write* mode against a tree with no `dist/`, committing 48 `_no dist_`
+  > rows and `"bytes": -1` on all 108 cache rows into every release. The comment above that step reads
+  > *"Without this, every Release-PR ships drift that downstream CI's sync-readme --check would flag."*
+  > Actually fixed 2026-07-25 in #591 (`24c08c33`). See instance 22 in
+  > `docs/lessons/absent-value-rendered-as-real.md`.
+
 - **Repeated Builder UUID hallucination.** Builders R5.2c, R5.4a, R5.6 invented record IDs when referencing prior records. **Now a promoted lesson** (see `docs/lessons/builder-uuid-hallucination.md` if it exists, or as part of the playbook).
+
+  > **Historian's correction, 2026-07-26 — that lesson was never written.**
+  > `git log --all --diff-filter=A -- docs/lessons/builder-uuid-hallucination.md` is empty: the file has never
+  > existed on any ref. "**Now a promoted lesson**" describes a promotion that did not happen, and the hedge
+  > *"if it exists"* makes the claim unfalsifiable — a reader cannot tell a missing file from a deliberate maybe.
+  > Caught by `scripts/check-lesson-refs.sh` on its **first run**. Instance 29 in
+  > `docs/lessons/absent-value-rendered-as-real.md`. **The underlying lesson still deserves writing;** the
+  > citation is left in place, corrected rather than deleted, so the debt stays visible.
 - **Scout dispatched as Explore subagent.** Explore has no Bash → Scout couldn't write its own delta record. Director had to relay. **Promoted as lesson e below.**
 - **Builder R5.2b-2 shipped parser changes without bumping `@aihu/compiler` package.** Caused downstream SPA breakage — consumers using `@aihu/compiler@latest` got the OLD binary, silent grammar feature regression. **Promoted as lesson d below.**
 - **publish-all.sh PKGS array gaps.** `auth`, `mcp`, `ai`, `scraping` weren't in the array → Release-PRs bumped them but the script never published them. `@aihu/auth@0.1.1` was the canary case. **Promoted as lesson b below.**

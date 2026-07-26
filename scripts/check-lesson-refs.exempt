@@ -1,0 +1,11 @@
+# check-lesson-refs.sh — knowingly-dangling lesson citations.
+#
+# Format:  <path><TAB or spaces><reason>
+# A path here is NOT silently skipped: the checker prints every exemption it
+# applies, so an exemption is a visible debt rather than an invisible pass.
+#
+# Add a row ONLY when a document deliberately cites a path that does not exist —
+# e.g. prose *about* a broken citation. Do not use this to silence a real gap;
+# the point of the gate is that a cited lesson is reachable.
+
+docs/lessons/builder-uuid-hallucination.md   Cited by docs/retros/aihu-v1-framework-2026-05-22.md:75 as "Now a promoted lesson" — it was NEVER written (git log --all --diff-filter=A is empty, 2026-05-22 to date). The retro citation is annotated in place rather than deleted, and instance 29 of absent-value-rendered-as-real.md quotes the path deliberately. REAL DEBT: the lesson still deserves writing; delete this row when it is.

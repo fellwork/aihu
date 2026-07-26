@@ -57,6 +57,27 @@ written by different people, months apart. That is the point.
 | 26 | An **empty** Slack message | A present, real message in the record | `merge-train:  [2026-07-25 13:06:15 EDT]` — no body, no role prefix, never referenced. Preserved in `docs/state/transcripts/` |
 | 27 | A token authorised at the layer you touch, **unauthorised at the layer it depends on** | A Pages domain move that succeeded, then served **522 for six minutes with no way to repair it** | `status: pending`, `verification_data: { "error_message": "CNAME record not set" }`. Token had `pages (write)` but only `zone (read)`, so reading the DNS record returned `Authentication error (10000)` — *"I could create the broken state but not repair it."* **Moving a Pages custom domain does not move its DNS record.** |
 
+| 28 | **An unmerged branch** — "committed" | **"on `main`"**, in two Notion pages and an orchestrator brief, with a correct and verified instance count attached | *This document.* On 2026-07-26 these three lesson files were written, committed, and cited **by repo path** as established doctrine. They were not on `main`. `git ls-tree -r --name-only origin/main -- docs/lessons/` returned neither file; `gh pr list --head srmcguirt/historian-state-files` returned `[]`. Every citation resolved to nothing for anyone not standing in one specific worktree, and **nothing errored** — the citation was well-formed, the count was right, the path was plausible. Caught by the incoming orchestrator, who re-derived three claims from the handoff page instead of trusting it. **`git commit` is not `git push` is not `on main`.** Now asked by `scripts/check-lesson-refs.sh` |
+| 29 | A lesson that was **never written** | **"Now a promoted lesson"**, hedged with *"if it exists"* | `docs/retros/aihu-v1-framework-2026-05-22.md:75` cites `docs/lessons/builder-uuid-hallucination.md`. `git log --all --diff-filter=A --` on that path is **empty — it has never existed on any ref**, for over two months. The hedge is the sharp part: *"if it exists"* makes the claim **unfalsifiable**, so a reader cannot distinguish a missing file from a deliberate maybe. Found by `check-lesson-refs.sh` **on its first run**, in a file nobody was looking at — the same way #610's R0 liveness gate caught a fourth dead cell on *its* first run |
+
+## The instrument for this pattern: ask whether the thing is *reachable*
+
+Instances 28 and 29 are both citations — a promise that something exists somewhere
+a reader can get to. Nothing in this repo asked whether that was true, so both
+survived: one for four hours across two Notion pages, one for two months.
+
+`scripts/check-lesson-refs.sh` asks it. Every `docs/lessons/*.md` path cited
+anywhere under `docs/` must exist in `git ls-tree origin/main`; it names the
+missing file **and the files that cite it**, and it distinguishes *"exists
+locally, unmerged"* from *"not in this worktree either"* — because those are
+different bugs with the same symptom.
+
+Generalise it. The same question applies to any cross-boundary reference this
+swarm makes: a Notion page citing a repo path, a Linear issue citing a PR, an
+agent brief citing a document. **A citation is a claim, and an unreachable
+citation fails exactly like a dead binding: quietly, and in the flattering
+direction.**
+
 ## Why it keeps winning
 
 1. **Zero and empty are valid values.** Type systems, JSON schemas, and exit codes
