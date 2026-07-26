@@ -79,8 +79,11 @@ describe('scaffold css-engine · vite.config.ts', () => {
     // Gap 2: the agent surface is enabled by default. Its skills are DERIVED
     // from the @aihu/agent registry at runtime, NOT a hand-written literal —
     // so the emitted config carries no `skills:` array (thesis §2, Derived).
-    expect(cfg).toContain('viteAgentReadinessIntegration(')
-    expect(cfg).toContain("from '@aihu-plugin/agent-readiness'")
+    // The agent surface is now configured through viteAihuPlugin's own
+    // `agentReadiness` option rather than a hand-wired second plugin — the
+    // framework's first-class path, which no template previously used.
+    expect(cfg).toContain('agentReadiness: {')
+    expect(cfg).not.toContain('viteAgentReadinessIntegration')
     expect(cfg).toContain("name: 'demo'")
     expect(cfg).not.toContain('skills:')
     expect(cfg).not.toContain("name: 'increment'")
