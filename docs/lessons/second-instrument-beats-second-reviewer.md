@@ -121,6 +121,69 @@ free, and it is evidence rather than interpretation.
 
 *"Neither of us should have trusted the file."*
 
+## The mutation matrix — how to find a test that cannot fail
+
+*"A test that cannot fail is the through-line of this entire day."* That names the
+problem. This is the method that finds one.
+
+**The problem is self-concealing.** A test that passes before *and* after a fix is
+**invisible to a green run by construction**. No amount of reading the suite finds
+it reliably, and spot-checking cannot, because you would have to already suspect
+the specific test. Builder asked directly — *"please confirm I did not leave a
+second one like it"* — and the honest answer required a systematic instrument.
+
+**The method:** break the fixed code in N independent ways. Record, per mutation,
+**which tests go red**. Then read the matrix by *column*:
+
+```
+MUTATION                                   TESTS RED
+M1  reintroduce html={} in the component    1, 28
+M2  remove decode-before-validate           13
+M3  remove item loader trust boundary       25
+M4  bypass safeHref entirely                3,4,5,6,7,12,21,28
+M5  stop decoding entities in text          14,15
+M7  reject EVERY href — over-reject         8,9,10,11,13,22,28
+M8  marks[0] instead of marks[last]         23
+M9  disable tag recognition entirely        2,3,8,9,10,11,13,16,22,23,25,26,28
+M10 remove user loader boundary             26
+--  CI=1 with no compiler binary            27
+```
+
+**Any test red under no mutation is either testing nothing, or testing something
+no mutation touched — and you must say which.** Here, 23 of 28 were falsifiable.
+Four were not:
+
+> Tests 17–20 assert that malformed markup *"degrades to text"* — and stayed green
+> under **all ten**, including **M9, which disables tag parsing completely**. That
+> is the tell: the assertion is equally true when **nothing is parsed at all**, so
+> it cannot distinguish a working parser from an absent one.
+
+Note the verdict was *weak*, not *lying* — a distinction worth keeping. The
+remedy is to assert the **parsed structure** (block/span kinds), which M9 would
+then catch, rather than that the payload merely appears as text.
+
+### Two techniques that make the matrix sharper
+
+**1. Opposing mutations.** Mutate in *both* directions: break the thing, then
+over-apply it. `M4` (bypass `safeHref` entirely) and `M7` (reject *every* href)
+are a pair, and `M7` is what proves rejection is **not indiscriminate** — it
+reddens the four tests asserting that `http(s)`, `mailto:` and same-origin links
+are *kept*. A suite that only ever tests "the bad thing is blocked" passes
+happily when everything is blocked.
+
+**2. Assert that the mutation actually applied.** The near-miss, recorded by the
+verifier against their own instrument:
+
+> The first `M9` used a `perl` substitution that **silently did not match**. The
+> file was unchanged, the run reported **0 red**, and that was one keystroke from
+> being written down as *"these tests are unfalsifiable."* Caught only by printing
+> the mutated line and seeing it identical. Redone with an asserted anchor
+> (`assert old in s`).
+
+**An absent mutation rendered as a passing result** — the repo's core pattern,
+aimed at the instrument built to hunt that exact pattern, mid-hunt. If your
+mutation harness cannot prove it changed the file, its zeroes mean nothing.
+
 ## When a reviewer *is* the right tool
 
 This lesson is not "stop reviewing." Diff review catches intent bugs, API misuse,
