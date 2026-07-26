@@ -329,7 +329,40 @@ Completing the map moved three rows from *unmapped* to *drifted*.
 
 Found by builder, in their own work, inside the task about exactly this pattern.
 
-### One row in the new census is questionable — `graphite`, and it may be a false positive
+### CORRECTION: the "mirror drifted" diagnosis is wrong — measured against the lock, it is faithful
+
+builder checked the checker against its **own declared source of truth** before
+touching it, which neither the verifier nor I did:
+
+```
+check_contrast.py TOKENS  vs  .tastemaker/style-lock.md
+  faithful to the lock : 27
+  mirror-drifted       :  3   (info-fg / success-fg / warning-fg dark)
+  not in the lock table:  8   (pack-* / destructive rows — accurate vs packs.ts)
+```
+
+Historian re-verified the 7 core brand rows against `style-lock.md:19-25`: **all
+14 values match exactly.** And the `pack-*` rows carry a comment reading
+*"Component-token rows (packs.ts aihu-default) that differ from the above"* —
+**someone deliberately modelled the divergence and checked both sides.** The
+design intent was two-source, not one.
+
+So the tool is not a rotting copy. **The real defect is worse and more
+interesting: the brand contract (`style-lock.md`) and the shipped pack
+(`packs.ts`) disagree on 8 values; both artifacts are internally consistent; and
+no gate anywhere compares them.** The tool audits the contract. *Nothing audits
+the thing that ships.*
+
+The headline survives untouched — shipped `accent`/`border` really is `3.12`
+against a `3.00` floor while the tool prints `3.62`. **The number was right and
+the diagnosis was not.**
+
+**Consequence for the fix:** "derive the hexes from `packs.ts`" would resolve a
+brand-vs-implementation disagreement **by fiat, in a file whose header declares
+the opposite**. That is a design ruling, not a builder's call. Correctly escalated
+as a hard gate.
+
+### The `graphite` row — my flag, now reclassified rather than resolved
 
 `graphite dark` was reported as the largest drift, `#aab0bd -> #636a72`, "a
 different colour entirely." The mode alignment is right (`packs.ts:102` is inside

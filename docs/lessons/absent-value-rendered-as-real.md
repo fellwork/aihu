@@ -74,6 +74,9 @@ written by different people, months apart. That is the point.
 
 | 42 | Three tokens the census **could not classify** | Dropped into a "NO MAPPING" bucket and **excluded from the drift count**, yielding **8 of 30** | The real figure is **11 of 38**. Builder's first checker→`packs.ts` map left `info-fg`/`success-fg`/`warning-fg` unmapped; completing it moved all three from *unmapped* to *drifted*. Self-reported, inside the task about this pattern. **The number to watch is the unmapped bucket, not the drift count — a census is only trustworthy once "didn't classify" is zero.** And a wrong denominator (30 vs 38) hides in exactly the same place |
 
+| 43 | A green obtained **before the gate existed** | Still displayed as **green**, under a contract it was never tested against | #621 was cut from `bc1c4eac` and went green there. #620 then added `lesson-refs` to `ci-ok`'s `needs`. *"Its old green did not mean what it looked like it meant."* Caught by builder-b, who rebased and re-ran rather than trusting the tick: `lesson-refs pass 7s` — **a gate that did not exist when the PR first went green.** GitHub renders both states identically. **After a required check is added, every open PR's existing green is stale evidence** |
+| 44 | A draft PR where **every job skipped** | A check list with **no red in it** | #622: `plan-a.yml:28` skips CI on drafts by design. *"An all-skipping check list renders as an absence of red, and nothing has run in CI at all."* Its only evidence was local. **"No red" and "verified" look identical in that UI** — and a skip is not a pass, which is the same ruling already standing for the scaffold-matrix cell |
+
 ## THE MIRROR IMAGE: a PRESENT value rendered as ABSENT
 
 Named 2026-07-26 by the verifier, against their own instrument. Everything above
