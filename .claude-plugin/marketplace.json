@@ -1,0 +1,14 @@
+{
+  "name": "aihu",
+  "description": "Official aihu plugins for Claude Code",
+  "owner": {
+    "name": "aihu"
+  },
+  "plugins": [
+    {
+      "name": "aihu",
+      "source": "./",
+      "description": "aihu SFC authoring skill — syntax, cookbook, and compiler-backed validation workflow"
+    }
+  ]
+}

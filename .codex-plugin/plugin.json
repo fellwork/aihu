@@ -1,0 +1,27 @@
+{
+  "name": "aihu",
+  "version": "0.1.0",
+  "description": "Official aihu authoring skill. Framework for building Web Components from .aihu single-file components.",
+  "author": {
+    "name": "aihu",
+    "url": "https://github.com/fellwork/aihu"
+  },
+  "homepage": "https://github.com/fellwork/aihu",
+  "repository": "https://github.com/fellwork/aihu",
+  "license": "MIT",
+  "keywords": ["aihu", "sfc", "web-components", "signals", "compiler"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "aihu",
+    "shortDescription": "aihu SFC authoring skill.",
+    "longDescription": "Use aihu block structure, @state intrinsics, template grammar, the agent surface, and the cookbook when authoring .aihu single-file components.",
+    "developerName": "aihu",
+    "category": "Developer Tools",
+    "capabilities": ["Read"],
+    "websiteURL": "https://github.com/fellwork/aihu",
+    "defaultPrompt": [
+      "Create an aihu counter component",
+      "Add an agent-drivable action to this .aihu component"
+    ]
+  }
+}

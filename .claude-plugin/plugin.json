@@ -1,0 +1,14 @@
+{
+  "name": "aihu",
+  "displayName": "aihu",
+  "version": "0.1.0",
+  "description": "Official aihu authoring skill. TRIGGER when creating or editing any .aihu single-file component, or when writing components in a project that uses the aihu framework (@aihu/* packages). .aihu SFC syntax is novel: code written from prior knowledge will not compile.",
+  "author": {
+    "name": "aihu"
+  },
+  "defaultEnabled": true,
+  "homepage": "https://github.com/fellwork/aihu",
+  "repository": "https://github.com/fellwork/aihu",
+  "license": "MIT",
+  "keywords": ["aihu", "sfc", "web-components", "signals", "compiler"]
+}

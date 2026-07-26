@@ -1,0 +1,16 @@
+{
+  "name": "aihu",
+  "owner": {
+    "name": "aihu"
+  },
+  "metadata": {
+    "description": "Official aihu plugins for Cursor"
+  },
+  "plugins": [
+    {
+      "name": "aihu",
+      "source": ".",
+      "description": "Official aihu authoring skill. Framework for building Web Components from .aihu single-file components."
+    }
+  ]
+}

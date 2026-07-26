@@ -1,0 +1,21 @@
+{
+  "name": "aihu",
+  "description": "Official aihu plugins for Grok Build",
+  "owner": {
+    "name": "aihu"
+  },
+  "plugins": [
+    {
+      "name": "aihu",
+      "description": "Official aihu authoring skill.",
+      "category": "development",
+      "source": {
+        "type": "local",
+        "path": "./skills"
+      },
+      "homepage": "https://github.com/fellwork/aihu",
+      "keywords": ["aihu", "sfc", "web components", "signals"],
+      "domains": ["github.com"]
+    }
+  ]
+}
