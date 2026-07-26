@@ -567,7 +567,13 @@ export function agentServerTs(): string {
     '      detachBridge = server.attachBridge(bridgeChannelFor(ws as unknown as BunWs))',
     "      console.log('[agent] browser bridge connected')",
     '    },',
-    '    message(_ws, message) {',
+    // Explicitly typed: contextual typing from `Bun.serve`'s websocket handler
+    // map does NOT reach these params here, so under the scaffolded project's
+    // `strict` they are implicit-any (TS7006) and `bun run typecheck` — the
+    // command the template's own next-steps prints — fails on a fresh scaffold.
+    // #595 fixed this class of error by adding @types/bun; #601 reintroduced it
+    // while wiring the readiness surface. Pinned by a regression test now.
+    '    message(_ws: unknown, message: string | Uint8Array) {',
     "      const data = typeof message === 'string' ? message : message.toString()",
     '      for (const h of [...messageHandlers]) h(data)',
     '    },',
@@ -1016,7 +1022,13 @@ export function agentMcpTs(): string {
     '      detachBridge = server.attachBridge(bridgeChannelFor(ws as unknown as BunWs))',
     "      console.error('[agent-mcp] browser bridge connected')",
     '    },',
-    '    message(_ws, message) {',
+    // Explicitly typed: contextual typing from `Bun.serve`'s websocket handler
+    // map does NOT reach these params here, so under the scaffolded project's
+    // `strict` they are implicit-any (TS7006) and `bun run typecheck` — the
+    // command the template's own next-steps prints — fails on a fresh scaffold.
+    // #595 fixed this class of error by adding @types/bun; #601 reintroduced it
+    // while wiring the readiness surface. Pinned by a regression test now.
+    '    message(_ws: unknown, message: string | Uint8Array) {',
     "      const data = typeof message === 'string' ? message : message.toString()",
     '      for (const h of [...messageHandlers]) h(data)',
     '    },',
