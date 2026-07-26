@@ -70,6 +70,11 @@ PKGS=(
   "seo"               # @aihu/seo SSR/meta helpers; depends on @aihu/plugin + @aihu/server + @aihu-plugin/agent-readiness (must follow them)
   "cli"
   "create-aihu"       # `npm create aihu` entry point; thin delegator — depends on @aihu/cli (must follow it)
+  "templates/cf-team" # @aihu/templates-cf-team — zero deps (pure content: template/ + template.config.*).
+                      # `aihu app --template cf-team` auto-installs this from npm at @latest
+                      # (autoInstallTemplate in scaffold-pipeline.ts), so an unpublished bump means
+                      # users scaffold the OLD template. It sat at 1.0.0 on npm while the repo reached
+                      # 3.0.1 — three majors of v1→v2 macro/directive migration undelivered.
   "compiler"
   "css-engine"        # build-time CSS engine; depends on @aihu/compiler (must follow it)
   "primitives"        # headless UI primitives; depends on css-engine + signals + arbor (must follow them)
