@@ -95,6 +95,15 @@ from the defects.
 > A component fails. You file the first error you hit. **Fixing it reveals a
 > second, which was always there and could not be seen.** Repeat.
 
+Stated more precisely, and this is the sentence to keep:
+
+> **The first thing to abort is not the same as the reason it is broken.**
+
+The filed issue — *"ships `moon.yml` and no workspace folder"* — was accurate
+about the *first abort*. It was silent about the other seven, not through any
+fault of the reporter, but because **nothing downstream of the first failure had
+ever executed.**
+
 Eight defects, found one at a time, each invisible until the one above it was
 fixed. The issue as filed — accurate, reproducible, P1 — described **one eighth**
 of the problem, and closing it on that basis would have marked a still-unusable
@@ -113,6 +122,23 @@ Two corroborating details from that case, both independent of the reported error
   runs three commands routed through it. **The CI the template hands its user
   cannot pass on its first run either** — so the artifact is self-confirming: it
   ships proof of its own brokenness and nothing read it.
+
+### It also closes the #613/#616 arc, and makes the green-by-construction lesson worse
+
+The cf-team matrix cell was permanently RED (nobody looked), then
+GREEN-because-skipped (nobody *could* look), then RED for the real reason once
+#616 installed moon. The tidy reading is *"a skip was hiding a gap."* The true one
+is sharper:
+
+> **The skip was not hiding a gap, and it was not hiding one bug. It was hiding
+> eight — behind the only one that could fire.**
+
+#616 made defect 1 visible. **Nothing has ever seen 2 through 8**, across three
+published major versions of the template. That is a stronger claim than FEL-428
+usually supports: a green-by-construction gate is not merely uninformative, and
+not merely concealing *a* defect — it can conceal an entire component that has
+never been exercised end to end, with the count unknowable until someone starts
+peeling.
 
 **The right move when you notice it is to stop and re-scope, not to keep
 patching** — which is what happened here, with the work halted at defect 5 and a

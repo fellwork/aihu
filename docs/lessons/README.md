@@ -42,8 +42,20 @@ being measured, and only one of them fails:
 | **recognising the pattern in the moment**, while doing the work | **No.** Nine instances, four agents, median under an hour. Knowing the shape does not make you see it in your own hands. |
 | **consulting the record before choosing a method** | **Yes** — demonstrated the same day. |
 
-The counter-example, and it is the reason this section is not simply a
-counsel of despair: before writing the FEL-437 fix, builder-b wrote —
+Two counter-examples, both the same day, both unprompted — which is the reason
+this section is not simply a counsel of despair.
+
+**One:** reporting a PR's status under a rule adopted an hour earlier, rather
+than the habit it replaced —
+
+> ```
+> total_count = 15        <- not zero, so something actually ran
+> check       = success   <- the job underneath, not the umbrella
+> ```
+> *"`ci-ok success` on its own would not have earned that report an hour ago and
+> does not now."*
+
+**Two:** before writing the FEL-437 fix, builder-b wrote —
 
 > *"I will exercise the draft path by **actually opening a draft PR**, not by
 > reasoning about the YAML — two agents read this same file today and reached
