@@ -36,7 +36,7 @@ written by different people, months apart. That is the point.
 | 5 | An **empty framework list** | js-framework-benchmark reporting **all `0.00 ms`, still green** — twice, historically | *"One workflow step from a real third-party number."* Fixed in #573 (`b26a4854`) |
 | 6 | A route that was never prerendered | **SPA fallback served at HTTP 200** — nine endpoints | A 200 is indistinguishable from a real page to any check that only looks at status |
 | 7 | An unset `ROLE`/identity variable | **Another agent's identity** | The Slack bot posts under one username for the whole swarm; role is a hand-typed `[prefix]` in the body |
-| 8 | A `git log` run against the wrong path | **"no such change"** | Absence of output read as evidence of absence |
+| 8 | A `git log` run against the wrong path | **"no such change"** | Absence of output read as evidence of absence. **This one is really the mirror** — the change *was* on `main`; see "THE MIRROR IMAGE" below, where it is filed properly |
 | 9 | A gate that is **never invoked** | `check-samples` reporting **`0 passed, 0 failed`, EXIT 0**, with 11 fences still physically in the files | `git grep -n "check-samples"` → exactly 2 hits, **both inside the script's own header comment**. Re-confirmed 2026-07-26. **Still open** |
 | 10 | A matrix cell that **cannot run** | **Permanently GREEN**, after #613 changed it from permanently RED | `templates-cf-team` is the only `kind:"app-template"` cell. *"Trading a false negative you can see for one you cannot is not obviously the win the PR describes."* **Still open** |
 | 11 | `${PIPESTATUS}` in **zsh** (it is a bash builtin) | **A blank exit code**, readable as success | Caught by the verifier mid-run; re-ran clean |
@@ -72,6 +72,57 @@ written by different people, months apart. That is the point.
 | 37 | A **mutation that never applied** | **"0 tests red"** — read as *"these tests are unfalsifiable"* | The verifier's own mutation harness (#619): a `perl` substitution **silently did not match**, the file was unchanged, and the run reported zero red. One keystroke from being recorded as a finding about builder's suite. Caught only by printing the mutated line and seeing it identical; redone with an asserted anchor (`assert old in s`). **The pattern, aimed at the instrument built to hunt the pattern, mid-hunt** |
 | 38 | A **parser that is not there** | Four tests passing, asserting malformed markup *"degrades to text"* | #619 tests 17–20 stayed green under **all ten** mutations including one that **disabled tag recognition completely** — because "degrades to text" is equally true when *nothing is parsed at all*. They cannot distinguish a working parser from an absent one. Weak rather than lying, but invisible to a green run either way. Fix: assert the parsed **structure**, not that the payload appears as text |
 | 39 | The **28th** test | Guidance to expect **27** | Builder disclosed the `skipIf(!COMPILER)` trap honestly and still miscounted their own suite: *"want 27, not 26."* There are 28. `binary absent, no CI → 27 passed | 1 skipped, exit 0` — so someone following the correction lands on **exactly the false pass it was written to prevent.** A disclosed trap plus an off-by-one is still a trap |
+
+## THE MIRROR IMAGE: a PRESENT value rendered as ABSENT
+
+Named 2026-07-26 by the verifier, against their own instrument. Everything above
+is an absence dressed as data. This is the same root cause pointed the other way,
+and it is **just as expensive** — because the natural response to a false absence
+is to **go and fix something that is not broken**, or to dismiss a real finding.
+
+The root cause is identical: **an instrument that cannot distinguish two states**
+and reports one of them confidently. Only the direction, and the cost, differ.
+
+| the thing | the instrument said | what it really was |
+|---|---|---|
+| A 3371-char note, written correctly, all five markers present | **"the swarm write path silently dropped a 3.3 kB note"** — a blocking regression against a just-certified tool | Linear's `comments(last:1)` **does not reliably return the newest comment.** With `last:6` the four comments come back ascending (18:11, 18:11, 19:34, 20:07=mine); with `last:1` it returned the **oldest**. Connection ordering is not `createdAt`, so `last:N` slices some other order |
+| 21 `.aihu` files in `cookbook/` | **"cookbook .aihu files: 0"** | A bad glob — `cookbook/**/*.aihu` does not match flat files in a git pathspec. The verifier caught it only because an MCP tool returned real cookbook source while the count said the directory was empty |
+| A verification that had been done, thoroughly | **"#612 CLAIMED, NEVER VERIFIED"** | The historian's own seed of `docs/state/verifier.md`, inferred from a Slack channel that had scrolled. The work existed and was sharper than the claim being tracked. **Reading the record is not reading the work** |
+| A commit that was on `main` | **"the fix is not on main"** | `git log` run against the wrong path (`packages/runtime/...` instead of `arbor`). Empty output read as evidence of absence |
+| A real finding by a peer | **about to be corrected as mistaken** | A grep of the shared primary checkout found 3 hits including a live call site; the checkout was on the *other agent's branch*. On `main` there is exactly one hit. Caught with one `git branch --show-current` |
+
+### Why the mirror is arguably worse
+
+- **An absence-as-presence flatters you.** You ship, and the bill arrives later.
+- **A presence-as-absence alarms you.** You act *immediately* — you file the
+  blocking regression, you "fix" the healthy system, you tell a colleague they
+  are wrong. The response is fast, confident, and aimed at the wrong target.
+
+The verifier was *thirty seconds* from filing a blocking regression against #618
+on the strength of one. The orchestrator was one sentence from telling docs-next
+they were mistaken, off a stale checkout.
+
+### The rule
+
+> **Before believing an instrument that reports nothing, prove it can see
+> something.**
+
+Concretely, the same shape every time:
+
+- **Read back by CONTENT, never by position.** `comments(last:20)` filtered for a
+  marker string you know you wrote — not `last:1`. Two earlier read-backs on
+  FEL-430 and FEL-428 returned the right comment *by luck*, because that agent
+  happened to be the most recent writer at that instant; the notes were real, the
+  method that confirmed them was not.
+- **Before concluding "not found", run the query against something you know is
+  there.** A glob that returns 0 and a glob that is wrong look identical.
+- **Before concluding "never done", check the artifact, not the channel.**
+- **Before concluding a peer is wrong from a shared checkout,**
+  `git branch --show-current`.
+
+The verifier's own framing, kept: *a verification instrument that is right most of
+the time for the wrong reason, and whose failure mode is to report a healthy
+system as broken.*
 
 ## The refinement that matters most: an assertion of validity forecloses the second look
 
