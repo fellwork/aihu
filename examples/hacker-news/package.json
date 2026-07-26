@@ -10,11 +10,12 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@aihu/agent": "workspace:*",
+    "@aihu/editor": "workspace:*",
     "@aihu/router": "workspace:*",
     "@aihu/runtime": "workspace:*",
     "@aihu/server": "workspace:*",
-    "@aihu/signals": "workspace:*",
-    "@aihu/agent": "workspace:*"
+    "@aihu/signals": "workspace:*"
   },
   "devDependencies": {
     "@aihu/compiler": "workspace:*",

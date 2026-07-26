@@ -23,7 +23,16 @@ export default defineConfig({
   // __DEV__ is defined at root so arbor's telemetry hooks compile; without it
   // the source build throws on an undefined global.
   define: rootConfig.define,
-  resolve: { alias: rootConfig.resolve?.alias },
+  resolve: {
+    alias: {
+      // Subpath first — root has no `@aihu/editor` entry, and this one must not
+      // be shadowed if it ever gains one. Pointed at source for the same reason
+      // as everything else here: the gate must not need a prior `dist/` build.
+      '@aihu/editor/safe-href': new URL('../../packages/editor/src/safe-href.ts', import.meta.url)
+        .pathname,
+      ...rootConfig.resolve?.alias,
+    },
+  },
   test: {
     environment: 'node',
     include: ['tests/**/*.test.ts'],

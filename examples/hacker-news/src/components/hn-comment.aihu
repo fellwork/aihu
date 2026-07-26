@@ -1,5 +1,6 @@
 @state {
   import type { CommentNode } from '../pages/item/[id].loader.ts'
+  import './hn-rich-text.aihu'
 
   let comment = prop<CommentNode>()
 
@@ -17,7 +18,7 @@
       <a href={`/user/${comment().by}`}>{comment().by}</a>
       {ago(comment().time)}
     </div>
-    <div class="text" html={comment().text}></div>
+    <div class="text"><hn-rich-text blocks={comment().body} /></div>
     <div class="replies" if={comment().children.length > 0}>
       <hn-comment each={item of comment().children} key={item.id} comment={item} />
     </div>

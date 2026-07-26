@@ -50,7 +50,9 @@
         <a href={`/user/${route().data.story.by}`} prefetch="hover">{route().data.story.by}</a>
         {ago(route().data.story.time)} | {route().data.story.descendants ?? 0} comments
       </div>
-      <div class="text" if={!!route().data.story.text} html={route().data.story.text}></div>
+      <div class="text" if={route().data.storyBody.length > 0}>
+        <hn-rich-text blocks={route().data.storyBody} />
+      </div>
     </article>
 
     <section class="comments">

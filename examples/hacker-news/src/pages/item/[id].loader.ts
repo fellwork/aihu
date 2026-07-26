@@ -1,5 +1,6 @@
 import { defineLoader } from '@aihu/server'
-import { sanitizeHnHtml } from '../../lib/sanitize-hn-html.ts'
+import type { Block } from '../../lib/parse-hn-markup.ts'
+import { parseHnMarkup } from '../../lib/parse-hn-markup.ts'
 
 const HN_API = 'https://hacker-news.firebaseio.com/v0'
 const MAX_DEPTH = 6
@@ -23,32 +24,25 @@ export interface HnItem {
 export interface CommentNode {
   readonly id: number
   readonly by: string
-  readonly text: string
+  /**
+   * Structured, NOT an HTML string. The route renders these spans through
+   * ordinary escaped bindings; there is no `html={}` on this data path.
+   */
+  readonly body: ReadonlyArray<Block>
   readonly time: number
   readonly children: ReadonlyArray<CommentNode>
 }
 
 interface ItemLoaderResult {
   readonly story: HnItem
+  /** Parsed form of `story.text` — see the note on CommentNode.body. */
+  readonly storyBody: ReadonlyArray<Block>
   readonly comments: ReadonlyArray<CommentNode>
 }
 
-/**
- * The trust boundary for this route. `text` is stranger-authored HTML that
- * reaches an `html={}` binding, which the SSR path interpolates RAW into the
- * bytes we serve (`ssr_string_emit.rs`, since #572) — so an unsanitised value
- * here is stored XSS, not merely a client-DOM one.
- *
- * Sanitising inside `fetchItem` rather than at the three render sites is
- * deliberate: this is the single point every item — the story and every
- * comment, at every depth — passes through, so nothing downstream has to
- * remember to be careful.
- */
 async function fetchItem(id: number): Promise<HnItem | null> {
   const r = await fetch(`${HN_API}/item/${id}.json`)
-  const item = (await r.json()) as HnItem | null
-  if (!item) return null
-  return item.text === undefined ? item : { ...item, text: sanitizeHnHtml(item.text) }
+  return (await r.json()) as HnItem | null
 }
 
 async function fetchComments(ids: ReadonlyArray<number>, depth: number): Promise<CommentNode[]> {
@@ -62,7 +56,10 @@ async function fetchComments(ids: ReadonlyArray<number>, depth: number): Promise
     out.push({
       id: c.id,
       by: c.by ?? 'anonymous',
-      text: c.text ?? '',
+      // The trust boundary. Stranger-authored markup becomes structured data
+      // HERE, once, for every comment at every depth — so no render site has
+      // to remember, and none of them needs `html={}`.
+      body: parseHnMarkup(c.text),
       time: c.time ?? 0,
       children,
     })
@@ -84,5 +81,5 @@ export const loader = defineLoader(async (ctx): Promise<ItemLoaderResult> => {
 
   const comments = story.kids?.length ? await fetchComments(story.kids, 0) : []
 
-  return { story, comments }
+  return { story, storyBody: parseHnMarkup(story.text), comments }
 })
