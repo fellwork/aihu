@@ -655,19 +655,37 @@ function appTemplateCommand(
   spec: TemplateSpec,
   appName: string,
 ): [string, string[]] {
-  const tail = ['app', appName, '--template', spec.templateArg ?? spec.id, '--pm', pm]
+  const templateId = spec.templateArg ?? spec.id
+  const tail = ['app', appName, '--template', templateId, '--pm', pm]
   if (mode === 'local') return ['node', [localBinJs, ...tail]]
-  const pkg = `@aihu/cli@${version}`
+
+  // npm/npx CANNOT run `@aihu/cli`'s `aihu` bin (FEL-422): npx infers the
+  // executable from the package NAME, looks for a bin called `cli`, finds
+  // `aihu` and `create-aihu` instead, and refuses to guess —
+  //     npm error could not determine executable to run
+  // `bunx` resolves differently, which is why this is npm-only and why a
+  // bun-only harness could never have surfaced it.
+  //
+  // `create-aihu` is the entry point npm users actually reach, and as of the
+  // create-aihu template work its `--template` spans BOTH tiers — built-ins
+  // and the npm-published `@aihu/templates-*` packages. So npm drives the npm
+  // template tier through the command a real npm user would run, not through
+  // one that cannot execute.
+  const createTail = [appName, '--template', templateId, '--pm', pm]
+  const cliPkg = `@aihu/cli@${version}`
+  const createPkg = `create-aihu@${version}`
   switch (pm) {
     case 'npm':
-      return ['npx', ['-y', pkg, ...tail]]
+      return ['npx', ['-y', createPkg, ...createTail]]
     case 'bun':
-      return ['bunx', [pkg, ...tail]]
+      return ['bunx', [cliPkg, ...tail]]
     case 'pnpm':
-      return ['pnpm', ['dlx', pkg, ...tail]]
+      return ['pnpm', ['dlx', createPkg, ...createTail]]
     case 'yarn':
       // yarn 1 has no dlx; fall back to npx and say so in the notes.
-      return info.major >= 2 ? ['yarn', ['dlx', pkg, ...tail]] : ['npx', ['-y', pkg, ...tail]]
+      return info.major >= 2
+        ? ['yarn', ['dlx', createPkg, ...createTail]]
+        : ['npx', ['-y', createPkg, ...createTail]]
   }
 }
 
