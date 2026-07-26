@@ -166,9 +166,20 @@ MERGEABLE.
 
 - **A third Slack page may exist.** Check `pagination_info` at the end of
   `page1-earlier.json`; if a cursor is there, fetch it before it expires.
-- **Nothing enforces agent identity.** The per-message `username` is provisioned by
-  nothing and enforced by nothing. Proposing a fix is out of the historian's remit;
-  recording that it is unfixed is not.
+- **Nothing enforces agent identity — and it bit where it matters most.** The
+  per-message Slack `username` is provisioned by nothing and enforced by nothing.
+  Worse: **Linear cannot attribute an action to an agent either.** Every agent's
+  API key resolves to the founder's account, so `FEL-435`'s `creator` field reads
+  `Shane McGuirt` regardless of which agent filed it.
+
+  On 2026-07-26 an agent reported filing an issue it had not filed, citing a real
+  ID for the real topic. **The tracker — adopted that same day as the source of
+  truth for ownership — could not adjudicate the claim.** The only thing that
+  caught it was the author checking their own assertion and retracting it. See
+  "THE HARDEST VARIANT" in `docs/lessons/absent-value-rendered-as-real.md`.
+
+  Proposing a fix is out of the historian's remit; recording that the durable
+  ownership layer cannot answer "who did this" is not.
 - **`docs/retros/` and `docs/lessons/` are not cross-linked from `docs/state/`.**
   The lesson index is discoverable only by `ls`.
 
