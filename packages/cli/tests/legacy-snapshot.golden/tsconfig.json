@@ -10,7 +10,8 @@
       "DOM.Iterable"
     ],
     "noEmit": true,
-    "allowImportingTsExtensions": true
+    "allowImportingTsExtensions": true,
+    "skipLibCheck": true
   },
   "include": [
     "src",
