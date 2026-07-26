@@ -53,6 +53,30 @@ And the reply that adopted it:
 | 11 | A PR's merge commit | **Any commit whose body mentions that PR number** | `git log origin/main --grep="(#591)" -1` returns `3a7af464` — the merge commit for **#592**, whose body cites #591. `--grep` is a regex over the whole message and `-1` takes the *newest* match; `-F` does not help. Found by the historian on 2026-07-26 **while verifying this very session** |
 | 12 | `.github/workflows/scaffold-matrix.yml` **at `origin/main`** | **The same file in a worktree one commit behind** | The historian, *while writing this document*, ran `grep -n mode .github/workflows/scaffold-matrix.yml` to confirm #613's fix and read `--mode "${{ inputs.mode \|\| 'npm' }}"` — the **pre-fix** line — because the worktree sat at `d0c9200c`, one commit before #613's `8aa12dc1`. Was seconds from recording "#613 did not actually fix PR mode" as a finding. `git show origin/main:<path>` shows the fix is real: `--mode "${{ inputs.mode \|\| (github.event_name == 'pull_request' && 'local' \|\| 'npm') }}"`. **Instance #12 was produced by the person documenting instances #1–#11, inside the document.** |
 
+| 13 | The platform set that **ships** | The platform set the guard **names** (`#560` → FEL-414) | `scripts/check-compiler-binary-bump.ts:54` — `changedFiles.some(isPlatformManifest)`. Matrix: `rust + BOTH bumped → PASS`; **`rust + npm/ ONLY → PASS`** (napi addon left stale); `rust + npm-native/ ONLY → PASS`; `rust + no bump → FAIL`. Its author: *"I widened what **counts** as a bump when the requirement is **bump the set that ships**."* Two slogans came out of it, both worth keeping: ***"bump the set the guard names is not the same as bump the set that ships"*** and ***"'changed' is not 'advanced'"*** (the requirement is *strictly greater than the published version*). A second, independent hole: `packages/compiler/src-native/**` was **ungated entirely** — it does not match the `packages/compiler/src/` prefix, so addon-only changes hit no guard at all. Fixed in #584 (`2a8ec837`) |
+| 14 | The published `dist` bundle | **`src`, via a workspace alias** — so CI structurally could not see the bug | #565 (`51451a47`): runtime's dist had **inlined a private copy of `@aihu/context`'s module state**, so `provide()` wrote to one set of slots while userland `inject()` read another. **Hierarchical DI silently no-oped for every dist consumer.** *"workspace tests alias src, so CI could never see it."* The 30 B size saving was incidental. **No regression test for the dist path was ever proposed — still open** |
+| 15 | An example carrying three new unescaped-HTML bindings | **An examples set that does not include it** | `hacker-news` appears in neither the build nor test list in `.github/workflows/plan-a.yml`. Re-confirmed 2026-07-26. See the 🔴 entry in `docs/state/orchestrator.md` — still live |
+| 16 | A competent vanilla implementation | **A strawman adapter that reassigns `element.textContent`** | *"against a competent vanilla that caches the text node the ratio is ~1×."* The published ratio measured the strawman, not the framework |
+| 17 | The claim in the **generated** table | The claim in the **hand-written** prose (and vice versa) | *"deleting all four prose mentions accomplishes nothing durable: **the next commit regenerates the table and the false claim returns as a number instead of a sentence.**"* — *the claim has a generated copy and a hand-written copy, and fixing one is invisible in the other.* The prose under it read *"This is not a measurement artifact."* It was one |
+| 18 | The code | **A machine with ~8.5 of 10 cores stolen** | 13 orphaned `bun server.ts` processes from a Telegram MCP plugin, combined **857% CPU**, load average **27.6**, oldest **7 days 22 hours**, ignoring SIGTERM. *"every benchmark run on this machine over the last several days was measured on a box with ~8.5 cores of stolen CPU."* ***An unbounded environment is an unmeasured variable*** — neither the harness nor CI records load, so a run at load 27 and a run at load 0.5 are indistinguishable in the output |
+| 19 | The tree the test was **committed** to | The tree the test was **run** on | *"My 1994 was real — it measured a **pre-fix** worktree (`28b1cfaa`). I then created the branch from a newer `main` and committed the test **without re-running it there**. Two different trees, one conclusion carried between them."* Caught by a peer re-running it: the real post-fix number is **4** |
+
+## The special case: regenerating a baseline destroys the evidence
+
+A stale baseline is wrong. Refreshing it is worse, because the refresh is
+indistinguishable from a verification:
+
+> *"The four rows with valid baselines carry **+27.7% / +29.5% / +40.8% / +52.6%**
+> of *unattributed* May→July drift. Regenerating blesses that drift as the new
+> normal and **erases the only evidence it existed** … **A stale invalid number and
+> a fresh invalid number are equally unpublishable; the second just looks
+> trustworthy.**"*
+
+The required procedure before any regeneration (FEL-409): one runner, back-to-back
+jobs, old tree vs current `main`. **Flat → the drift was hardware. Not flat →
+bisect before regenerating.** This is why the STOP in
+`docs/state/orchestrator.md` stands.
+
 ## Why it keeps winning
 
 1. **Every part of the pipeline is working.** The test is correct, the harness is

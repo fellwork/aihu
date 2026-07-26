@@ -195,6 +195,37 @@ all 13 open issues were unassigned and three of them were already done.
   consumers** — but *"workspace tests alias `src`, so CI could never see it."* That
   root cause is unaddressed. This is a live instance of
   `docs/lessons/checked-thing-is-not-the-changed-thing.md`.
+- 🔴 **`examples/hacker-news` prerenders remote HTML unescaped, and no CI job
+  builds it. RAISED 2026-07-25 11:50 EDT, NEVER ACTIONED, CONFIRMED STILL LIVE
+  2026-07-26 by the historian.**
+
+  `#572` made `html={expr}` interpolate **unescaped into the served static HTML**
+  — the correct semantic for `html=` (it is raw-HTML injection by definition), but
+  it moves the blast radius from "client DOM" to "bytes we serve." Three bindings
+  in `hacker-news` carry **remote, HN-authored HTML**, which is now baked into
+  prerendered output. That changes what CSP applies to, what crawlers ingest, and
+  what anything downstream trusting prerendered HTML receives.
+
+  Still present at `origin/main`:
+  ```
+  examples/hacker-news/src/components/hn-comment.aihu:20   html={comment().text}
+  examples/hacker-news/src/pages/item/[id].aihu:53         html={route().data.story.text}
+  examples/hacker-news/src/pages/user/[id].aihu:35         html={route().data.user.about}
+  ```
+  And `hacker-news` is in **neither** set in `.github/workflows/plan-a.yml`:
+  ```
+  build: live-counter temperature-converter timer todo-mvc color-theme
+  test:  …the same five… agent-hub storefront
+  ```
+  `check:emit-parses` compiles every `examples/**/*.aihu`, so it *parses* — but
+  nothing ever builds or prerenders it, so the SSR injection path is unexercised.
+
+  It was raised as *"a security surface change — worth a deliberate decision, not
+  an accident"*, with the ask that it *"be a stated decision in the PR rather than
+  a side effect, and the docs for `html=` should say plainly that it is now an
+  SSR-time injection too."* No such decision or doc change was ever made. **Not
+  filed in Linear.** This is the single most consequential unactioned item from the
+  session.
 - **#546's derived-list side effect is real and was never filed as a PR.**
 - **Two proposals were made and never accepted or rejected:**
   1. A **load/idle assertion in the bench harness** that *"refuses to record a
