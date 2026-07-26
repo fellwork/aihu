@@ -24,8 +24,8 @@ Use the <code>@aihu/cli</code> to generate a new project:
 # Bun (recommended)
 bunx @aihu/cli app my-app
 
-# Node.js
-npx @aihu/cli app my-app
+# npm
+npm create aihu@latest my-app
 ~~~
 
 > <b>Note.</b> The ≤5 minute quick start is conditional until pre-built
