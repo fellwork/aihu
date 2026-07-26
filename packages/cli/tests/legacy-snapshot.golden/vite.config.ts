@@ -12,31 +12,24 @@ export default defineConfig({
     viteAihuPlugin({
       dir: { pages: 'src/pages' },
     }),
-    // Agent-readiness: emit the machine-readable agent surface — llms.txt,
-    // llms-full.txt, robots.txt, and the MCP server card at
-    // /.well-known/mcp/server-card.json (written to dist/ at build, served in
-    // `vite dev`). Wired directly (rather than via viteAihuPlugin's
-    // agentReadiness option) so it loads as an ESM import in vite.config.
+    // Agent-readiness: emit llms.txt, llms-full.txt and robots.txt (written to
+    // dist/ at build, served in `vite dev`). Wired directly (rather than via
+    // viteAihuPlugin's agentReadiness option) so it loads as an ESM import.
+    //
+    // Honesty rule: this is a STATIC CLIENT build, whose @aihu/agent registry
+    // is empty at build time — so no MCP server card and no A2A card are
+    // configured here. A card at the right path advertising zero tools is
+    // indistinguishable from a real one to anything that reads it. The `full`
+    // template ships the server that serves those cards from the LIVE registry;
+    // its documents list exactly the callable tools.
     viteAgentReadinessIntegration({
       name: 'legacy-snapshot',
-      summary: 'A reactive Web Components app built with aihu — agent-callable by default.',
+      summary:
+        'A reactive Web Components app built with aihu. Static build — component ' +
+        'actions are declared in source; no live tool endpoint is served here.',
       version: '0.1.0',
-      // Canonical origin. Drives JSON-LD, MCP discovery, and the card's endpoint.
-      // Replace 'https://example.com' with your deployed URL.
+      // Canonical origin for JSON-LD. Replace with your deployed URL.
       siteUrl: 'https://example.com',
-      // The MCP server card is a DISCOVERY document advertising the tools below.
-      // Making the endpoint actually CALLABLE requires running @aihu/server (SSR)
-      // at this URL; a static client build only publishes the card, not a live
-      // tool endpoint.
-      endpoint: 'https://example.com/.well-known/mcp/server-card.json',
-      mcpDiscovery: true,
-      // No hand-written skills list. The card's tools are DERIVED from the
-      // compiler-populated @aihu/agent registry — the same source
-      // @aihu/agent-server reads — so the MCP card can never drift from the
-      // `$action` entries in src/pages/index.aihu (thesis §2, Derived). A static
-      // client build has an empty registry at build time, so the card advertises
-      // no tools until the app runs under @aihu/server (SSR), where the registry
-      // is populated and the card reflects the live `$action` surface.
     }),
   ],
 })

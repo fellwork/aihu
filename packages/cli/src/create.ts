@@ -226,6 +226,13 @@ export interface ResolvedCreateOptions {
    */
   readonly shadowMode: ShadowChoice | undefined
   readonly initGit: boolean
+  /**
+   * Coding-assistant files (AGENTS.md, CLAUDE.md, .mcp.json). On by default;
+   * `--no-agent-tooling` opts out. Governs ONLY those developer-environment
+   * files — the app's own runtime agent surface ($action, llms.txt, cards) is
+   * the product thesis and is never affected.
+   */
+  readonly agentTooling: boolean
 }
 
 export function resolveCreateOptions(opts: {
@@ -235,6 +242,8 @@ export function resolveCreateOptions(opts: {
   shadow?: ShadowChoice | undefined
   /** `false` when `--no-git` is present. */
   git?: boolean | undefined
+  /** `false` when `--no-agent-tooling` is present. */
+  agentTooling?: boolean | undefined
   /** Detected package manager fallback (so this stays pure/testable). */
   detected: PkgManager
 }): ResolvedCreateOptions {
@@ -248,6 +257,7 @@ export function resolveCreateOptions(opts: {
     css,
     shadowMode,
     initGit: opts.git ?? true,
+    agentTooling: opts.agentTooling ?? true,
   }
 }
 
@@ -295,6 +305,8 @@ export function usageText(): string {
     '  --css <engine|none>        Include @aihu/css-engine (built-in templates only)',
     '  --shadow <light|shadow>    Force one shadow mode project-wide when --css engine is set',
     '                             (default: framework defaults — light-DOM pages/layouts, shadow-DOM leaves)',
+    '  --no-agent-tooling  Skip AGENTS.md/CLAUDE.md/.mcp.json (coding-assistant files).',
+    "                      Your app's own agent surface is unaffected.",
     '  --no-git            Skip git init',
     '  --no-install        Skip dependency install (npm templates only)',
     '  --yes, -y           Non-interactive; take documented defaults',
@@ -397,6 +409,7 @@ async function main(): Promise<void> {
       css: cssFromArgv(),
       shadow: shadowFromArgv(),
       git: hasFlag('no-git') ? false : undefined,
+      agentTooling: hasFlag('no-agent-tooling') ? false : undefined,
       detected,
     })
     await scaffoldAndReport(projectName, opts)
@@ -440,11 +453,15 @@ async function main(): Promise<void> {
   } else {
     process.stdout.write('\n')
     process.stdout.write(`${dim('  Select template:')}\n`)
-    process.stdout.write(`    ${cyan('1)')} minimal  — signals + arbor, single SFC\n`)
-    process.stdout.write(`    ${cyan('2)')} full     — signals, arbor, router, multi-page\n`)
+    process.stdout.write(
+      `    ${cyan('1)')} minimal  — smallest runnable aihu app; the counter teaches @state/$action ${dim('(recommended)')}\n`,
+    )
+    process.stdout.write(
+      `    ${cyan('2)')} full     — the dual-experience demo: a word game you, a model, and any MCP agent play\n`,
+    )
     process.stdout.write(`    ${cyan('3)')} docs     — docs site starter\n`)
     process.stdout.write(
-      `    ${cyan('4)')} agent    — agent-drivable component over the capability bridge\n`,
+      `    ${cyan('4)')} agent    — capability-bridge task-list demo ${dim('(folding into full)')}\n`,
     )
     const templateAnswer = await prompt(rl, `  ${dim('Template [1]:')} `)
     const templateMap: Record<string, AppTemplate> = {
@@ -558,7 +575,15 @@ async function main(): Promise<void> {
 
   rl.close()
 
-  await scaffoldAndReport(projectName, { template, pm, css, shadowMode, initGit })
+  await scaffoldAndReport(projectName, {
+    template,
+    pm,
+    css,
+    shadowMode,
+    initGit,
+    // Flag-only (no prompt): tooling is on unless explicitly declined.
+    agentTooling: !hasFlag('no-agent-tooling'),
+  })
 }
 
 /** Shared scaffold + git + next-steps reporting, used by both the interactive
@@ -567,7 +592,7 @@ async function scaffoldAndReport(
   projectName: string,
   resolved: ResolvedCreateOptions,
 ): Promise<void> {
-  const { template, pm, css, shadowMode, initGit } = resolved
+  const { template, pm, css, shadowMode, initGit, agentTooling } = resolved
   const targetDir = resolve(process.cwd(), projectName)
 
   // ── Scaffold ──────────────────────────────────────────────────────────────
@@ -577,7 +602,13 @@ async function scaffoldAndReport(
     `${dim('  Creating')} ${cyan(projectName)} ${dim(`(${template} / ${pm}${cssLabel})…`)}\n\n`,
   )
 
-  const result = scaffoldApp(projectName, process.cwd(), { pm, template, css, shadowMode })
+  const result = scaffoldApp(projectName, process.cwd(), {
+    pm,
+    template,
+    css,
+    shadowMode,
+    agentTooling,
+  })
 
   for (const f of result.created) process.stdout.write(`  ${green('+')} ${f}\n`)
   for (const f of result.skipped)

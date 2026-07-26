@@ -243,10 +243,21 @@ afterEach(() => {
 })
 
 describe('scaffoldApp', () => {
-  it('creates all 8 expected files', () => {
+  it('creates the 11 expected files (8 baseline + agent-tooling trio)', () => {
     const result = scaffoldApp('demo', tmpDir)
-    expect(result.created).toHaveLength(8)
+    expect(result.created).toHaveLength(11)
+    expect(result.created).toContain('AGENTS.md')
+    expect(result.created).toContain('CLAUDE.md')
+    expect(result.created).toContain('.mcp.json')
     expect(result.skipped).toHaveLength(0)
+  })
+
+  it('agentTooling: false drops exactly the coding-assistant trio', () => {
+    const result = scaffoldApp('demo', tmpDir, { agentTooling: false })
+    expect(result.created).toHaveLength(8)
+    expect(result.created).not.toContain('AGENTS.md')
+    expect(result.created).not.toContain('CLAUDE.md')
+    expect(result.created).not.toContain('.mcp.json')
   })
 
   it('writes .vscode/extensions.json', () => {
@@ -307,7 +318,7 @@ describe('scaffoldApp', () => {
     scaffoldApp('demo', tmpDir)
     const second = scaffoldApp('demo', tmpDir)
     expect(second.created).toHaveLength(0)
-    expect(second.skipped).toHaveLength(8)
+    expect(second.skipped).toHaveLength(11)
   })
 
   it('writes package.json with trustedDependencies on disk (FIX 1)', () => {
@@ -320,19 +331,36 @@ describe('scaffoldApp', () => {
 })
 
 describe('scaffoldApp · template differentiation (FIX 3)', () => {
-  it('minimal produces the baseline 8-file set (no layout, no extra pages)', () => {
+  it('minimal produces the baseline set (no layout, no extra pages)', () => {
     const result = scaffoldApp('demo', tmpDir, { template: 'minimal' })
-    expect(result.created).toHaveLength(8)
+    expect(result.created).toHaveLength(11)
     expect(result.created).not.toContain('src/layouts/default.aihu')
     expect(result.created).not.toContain('src/pages/about.aihu')
   })
 
-  it('full adds a default layout and an about page (router multi-page)', () => {
+  it('full is the word-game dual-experience template on the bridge architecture', () => {
     const result = scaffoldApp('demo', tmpDir, { template: 'full' })
-    expect(result.created).toContain('src/layouts/default.aihu')
-    expect(result.created).toContain('src/pages/about.aihu')
-    expect(existsSync(join(tmpDir, 'demo', 'src', 'layouts', 'default.aihu'))).toBe(true)
-    expect(existsSync(join(tmpDir, 'demo', 'src', 'pages', 'about.aihu'))).toBe(true)
+    // The former `agent` machinery folds in: gate, MCP stdio, live readiness.
+    expect(result.created).toContain('server.ts')
+    expect(result.created).toContain('mcp.ts')
+    expect(result.created).toContain('readiness.ts')
+    expect(result.created).toContain('src/word-duet.aihu')
+    expect(result.created).toContain('.env.example')
+    expect(result.created).toContain('README.md')
+    // The dishonest static integration is NOT wired: readiness is served live.
+    const vite = readFileSync(join(tmpDir, 'demo', 'vite.config.ts'), 'utf8')
+    expect(vite).not.toContain('viteAgentReadinessIntegration')
+    expect(vite).toContain("'/model': BRIDGE")
+    // The component's two actions exist and the server metadata mirrors them.
+    const sfc = readFileSync(join(tmpDir, 'demo', 'src', 'word-duet.aihu'), 'utf8')
+    const server = readFileSync(join(tmpDir, 'demo', 'server.ts'), 'utf8')
+    for (const action of ['guess', 'newGame']) {
+      expect(sfc).toContain(action)
+      expect(server).toContain(action)
+    }
+    // The model player goes through the same gate as any outside agent.
+    expect(server).toContain("server.callTool(TAG + '/guess'")
+    expect(server).toContain("jwt: 'game:play'")
   })
 
   it('docs adds a guide page and a docs-flavored index', () => {

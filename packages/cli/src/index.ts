@@ -33,6 +33,8 @@ import {
   agentTsConfig,
   agentViteConfig,
 } from './templates-agent.js'
+import { fullTemplateFiles } from './templates-full.js'
+import { agentToolingFiles, viteTemplateAgentsFacts } from './templates-tooling.js'
 
 // ---------------------------------------------------------------------------
 // Result types
@@ -198,31 +200,24 @@ export default defineConfig({
     viteAihuPlugin({
 ${cssEngineComment}      dir: { pages: 'src/pages' },
 ${cssBlock}    }),
-    // Agent-readiness: emit the machine-readable agent surface — llms.txt,
-    // llms-full.txt, robots.txt, and the MCP server card at
-    // /.well-known/mcp/server-card.json (written to dist/ at build, served in
-    // \`vite dev\`). Wired directly (rather than via viteAihuPlugin's
-    // agentReadiness option) so it loads as an ESM import in vite.config.
+    // Agent-readiness: emit llms.txt, llms-full.txt and robots.txt (written to
+    // dist/ at build, served in \`vite dev\`). Wired directly (rather than via
+    // viteAihuPlugin's agentReadiness option) so it loads as an ESM import.
+    //
+    // Honesty rule: this is a STATIC CLIENT build, whose @aihu/agent registry
+    // is empty at build time — so no MCP server card and no A2A card are
+    // configured here. A card at the right path advertising zero tools is
+    // indistinguishable from a real one to anything that reads it. The \`full\`
+    // template ships the server that serves those cards from the LIVE registry;
+    // its documents list exactly the callable tools.
     viteAgentReadinessIntegration({
       name: '${appName}',
-      summary: 'A reactive Web Components app built with aihu — agent-callable by default.',
+      summary:
+        'A reactive Web Components app built with aihu. Static build — component ' +
+        'actions are declared in source; no live tool endpoint is served here.',
       version: '0.1.0',
-      // Canonical origin. Drives JSON-LD, MCP discovery, and the card's endpoint.
-      // Replace 'https://example.com' with your deployed URL.
+      // Canonical origin for JSON-LD. Replace with your deployed URL.
       siteUrl: 'https://example.com',
-      // The MCP server card is a DISCOVERY document advertising the tools below.
-      // Making the endpoint actually CALLABLE requires running @aihu/server (SSR)
-      // at this URL; a static client build only publishes the card, not a live
-      // tool endpoint.
-      endpoint: 'https://example.com/.well-known/mcp/server-card.json',
-      mcpDiscovery: true,
-      // No hand-written skills list. The card's tools are DERIVED from the
-      // compiler-populated @aihu/agent registry — the same source
-      // @aihu/agent-server reads — so the MCP card can never drift from the
-      // \`$action\` entries in src/pages/index.aihu (thesis §2, Derived). A static
-      // client build has an empty registry at build time, so the card advertises
-      // no tools until the app runs under @aihu/server (SSR), where the registry
-      // is populated and the card reflects the live \`$action\` surface.
     }),
   ],
 })
@@ -391,18 +386,18 @@ ${stateBlock}
 
     <section class="flex flex-col gap-4">
       <h2 class="text-xl font-semibold">Agent surface</h2>
-      <p>These actions are exposed to AI agents as MCP tools. An agent drives this same on-screen instance.</p>
+      <p>These actions are declared agent-callable. This static build publishes the declaration (llms.txt); serving them as live, callable tools is what the full template's server does.</p>
       <ul class="flex flex-col gap-1">
         <li>increment — Add 1 to the value</li>
         <li>decrement — Subtract 1 from the value</li>
         <li>reset — Set the value to 0</li>
       </ul>
       <p>
-        <a href="/llms.txt">llms.txt</a> · <a href="/.well-known/mcp/server-card.json">MCP server card</a> — this component's machine-readable interface.
+        <a href="/llms.txt">llms.txt</a> — what this build honestly says about itself to agents.
       </p>
     </section>
 
-    <p>Run @aihu/server to make these tools callable — then a human and an AI agent control this exact component in parallel.</p>
+    <p>To get started, edit <code>src/pages/index.aihu</code> — save, and this page hot-reloads. Want these actions live for real agents? <code>npm create aihu -- --template full</code> ships the server.</p>
   </main>
 }
 `
@@ -432,18 +427,18 @@ ${stateBlock}
 
     <section class="card">
       <h2>Agent surface</h2>
-      <p>These actions are exposed to AI agents as MCP tools. An agent drives this same on-screen instance.</p>
+      <p>These actions are declared agent-callable. This static build publishes the declaration (llms.txt); serving them as live, callable tools is what the full template's server does.</p>
       <ul>
         <li>increment — Add 1 to the value</li>
         <li>decrement — Subtract 1 from the value</li>
         <li>reset — Set the value to 0</li>
       </ul>
       <p>
-        <a href="/llms.txt">llms.txt</a> · <a href="/.well-known/mcp/server-card.json">MCP server card</a> — this component's machine-readable interface.
+        <a href="/llms.txt">llms.txt</a> — what this build honestly says about itself to agents.
       </p>
     </section>
 
-    <p class="note">Run @aihu/server to make these tools callable — then a human and an AI agent control this exact component in parallel.</p>
+    <p class="note">To get started, edit <code>src/pages/index.aihu</code> — save, and this page hot-reloads. Want these actions live for real agents? <code>npm create aihu -- --template full</code> ships the server.</p>
   </main>
 }
 
@@ -686,13 +681,29 @@ export function scaffoldApp(
      * only a genuine user choice is written out (FEL-425).
      */
     shadowMode?: ShadowChoice | undefined
+    /**
+     * Coding-assistant files (AGENTS.md, CLAUDE.md, .mcp.json) — on by
+     * default, `--no-agent-tooling` opts out. This governs ONLY the
+     * developer-environment files; the app's own runtime agent surface
+     * (`$action`, llms.txt, the cards) is the product thesis and is never
+     * affected by this flag.
+     */
+    agentTooling?: boolean
   },
 ): ScaffoldResult {
   const pm = opts?.pm ?? 'bun'
   const template: AppTemplate = opts?.template ?? 'minimal'
   const withCssEngine = opts?.css === 'engine'
   const shadowMode = opts?.shadowMode
+  const agentTooling = opts?.agentTooling !== false
   const root = resolve(outDir ?? '.', name)
+
+  // `full` is the kitchen-sink template: the dual-experience word-game demo on
+  // the capability-bridge architecture (the former `agent` template folds into
+  // it — see docs/plans/2026-07-26-scaffold-experience-design.md §3.3-3.4).
+  if (template === 'full') {
+    return writeFiles(root, fullTemplateFiles(name, pm, { agentTooling }))
+  }
 
   // `agent` is the showcase template: a durable component driven by both a human
   // and an external AI agent over @aihu/agent-server's capability bridge. It is a
@@ -700,7 +711,7 @@ export function scaffoldApp(
   // compiler — NOT the viteAihuPlugin pages-router base — so it emits its own
   // file set and returns early.
   if (template === 'agent') {
-    return writeFiles(root, [
+    const files: Array<readonly [string, string]> = [
       ['package.json', agentPackageJson(name, pm)],
       ['vite.config.ts', agentViteConfig()],
       ['tsconfig.json', agentTsConfig()],
@@ -717,12 +728,34 @@ export function scaffoldApp(
       ['README.md', agentReadme(name)],
       ['.vscode/extensions.json', appVscodeExtensions()],
       ['.vscode/settings.json', appVscodeSettings()],
-    ])
+    ]
+    if (agentTooling) {
+      files.push(
+        ...agentToolingFiles({
+          name,
+          commands: [
+            ['bun run dev', 'Bridge server (:5208) + Vite (:5108) together'],
+            ['bun run server', 'Just the Bun gate/bridge server'],
+            ['bun run build', 'Static production build to dist/ (page only)'],
+            ['bun run typecheck', 'tsc --noEmit over server.ts, mcp.ts, readiness.ts, src/'],
+          ],
+          map: [
+            ['src/task-list.aihu', 'The demo component a human and an agent both drive'],
+            ['src/main.ts', 'Browser entry: capability-bridge client'],
+            ['server.ts', 'Governed gate (auth scope + rate limit)'],
+            ['readiness.ts', 'llms.txt + MCP/A2A cards, derived live from the registry'],
+            ['mcp.ts', 'MCP stdio entry for standard MCP clients'],
+          ],
+        }),
+      )
+    }
+    return writeFiles(root, files)
   }
 
-  // Shared base across every template. `minimal` is exactly this set (8 files),
-  // byte-identical to the historical scaffold (modulo the trustedDependencies
-  // line) so the legacy-snapshot golden + default-e2e stay green.
+  // Shared base for the vite-only templates (minimal | docs): the historical
+  // 8-file set plus the agent-tooling trio (AGENTS.md / CLAUDE.md / .mcp.json,
+  // opt out with agentTooling: false). The legacy-snapshot golden gates this
+  // output; intentional changes here require a deliberate golden refresh.
   const indexPage = template === 'docs' ? appDocsIndexAihu(name) : appIndexAihu(name, withCssEngine)
   const files: Array<readonly [string, string]> = [
     ['package.json', appPackageJson(name, pm, withCssEngine)],
@@ -735,15 +768,16 @@ export function scaffoldApp(
     ['.vscode/settings.json', appVscodeSettings()],
   ]
 
-  if (template === 'full') {
-    // `full` demonstrates router multi-page + a shared layout. Client-buildable
-    // files only — no @aihu/server dependency.
-    files.push(['src/layouts/default.aihu', appDefaultLayout()])
-    files.push(['src/pages/about.aihu', appAboutAihu(name)])
-  } else if (template === 'docs') {
+  if (template === 'docs') {
     // `docs` is a docs-flavored variant: a distinct landing page (above) plus a
     // second guide route.
     files.push(['src/pages/guide.aihu', appDocsGuideAihu(name)])
+  }
+
+  // Coding-assistant files, uniform across templates (the developer's editor
+  // does not care which tier was scaffolded). `--no-agent-tooling` opts out.
+  if (agentTooling) {
+    files.push(...agentToolingFiles(viteTemplateAgentsFacts(name)))
   }
 
   return writeFiles(root, files)

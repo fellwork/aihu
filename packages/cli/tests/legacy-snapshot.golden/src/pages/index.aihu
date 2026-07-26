@@ -47,18 +47,18 @@ $action: {
 
     <section class="card">
       <h2>Agent surface</h2>
-      <p>These actions are exposed to AI agents as MCP tools. An agent drives this same on-screen instance.</p>
+      <p>These actions are declared agent-callable. This static build publishes the declaration (llms.txt); serving them as live, callable tools is what the full template's server does.</p>
       <ul>
         <li>increment — Add 1 to the value</li>
         <li>decrement — Subtract 1 from the value</li>
         <li>reset — Set the value to 0</li>
       </ul>
       <p>
-        <a href="/llms.txt">llms.txt</a> · <a href="/.well-known/mcp/server-card.json">MCP server card</a> — this component's machine-readable interface.
+        <a href="/llms.txt">llms.txt</a> — what this build honestly says about itself to agents.
       </p>
     </section>
 
-    <p class="note">Run @aihu/server to make these tools callable — then a human and an AI agent control this exact component in parallel.</p>
+    <p class="note">To get started, edit <code>src/pages/index.aihu</code> — save, and this page hot-reloads. Want these actions live for real agents? <code>npm create aihu -- --template full</code> ships the server.</p>
   </main>
 }
 

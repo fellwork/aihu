@@ -20,6 +20,7 @@ describe('resolveCreateOptions — documented defaults', () => {
       // emits no shadowMode and the DA4 framework defaults apply.
       shadowMode: undefined,
       initGit: true,
+      agentTooling: true,
     })
   })
 
@@ -38,7 +39,13 @@ describe('resolveCreateOptions — documented defaults', () => {
       css: 'engine',
       shadowMode: 'light',
       initGit: false,
+      agentTooling: true,
     })
+  })
+
+  it('agent tooling defaults on; --no-agent-tooling (agentTooling: false) turns it off', () => {
+    expect(resolveCreateOptions({ detected: 'bun' }).agentTooling).toBe(true)
+    expect(resolveCreateOptions({ agentTooling: false, detected: 'bun' }).agentTooling).toBe(false)
   })
 
   it('ignores shadow when css is none (nothing to pin)', () => {
