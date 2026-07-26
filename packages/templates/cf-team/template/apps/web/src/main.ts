@@ -7,6 +7,7 @@
  * Cloudflare adapter wires up at build time.
  */
 
+import { appStatus } from '@__APP_NAME__/shared'
 import { createRequestRouter, defineRoute, defineRoutes, json } from '@aihu/server'
 import { createAgentReadinessRoutes } from '@aihu-plugin/agent-readiness'
 import './app.aihu'
@@ -29,7 +30,7 @@ const router = createRequestRouter({
     ]),
 
     // App routes
-    defineRoute('/', () => json({ app: '__APP_NAME__', status: 'ok' })),
+    defineRoute('/', () => json(appStatus('__APP_NAME__'))),
   ],
 })
 
