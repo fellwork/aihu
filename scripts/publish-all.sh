@@ -70,19 +70,19 @@ PKGS=(
   "seo"               # @aihu/seo SSR/meta helpers; depends on @aihu/plugin + @aihu/server + @aihu-plugin/agent-readiness (must follow them)
   "cli"
   "create-aihu"       # `npm create aihu` entry point; thin delegator — depends on @aihu/cli (must follow it)
-  "templates/cf-team" # @aihu/templates-cf-team — zero deps (pure content: template/ + template.config.*).
-                      # `aihu app --template cf-team` auto-installs this from npm at @latest
-                      # (autoInstallTemplate in scaffold-pipeline.ts), so an unpublished bump means
-                      # users scaffold the OLD template. It sat at 1.0.0 on npm while the repo reached
-                      # 3.0.1 — three majors of v1→v2 macro/directive migration undelivered.
+  # templates/cf-team was REMOVED 2026-07-26 while FEL-431 is open: a scaffolded
+  # cf-team cannot dev, build or typecheck. The package is marked private, and a
+  # private package left in this array fails check-publish-manifest as STALE --
+  # publish-all has no private handling, so it would also redden the release job.
+  # Restore this entry AND unset private together when FEL-431 closes.
+  # NOTE: no quoted package names in this comment; the manifest parser reads any
+  # quoted string in this block as an entry.
   "compiler"
   "css-engine"        # build-time CSS engine; depends on @aihu/compiler (must follow it)
   "primitives"        # headless UI primitives; depends on css-engine + signals + arbor (must follow them)
   "ui"                # @aihu/ui styled-recipe registry; aihu add resolves it from npm (must follow primitives)
   "language-server"   # @aihu/language-server LSP; depends on @aihu/compiler (must follow it)
   "tsc"               # @aihu/tsc — `aihu-tsc`; depends on @aihu/compiler (must follow it).
-                      # The scaffolded `typecheck` script runs aihu-tsc, so a project
-                      # created by `npm create aihu` cannot type-check until this ships.
   "plugin-drizzle"    # @aihu-plugin/drizzle; depends on @aihu/server + @aihu-plugin/data (must follow them)
   "plugin-kindly-note" # @aihu-plugin/kindly-note; depends on @aihu/signals (must follow it)
   "editor"             # @aihu/editor — depends on @aihu/signals only (must follow it). Public +

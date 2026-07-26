@@ -3,7 +3,7 @@
   "version": "3.0.2",
   "license": "MIT",
   "type": "module",
-  "private": false,
+  "private": true,
   "description": "Cloudflare Workers + monorepo (bun workspaces + moon) team template for Aihu",
   "main": "./template.config.js",
   "types": "./template.config.ts",
