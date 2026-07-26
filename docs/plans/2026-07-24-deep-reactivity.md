@@ -1,7 +1,10 @@
 # Deep / structural reactivity for aihu — design
 
 **Date:** 2026-07-24
-**Status:** PROPOSED — awaiting founder approval, not ratified
+**Status:** RATIFIED — founder-approved 2026-07-24 (build it) and 2026-07-26 (E1 closed).
+Superseded "PROPOSED — awaiting founder approval, not ratified", which this document still
+carried for two days *after* its own implementation merged in #536/#548. See
+"Founder rulings" immediately below; the ruling history is tracked on **FEL-391**.
 **Scope:** A new `@aihu/reactive` package (fine-grained Proxy-backed reactive trees) built
 on `@aihu/signals`' public API, plus the `@aihu/store` setup-store detection gap that
 follows from it. Written against the actual core at
@@ -15,18 +18,52 @@ computed.ts, effect.ts, scope.ts, batch.ts, untrack.ts) and the surrounding pack
 proposal — no shared code, but both are new-surface-area design docs against the same
 signals/runtime core and both resolve open blockers from the same backlog).
 
-## Open decisions for the founder
+## Founder rulings (ratified 2026-07-24 / 2026-07-26)
 
-Approving this document commits to:
+These are constraints, not proposals. They are not reopened by this doc.
 
-1. **Creating a new package, `@aihu/reactive`** (zero bytes added to `@aihu/signals` —
-   the guarded core row does not move). See §3 for why it is its own package rather than a
-   `@aihu/signals` subpath or a `@aihu/store` addition.
-2. **A follow-on gap in `@aihu/store`**: `isReactive()` must be added to
-   `collectSetupShape`/`SetupStateKeys` before a reactive object returned from a setup
-   store is detected as state and serialized — today it is silently dropped (§7.2 item 3).
-   This is not optional cleanup; it is required before deep state is usable in a setup
-   store at all.
+**R1 — BUILD deep reactivity, outside `@aihu/signals`** (ratified 2026-07-24). Ship a
+Proxy-backed fine-grained reactive tree (Solid-shaped lazy per-`(object, key)` node
+allocation + Vue-shaped plain-assignment writes) as a **new package `@aihu/reactive`**,
+depending on `@aihu/signals` through its PUBLIC API only. Zero bytes added to the
+`@aihu/signals` core — a byte-identical `dist` is a hard acceptance criterion, so the
+guarded core row does not move. Not Vue's `reactive()`, and not a `@aihu/signals` subpath
+or a `@aihu/store` addition; see §3. **Shipped in #536/#548.**
+
+**R2 — "replace, don't mutate" stands as the composable contract; deep reactivity is an
+opt-in alongside it, not a replacement** (ratified 2026-07-26, closing E1). Every shipped
+composable keeps the replace-the-whole-value contract — no breaking changes. The concrete
+form of the opt-in is **per-list**: a list may declare itself reactive and emit
+thunk-leaves, paying one reactive effect per binding per row in exchange for surgical
+updates instead of a full row re-grow. **The default is unchanged** — FEL-228's eager
+loop-var leaves remain the default, so nothing regresses and no existing list pays the
+cost. This unblocks FEL-416 and the four `use` families.
+
+**Why this section is worded as a ruling rather than a question.** This document asked for
+approval, received it on 2026-07-24, had its implementation merged in #536/#548 — and then
+kept saying "PROPOSED — awaiting founder approval" for two more days, while
+`@aihu/reactive` shipped underneath it the composables §7.1 lists as blocked. That is the
+third occurrence of *approval-by-merge*: a doctrine question half-answered by landing code,
+with no document reflecting it. Writing the ruling down is what stops a fourth.
+
+### Still owed after these rulings
+
+Ratifying the doctrine does not close the work. Two gaps were untracked until 2026-07-26
+and are verified against `origin/main` at `bc1c4eac`:
+
+1. **`@aihu/use` still cannot import `@aihu/reactive`.** `packages/use/package.json` lists
+   `@aihu/signals` as its only dependency; its optional peers are `@aihu/context`,
+   `@aihu/router` and `jwt-decode`; and `packages/use/families.json` declares `math`,
+   `motion`, `router` and `integrations` — none of them carry `@aihu/reactive`. So
+   `useObject` / `useCloned` / full `useForm` field-aggregation stay blocked **in their
+   filed location** even though the primitives they need now exist. The open decision is
+   packaging: a `@aihu/reactive` optional-peer family versus relocating those composables.
+   Note the helpers are exported from the **`@aihu/reactive/helpers` subpath**, not the
+   package root — the root entry exports `isReactive`, `mutate`, `reactive`, `reconcile`
+   and `unwrap`, while `toReactive` / `reactivePick` / `reactiveOmit` / `reactiveComputed`
+   live under `./helpers`.
+2. **The `@aihu/store` setup-store detection gap** (§7.2 item 3) — required before deep
+   state is usable in a setup store at all, and not optional cleanup.
 
 This design resolves the open blocker tracked as **FEL-391** (deep reactivity).
 
@@ -646,9 +683,30 @@ wrappable), so `const [get, set] = obj.sig` still destructures to the real pair 
 3. **`@aihu/store` setup-store state detection.** `instantiateSetup`
    (`store.ts:190–197`) detects state as a `k`/`setK` **function pair**. A reactive object
    returned from a setup store is not a function, so it is currently assigned verbatim and
-   **never serialized**. Adding `isReactive()` detection to `collectSetupShape` +
-   `SetupStateKeys` is required before deep state is usable in a setup store. **This is
-   the one genuine gap that must be tracked, not discovered later.**
+   **never serialized**. Adding `isReactive()` detection here — plus widening the
+   `SetupStateKeys` type (`packages/store/src/types.ts:98`) to match — is required before
+   deep state is usable in a setup store. **This is the one genuine gap that must be
+   tracked, not discovered later.**
+
+   *Mechanism, verified against `origin/main` at `bc1c4eac` rather than restated:* pass 1
+   of `instantiateSetup` skips any entry that fails `typeof value === 'function'`
+   (`store.ts:192`), so a reactive proxy never enters `internal.stateReads`. Pass 2 then
+   falls through to `store.ts:204–206` and assigns it to the instance verbatim. Because
+   `serializeStores()` snapshots **only** `internal.stateReads` (`ssr.ts:49`), the object
+   is dropped from the SSR payload silently — no warning, no error, and a store that
+   looks correct on the client.
+
+   *Correction to the record:* three FEL-391 comments, this document's own summary, and
+   `packages/store/src/types.ts:91` all named the detector **`collectSetupShape`**. No such
+   symbol exists — `grep -rn "collectSetupShape" --include="*.ts"` matches only comments,
+   never a declaration. The real function is `instantiateSetup`. Because `scripts/gen-api.ts`
+   lifts that doc comment verbatim, the phantom name also reached the generated public API
+   docs (`apps/docs-next/src/data/api/generated/store.ts:162`) — a wrong symbol that lives
+   only in prose is a nuisance, one published on the docs site is a defect. The **source**
+   comment is corrected in the same change as this document; the generated file is left
+   alone deliberately, because regenerating it rewrites 28 files of unrelated accumulated
+   drift and belongs to whoever owns `apps/docs-next`. It will pick the fix up on the next
+   `bun run gen:api`.
 4. **`state-model` spec amendment (open, §9).** Whether `reactive` becomes an 8th
    compiler-recognized `@state` wrapper — `let user = reactive({ … })` — or stays a plain
    runtime import used as `const user = reactive({ … })`. The ratified wrapper list is
