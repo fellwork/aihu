@@ -31,6 +31,7 @@ jobs:
   changes:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     outputs:
       storybook: ${{ steps.filter.outputs.storybook }}
     steps:

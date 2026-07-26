@@ -229,6 +229,7 @@ jobs:
     needs: [check, examples, governed-examples]
     if: always()
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Gate on required job results
         env:
@@ -258,6 +259,7 @@ jobs:
     # only when signals or bench code is touched (per Phase 2.5 brief).
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     outputs:
       code: ${{ steps.filter.outputs.code }}
       bench: ${{ steps.filter.outputs.bench }}
@@ -323,6 +325,7 @@ jobs:
     # > 10 % on any workload. Override via `[bench-bump]` in the commit
     # message — see bench/signals/HARNESS.md for the override path.
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     needs: [check, changes]
     if: needs.changes.outputs.bench == 'true'
     steps:
@@ -373,6 +376,7 @@ jobs:
     # > 10% on any workload. Override via `[bench-bump]` in the commit message.
     # workflow_dispatch only — see header comment and state-plan-a.md open items.
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     needs: [check, changes]
     if: needs.changes.outputs.bench == 'true'
     steps:
@@ -423,6 +427,7 @@ jobs:
     # Runs when language-server source or the bench file changes.
     needs: [check, changes]
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     if: needs.changes.outputs.bench_lsp == 'true'
     steps:
       - uses: actions/checkout@v4
@@ -436,6 +441,7 @@ jobs:
     # Build and smoke-test all polished examples (arch-2 M1 gate).
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     needs: [check]
     steps:
       - uses: actions/checkout@v4
@@ -519,6 +525,7 @@ jobs:
       (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
       && needs.changes.outputs.governed == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     needs: [check, changes]
     steps:
       - uses: actions/checkout@v4
