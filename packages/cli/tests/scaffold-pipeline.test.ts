@@ -353,11 +353,56 @@ describe('runPostInstall', () => {
     })
     expect(res.failures).toEqual([])
     expect(res.ran).toHaveLength(3)
+    // `git-init` is THREE commands, not one: `git init` alone leaves an unborn
+    // HEAD and anything that asks git about HEAD then exits 128 (FEL-431
+    // defect 5). Identity is passed explicitly so the commit cannot fail on a
+    // machine with no global git config — i.e. CI.
     expect(sp.calls.map((c) => `${c.command} ${c.args.join(' ')}`)).toEqual([
       'bun install',
       'git init',
+      'git add -A',
+      'git -c user.name=aihu -c user.email=scaffold@aihu.dev commit -m chore: initial aihu scaffold',
       'bun run check',
     ])
+  })
+
+  it('git-init leaves a repo with a real commit, not an unborn HEAD (FEL-431 d5)', () => {
+    const m = manifestFixture()
+    const o = mergeOptions(m, { appName: 'demo', userOverrides: {} })
+    const sp = fakeSpawner()
+    runPostInstall({ manifest: m, options: o, targetDir: '/tmp/demo', spawner: sp })
+
+    const git = sp.calls.filter((c) => c.command === 'git').map((c) => c.args)
+    expect(git.some((a) => a[0] === 'init')).toBe(true)
+    expect(git.some((a) => a[0] === 'add')).toBe(true)
+    expect(
+      git.some((a) => a.includes('commit')),
+      'a scaffolded repo with no commit breaks every tool that resolves HEAD',
+    ).toBe(true)
+  })
+
+  it('git-init stops at the first failing command rather than committing anyway', () => {
+    const m = manifestFixture()
+    const o = mergeOptions(m, { appName: 'demo', userOverrides: {} })
+    const calls: string[] = []
+    const sp: Spawner = {
+      run(command, args) {
+        calls.push(`${command} ${args.join(' ')}`)
+        // `git add` fails — the commit must NOT be attempted after it.
+        return args[0] === 'add'
+          ? { status: 1, stdout: '', stderr: 'add failed' }
+          : { status: 0, stdout: '', stderr: '' }
+      },
+    }
+    const res = runPostInstall({
+      manifest: m,
+      options: o,
+      targetDir: '/tmp/demo',
+      spawner: sp,
+    })
+
+    expect(calls.some((c) => c.includes('commit'))).toBe(false)
+    expect(res.failures.some((f) => f.step.kind === 'git-init')).toBe(true)
   })
 
   it('skips git-init when initGit override is false', () => {
@@ -411,12 +456,11 @@ describe('runPostInstall', () => {
   it('treats allowFailure steps as successful even on non-zero exit', () => {
     const m = manifestFixture()
     const o = mergeOptions(m, { appName: 'demo', userOverrides: {} })
-    let calls = 0
     const sp: Spawner = {
-      run() {
-        calls++
-        // pm-install (1) succeeds; git-init (2) succeeds; lint-fix (3) fails
-        return calls >= 3
+      // Keyed on the COMMAND, not a call index: `git-init` is a multi-command
+      // step, so an index-based fake silently retargets when that changes.
+      run(_command, args) {
+        return args[0] === 'run' && args[1] === 'check'
           ? { status: 1, stdout: '', stderr: 'lint blew up' }
           : { status: 0, stdout: '', stderr: '' }
       },
@@ -437,7 +481,10 @@ describe('runPostInstall', () => {
     const sp = fakeSpawner()
     runPostInstall({ manifest: m, options: o, targetDir: '/tmp/demo', spawner: sp })
     expect(sp.calls[0]?.command).toBe('pnpm')
-    expect(sp.calls[2]?.command).toBe('pnpm')
+    // Found by shape, not by index — `git-init` contributes several calls
+    // between pm-install and lint-fix.
+    const lint = sp.calls.find((c) => c.args[0] === 'run' && c.args[1] === 'check')
+    expect(lint?.command).toBe('pnpm')
   })
 })
 

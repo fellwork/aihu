@@ -453,23 +453,43 @@ export function runPostInstall(input: RunPostInstallInput): PostInstallResult {
       }
     }
 
-    const cmd = commandFor(step, input.options.pm)
-    if (cmd === null) {
+    const cmds = commandsFor(step, input.options.pm)
+    if (cmds === null) {
       // Step is recognized but a no-op for this options shape (e.g. git-init
       // when --no-git was passed; aihu-check before the binary exists).
       skipped.push(step)
       continue
     }
 
-    const res = spawner.run(cmd.command, cmd.args, input.targetDir)
-    if (res.status === 0) {
+    // Run the sequence, stopping at the first failure so a later command
+    // cannot paper over an earlier one (a `git commit` "succeeding" after a
+    // failed `git add` would leave exactly the empty repo this step exists to
+    // prevent).
+    // `status` is `number | null` — spawnSync reports null when the child was
+    // killed by a signal rather than exiting. Narrowing it to `number` here
+    // would be a lie that only shows up on a killed process.
+    let failure: {
+      command: string
+      args: string[]
+      status: number | null
+      stderr: string
+    } | null = null
+    for (const cmd of cmds) {
+      const res = spawner.run(cmd.command, cmd.args, input.targetDir)
+      if (res.status !== 0) {
+        failure = { ...cmd, status: res.status, stderr: res.stderr }
+        break
+      }
+    }
+
+    if (failure === null) {
       ran.push(step)
     } else if (step.allowFailure === true) {
       ran.push(step) // best-effort; we ran it, it failed quietly
     } else {
       failures.push({
         step,
-        error: `command ${cmd.command} ${cmd.args.join(' ')} exited with status ${res.status}: ${res.stderr.trim()}`,
+        error: `command ${failure.command} ${failure.args.join(' ')} exited with status ${failure.status}: ${failure.stderr.trim()}`,
       })
     }
   }
@@ -477,17 +497,58 @@ export function runPostInstall(input: RunPostInstallInput): PostInstallResult {
   return { ran, skipped, failures }
 }
 
-function commandFor(
+/**
+ * The command sequence for one post-install step, run in order; the first
+ * non-zero exit fails the step. Returns null when the step is a no-op for this
+ * options shape.
+ *
+ * A LIST rather than a single command because `git-init` is not one command —
+ * see below.
+ */
+function commandsFor(
   step: PostInstallStep,
   pm: ResolvedOptions['pm'],
-): { command: string; args: string[] } | null {
+): Array<{ command: string; args: string[] }> | null {
   switch (step.kind) {
     case 'pm-install':
-      return { command: pm, args: ['install'] }
+      return [{ command: pm, args: ['install'] }]
     case 'git-init':
-      return { command: 'git', args: ['init'] }
+      // `git init` ALONE leaves an unborn HEAD, and anything that asks git a
+      // question about HEAD then fails. That is FEL-431 defect 5: moon's git
+      // integration exits 128 with "fatal: ambiguous argument 'HEAD'", so a
+      // scaffolded cf-team cannot run dev, build or typecheck — every command
+      // the CLI prints as the next step. Reproduced on a real scaffold:
+      // `git rev-parse HEAD` -> 128, `git rev-list --count --all` -> 0.
+      //
+      // `create.ts` (the create-aihu wizard) has always done init + add +
+      // commit. This path did not, so ONE capability had TWO implementations
+      // that disagreed — and only the path nobody tested was broken.
+      //
+      // Identity is passed explicitly rather than taken from the ambient git
+      // config: `git commit` fails outright when no user.name/user.email is
+      // resolvable, which is the normal state of CI runners and fresh
+      // containers. Depending on ambient config would make this fix work on a
+      // developer machine and leave the unborn HEAD in exactly the environment
+      // the scaffold matrix runs in. Verified that the explicit form succeeds
+      // with no global config at all.
+      return [
+        { command: 'git', args: ['init'] },
+        { command: 'git', args: ['add', '-A'] },
+        {
+          command: 'git',
+          args: [
+            '-c',
+            'user.name=aihu',
+            '-c',
+            'user.email=scaffold@aihu.dev',
+            'commit',
+            '-m',
+            'chore: initial aihu scaffold',
+          ],
+        },
+      ]
     case 'lint-fix':
-      return { command: pm, args: ['run', 'check'] }
+      return [{ command: pm, args: ['run', 'check'] }]
     case 'aihu-check':
       // The aihu binary is the new app's local devDep; until install ran,
       // we can't run it. Skip silently if pm-install has not yet run.
