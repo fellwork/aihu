@@ -1,0 +1,115 @@
+name: Scaffold DX matrix
+# End-to-end first-impression gate: `npm create aihu` → install → typecheck →
+# build → dev server answering HTTP 200 → production preview answering HTTP 200,
+# across bun / npm / pnpm / yarn and every scaffold template.
+#
+# Deliberately NOT part of plan-a.yml's `check` job: a full grid installs from
+# the live npm registry once per cell and takes tens of minutes, which is far
+# too slow for the per-PR path. `ci-ok` (the sole required status for branch
+# protection) is untouched by this file and must stay that way.
+#
+# Runs on a schedule so a broken publish is caught within a day, and is
+# workflow_dispatch-able so a release can be verified the moment it lands.
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'npm (published packages) or local (this checkout)'
+        type: choice
+        options: [npm, local]
+        default: npm
+      version:
+        description: 'Published version to test in npm mode (e.g. latest, 1.0.2)'
+        type: string
+        default: latest
+      pm:
+        description: 'Comma-separated package managers (default: all four)'
+        type: string
+        default: bun,npm,pnpm,yarn
+      template:
+        description: 'Comma-separated templates (default: all)'
+        type: string
+        default: minimal,full,docs,agent,cf-team
+  schedule:
+    # 07:00 UTC daily — after a typical release window, before the workday.
+    - cron: '0 7 * * *'
+  # Changes to the harness or to the scaffold templates it covers must re-prove
+  # themselves; everything else stays off this expensive path.
+  pull_request:
+    branches: [main]
+    types: [opened, reopened, synchronize, ready_for_review]
+    paths:
+      - 'packages/cli/**'
+      - 'packages/create-aihu/**'
+      - 'packages/templates/**'
+      - '.github/workflows/scaffold-matrix.yml'
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
+# A scheduled run and a dispatch racing each other would fight over the npm
+# cache for no benefit.
+concurrency:
+  group: scaffold-matrix-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  matrix:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    # Generous: every cell installs from the live registry and boots two servers.
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # pnpm and yarn are not on the ubuntu-latest image by default. Install
+      # them explicitly: the harness prints a loud SKIP for any missing PM and
+      # a skipped row is NOT a pass, so a silent absence here would quietly
+      # shrink the grid to half its width.
+      - name: Install pnpm and yarn
+        run: npm install --global pnpm yarn
+
+      - name: Report toolchain
+        run: |
+          echo "bun  $(bun --version)"
+          echo "npm  $(npm --version)"
+          echo "pnpm $(pnpm --version)"
+          echo "yarn $(yarn --version)"
+          echo "node $(node --version)"
+
+      # Only needed for --mode local; harmless (and fast) otherwise.
+      - name: Build @aihu/cli
+        if: ${{ inputs.mode == 'local' }}
+        run: |
+          bun install --frozen-lockfile
+          bun run --cwd packages/cli build
+
+      - name: Run scaffold DX matrix
+        run: |
+          bun packages/cli/tests/scaffold-matrix-e2e.ts \
+            --mode "${{ inputs.mode || 'npm' }}" \
+            --version "${{ inputs.version || 'latest' }}" \
+            --pm "${{ inputs.pm || 'bun,npm,pnpm,yarn' }}" \
+            --template "${{ inputs.template || 'minimal,full,docs,agent,cf-team' }}" \
+            --cmd-timeout 300000 \
+            --server-timeout 120000 \
+            2>&1 | tee scaffold-matrix.log
+          # tee makes ${PIPESTATUS[0]} the harness's own exit code; `$?` would be
+          # tee's and would turn every failure into a green run.
+          exit "${PIPESTATUS[0]}"
+
+      - name: Upload matrix log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scaffold-matrix-log
+          path: scaffold-matrix.log
+          retention-days: 14
