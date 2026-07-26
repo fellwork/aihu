@@ -88,5 +88,48 @@ describe.skipIf(!RUN_E2E)('default scaffold e2e', () => {
 
     // Build output sanity: dist/ should exist with at least one .js.
     expect(existsSync(join(projectDir, 'dist'))).toBe(true)
+
+    // ── The agent surface the config asked for actually shipped ─────────────
+    //
+    // Asserting on file CONTENT, not just presence. FEL-423's failure mode was
+    // documents that existed, returned 200, and said nothing — an existsSync
+    // check passes on every one of them.
+    const dist = (p: string) => join(projectDir, 'dist', p)
+
+    const llms = readFileSync(dist('llms.txt'), 'utf8')
+    expect(llms, 'llms.txt must not be the SPA fallback').not.toContain('<!DOCTYPE')
+    expect(llms).toContain('# my-app')
+
+    // KNOWN GAP — the remaining half of FEL-423, deliberately NOT asserted.
+    //
+    // This file is ~60 bytes: a title and a summary, with no `## Components`
+    // section, even though src/pages/index.aihu declares three `$action`
+    // entries. Cause is in the compiler: `elide_agent` (codegen/emit.rs)
+    // strips `registerAgentMetadata(...)` from CLIENT-target builds, so
+    // nothing populates the registry the generator reads.
+    //
+    // There is deliberately NO `expect(llms).not.toContain('## Components')`.
+    // Asserting the absence would certify the defect as correct and go green
+    // forever — which is exactly how the plugin's own unit test ("omits the
+    // Components section when the registry is empty") let this ship. When the
+    // compiler emission lands, ADD the positive assertion.
+    //
+    // NOTE this harness installs PUBLISHED @aihu/* packages, so it builds with
+    // the published compiler. It cannot see an unlanded compiler change — do
+    // not use it to verify the fix when that work happens.
+
+    const robots = readFileSync(dist('robots.txt'), 'utf8')
+    expect(robots).toContain('User-agent:')
+
+    // The MCP server card must NOT be emitted. The scaffolded config declares
+    // no `endpoint` because a static client build has no process to serve one;
+    // publishing a card would advertise a transport that answers nothing. The
+    // previous scaffold set `endpoint` to the card's OWN url and shipped a
+    // card listing zero tools (FEL-423).
+    expect(
+      existsSync(dist('.well-known/mcp/server-card.json')),
+      'a static build must not publish an MCP server card',
+    ).toBe(false)
+    expect(existsSync(dist('.well-known/mcp.json'))).toBe(false)
   }, 180_000)
 })

@@ -9,7 +9,9 @@ import { scanPages, viteRouterIntegration } from '@aihu/router/plugin'
 import type { Plugin, PluginOption, ResolvedConfig } from 'vite'
 import type { AdapterContext, CreateHandlerSourceOptions } from './adapter.ts'
 import type { AihuConfig } from './config.ts'
+import { validateAihuConfig } from './config.ts'
 import { applyHeadConfig } from './head.ts'
+import { AIHU_CONFIG_PLUGIN, type AihuModuleApi, type AihuPluginApi } from './load-config.ts'
 import { prerenderClose } from './prerender.ts'
 
 /** Map a pages-dir file path to a minimal RouteDefinition for adapter context. */
@@ -124,9 +126,40 @@ function buildAdapterContext(
  * })
  */
 export function viteAihuPlugin(config?: AihuConfig): PluginOption[] {
+  // Validate the inline config the same way `defineConfig` does. Previously
+  // only configs written through `defineConfig` were checked, so passing the
+  // object straight to this function — which every example does — skipped
+  // validation entirely. Now that the Vite config is becoming the canonical
+  // home for aihu config, this is the path that matters most.
+  const resolved: AihuConfig = config ?? {}
+  validateAihuConfig(resolved)
+
+  // Marker plugin: carries the evaluated config on a public `api` handle so
+  // non-Vite consumers (aihu add / dev / build, the language server, the VS
+  // Code extension) can read it via `loadAihuConfig()` without running a
+  // build. Modelled on Qwik's `QwikVitePluginApi`.
+  //
+  // This is what lets the Vite config be the single source of truth: tooling
+  // reads the EVALUATED config — spreads, conditionals, computed values and
+  // imported fragments all work, because the config genuinely ran.
+  const configMarkerPlugin: Plugin = {
+    name: AIHU_CONFIG_PLUGIN,
+    api: {
+      getAihuConfig: () => resolved,
+      // @aihu/app declares itself under the same module contract every other
+      // package uses, so nothing has to special-case the framework's own entry.
+      aihuModule: '@aihu/app',
+      getOptions: () => resolved,
+    } satisfies AihuPluginApi & AihuModuleApi<AihuConfig>,
+  }
+
   const routerOpts = {
     pagesDir: config?.dir?.pages ?? 'pages',
     layoutsDir: config?.dir?.layouts ?? 'src/layouts',
+    // `componentsDir` has existed on RouterPluginOptions all along but was
+    // unreachable from aihu.config.ts — changing it meant calling
+    // viteRouterIntegration() yourself, i.e. abandoning viteAihuPlugin.
+    ...(config?.dir?.components != null ? { componentsDir: config.dir.components } : {}),
     // Give the router's route generator the compiler's route-metadata extractor
     // so per-route head/middleware/params/ssr flow into virtual:aihu-routes in
     // SPA builds (no .route.json sidecar is written on the stdin compile path).
@@ -232,6 +265,10 @@ export function viteAihuPlugin(config?: AihuConfig): PluginOption[] {
   }
 
   return [
+    // First: the marker plugin carrying the evaluated config on its `api`
+    // handle. Position is not load-bearing for the build, but keeping it first
+    // means anything scanning the array finds it immediately.
+    configMarkerPlugin,
     // SPA mode: route components are top-level mounts that frequently use
     // lifecycle hooks (onMount/onCleanup) and rely on the runtime/signals
     // owner context regardless of whether they call signal() directly. The
@@ -245,7 +282,12 @@ export function viteAihuPlugin(config?: AihuConfig): PluginOption[] {
     // utility classes (or any cascade-dependent CSS framework) which need
     // `'light'` so styles aren't trapped in shadow roots.
     aihuCompilerPlugin({
-      islands: false,
+      // `islands` was hardcoded false here, with the comment above telling the
+      // reader to "opt back in via the compiler plugin directly" — a framework
+      // documenting a workaround instead of exposing an option. It is now
+      // `compiler.islands`, still defaulting to false.
+      islands: config?.compiler?.islands ?? false,
+      ...(config?.compiler?.target != null ? { target: config.compiler.target } : {}),
       // Compile layouts (under the same dir the router scans) in layout mode:
       // namespaced tag + passive <outlet> marker the client renderer fills.
       layoutsDir: routerOpts.layoutsDir,

@@ -1,16 +1,30 @@
 /**
- * legacy-snapshot — backward-compat freeze per arch-6 §7.3 + §8.8.
+ * default-scaffold snapshot — every byte `aihu app <name>` writes, reviewable
+ * as a diff.
  *
- * Invokes `aihu app legacy-snapshot --pm bun` with NO --template flag,
- * which falls through bin.ts dispatch into the legacy scaffoldApp() path.
- * The produced file tree is byte-compared against a checked-in golden
- * fixture under packages/cli/tests/legacy-snapshot.golden/.
+ * Invokes `aihu app <name> --pm bun` with NO --template flag, which resolves
+ * to the `minimal` template. The produced file tree is byte-compared against
+ * the checked-in golden fixture under packages/cli/tests/legacy-snapshot.golden/.
+ * A single differing byte fails the test, so no change to the default scaffold
+ * can land without a reviewer seeing it.
  *
- * If a single byte differs the test fails — preserving R-CT-06 ("the
- * pre-templates `aihu app` workflow keeps producing the same artifact
- * for v0.2.0"). Intentional changes to legacy scaffolding require a
- * deliberate refresh of the golden fixture (delete the directory and
- * re-run; the harness writes a fresh one when none exists).
+ * WHAT THIS NO LONGER CLAIMS (changed deliberately):
+ *
+ * This was previously a backward-compat FREEZE — R-CT-06, "the pre-templates
+ * `aihu app` workflow keeps producing the same artifact for v0.2.0" (arch-6
+ * §7.3/§8.8). That contract was retired: pinning the default scaffold to a
+ * v0.2.0 artifact guaranteed the default could never be current, which is the
+ * opposite of what a starting point is for. The v0.2.0 tree also predates
+ * `aihu.config.ts` being scaffolded at all, so honoring the freeze meant every
+ * new project shipped without the framework's own configuration surface — and
+ * `aihu add` failed with `no-config` in a project the CLI had just created.
+ *
+ * The MECHANISM is kept because it is worth keeping: it makes scaffold drift
+ * visible in code review instead of silent. What changed is that an
+ * intentional improvement is now a normal reviewed diff rather than a
+ * contract violation. Refresh the fixture by deleting the directory and
+ * re-running; the harness writes a fresh one when none exists (local only —
+ * it refuses to self-generate in CI).
  */
 
 import { spawnSync } from 'node:child_process'
@@ -83,7 +97,7 @@ function walkRel(root: string, isGolden = false): string[] {
   return out.sort()
 }
 
-describe('legacy-snapshot · backward-compat freeze (arch-6 §7.3)', () => {
+describe('default-scaffold snapshot · every scaffolded byte is reviewed', () => {
   it('aihu app <name> --pm bun produces the byte-identical golden tree', () => {
     // 1. Run legacy scaffold.
     const result = spawnSync('bun', [CLI_BIN, 'app', APP_NAME, '--pm', 'bun'], {

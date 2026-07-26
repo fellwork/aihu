@@ -1,13 +1,52 @@
 # legacy-snapshot.golden — provenance
 
-This directory is the frozen golden tree for the arch-6 §7.3 backward-compat
-freeze (R-CT-06): `aihu app <name> --pm bun` with no `--template` flag must
-keep producing this exact artifact, byte for byte. It is compared by
-`packages/cli/tests/legacy-snapshot.test.ts`; this README is the one file the
-harness skips when walking the golden (provenance annotation, not scaffold
-output).
+This directory is the golden tree for the default scaffold: `aihu app <name>
+--pm bun` with no `--template` flag must produce this exact artifact, byte for
+byte. It is compared by `packages/cli/tests/legacy-snapshot.test.ts`; this
+README is the one file the harness skips when walking the golden (provenance
+annotation, not scaffold output).
+
+**This is no longer the arch-6 §7.3 backward-compat freeze (R-CT-06).** That
+contract was retired with Shane's approval: pinning the default scaffold to a
+v0.2.0 artifact guaranteed the default could never be current. The *mechanism*
+is kept because it is worth keeping — it makes scaffold drift visible in code
+review instead of silent. An intentional improvement is now a normal reviewed
+diff plus an entry below, rather than a contract violation.
+
+Refresh the fixture by deleting the directory and re-running the harness; it
+writes a fresh tree when none exists (local only — it refuses to self-generate
+in CI). **Restore this README afterwards** — it is not scaffold output, so the
+generator does not recreate it, and a plain `rm -rf` of the directory takes it
+with them.
 
 ## Regeneration log
+
+### 2026-07-26 — config moves into `vite.config.ts` (#609)
+
+- **Why it moved:** #609 relocates the whole aihu configuration surface out of
+  a separate `aihu.config.ts` and into `vite.config.ts`, read back through the
+  plugin's own `api` handle. The generated `vite.config.ts` therefore gains
+  `app.head` and an `agentReadiness` block passed to `viteAihuPlugin()`.
+- **Conflict resolution, stated because it is not mechanical:** the golden was
+  regenerated during the rebase of #609 onto `main` after #612 landed. #612
+  rewrote the starter page's copy (honest build-target claims, teaching voice)
+  and wired agent-readiness *directly*, commenting that this was done "rather
+  than via viteAihuPlugin's `agentReadiness` option so it loads as an ESM
+  import." That rationale does not hold: `agentReadiness` has been typed on
+  `AihuConfig` and lazily loaded via a dynamic `import()` since #53 —
+  `packages/app/src/vite-plugin.ts` already documents why `require`/
+  `createRequire` fail there and dynamic `import()` does not. The resolution
+  therefore takes **#609's structure** (the `agentReadiness` option) and
+  **#612's prose** (the honesty rule and teaching voice), and drops the stale
+  ESM rationale rather than carrying a workaround for a solved problem.
+- **Regenerated:** 2026-07-26, on the rebase of `feat/config-in-vite-config`
+  onto `origin/main` at `bc1c4eac`. Bootstrapped by deleting the directory,
+  then verified byte-identical by a second full harness run
+  (`bun run test packages/cli/tests/legacy-snapshot.test.ts --config
+  vitest.gates.config.ts` → 1 passed).
+- **Diff vs previous golden:** `vite.config.ts` (config surface inlined,
+  `app.head` + `agentReadiness` added, direct `viteAgentReadinessIntegration`
+  import dropped) and `src/pages/index.aihu` (#612's copy, retained).
 
 ### 2026-07-21 — DA4 flip: binary shadow vocabulary, pin becomes `$shadow: 'light'` (#437)
 
