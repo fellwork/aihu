@@ -63,6 +63,23 @@ export const attrThrash: WorkloadDefinition = {
   name: 'attr-thrash-100x100',
   description: '100 elements × 100 reactive attrs each. Write all 10k signals once per op.',
   n: 10,
+  // R0: one op writes 10,000 signals, each of which must land as one real
+  // attribute mutation on a live element. The 2026-05-25 baseline recorded
+  // 65.52 µs for this cell with 0 setAttribute calls/op (6.55 ns per
+  // "write" — physically impossible for real JSDOM setAttribute work). The
+  // type-specific verify below distinguishes attribute records from
+  // incidental childList noise.
+  liveness: {
+    minRecords: 10_000,
+    verify(records) {
+      let attrs = 0
+      for (const r of records) if (r.type === 'attributes') attrs++
+      return attrs >= 10_000
+        ? null
+        : `expected ≥10000 attribute mutation records per op, saw ${attrs} — ` +
+            'the reactive attribute bindings are (partially) dead.'
+    },
+  },
   build(adapter: DomAdapter) {
     // ---------- aihu ----------
     if (adapter.name === '@aihu/arbor') {

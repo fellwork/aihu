@@ -11,62 +11,69 @@
  *     at module-load time (lit, preact) will be safe.
  *   - The "op" is mount+dispose (or update-N, or three-phase krausest) rather
  *     than a single signal write. Per-op costs are correspondingly larger
- *     (microseconds → milliseconds); the per-cell CPU budget stays at 1 s
- *     so the wall-clock fits the gate timeline.
+ *     (microseconds → milliseconds); the per-cell CPU budget is 2 s (R2 —
+ *     the old 1 s budget yielded ~10-12 samples on the heavy workloads).
+ *   - R0: every cell passes a mandatory DOM-liveness probe before timing
+ *     (measure-live.ts / liveness.ts). A cell whose op does not mutate the
+ *     DOM aborts the whole run — it is never reported as a number.
  *
  * Run with: `bun bench/arbor/src/runner.ts`
  * Writes:   `bench/arbor/RESULTS.md`
+ * Filters:  BENCH_ONLY_WORKLOAD / BENCH_ONLY_COMPETITOR select a single cell
+ *           (RESULTS.md is then NOT written; BENCH_OUT=<path> overrides).
  */
 
 import { writeFileSync } from 'node:fs'
+import { loadavg } from 'node:os'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-
-import { measure } from 'mitata'
 
 // Side-effect import: installs window/document on globalThis before any
 // competitor module loads.
 import './jsdom-host.ts'
 
 import { competitors } from './competitors/index.ts'
+import { LivenessError } from './liveness.ts'
+import { measureLive } from './measure-live.ts'
 import type { DomAdapter, WorkloadCell, WorkloadDefinition, WorkloadResult } from './types.ts'
 import { workloads } from './workloads/index.ts'
 
 const HERE = fileURLToPath(new URL('.', import.meta.url))
 const RESULTS_PATH = resolve(HERE, '..', 'RESULTS.md')
 
+// Single-cell reproduction filters (used throughout the 2026-07 bisect and
+// truth investigations — see docs/plans/2026-07-26-arbor-perf-truth.md §6).
+// When either filter is set, RESULTS.md is NOT written (a partial matrix must
+// never overwrite the full one); set BENCH_OUT=<path> to write elsewhere.
+const ONLY_WORKLOAD = process.env.BENCH_ONLY_WORKLOAD
+const ONLY_COMPETITOR = process.env.BENCH_ONLY_COMPETITOR
+const OUT_OVERRIDE = process.env.BENCH_OUT
+
 /**
- * Run one (workload, competitor) cell. Mitata's `measure()` returns p50/p99
- * directly; we convert avg/p50/p99 from ns into ops/sec via 1e9 / ns. Errors
- * (e.g. an adapter throwing during setup) are caught and reported per-cell so
- * one bad library doesn't kill the whole run.
+ * Run one (workload, competitor) cell through the R0 choke point
+ * (`measureLive`): 5 warmup ops, a mandatory DOM-liveness probe, then the
+ * timed region. Setup errors (e.g. an adapter throwing during mount) are
+ * caught and reported per-cell so one bad library doesn't kill the whole run
+ * — but a `LivenessError` is deliberately rethrown and aborts the entire
+ * process: an ERROR cell is honest, a fast number for a dead binding is not.
  */
 async function runCell(workload: WorkloadDefinition, adapter: DomAdapter): Promise<WorkloadCell> {
   try {
     const ctx = workload.build(adapter)
-    // Warm-up: the per-op work (10k-leaf mount + dispose) is heavy enough that
-    // 5 calls is sufficient to stabilize hidden classes and inline caches.
-    // mitata's `warmup_samples: 5` re-confirms during the timed run.
-    for (let i = 0; i < 5; i++) ctx.run()
-
-    const stats = await measure(ctx.run, {
-      // 1 s CPU budget per cell. mount-10k-leaves runs at ~50-200 ms/op in
-      // JSDOM, so we get 5-20 samples per cell — enough for p50 stability.
-      // Lighter workloads (spawn 2's update-1-of-10k) get hundreds of samples.
-      min_cpu_time: 1_000_000_000,
-      warmup_samples: 5,
-    })
-
+    const stats = await measureLive(workload, adapter.name, ctx.run)
     ctx.cleanup()
 
     const result: WorkloadResult = {
       mean: stats.avg,
+      min: stats.min,
       p50: stats.p50,
       p99: stats.p99,
       opsPerSec: 1e9 / stats.avg,
     }
     return { workload: workload.name, competitor: adapter.name, result }
   } catch (err) {
+    // R0: never demote a liveness failure to an ERROR cell — hard-fail the run.
+    if (err instanceof LivenessError) throw err
     return {
       workload: workload.name,
       competitor: adapter.name,
@@ -88,7 +95,11 @@ const fmtOps = (ops: number): string => {
   return ops.toFixed(2)
 }
 
-function renderResultsMarkdown(cells: WorkloadCell[]): string {
+function renderResultsMarkdown(
+  cells: WorkloadCell[],
+  loadStart: number[],
+  loadEnd: number[],
+): string {
   const date = new Date().toISOString().slice(0, 10)
   const jsdomVersion = (() => {
     try {
@@ -97,6 +108,7 @@ function renderResultsMarkdown(cells: WorkloadCell[]): string {
       return '25.x'
     }
   })()
+  const fmtLoad = (l: number[]): string => l.map((x) => x.toFixed(2)).join(' ')
   const lines: string[] = []
   lines.push('# `@aihu/arbor` Bench Results')
   lines.push('')
@@ -105,6 +117,14 @@ function renderResultsMarkdown(cells: WorkloadCell[]): string {
     `**Runner:** mitata 1.0.34 · Bun ${process.versions.bun ?? 'n/a'} · JSDOM ${jsdomVersion}`,
   )
   lines.push('**Track:** A — @aihu/arbor vs. SOTA DOM-binding libs (Round N+1)')
+  // Conditions block (truth doc rule: no number without its conditions).
+  lines.push(
+    '**Measured artifact:** workspace *source* via tsconfig paths (`packages/*/src`) — ' +
+      'NOT the shipped `dist` (see HARNESS.md "Measured artifact (R6)")',
+  )
+  lines.push(`**NODE_ENV:** ${process.env.NODE_ENV ?? '(unset — signals run with __DEV__ true)'}`)
+  lines.push(`**Load average (start → end):** ${fmtLoad(loadStart)} → ${fmtLoad(loadEnd)}`)
+  lines.push(`**R0:** every non-ERROR cell below passed the DOM-liveness probe (see HARNESS.md)`)
   lines.push('**Note:** All runs in JSDOM under Bun. See HARNESS.md for methodology.')
   lines.push('')
   lines.push('---')
@@ -115,21 +135,21 @@ function renderResultsMarkdown(cells: WorkloadCell[]): string {
     lines.push('')
     lines.push(`*${wl.description}*`)
     lines.push('')
-    lines.push('| Competitor | mean | p50 | p99 | ops/s |')
-    lines.push('| --- | ---: | ---: | ---: | ---: |')
+    lines.push('| Competitor | mean | min | p50 | p99 | ops/s |')
+    lines.push('| --- | ---: | ---: | ---: | ---: | ---: |')
     for (const adapter of competitors) {
       const cell = cells.find((c) => c.workload === wl.name && c.competitor === adapter.name)
       if (!cell) {
-        lines.push(`| ${adapter.name} | — | — | — | — |`)
+        lines.push(`| ${adapter.name} | — | — | — | — | — |`)
         continue
       }
       if ('error' in cell.result) {
-        lines.push(`| ${adapter.name} | ERROR | ERROR | ERROR | \`${cell.result.error}\` |`)
+        lines.push(`| ${adapter.name} | ERROR | ERROR | ERROR | ERROR | \`${cell.result.error}\` |`)
         continue
       }
       const r = cell.result
       lines.push(
-        `| ${adapter.name} | ${fmtNs(r.mean)} | ${fmtNs(r.p50)} | ${fmtNs(r.p99)} | ${fmtOps(r.opsPerSec)} |`,
+        `| ${adapter.name} | ${fmtNs(r.mean)} | ${fmtNs(r.min)} | ${fmtNs(r.p50)} | ${fmtNs(r.p99)} | ${fmtOps(r.opsPerSec)} |`,
       )
     }
     lines.push('')
@@ -182,8 +202,12 @@ function renderResultsMarkdown(cells: WorkloadCell[]): string {
   lines.push('---')
   lines.push('')
 
-  // Machine-readable JSON footer for the regression gate (gate.ts reads this block).
-  // Only p50 and opsPerSec go here — the gate compares p50 only.
+  // Machine-readable JSON footer for the regression gate (gate.ts reads this
+  // block). `min` is emitted alongside p50 (R2: min is the right statistic
+  // under one-sided noise); the gate keeps comparing p50-vs-p50 until R1
+  // replaces the checked-in-baseline mechanism, because the committed
+  // baseline has no `min` and switching statistics now would void every row
+  // ("NEW — no previous baseline") and silently green the gate.
   const jsonCells = cells.map((c) => ({
     workload: c.workload,
     competitor: c.competitor,
@@ -191,6 +215,7 @@ function renderResultsMarkdown(cells: WorkloadCell[]): string {
       ? { error: true, p50: null }
       : {
           p50: c.result.p50,
+          min: c.result.min,
           opsPerSec: c.result.opsPerSec,
         }),
   }))
@@ -204,24 +229,53 @@ function renderResultsMarkdown(cells: WorkloadCell[]): string {
 }
 
 async function main(): Promise<void> {
-  console.log(`Running ${workloads.length} workloads × ${competitors.length} competitors\n`)
+  const selectedWorkloads = workloads.filter((w) => !ONLY_WORKLOAD || w.name === ONLY_WORKLOAD)
+  const selectedCompetitors = competitors.filter(
+    (c) => !ONLY_COMPETITOR || c.name === ONLY_COMPETITOR,
+  )
+  if (selectedWorkloads.length === 0 || selectedCompetitors.length === 0) {
+    throw new Error(
+      `No cells match filters (BENCH_ONLY_WORKLOAD=${ONLY_WORKLOAD ?? ''}, ` +
+        `BENCH_ONLY_COMPETITOR=${ONLY_COMPETITOR ?? ''})`,
+    )
+  }
+
+  const loadStart = loadavg()
+  console.log(
+    `Running ${selectedWorkloads.length} workloads × ${selectedCompetitors.length} competitors` +
+      ` · NODE_ENV=${process.env.NODE_ENV ?? '(unset)'}` +
+      ` · load ${loadStart.map((x) => x.toFixed(2)).join(' ')}\n`,
+  )
   const cells: WorkloadCell[] = []
-  for (const wl of workloads) {
-    for (const adapter of competitors) {
+  for (const wl of selectedWorkloads) {
+    for (const adapter of selectedCompetitors) {
       process.stdout.write(`  ${wl.name} × ${adapter.name} … `)
       const cell = await runCell(wl, adapter)
       cells.push(cell)
       if ('error' in cell.result) {
         console.log(`ERROR: ${cell.result.error}`)
       } else {
-        console.log(`${fmtNs(cell.result.p50)} p50 · ${fmtOps(cell.result.opsPerSec)} ops/s`)
+        console.log(
+          `${fmtNs(cell.result.p50)} p50 · ${fmtNs(cell.result.min)} min · ${fmtOps(cell.result.opsPerSec)} ops/s`,
+        )
       }
     }
   }
+  const loadEnd = loadavg()
+  console.log(`\nLoad average end: ${loadEnd.map((x) => x.toFixed(2)).join(' ')}`)
 
-  const md = renderResultsMarkdown(cells)
-  writeFileSync(RESULTS_PATH, md, 'utf8')
-  console.log(`\nWrote ${RESULTS_PATH}`)
+  const filtered = Boolean(ONLY_WORKLOAD || ONLY_COMPETITOR)
+  const md = renderResultsMarkdown(cells, loadStart, loadEnd)
+  if (filtered && !OUT_OVERRIDE) {
+    // A partial matrix must never overwrite the full RESULTS.md — and per the
+    // standing STOP (truth doc §3.4), the committed baseline must not be
+    // regenerated at all until R1 lands. Use BENCH_OUT=<path> to capture.
+    console.log('\nFiltered run — RESULTS.md NOT written. Set BENCH_OUT=<path> to capture output.')
+    return
+  }
+  const outPath = OUT_OVERRIDE ? resolve(OUT_OVERRIDE) : RESULTS_PATH
+  writeFileSync(outPath, md, 'utf8')
+  console.log(`\nWrote ${outPath}`)
 }
 
 main().catch((err) => {
