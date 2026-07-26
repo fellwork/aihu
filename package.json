@@ -35,6 +35,7 @@
     "readme:remeasure": "bun scripts/sync-readme.ts --remeasure",
     "check:size-rows": "bun scripts/check-size-rows.ts",
     "check:publish-manifest": "bun scripts/check-publish-manifest.ts",
+    "check:skill-samples": "bun skills/aihu/check-samples.ts",
     "check:use-registry-parity": "bun scripts/check-use-registry-parity.ts",
     "gen:use": "bun scripts/gen-use.ts",
     "check:runtime-purity": "bun scripts/check-runtime-purity.ts",

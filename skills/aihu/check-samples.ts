@@ -123,4 +123,34 @@ for (const file of mdFiles(skillDir)) {
 }
 
 console.log(`\n${pass} passed, ${fail} failed (compiler: ${bin})`)
+
+// FLOOR ASSERTION — a gate that checks nothing must not report success.
+//
+// Without this, the script exits 0 when it finds ZERO fences: `fail` is 0, so
+// `fail > 0` is false. Rename the info strings (```aihu -> ```aihu title="x"),
+// move the files, or relocate the directory, and it prints "0 passed, 0 failed"
+// and exits green while verifying nothing at all.
+//
+// That is the failure this repo keeps producing: an absent value rendered as a
+// real one. A dead binding published as `28.63 ns`. An unbuilt dist recorded as
+// `_no dist_`. A js-framework-benchmark run over an empty framework list — all
+// `0.00 ms`, still "successful". A gate silently measuring nothing belongs on
+// that list, and would be a particularly bad entry: this is the check that
+// keeps the agent-facing syntax documentation honest.
+//
+// Raise MIN_SAMPLES when adding samples. Lowering it is a decision, not a
+// convenience — it means fewer of the agent's instructions are proven to
+// compile. Fix discovery instead.
+const MIN_SAMPLES = 11
+const total = pass + fail
+if (total < MIN_SAMPLES) {
+  console.error(
+    `\nFAIL  floor assertion: found ${total} sample(s), expected at least ${MIN_SAMPLES}.\n` +
+      `      The fences were not found where this script looks — renamed info string,\n` +
+      `      moved file, or relocated directory. This does NOT mean the samples pass;\n` +
+      `      it means they were never checked. Fix discovery, do not lower the floor.`,
+  )
+  process.exit(1)
+}
+
 process.exit(fail > 0 ? 1 : 0)

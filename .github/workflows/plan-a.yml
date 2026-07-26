@@ -85,6 +85,21 @@ jobs:
       # green throughout. Has already bitten ui, seo, store, editor and magna.
       # Reads only manifest text, so it runs with the other cheap guards.
       - run: bun run check:publish-manifest
+      # Every ```aihu fence in skills/aihu/**.md must compile, and every
+      # ```aihu-error fence must fail to compile. That skill is what teaches a
+      # coding agent `.aihu` syntax — if its samples rot, every agent working in
+      # an aihu project is taught code the compiler rejects.
+      #
+      # Runs AFTER "Build Rust binaries" above, which puts aihu-compile at
+      # target/release/ — exactly where check-samples.ts looks. It must not be
+      # moved before that step, and it must never be pointed at the published
+      # napi addon, which is a stale v1 compiler and would verify the samples
+      # against the wrong grammar.
+      #
+      # The gate carries its own floor assertion: it fails if it finds fewer
+      # samples than expected, so a renamed fence or moved file cannot make it
+      # pass by checking nothing.
+      - run: bun run check:skill-samples
       # @aihu/use registry parity — a composable's six touch points (src dir,
       # barrel, package.json exports, rolldown input, .size-limit.json row,
       # USE_COMPOSABLES tuple) must all agree, bidirectionally. Needs no build
