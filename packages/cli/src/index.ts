@@ -27,6 +27,7 @@ import {
   agentMcpTs,
   agentModuleShim,
   agentPackageJson,
+  agentReadinessTs,
   agentReadme,
   agentServerTs,
   agentTsConfig,
@@ -687,6 +688,10 @@ export function scaffoldApp(
       ['index.html', agentIndexHtml(name)],
       ['server.ts', agentServerTs()],
       ['mcp.ts', agentMcpTs()],
+      // The live discovery surface (llms.txt + the .well-known cards), served by
+      // server.ts/mcp.ts rather than emitted statically by vite — see the
+      // rationale on agentReadinessTs().
+      ['readiness.ts', agentReadinessTs(name)],
       ['src/main.ts', agentMainTs()],
       ['src/task-list.aihu', agentComponentAihu()],
       ['src/aihu-modules.d.ts', agentModuleShim()],
