@@ -13,24 +13,14 @@
  *   aihu list [--installed]    List registry recipes (css-5 §9.6)
  */
 
-import { readdirSync, statSync } from 'node:fs'
-import { dirname, join, posix, relative, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import type { CssChoice, ShadowChoice } from './index.js'
 import { scaffoldApp, scaffoldComponent, scaffoldPage, scaffoldPlugin } from './index.js'
 import {
-  autoInstallTemplate,
-  enumerateFiles,
-  mergeOptions,
   printNextSteps,
   type ResolvedOptions,
-  readSubstituteWrite,
-  realFileSystem,
-  realSpawner,
-  resolveTemplate,
-  runPostInstall,
+  scaffoldFromTemplatePackage,
 } from './scaffold-pipeline.js'
-import { resolveTemplateName } from './templates-registry.js'
+import { formatTemplateCatalog, selectTemplate } from './templates-registry.js'
 
 const [, , cmd, ...rest] = process.argv
 
@@ -119,179 +109,11 @@ function usage(): never {
       '  aihu list [--installed] List registry recipes (--installed: only copied ones)',
       '  aihu mcp serve          Start the MCP stdio server',
       '',
+      'Templates for `aihu app --template <id>`:',
+      formatTemplateCatalog('  '),
     ].join('\n'),
   )
   process.exit(1)
-}
-
-/**
- * Recursively enumerate every file under `root`. Returns POSIX-style relpaths
- * (forward slashes), suitable for `enumerateFiles({ templateFiles })`.
- */
-function walkTemplateFiles(root: string): string[] {
-  const out: string[] = []
-  const stack: string[] = [root]
-  while (stack.length > 0) {
-    const cur = stack.pop()!
-    for (const entry of readdirSync(cur)) {
-      const abs = join(cur, entry)
-      const st = statSync(abs)
-      if (st.isDirectory()) {
-        stack.push(abs)
-      } else if (st.isFile()) {
-        const rel = relative(root, abs).replace(/\\/g, '/')
-        out.push(rel)
-      }
-    }
-  }
-  return out.sort()
-}
-
-/**
- * Resolve a template package's on-disk root directory. Tries (in order):
- *   1. Node ESM resolution: `import.meta.resolve(<pkg>)` — the production
- *      path used after `npm install <template-pkg>`.
- *   2. Workspace-relative fallback: walk up from this file looking for a
- *      sibling `packages/templates/<short>/template.config.*` — the dev
- *      path used inside the aihu monorepo before templates packages publish.
- *
- * Returns the directory containing `template.config.{ts,js,mjs}` and a
- * sub-directory `template/`. Throws if neither path resolves.
- */
-async function resolveTemplatePackagePath(pkgName: string): Promise<string> {
-  // Strategy 0: the INVOKING PROJECT's node_modules.
-  //
-  // This has to come first, because it is where `autoInstallTemplate()` puts
-  // the package: it runs `<pm> add <pkg>` in `process.cwd()`. Strategy 1 below
-  // uses `import.meta.resolve`, which resolves relative to THIS MODULE — and
-  // when the CLI is run via `bunx`/`npx` that module lives in a package-manager
-  // cache directory with no view of the user's project. So the auto-install
-  // would succeed, drop the template into `<cwd>/node_modules`, and resolution
-  // would still fail:
-  //
-  //   Installing template package @aihu/templates-cf-team...
-  //   Resolved, downloaded and extracted [2]      <- install worked
-  //   ERROR: Failed to install template package   <- resolve did not
-  //
-  // That made `aihu app --template <pkg>` impossible for every user outside
-  // the monorepo, on every package manager, regardless of what was published.
-  for (const dir of [process.cwd(), dirname(fileURLToPath(import.meta.url))]) {
-    const pkgRoot = join(dir, 'node_modules', ...pkgName.split('/'))
-    for (const ext of ['ts', 'js', 'mjs']) {
-      const cfg = join(pkgRoot, `template.config.${ext}`)
-      try {
-        if (statSync(cfg).isFile()) return pkgRoot
-      } catch {
-        // not this extension; keep looking
-      }
-    }
-  }
-
-  // Strategy 1: Node ESM resolution.
-  try {
-    // import.meta.resolve is sync since Node 20.6+; it returns a URL string.
-    // We try to resolve `<pkg>/template.config.ts` first, falling back to
-    // `<pkg>/template.config.js` and the package root.
-    const candidates = [
-      `${pkgName}/template.config.ts`,
-      `${pkgName}/template.config.js`,
-      `${pkgName}/template.config.mjs`,
-      pkgName,
-    ]
-    for (const c of candidates) {
-      try {
-        const url = import.meta.resolve(c)
-        const fsPath = fileURLToPath(url)
-        // Normalize to the package root (parent of template.config.* file).
-        if (/template\.config\.(ts|js|mjs)$/.test(fsPath)) {
-          return dirname(fsPath)
-        }
-        return fsPath
-      } catch {
-        // try next candidate
-      }
-    }
-  } catch {
-    // fall through to workspace fallback
-  }
-
-  // Strategy 2: workspace-relative fallback. The CLI source lives at
-  // `<repo>/packages/cli/src/bin.ts` (or `dist/bin.js` after build). Walk up
-  // until we find `packages/templates/`, then look for the short-name dir.
-  const short = pkgName.startsWith('@aihu/templates-')
-    ? pkgName.slice('@aihu/templates-'.length)
-    : pkgName
-  const here = fileURLToPath(import.meta.url)
-  let dir = dirname(here)
-  for (let i = 0; i < 8; i++) {
-    const candidate = join(dir, 'packages', 'templates', short)
-    try {
-      const st = statSync(candidate)
-      if (st.isDirectory()) {
-        // Confirm a template.config.* file is present.
-        for (const ext of ['ts', 'js', 'mjs']) {
-          try {
-            statSync(join(candidate, `template.config.${ext}`))
-            return candidate
-          } catch {
-            // try next ext
-          }
-        }
-      }
-    } catch {
-      // not here; walk up
-    }
-    const parent = dirname(dir)
-    if (parent === dir) break
-    dir = parent
-  }
-
-  throw new Error(
-    `Could not resolve template package ${JSON.stringify(pkgName)}: ` +
-      'not installed via npm and not found in workspace fallback. ' +
-      `Run 'npm install ${pkgName}' first, or invoke the CLI from inside the aihu monorepo.`,
-  )
-}
-
-/**
- * Load a template package's manifest. Reads the package directory listing
- * to find any `template.config.{ts,js,mjs,cjs}` file (more robust than
- * stat'ing fixed filenames — handles bunx temp-dir layouts where stat can
- * misbehave). Then dynamic-imports it; expects either a default export or
- * a named export `config` shaped per TemplateManifest.
- */
-async function loadTemplateConfig(pkgRoot: string): Promise<unknown> {
-  let entries: string[]
-  try {
-    entries = readdirSync(pkgRoot)
-  } catch (e) {
-    throw new Error(`Could not read template package root ${pkgRoot}: ${(e as Error).message}`)
-  }
-  // Prefer .ts (Bun-native), fall through to compiled forms.
-  const ordered = ['.ts', '.js', '.mjs', '.cjs']
-  let lastImportError: Error | undefined
-  for (const ext of ordered) {
-    const match = entries.find((f) => f === `template.config${ext}`)
-    if (!match) continue
-    const candidate = join(pkgRoot, match)
-    try {
-      // Use file:// URL so dynamic import works on Windows.
-      const mod = (await import(`file://${candidate.replace(/\\/g, '/')}`)) as Record<
-        string,
-        unknown
-      >
-      return mod.default ?? mod.config ?? mod
-    } catch (e) {
-      // import failed — record and try next extension (e.g. .ts fails under
-      // Node.js, fall through to compiled .js)
-      lastImportError = e as Error
-    }
-  }
-  const importHint = lastImportError ? ` Last import error: ${lastImportError.message}` : ''
-  throw new Error(
-    `No template.config.{ts,js,mjs,cjs} found under ${pkgRoot}. ` +
-      `Directory contains: ${entries.slice(0, 20).join(', ')}${entries.length > 20 ? ', …' : ''}.${importHint}`,
-  )
 }
 
 /**
@@ -343,13 +165,9 @@ async function dispatchTemplate(args: {
   const { appName, templatePkg, rest } = args
 
   // --- flag parsing ---
-  const noGit = hasFlag(rest, 'no-git')
-  const noInstall = hasFlag(rest, 'no-install')
-  const noAutoInstall = hasFlag(rest, 'no-auto-install-template')
   const pmFlag = extractFlag(rest, 'pm')
   const pm: ResolvedOptions['pm'] =
     pmFlag === 'pnpm' || pmFlag === 'npm' || pmFlag === 'yarn' || pmFlag === 'bun' ? pmFlag : 'bun'
-  const userOverrides = parseOptionsJson(extractFlag(rest, 'options-json'))
   // --use-defaults / --no-interactive: in B1.3 we don't yet drive interactive
   // prompts from bin.ts. Both flags currently mean "use manifest defaults
   // for unspecified overridable cells" — which mergeOptions() already does
@@ -359,106 +177,40 @@ async function dispatchTemplate(args: {
   void _useDefaults
   void _noInteractive
 
-  // --- 1. resolveTemplate (with auto-install on first-resolve failure) ---
-  let pkgRoot: string
-  try {
-    pkgRoot = await resolveTemplatePackagePath(templatePkg)
-  } catch (firstErr) {
-    // Auto-install is disabled — surface the original error immediately.
-    if (noAutoInstall) throw firstErr
-
-    // Attempt to auto-install the template package, then retry resolution.
-    const installResult = autoInstallTemplate({ pkgName: templatePkg, pm })
-    if (!installResult.success) {
-      throw new Error(
-        `Failed to install template package; please install manually: ` +
-          `${installResult.pm} add ${templatePkg}\n` +
-          (installResult.stderr.trim() ? `Install stderr: ${installResult.stderr.trim()}` : ''),
-      )
-    }
-
-    // Retry resolution after successful install.
-    try {
-      pkgRoot = await resolveTemplatePackagePath(templatePkg)
-    } catch (retryErr) {
-      throw new Error(
-        `Failed to install template package; please install manually: ` +
-          `${installResult.pm} add ${templatePkg}\n` +
-          `Resolution after install failed: ${(retryErr as Error).message}`,
-      )
-    }
-  }
-
-  const manifest = await resolveTemplate({
-    loader: () => loadTemplateConfig(pkgRoot),
-  })
-
-  // --- 2. mergeOptions ---
-  const options = mergeOptions(manifest, {
+  // The 6-stage pipeline itself lives in scaffold-pipeline.ts so that
+  // `create-aihu` drives the identical implementation (FEL-422).
+  const result = await scaffoldFromTemplatePackage({
     appName,
+    templatePkg,
     pm,
-    noGit,
-    userOverrides,
-  })
-
-  // --- 3. enumerateFiles ---
-  const templateRoot = join(pkgRoot, 'template')
-  const templateFiles = walkTemplateFiles(templateRoot)
-  const files = enumerateFiles(manifest, options, { templateFiles })
-
-  // --- 4. readSubstituteWrite ---
-  const targetDir = resolve(process.cwd(), appName)
-  const written = readSubstituteWrite(files, {
-    templateRoot: posix.normalize(templateRoot.replace(/\\/g, '/')),
-    targetDir,
-    manifest,
-    options,
-    fs: realFileSystem,
-  })
-
-  // --- 5. runPostInstall ---
-  // When --no-install is set, filter out pm-install + lint-fix (lint-fix
-  // requires the toolchain installed). git-init still honors --no-git via
-  // mergeOptions/runPostInstall's existing skip path. This keeps the
-  // pipeline contract intact while letting the harness drive scaffolding
-  // without depending on the npm registry state of unpublished peer deps.
-  const filteredManifest = noInstall
-    ? {
-        ...manifest,
-        postInstall: manifest.postInstall.filter(
-          (s) => s.kind !== 'pm-install' && s.kind !== 'lint-fix',
-        ),
-      }
-    : manifest
-  const postResult = runPostInstall({
-    manifest: filteredManifest,
-    options,
-    targetDir,
-    spawner: realSpawner,
+    noGit: hasFlag(rest, 'no-git'),
+    noInstall: hasFlag(rest, 'no-install'),
+    noAutoInstall: hasFlag(rest, 'no-auto-install-template'),
+    userOverrides: parseOptionsJson(extractFlag(rest, 'options-json')),
   })
 
   // --- output summary ---
-  for (const f of written.written) {
+  for (const f of result.written) {
     process.stdout.write(`  created  ${f}\n`)
   }
-  for (const f of written.skipped) {
+  for (const f of result.skipped) {
     process.stdout.write(`  skipped  ${f} (already exists)\n`)
   }
-  for (const step of postResult.ran) {
+  for (const step of result.post.ran) {
     process.stdout.write(`  ran      ${step.kind}\n`)
   }
-  for (const step of postResult.skipped) {
+  for (const step of result.post.skipped) {
     process.stdout.write(`  skipped  ${step.kind}\n`)
   }
-  if (postResult.failures.length > 0) {
-    for (const f of postResult.failures) {
+  if (result.post.failures.length > 0) {
+    for (const f of result.post.failures) {
       process.stderr.write(`  FAILED   ${f.step.kind}: ${f.error}\n`)
     }
     process.exit(1)
   }
 
   // --- 6. printNextSteps ---
-  printNextSteps({ options, targetDir })
+  printNextSteps({ options: result.options, targetDir: result.targetDir })
 }
 
 async function main(): Promise<void> {
@@ -542,17 +294,33 @@ async function main(): Promise<void> {
       // template name, fall through to the legacy scaffoldApp() path
       // (preserves R-CT-06 backward compatibility).
       const tplFlag = extractTemplateFlag(rest)
-      const resolved = tplFlag !== undefined ? resolveTemplateName(tplFlag) : undefined
-      if (resolved !== undefined) {
-        await dispatchTemplate({ appName: arg, templatePkg: resolved, rest })
+      const selection = tplFlag !== undefined ? selectTemplate(tplFlag) : undefined
+      if (selection?.kind === 'package') {
+        await dispatchTemplate({ appName: arg, templatePkg: selection.pkg, rest })
         return
+      }
+      if (selection?.kind === 'unpublished') {
+        // Previously this fell through to auto-install and died on an npm 404.
+        // Say so up front instead.
+        process.stderr.write(
+          `\nERROR: template '${selection.id}' is declared in the aihu registry but is ` +
+            `not published to npm yet, so it cannot be scaffolded.\n\n` +
+            `Available templates:\n${formatTemplateCatalog('  ')}\n`,
+        )
+        process.exit(1)
       }
       // Legacy scaffold path — honor the OOTB css-engine flags. With no
       // css flags this stays byte-identical to the historical output
       // (css defaults to 'none', shadow to 'shadow'); the legacy-snapshot
       // golden gates that.
       const { css, shadowMode } = parseCssOptions(rest)
-      result = scaffoldApp(arg, undefined, { css, shadowMode })
+      result = scaffoldApp(arg, undefined, {
+        css,
+        shadowMode,
+        // A built-in `--template` value now actually selects that built-in;
+        // it used to be swallowed here and silently produce `minimal`.
+        ...(selection?.kind === 'builtin' ? { template: selection.id } : {}),
+      })
       break
     }
     case 'page':

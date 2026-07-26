@@ -2,15 +2,25 @@
  * `create-aihu` — interactive project scaffolder for `npx create-aihu@latest`.
  *
  * Usage:
- *   npx create-aihu@latest [project-name]
- *   bun create aihu [project-name]
+ *   npx create-aihu@latest [project-name] [--template <id>]
+ *   npm create aihu [project-name] -- --template <id>
+ *   bun create aihu [project-name] --template <id>
  *
  * Features (SOTA npx create pattern):
  *   - Auto-detects available package managers (bun > pnpm > yarn > npm)
  *   - Interactive prompts via Node readline (zero extra dependencies)
- *   - Template variants: minimal | full | docs
+ *   - `--template` spans BOTH tiers of the catalogue: the built-in templates
+ *     embedded in @aihu/cli (minimal | full | docs | agent) and the
+ *     npm-published `@aihu/templates-*` packages (installed on demand and run
+ *     through the shared 6-stage scaffold pipeline).
  *   - Optional git init
  *   - Prints exact next steps with detected PM
+ *
+ * Why the npm-template tier lives here (FEL-422): `npx @aihu/cli app my-app`
+ * cannot work — npx infers the bin from the package NAME and @aihu/cli's bins
+ * are `aihu` and `create-aihu`, so npm users could never reach
+ * `aihu app --template <pkg>`. `create-aihu` is the entry point they DO reach,
+ * so it has to be the complete one.
  */
 
 import { spawnSync } from 'node:child_process'
@@ -20,6 +30,14 @@ import { createInterface } from 'node:readline'
 import { fileURLToPath } from 'node:url'
 import type { AppTemplate, CssChoice, PkgManager, ShadowChoice } from './index.js'
 import { scaffoldApp } from './index.js'
+import { printNextSteps, scaffoldFromTemplatePackage } from './scaffold-pipeline.js'
+import {
+  type CatalogEntry,
+  formatTemplateCatalog,
+  type KnownTemplate,
+  selectableTemplates,
+  selectTemplate,
+} from './templates-registry.js'
 
 // ─── Colour helpers (no deps) ────────────────────────────────────────────────
 
@@ -113,11 +131,72 @@ function shadowFromArgv(): ShadowChoice | undefined {
   return undefined
 }
 
-/** Resolve the template choice from argv, or `undefined` to prompt. */
+// ─── Template selection (built-ins + npm packages) ───────────────────────────
+
+/**
+ * What `--template` resolved to, including the two "user needs the list" cases
+ * that used to silently fall back to `minimal`:
+ *
+ *   `--template` with no value      -> { kind: 'missing' }
+ *   `--template cf-team`            -> { kind: 'package' }   (was: minimal!)
+ *   `--template nonsense`           -> { kind: 'unknown' }   (was: minimal!)
+ *
+ * Silently scaffolding a `minimal` app when the user asked for something else
+ * is the worst of the available failure modes — the run "succeeds" and the
+ * user finds out much later.
+ */
+export type CreateTemplateChoice =
+  | { readonly kind: 'absent' }
+  | { readonly kind: 'missing' }
+  | { readonly kind: 'builtin'; readonly name: AppTemplate }
+  | { readonly kind: 'package'; readonly id: string; readonly pkg: KnownTemplate }
+  | { readonly kind: 'unpublished'; readonly id: string }
+  | { readonly kind: 'unknown'; readonly raw: string }
+
+/**
+ * Pure classifier over an argv tail. Exported for tests.
+ *
+ * `present` vs `value` matters: `--template` as the last token (or immediately
+ * followed by another flag) is a user who wants the list, not a user who wants
+ * the default.
+ */
+export function classifyTemplateArg(args: ReadonlyArray<string>): CreateTemplateChoice {
+  let raw: string | undefined
+  let present = false
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i]!
+    if (a === '--template') {
+      present = true
+      const next = args[i + 1]
+      raw = next !== undefined && !next.startsWith('-') ? next : undefined
+      break
+    }
+    if (a.startsWith('--template=')) {
+      present = true
+      raw = a.slice('--template='.length)
+      break
+    }
+  }
+  if (!present) return { kind: 'absent' }
+  if (raw === undefined || raw === '') return { kind: 'missing' }
+
+  const sel = selectTemplate(raw)
+  switch (sel.kind) {
+    case 'builtin':
+      return { kind: 'builtin', name: sel.id as AppTemplate }
+    case 'package':
+      return { kind: 'package', id: sel.id, pkg: sel.pkg }
+    case 'unpublished':
+      return { kind: 'unpublished', id: sel.id }
+    case 'unknown':
+      return { kind: 'unknown', raw: sel.raw }
+  }
+}
+
+/** Resolve the built-in template choice from argv, or `undefined` to prompt. */
 function templateFromArgv(): AppTemplate | undefined {
-  const raw = extractFlag('template')
-  if (raw === 'minimal' || raw === 'full' || raw === 'docs' || raw === 'agent') return raw
-  return undefined
+  const choice = classifyTemplateArg(argv)
+  return choice.kind === 'builtin' ? choice.name : undefined
 }
 
 /** Resolve the package-manager choice from argv, or `undefined` to prompt. */
@@ -171,9 +250,76 @@ function isNonInteractive(): boolean {
   return hasFlag('yes') || argv.includes('-y') || !process.stdin.isTTY
 }
 
+// ─── Project name + help ─────────────────────────────────────────────────────
+
+/** Flags that consume the following argv token as their value. */
+const VALUE_FLAGS = new Set(['--template', '--pm', '--css', '--shadow', '--options-json'])
+
+/**
+ * First positional argument = the project name. Skips flags AND the values of
+ * value-taking flags, so `create-aihu --template cf-team my-app` names the app
+ * `my-app` — not `--template` (which is what `process.argv[2]` gave you).
+ * Exported for tests.
+ */
+export function parseProjectName(args: ReadonlyArray<string>): string | undefined {
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i]!
+    if (a.startsWith('-')) {
+      if (VALUE_FLAGS.has(a)) i++ // skip its value
+      continue
+    }
+    return a
+  }
+  return undefined
+}
+
+/** The `--help` / error-path usage text. Plain text; exported for tests. */
+export function usageText(): string {
+  return [
+    'Usage:',
+    '  npm create aihu <project-name> -- [options]',
+    '  npx create-aihu <project-name> [options]',
+    '  bun create aihu <project-name> [options]',
+    '',
+    'Options:',
+    '  --template <id>     Template to scaffold from (see the list below)',
+    '  --pm <bun|pnpm|npm|yarn>   Package manager (default: auto-detected)',
+    '  --css <engine|none>        Include @aihu/css-engine (built-in templates only)',
+    '  --shadow <light|shadow>    Shadow mode when --css engine is set',
+    '  --no-git            Skip git init',
+    '  --no-install        Skip dependency install (npm templates only)',
+    '  --yes, -y           Non-interactive; take documented defaults',
+    '  --help, -h          Show this message',
+    '',
+    'Templates for --template:',
+    formatTemplateCatalog('  '),
+    'Examples:',
+    '  npm create aihu my-app -- --template minimal',
+    '  npx create-aihu my-app --template cf-team',
+    '',
+  ].join('\n')
+}
+
+/**
+ * Print the catalogue + exit non-zero. Every "we cannot use that value" path
+ * routes through here, so the user never has to already know the names.
+ */
+function failWithCatalog(message: string): never {
+  process.stderr.write(`\n  ${c.red}error${c.reset} ${message}\n\n`)
+  process.stderr.write(`  Available templates:\n${formatTemplateCatalog('    ')}\n`)
+  process.stderr.write(`  Run with ${bold('--help')} for the full option list.\n\n`)
+  process.exit(1)
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
+  // `--help` is answered before the banner so the output pipes cleanly.
+  if (hasFlag('help') || argv.includes('-h')) {
+    process.stdout.write(usageText())
+    process.exit(0)
+  }
+
   process.stdout.write('\n')
   process.stdout.write(`${purple(bold('◆'))} ${bold('Create Aihu App')}\n`)
   process.stdout.write(`${dim('  Web Components, reactive.')}\n\n`)
@@ -181,13 +327,60 @@ async function main(): Promise<void> {
   const detected = detectPm()
   const nonInteractive = isNonInteractive()
 
+  // ── `--template` triage ─────────────────────────────────────────────────────
+  // Anything we cannot honor exits non-zero WITH the catalogue, on both the
+  // interactive and non-interactive paths. Previously all three of these cases
+  // silently produced a `minimal` app.
+  const choice = classifyTemplateArg(argv)
+  switch (choice.kind) {
+    case 'missing':
+      failWithCatalog('--template needs a value.')
+      break
+    case 'unknown':
+      failWithCatalog(`unknown template ${JSON.stringify(choice.raw)}.`)
+      break
+    case 'unpublished':
+      failWithCatalog(
+        `template ${JSON.stringify(choice.id)} is declared in the aihu registry but is ` +
+          'not published to npm yet, so it cannot be scaffolded.',
+      )
+      break
+    default:
+      break
+  }
+
+  const nameArg = parseProjectName(argv)
+
+  // ── npm template package path ───────────────────────────────────────────────
+  // Runs the SAME pipeline as `aihu app --template <pkg>` (shared in
+  // scaffold-pipeline.ts) — this is the tier npm users could not reach.
+  if (choice.kind === 'package') {
+    const projectName = nameArg && nameArg !== '.' ? nameArg : 'my-aihu-app'
+    try {
+      await scaffoldFromTemplatePackage({
+        appName: projectName,
+        templatePkg: choice.pkg,
+        pm: pmFromArgv() ?? detected,
+        noGit: hasFlag('no-git'),
+        noInstall: hasFlag('no-install'),
+        noAutoInstall: hasFlag('no-auto-install-template'),
+      })
+    } catch (err) {
+      // Surface the real reason and exit non-zero. A scaffold that prints an
+      // error and exits 0 is the failure mode that lets broken templates look
+      // like successes in CI.
+      process.stderr.write(`\n  ${c.red}error${c.reset} ${(err as Error).message}\n\n`)
+      process.exit(1)
+    }
+    return
+  }
+
   // ── Non-interactive path (--yes / -y or non-TTY stdin) ──────────────────────
   // Every unset option takes its documented default; NO prompts are issued.
   // This is the pipe-safe fix: `printf '' | create-aihu demo --yes` (or any
   // redirected stdin) deterministically scaffolds and exits 0 instead of
   // silently no-op'ing when readline loses its buffered lines at EOF.
   if (nonInteractive) {
-    const nameArg = process.argv[2]
     const projectName = nameArg && nameArg !== '.' ? nameArg : 'my-aihu-app'
     const opts = resolveCreateOptions({
       template: templateFromArgv(),
@@ -205,7 +398,6 @@ async function main(): Promise<void> {
   const rl = createInterface({ input: process.stdin, output: process.stdout })
 
   // ── Project name ──────────────────────────────────────────────────────────
-  const nameArg = process.argv[2]
   let projectName: string
   if (nameArg && nameArg !== '.') {
     projectName = nameArg
