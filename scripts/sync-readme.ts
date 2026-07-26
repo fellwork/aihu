@@ -151,38 +151,60 @@ function genPerformanceSection(): SectionResult {
 
   lines.push('')
 
-  // Arbor section
-  lines.push(`### \`@aihu/arbor\` vs SOTA DOM-binding libraries`)
+  // Arbor section — DELIBERATELY NOT A COMPARISON TABLE (FEL-407).
+  //
+  // This used to emit `@aihu/arbor` vs lit-html/preact/vanilla p50s straight out
+  // of bench/arbor/RESULTS.md. Two independent reasons that table must not be
+  // published, either of which is sufficient:
+  //
+  // 1. The committed numbers are not a measurement of anything. RESULTS.md was
+  //    last generated at a16fa989 (2026-05-25); the dead-binding fix landed at
+  //    3a875483 (2026-07-19). Before that fix arbor's tsconfig lacked `baseUrl`,
+  //    bun ignored its `paths`, and arbor resolved a DIFFERENT @aihu/signals
+  //    instance than the bench did. Every reactive binding was inert — 0
+  //    nodeValue writes per op. The published `update-1-of-10k-leaves` row read
+  //    28.63 ns against vanilla's 4.36 µs; that ratio (~152x) is the cost of
+  //    doing nothing divided by the cost of doing something, and it is where the
+  //    "122x faster" claim in the README, CLAUDE.md and three docs pages came
+  //    from. See docs/plans/2026-07-25-arbor-perf-bisect.md.
+  //
+  // 2. Even measured correctly, this harness cannot support a public claim. It
+  //    runs jsdom, in dev mode (`__DEV__` live, NODE_ENV unset), against source
+  //    rather than the shipped dist. It is valid for REGRESSION DETECTION and
+  //    nothing else. The vanilla column is a strawman that reassigns
+  //    element.textContent; against a vanilla implementation that caches the
+  //    text node the honest ratio is ~1x.
+  //
+  // Refreshing RESULTS.md is NOT the fix and is explicitly blocked (FEL-409): a
+  // stale invalid number and a fresh invalid number are equally unpublishable,
+  // and the fresh one merely looks trustworthy. Regenerating would also bless
+  // 27-52% of unattributed May->July drift as the new normal and destroy the
+  // only evidence it existed.
+  //
+  // A real comparative figure has to come from js-framework-benchmark against
+  // shipped artifacts (FEL-408/417), not from this harness. Until then the
+  // README states the mechanism and the exact, machine-independent numbers we
+  // can actually stand behind.
+  lines.push(`### \`@aihu/arbor\` — DOM update cost`)
   lines.push('')
   lines.push(
-    `*Source: [\`bench/arbor/RESULTS.md\`](./bench/arbor/RESULTS.md). JSDOM workloads, p50 latency.*`,
+    `*No cross-library comparison table is published here. [\`bench/arbor\`](./bench/arbor) ` +
+      `runs under jsdom in dev mode against source, not the shipped build — it is a ` +
+      `regression detector, not a basis for public performance claims. A comparative ` +
+      `figure will come from js-framework-benchmark against shipped artifacts.*`,
   )
   lines.push('')
+  lines.push(
+    `What we can state exactly, because it is counted rather than timed: swapping two ` +
+      `rows in a 1,000-row keyed list performs **4 DOM moves**, down from 1,994 before ` +
+      `the reposition pass gained a longest-stable-subsequence step. That number is ` +
+      `machine-independent and is pinned by a test ` +
+      `([\`keyed-swap-dom-mutations.test.ts\`](./tests/integration/keyed-swap-dom-mutations.test.ts)).`,
+  )
 
-  const arbWorkloads = [
-    'mount-10k-leaves',
-    'mount-deep-100x10',
-    'mount-wide-1000',
-    'update-1-of-10k-leaves',
-    'krausest-1k-cycle',
-  ]
-  const arbPresent = arbWorkloads.filter((w) => arbData[w])
-  if (arbPresent.length > 0) {
-    const competitors = arbData[arbPresent[0]].map((r) => r.competitor)
-    lines.push(`| Workload | ${competitors.join(' | ')} |`)
-    lines.push(`|---|${competitors.map(() => '---:').join('|')}|`)
-    for (const wl of arbPresent) {
-      const row = arbData[wl]
-      const cells = competitors.map((c) => {
-        const found = row.find((r) => r.competitor === c)
-        if (!found) return '—'
-        return found.p50.startsWith('ERROR') ? '—' : found.p50
-      })
-      lines.push(`| \`${wl}\` | ${cells.join(' | ')} |`)
-    }
-  } else {
-    lines.push('_No bench results found yet — run `cd bench/arbor && bun src/runner.ts`._')
-  }
+  // Referenced so the arbor results file stays wired to this generator: if the
+  // ban is ever lifted the parse is still here and correct.
+  void arbData
 
   return { key: 'performance', body: lines.join('\n') }
 }
