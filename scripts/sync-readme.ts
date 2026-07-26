@@ -30,6 +30,18 @@ import { rolldown } from 'rolldown'
 
 const REPO_ROOT = process.cwd()
 const CHECK_MODE = process.argv.includes('--check')
+/**
+ * Re-measure bundle sizes with rolldown instead of reading the committed
+ * `__bundle-sizes.json`. Requires a BUILT tree; refuses rather than recording
+ * absent measurements. Run via `bun run readme:remeasure` (FEL-418).
+ *
+ * Refreshing the numbers is deliberate by design. It used to happen as a side
+ * effect of whichever mode ran, which is how an unbuilt release-PR tree came to
+ * overwrite real numbers with `_no dist_`. Note the size GATE is unaffected —
+ * `bun run size` reads `.size-limit.json` independently, so budget violations
+ * are still caught whether or not this cache is current.
+ */
+const REMEASURE = process.argv.includes('--remeasure')
 
 interface SectionResult {
   key: string
@@ -1443,18 +1455,52 @@ async function main() {
   let measurements: Array<{ name: string; bytes: number; limit: string; ok: boolean }>
   let sizeCacheChanged = false
 
-  if (CHECK_MODE && existsSync(sizeCachePath)) {
-    // In check mode read the committed cache so the comparison is
-    // platform-independent (Windows dev vs Linux CI would produce different
-    // rolldown+gzip byte counts for the same source).
+  // FEL-418 — the cache is authoritative in BOTH modes unless re-measuring is
+  // asked for explicitly.
+  //
+  // These two modes used to disagree: check mode read the committed cache while
+  // write mode always re-measured. That is not a cosmetic difference, it is a
+  // loop that cannot be exited. `release-pr.yml` runs `release:version`, whose
+  // only install is `bun install --frozen-lockfile` — it never builds. So write
+  // mode ran against a tree with no `dist/`, measured nothing, and committed
+  // `_no dist_` into the published README. Check mode then read the cache, saw
+  // real values, and failed the comparison. The error it printed said "Run: bun
+  // scripts/sync-readme.ts", which is the write mode that produced the bad value
+  // — following the advice reproduced the failure.
+  //
+  // Reading the cache in write mode too makes the unbuilt release-PR tree emit
+  // the correct committed numbers, and makes that error message true for the
+  // first time. Refreshing is now an explicit act — `bun run readme:remeasure`
+  // on a built tree — rather than a side effect of which mode happened to run.
+  const useCache = existsSync(sizeCachePath) && !REMEASURE
+  if (useCache) {
+    // Platform-independent by design: a Windows dev and Linux CI produce
+    // different rolldown+gzip byte counts for identical source, so the
+    // committed cache — not the local machine — is the reference.
     const cached: Array<{ name: string; bytes: number; limit: string }> = JSON.parse(
       readFileSync(sizeCachePath, 'utf8'),
     )
     measurements = cached.map((c) => ({ ...c, ok: true }))
-    console.log('  → bundle sizes (from __bundle-sizes.json cache)…')
+    console.log(`  → bundle sizes (from __bundle-sizes.json cache)…`)
   } else {
     console.log('  → measuring bundle sizes (rolldown)…')
     measurements = await measureSizes()
+
+    // A missing `dist/` is an ABSENT measurement, never a value. Publishing it
+    // as `_no dist_` is what let this survive unnoticed — the same shape as a
+    // benchmark row that timed a binding which never fired. Refuse instead.
+    const unmeasured = measurements.filter((m) => m.bytes < 0).map((m) => m.name)
+    if (unmeasured.length > 0) {
+      console.error(
+        `\n  Cannot measure ${unmeasured.length} package(s) — no dist/ on disk:\n` +
+          unmeasured.map((n) => `    - ${n}`).join('\n') +
+          `\n\n  Refusing to write "_no dist_" into the README as if it were a measurement.\n` +
+          `  Build first:            bun run build\n` +
+          `  Or reuse committed numbers by dropping --remeasure.\n`,
+      )
+      process.exit(1)
+    }
+
     const sizeCacheJson = `${JSON.stringify(
       measurements.map(({ name, bytes, limit }) => ({ name, bytes, limit })),
       null,

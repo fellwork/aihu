@@ -32,6 +32,7 @@
     "check:ci": "bun run check:lint && bun run typecheck && bun run test && bun run build && bun run size && bun run check:size-rows && bun run check:publish-manifest && bun run check:use-registry-parity && bun run check:deps && bun run check:runtime-purity && bun run check:grammar-v2 && bun run check:cookbook",
     "check:pre-push": "bun run check:lint && bun run typecheck",
     "size": "bun scripts/size.ts",
+    "readme:remeasure": "bun scripts/sync-readme.ts --remeasure",
     "check:size-rows": "bun scripts/check-size-rows.ts",
     "check:publish-manifest": "bun scripts/check-publish-manifest.ts",
     "check:use-registry-parity": "bun scripts/check-use-registry-parity.ts",
