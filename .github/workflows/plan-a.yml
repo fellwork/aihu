@@ -189,6 +189,13 @@ jobs:
       # config is the root config minus that exclude; passWithNoTests:false at
       # root AND in the gates config makes a zero-test selection exit 1.
       - run: bun run test packages/cli/tests/legacy-snapshot.test.ts --config vitest.gates.config.ts
+      # loadAihuConfig() runs Vite's config bundler (rolldown). Under the main
+      # `test --coverage` run that prevented the suite from exiting — the job
+      # hit its 25m ceiling with no failing assertion. Opt-in via env, and run
+      # here as its own step so the loader is still genuinely exercised.
+      - run: bun run test packages/app/tests/load-config.test.ts
+        env:
+          AIHU_CONFIG_LOADER_E2E: '1'
       - run: bun run test --coverage
       - run: bun run build
       # b3b-sidecar-tsc (#445 audit): excluded at root and previously invoked
