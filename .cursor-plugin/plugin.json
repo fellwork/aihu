@@ -1,0 +1,12 @@
+{
+  "name": "aihu",
+  "version": "0.1.0",
+  "description": "Official aihu authoring skill. Framework for building Web Components from .aihu single-file components.",
+  "author": {
+    "name": "aihu"
+  },
+  "homepage": "https://github.com/fellwork/aihu",
+  "repository": "https://github.com/fellwork/aihu",
+  "license": "MIT",
+  "keywords": ["aihu", "sfc", "web-components", "signals"]
+}
