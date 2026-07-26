@@ -133,7 +133,18 @@ the specific test. Builder asked directly — *"please confirm I did not leave a
 second one like it"* — and the honest answer required a systematic instrument.
 
 **The method:** break the fixed code in N independent ways. Record, per mutation,
-**which tests go red**. Then read the matrix by *column*:
+**which tests go red**. Then **invert it**:
+
+> For each **test**, look across **every** mutation and ask: *did this test ever
+> go red?*
+
+Read it that way and not the other way. The table below is laid out
+mutation-per-line because that is how you *collect* the data — but scanning it in
+that direction only tells you which mutations were effective, which is not the
+question. **The defect you are hunting is a test that is green everywhere, and it
+is only visible by following one test across all runs.** Lay the table out the
+other way round and the method silently does nothing — which would be a
+particularly fitting bug for this file.
 
 ```
 MUTATION                                   TESTS RED
@@ -181,8 +192,19 @@ verifier against their own instrument:
 > (`assert old in s`).
 
 **An absent mutation rendered as a passing result** — the repo's core pattern,
-aimed at the instrument built to hunt that exact pattern, mid-hunt. If your
-mutation harness cannot prove it changed the file, its zeroes mean nothing.
+aimed at the instrument built to hunt that exact pattern, mid-hunt. **If your
+mutation harness cannot prove it changed the file, its zeroes mean nothing.**
+
+That is advice. Here is the practice — one line, before every replace:
+
+```python
+assert old in s          # the mutation must have something to bite on
+s = s.replace(old, new)
+```
+
+A `sed`/`perl`/`replace()` that matches nothing exits successfully and changes
+nothing. Without the assert, "0 tests red" is indistinguishable from "the
+mutation never happened," and the two readings point in opposite directions.
 
 ## When a reviewer *is* the right tool
 
