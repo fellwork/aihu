@@ -143,13 +143,37 @@ export function appPackageJson(
   )
 }
 
-/** vite.config.ts for a new aihu application.
+/** vite.config.ts for a new aihu application (`minimal` and `docs`).
  *
  * `viteAihuPlugin()` composes the compiler plugin, the router plugin (which
  * provides `virtual:aihu-routes` consumed by `createApp()`), the head/SSG
  * plugins, and an opt-in agent-readiness pass — see `@aihu/app/vite-plugin`.
  * `dir.pages` tells the router where to scan for `.aihu` page files; this
  * mirrors `examples/blog-router/vite.config.ts`.
+ *
+ * WHY THIS EMITS AGENT-READINESS AT BUILD TIME RATHER THAN SERVING IT (FEL-423).
+ *
+ * `full` and `agent` derive their readiness documents from a LIVE registry via
+ * `createAgentReadinessRoutes()`, served by the process that owns it
+ * (`templates-full.ts:607`, `templates-agent.ts:276`). That is the better
+ * design, and it is unavailable here by construction: `minimal` and `docs`
+ * scaffold no server at all — no `server.ts`, no `mcp.ts`, no `readiness.ts`
+ * (see the shared base in `scaffoldApp`). There is no process to serve from.
+ * Giving them one would change what those templates ARE — a static client
+ * build — rather than fix a defect, so it was deliberately not done.
+ *
+ * What that costs, stated honestly: the emitted `llms.txt` carries the app's
+ * name and summary but NO `## Components` section, even though the scaffolded
+ * page declares `$action` entries. The cause is not in this file — a client
+ * target strips `registerAgentMetadata` by design (`elide_agent`,
+ * `packages/compiler/src/codegen/emit.rs:206`), so the generator faithfully
+ * renders an empty registry. Tracked as FEL-434; when that emission lands this
+ * document fills in with no change here.
+ *
+ * The documents are still emitted rather than suppressed because what they DO
+ * say is now true: no MCP server card and no A2A card are published, so
+ * nothing advertises capabilities it cannot answer for. A missing file would
+ * be honest too, but deleting the surface now means re-adding it later.
  */
 export function appViteConfig(
   appName = 'app',
