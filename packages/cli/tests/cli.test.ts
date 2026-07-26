@@ -437,4 +437,71 @@ describe("scaffoldApp · template 'agent' (capability-bridge showcase)", () => {
     expect(sfc).toContain('localStorage')
     expect(sfc).toContain('aihu:task-list:v1')
   })
+
+  // The agent template is the one named for agents; before this it was the only
+  // template with NO agent-readiness surface (the generic `full` template had
+  // one). It gets the surface from its own server rather than from
+  // viteAgentReadinessIntegration, because a browser-target vite build has an
+  // empty @aihu/agent registry — statically emitted documents would exist and
+  // advertise zero tools.
+  it('serves a live, registry-derived discovery surface from the app server', () => {
+    scaffoldApp('myagent', dir, { template: 'agent' })
+    const root = join(dir, 'myagent')
+
+    // The generator module exists and is in the typecheck program.
+    expect(existsSync(join(root, 'readiness.ts'))).toBe(true)
+    const tsconfig = JSON.parse(readFileSync(join(root, 'tsconfig.json'), 'utf8')) as {
+      include: string[]
+    }
+    expect(tsconfig.include).toContain('readiness.ts')
+
+    // Runtime (not dev) dependency: `bun server.ts` imports it.
+    const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as {
+      dependencies: Record<string, string>
+      devDependencies: Record<string, string>
+    }
+    expect(pkg.dependencies['@aihu-plugin/agent-readiness']).toBe('latest')
+    expect(pkg.devDependencies['@aihu-plugin/agent-readiness']).toBeUndefined()
+
+    // The fetch-API route handlers, not the vite plugin.
+    const readiness = readFileSync(join(root, 'readiness.ts'), 'utf8')
+    expect(readiness).toContain('createAgentReadinessRoutes')
+    expect(readiness).not.toContain('viteAgentReadinessIntegration')
+    for (const path of [
+      '/llms.txt',
+      '/llms-full.txt',
+      '/robots.txt',
+      '/.well-known/mcp/server-card.json',
+      '/.well-known/agent-card.json',
+      '/.well-known/mcp.json',
+    ]) {
+      expect(readiness, `${path} should be routed`).toContain(`'${path}'`)
+    }
+    // A path we do not serve must fall through to the app's 404 rather than be
+    // answered with some other document at 200.
+    expect(readiness).toContain('res.status === 404 ? undefined : res')
+
+    // BOTH entry points dispatch it — whichever process holds :5208, an agent
+    // that has only the URL finds the surface.
+    for (const entry of ['server.ts', 'mcp.ts']) {
+      expect(readFileSync(join(root, entry), 'utf8'), entry).toContain(
+        'const readiness = await handleReadiness(req)',
+      )
+    }
+
+    // The registry entry the documents derive from carries the describe: text
+    // that becomes each MCP tool's description.
+    const server = readFileSync(join(root, 'server.ts'), 'utf8')
+    expect(server).toContain("describe: 'Append a task with the given text.'")
+
+    // Reachable on the app's own origin, in dev and in preview.
+    const vite = readFileSync(join(root, 'vite.config.ts'), 'utf8')
+    expect(vite).toContain("'/llms.txt': READINESS")
+    expect(vite).toContain("'/.well-known': READINESS")
+    // The documents embed absolute URLs built from the request Host; rewriting
+    // it to the internal port would hand an agent links it was never given.
+    expect(vite).toContain('const READINESS = { target: BRIDGE, changeOrigin: false }')
+    expect(vite).toContain('server: { proxy: AGENT_SURFACE }')
+    expect(vite).toContain('preview: { proxy: AGENT_SURFACE }')
+  })
 })
