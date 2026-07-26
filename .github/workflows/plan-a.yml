@@ -101,8 +101,10 @@ jobs:
       # pass by checking nothing.
       - run: bun run check:skill-samples
       # NOTE: the lesson-citation gate is deliberately NOT here — see the
-      # `lesson-refs` job below. This job is skipped on doc-only PRs via
-      # `changes.code`, which is exactly the PR shape that adds lesson citations.
+      # `lesson-refs` job below. This job is *documented* to skip doc-only PRs
+      # via `changes.code`; today it does not, because that filter is inert (see
+      # the `changes` job). A docs gate placed here would run only for as long as
+      # that bug survives.
       # @aihu/use registry parity — a composable's six touch points (src dir,
       # barrel, package.json exports, rolldown input, .size-limit.json row,
       # USE_COMPOSABLES tuple) must all agree, bidirectionally. Needs no build
@@ -233,12 +235,23 @@ jobs:
     # tree. A citation is a claim; an unreachable one fails like a dead binding —
     # quietly, and in the flattering direction.
     #
-    # WHY ITS OWN JOB, and not a step in `check`:
-    # `check` is skipped on doc-only PRs (`changes.code` excludes `docs/**` and
-    # `**/*.md`) — which is EXACTLY the PR shape that adds or cites a lesson. A
-    # docs gate inside `check` would never run on docs. So this job carries no
-    # `if:` and no path filter at all: it always runs. It needs only git and
-    # bash — no bun install, no build, no Rust — so it costs seconds.
+    # WHY ITS OWN JOB, and not a step in `check` — the reasoning was corrected
+    # once, so the corrected version is what is written here:
+    #
+    # `check` is gated on `changes.code`, which is DOCUMENTED to exclude
+    # 'docs/**' and '**/*.md'. Reading that, a docs gate inside `check` looks
+    # like it would never run on docs. That reading is wrong TODAY: the filter is
+    # inert. dorny/paths-filter defaults to `predicate-quantifier: some`, and the
+    # first pattern '**' matches every file, so every negation below it is dead
+    # and `code` is true for everything — including README.md. Verified with
+    # picomatch 4.0.5 under dorny's MatchOptions, not inferred.
+    #
+    # So `check` currently runs on doc-only PRs, and a step here would work — for
+    # exactly as long as nobody fixes the filter. The moment someone adds
+    # `predicate-quantifier: every` or drops the '**', a docs gate inside `check`
+    # stops running on docs and reports green. This job depends on none of that:
+    # no `if:`, no path filter, always runs. It needs only git and bash — no bun
+    # install, no build, no Rust — so it costs seconds.
     #
     # `check:ci` in package.json also lists it, for local pre-push. That is NOT
     # what makes it run: `check:ci` is invoked by no workflow in this repo. THIS
@@ -266,10 +279,18 @@ jobs:
     # without an admin override while code PRs gate on the real build AND on the
     # examples / governed-examples smoke lanes.
     #
-    # `lesson-refs` is the exception to the skip logic: it carries no `if:` and
-    # no path filter, so it is the one lane that also gates DOC-ONLY PRs. That is
-    # deliberate — a doc-only PR is precisely how an unreachable lesson citation
-    # gets in, and every other lane here is blind to it.
+    # `lesson-refs` carries no `if:` and no path filter, so it gates every PR
+    # unconditionally, including doc-only ones. Deliberate: a doc-only PR is
+    # precisely how an unreachable lesson citation gets in.
+    #
+    # CORRECTION to the paragraph above, which predates this note and is wrong:
+    # "a doc-only PR skips `check` via the `changes.code` filter" DOES NOT HAPPEN.
+    # That filter is inert — dorny/paths-filter defaults to
+    # `predicate-quantifier: some` and the leading '**' matches everything, so
+    # every negation is dead and `code` is true for every file. The doc-only skip
+    # described here and at the `changes` job has never occurred. Left in place
+    # rather than deleted because the INTENT is real and someone will implement
+    # it; when they do, re-read every job gated on `changes.code`.
     #
     # examples + governed-examples were added after PR #549 merged
     # ci-ok-green while both were RED — `ci-ok` only watched `check`, so
