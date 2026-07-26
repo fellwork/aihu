@@ -61,10 +61,81 @@ And the reply that adopted it:
 | 18 | The code | **A machine with ~8.5 of 10 cores stolen** | 13 orphaned `bun server.ts` processes from a Telegram MCP plugin, combined **857% CPU**, load average **27.6**, oldest **7 days 22 hours**, ignoring SIGTERM. *"every benchmark run on this machine over the last several days was measured on a box with ~8.5 cores of stolen CPU."* ***An unbounded environment is an unmeasured variable*** — neither the harness nor CI records load, so a run at load 27 and a run at load 0.5 are indistinguishable in the output |
 | 19 | The tree the test was **committed** to | The tree the test was **run** on | *"My 1994 was real — it measured a **pre-fix** worktree (`28b1cfaa`). I then created the branch from a newer `main` and committed the test **without re-running it there**. Two different trees, one conclusion carried between them."* Caught by a peer re-running it: the real post-fix number is **4** |
 
-| 20 | What the CI filter **does** | What its comment **says it does** | `plan-a.yml`'s `changes.code` filter is documented to exclude `docs/**` and `**/*.md`, and two comments (`:302-304`, `:229-237`) describe a doc-only skip. **It never happens.** `dorny/paths-filter` defaults to `predicate-quantifier: some` and the leading `'**'` matches every file, so every negation below it is dead. Found by the verifier reading `filter.ts:106-115`; reproduced by the historian with real picomatch 4.0.5 under dorny's `{dot:true}` — `code` is `true` for `README.md`. **The historian had already written the opposite into a PR body and a workflow comment, reasoning from the config instead of measuring it.** Live fuse: #615's gate protects `skills/**/*.md`, so whoever *fixes* the filter disarms that gate without touching it |
+| 20 | What the CI filter **does** | What its comment **says it does** — and what *both* agents' reading of the YAML said | `plan-a.yml`'s `changes.code` is documented to exclude `docs/**` and `**/*.md`; two comments (`:302-304`, `:229-237`) describe a doc-only skip. **It never happens.** `dorny/paths-filter` defaults to `predicate-quantifier: some` and the leading `'**'` matches every file, so every negation below is dead. **See the box below — this one took three instruments to settle.** Live fuse: #615's gate protects `skills/**/*.md`, so whoever *fixes* the filter disarms that gate without touching it |
 | 21 | Whether a diff is **substantive** | `git diff -w`, which ignores whitespace *within* lines but **not added line breaks** | The orchestrator nearly told builder-b it was wrong about an inert diff: `-w` still showed 6 insertions / 2 deletions, which reads as real change. It was biome splitting a multi-arg call across lines. *"Your read was right; my check was the misleading one"* |
 | 22 | The tool under test | **The `bun` shim failing to download itself** through a blocked proxy | The verifier's first network-fault run showed `exit=1` and nearly recorded PASS. The stderr said `ghcr.io/moonrepo/bun_tool`, not `swarm:` — **the script never ran.** Caught mid-task, on a task about exactly this |
 | 23 | The **class** of payload | The one payload you found | Builder's `not.toContain('onerror=')` **fails on correct output** — the literal text survives inside an inert `&lt;img … onerror=&amp;quot;`. And an "encoded scheme cannot smuggle" test passed **before and after** the fix, because `safeHref` is an allowlist and `&#106;avascript:` matches nothing either way. **Assert the property, not the substring**, and watch each case fail |
+
+## Instance 20 in full: two agents, one file, opposite conclusions, and the tie-break
+
+Worth writing out, because it is the cleanest demonstration in this repo of why
+reading a config is not measuring a system — and neither agent was careless.
+
+**Both read `plan-a.yml`. Both were confident. They concluded opposite things:**
+
+| | read | concluded |
+|---|---|---|
+| verifier (#615) | the same `code` filter | *"the sample gate runs **only because** this filter is broken"* |
+| historian (#620) | the same `code` filter | *"`check` is skipped on doc-only PRs, so a docs gate there would never run"* |
+
+Two instruments, both static readings of the same YAML, **and they disagreed**.
+Neither reading settles it. The tie-break was a third instrument of a different
+*kind* — **real CI history**:
+
+```
+#617   docs/TOPOLOGY.md                  ->  check: success
+#607   docs/... arbor perf truth         ->  check: success
+#598   docs/plans/... agent-readiness    ->  check: success
+```
+
+Three PRs, each exactly one `docs/`-`.md` file. `check` **ran on all three**. On
+#617 the jobs that *did* skip were `bench`, `bench-arbor`, `bench-lsp`,
+`chromatic`, `governed-examples`, `storybook` — because those filters are
+**positive-only patterns, which work**. Only `code` is broken, and only because
+it mixes `**` with negations under `some()`.
+
+Corroborated by executing the matcher directly — picomatch 4.0.5 under dorny's
+`{dot:true}`, patterns verbatim: `code` is `true` for `README.md`.
+
+**The verifier's conclusion was right and the historian's was wrong**, and the
+historian had already written the wrong one into a PR body, a commit message and
+two workflow comments — inside a PR about this pattern. Corrected before merge.
+
+Three things generalise:
+
+1. **The two findings are ONE issue**, reached from opposite directions. One
+   agent saw a gate that only works *because* of the bug; the other saw a gate
+   that would only break *if* the bug were fixed. Same root cause, and neither
+   agent could see the whole shape alone.
+2. **Static reading is not an instrument.** *"Neither of us should have trusted
+   the file."* Where a config's behaviour is load-bearing, run it or read what it
+   actually did — CI history is free and it is evidence.
+3. **The correct artifact survived the wrong reason.** The standalone
+   `lesson-refs` job is right *because the hazard is latent* — the skip is
+   intended, documented, and merely not functioning — not because the skip
+   happens. Good decision, bad rationale; the rationale is the part that would
+   have misled the next reader.
+
+## The inverse failure: a gate that is RED by construction
+
+FEL-428 names gates that are **green by construction**. `bench` / `bench-arbor`
+are the mirror image and are just as unreadable:
+
+- The gate compares against `git show origin/main:bench/signals/RESULTS.md`
+  (`plan-a.yml:379`) — a **checked-in** baseline last regenerated **2026-05-25**.
+- `bench` is path-filtered, so it is skipped on virtually every `main` commit,
+  so **the baseline never advances**. Any PR that does trip the filter is charged
+  with two months of everyone else's drift.
+- `bench-arbor`'s own job name is *"Regression gate (timing — RED is the designed
+  state until R1)"*, and its output labels `attr-thrash-100x100` at **43074.3%**
+  as `NVRG never-gate (CI-environmental noise)`. The harness already knows.
+
+An app/cli-only PR touching no `signals`, `arbor` or `runtime` source gets told
+`cellx` and `creation-1to1000` regressed.
+
+**Same end state as green-by-construction — nobody can read the gate — and the
+failure mode is worse: a permanently-red gate trains everyone to wave red past,
+which is exactly what lets a real regression through.**
 
 ## The special case: regenerating a baseline destroys the evidence
 

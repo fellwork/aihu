@@ -66,6 +66,9 @@ written by different people, months apart. That is the point.
 | 33 | A **removed** item | The row simply vanishes; the lane stays green | Builder: derive-from-disk coverage **cannot detect deletion**. Removing an example made its row disappear and the gate passed. A committed floor (`governed-roster.json`) is what makes a removal a visible line deletion |
 | 34 | A **per-item** no-op | A global counter that passes | FEL-428: `hacker-news` declared `compile+smoke`, had no smoke suite, printed *"compile-only (no smoke suite…)"* and ran nothing — while the vacuity guard at `:139` worked correctly, because it is a **global** counter and eight passing neighbours masked the one no-op. **A guard at the wrong granularity reads as protection while providing none** |
 
+| 35 | A function that **does not exist** | A documented API, **published to the docs site** | Builder-b, FEL-391: `collectSetupShape` is named in 3 Linear comments, the design doc, and `store/src/types.ts:91`. `git grep` finds **comments only, never a declaration** — the real function is `instantiateSetup`. `gen-api.ts` lifts that comment verbatim, so **the phantom shipped to the public docs.** A name repeated often enough acquires the appearance of a referent |
+| 36 | The **only** layer that tests the actual defect | **26/27 green** | Builder's own suite, disclosed up front: the served-bytes layer — the one exercising the SSR emitter, i.e. the only one that can see the #572 defect — is `it.skipIf(!COMPILER)`. On a checkout without `target/release/aihu-compile` it **silently skips** and the run reads as a pass. It hard-fails only when `CI` is set. *"If you see 26 passed, the layer you were asked to check did not run."* Built deliberately for local ergonomics, and still the same shape |
+
 ## The refinement that matters most: an assertion of validity forecloses the second look
 
 Instance 30 is the worst form of this pattern found so far, and it is worth

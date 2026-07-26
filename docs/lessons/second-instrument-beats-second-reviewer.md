@@ -93,6 +93,34 @@ When a number, a gate, or a claim is load-bearing:
    repeatedly, including on their own work. This is the part that cannot be
    automated and the part that made the rest work.
 
+## The corollary, learned the hard way: two instruments of the *same kind* can both be wrong
+
+The FEL-415 case above worked because the two instruments were **mechanically
+different** — a blind harness and the original instrumentation. That is the
+load-bearing property, not the count.
+
+On 2026-07-26 two agents applied "second instrument" to `plan-a.yml`'s
+`changes.code` filter and **still got opposite answers**, because both
+instruments were the same kind: *a careful human-style reading of the YAML*.
+
+| | instrument | conclusion |
+|---|---|---|
+| verifier | read the filter + `filter.ts:106-115` | the sample gate runs *only because* the filter is broken |
+| historian | read the filter | `check` is *skipped* on doc-only PRs |
+
+Both confident, both reasoned, **one wrong**. What settled it was an instrument
+of a *different kind* — three real CI runs on single-`docs/`-file PRs (#617,
+#607, #598), all showing `check: success` — plus executing the matcher directly
+under picomatch.
+
+> **Two readings are not two instruments. A reading and a measurement are.**
+
+Practical form: when the disagreement is about what a config *does*, stop
+producing more readings. Run it, or go read what it already did — CI history is
+free, and it is evidence rather than interpretation.
+
+*"Neither of us should have trusted the file."*
+
 ## When a reviewer *is* the right tool
 
 This lesson is not "stop reviewing." Diff review catches intent bugs, API misuse,
