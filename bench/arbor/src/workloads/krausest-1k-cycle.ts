@@ -65,6 +65,34 @@ export const krausest1k: WorkloadDefinition = {
   description:
     'Create 1000 rows, partial-update every 10th, clear. Three-phase timed as one op. JSDOM-relative.',
   n: 10,
+  // R0: a raw record count cannot protect this workload — the mount phase
+  // floods the stream with childList records, so the update phase can die
+  // silently while the total stays high. That exact partial death shipped in
+  // the 2026-05-25 baseline (2000 nodeValue writes/op observed vs 2100 —
+  // the 100-write update phase was lost; bisect doc §1). The verify demands
+  // evidence that the update phase itself ran: 100 mutations whose new text
+  // is an `updated-*` label, whether the adapter writes nodeValue
+  // (characterData record) or re-assigns textContent (childList record with
+  // a fresh Text node).
+  liveness: {
+    minRecords: 101, // ≥1 mount childList record + 100 update-phase mutations
+    verify(records) {
+      let updated = 0
+      for (const r of records) {
+        if (r.type === 'characterData') {
+          if (String(r.target.nodeValue ?? '').startsWith('updated-')) updated++
+        } else if (r.type === 'childList') {
+          for (const n of Array.from(r.addedNodes)) {
+            if (String(n.nodeValue ?? '').startsWith('updated-')) updated++
+          }
+        }
+      }
+      return updated >= 100
+        ? null
+        : `update phase dead: expected ≥100 'updated-*' text mutations per op, saw ${updated} ` +
+            '(mount-phase records alone cannot prove the update phase ran).'
+    },
+  },
   build(adapter: DomAdapter) {
     // ---------- aihu ----------
     if (adapter.name === '@aihu/arbor') {
@@ -122,7 +150,14 @@ export const krausest1k: WorkloadDefinition = {
 
       // Initial template (irrelevant; replaced each op)
       setLitTemplate(() => makeTemplate(makeRows(ROW_COUNT)))
-      setLitUpdater(() => makeTemplate(makeRows(ROW_COUNT)))
+      // The updater MUST render the rows it is handed. The original version
+      // ignored its argument and rebuilt pristine `item-N` rows each call, so
+      // phase 2's in-place label mutations never reached the DOM: one full op
+      // produced 2 mutation records instead of 100+ (lit diffed identical
+      // values to a no-op), and the cell timed "remove + reinsert a cached
+      // fragment". Caught by the R0 liveness probe on its first run,
+      // 2026-07-26 — the third dead cell this class of check has found.
+      setLitUpdater((v) => makeTemplate(v as Array<{ id: number; label: string }>))
 
       const session = adapter.setup(host)
       const ctx = session.value

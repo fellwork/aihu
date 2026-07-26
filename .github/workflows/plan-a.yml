@@ -384,9 +384,22 @@ jobs:
 
   bench-arbor:
     # Bench-vs-SOTA regression gate for @aihu/arbor (Round N+1, Track A).
-    # Runs whenever arbor or the bench harness changes. Compares current p50 to
-    # the baseline RESULTS.md on `main`; fails if @aihu/arbor regresses
-    # > 10% on any workload. Override via `[bench-bump]` in the commit message.
+    # Runs whenever arbor or the bench harness changes.
+    #
+    # Two gates run here (2026-07-26 ruling, #607):
+    #   1. Counted-metric gate (R8, counts.ts) — exact, machine-independent
+    #      equalities (moves/swap, writes/op). No bypass. This is the
+    #      trustworthy signal.
+    #   2. Timing gate (gate.ts) — p50 vs the checked-in RESULTS.md baseline,
+    #      GATE-tier workloads only. The committed baseline is provably
+    #      invalid (two rows recorded dead bindings), so RED is the DESIGNED
+    #      state for this step until R1 (same-job A/B vs merge base) replaces
+    #      the mechanism. Do NOT regenerate RESULTS.md to green it.
+    #
+    # R0: the runner itself hard-fails if any timed op performs no DOM
+    # mutation — a dead binding aborts the job rather than reporting a number.
+    # Override for the timing gate only: `[bench-bump] <reason>` in the commit
+    # message (the reason is mandatory — R7).
     # workflow_dispatch only — see header comment and state-plan-a.md open items.
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -413,19 +426,36 @@ jobs:
             echo "No previous RESULTS.md on main — first run, skipping gate"
             echo "FIRST_RUN=1" >> $GITHUB_ENV
           fi
+      - name: Counted-metric gate (R8 — equalities, no bypass)
+        working-directory: bench/arbor
+        run: bun src/counts.ts
       - name: Run arbor bench
         working-directory: bench/arbor
+        env:
+          # R6: signals' __DEV__ branches fold away under production, matching
+          # what rolldown's `define` does in the shipped dist. The artifact
+          # measured is still workspace *source* (tsconfig paths) — recorded
+          # in the RESULTS.md conditions header; true dist measurement needs
+          # pack-and-install isolation (truth doc §2.2).
+          NODE_ENV: production
         run: bun src/runner.ts
       - name: Detect bench-bump override
         run: |
           # For PR events, github.sha is the merge-commit SHA, not the PR HEAD.
           # Check the PR HEAD SHA when available; fall back to github.sha.
           CHECK_SHA="${{ github.event.pull_request.head.sha || github.sha }}"
-          if git log -1 --pretty=%B "$CHECK_SHA" 2>/dev/null | grep -q '\[bench-bump\]'; then
+          BODY="$(git log -1 --pretty=%B "$CHECK_SHA" 2>/dev/null || true)"
+          if printf '%s\n' "$BODY" | grep -q '\[bench-bump\]'; then
             echo "BENCH_BUMP=1 (commit message contains [bench-bump])"
             echo "BENCH_BUMP=1" >> $GITHUB_ENV
+            # R7: the bypass requires a one-line justification — everything
+            # after the tag on the same line. gate.ts refuses the override
+            # when the reason is empty.
+            REASON="$(printf '%s\n' "$BODY" | grep -m1 '\[bench-bump\]' | sed 's/.*\[bench-bump\]//' | sed 's/^[-—: ]*//')"
+            echo "BENCH_BUMP_REASON=$REASON" >> $GITHUB_ENV
+            echo "BENCH_BUMP_REASON=$REASON"
           fi
-      - name: Regression gate
+      - name: Regression gate (timing — RED is the designed state until R1)
         if: env.FIRST_RUN != '1'
         working-directory: bench/arbor
         run: bun src/gate.ts /tmp/bench-arbor-prev/RESULTS.md ./RESULTS.md

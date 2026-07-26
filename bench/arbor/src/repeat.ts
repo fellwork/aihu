@@ -11,11 +11,10 @@
  * Usage: `bun bench/arbor/src/repeat.ts [N=5]`
  */
 
-import { measure } from 'mitata'
-
 import './jsdom-host.ts'
 
 import { aihu } from './competitors/aihu.ts'
+import { measureLive } from './measure-live.ts'
 import type { WorkloadDefinition } from './types.ts'
 import { workloads } from './workloads/index.ts'
 
@@ -28,11 +27,9 @@ interface Sample {
 
 async function runOnce(workload: WorkloadDefinition): Promise<Sample> {
   const ctx = workload.build(aihu)
-  for (let i = 0; i < 5; i++) ctx.run()
-  const stats = await measure(ctx.run, {
-    min_cpu_time: 1_000_000_000,
-    warmup_samples: 5,
-  })
+  // R0: all timing goes through the measure-live choke point (liveness probe
+  // before the timed region). Do not call mitata's measure() directly here.
+  const stats = await measureLive(workload, aihu.name, ctx.run)
   ctx.cleanup()
   return { p50: stats.p50, opsPerSec: 1e9 / stats.avg }
 }

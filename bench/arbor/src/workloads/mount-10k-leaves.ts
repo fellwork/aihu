@@ -52,6 +52,9 @@ export const mountTenK: WorkloadDefinition = {
   description:
     'Mount 10k static text leaves under a fragment and dispose. One mount+dispose = 1 op.',
   n: 10,
+  // R0: one op = attach (≥1 childList record) + detach (≥1 childList record).
+  // A dead op that never touches the live document produces 0.
+  liveness: { minRecords: 2 },
   build(adapter: DomAdapter) {
     // ---------- aihu ----------
     if (adapter.name === '@aihu/arbor') {

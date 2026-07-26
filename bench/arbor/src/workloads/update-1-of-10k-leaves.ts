@@ -54,6 +54,13 @@ export const updateOneOfTenK: WorkloadDefinition = {
   description:
     'Mount 10k-leaf tree once, then write the signal for leaf[0] on each op. One signal write = 1 op.',
   n: 1,
+  // R0 — THE fabrication catcher. One op must produce ≥1 real DOM mutation
+  // (characterData for nodeValue writers, childList for textContent
+  // re-assigners). The 2026-05-25 baseline recorded 28.63 ns for this cell
+  // with 0 DOM writes/op — a subscriber-less signal write — and that row
+  // produced the public 122x/152x claims. This declaration + the runner's
+  // probe make that class of number impossible to report again.
+  liveness: { minRecords: 1 },
   build(adapter: DomAdapter) {
     // ---------- aihu ----------
     if (adapter.name === '@aihu/arbor') {

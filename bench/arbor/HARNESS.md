@@ -19,11 +19,124 @@ The "op" unit varies by workload:
 
 ---
 
+## R0 — the mandatory DOM-liveness assertion
+
+*Ruling: `docs/plans/2026-07-26-arbor-perf-truth.md` §3.2, ratified in #607.*
+
+**Before any cell is timed, the harness runs one op under a MutationObserver
+and hard-fails the ENTIRE RUN — non-zero exit, no RESULTS.md — if the op does
+not produce the workload's declared minimum of real DOM mutations.** A
+benchmark op that does not mutate the DOM is measuring nothing; a harness
+that reports a time for it is fabricating a number.
+
+This is not hypothetical. The 2026-05-25 baseline recorded 28.63 ns for
+`update-1-of-10k-leaves` with **0 DOM writes/op** (a subscriber-less signal
+write — two `@aihu/signals` module instances, effect subscribed on one,
+signal written on the other). That row produced the public 122x/152x claims.
+The same mechanism was reproduced twice more on 2026-07-26 (~16 ns, INERT)
+while attempting to measure `dist`.
+
+Enforcement is structural — deliberately not a convention:
+
+- `WorkloadDefinition.liveness` is a **required** type field. A new workload
+  does not compile without declaring what one op does to the DOM.
+- The probe runs inside `src/measure-live.ts`, the **single timing choke
+  point**. Both timing entry points (`runner.ts`, `repeat.ts`) go through it;
+  new entry points MUST too. Nothing else in this harness may call mitata's
+  `measure()` for a cell.
+- `minRecords < 1` is rejected at runtime, so the requirement cannot be
+  declared away.
+- A `LivenessError` is **never** demoted to a per-cell ERROR row. A setup
+  exception reports honestly as ERROR; a liveness failure would otherwise
+  report a *fast number for a no-op*, so it kills the process instead.
+
+Workloads whose raw record count cannot prove the interesting phase ran
+declare a `verify(records)` sharpener — see `krausest-1k-cycle` (its update
+phase died silently in the 2026-05-25 baseline while mount-phase records
+kept the total high) and `attr-thrash-100x100` (requires 10,000
+attribute-type records specifically).
+
+---
+
+## R8 — counted-metric gate (`src/counts.ts`)
+
+**Counts, not timings, for anything that gates.** DOM moves per
+reconciliation, `nodeValue` writes/op, and `setAttribute` calls/op are exact
+integers with zero variance — machine-, load-, and statistic-independent.
+They also fail in the right direction: a dead binding sends a count to
+**zero**, which screams, where it sends a timing **down**, which flatters.
+
+`bun bench/arbor/src/counts.ts` checks pinned equalities:
+
+| metric | pinned value | twin |
+| --- | ---: | --- |
+| 2-row swap in a 1000-row keyed list, DOM moves | **4** (was 1994 pre-FEL-408) | `packages/arbor/tests/structural.test.ts` |
+| no-op keyed re-render, DOM moves | 0 | same |
+| `update-1-of-10k-leaves`, DOM mutations/op | 1 (one `characterData` write) | — |
+| `attr-thrash-100x100`, attribute mutations/op | 10,000 | — |
+
+There is **no `[bench-bump]` bypass** for counts: a count change is an
+algorithmic change and must be reviewed by editing the pinned constant (here
+and in the structural test) in the diff that changes it.
+
+These counted facts are also the only publishable performance claims today
+(truth doc §4): they are exact and environment-independent, unlike every
+timing this harness produces.
+
+---
+
+## Gate tiering (R5) and the timing gate's status
+
+Per the 2026-07-26 ruling:
+
+| workload | tier | basis |
+| --- | --- | --- |
+| `update-1-of-10k-leaves` | **GATE** | thousands of samples; 4.7 % p50 spread at low load |
+| `mount-deep-100x10` | **GATE** | 1000+ samples at 2 s budget; 2.6 % spread |
+| `mount-10k-leaves`, `mount-wide-1000`, `krausest-1k-cycle` | report-only | ~12–16 samples at CI budget; p50 spread 534–1,176 % in the gate's own configuration |
+| `attr-thrash-100x100` | **never-gate** | CI-environmental, NOT intrinsic — see `gate.ts` before touching this |
+
+`bench-arbor` red is currently the **designed** state: the committed
+`RESULTS.md` baseline is provably invalid (two rows recorded dead bindings)
+and must not be regenerated (truth doc §3.4 — the standing STOP). The gate
+becomes trustworthy only when R1 (same-job A/B against the merge base)
+replaces the checked-in-baseline mechanism; until then the trustworthy
+signals are the counted-metric gate above and the per-package size gates.
+
+---
+
+## Measured artifact (R6)
+
+What this harness times is the **workspace source** — `packages/*/src` via
+`bench/arbor/tsconfig.json` `paths` — **not the shipped `dist`**. CI sets
+`NODE_ENV=production` for the timing run so signals' `__DEV__` branches fold
+away as they do in the shipped artifact; the RESULTS.md header records the
+artifact, `NODE_ENV`, and start/end load averages so no number appears
+without its conditions.
+
+**The harness cannot measure true `dist` today.** Bun applies
+`packages/arbor/tsconfig.json` `paths` to imports made *by arbor's own
+`dist/index.js`*, so arbor-dist's `@aihu/signals` import resolves back to
+`src` while the workload's resolves to `dist` — two module instances, dead
+bindings (both attempts INERT at ~16 ns; caught by the liveness probe).
+Measuring what users install requires pack-and-install isolation: `bun pm
+pack` signals+arbor, install into a temp dir with the harness copied in, run
+there. R0 is what proves whether that attempt succeeded. See truth doc §2.2.
+
+---
+
 ## Quick start
 
 ```bash
+# Counted-metric gate (R8) — exact equalities, fast, trustworthy
+bun bench/arbor/src/counts.ts
+
 # Time bench (writes bench/arbor/RESULTS.md)
 bun bench/arbor/src/runner.ts
+
+# Single-cell reproduction (does NOT write RESULTS.md; BENCH_OUT=<path> to capture)
+BENCH_ONLY_WORKLOAD=update-1-of-10k-leaves BENCH_ONLY_COMPETITOR=@aihu/arbor \
+  bun bench/arbor/src/runner.ts
 
 # Memory bench (writes bench/arbor/RESULTS.memory.md)
 bun --expose-gc bench/arbor/src/memory.ts
@@ -46,6 +159,11 @@ bun bench/arbor/src/gate.ts bench/arbor/RESULTS.md bench/arbor/RESULTS.md
      name: 'my-workload',
      description: 'One sentence describing what one op does.',
      n: 10,  // Memory runner N override (see table below)
+     // R0 — REQUIRED (will not compile without it). Declare the minimum
+     // number of real DOM mutation records ONE op must produce; add a
+     // verify(records) sharpener if a raw count cannot prove the phase you
+     // care about actually ran (see krausest-1k-cycle).
+     liveness: { minRecords: 1 },
      build(adapter) {
        // Setup (not timed): build any pre-allocated templates/data
        // Call the relevant adapter setter (e.g. setAihuHook)
@@ -166,20 +284,31 @@ artifact rather than a regression signal.
 
 ---
 
-## The `[bench-bump]` override
+## The `[bench-bump]` override (R7 — audited exception, not a silent skip)
 
-If a commit intentionally introduces a regression (e.g. a new feature with
-temporary overhead), add `[bench-bump]` to the commit message body. CI will
-detect this and set `BENCH_BUMP=1`, which causes `gate.ts` to exit 0
-unconditionally. Remove the tag in the follow-up commit once perf is restored.
+If a commit intentionally introduces a timing regression (e.g. a new feature
+with temporary overhead), add `[bench-bump] <one-line reason>` to the commit
+message body. CI extracts the reason from the same line and passes it to
+`gate.ts` as `BENCH_BUMP_REASON`.
+
+Three things changed from the old behavior:
+
+1. **A justification is mandatory.** `BENCH_BUMP=1` with an empty reason does
+   NOT bypass the gate.
+2. **The bypass is auditable.** The gate always computes and prints every
+   delta before honoring the override, so the CI log records exactly what was
+   waived and why.
+3. **It never applies to the counted-metric gate.** `counts.ts` has no
+   bypass; a count change must be reviewed by editing the pinned constant.
 
 Usage:
 ```
 feat(arbor): add new feature X
 
-[bench-bump] — feature X adds 5% overhead to mount-10k-leaves;
-follow-up PR will optimize.
+[bench-bump] feature X adds 5% overhead to mount-10k-leaves; follow-up PR will optimize.
 ```
+
+Remove the tag in the follow-up commit once perf is restored.
 
 ---
 
@@ -204,11 +333,15 @@ These are documented in RESULTS.md per design §5.3 honesty requirements.
 
 | File | Purpose |
 |---|---|
-| `src/types.ts` | `DomAdapter`, `WorkloadDefinition` interfaces |
+| `src/types.ts` | `DomAdapter`, `WorkloadDefinition`, `LivenessSpec` interfaces |
 | `src/jsdom-host.ts` | JSDOM singleton + `getHost`/`releaseHost` helpers |
+| `src/liveness.ts` | R0 — the DOM-liveness probe + `LivenessError` |
+| `src/measure-live.ts` | The single timing choke point (probe → mitata) — ALL timing goes through this |
 | `src/runner.ts` | Time bench — runs all 36 cells, writes `RESULTS.md` |
+| `src/repeat.ts` | Multi-run @aihu/arbor-only variance reporter |
+| `src/counts.ts` | R8 — counted-metric gate (exact equalities, no bypass) |
 | `src/memory.ts` | Memory bench — GC protocol, writes `RESULTS.memory.md` |
-| `src/gate.ts` | CI regression gate — compares p50 vs. previous `RESULTS.md` |
+| `src/gate.ts` | CI timing gate — p50 vs. previous `RESULTS.md`, GATE tier only |
 | `src/size.ts` | Bundle size reporter — informational, stdout only |
 | `src/competitors/` | One file per competitor implementing `DomAdapter` |
 | `src/workloads/` | One file per workload implementing `WorkloadDefinition` |

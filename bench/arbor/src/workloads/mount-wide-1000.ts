@@ -49,6 +49,8 @@ export const mountWide: WorkloadDefinition = {
   description:
     'Mount 1000 sibling branches each with 1 reactive text leaf and dispose. One mount+dispose = 1 op.',
   n: 100,
+  // R0: one op = attach (≥1 childList record) + detach (≥1 childList record).
+  liveness: { minRecords: 2 },
   build(adapter: DomAdapter) {
     // ---------- aihu ----------
     if (adapter.name === '@aihu/arbor') {

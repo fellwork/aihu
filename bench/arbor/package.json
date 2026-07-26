@@ -6,6 +6,7 @@
   "description": "Bench harness comparing @aihu/arbor against SOTA DOM-binding libs (Round N+1, Track A).",
   "scripts": {
     "run": "bun src/runner.ts",
+    "counts": "bun src/counts.ts",
     "memory": "bun --expose-gc src/memory.ts",
     "size": "bun src/size.ts",
     "typecheck": "tsc --noEmit"

@@ -29,6 +29,16 @@ tasks:
     options:
       cache: false
 
+  # R8 counted-metric gate — exact machine-independent equalities
+  # (moves/swap, writes/op). See src/counts.ts.
+  counts:
+    command: 'bun src/counts.ts'
+    inputs:
+      - 'src/**/*'
+      - 'package.json'
+    options:
+      cache: false
+
   # Spawn 3 fills in the implementation; placeholder retained so Moon graph
   # is stable across the 3-spawn sequence.
   memory:
