@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "aihu": {
+      "command": "npx",
+      "args": [
+        "aihu",
+        "mcp",
+        "serve"
+      ]
+    }
+  }
+}
