@@ -30,7 +30,33 @@ So: **read these as descriptions of what you are about to do**, not as a list of
 mistakes other people made. The nine rows above are the evidence for that claim,
 and they are the reason this directory records its authors' failures alongside
 everyone else's — *a record that only holds other people's instances reads as
-advice, and advice does not work on this.*
+advice.*
+
+### But the pessimism has a limit, and it is worth being precise about
+
+The claim above is **not** "these files are useless." Two different things are
+being measured, and only one of them fails:
+
+| | does the record help? |
+|---|---|
+| **recognising the pattern in the moment**, while doing the work | **No.** Nine instances, four agents, median under an hour. Knowing the shape does not make you see it in your own hands. |
+| **consulting the record before choosing a method** | **Yes** — demonstrated the same day. |
+
+The counter-example, and it is the reason this section is not simply a
+counsel of despair: before writing the FEL-437 fix, builder-b wrote —
+
+> *"I will exercise the draft path by **actually opening a draft PR**, not by
+> reasoning about the YAML — two agents read this same file today and reached
+> opposite conclusions, and the tie-break was three real CI runs."*
+
+That is instance 20 and the *"two readings are not two instruments"* caveat,
+applied **prospectively, to prevent** a defect rather than to explain one. Nobody
+prompted it.
+
+**So the operative rule is: these files do not work as a warning you remember.
+They work as a checklist you consult** — before choosing how to verify something,
+before merging, before reporting a claim. That is a weaker guarantee than
+inoculation and a real one.
 
 ## Start here — the cross-cutting patterns
 
