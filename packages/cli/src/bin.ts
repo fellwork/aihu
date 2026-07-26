@@ -159,6 +159,34 @@ function walkTemplateFiles(root: string): string[] {
  * sub-directory `template/`. Throws if neither path resolves.
  */
 async function resolveTemplatePackagePath(pkgName: string): Promise<string> {
+  // Strategy 0: the INVOKING PROJECT's node_modules.
+  //
+  // This has to come first, because it is where `autoInstallTemplate()` puts
+  // the package: it runs `<pm> add <pkg>` in `process.cwd()`. Strategy 1 below
+  // uses `import.meta.resolve`, which resolves relative to THIS MODULE — and
+  // when the CLI is run via `bunx`/`npx` that module lives in a package-manager
+  // cache directory with no view of the user's project. So the auto-install
+  // would succeed, drop the template into `<cwd>/node_modules`, and resolution
+  // would still fail:
+  //
+  //   Installing template package @aihu/templates-cf-team...
+  //   Resolved, downloaded and extracted [2]      <- install worked
+  //   ERROR: Failed to install template package   <- resolve did not
+  //
+  // That made `aihu app --template <pkg>` impossible for every user outside
+  // the monorepo, on every package manager, regardless of what was published.
+  for (const dir of [process.cwd(), dirname(fileURLToPath(import.meta.url))]) {
+    const pkgRoot = join(dir, 'node_modules', ...pkgName.split('/'))
+    for (const ext of ['ts', 'js', 'mjs']) {
+      const cfg = join(pkgRoot, `template.config.${ext}`)
+      try {
+        if (statSync(cfg).isFile()) return pkgRoot
+      } catch {
+        // not this extension; keep looking
+      }
+    }
+  }
+
   // Strategy 1: Node ESM resolution.
   try {
     // import.meta.resolve is sync since Node 20.6+; it returns a URL string.
