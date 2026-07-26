@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url'
 import { compileToAst } from '@aihu/compiler'
 
 export {
+  DARK_SELECTOR,
   defineStylePack,
   type StylePack,
   type StylePackInput,

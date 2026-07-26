@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
+import { DARK_SELECTOR, formatSelectorList } from '../src/define-style-pack.ts'
 import { compile } from '../src/index.ts'
 import { aihuDefault, aihuGraphite, builtinPacks } from '../src/packs.ts'
 
@@ -54,10 +55,14 @@ describe('@aihu/css-engine — aihu-default style pack', () => {
     }
   })
 
-  it('declares dark overrides under .dark for the same color tokens', () => {
-    expect(css).toContain('.dark {')
+  it('declares dark overrides under the dual-keyed dark selector', () => {
+    // Dual-keyed per Founder-decision #3 (data-theme on <html>) while every
+    // shipped `.dark` consumer keeps working — see
+    // docs/plans/2026-07-26-option-4-daisyui-design.md §4.
+    expect(css).toContain(`${formatSelectorList(DARK_SELECTOR)} {`)
+    expect(css).toContain('.dark,\n[data-theme="dark"] {')
     // The dark block re-declares the core color tokens.
-    const darkBlock = css.slice(css.indexOf('.dark {'))
+    const darkBlock = css.slice(css.indexOf(`${formatSelectorList(DARK_SELECTOR)} {`))
     expect(darkBlock).toContain('--color-primary:')
     expect(darkBlock).toContain('--color-accent:')
   })
@@ -128,7 +133,23 @@ describe('@aihu/css-engine — built-in packs ↔ shipped CSS parity', () => {
     expect(aihuDefault.tokens['color-accent']).toBe('#c8543a')
     expect(aihuGraphite.tokens['color-accent']).toBe('oklch(0.35 0 0)')
     expect(aihuDefault.toCss()).toContain(':root {')
-    expect(aihuDefault.toCss()).toContain('.dark {')
+    expect(aihuDefault.toCss()).toContain(`${formatSelectorList(DARK_SELECTOR)} {`)
+  })
+
+  // The generated bundles are ALSO biome-checked, and biome's CSS formatter
+  // breaks a comma-separated selector list onto separate lines. If toCss() ever
+  // emits a comma list on one line, the pre-commit hook reformats the generated
+  // file and the byte-parity tests above start failing on the next commit rather
+  // than in CI here. Pin the canonical form so that failure is loud and local.
+  it('emits comma-separated selector lists in biome canonical form (one per line)', () => {
+    for (const pack of [aihuDefault, aihuGraphite]) {
+      const css = pack.toCss()
+      for (const line of css.split('\n')) {
+        if (!line.trimEnd().endsWith('{')) continue
+        expect(line, `selector list must be one-per-line: ${line}`).not.toContain(',')
+      }
+    }
+    expect(formatSelectorList('.a, .b, .c')).toBe('.a,\n.b,\n.c')
   })
 
   it('exposes both packs via the builtinPacks registry, keyed by name', () => {
@@ -140,5 +161,22 @@ describe('@aihu/css-engine — built-in packs ↔ shipped CSS parity', () => {
   it('both packs declare the SAME token names (interchangeable)', () => {
     expect(Object.keys(aihuGraphite.tokens).sort()).toEqual(Object.keys(aihuDefault.tokens).sort())
     expect(Object.keys(aihuGraphite.dark).sort()).toEqual(Object.keys(aihuDefault.dark).sort())
+  })
+
+  // The named-theme dimension exists but neither shipped pack uses it yet — the
+  // daisyUI catalog transcription is a later slice (design doc §6, Slice 2).
+  // This pins the current state so the catalog landing is a visible diff.
+  it('neither shipped pack declares named themes yet', () => {
+    expect(aihuDefault.themeNames).toEqual([])
+    expect(aihuGraphite.themeNames).toEqual([])
+    // The only `[data-theme="…"]` in a shipped pack today is the dark dual-key;
+    // a named theme would emit its own standalone `[data-theme="x"] {` block.
+    for (const file of ['aihu-default.css', 'aihu-graphite.css']) {
+      const pack = readPack(file)
+      // Exactly one `[data-theme=…]` in the whole bundle, and it is the dark
+      // dual-key. A named theme would necessarily add a second occurrence.
+      expect(pack.match(/\[data-theme="[a-z0-9-]+"\]/g), file).toEqual(['[data-theme="dark"]'])
+      expect(pack, file).toContain(`${formatSelectorList(DARK_SELECTOR)} {`)
+    }
   })
 })
