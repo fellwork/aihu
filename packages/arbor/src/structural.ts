@@ -20,6 +20,83 @@ export function when(condition: Signal<boolean>, grow: () => Node): StructuralNo
   }
 }
 
+/**
+ * Keyed list reconciler.
+ *
+ * `key(item)` identifies a ROW: a key that survives an update keeps its child
+ * scope, its DOM nodes, and its effects. But the key is only half the
+ * contract —
+ *
+ * **object identity decides row-content FRESHNESS.** A row body is grown ONCE
+ * from the item handed to `grow(item, index)`. The compiler deliberately
+ * emits a pure loop-var projection (`{b.name}` — no call) as an EAGER
+ * `leaf(b.name)`: a value snapshot read at grow time, NOT a per-row reactive
+ * effect. See step 5 "Genuinely static (loop-var projection, plain const) →
+ * eager" in `packages/compiler/src/codegen/template_emit.rs`, pinned by
+ * `packages/compiler/tests/codegen.rs::fel228_loop_var_projection_stays_eager`
+ * and `tests/template_expr_rewrite.rs::fel173_loop_var_projection_still_eager`
+ * — the first names this function verbatim: *"The `each()` reconciler
+ * recreates the leaf when the keyed item changes."*
+ *
+ * So `_reconcileEach`'s reference check (`s.item === items[i]`, FEL-395) is
+ * not a missing optimization — it IS the freshness mechanism the compiler
+ * delegates to. Two consequences fall out of that, and they pull opposite
+ * ways:
+ *
+ * 1. **A derived list re-grows every row.** `items.map((r) => ({ ...r }))` —
+ *    the normal shape for polled endpoints and immutable stores — hands
+ *    `each()` a fresh object per row per update, so every row is torn down
+ *    and re-grown even when the keys AND every field are identical.
+ *    Instrumented on a 1000-row list, per update: **1000 `lgrow` calls /
+ *    2000 `removeChild` / 8000 `createElement`**, versus **0 / 0 / 0** when
+ *    the references are stable. Every scrap of per-row DOM state — focus,
+ *    scroll offset, text selection, uncontrolled input values — goes with the
+ *    discarded nodes. Pinned by `tests/structural.test.ts` T12.
+ *
+ * 2. **No equality coarser than `===` is sound here.** A user-supplied
+ *    `equals` that returned true for a value-equal replacement would keep a
+ *    scope whose eager `leaf()` text is frozen at the OLD value: a silently
+ *    stale render. "Just add a comparator" is unsafe, not merely unfunded —
+ *    and the same reasoning rules out `reconcile()`, see below.
+ *
+ * ### Working around the re-grow (no new API needed)
+ *
+ * **A. Make identity change exactly when content changes.** Key a cache by
+ * id and hand back the SAME object while the row is unchanged; hand back the
+ * new one the moment it isn't:
+ * ```ts
+ * const cache = new Map<string, Row>()
+ * const rows = fetched.map((r) => {
+ *   const prev = cache.get(r.id)
+ *   // Reusing the eager row body is correct *only* while the content is
+ *   // unchanged — so tie identity to precisely that condition.
+ *   if (prev && sameFields(prev, r)) return prev
+ *   cache.set(r.id, r)
+ *   return r
+ * })
+ * ```
+ * Unchanged rows keep their reference and are reused (state preserved);
+ * changed rows arrive as a new reference and re-grow with fresh values.
+ *
+ * **B. Move the changing fields into the key.** `(r) => r.id + ':' + r.rev`
+ * makes a content change a NEW row (re-grown, fresh values) and an untouched
+ * row a stable one (reused, state kept) — the key then carries both halves of
+ * the contract on its own.
+ *
+ * Mutating rows in place also keeps identity stable, but it only renders
+ * correctly for fields the row body reads REACTIVELY (an interpolation the
+ * compiler thunk-wraps because it contains a call). A plain `{r.name}`
+ * projection stays an eager snapshot and will show the pre-mutation value
+ * forever; for those fields use A or B.
+ *
+ * ### Not a workaround: `reconcile()`
+ *
+ * `reconcile(target, next, { key })` from `@aihu/reactive` looks like the
+ * remedy — it merges a refetch in place and preserves object identity, which
+ * does stop the re-grow. With an eager `leaf()` snapshot the row would then
+ * **never update at all**. It trades a performance cliff for silently stale
+ * data; do not recommend it for keyed `each()` lists.
+ */
 export function each<T>(
   list: Signal<T[]>,
   key: (item: T) => string | number,

@@ -633,6 +633,151 @@ describe('each() — list rendering', () => {
     scope.dispose()
   })
 
+  // -------------------------------------------------------------------------
+  // T12 (FEL-416) pins a KNOWN, ACCEPTED TRADE-OFF — not a bug, and not a
+  // wish. T11 above covers the stable-reference path (rows reused). This
+  // covers its mirror image, the case real apps actually hit: a DERIVED list.
+  // `items.map((r) => ({ ...r }))` — polled endpoints, immutable stores,
+  // anything that rebuilds its rows — yields the SAME keys with FRESH object
+  // identities, and `_reconcileEach` re-grows every row.
+  //
+  // That is deliberate and load-bearing. The compiler emits a pure loop-var
+  // projection (`{b.name}`) as an EAGER `leaf(b.name)` — a snapshot, no
+  // per-row effect (template_emit.rs step 5, pinned by codegen.rs
+  // ::fel228_loop_var_projection_stays_eager whose comment reads "The each()
+  // reconciler recreates the leaf when the keyed item changes"). Reference
+  // identity is therefore the ONLY freshness signal a row body has; any
+  // coarser equality renders stale text. Read the `each()` doc comment in
+  // src/structural.ts before touching this — it holds both halves of the
+  // contract, the measured cost (1000 lgrow / 2000 removeChild / 8000
+  // createElement per update on a 1000-row list, vs 0/0/0 with stable
+  // references), and the two supported workarounds.
+  //
+  // IF THIS TEST FAILS: someone changed the identity check. That is allowed
+  // ONLY together with the compiler half — a row body whose bindings are
+  // reactive rather than eager snapshots. Otherwise the rows you just stopped
+  // re-growing now render stale values, silently. Update the contract doc and
+  // the compiler tests in the same change, or revert.
+  // -------------------------------------------------------------------------
+  it('T12 (FEL-416): a DERIVED list (same keys, fresh object identities) re-grows every row — accepted trade-off, see the each() contract in src/structural.ts', () => {
+    const host = document.createElement('div')
+    type Row = { id: string; label: string }
+    const source: Row[] = [
+      { id: 'a', label: 'Alpha' },
+      { id: 'b', label: 'Beta' },
+    ]
+    const itemsSig: ReturnType<typeof signal<Row[]>> = signal(
+      source.map((r) => ({ ...r })), // derived, as an app would build it
+    )
+    const setItems = itemsSig[1]
+
+    const created: string[] = []
+    const scope = mount(
+      branch('ul', undefined, [
+        each(
+          itemsSig,
+          (item) => (item as Row).id,
+          (item) => {
+            created.push((item as Row).id)
+            return branch('li', undefined, [leaf((item as Row).label)])
+          },
+        ),
+      ]),
+      host,
+    )
+
+    expect(created).toEqual(['a', 'b'])
+    created.length = 0
+
+    // Per-row DOM state that lives on the NODE, not in the tree — the class of
+    // thing a re-grow destroys: focus, scroll offset, selection, uncontrolled
+    // input values. A dataset stamp stands in for all of them.
+    const before = Array.from(host.querySelectorAll('li'))
+    before.forEach((li, i) => {
+      li.dataset.rowState = `touched-${i}`
+    })
+
+    // The derived update: SAME keys, SAME field values, FRESH object refs.
+    setItems(source.map((r) => ({ ...r })))
+
+    // 1. Every row was re-grown, despite nothing about it having changed.
+    expect(
+      created,
+      'derived list must re-grow every row — see the each() contract in packages/arbor/src/structural.ts',
+    ).toEqual(['a', 'b'])
+
+    // 2. The DOM nodes are genuinely new objects, not the reused originals.
+    const after = Array.from(host.querySelectorAll('li'))
+    expect(after.length).toBe(2)
+    expect(after[0]).not.toBe(before[0])
+    expect(after[1]).not.toBe(before[1])
+
+    // 3. ...so the per-row DOM state went with the discarded nodes.
+    expect(
+      after.map((li) => li.dataset.rowState),
+      'per-row DOM state (focus/scroll/selection/uncontrolled input) is lost on a derived-list update — this is the documented cost',
+    ).toEqual([undefined, undefined])
+
+    // 4. What is rendered is still CORRECT — the trade-off is cost, not
+    //    correctness. That is the half the eager-leaf design buys.
+    expect(after.map((li) => li.textContent)).toEqual(['Alpha', 'Beta'])
+
+    scope.dispose()
+  })
+
+  // T13 (FEL-416) is T12's teeth. T12 holds field values CONSTANT, so its
+  // "output is still correct" assertion passes whether rows were re-grown or
+  // reused — it cannot detect a stale render. This one CHANGES the values, so
+  // it pins the freshness mechanism itself: reference identity is the only
+  // signal an eager `leaf()` row body has.
+  //
+  // IF THIS TEST FAILS with stale text, someone added an equality coarser than
+  // reference identity (a user-supplied `equals`, shallow-eq, key-only compare)
+  // to skip the re-grow. That is the FEL-416 trap: it looks like a pure
+  // optimisation and silently freezes every row at its first-rendered value,
+  // because the compiler emits `leaf(b.name)` as a SNAPSHOT, not an effect.
+  // Such a change is only valid alongside the compiler half (reactive row
+  // bindings). See the each() contract in src/structural.ts.
+  it('T13 (FEL-416): a derived row with CHANGED values renders the new value — reference identity is the freshness signal', () => {
+    const host = document.createElement('div')
+    type Row = { id: string; label: string }
+    const itemsSig: ReturnType<typeof signal<Row[]>> = signal([
+      { id: 'a', label: 'Alpha' },
+      { id: 'b', label: 'Beta' },
+    ])
+    const setItems = itemsSig[1]
+
+    const scope = mount(
+      branch('ul', undefined, [
+        each(
+          itemsSig,
+          (item) => (item as Row).id,
+          (item) => branch('li', undefined, [leaf((item as Row).label)]),
+        ),
+      ]),
+      host,
+    )
+
+    expect(Array.from(host.querySelectorAll('li')).map((li) => li.textContent)).toEqual([
+      'Alpha',
+      'Beta',
+    ])
+
+    // Same keys, fresh objects, DIFFERENT labels — the shape a coarse equality
+    // would wrongly treat as "unchanged".
+    setItems([
+      { id: 'a', label: 'Alpha-v2' },
+      { id: 'b', label: 'Beta-v2' },
+    ])
+
+    expect(
+      Array.from(host.querySelectorAll('li')).map((li) => li.textContent),
+      'rows must render the NEW values — if this is stale, an equality coarser than reference identity was introduced without making row bindings reactive',
+    ).toEqual(['Alpha-v2', 'Beta-v2'])
+
+    scope.dispose()
+  })
+
   it('T8: dispose of outer MountScope tears down all child scopes', () => {
     const host = document.createElement('div')
     const items = signal(['p', 'q', 'r'])
