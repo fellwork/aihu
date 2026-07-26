@@ -295,10 +295,59 @@ const ISSUE_FIELDS = `
   labels(first:10) { nodes { name } }
   updatedAt`
 
+/**
+ * Resolve a `--project` / `--state` value against what Linear actually has
+ * (FEL-430, fault 3).
+ *
+ * Without this, `cmdTasks` interpolated the raw string into
+ * `project:{name:{eq:"…"}}`. Linear matched nothing and returned HTTP 200, so a
+ * typo produced an empty list — and the caller was then TOLD the empty was
+ * real. That is worse than a silent empty: a bare empty invites a second look,
+ * an ASSERTED one forecloses it.
+ *
+ * `cmdNew` already resolved projects correctly. This hoists that pattern so
+ * both read paths share one implementation instead of disagreeing.
+ */
+async function resolveFilterValue(
+  kind: 'project' | 'state',
+  value: string,
+  known: () => Promise<string[]>,
+): Promise<string> {
+  const names = await known()
+  const hit = names.find((n) => n.toLowerCase() === value.toLowerCase())
+  if (hit) return hit
+  die(
+    `unknown ${kind} "${value}". Known ${kind}s: ${names.join(', ')}\n` +
+      `Refusing to run the query — an unresolvable ${kind} returns an EMPTY result ` +
+      `that is indistinguishable from "you have no work".`,
+  )
+}
+
 async function cmdTasks(argv: string[]) {
-  const project = argRef(argv, '--project')
-  const state = argRef(argv, '--state')
+  let project = argRef(argv, '--project')
+  let state = argRef(argv, '--state')
   const limit = Number(argRef(argv, '--limit') ?? 40)
+
+  // Resolve BEFORE querying. Note what is deliberately NOT done here: a genuine
+  // no-match — a real project in a real state that happens to have no issues —
+  // must still exit 0. Failing on every empty would trade one indistinguishable
+  // pair for another and would look like a fix.
+  if (project) {
+    project = await resolveFilterValue('project', project, async () => {
+      const p = await linear<{ projects: { nodes: { name: string }[] } }>(
+        '{ projects(first:50) { nodes { name } } }',
+      )
+      return p.projects.nodes.map((n) => n.name)
+    })
+  }
+  if (state) {
+    state = await resolveFilterValue('state', state, async () => {
+      const s = await linear<{ workflowStates: { nodes: { name: string }[] } }>(
+        `{ workflowStates(first:50, filter:{team:{key:{eq:"${TEAM_KEY}"}}}) { nodes { name } } }`,
+      )
+      return [...new Set(s.workflowStates.nodes.map((n) => n.name))]
+    })
+  }
 
   const filter: string[] = [`team:{key:{eq:"${TEAM_KEY}"}}`]
   if (project) filter.push(`project:{name:{eq:"${project}"}}`)
@@ -524,7 +573,49 @@ async function cmdRecall(argv: string[]) {
     body: JSON.stringify({ query: q, page_size: 20 }),
   })
   if (!d.results.length) {
-    console.log(`(no wiki pages matched "${q}" — query succeeded, result is genuinely empty)`)
+    // FEL-430, fault 3 (wiki half). Notion `/search` returns HTTP 200 with
+    // `results: []` in BOTH of these cases, and they are not the same thing:
+    //
+    //   a) nothing matched the query          — a real empty
+    //   b) the integration can see nothing    — the wiki layer is OFF
+    //
+    // Declaring (b) "genuinely empty" is the exact incident the Roster page
+    // records as having already happened once. The distinguishing signal was
+    // always available: an unfiltered search returns whatever the integration
+    // CAN see, so a zero there means no access rather than no match.
+    //
+    // Probe before asserting. If the probe itself cannot run, say the layer is
+    // UNVERIFIABLE — never upgrade an unknown into a reassurance.
+    let visible: number | null = null
+    try {
+      const probe = await notion<{ results: any[] }>('/search', {
+        method: 'POST',
+        body: JSON.stringify({ query: '', page_size: 1 }),
+      })
+      visible = probe.results.length
+    } catch {
+      visible = null
+    }
+
+    if (visible === null) {
+      die(
+        `cannot verify the wiki layer: "${q}" returned 0 results and the access probe failed.\n` +
+          `Empty is UNVERIFIABLE here, not empty — treat the wiki layer as DEGRADED.`,
+      )
+    }
+    if (visible === 0) {
+      die(
+        `wiki layer is OFF, not empty: the integration can see ZERO pages.\n` +
+          `"${q}" returned 0 results, but so does an unfiltered search — so this is an ` +
+          `access problem, not a search result.\n` +
+          `Share the root page with your Notion integration (Connections → add it), ` +
+          `then re-run.`,
+      )
+    }
+    console.log(
+      `(no wiki pages matched "${q}" — genuinely empty: the integration can see ` +
+        `${visible >= 1 ? 'at least one' : 'no'} page, so access is live and the query simply did not match)`,
+    )
     return
   }
 
