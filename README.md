@@ -190,17 +190,11 @@ All results from `bench/`. Measured with [mitata](https://github.com/nicolo-riba
 | `creation-1to1000` | 69.02 µs | 90.01 µs | 64.53 µs | 92.97 µs | 139.98 µs | 107.53 µs |
 | `deep-propagation-100` | 3.25 µs | 3.97 µs | 3.87 µs | 7.34 µs | 11.86 µs | 4.12 µs |
 
-### `@aihu/arbor` vs SOTA DOM-binding libraries
+### `@aihu/arbor` — DOM update cost
 
-*Source: [`bench/arbor/RESULTS.md`](./bench/arbor/RESULTS.md). JSDOM workloads, p50 latency.*
+*No cross-library comparison table is published here. [`bench/arbor`](./bench/arbor) runs under jsdom in dev mode against source, not the shipped build — it is a regression detector, not a basis for public performance claims. A comparative figure will come from js-framework-benchmark against shipped artifacts.*
 
-| Workload | @aihu/arbor | lit-html | solid-js | @vue/runtime-dom | preact | vanilla |
-|---|---:|---:|---:|---:|---:|---:|
-| `mount-10k-leaves` | 49.04 ms | 8.21 s | — | — | 107.10 ms | 139.42 ms |
-| `mount-deep-100x10` | 4.32 ms | 82.33 ms | — | — | 12.32 ms | 28.92 ms |
-| `mount-wide-1000` | 12.69 ms | 92.01 ms | — | — | 14.78 ms | 17.38 ms |
-| `update-1-of-10k-leaves` | 28.63 ns | 743.62 µs | — | — | 2.33 ms | 4.36 µs |
-| `krausest-1k-cycle` | 31.16 ms | 114.20 ms | — | — | 30.71 ms | 25.17 ms |
+What we can state exactly, because it is counted rather than timed: swapping two rows in a 1,000-row keyed list performs **4 DOM moves**, down from 1,994 before the reposition pass gained a longest-stable-subsequence step. That number is machine-independent and is pinned by a test ([`keyed-swap-dom-mutations.test.ts`](./tests/integration/keyed-swap-dom-mutations.test.ts)).
 
 <sub><i>Auto-generated — run `bun scripts/sync-readme.ts` to update.</i></sub>
 
