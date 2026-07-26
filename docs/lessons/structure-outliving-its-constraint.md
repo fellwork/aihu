@@ -3,8 +3,10 @@
 **Topic:** cross-cutting (CLI config, templates, tooling contracts, CI)
 **Session:** named 2026-07-26, after the third instance in one afternoon
 **Category:** architecture-drift, review-process
-**Severity:** medium-high — it costs nothing today and quietly teaches the next
-reader to avoid a supported path
+**Severity:** medium-high for the passive form (instances 1-3) — it costs nothing
+today and quietly teaches the next reader to avoid a supported path. **HIGH for
+the active form (instance 4)**, where the stale copy is an *instruction artifact*
+that keeps teaching the pre-correction error to whoever reads it next.
 **Status:** named; no mechanical detection
 
 ## The shape
@@ -17,7 +19,8 @@ reader to avoid a supported path
 > problem now requires**, and the comment actively argues against the better
 > path.
 
-This is the benign-looking sibling of the other two patterns in this directory.
+This is the benign-looking sibling of the other patterns in this directory — with
+one variant that is not benign at all (see "The dangerous variant" below).
 It does not produce a wrong number or a false green. It produces **a false
 explanation**, which is worse in one specific way: it survives review, because a
 reviewer reads the comment and finds the code consistent with it.
@@ -36,6 +39,57 @@ is *defended*.
 
 Two of these were found by **different agents, from opposite directions, within
 the same afternoon** — which is why it got named rather than fixed twice.
+
+## The dangerous variant: the stale copy keeps teaching the *pre-correction* error
+
+Instances 1–3 are structures whose **rationale** went stale — a comment defending
+a workaround after the workaround stopped being needed. Costly, but passive.
+
+**Instance 4 is active.** Handed over by builder-b while executing a "delete the
+dead code" ruling:
+
+`packages/cli/src/templates/AGENTS.md` has **zero importers repo-wide**, is
+reachable from none of `rolldown.config.ts`'s three entries, and
+`templates-tooling.ts:43-46` **already records it as "emitted by nothing."** It
+never shipped. By every normal test it is dead.
+
+**It is not dead, because `AGENTS.md` is a file coding agents read automatically.**
+And its rule 5 contradicts itself — verified on `origin/main`:
+
+> Prose: *"event handlers use `on:click` … two-way binding uses `bind:value` …
+> Generating `$on.click`, `$bind.value`, `$if=`, or `$each=` as template
+> attributes is **always wrong** (compile errors C606/C607)."*
+
+```html
+<!-- Correct template directive syntax -->      ← labelled Correct
+<input $bind:value="draft" $on:input={…} />        …the forms the prose forbids
+<button $on:click="submit">Submit</button>
+
+<!-- Wrong — dot form is not valid -->          ← labelled Wrong
+<button on:click={submit}>Submit</button>          …the form the prose requires
+```
+
+The "Wrong" annotation is confused twice over: it says *dot form*, and the example
+it condemns is the **colon** form.
+
+So a file **inside `packages/cli/src/`** — the package an agent working on the CLI
+is most likely to be editing — teaches the exact inverse of its own stated rule,
+in the two forms the compiler rejects with named error codes.
+
+**Why this variant is worse:** the rule *was* corrected, in
+`templates-tooling.ts`. The fix shipped. The stale copy stayed reachable and kept
+teaching the pre-correction error. **The fix landing is what made this invisible**
+— everyone who checked the live path found it correct.
+
+> **Dead code that is *read* is not dead.** An `AGENTS.md`, a README, a docstring,
+> a prompt file: these are instruction artifacts. A stale one does not merely fail
+> to help — **it propagates the error into new work**, and it does so through the
+> readers least able to notice, because they have no history of the correction.
+
+**Recipe addition:** when you delete or supersede an instruction artifact, grep
+for *copies* of it — and treat "no importers" as evidence it is unshipped, **never
+as evidence it is unread**. The reachability test for prose is *who reads it*, not
+*who imports it*.
 
 ## Why it survives
 
