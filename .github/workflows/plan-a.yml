@@ -355,7 +355,8 @@ jobs:
     # cancelled/skipped) before evaluating this job's `if: always()`, which
     # then runs regardless of what that state was.
     needs: [check, examples, governed-examples, lesson-refs, palette]
-    if: always()
+    # VARIANT B UNDER TEST (FEL-437): do not report at all on a draft.
+    if: always() && github.event.pull_request.draft != true
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
