@@ -60,6 +60,34 @@ written by different people, months apart. That is the point.
 | 28 | **An unmerged branch** — "committed" | **"on `main`"**, in two Notion pages and an orchestrator brief, with a correct and verified instance count attached | *This document.* On 2026-07-26 these three lesson files were written, committed, and cited **by repo path** as established doctrine. They were not on `main`. `git ls-tree -r --name-only origin/main -- docs/lessons/` returned neither file; `gh pr list --head srmcguirt/historian-state-files` returned `[]`. Every citation resolved to nothing for anyone not standing in one specific worktree, and **nothing errored** — the citation was well-formed, the count was right, the path was plausible. Caught by the incoming orchestrator, who re-derived three claims from the handoff page instead of trusting it. **`git commit` is not `git push` is not `on main`.** Now asked by `scripts/check-lesson-refs.sh` |
 | 29 | A lesson that was **never written** | **"Now a promoted lesson"**, hedged with *"if it exists"* | `docs/retros/aihu-v1-framework-2026-05-22.md:75` cites `docs/lessons/builder-uuid-hallucination.md`. `git log --all --diff-filter=A --` on that path is **empty — it has never existed on any ref**, for over two months. The hedge is the sharp part: *"if it exists"* makes the claim **unfalsifiable**, so a reader cannot distinguish a missing file from a deliberate maybe. Found by `check-lesson-refs.sh` **on its first run**, in a file nobody was looking at — the same way #610's R0 liveness gate caught a fourth dead cell on *its* first run |
 
+| 30 | An **unresolvable filter** | *"(no issues matched — team=FEL project=doesnotexist)"* followed by **"This is a real empty result, not a failure: the query succeeded."** — exit **0** | The swarm tool on #618, found by the verifier under FEL-430. `cmdTasks` builds `project:{name:{eq:"<raw string>"}}` and never resolves the name; Linear matches nothing and returns 200. A typo'd project and a genuine no-match are **byte-identical in shape, exit code, and reassurance.** Same shape in `cmdRecall`: Notion `/search` returns **200 with `results: []`** both when nothing matches and when the integration was granted access to nothing — the documented incident, reproduced by the tool written to embody the doctrine against it |
+| 31 | A scaffold that **cannot do anything** | `aihu app --template cf-team` **exit 0** | Verifier, post-#616. `bun run dev` / `typecheck` / `build` → **exit 1, `app::missing_workspace`, all three.** The template ships `moon.yml.tmpl` (a *project* config) and **no `.moon/` workspace folder**, while every script routes through moon. The scaffold succeeds and everything you can do with it fails. Arc: RED (nobody looked) → GREEN-because-skipped (nobody *could* look) → **RED for the real reason.** A skip hid a *defect*, not merely a gap |
+| 32 | A **deleted** call site | Every test still green — unit tests *and* the served-bytes test | Builder, FEL-426: the sanitiser's own tests and the end-to-end test both passed with the loader call removed. **Present is not wired.** Fixed by adding trust-boundary tests that go red when the call is deleted — proven, not assumed |
+| 33 | A **removed** item | The row simply vanishes; the lane stays green | Builder: derive-from-disk coverage **cannot detect deletion**. Removing an example made its row disappear and the gate passed. A committed floor (`governed-roster.json`) is what makes a removal a visible line deletion |
+| 34 | A **per-item** no-op | A global counter that passes | FEL-428: `hacker-news` declared `compile+smoke`, had no smoke suite, printed *"compile-only (no smoke suite…)"* and ran nothing — while the vacuity guard at `:139` worked correctly, because it is a **global** counter and eight passing neighbours masked the one no-op. **A guard at the wrong granularity reads as protection while providing none** |
+
+## The refinement that matters most: an assertion of validity forecloses the second look
+
+Instance 30 is the worst form of this pattern found so far, and it is worth
+separating from the rest.
+
+Every other instance here is an absence that *renders as* a plausible value.
+Instance 30 goes further: the tool **states that the empty result is
+trustworthy** — *"This is a real empty result, not a failure: the query
+succeeded."* That sentence is true of the GraphQL call and false as an assurance
+about the filter.
+
+> **Silence invites a second look. An assertion of validity forecloses it.**
+
+So when you write the reassuring branch of an instrument, the bar is higher than
+"do not lie." You must be able to prove the reassurance, or not offer it. If a
+tool cannot distinguish *"your query was valid and matched nothing"* from *"your
+query was meaningless,"* it must say the weaker thing — or resolve the filter and
+`die()`, which is what the fix costs: one extra query.
+
+The verifier's framing, kept verbatim: *it does not merely return
+empty-and-green, it affirmatively asserts the empty is trustworthy.*
+
 ## The instrument for this pattern: ask whether the thing is *reachable*
 
 Instances 28 and 29 are both citations — a promise that something exists somewhere

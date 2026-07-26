@@ -12,8 +12,9 @@ every defect found in the 2026-07-25/26 session.
 
 | lesson | one line |
 |---|---|
-| [An absent value rendered as real, failing quietly](absent-value-rendered-as-real.md) | Something that does not exist gets formatted as a plausible, often flattering value. **27 instances in one session.** An absence must be loud. |
-| [The thing being checked is not the thing that changed](checked-thing-is-not-the-changed-thing.md) | An honest measurement of the wrong artifact — a published copy, a cached copy, `src` instead of `dist`, another branch, another machine. **19 instances.** Red and green are equally uninformative. |
+| [An absent value rendered as real, failing quietly](absent-value-rendered-as-real.md) | Something that does not exist gets formatted as a plausible, often flattering value. **34 instances.** An absence must be loud — and never *assert* that an empty result is trustworthy unless you can prove it. |
+| [The thing being checked is not the thing that changed](checked-thing-is-not-the-changed-thing.md) | An honest measurement of the wrong artifact — a published copy, `src` instead of `dist`, another branch, another machine, or a config comment instead of the config's behaviour. **23 instances.** Red and green are equally uninformative. |
+| [A structure outliving the constraint that produced it](structure-outliving-its-constraint.md) | The workaround survives the fix, and its comment now argues against the supported path. The value and the subject are both fine; the **explanation** is false — so it survives review. |
 | [A second instrument beats a second reviewer](second-instrument-beats-second-reviewer.md) | The positive lesson. Every defect above survived diff review. A second measurement path by a different author is what caught them. |
 
 ## Release engineering
