@@ -85,6 +85,7 @@ bun add @aihu/reactive
 |---|---|
 | **Version** | `0.2.0` |
 | **Tier** | G — State — fine-grained Proxy-backed deep reactive trees (lazy per-key nodes, plain-assignment writes) |
+| **Bundle size** | 1.28 kB (gz) — limit 1900 B |
 | **Published files** | 3 entries |
 | **License** | MIT |
 

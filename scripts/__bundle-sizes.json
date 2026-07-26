@@ -1,542 +1,542 @@
 [
   {
     "name": "@aihu/context",
-    "bytes": -1,
+    "bytes": 420,
     "limit": "450 B"
   },
   {
     "name": "@aihu/signals",
-    "bytes": -1,
+    "bytes": 2232,
     "limit": "2350 B"
   },
   {
     "name": "@aihu/signals/lifecycle",
-    "bytes": -1,
+    "bytes": 170,
     "limit": "300 B"
   },
   {
     "name": "@aihu/arbor",
-    "bytes": -1,
-    "limit": "3300 B"
+    "bytes": 3175,
+    "limit": "3200 B"
   },
   {
     "name": "@aihu/runtime",
-    "bytes": -1,
+    "bytes": 4731,
     "limit": "4750 B"
   },
   {
     "name": "@aihu/agent",
-    "bytes": -1,
+    "bytes": 141,
     "limit": "200 B"
   },
   {
     "name": "@aihu-plugin/data",
-    "bytes": -1,
+    "bytes": 723,
     "limit": "800 B"
   },
   {
     "name": "@aihu-plugin/kindly-note",
-    "bytes": -1,
+    "bytes": 1692,
     "limit": "1850 B"
   },
   {
     "name": "@aihu/router",
-    "bytes": -1,
+    "bytes": 1750,
     "limit": "2400 B"
   },
   {
     "name": "@aihu/agent-service",
-    "bytes": -1,
+    "bytes": 2825,
     "limit": "2900 B"
   },
   {
     "name": "@aihu/agent-acp",
-    "bytes": -1,
+    "bytes": 675,
     "limit": "800 B"
   },
   {
     "name": "@aihu/agent-a2a",
-    "bytes": -1,
+    "bytes": 2680,
     "limit": "3000 B"
   },
   {
     "name": "@aihu/app",
-    "bytes": -1,
+    "bytes": 1817,
     "limit": "1900 B"
   },
   {
     "name": "@aihu/css-engine/runtime/cn",
-    "bytes": -1,
+    "bytes": 886,
     "limit": "1 KB"
   },
   {
     "name": "@aihu/css-engine/runtime/progressive",
-    "bytes": -1,
+    "bytes": 716,
     "limit": "3 KB"
   },
   {
     "name": "@aihu/primitives/context",
-    "bytes": -1,
+    "bytes": 430,
     "limit": "1 KB"
   },
   {
     "name": "@aihu/primitives/presence-gate",
-    "bytes": -1,
+    "bytes": 798,
     "limit": "4 KB"
   },
   {
     "name": "@aihu/primitives/form-control",
-    "bytes": -1,
+    "bytes": 1668,
     "limit": "4 KB"
   },
   {
     "name": "@aihu/primitives/config-provider",
-    "bytes": -1,
+    "bytes": 757,
     "limit": "4 KB"
   },
   {
     "name": "@aihu/primitives/roving-focus",
-    "bytes": -1,
+    "bytes": 1733,
     "limit": "4 KB"
   },
   {
     "name": "@aihu/primitives/collection",
-    "bytes": -1,
+    "bytes": 847,
     "limit": "4 KB"
   },
   {
     "name": "@aihu/primitives/dialog",
-    "bytes": -1,
+    "bytes": 2674,
     "limit": "4 KB"
   },
   {
     "name": "@aihu/primitives/tooltip",
-    "bytes": -1,
+    "bytes": 1878,
     "limit": "4 KB"
   },
   {
     "name": "@aihu/primitives/button",
-    "bytes": -1,
+    "bytes": 1131,
     "limit": "4 KB"
   },
   {
     "name": "@aihu/primitives/separator",
-    "bytes": -1,
+    "bytes": 566,
     "limit": "4 KB"
   },
   {
     "name": "@aihu/primitives/label",
-    "bytes": -1,
+    "bytes": 2135,
     "limit": "4 KB"
   },
   {
     "name": "@aihu/primitives/input",
-    "bytes": -1,
+    "bytes": 1466,
     "limit": "4 KB"
   },
   {
     "name": "@aihu/primitives/textarea",
-    "bytes": -1,
+    "bytes": 1444,
     "limit": "4 KB"
   },
   {
     "name": "@aihu/primitives/checkbox",
-    "bytes": -1,
+    "bytes": 1933,
     "limit": "4 KB"
   },
   {
     "name": "@aihu/primitives/switch",
-    "bytes": -1,
+    "bytes": 1844,
     "limit": "4 KB"
   },
   {
     "name": "@aihu/primitives/radio-group",
-    "bytes": -1,
+    "bytes": 3287,
     "limit": "4 KB"
   },
   {
     "name": "@aihu/store",
-    "bytes": -1,
+    "bytes": 1856,
     "limit": "2.5 KB"
   },
   {
     "name": "@aihu/reactive",
-    "bytes": -1,
+    "bytes": 1309,
     "limit": "1900 B"
   },
   {
     "name": "@aihu/reactive/helpers",
-    "bytes": -1,
+    "bytes": 528,
     "limit": "700 B"
   },
   {
     "name": "@aihu/use/shared",
-    "bytes": -1,
+    "bytes": 288,
     "limit": "320 B"
   },
   {
     "name": "@aihu/use/useEventListener",
-    "bytes": -1,
+    "bytes": 352,
     "limit": "390 B"
   },
   {
     "name": "@aihu/use/useEventListenerMap",
-    "bytes": -1,
+    "bytes": 435,
     "limit": "490 B"
   },
   {
     "name": "@aihu/use/useMouse",
-    "bytes": -1,
+    "bytes": 519,
     "limit": "570 B"
   },
   {
     "name": "@aihu/use/useToggle",
-    "bytes": -1,
+    "bytes": 179,
     "limit": "250 B"
   },
   {
     "name": "@aihu/use/useCounter",
-    "bytes": -1,
+    "bytes": 275,
     "limit": "350 B"
   },
   {
     "name": "@aihu/use/usePrevious",
-    "bytes": -1,
+    "bytes": 255,
     "limit": "350 B"
   },
   {
     "name": "@aihu/use/useSupported",
-    "bytes": -1,
+    "bytes": 139,
     "limit": "200 B"
   },
   {
     "name": "@aihu/use/useIntervalFn",
-    "bytes": -1,
+    "bytes": 325,
     "limit": "400 B"
   },
   {
     "name": "@aihu/use/useTimeoutFn",
-    "bytes": -1,
+    "bytes": 330,
     "limit": "400 B"
   },
   {
     "name": "@aihu/use/useRafFn",
-    "bytes": -1,
+    "bytes": 372,
     "limit": "450 B"
   },
   {
     "name": "@aihu/use/useNow",
-    "bytes": -1,
+    "bytes": 512,
     "limit": "600 B"
   },
   {
     "name": "@aihu/use/useDebounced",
-    "bytes": -1,
+    "bytes": 305,
     "limit": "350 B"
   },
   {
     "name": "@aihu/use/useThrottle",
-    "bytes": -1,
+    "bytes": 360,
     "limit": "450 B"
   },
   {
     "name": "@aihu/use/useElementSize",
-    "bytes": -1,
+    "bytes": 528,
     "limit": "1200 B"
   },
   {
     "name": "@aihu/use/useElementVisibility",
-    "bytes": -1,
+    "bytes": 596,
     "limit": "1150 B"
   },
   {
     "name": "@aihu/use/useScroll",
-    "bytes": -1,
+    "bytes": 543,
     "limit": "1200 B"
   },
   {
     "name": "@aihu/use/useWindowSize",
-    "bytes": -1,
+    "bytes": 482,
     "limit": "950 B"
   },
   {
     "name": "@aihu/use/useMediaQuery",
-    "bytes": -1,
+    "bytes": 340,
     "limit": "400 B"
   },
   {
     "name": "@aihu/use/usePreferredDark",
-    "bytes": -1,
+    "bytes": 383,
     "limit": "450 B"
   },
   {
     "name": "@aihu/use/useColorScheme",
-    "bytes": -1,
+    "bytes": 481,
     "limit": "550 B"
   },
   {
     "name": "@aihu/use/useDocumentVisibility",
-    "bytes": -1,
+    "bytes": 441,
     "limit": "520 B"
   },
   {
     "name": "@aihu/use/useLocalStorage",
-    "bytes": -1,
+    "bytes": 604,
     "limit": "650 B"
   },
   {
     "name": "@aihu/use/useClipboard",
-    "bytes": -1,
+    "bytes": 416,
     "limit": "480 B"
   },
   {
     "name": "@aihu/use/watch",
-    "bytes": -1,
+    "bytes": 368,
     "limit": "370 B"
   },
   {
     "name": "@aihu/use/math",
-    "bytes": -1,
+    "bytes": 158,
     "limit": "1200 B"
   },
   {
     "name": "@aihu/use/math/useClamp",
-    "bytes": -1,
+    "bytes": 158,
     "limit": "250 B"
   },
   {
     "name": "@aihu/use/motion",
-    "bytes": -1,
+    "bytes": 423,
     "limit": "3 KB"
   },
   {
     "name": "@aihu/use/motion/useReducedMotion",
-    "bytes": -1,
+    "bytes": 423,
     "limit": "900 B"
   },
   {
     "name": "@aihu/use/integrations/useJwt",
-    "bytes": -1,
+    "bytes": 338,
     "limit": "600 B"
   },
   {
     "name": "@aihu/use/router",
-    "bytes": -1,
+    "bytes": 165,
     "limit": "1500 B"
   },
   {
     "name": "@aihu/use/router/useRouteParams",
-    "bytes": -1,
+    "bytes": 165,
     "limit": "500 B"
   },
   {
     "name": "@aihu/use/usePreferredContrast",
-    "bytes": -1,
+    "bytes": 430,
     "limit": "480 B"
   },
   {
     "name": "@aihu/use/usePreferredReducedTransparency",
-    "bytes": -1,
+    "bytes": 411,
     "limit": "450 B"
   },
   {
     "name": "@aihu/use/useInterval",
-    "bytes": -1,
+    "bytes": 395,
     "limit": "425 B"
   },
   {
     "name": "@aihu/use/usePreferredLanguages",
-    "bytes": -1,
+    "bytes": 475,
     "limit": "520 B"
   },
   {
     "name": "@aihu/use/useBrowserLanguage",
-    "bytes": -1,
+    "bytes": 458,
     "limit": "500 B"
   },
   {
     "name": "@aihu/use/useTimeout",
-    "bytes": -1,
+    "bytes": 396,
     "limit": "425 B"
   },
   {
     "name": "@aihu/use/useOperatingSystem",
-    "bytes": -1,
+    "bytes": 392,
     "limit": "450 B"
   },
   {
     "name": "@aihu/use/useTimer",
-    "bytes": -1,
+    "bytes": 422,
     "limit": "450 B"
   },
   {
     "name": "@aihu/use/useTextDirection",
-    "bytes": -1,
+    "bytes": 441,
     "limit": "500 B"
   },
   {
     "name": "@aihu/use/useCountdown",
-    "bytes": -1,
+    "bytes": 496,
     "limit": "550 B"
   },
   {
     "name": "@aihu/use/useStopwatch",
-    "bytes": -1,
+    "bytes": 475,
     "limit": "525 B"
   },
   {
     "name": "@aihu/use/useDateFormat",
-    "bytes": -1,
+    "bytes": 250,
     "limit": "275 B"
   },
   {
     "name": "@aihu/use/useTimeAgo",
-    "bytes": -1,
+    "bytes": 639,
     "limit": "675 B"
   },
   {
     "name": "@aihu/use/useAsyncAbortable",
-    "bytes": -1,
+    "bytes": 519,
     "limit": "550 B"
   },
   {
     "name": "@aihu/use/useNetworkState",
-    "bytes": -1,
+    "bytes": 647,
     "limit": "700 B"
   },
   {
     "name": "@aihu/use/useIdle",
-    "bytes": -1,
+    "bytes": 750,
     "limit": "800 B"
   },
   {
     "name": "@aihu/use/useMap",
-    "bytes": -1,
+    "bytes": 350,
     "limit": "400 B"
   },
   {
     "name": "@aihu/use/useSet",
-    "bytes": -1,
+    "bytes": 299,
     "limit": "350 B"
   },
   {
     "name": "@aihu/use/useMeasure",
-    "bytes": -1,
+    "bytes": 723,
     "limit": "750 B"
   },
   {
     "name": "@aihu/use/useFocusWithin",
-    "bytes": -1,
+    "bytes": 415,
     "limit": "450 B"
   },
   {
     "name": "@aihu/use/useIntersectionObserver",
-    "bytes": -1,
+    "bytes": 470,
     "limit": "530 B"
   },
   {
     "name": "@aihu/use/useMutationObserver",
-    "bytes": -1,
+    "bytes": 351,
     "limit": "400 B"
   },
   {
     "name": "@aihu/use/usePerformanceObserver",
-    "bytes": -1,
+    "bytes": 263,
     "limit": "300 B"
   },
   {
     "name": "@aihu/use/useBreakpoints",
-    "bytes": -1,
+    "bytes": 555,
     "limit": "620 B"
   },
   {
     "name": "@aihu/use/useDevicePixelRatio",
-    "bytes": -1,
+    "bytes": 388,
     "limit": "440 B"
   },
   {
     "name": "@aihu/use/useOrientation",
-    "bytes": -1,
+    "bytes": 490,
     "limit": "550 B"
   },
   {
     "name": "@aihu/use/useDeviceOrientation",
-    "bytes": -1,
+    "bytes": 545,
     "limit": "610 B"
   },
   {
     "name": "@aihu/use/useDeviceMotion",
-    "bytes": -1,
+    "bytes": 566,
     "limit": "630 B"
   },
   {
     "name": "@aihu/use/usePageLeave",
-    "bytes": -1,
+    "bytes": 431,
     "limit": "480 B"
   },
   {
     "name": "@aihu/use/usePreferredReducedMotion",
-    "bytes": -1,
+    "bytes": 405,
     "limit": "450 B"
   },
   {
     "name": "@aihu/use/useAsync",
-    "bytes": -1,
+    "bytes": 406,
     "limit": "450 B"
   },
   {
     "name": "@aihu/use/useResizeObserver",
-    "bytes": -1,
+    "bytes": 335,
     "limit": "380 B"
   },
   {
     "name": "@aihu/use/useTimestamp",
-    "bytes": -1,
+    "bytes": 533,
     "limit": "575 B"
   },
   {
     "name": "@aihu/use/useClickOutside",
-    "bytes": -1,
+    "bytes": 835,
     "limit": "900 B"
   },
   {
     "name": "@aihu/use/useActiveElement",
-    "bytes": -1,
+    "bytes": 487,
     "limit": "520 B"
   },
   {
     "name": "@aihu/use/useHover",
-    "bytes": -1,
+    "bytes": 758,
     "limit": "820 B"
   },
   {
     "name": "@aihu/use/useMouseInElement",
-    "bytes": -1,
+    "bytes": 946,
     "limit": "1020 B"
   },
   {
     "name": "@aihu/auth",
-    "bytes": -1,
+    "bytes": 1184,
     "limit": "1.5 KB"
   },
   {
     "name": "@aihu/magna",
-    "bytes": -1,
+    "bytes": 758,
     "limit": "1.8 KB"
   },
   {
     "name": "@aihu/magna/codegen",
-    "bytes": -1,
+    "bytes": 1064,
     "limit": "1.2 KB"
   },
   {
     "name": "@aihu/editor",
-    "bytes": -1,
+    "bytes": 13881,
     "limit": "14 KB"
   },
   {
     "name": "@aihu/editor/safe-href",
-    "bytes": -1,
+    "bytes": 134,
     "limit": "300 B"
   }
 ]
