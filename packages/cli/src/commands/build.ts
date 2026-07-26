@@ -12,8 +12,7 @@
  */
 
 import { spawn } from 'node:child_process'
-import { existsSync } from 'node:fs'
-import { join } from 'node:path'
+import { loadProjectConfig } from '../load-project-config.js'
 
 interface BuildAihuConfig {
   build?: { bundler?: string; target?: string }
@@ -59,21 +58,19 @@ function printHelp(): void {
       '  --target <t>   Build target: client | server | universal (default: universal)',
       '  --help, -h     Show this help',
       '',
-      'Bundler is detected from aihu.config.ts build.bundler (default: vite).',
+      'Bundler is read from vite.config.ts (build.bundler); aihu.config.ts still works.',
       '',
     ].join('\n'),
   )
 }
 
 async function loadConfig(cwd: string): Promise<BuildAihuConfig | null> {
-  const configPath = join(cwd, 'aihu.config.ts')
-  if (!existsSync(configPath)) return null
-  try {
-    const mod = (await import(configPath)) as { default?: BuildAihuConfig }
-    return mod.default ?? {}
-  } catch {
-    return {}
-  }
+  // Reads vite.config.ts first (the canonical location), falling back to a
+  // legacy aihu.config.ts. Previously this hand-rolled a dynamic import of
+  // aihu.config.ts and could not see config passed inline to viteAihuPlugin —
+  // which is how every example is written.
+  const loaded = await loadProjectConfig(cwd)
+  return loaded ? (loaded.config as BuildAihuConfig) : null
 }
 
 async function runVite(target: string): Promise<void> {

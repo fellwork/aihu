@@ -366,3 +366,15 @@ export function defineConfig(config: AihuConfig): AihuConfig {
   validateConfig(config, 'config')
   return config
 }
+
+/**
+ * Validate a config object without the `defineConfig` ceremony.
+ *
+ * `viteAihuPlugin()` calls this on its inline argument. Before, only configs
+ * routed through `defineConfig` were checked — so every example, which passes
+ * the object straight to the plugin, was unvalidated. That is the path that
+ * matters most now that the Vite config is the canonical home.
+ */
+export function validateAihuConfig(config: AihuConfig): void {
+  validateConfig(config, 'config')
+}

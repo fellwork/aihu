@@ -12,5 +12,7 @@ export type {
   SiteConfig,
   VitePassthrough,
 } from './config.ts'
-export { AihuConfigError, defineConfig } from './config.ts'
+export { AIHU_CONFIG_KEYS, AihuConfigError, defineConfig, validateAihuConfig } from './config.ts'
+export type { AihuPluginApi, LoadedAihuConfig } from './load-config.ts'
+export { AIHU_CONFIG_PLUGIN, loadAihuConfig } from './load-config.ts'
 export { viteAihuPlugin } from './vite-plugin.ts'

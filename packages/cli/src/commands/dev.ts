@@ -16,6 +16,7 @@ import { spawn } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
+import { loadProjectConfig } from '../load-project-config.js'
 
 // ANSI pattern built via constructor to satisfy biome noControlCharactersInRegex.
 const ANSI_RE = new RegExp(`${String.fromCharCode(0x1b)}\\[[\\d;]*[A-Za-z]`, 'g')
@@ -127,14 +128,10 @@ function printHelp(): void {
 }
 
 async function loadConfig(cwd: string): Promise<DevAihuConfig | null> {
-  const configPath = join(cwd, 'aihu.config.ts')
-  if (!existsSync(configPath)) return null
-  try {
-    const mod = (await import(configPath)) as { default?: DevAihuConfig }
-    return mod.default ?? {}
-  } catch {
-    return {}
-  }
+  // vite.config.ts first, legacy aihu.config.ts as fallback. See
+  // load-project-config.ts for why the Vite config is canonical.
+  const loaded = await loadProjectConfig(cwd)
+  return loaded ? (loaded.config as DevAihuConfig) : null
 }
 
 function runVite(flags: DevFlags): void {
