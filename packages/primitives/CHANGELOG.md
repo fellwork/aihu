@@ -1,5 +1,73 @@
 # @aihu/primitives
 
+## 0.1.5
+
+### Patch Changes
+
+- [#538](https://github.com/fellwork/aihu/pull/538) [`6c4d9cb`](https://github.com/fellwork/aihu/commit/6c4d9cbef430e33456370f82c0310444c43f1325) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Fix `composed-tree.ts`'s upward walk (`composedParent`) to consult
+  `assignedSlot`, so it agrees with the slot-aware downward walk
+  (`composedChildren`/`walkComposedTree`). Previously, `composedParent` only
+  hopped `ShadowRoot -> .host`, never resolving a slotted node to its `<slot>` —
+  so `composedContains`, `composedClosest`, and `composedCompareOrder` (all
+  built on `composedParent`) silently disagreed with `queryTabbables` for any
+  slotted subtree.
+
+  This broke `createFocusTrap` in exactly the shadow-DOM-opt-in scenario it
+  exists to support: a focus-trap container living inside a shadow tree that
+  receives its content via `<slot>`. `queryTabbables` found the slotted
+  focusable, but `composedContains`'s `!composedContains` guard fired on every
+  Tab press, force-refocusing the first element and trapping the user on it —
+  Tab could never reach the other slotted controls.
+
+  It also silently degraded `<aihu-collection>`'s DOM-order sort
+  (`sortDomOrder` / `composedCompareOrder`, used by `roving-focus` and
+  `radio-group`) for light-DOM siblings slotted under a single shadow host: the
+  ancestor chains diverged at the host with no common ancestor found, and the
+  comparator fell back to `0`, silently reverting to registration order instead
+  of rendered order.
+
+  Added upward-walk slot-boundary tests (`composedContains`/`composedClosest`
+  across a `<slot>`, and a `composedCompareOrder` probe for two slotted
+  siblings under a shared shadow host) — the existing slot-boundary coverage
+  only exercised the downward walk (`walkComposedTree`).
+
+- [#543](https://github.com/fellwork/aihu/pull/543) [`aff5bf3`](https://github.com/fellwork/aihu/commit/aff5bf37a1b2358f8e7e9dcd71551a6afa8118d5) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Fix `queryTabbables`' tab-order reconstruction to match the real HTML
+  sequential-focus-navigation algorithm instead of reordering each
+  focus-navigation scope in place at its original composed-DFS position.
+
+  Previously, a nested shadow root's content stayed pinned at the document
+  position its host originally occupied, rather than traveling WITH the host
+  once the host's own scope was reordered by tabindex. This diverged from the
+  platform's real Tab sequence in exactly the scenario this module exists to
+  get right — a positive-`tabindex` element and a shadow host interacting in
+  the same scope:
+
+  - A natural host before a positive-`tabindex` sibling: returned `[b, x, a]`
+    where the browser visits `[b, a, x]`.
+  - A positive-`tabindex` host: returned `[host, a, x]` where the browser
+    enters the host's shadow tree immediately after the host, visiting
+    `[host, x, a]`.
+
+  Both cases made `createFocusTrap`'s first/last-tabbable bookkeeping disagree
+  with native Tab traversal, causing the trap to wrap at the wrong edges.
+
+  `queryTabbables` now builds a real scope tree during the walk: each open
+  shadow root is a nested scope whose HOST is a member of the parent scope
+  (ordered there by the host's own `tabindex`, even when the host itself isn't
+  tabbable); each scope's direct members are ordered by tab rules (positive
+  `tabindex` ascending, ties in tree order, then naturals in tree order); and
+  each host's already-ordered nested scope is spliced in immediately after it
+  in the parent's ordered sequence — not left at its original DFS slot.
+
+  Corrected the `orderScope` doc comment's cross-scope invariant claim
+  accordingly (a nested scope moves with its host; it does not keep its
+  original relative document position) and added regression tests for both
+  confirmed cases.
+
+- Updated dependencies [[`2f24fa3`](https://github.com/fellwork/aihu/commit/2f24fa3fdc592c85e39f500a48a7e4d3ff67c86d), [`a993aa1`](https://github.com/fellwork/aihu/commit/a993aa19d402c221faa463dfb5d94c86cc87b670), [`edc15f2`](https://github.com/fellwork/aihu/commit/edc15f2a2de541fa8f7ffd6266ad984446206257), [`ad6921a`](https://github.com/fellwork/aihu/commit/ad6921a018ef4a479f6540278e549aa9a8cab387)]:
+  - @aihu/arbor@4.0.0
+  - @aihu/signals@0.5.0
+
 ## 0.1.4
 
 ### Patch Changes

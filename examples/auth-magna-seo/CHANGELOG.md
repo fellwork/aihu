@@ -1,5 +1,16 @@
 # @aihu/example-auth-magna-seo
 
+## 0.0.6
+
+### Patch Changes
+
+- Updated dependencies [[`ad6921a`](https://github.com/fellwork/aihu/commit/ad6921a018ef4a479f6540278e549aa9a8cab387)]:
+  - @aihu/signals@0.5.0
+  - @aihu/auth@5.0.0
+  - @aihu/magna@0.2.5
+  - @aihu/server@0.4.1
+  - @aihu/seo@1.0.3
+
 ## 0.0.5
 
 ### Patch Changes

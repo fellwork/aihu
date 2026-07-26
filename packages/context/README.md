@@ -34,7 +34,6 @@ bun add @aihu/context
 |---|---|
 | **Version** | `0.2.0` |
 | **Tier** | A — Reactive runtime core — async-context request primitives |
-| **Bundle size** | 420 B (gz) — limit 450 B |
 | **Published files** | 3 entries |
 | **License** | MIT |
 

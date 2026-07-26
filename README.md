@@ -219,54 +219,54 @@ Per-package gates enforced by `bun run size`:
 
 | Package | Size (gz) | Limit | Status |
 |---|---:|---:|:---:|
-| `@aihu/context` | 420 B | 450 B | pass |
-| `@aihu/signals` | 2.18 kB | 2350 B | pass |
-| `@aihu/signals/lifecycle` | 170 B | 300 B | pass |
-| `@aihu/arbor` | 3.10 kB | 3200 B | pass |
-| `@aihu/runtime` | 4.62 kB | 4750 B | pass |
-| `@aihu/agent` | 141 B | 200 B | pass |
-| `@aihu-plugin/data` | 723 B | 800 B | pass |
-| `@aihu-plugin/kindly-note` | 1.65 kB | 1850 B | pass |
-| `@aihu/router` | 1.71 kB | 2400 B | pass |
-| `@aihu/agent-service` | 2.76 kB | 2900 B | pass |
-| `@aihu/agent-acp` | 675 B | 800 B | pass |
-| `@aihu/agent-a2a` | 2.62 kB | 3000 B | pass |
-| `@aihu/app` | 1.77 kB | 1900 B | pass |
-| `@aihu/css-engine/runtime/cn` | 886 B | 1 KB | pass |
-| `@aihu/css-engine/runtime/progressive` | 716 B | 3 KB | pass |
-| `@aihu/primitives/context` | 430 B | 1 KB | pass |
-| `@aihu/primitives/presence-gate` | 798 B | 4 KB | pass |
-| `@aihu/primitives/form-control` | 1.63 kB | 4 KB | pass |
-| `@aihu/primitives/config-provider` | 757 B | 4 KB | pass |
-| `@aihu/primitives/roving-focus` | 1.69 kB | 4 KB | pass |
-| `@aihu/primitives/collection` | 847 B | 4 KB | pass |
-| `@aihu/primitives/dialog` | 2.61 kB | 4 KB | pass |
-| `@aihu/primitives/tooltip` | 1.83 kB | 4 KB | pass |
-| `@aihu/primitives/button` | 1.10 kB | 4 KB | pass |
-| `@aihu/primitives/separator` | 566 B | 4 KB | pass |
-| `@aihu/primitives/label` | 2.08 kB | 4 KB | pass |
-| `@aihu/primitives/input` | 1.43 kB | 4 KB | pass |
-| `@aihu/primitives/textarea` | 1.41 kB | 4 KB | pass |
-| `@aihu/primitives/checkbox` | 1.89 kB | 4 KB | pass |
-| `@aihu/primitives/switch` | 1.80 kB | 4 KB | pass |
-| `@aihu/primitives/radio-group` | 3.21 kB | 4 KB | pass |
-| `@aihu/store` | 1.81 kB | 2.5 KB | pass |
-| `@aihu/reactive` | 1.28 kB | 1900 B | pass |
-| `@aihu/reactive/helpers` | 528 B | 700 B | pass |
-| `@aihu/use/shared` | 288 B | 320 B | pass |
-| `@aihu/use/math` | 158 B | 1200 B | pass |
-| `@aihu/use/motion` | 423 B | 3 KB | pass |
-| `@aihu/use/router` | 165 B | 1500 B | pass |
-| `@aihu/auth` | 1.16 kB | 1.5 KB | pass |
-| `@aihu/magna` | 758 B | 1.8 KB | pass |
-| `@aihu/magna/codegen` | 1.04 kB | 1.2 KB | pass |
-| `@aihu/editor` | 13.56 kB | 14 KB | pass |
-| `@aihu/editor/safe-href` | 134 B | 300 B | pass |
-| `@aihu/use` (61 composables) | 139 B – 946 B | 36 distinct limits | pass |
-| `@aihu/use/integrations` (1 composable) | 338 B | 600 B | pass |
-| `@aihu/use/math` (1 composable) | 158 B | 250 B | pass |
-| `@aihu/use/motion` (1 composable) | 423 B | 900 B | pass |
-| `@aihu/use/router` (1 composable) | 165 B | 500 B | pass |
+| `@aihu/context` | — | 450 B | _no dist_ |
+| `@aihu/signals` | — | 2350 B | _no dist_ |
+| `@aihu/signals/lifecycle` | — | 300 B | _no dist_ |
+| `@aihu/arbor` | — | 3300 B | _no dist_ |
+| `@aihu/runtime` | — | 4750 B | _no dist_ |
+| `@aihu/agent` | — | 200 B | _no dist_ |
+| `@aihu-plugin/data` | — | 800 B | _no dist_ |
+| `@aihu-plugin/kindly-note` | — | 1850 B | _no dist_ |
+| `@aihu/router` | — | 2400 B | _no dist_ |
+| `@aihu/agent-service` | — | 2900 B | _no dist_ |
+| `@aihu/agent-acp` | — | 800 B | _no dist_ |
+| `@aihu/agent-a2a` | — | 3000 B | _no dist_ |
+| `@aihu/app` | — | 1900 B | _no dist_ |
+| `@aihu/css-engine/runtime/cn` | — | 1 KB | _no dist_ |
+| `@aihu/css-engine/runtime/progressive` | — | 3 KB | _no dist_ |
+| `@aihu/primitives/context` | — | 1 KB | _no dist_ |
+| `@aihu/primitives/presence-gate` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/form-control` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/config-provider` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/roving-focus` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/collection` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/dialog` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/tooltip` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/button` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/separator` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/label` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/input` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/textarea` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/checkbox` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/switch` | — | 4 KB | _no dist_ |
+| `@aihu/primitives/radio-group` | — | 4 KB | _no dist_ |
+| `@aihu/store` | — | 2.5 KB | _no dist_ |
+| `@aihu/reactive` | — | 1900 B | _no dist_ |
+| `@aihu/reactive/helpers` | — | 700 B | _no dist_ |
+| `@aihu/use/shared` | — | 320 B | _no dist_ |
+| `@aihu/use/math` | — | 1200 B | _no dist_ |
+| `@aihu/use/motion` | — | 3 KB | _no dist_ |
+| `@aihu/use/router` | — | 1500 B | _no dist_ |
+| `@aihu/auth` | — | 1.5 KB | _no dist_ |
+| `@aihu/magna` | — | 1.8 KB | _no dist_ |
+| `@aihu/magna/codegen` | — | 1.2 KB | _no dist_ |
+| `@aihu/editor` | — | 14 KB | _no dist_ |
+| `@aihu/editor/safe-href` | — | 300 B | _no dist_ |
+| `@aihu/use` (61 composables) | — | 36 distinct limits | _no dist_ |
+| `@aihu/use/integrations` (1 composable) | — | 600 B | _no dist_ |
+| `@aihu/use/math` (1 composable) | — | 250 B | _no dist_ |
+| `@aihu/use/motion` (1 composable) | — | 900 B | _no dist_ |
+| `@aihu/use/router` (1 composable) | — | 500 B | _no dist_ |
 
 <sub><i>Auto-generated — run `bun scripts/sync-readme.ts` to update.</i></sub>
 
@@ -304,24 +304,24 @@ See [`packages/`](./packages) for all packages on disk. By tier:
 
 | Package | Version | Description |
 |---|---|---|
-| [`@aihu-plugin/agent-readiness`](./packages/plugin-agent-readiness) | `2.2.1` | Discovery + readiness manifest emitter so agents can introspect aihu apps. |
-| [`@aihu-plugin/data`](./packages/plugin-data) | `2.0.4` | Reactive data loaders and resource primitives for aihu. |
-| [`@aihu-plugin/drizzle`](./packages/plugin-drizzle) | `0.1.3` | Drizzle ORM data adapter for aihu — typed createResource fetchers and defineLoader helpers (Postgres / SQLite / libSQL). |
-| [`@aihu-plugin/kindly-note`](./packages/plugin-kindly-note) | `0.2.3` | Runtime syntax highlighting + markdown rendering for aihu — <aihu-code>/<aihu-markdown> custom elements + signal-aware highlight()/renderMarkdown() helpers, powered by published @kindly-note/* packages with lazy loading. |
-| [`@aihu/adapter-cloudflare`](./packages/adapter-cloudflare) | `7.0.0` | Cloudflare Workers/Pages deployment adapter for @aihu/app. |
-| [`@aihu/adapter-vercel`](./packages/adapter-vercel) | `7.0.0` | Vercel deployment adapter for @aihu/app. |
+| [`@aihu-plugin/agent-readiness`](./packages/plugin-agent-readiness) | `2.2.2` | Discovery + readiness manifest emitter so agents can introspect aihu apps. |
+| [`@aihu-plugin/data`](./packages/plugin-data) | `2.0.5` | Reactive data loaders and resource primitives for aihu. |
+| [`@aihu-plugin/drizzle`](./packages/plugin-drizzle) | `0.1.4` | Drizzle ORM data adapter for aihu — typed createResource fetchers and defineLoader helpers (Postgres / SQLite / libSQL). |
+| [`@aihu-plugin/kindly-note`](./packages/plugin-kindly-note) | `0.2.4` | Runtime syntax highlighting + markdown rendering for aihu — <aihu-code>/<aihu-markdown> custom elements + signal-aware highlight()/renderMarkdown() helpers, powered by published @kindly-note/* packages with lazy loading. |
+| [`@aihu/adapter-cloudflare`](./packages/adapter-cloudflare) | `8.0.0` | Cloudflare Workers/Pages deployment adapter for @aihu/app. |
+| [`@aihu/adapter-vercel`](./packages/adapter-vercel) | `8.0.0` | Vercel deployment adapter for @aihu/app. |
 | [`@aihu/agent`](./packages/agent) | `0.2.0` | Agent primitives — the foundation of aihu agent-readiness. |
 | [`@aihu/agent-a2a`](./packages/agent-a2a) | `1.0.0` | A2A (Agent2Agent) protocol bindings (spec v1.0.1, JSON-RPC) for @aihu/agent-service. |
 | [`@aihu/agent-acp`](./packages/agent-acp) | `0.2.0` | DEPRECATED — use @aihu/agent-a2a. BeeAI ACP merged into A2A under the Linux Foundation (Aug 2025); this adapter's invented ACP shape has no spec to conform to. |
 | [`@aihu/agent-readiness`](./packages/_moved/agent-readiness) | `2.0.2` | [MOVED] This package has moved to @aihu-plugin/agent-readiness. |
-| [`@aihu/agent-server`](./packages/agent-server) | `0.4.1` | Server-side glue: mount an aihu component server-side and let an MCP client drive it through the agent-service live-dispatch gate, forwarding approved invocations to a browser bridge. |
+| [`@aihu/agent-server`](./packages/agent-server) | `0.4.2` | Server-side glue: mount an aihu component server-side and let an MCP client drive it through the agent-service live-dispatch gate, forwarding approved invocations to a browser bridge. |
 | [`@aihu/agent-service`](./packages/agent-service) | `0.3.0` | Service-side agent runtime (server-hosted agent endpoints). |
 | [`@aihu/ai`](./packages/ai) | `0.1.0` | Thin adapters from AI SDK stream types to ReadableStream<string> for aihu $stream collections. |
-| [`@aihu/app`](./packages/app) | `6.0.0` | Top-level app integration — wires runtime, router, and adapters into a Vite app. |
-| [`@aihu/arbor`](./packages/arbor) | `3.0.0` | Reactive component tree (the rendering layer that consumes @aihu/signals). |
-| [`@aihu/auth`](./packages/auth) | `4.0.0` | JWT scope checks, ScopeSignal, and server middleware for aihu auth. |
+| [`@aihu/app`](./packages/app) | `7.0.0` | Top-level app integration — wires runtime, router, and adapters into a Vite app. |
+| [`@aihu/arbor`](./packages/arbor) | `4.0.0` | Reactive component tree (the rendering layer that consumes @aihu/signals). |
+| [`@aihu/auth`](./packages/auth) | `5.0.0` | JWT scope checks, ScopeSignal, and server middleware for aihu auth. |
 | [`@aihu/cli`](./packages/cli) | `1.0.1` | Aihu CLI (`aihu`, `create-aihu`) — scaffolding, dev, build commands. |
-| [`@aihu/compiler`](./packages/compiler) | `1.1.0` | Single File Component (.aihu) compiler — Rust binary + JS glue. |
+| [`@aihu/compiler`](./packages/compiler) | `1.1.1` | Single File Component (.aihu) compiler — Rust binary + JS glue. |
 | [`@aihu/compiler-native-darwin-arm64`](./packages/compiler/npm-native/darwin-arm64) | `0.1.2` | aihu compiler native addon (napi) — darwin-arm64 platform binary. |
 | [`@aihu/compiler-native-darwin-x64`](./packages/compiler/npm-native/darwin-x64) | `0.1.2` | aihu compiler native addon (napi) — darwin-x64 platform binary. |
 | [`@aihu/compiler-native-linux-arm64-gnu`](./packages/compiler/npm-native/linux-arm64-gnu) | `0.1.2` | aihu compiler native addon (napi) — linux-arm64-gnu platform binary. |
@@ -329,26 +329,26 @@ See [`packages/`](./packages) for all packages on disk. By tier:
 | [`@aihu/compiler-native-win32-x64-msvc`](./packages/compiler/npm-native/win32-x64-msvc) | `0.1.2` | aihu compiler native addon (napi) — win32-x64-msvc platform binary. |
 | [`@aihu/context`](./packages/context) | `0.2.0` | Async-context-friendly request/SSR context primitives for aihu. |
 | [`@aihu/css-engine`](./packages/css-engine) | `0.4.6` | aihu CSS engine — Tailwind v4 hard fork with WC-native scoped output. |
-| [`@aihu/data`](./packages/_moved/data) | `2.0.4` | [MOVED] This package has moved to @aihu-plugin/data. |
-| [`@aihu/editor`](./packages/editor) | `0.1.1` | Hand-rolled, dependency-free, GX-governed rich-text editor — JSON doc model, invertible transactions, markdown (web-v1 dialect) round-trip, contenteditable view with IME-safe read-back, agent read/suggest/write surface. |
-| [`@aihu/language-server`](./packages/language-server) | `0.3.1` | Cross-editor Language Server (aihu-language-server) for .aihu Single File Components — diagnostics, hover, completion, and quick-fix code actions. |
-| [`@aihu/magna`](./packages/magna) | `0.2.4` | aihu bridge for Magna GraphQL — dep-free fetch, resource composition, JWT relay |
+| [`@aihu/data`](./packages/_moved/data) | `2.0.5` | [MOVED] This package has moved to @aihu-plugin/data. |
+| [`@aihu/editor`](./packages/editor) | `0.1.2` | Hand-rolled, dependency-free, GX-governed rich-text editor — JSON doc model, invertible transactions, markdown (web-v1 dialect) round-trip, contenteditable view with IME-safe read-back, agent read/suggest/write surface. |
+| [`@aihu/language-server`](./packages/language-server) | `0.3.2` | Cross-editor Language Server (aihu-language-server) for .aihu Single File Components — diagnostics, hover, completion, and quick-fix code actions. |
+| [`@aihu/magna`](./packages/magna) | `0.2.5` | aihu bridge for Magna GraphQL — dep-free fetch, resource composition, JWT relay |
 | [`@aihu/mcp`](./packages/mcp) | `0.2.0` | MCP server for aihu — exposes aihu_example and aihu_validate tools via stdio transport. |
 | [`@aihu/plugin`](./packages/plugin) | `0.1.0` | Plugin substrate shared by @aihu/server and the meta-framework — runtime hook surface. |
-| [`@aihu/plugin-demo`](./packages/plugin-demo) | `0.1.3` | Canonical proof-of-life for the @aihu/plugin API — exercises macros, middleware, and transforms. |
-| [`@aihu/primitives`](./packages/primitives) | `0.1.4` | aihu headless behavior primitives — WAI-ARIA APG patterns as vanilla custom elements, zero CSS. |
-| [`@aihu/reactive`](./packages/reactive) | `0.1.0` | Fine-grained Proxy-backed deep reactive trees on aihu signals — lazy per-(object,key) tracking nodes, plain-assignment writes, mutate/reconcile. |
-| [`@aihu/router`](./packages/router) | `0.4.1` | File-based router for the aihu meta-framework. |
-| [`@aihu/runtime`](./packages/runtime) | `4.0.0` | Single File Component (.aihu) runtime — registers custom elements compiled by @aihu/compiler. |
+| [`@aihu/plugin-demo`](./packages/plugin-demo) | `0.1.4` | Canonical proof-of-life for the @aihu/plugin API — exercises macros, middleware, and transforms. |
+| [`@aihu/primitives`](./packages/primitives) | `0.1.5` | aihu headless behavior primitives — WAI-ARIA APG patterns as vanilla custom elements, zero CSS. |
+| [`@aihu/reactive`](./packages/reactive) | `0.2.0` | Fine-grained Proxy-backed deep reactive trees on aihu signals — lazy per-(object,key) tracking nodes, plain-assignment writes, mutate/reconcile. |
+| [`@aihu/router`](./packages/router) | `0.4.2` | File-based router for the aihu meta-framework. |
+| [`@aihu/runtime`](./packages/runtime) | `5.0.0` | Single File Component (.aihu) runtime — registers custom elements compiled by @aihu/compiler. |
 | [`@aihu/scraping`](./packages/scraping) | `0.2.0` | O(1) sliding-window rate limiter and bot-detection middleware for aihu agent services. |
-| [`@aihu/seo`](./packages/seo) | `1.0.2` | DEPRECATED compatibility shim over @aihu-plugin/agent-readiness (sitemap.xml, robots.txt, llms.txt, JSON-LD). |
-| [`@aihu/server`](./packages/server) | `0.4.0` | Server runtime + native renderer (napi-rs) for aihu SSR. |
-| [`@aihu/signals`](./packages/signals) | `0.4.0` | Tiny reactive signals — the reactive primitive at the core of aihu. |
-| [`@aihu/store`](./packages/store) | `0.1.1` | Pinia-style global stores on aihu signals — defineStore, SSR-safe per-request instances, registry-based serialize/hydrate, plugins. |
+| [`@aihu/seo`](./packages/seo) | `1.0.3` | DEPRECATED compatibility shim over @aihu-plugin/agent-readiness (sitemap.xml, robots.txt, llms.txt, JSON-LD). |
+| [`@aihu/server`](./packages/server) | `0.4.1` | Server runtime + native renderer (napi-rs) for aihu SSR. |
+| [`@aihu/signals`](./packages/signals) | `0.5.0` | Tiny reactive signals — the reactive primitive at the core of aihu. |
+| [`@aihu/store`](./packages/store) | `0.1.2` | Pinia-style global stores on aihu signals — defineStore, SSR-safe per-request instances, registry-based serialize/hydrate, plugins. |
 | [`@aihu/templates-cf-team`](./packages/templates/cf-team) | `3.0.1` | Cloudflare Workers + monorepo (bun workspaces + moon) team template for Aihu |
-| [`@aihu/tsc`](./packages/tsc) | `0.2.5` | aihu-tsc — `tsc` for projects containing .aihu Single File Components. Type-checks .aihu sources as virtual TypeScript, with no .aihu.ts files written to disk. |
+| [`@aihu/tsc`](./packages/tsc) | `0.2.6` | aihu-tsc — `tsc` for projects containing .aihu Single File Components. Type-checks .aihu sources as virtual TypeScript, with no .aihu.ts files written to disk. |
 | [`@aihu/ui`](./packages/ui) | `0.1.0` | aihu styled-recipe registry — copy-paste .aihu recipes distributed as source via `aihu add` (no runtime bundle). |
-| [`@aihu/use`](./packages/use) | `0.3.0` | aihu utility/sensor/state composables — SSR-safe, scope-aware, per-composable subpath entries. |
+| [`@aihu/use`](./packages/use) | `0.4.0` | aihu utility/sensor/state composables — SSR-safe, scope-aware, per-composable subpath entries. |
 | [`create-aihu`](./packages/create-aihu) | `0.1.6` | Scaffold a new Aihu app — the `npm create aihu` / `npx create-aihu` entry point. Thin delegator to @aihu/cli. |
 | [`vscode-aihu`](./packages/vscode-aihu) | `1.0.0` | Syntax highlighting, snippets, and language support for .aihu Single File Components |
 

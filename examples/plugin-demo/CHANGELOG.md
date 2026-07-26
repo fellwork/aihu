@@ -1,5 +1,14 @@
 # @aihu/example-plugin-demo
 
+## 0.0.6
+
+### Patch Changes
+
+- Updated dependencies [[`ad6921a`](https://github.com/fellwork/aihu/commit/ad6921a018ef4a479f6540278e549aa9a8cab387)]:
+  - @aihu/signals@0.5.0
+  - @aihu/plugin-demo@0.1.4
+  - @aihu/server@0.4.1
+
 ## 0.0.5
 
 ### Patch Changes

@@ -1,5 +1,153 @@
 # @aihu/use
 
+## 0.4.0
+
+### Minor Changes
+
+- [#541](https://github.com/fellwork/aihu/pull/541) [`549bfc5`](https://github.com/fellwork/aihu/commit/549bfc54020a01b2d10311c7c9b407ea695ef201) Thanks [@srmcguirt](https://github.com/srmcguirt)! - feat(use): namespace subpaths (`/math`, `/motion`, `/integrations`, `/router`) + Wave 0 gate infrastructure
+
+  `@aihu/use` becomes a namespace: the CORE surface (bare `@aihu/use` + its
+  per-composable subpaths) stays dependency-free (signals-only), while new
+  FAMILY subpaths may declare optional peer dependencies
+  (`peerDependenciesMeta.optional`), isolated per-composable entry so a
+  consumer who never imports a family never resolves its peers.
+
+  New family subpaths (additive, purely opt-in):
+
+  - `@aihu/use/math` — dep-free pure computed derivations (seeded by `useClamp`)
+  - `@aihu/use/motion` — reduced-motion/spring-style primitives (seeded by
+    `useReducedMotion`)
+  - `@aihu/use/integrations` — third-party wrappers behind optional peers
+    (seeded by `useJwt`, optional peer `jwt-decode`)
+  - `@aihu/use/router` — router composables behind optional peers on
+    `@aihu/router` + `@aihu/context` (seeded by `useRouteParams`)
+
+  `packages/use/families.json` is the new single source of truth for family
+  shape (aggregate/autoImport/size budgets/peer map), enforced by:
+
+  - `scripts/dep-check.ts`'s `checkUseSubpathPurity` — walks each rolldown
+    entry's reachable-file graph and proves CORE reaches `@aihu/signals` only
+    (never a family file), and a family entry reaches only its own
+    `families.json`-declared peers (never another family's files or an
+    un-declared peer).
+  - `scripts/check-use-registry-parity.ts` — family-aware six-touch-point
+    parity (barrel export, package.json exports key, rolldown input,
+    `.size-limit.json` row, `USE_COMPOSABLES` tuple where `autoImport: true`,
+    aggregate-barrel invariants).
+  - `scripts/gen-use.ts` — the scaffolder gains `--family` support, patching
+    all of the above consistently for a new family member.
+
+  `packages/compiler/src/codegen/use_registry.rs`'s `USE_COMPOSABLES` registry
+  gains two auto-import entries for the `autoImport: true` family composables
+  (`useClamp` -> `@aihu/use/math/useClamp`, `useReducedMotion` ->
+  `@aihu/use/motion/useReducedMotion`), hence the compiler patch bump (and the
+  matching platform-binary version bump under `packages/compiler/npm/*`, per
+  `check:compiler-binary-bump`).
+
+- [#550](https://github.com/fellwork/aihu/pull/550) [`9d8a49d`](https://github.com/fellwork/aihu/commit/9d8a49db0c31e4a45757f0a645a8dc80c5e370fd) Thanks [@srmcguirt](https://github.com/srmcguirt)! - feat(use): Wave 1a — 33 CORE composables (timers, preference-media, observers/sensors, async/collections)
+
+  `@aihu/use` grows 33 new CORE composables (no `--family`, signals-only,
+  `packages/use/families.json` unaffected):
+
+  - **Timers**: `useTimestamp`, `useInterval`, `useTimeout`, `useTimer`,
+    `useCountdown`, `useStopwatch`, `useDateFormat`, `useTimeAgo`.
+  - **Preference/media**: `usePreferredReducedMotion` (now the canonical
+    implementation — `@aihu/use/motion`'s `useReducedMotion` is refactored to
+    a thin delegating wrapper, family -> core), `usePreferredContrast`,
+    `usePreferredReducedTransparency`, `usePreferredLanguages`,
+    `useBrowserLanguage`, `useOperatingSystem`, `useTextDirection`.
+  - **Observers/sensors**: `useResizeObserver`, `useIntersectionObserver`,
+    `useMutationObserver`, `usePerformanceObserver`, `useBreakpoints`,
+    `useDevicePixelRatio`, `useOrientation`, `useDeviceOrientation`,
+    `useDeviceMotion`, `usePageLeave`.
+  - **Async/collections**: `useAsync`, `useAsyncAbortable`, `useNetworkState`,
+    `useIdle`, `useMap`, `useSet`, `useMeasure`, `useFocusWithin`.
+
+  All 33 follow the house composable contract: `isClient`-guard-first SSR
+  no-ops, `tryOnScopeDispose` teardown for every timer/listener/observer, and
+  CORE's signals-only dependency rule (verified by
+  `scripts/dep-check.ts`'s `checkUseSubpathPurity`). 61 composables now pass
+  `scripts/check-use-registry-parity.ts`'s family-aware six/seven-touch-point
+  check (up from 28).
+
+  `packages/compiler/src/codegen/use_registry.rs`'s `USE_COMPOSABLES` registry
+  gains all 33 auto-import tuples for this wave, hence the compiler patch bump
+  (and the matching platform-binary version bump under
+  `packages/compiler/npm/*`, per `check:compiler-binary-bump`).
+
+- [#574](https://github.com/fellwork/aihu/pull/574) [`0f55923`](https://github.com/fellwork/aihu/commit/0f5592322e216fb39df9a674d0889746473a25f5) Thanks [@srmcguirt](https://github.com/srmcguirt)! - feat(use): Wave 2 Elements — 4 shadow-DOM-correct CORE composables
+
+  `@aihu/use` grows the four Elements composables that were blocked on the
+  composed-tree event substrate (PR [#564](https://github.com/fellwork/aihu/issues/564),
+  `docs/plans/2026-07-24-composed-tree-helper.md`):
+
+  - **`useClickOutside`** (alias `onClickOutside`) — fires when a
+    `pointerdown`/`pointerup` gesture both land outside the target (and outside
+    every `ignore` entry). The pointerdown/pointerup pairing stores two
+    **booleans**, never the raw events — `composedPath()` is only populated
+    during an event's own dispatch, so re-reading a stashed event after it
+    finishes silently degrades back to the broken `event.target` up-walk.
+  - **`useActiveElement`** — a reactive `composedActiveElement`, drilled
+    through open shadow roots to the truly-focused leaf (`document
+.activeElement` alone stops at the outermost host).
+  - **`useHover`** — `isEventInside` on `pointerover`/`pointerout`, with
+    `relatedTarget` containment (via `composedContains`) to suppress
+    descendant-to-descendant flicker, plus `delayEnter`/`delayLeave`.
+  - **`useMouseInElement`** — mouse position relative to a target, with
+    `isOutside` driven by `isEventInside` (not bounding-box geometry) and
+    `scroll`/`resize` re-derivation between pointer moves.
+
+  All four hit-test through `../shared/composed-tree.ts`'s
+  `isEventInside`/`isEventInsideAny`/`composedContains`/`composedActiveElement`
+  — never `Element.contains()` or a naive up-walk from `event.target`, both of
+  which give the wrong answer once a click/hover genuinely originates inside a
+  nested shadow element (`event.target` is retargeted UP to the outermost
+  shadow host, so a container below that host is never on the up-walk).
+
+  Every composable follows the house contract: `isClient`-guard-first SSR
+  no-ops, `tryOnScopeDispose`/manual `stop()` teardown, and CORE's
+  signals-only dependency rule (`scripts/dep-check.ts`). Tests exercise real
+  `attachShadow` boundaries (single and two-level-nested), not mocks — per the
+  repo's standing lesson that light-DOM-only tests have repeatedly passed
+  while shadow-DOM behaviour was broken. `useClickOutside` additionally has a
+  dedicated regression test for the "stores events, not booleans" bug class:
+  a genuine click two shadow roots deep, dispatched as two separate
+  `pointerdown`/`pointerup` events, only passes if pointerdown's hit-test
+  result was captured as a boolean during ITS OWN dispatch rather than
+  re-derived later from a stashed event whose `composedPath()` has since gone
+  empty.
+
+  `useContextMenu` (`@aihu/primitives`, same substrate, different package
+  layer) is intentionally not part of this PR.
+
+### Patch Changes
+
+- [#562](https://github.com/fellwork/aihu/pull/562) [`3aa0ed4`](https://github.com/fellwork/aihu/commit/3aa0ed40017a445981571540414c84866aaaf1cd) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Fix `scripts/dep-check.ts` and `packages/use/rolldown.config.ts` so
+  `@aihu/use`'s allowed-externals check and rolldown `external` option are
+  subpath-aware instead of exact-string match.
+
+  Both compared an import specifier against the allowed-package set with a
+  plain `Set.has(spec)` / array membership check, so a subpath import like
+  `@aihu/signals/lifecycle` (a real published subpath, added by [#549](https://github.com/fellwork/aihu/issues/549)) failed
+  the allowed-package test even though `@aihu/signals` itself is permitted.
+  `scripts/dep-check.ts`'s `checkUseSubpathPurity` would reject the import and
+  fail `bun run check:deps`; `rolldown.config.ts`'s `external` array wouldn't
+  externalize it either, so rolldown would silently inline the module into
+  every consuming entry, inflating that entry's `.size-limit.json` row.
+
+  Both now match on the package-name boundary — `spec === pkg ||
+spec.startsWith(pkg + '/')` — so a declared package's subpaths pass while an
+  unrelated package that merely shares a string prefix still does not.
+  `@aihu/use` remains signals-only by policy: `@aihu/runtime` (and anything
+  else not explicitly allowed) is still rejected by both checks.
+
+  This unblocks the `@aihu/use` Wave work that adopts the new
+  `@aihu/signals/lifecycle` contract (FEL-390, FEL-392, FEL-393).
+
+- Updated dependencies [[`ad6921a`](https://github.com/fellwork/aihu/commit/ad6921a018ef4a479f6540278e549aa9a8cab387)]:
+  - @aihu/signals@0.5.0
+  - @aihu/router@0.4.2
+
 ## 0.3.0
 
 ### Minor Changes
