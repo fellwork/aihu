@@ -88,8 +88,8 @@ export type StoreCustomOptions = Record<string, unknown>
 
 /**
  * State detection for setup-style stores — mirrored at runtime in
- * `store.ts` (`collectSetupShape`): a key `k` is a state entry when the
- * setup returns a zero-arg read function under `k` AND a setter under
+ * `store.ts` (`instantiateSetup`, pass 1): a key `k` is a state entry when
+ * the setup returns a zero-arg read function under `k` AND a setter under
  * `set${Capitalize<k>}`. Computed reads (which carry `.dispose`) are
  * excluded at runtime; the type level cannot see that, so a computed that
  * coincidentally has a `set*` sibling types as state but is skipped at

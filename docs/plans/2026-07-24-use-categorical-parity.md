@@ -104,7 +104,9 @@ five integrations named in ruling A (`useAxios`/`useCookies`/`useJwt`/`useDrauu`
 (`useFuse`, `useQRCode`, `useIDBKeyval`, `useNProgress`, `useSortable`-as-a-wrapper, etc.) is
 **out of scope for now** — see §5 non-goals.
 
-**E. Still-open blockers.** Record as OPEN — do not invent answers here. See §6.
+**E. Still-open blockers.** Recorded as OPEN at the time of this ruling — do not invent
+answers here. See §6. *(Superseded in part: **E1 was ratified 2026-07-24/26** and §6 now
+carries the ruling. E2 and E3 remain open.)*
 
 ---
 
@@ -351,7 +353,7 @@ don't re-propose.
 |---|---|---|---|---|
 | — | `useNetworkState`, `useWebSocket`/`useSSE` (`useEventSource`), `useBroadcastChannel` | `useFetch` | **BLOCKED (E2)**, same item as Async category — implement once. | |
 
-### Reactivity (ref/signal utilities) — P2 → `@aihu/use` CORE (largely BLOCKED by E1)
+### Reactivity (ref/signal utilities) — P2 → `@aihu/use` CORE (E1 resolved; gated on packaging)
 
 | We ship | Filed | Missing | Target | Notes |
 |---|---|---|---|---|
@@ -359,7 +361,7 @@ don't re-propose.
 | | | `refAutoReset`/`autoResetRef`, `refDefault`, `refManualReset`, `refWithControl`/`controlledRef`, `syncRef`/`syncRefs` | CORE | Timer/cross-signal-sync composition over the shipped pattern. |
 | | | `useToNumber`/`useToString` | CORE | Trivial computed conversion. |
 | | | `useCached` | CORE, **caveat** (fable correction #6) | Largely redundant with `signal()`/`computed()`'s existing `equals` option — verify it adds anything before filing as new work; likely a doc recipe. |
-| | | `reactiveComputed`/`reactiveOmit`/`reactivePick`/`toReactive`-equivalents | **BLOCKED (E1)** | Need a deep/structural-reactivity primitive `@aihu/signals` does not have. |
+| | | `reactiveComputed`/`reactiveOmit`/`reactivePick`/`toReactive`-equivalents | **SHIPPED elsewhere (E1 resolved)** | No longer a missing primitive: shipped in #548 and exported from `@aihu/reactive/helpers`. Not reachable from `@aihu/use` until the packaging decision in §6 lands. |
 
 ### Sensors (observers, keyboard, device, breakpoints) — P1 → `@aihu/use` CORE
 
@@ -386,9 +388,9 @@ Window/Document overloads — document as a usage pattern, not a new composable.
 | | | `useCookie`/`useCookies` (Storage-interface, distinct from `/integrations`' `useCookies` wrapper) | CORE | |
 | | | `useHash`, `useUrlSearchParams` | `@aihu/use/router` | Router-model access, ruling B; VueUse's `useUrlSearchParams` is also `[PROXY]`-flagged, needs redesign. |
 | | | `useList`/`useQueue` | CORE | Portable if returning a new array reference per mutation. |
-| | | `useObject` | **PARTIALLY BLOCKED (E1)** | Field-level reactivity needs the same deep-reactivity primitive gap. |
+| | | `useObject` | **BLOCKED (packaging, not E1)** | Field-level reactivity now exists in `@aihu/reactive`; `@aihu/use` cannot import it. See §6. |
 | | | `useField` | CORE | Single form-field value + validation signal. |
-| | | `useForm` (value/validation half) | CORE | ARIA/disabled/required coordination is already covered by the existing form-control primitive — don't duplicate; full field-aggregation is **PARTIALLY BLOCKED (E1)**. |
+| | | `useForm` (value/validation half) | CORE | ARIA/disabled/required coordination is already covered by the existing form-control primitive — don't duplicate; full field-aggregation is **BLOCKED (packaging, not E1)** — see §6. |
 | | | `useValidatedState`/`useMask` (state-shape half, distinct from the DOM-writing `useMask` in Elements) | CORE | |
 | | | `useCycleList`, `useDefault`, `useOffsetPagination` | CORE | Trivial; VueUse confirms `useOffsetPagination` is not `[PROXY]`-flagged. |
 
@@ -418,7 +420,7 @@ wrapper as an optional follow-on once FSM lands.
 | | | `useDebounceEffect`/`useThrottleEffect`, `useBatchedCallback`, `useMemoize` | CORE | |
 | | | `useEventBus`/`createEventHook` | CORE | Signals-only pub/sub, no DOM. |
 | | | `useConst`, `useLastChanged`, `useBase64` | CORE | Trivial. |
-| | | `useCloned` | CORE, **PARTIAL blocker (E1)** | Deep-watching a caller-mutated source needs the same deep-reactivity gap. |
+| | | `useCloned` | CORE, **BLOCKED (packaging, not E1)** | Deep-watching a caller-mutated source needs `@aihu/reactive`, which `@aihu/use` cannot import. See §6. |
 | | | `useAsyncQueue` | CORE, needs array-of-signals redesign | VueUse flags `[PROXY]` on the public return — not a straight port. |
 | | | `useChangeCase` | CORE, **native** implementation (ruling B) | Case conversion is trivial to write dep-free — do not wrap the `change-case` npm package. |
 
@@ -503,9 +505,9 @@ Wave 0 as the open-blockers prerequisite (E) plus the namespace/gate infrastruct
 every family-subpath wave depends on.
 
 - **Wave 0 — prerequisites (blocks Waves 3, 5, and parts of 4/6/9/11).**
-  Resolve E1 (deep-reactivity story or ratify "replace, don't mutate"), E2 (the
-  `@aihu/runtime` exception — relocate or sanction one isolated entry), and E3 (real
-  `tryOnMounted`/`tryOnUnmounted`, not the interim stub). Stand up the namespace: add
+  Resolve E2 (the `@aihu/runtime` exception — relocate or sanction one isolated entry) and
+  E3 (real `tryOnMounted`/`tryOnUnmounted`, not the interim stub). E1 is resolved, but the
+  `@aihu/reactive` packaging decision in §6 gates `useObject`/`useCloned`/`useForm`. Stand up the namespace: add
   `/math`, `/motion`, `/integrations`, `/router` subpath exports to `packages/use/package.json`,
   and land the `check:deps` subpath-level static-import-scan + size-limit rows described in §2.
 - **Wave 1 (P1, near-zero risk, CORE).** Time family (`useTimer`/`useCountdown`/`useStopwatch`/
@@ -559,7 +561,7 @@ every family-subpath wave depends on.
 - **Wave 9 (P3, utilities polish, CORE).** `useDebounceFn`/`useThrottleFn`/
   `useBatchedCallback`/`useDebounceEffect`/`useThrottleEffect`/`useMemoize`/`useEventBus`/
   `useConst`/`useLastChanged`/`useBase64`/`useAsyncQueue`-redesigned/`useLogger`/
-  `useChangeCase` (native). `useCloned` stays **PARTIALLY BLOCKED (E1)**.
+  `useChangeCase` (native). `useCloned` stays **BLOCKED on the §6 packaging decision** (E1 itself is resolved).
 - **Wave 10 (P3, Math — `@aihu/use/math`).** All 13 math items, plus gesture's velocity/
   rubberband/axis-lock math split in from ruling B. Requires Wave 0's namespace
   infrastructure.
@@ -649,18 +651,39 @@ category, no action.
 
 ---
 
-## 6. Open blockers (OPEN — not resolved by this doc)
+## 6. Blockers (E1 RESOLVED; E2 and E3 remain OPEN)
 
-**E1 — Deep/structural reactivity.** `@aihu/signals` has none: signals are reference-compared
-tuples with an `Object.is`-by-default (custom-`equals`-capable) comparison, no Proxy/
-`reactive()` layer. Either build a deep-reactivity story, or ratify "replace, don't mutate" as
-the **permanent** composable contract. Blocks `reactiveComputed`/`reactivePick`/
-`reactiveOmit`/`toReactive`-equivalents outright; partially blocks `useObject` and full
-`useForm` field-aggregation (need field-level reactivity, not whole-value replacement) and
-`useCloned`. Confirmed by the shipped `useLocalStorage`, which already replaces the whole
-value per write rather than diffing fields — the existing shipped pattern is consistent with
-"replace, don't mutate" already, for what that's worth to the decision, but the decision
-itself is not made here.
+**E1 — Deep/structural reactivity. → RESOLVED, founder-ratified 2026-07-24 and 2026-07-26.
+Tracked on FEL-391.**
+
+The original blocker: `@aihu/signals` has no deep reactivity — signals are
+reference-compared tuples with an `Object.is`-by-default (custom-`equals`-capable)
+comparison, no Proxy/`reactive()` layer. The question was whether to build a
+deep-reactivity story, or ratify "replace, don't mutate" as the **permanent** composable
+contract.
+
+**The ruling is: both, in that order.** Deep reactivity is BUILT — as a separate package
+`@aihu/reactive` (Proxy-backed, Solid-shaped node allocation, Vue-shaped writes) layered on
+`@aihu/signals`' public API with zero bytes added to the guarded core. And "replace, don't
+mutate" **stands as the composable contract**: every shipped composable keeps the
+replace-the-whole-value semantics, deep reactivity is an opt-in alongside it rather than a
+replacement, and the per-list reactive opt-in leaves FEL-228's eager loop-var leaves as the
+default so nothing regresses. The shipped `useLocalStorage` — which already replaces the
+whole value per write rather than diffing fields — is therefore the pattern going forward,
+not an interim compromise. Design doc:
+[`2026-07-24-deep-reactivity.md`](./2026-07-24-deep-reactivity.md) (§"Founder rulings").
+
+**What that unblocks, and what it does not.** `reactiveComputed` / `reactivePick` /
+`reactiveOmit` / `toReactive` are no longer blocked as a *doctrine* question — they shipped
+in #548 and are exported from the **`@aihu/reactive/helpers`** subpath. But `useObject`,
+`useCloned` and full `useForm` field-aggregation remain blocked **in their filed location**
+for a packaging reason, not a design one: `@aihu/use` cannot import `@aihu/reactive`.
+Verified against `origin/main` at `bc1c4eac` — `packages/use/package.json` declares
+`@aihu/signals` as its sole dependency with optional peers `@aihu/context`, `@aihu/router`
+and `jwt-decode`, and `packages/use/families.json` declares only `math`, `motion`, `router`
+and `integrations`. **The open decision is packaging** — a `@aihu/reactive` optional-peer
+family under ruling A's family mechanism, versus relocating those composables — and it is
+the remaining gate on scheduling them. Do not read "E1 resolved" as "these are schedulable."
 
 **E2 — The `@aihu/runtime` exception.** `useFetch`, `useMounted`, `useCurrentElement`, and the
 real (non-stub) lifecycle hooks (`tryOnMounted`/`tryOnUnmounted` family, `useAsyncEffect`)
