@@ -71,6 +71,9 @@ jobs:
   build:
     name: Build ${{ matrix.asset }}
     runs-on: ${{ matrix.runner }}
+    # Longest observed run of this job is ~3 min; without a bound a hang
+    # inherits GitHub's 360 min default and stalls the release for six hours.
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -169,6 +172,9 @@ jobs:
   build-wasm:
     name: Build aihu-compile-wasm bundle
     runs-on: ubuntu-22.04
+    # Longest observed run of this job is ~3 min; without a bound a hang
+    # inherits GitHub's 360 min default and stalls the release for six hours.
+    timeout-minutes: 30
     # WASM bundle for browser-side compilation in the homepage playground
     # (Directive 1 + arch-4 §4.6). Output is a tar.gz of the wasm-pack `pkg-wasm/`
     # directory so consumers receive the full glue (.wasm + .js + .d.ts + package.json).
@@ -225,6 +231,9 @@ jobs:
     name: Publish GitHub Release
     needs: [build, build-wasm]
     runs-on: ubuntu-22.04
+    # Longest observed run of this job is ~3 min; without a bound a hang
+    # inherits GitHub's 360 min default and stalls the release for six hours.
+    timeout-minutes: 20
     # Only create a Release when triggered by an actual tag push. The
     # workflow_dispatch dry-run path stops after build/build-wasm; binaries
     # are available as workflow artifacts only.
@@ -273,6 +282,9 @@ jobs:
   build-native:
     name: Build native ${{ matrix.platform }}
     runs-on: ${{ matrix.runner }}
+    # Longest observed run of this job is ~3 min; without a bound a hang
+    # inherits GitHub's 360 min default and stalls the release for six hours.
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -341,6 +353,9 @@ jobs:
     name: Publish @aihu/server-* platform packages
     needs: build-native
     runs-on: ubuntu-22.04
+    # Longest observed run of this job is ~3 min; without a bound a hang
+    # inherits GitHub's 360 min default and stalls the release for six hours.
+    timeout-minutes: 20
     # Tag push (stable) OR canary workflow_dispatch. On a plain dispatch
     # (canary=false) this job still skips, preserving the old dry-run-build
     # behavior of the `tag` input path.
@@ -435,6 +450,9 @@ jobs:
   build-css-native:
     name: Build css-engine ${{ matrix.platform }}
     runs-on: ${{ matrix.runner }}
+    # Longest observed run of this job is ~3 min; without a bound a hang
+    # inherits GitHub's 360 min default and stalls the release for six hours.
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -500,6 +518,9 @@ jobs:
     name: Publish @aihu/css-engine-* platform packages
     needs: build-css-native
     runs-on: ubuntu-22.04
+    # Longest observed run of this job is ~3 min; without a bound a hang
+    # inherits GitHub's 360 min default and stalls the release for six hours.
+    timeout-minutes: 20
     # Tag push (stable) OR canary workflow_dispatch (see publish-native).
     if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.canary)
     steps:
@@ -598,6 +619,9 @@ jobs:
     name: Publish @aihu/compiler-* platform packages
     needs: build
     runs-on: ubuntu-22.04
+    # Longest observed run of this job is ~3 min; without a bound a hang
+    # inherits GitHub's 360 min default and stalls the release for six hours.
+    timeout-minutes: 20
     # Tag push (stable) OR canary workflow_dispatch (see publish-native).
     if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.canary)
     steps:
@@ -715,6 +739,9 @@ jobs:
   build-compiler-napi:
     name: Build compiler addon ${{ matrix.platform }}
     runs-on: ${{ matrix.runner }}
+    # Longest observed run of this job is ~3 min; without a bound a hang
+    # inherits GitHub's 360 min default and stalls the release for six hours.
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -804,6 +831,9 @@ jobs:
     name: Publish @aihu/compiler-native-* platform packages
     needs: build-compiler-napi
     runs-on: ubuntu-22.04
+    # Longest observed run of this job is ~3 min; without a bound a hang
+    # inherits GitHub's 360 min default and stalls the release for six hours.
+    timeout-minutes: 20
     # Tag push (stable) OR canary workflow_dispatch (see publish-native).
     if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.canary)
     steps:
@@ -888,6 +918,9 @@ jobs:
     name: Publish @aihu/* packages to npm
     needs: [build, build-wasm, build-native, publish-native, build-css-native, publish-css-native, publish-compiler-native, build-compiler-napi, publish-compiler-napi]
     runs-on: ubuntu-22.04
+    # Longest observed run of this job is ~3 min; without a bound a hang
+    # inherits GitHub's 360 min default and stalls the release for six hours.
+    timeout-minutes: 30
     # Tag push (stable) OR canary workflow_dispatch. In canary mode the needed
     # publish-* jobs above all run (canary condition), so `needs` still chains.
     if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.canary)
