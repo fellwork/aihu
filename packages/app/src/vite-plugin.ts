@@ -127,6 +127,10 @@ export function viteAihuPlugin(config?: AihuConfig): PluginOption[] {
   const routerOpts = {
     pagesDir: config?.dir?.pages ?? 'pages',
     layoutsDir: config?.dir?.layouts ?? 'src/layouts',
+    // `componentsDir` has existed on RouterPluginOptions all along but was
+    // unreachable from aihu.config.ts — changing it meant calling
+    // viteRouterIntegration() yourself, i.e. abandoning viteAihuPlugin.
+    ...(config?.dir?.components != null ? { componentsDir: config.dir.components } : {}),
     // Give the router's route generator the compiler's route-metadata extractor
     // so per-route head/middleware/params/ssr flow into virtual:aihu-routes in
     // SPA builds (no .route.json sidecar is written on the stdin compile path).
@@ -245,7 +249,12 @@ export function viteAihuPlugin(config?: AihuConfig): PluginOption[] {
     // utility classes (or any cascade-dependent CSS framework) which need
     // `'light'` so styles aren't trapped in shadow roots.
     aihuCompilerPlugin({
-      islands: false,
+      // `islands` was hardcoded false here, with the comment above telling the
+      // reader to "opt back in via the compiler plugin directly" — a framework
+      // documenting a workaround instead of exposing an option. It is now
+      // `compiler.islands`, still defaulting to false.
+      islands: config?.compiler?.islands ?? false,
+      ...(config?.compiler?.target != null ? { target: config.compiler.target } : {}),
       // Compile layouts (under the same dir the router scans) in layout mode:
       // namespaced tag + passive <outlet> marker the client renderer fills.
       layoutsDir: routerOpts.layoutsDir,
