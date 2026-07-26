@@ -1,5 +1,119 @@
 # @aihu/signals
 
+## 0.5.0
+
+### Minor Changes
+
+- [#549](https://github.com/fellwork/aihu/pull/549) [`ad6921a`](https://github.com/fellwork/aihu/commit/ad6921a018ef4a479f6540278e549aa9a8cab387) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Add the lifecycle-ownership DX contract
+  (docs/plans/2026-07-24-lifecycle-ownership-dx.md), scoped to `@aihu/signals`
+
+  - `@aihu/runtime` only:
+
+  * **`@aihu/signals/lifecycle`** — a new tree-shakable subpath (own
+    `.size-limit.json` row, separate rolldown entry, 0 B added to the guarded
+    `@aihu/signals` index row): a DOM-free ownership CONTRACT — a
+    `LifecycleHost` interface (`connected: () => boolean`,
+    `onCommit(fn): void`), a `WeakMap<EffectScope, LifecycleHost>`, an
+    `@internal` `_attachLifecycleHost(scope, host)`, and `getLifecycleHost()`
+    resolving via the public `getCurrentScope()`.
+  * **`@aihu/runtime`** owns the rAF-coalesced commit queue and the
+    per-connection `connected` signal, and attaches the `LifecycleHost` in
+    `_build()` right after `_componentScopes.set`. `SetupContext` gains a
+    `connected: () => boolean` field. A new bare `onCommit` export runs a
+    registered callback once, after the next layout/paint opportunity,
+    coalesced across every component into one `requestAnimationFrame` per
+    frame; it is `_cur`-gated (setup-only), a tighter window than
+    `LifecycleHost.onCommit` (valid during setup OR inside an `onMount` body).
+    `connected` is created once inside `_build()`, so it is identical on the
+    normal-connect path and the hydration path (`define-element.ts`'s
+    hydration branch calls `_build()` directly and bypasses
+    `define-component`'s `connectedCallback`); it latches to `false` inside
+    `_stopComponentScope()` — the real shared teardown choke point — rather
+    than being duplicated across `disconnectedCallback`.
+  * The `@aihu/runtime` `.size-limit.json` row moves from 4500 B to 4750 B —
+    `onCommit` + the per-instance `connected` signal are load-bearing per the
+    design (§6.4). Measured with `@aihu/signals/lifecycle` correctly
+    `ignore`d (see below): 4319 B → 4717 B, +398 B for this arc (higher than
+    the design's own ~130 B estimate, but real — the review-fix follow-ups
+    below account for the delta over the arc's initial 4630 B measurement:
+    the fail-loud `SCR-R0014` check, `_dropCommitsFor`, and their regression
+    tests all add bytes to the guarded row).
+
+  **Review-fix follow-ups (same unreleased arc, not a separate release):**
+
+  - `onCommit` (the bare `@aihu/runtime` export) now fails loud with
+    `RuntimeError('SCR-R0014', ...)` instead of silently dropping the
+    callback when `_cur` is set but the current scope has diverged from the
+    component root scope — reachable from inside a synchronous `effect()`
+    body during setup (signals P0-1 clears the current scope for every
+    effect run) or a nested `effectScope().run()` during setup. Matches the
+    design's stated contract (§7.2) and `onMount`'s fail-loud sibling
+    behavior. New regression test in `packages/runtime/tests/commit.test.ts`.
+  - `SetupContext.connected` is REQUIRED again, matching the approved design
+    (§4.1) — the prior `connected?:` widening was justified by a
+    misdiagnosis of the compiler's host-less SSR stubs (their `ctx` param is
+    unannotated, so `SetupContext` was never the checked type there; verified
+    with a full-workspace `bun run typecheck`, zero regressions).
+  - The rAF-coalesced commit queue now drops a component's queued `onCommit`
+    entries at disposal (`_dropCommitsFor`, `commit.ts`), not just at flush
+    time — previously a disconnect in a suspended/hidden background tab
+    (where `requestAnimationFrame` may never fire) left the queue retaining
+    the dead scope and its closure's captures indefinitely. New regression
+    tests assert immediate release.
+  - `@aihu/signals/lifecycle` is now excluded (`ignore`) from the
+    `@aihu/runtime` `.size-limit.json` measurement — it was being
+    double-counted (inlined into the measured bundle despite being a real,
+    separately-published external import in the actual `rolldown.config.ts`
+    build), which is what actually accounted for most of the budget overshoot
+    this row's limit bump was covering for.
+  - `packages/signals/scripts/mangle-dist.mjs` now mangles every emitted
+    `dist/*.js` file (not just `index.js`) with the same replacement table —
+    `dist/` is no longer a single self-contained file, and mangling only one
+    file would silently desync property names the moment a mangled field's
+    declaration and its access land in different emitted files.
+  - **No shared chunk on the reactivity hot path.** `rolldown.config.ts`
+    builds `index` and `lifecycle` as two INDEPENDENT single-entry builds
+    rather than one multi-entry build. A multi-entry build hoisted `scope.ts`
+    into a shared `scope-<hash>.js` chunk, putting `getCurrentScope` /
+    `setCurrentScope`, the scope cleanup register/unregister pair, and the
+    live `_currentScope` binding across a module boundary that the minifier
+    cannot inline through — an interleaved A/B against `main` (n=12 fresh
+    processes per arm) measured a range-DISJOINT slowdown on `dynamic-deps`,
+    with a byte-identical control arm at ~0 %. `dist/lifecycle.js` instead
+    takes `getCurrentScope` as an EXTERNAL import of the sibling entry
+    (`import{getCurrentScope}from"./index.js"`), which keeps exactly ONE
+    `_currentScope` instance — duplicating `scope.ts` into both bundles would
+    give the package two, and a scope entered through `@aihu/signals` would
+    be invisible to `getLifecycleHost()`. `dist/index.js` is now
+    `cmp`-byte-identical to `main`'s, and the same A/B puts `dynamic-deps` at
+    −0.3 % and `creation-1to1000` at +0.4 % (both ranges overlapping `main`).
+    The `@aihu/signals/lifecycle` size row measures 170 B (limit 300 B); the
+    guarded `@aihu/signals` row returns to 2232 B.
+  - `packages/signals/tests/lifecycle.test.ts` adds a source-level guard
+    asserting `src/index.ts` never imports `src/lifecycle.ts` and that no
+    other non-lifecycle source file references the `LifecycleHost`
+    attach/read symbols — the design (§6.4) calls this a hard acceptance
+    criterion, and the guarded size row alone is not a sufficient backstop at
+    today's headroom (a cross-import would still pass the row).
+
+  **Doc-discrepancy note (tracked as FEL-401):** the design doc claims
+  `_stopComponentScope()` was already shared by both real
+  `disconnectedCallback` forms in `define-component.ts` — that was false;
+  neither called it (it was only reachable from the two
+  `connectedCallback` throw-recovery paths and the hydration disconnect
+  bridge). Both `disconnectedCallback` bodies now route through
+  `_stopComponentScope()` too, which is what actually makes the `connected`
+  flip work on every real teardown path, not a doc correction.
+
+  **Deliberately deferred, NOT shipped here:** `useConnected()` and
+  `tryOnCommit()` on `@aihu/use` — that package is being restructured by a
+  concurrent workstream. `@aihu/use` still has no dependency on
+  `@aihu/runtime` or on this new subpath. Also not shipped: `useMounted()`
+  (the design shows it degenerates to a constant `true` — there is no
+  observable moment where `mounted === false` in aihu), the compiler surface
+  for `onCommit` (§2.4, `.aihu` template lowering), and the §3 DOM-move /
+  `moveBefore()` remedy — all out of scope for this track.
+
 ## 0.4.0
 
 ### Minor Changes

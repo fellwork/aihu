@@ -1,5 +1,272 @@
 # @aihu/compiler
 
+## 1.1.1
+
+### Patch Changes
+
+- [#558](https://github.com/fellwork/aihu/pull/558) [`7190b9c`](https://github.com/fellwork/aihu/commit/7190b9c2abb6d7d75473c62b0cae5fe92d39fae3) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Bump the `@aihu/compiler-native-<platform>` napi addon packages `0.1.0` → `0.1.1`
+  (all five platforms) and repoint `@aihu/compiler`'s `optionalDependencies` at the
+  new version, so the `@state` wrapper-dialect TDZ codegen fix ([#552](https://github.com/fellwork/aihu/issues/552)) actually
+  reaches consumers.
+
+  Without this bump the patch release is a **silent no-op for every downstream
+  user**. `.github/workflows/release.yml`'s `publish-compiler-napi` job is
+  idempotent by version:
+
+  ```bash
+  existing=$(npm view "${pkg_name}@${pkg_version}" version 2>/dev/null || true)
+  if [ -n "$existing" ]; then
+    echo "${pkg_name}@${pkg_version} already published — skipping"
+    continue
+  fi
+  ```
+
+  `@aihu/compiler-native-*@0.1.0` was published 2026-07-23 — _after_ the regression
+  landed — so it carries the buggy codegen, and a `v*` tag push would have printed
+  "already published — skipping" for all five platforms and shipped nothing. The
+  addon is the surface that matters: `packages/compiler/js/native.ts` loads it
+  in-process and `envelope.ts` **prefers it over any locally built binary** unless
+  `AIHU_COMPILE_BIN` or `AIHU_COMPILER_NATIVE=0` is set, so consumers (and CI jobs
+  that don't pin those vars) keep getting the broken output even after the Rust fix
+  lands.
+
+  These packages sit outside the workspace glob (`packages/*` does not match
+  `packages/compiler/npm-native/*`), so Changesets never versions them — only the
+  `--snapshot canary` lane restamps them, via `scripts/stamp-platform-snapshot.ts`.
+  Stable releases require this manual bump, exactly like the
+  `packages/compiler/npm/*` CLI binary packages that `check:compiler-binary-bump`
+  guards. Note that guard only covers `packages/compiler/npm/`, not
+  `npm-native/` — which is why this gap was not caught automatically.
+
+  Also refreshes `bun.lock`, whose `packages/compiler` manifest mirror still
+  recorded the pre-[#552](https://github.com/fellwork/aihu/issues/552) CLI platform pins (`0.1.30`) alongside the addon pins.
+
+- [#557](https://github.com/fellwork/aihu/pull/557) [`0fe47a9`](https://github.com/fellwork/aihu/commit/0fe47a9e1f686b7da1b863b7b84e1be40501bee1) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Fix `beforeNavigate` / `afterNavigate` callbacks so writes to a
+  `let x = state(v)` binding take the state write-rewrite (`x = v` →
+  `__x_set(v)`), as they already do in every other imperative position.
+
+  `emit_state_macro_code` ran the spliced running-code through
+  `rewrite_wrapper_code` at eleven sites (`$computed`, `$action`, `$effect`,
+  `$lifecycle`/`onMount`, `$resource`, the `StateLet` initializer, the plain
+  body, …) but not in the two navigation-guard arms, which forwarded the
+  author's callback verbatim. The authored `x = …` therefore survived into the
+  emit and re-assigned the `const [x, __x_set] = signal(…)` destructuring
+  binding, so the bundle failed with:
+
+  ```
+  [ILLEGAL_REASSIGNMENT] Unexpected re-assignment of const variable `path`
+  ```
+
+  Latent since the state-model landed: the only in-repo consumer of
+  `afterNavigate` wrote no signals, so nothing on `main` ever tripped it. Any
+  component that syncs a `state` binding from a navigation guard — the natural
+  way to track `location.pathname` — hit it immediately.
+
+  With no wrapper-form declarations in a file the rewrite's target set is empty
+  and it early-returns, so OLD-dialect `$beforeNavigate` / `$afterNavigate`
+  files emit byte-identically.
+
+- [#577](https://github.com/fellwork/aihu/pull/577) [`9346b61`](https://github.com/fellwork/aihu/commit/9346b61f3d266805156f93db1415cabbb1ade973) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Emit `html={expr}` into the SSR string, and bump the platform binary packages so
+  the fix can actually ship.
+
+  `html={expr}` was classified an SSR-transparent element effect alongside
+  `show`/`class:`/`ref`. Those are genuinely mount-time behaviours; `html` is not —
+  its value **is** the element's content. So `__ssrString` serialised the element
+  empty and the content only appeared once the client's `onMount replaceChildren`
+  ran. Any page whose body is an `html` binding prerendered hollow: correct in a
+  browser, invisible to crawlers, agents, and agent-readiness graders.
+  `emit_element_base` now interpolates the expression unescaped (nullish → `''`);
+  `raw` still wins and suppresses children.
+
+  **This is a served-bytes change, not just a DOM change.** The expression is now
+  interpolated unescaped into the static HTML you ship, so `html=` is an SSR-time
+  injection with the same contract as `innerHTML` — never point it at untrusted or
+  remote content.
+
+  Binary packages bumped: `packages/compiler/npm/*` `0.1.36` → `0.1.37` and
+  `packages/compiler/npm-native/*` `0.1.1` → `0.1.2`, with
+  `optionalDependencies` repointed.
+
+  Both sets deliberately. `check:compiler-binary-bump` is satisfied by _either_
+  (`changedFiles.some(isPlatformManifest)`), but `npm-native/` is the set
+  `envelope.ts` loads in-process, so bumping only `npm/` leaves the napi addon
+  stale — the same staleness this change exists to escape. Filed upstream as
+  FEL-414; the assertion that guard actually needs is "when compiler Rust changes,
+  `npm-native/` must be **strictly greater than the published** version", since
+  _changed_ is not _advanced_.
+
+  The `@aihu/compiler` patch bump above is the part that makes any of it reach
+  users. `release.yml` is idempotent by version, and `@aihu/compiler@1.1.0` is
+  already published pinning binaries at `0.1.27` / native `0.1.0`. Without a
+  version bump here, `publish-packages` prints "already published — skipping" and
+  the new pins never ship, exactly as happened for [#552](https://github.com/fellwork/aihu/issues/552). Worth noting how far that
+  has already drifted: the registry carries `@aihu/compiler-darwin-arm64@0.1.28`
+  and `@aihu/compiler-native-darwin-arm64@0.1.0` while the repo had reached
+  `0.1.36` / `0.1.1` — nine in-repo bumps that never reached a consumer. The
+  published `0.1.0` addon predates the prefix-less template grammar, which is why
+  building this repo without `AIHU_COMPILE_BIN` still fails with retired
+  `C306: use $html={expr}` errors against source that is already correct.
+
+- [#553](https://github.com/fellwork/aihu/pull/553) [`3790c91`](https://github.com/fellwork/aihu/commit/3790c91331fa7ecb15649213a66c83078e63dafe) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Make `$form` (D5) and `$aria` (B4) components actually run, and stop the
+  playground preview from dropping compiled presets on the floor.
+
+  `$form`/`$aria` were emit-tested but never executed, and four independent bugs
+  had accumulated behind that:
+
+  1. **`formAssociated` was assigned after registration, to `undefined`.** The
+     compiler bound `defineElement(...)`'s result to `const _aihuFormEl_<tag>` and
+     then wrote `.formAssociated = true` on it. `defineElement` returns `void`, so
+     that write threw `Cannot set properties of undefined` at module evaluation —
+     and even against a real class it would have been ignored, because
+     `customElements.define()` reads `formAssociated` off the constructor at
+     define time and never looks again. `defineElement` now takes a
+     `formAssociated` option and stamps it on the wrapped class _before_
+     `customElements.define`; the compiler passes
+     `{ formAssociated: true }` instead of emitting the post-define assignment.
+
+  2. **The wiring wrote through `this`.** Both collections emitted
+     `this._internals = this.attachInternals()` into the setup body — but setup is
+     an arrow (`setup: (ctx) => …`), so `this` there is the module's `this`
+     (`undefined` under ESM), never the element. Every `$aria`/`$form` component
+     threw on construction. The wiring now binds `ctx.element`.
+
+  3. **`$form` entry expressions skipped the signal-read rewrite.** Inside
+     `@state`, `value` names the getter, so `$form: { value: () => value }` was
+     handing `setFormValue` a _function_ (`The provided value is not of type
+'(File or USVString or FormData)?'`) and `validity` was calling `.trim()` on
+     one. Entry expressions now go through the same rewrite the template and
+     `derived`/`action` bodies get, and a thunk entry is called rather than passed
+     through.
+
+  4. **`setValidity(flags)` throws once any flag is true.** `$form` has no
+     `message` key, so the one-argument call could only work while the field was
+     valid. A fallback message is now derived from the failing flag names.
+
+  On the docs playground side, `stripTs` — which erases the compiler's TS output
+  so it can run in a plain `<script>` — had two holes that made the whole script
+  a `SyntaxError` (no error surfaced; the preview just came up empty):
+
+  - Parameter type annotations on the `function` declarations `action()` lowers
+    to (`function onInput(e: Event)`) were never stripped.
+  - The ` as unknown as <Type>` rule was greedy across `}`, so
+    `setTimeout(…, 300) as unknown as number });` lost the arrow body's closing
+    brace. It is now bounded to a single type reference, and covers ` as any` /
+    ` as ShadowRoot` / `as unknown as` in one rule.
+
+  Also adds `@aihu/context` to the root tsconfig `paths` map. The playground's
+  preview-runtime IIFE resolves `@aihu/*` through those paths (no package `dist`
+  exists at docs-build time); `@aihu/context` was missing, so rolldown treated it
+  as external and the bundle referenced an undefined `_aihu_context` global —
+  `window.__aihu` was never assigned and every preset died on
+  `Cannot read properties of undefined (reading 'branch')`.
+
+- [#552](https://github.com/fellwork/aihu/pull/552) [`c438669`](https://github.com/fellwork/aihu/commit/c4386693ebb1454e2e19094bab15a22157039745) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Fix a compiler codegen bug where `let x = state(init)` (the `@state`
+  reactive-declaration wrapper dialect) was reordered into a temporal-dead-zone
+  `ReferenceError` at runtime.
+
+  The compiler emitted every `@state` macro declaration — including `state()`
+  signal-tuple declarations — into a single `macro_code` block spliced AFTER
+  the entire plain-body of user code, regardless of where the author actually
+  wrote the `let x = state(init)` line. Any plain-body statement that
+  synchronously ran before setup finished and read `x` (e.g. a function defined
+  and immediately invoked in `@state`, like `docs-shell.aihu`'s
+  `seedFromPrerender()` reading `activePage()`) hit
+  `ReferenceError: Cannot access 'x' before initialization` — the emitted JS
+  declared the signal 30+ lines after the code that used it, even though the
+  author declared it first. `packages/runtime/src/define-component.ts`'s
+  `connectedCallback` catches and re-throws that setup error, so the shadow DOM
+  never rendered; this broke the apps/docs site's `docs-shell`/`playground-embed`
+  components (13 Playwright failures across layout/mobile/navigation/prerender/
+  playground specs) since PR [#497](https://github.com/fellwork/aihu/issues/497) (the `@state` wrapper-model migration).
+
+  Fixed by splicing each `let x = state(init)` declaration back into the
+  plain-body text INLINE, at its original source position, instead of
+  deferring it to the trailing `macro_code` block. A blanket hoist above all
+  of plain-body (the same shape as the existing `$prop`-binding hoist for
+  issue [#279](https://github.com/fellwork/aihu/issues/279) / "Bug 8") is NOT sound here: `signal(init)` evaluates `init`
+  eagerly, and `init` may call an earlier plain-body helper (exactly the
+  `pageFromLocation()` case in docs-shell.aihu) — hoisting the signal above ALL
+  of plain-body would just relocate the TDZ onto that helper instead of fixing
+  it. Splicing in place preserves the author's ordering in both directions.
+
+  Also fixes a shadow-tracking gap this splice exposed: `expr/state_rw.rs`'s
+  scope-aware read/write rewrite pass now walks the spliced declaration too
+  (it's part of the same plain-body AST), so without a targeted
+  `visit_variable_declarator` override it would treat `const [x, __x_set] =
+signal(init)`'s own binding identifiers as an ordinary local shadow and stop
+  rewriting later bare reads/writes of `x` in the rest of the body.
+
+- [#541](https://github.com/fellwork/aihu/pull/541) [`549bfc5`](https://github.com/fellwork/aihu/commit/549bfc54020a01b2d10311c7c9b407ea695ef201) Thanks [@srmcguirt](https://github.com/srmcguirt)! - feat(use): namespace subpaths (`/math`, `/motion`, `/integrations`, `/router`) + Wave 0 gate infrastructure
+
+  `@aihu/use` becomes a namespace: the CORE surface (bare `@aihu/use` + its
+  per-composable subpaths) stays dependency-free (signals-only), while new
+  FAMILY subpaths may declare optional peer dependencies
+  (`peerDependenciesMeta.optional`), isolated per-composable entry so a
+  consumer who never imports a family never resolves its peers.
+
+  New family subpaths (additive, purely opt-in):
+
+  - `@aihu/use/math` — dep-free pure computed derivations (seeded by `useClamp`)
+  - `@aihu/use/motion` — reduced-motion/spring-style primitives (seeded by
+    `useReducedMotion`)
+  - `@aihu/use/integrations` — third-party wrappers behind optional peers
+    (seeded by `useJwt`, optional peer `jwt-decode`)
+  - `@aihu/use/router` — router composables behind optional peers on
+    `@aihu/router` + `@aihu/context` (seeded by `useRouteParams`)
+
+  `packages/use/families.json` is the new single source of truth for family
+  shape (aggregate/autoImport/size budgets/peer map), enforced by:
+
+  - `scripts/dep-check.ts`'s `checkUseSubpathPurity` — walks each rolldown
+    entry's reachable-file graph and proves CORE reaches `@aihu/signals` only
+    (never a family file), and a family entry reaches only its own
+    `families.json`-declared peers (never another family's files or an
+    un-declared peer).
+  - `scripts/check-use-registry-parity.ts` — family-aware six-touch-point
+    parity (barrel export, package.json exports key, rolldown input,
+    `.size-limit.json` row, `USE_COMPOSABLES` tuple where `autoImport: true`,
+    aggregate-barrel invariants).
+  - `scripts/gen-use.ts` — the scaffolder gains `--family` support, patching
+    all of the above consistently for a new family member.
+
+  `packages/compiler/src/codegen/use_registry.rs`'s `USE_COMPOSABLES` registry
+  gains two auto-import entries for the `autoImport: true` family composables
+  (`useClamp` -> `@aihu/use/math/useClamp`, `useReducedMotion` ->
+  `@aihu/use/motion/useReducedMotion`), hence the compiler patch bump (and the
+  matching platform-binary version bump under `packages/compiler/npm/*`, per
+  `check:compiler-binary-bump`).
+
+- [#550](https://github.com/fellwork/aihu/pull/550) [`9d8a49d`](https://github.com/fellwork/aihu/commit/9d8a49db0c31e4a45757f0a645a8dc80c5e370fd) Thanks [@srmcguirt](https://github.com/srmcguirt)! - feat(use): Wave 1a — 33 CORE composables (timers, preference-media, observers/sensors, async/collections)
+
+  `@aihu/use` grows 33 new CORE composables (no `--family`, signals-only,
+  `packages/use/families.json` unaffected):
+
+  - **Timers**: `useTimestamp`, `useInterval`, `useTimeout`, `useTimer`,
+    `useCountdown`, `useStopwatch`, `useDateFormat`, `useTimeAgo`.
+  - **Preference/media**: `usePreferredReducedMotion` (now the canonical
+    implementation — `@aihu/use/motion`'s `useReducedMotion` is refactored to
+    a thin delegating wrapper, family -> core), `usePreferredContrast`,
+    `usePreferredReducedTransparency`, `usePreferredLanguages`,
+    `useBrowserLanguage`, `useOperatingSystem`, `useTextDirection`.
+  - **Observers/sensors**: `useResizeObserver`, `useIntersectionObserver`,
+    `useMutationObserver`, `usePerformanceObserver`, `useBreakpoints`,
+    `useDevicePixelRatio`, `useOrientation`, `useDeviceOrientation`,
+    `useDeviceMotion`, `usePageLeave`.
+  - **Async/collections**: `useAsync`, `useAsyncAbortable`, `useNetworkState`,
+    `useIdle`, `useMap`, `useSet`, `useMeasure`, `useFocusWithin`.
+
+  All 33 follow the house composable contract: `isClient`-guard-first SSR
+  no-ops, `tryOnScopeDispose` teardown for every timer/listener/observer, and
+  CORE's signals-only dependency rule (verified by
+  `scripts/dep-check.ts`'s `checkUseSubpathPurity`). 61 composables now pass
+  `scripts/check-use-registry-parity.ts`'s family-aware six/seven-touch-point
+  check (up from 28).
+
+  `packages/compiler/src/codegen/use_registry.rs`'s `USE_COMPOSABLES` registry
+  gains all 33 auto-import tuples for this wave, hence the compiler patch bump
+  (and the matching platform-binary version bump under
+  `packages/compiler/npm/*`, per `check:compiler-binary-bump`).
+
 ## 1.1.0
 
 ### Minor Changes

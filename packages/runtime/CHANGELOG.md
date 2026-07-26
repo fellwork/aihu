@@ -1,5 +1,291 @@
 # @aihu/runtime
 
+## 5.0.0
+
+### Minor Changes
+
+- [#549](https://github.com/fellwork/aihu/pull/549) [`ad6921a`](https://github.com/fellwork/aihu/commit/ad6921a018ef4a479f6540278e549aa9a8cab387) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Add the lifecycle-ownership DX contract
+  (docs/plans/2026-07-24-lifecycle-ownership-dx.md), scoped to `@aihu/signals`
+
+  - `@aihu/runtime` only:
+
+  * **`@aihu/signals/lifecycle`** — a new tree-shakable subpath (own
+    `.size-limit.json` row, separate rolldown entry, 0 B added to the guarded
+    `@aihu/signals` index row): a DOM-free ownership CONTRACT — a
+    `LifecycleHost` interface (`connected: () => boolean`,
+    `onCommit(fn): void`), a `WeakMap<EffectScope, LifecycleHost>`, an
+    `@internal` `_attachLifecycleHost(scope, host)`, and `getLifecycleHost()`
+    resolving via the public `getCurrentScope()`.
+  * **`@aihu/runtime`** owns the rAF-coalesced commit queue and the
+    per-connection `connected` signal, and attaches the `LifecycleHost` in
+    `_build()` right after `_componentScopes.set`. `SetupContext` gains a
+    `connected: () => boolean` field. A new bare `onCommit` export runs a
+    registered callback once, after the next layout/paint opportunity,
+    coalesced across every component into one `requestAnimationFrame` per
+    frame; it is `_cur`-gated (setup-only), a tighter window than
+    `LifecycleHost.onCommit` (valid during setup OR inside an `onMount` body).
+    `connected` is created once inside `_build()`, so it is identical on the
+    normal-connect path and the hydration path (`define-element.ts`'s
+    hydration branch calls `_build()` directly and bypasses
+    `define-component`'s `connectedCallback`); it latches to `false` inside
+    `_stopComponentScope()` — the real shared teardown choke point — rather
+    than being duplicated across `disconnectedCallback`.
+  * The `@aihu/runtime` `.size-limit.json` row moves from 4500 B to 4750 B —
+    `onCommit` + the per-instance `connected` signal are load-bearing per the
+    design (§6.4). Measured with `@aihu/signals/lifecycle` correctly
+    `ignore`d (see below): 4319 B → 4717 B, +398 B for this arc (higher than
+    the design's own ~130 B estimate, but real — the review-fix follow-ups
+    below account for the delta over the arc's initial 4630 B measurement:
+    the fail-loud `SCR-R0014` check, `_dropCommitsFor`, and their regression
+    tests all add bytes to the guarded row).
+
+  **Review-fix follow-ups (same unreleased arc, not a separate release):**
+
+  - `onCommit` (the bare `@aihu/runtime` export) now fails loud with
+    `RuntimeError('SCR-R0014', ...)` instead of silently dropping the
+    callback when `_cur` is set but the current scope has diverged from the
+    component root scope — reachable from inside a synchronous `effect()`
+    body during setup (signals P0-1 clears the current scope for every
+    effect run) or a nested `effectScope().run()` during setup. Matches the
+    design's stated contract (§7.2) and `onMount`'s fail-loud sibling
+    behavior. New regression test in `packages/runtime/tests/commit.test.ts`.
+  - `SetupContext.connected` is REQUIRED again, matching the approved design
+    (§4.1) — the prior `connected?:` widening was justified by a
+    misdiagnosis of the compiler's host-less SSR stubs (their `ctx` param is
+    unannotated, so `SetupContext` was never the checked type there; verified
+    with a full-workspace `bun run typecheck`, zero regressions).
+  - The rAF-coalesced commit queue now drops a component's queued `onCommit`
+    entries at disposal (`_dropCommitsFor`, `commit.ts`), not just at flush
+    time — previously a disconnect in a suspended/hidden background tab
+    (where `requestAnimationFrame` may never fire) left the queue retaining
+    the dead scope and its closure's captures indefinitely. New regression
+    tests assert immediate release.
+  - `@aihu/signals/lifecycle` is now excluded (`ignore`) from the
+    `@aihu/runtime` `.size-limit.json` measurement — it was being
+    double-counted (inlined into the measured bundle despite being a real,
+    separately-published external import in the actual `rolldown.config.ts`
+    build), which is what actually accounted for most of the budget overshoot
+    this row's limit bump was covering for.
+  - `packages/signals/scripts/mangle-dist.mjs` now mangles every emitted
+    `dist/*.js` file (not just `index.js`) with the same replacement table —
+    `dist/` is no longer a single self-contained file, and mangling only one
+    file would silently desync property names the moment a mangled field's
+    declaration and its access land in different emitted files.
+  - **No shared chunk on the reactivity hot path.** `rolldown.config.ts`
+    builds `index` and `lifecycle` as two INDEPENDENT single-entry builds
+    rather than one multi-entry build. A multi-entry build hoisted `scope.ts`
+    into a shared `scope-<hash>.js` chunk, putting `getCurrentScope` /
+    `setCurrentScope`, the scope cleanup register/unregister pair, and the
+    live `_currentScope` binding across a module boundary that the minifier
+    cannot inline through — an interleaved A/B against `main` (n=12 fresh
+    processes per arm) measured a range-DISJOINT slowdown on `dynamic-deps`,
+    with a byte-identical control arm at ~0 %. `dist/lifecycle.js` instead
+    takes `getCurrentScope` as an EXTERNAL import of the sibling entry
+    (`import{getCurrentScope}from"./index.js"`), which keeps exactly ONE
+    `_currentScope` instance — duplicating `scope.ts` into both bundles would
+    give the package two, and a scope entered through `@aihu/signals` would
+    be invisible to `getLifecycleHost()`. `dist/index.js` is now
+    `cmp`-byte-identical to `main`'s, and the same A/B puts `dynamic-deps` at
+    −0.3 % and `creation-1to1000` at +0.4 % (both ranges overlapping `main`).
+    The `@aihu/signals/lifecycle` size row measures 170 B (limit 300 B); the
+    guarded `@aihu/signals` row returns to 2232 B.
+  - `packages/signals/tests/lifecycle.test.ts` adds a source-level guard
+    asserting `src/index.ts` never imports `src/lifecycle.ts` and that no
+    other non-lifecycle source file references the `LifecycleHost`
+    attach/read symbols — the design (§6.4) calls this a hard acceptance
+    criterion, and the guarded size row alone is not a sufficient backstop at
+    today's headroom (a cross-import would still pass the row).
+
+  **Doc-discrepancy note (tracked as FEL-401):** the design doc claims
+  `_stopComponentScope()` was already shared by both real
+  `disconnectedCallback` forms in `define-component.ts` — that was false;
+  neither called it (it was only reachable from the two
+  `connectedCallback` throw-recovery paths and the hydration disconnect
+  bridge). Both `disconnectedCallback` bodies now route through
+  `_stopComponentScope()` too, which is what actually makes the `connected`
+  flip work on every real teardown path, not a doc correction.
+
+  **Deliberately deferred, NOT shipped here:** `useConnected()` and
+  `tryOnCommit()` on `@aihu/use` — that package is being restructured by a
+  concurrent workstream. `@aihu/use` still has no dependency on
+  `@aihu/runtime` or on this new subpath. Also not shipped: `useMounted()`
+  (the design shows it degenerates to a constant `true` — there is no
+  observable moment where `mounted === false` in aihu), the compiler surface
+  for `onCommit` (§2.4, `.aihu` template lowering), and the §3 DOM-move /
+  `moveBefore()` remedy — all out of scope for this track.
+
+### Patch Changes
+
+- [#553](https://github.com/fellwork/aihu/pull/553) [`3790c91`](https://github.com/fellwork/aihu/commit/3790c91331fa7ecb15649213a66c83078e63dafe) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Make `$form` (D5) and `$aria` (B4) components actually run, and stop the
+  playground preview from dropping compiled presets on the floor.
+
+  `$form`/`$aria` were emit-tested but never executed, and four independent bugs
+  had accumulated behind that:
+
+  1. **`formAssociated` was assigned after registration, to `undefined`.** The
+     compiler bound `defineElement(...)`'s result to `const _aihuFormEl_<tag>` and
+     then wrote `.formAssociated = true` on it. `defineElement` returns `void`, so
+     that write threw `Cannot set properties of undefined` at module evaluation —
+     and even against a real class it would have been ignored, because
+     `customElements.define()` reads `formAssociated` off the constructor at
+     define time and never looks again. `defineElement` now takes a
+     `formAssociated` option and stamps it on the wrapped class _before_
+     `customElements.define`; the compiler passes
+     `{ formAssociated: true }` instead of emitting the post-define assignment.
+
+  2. **The wiring wrote through `this`.** Both collections emitted
+     `this._internals = this.attachInternals()` into the setup body — but setup is
+     an arrow (`setup: (ctx) => …`), so `this` there is the module's `this`
+     (`undefined` under ESM), never the element. Every `$aria`/`$form` component
+     threw on construction. The wiring now binds `ctx.element`.
+
+  3. **`$form` entry expressions skipped the signal-read rewrite.** Inside
+     `@state`, `value` names the getter, so `$form: { value: () => value }` was
+     handing `setFormValue` a _function_ (`The provided value is not of type
+'(File or USVString or FormData)?'`) and `validity` was calling `.trim()` on
+     one. Entry expressions now go through the same rewrite the template and
+     `derived`/`action` bodies get, and a thunk entry is called rather than passed
+     through.
+
+  4. **`setValidity(flags)` throws once any flag is true.** `$form` has no
+     `message` key, so the one-argument call could only work while the field was
+     valid. A fallback message is now derived from the failing flag names.
+
+  On the docs playground side, `stripTs` — which erases the compiler's TS output
+  so it can run in a plain `<script>` — had two holes that made the whole script
+  a `SyntaxError` (no error surfaced; the preview just came up empty):
+
+  - Parameter type annotations on the `function` declarations `action()` lowers
+    to (`function onInput(e: Event)`) were never stripped.
+  - The ` as unknown as <Type>` rule was greedy across `}`, so
+    `setTimeout(…, 300) as unknown as number });` lost the arrow body's closing
+    brace. It is now bounded to a single type reference, and covers ` as any` /
+    ` as ShadowRoot` / `as unknown as` in one rule.
+
+  Also adds `@aihu/context` to the root tsconfig `paths` map. The playground's
+  preview-runtime IIFE resolves `@aihu/*` through those paths (no package `dist`
+  exists at docs-build time); `@aihu/context` was missing, so rolldown treated it
+  as external and the bundle referenced an undefined `_aihu_context` global —
+  `window.__aihu` was never assigned and every preset died on
+  `Cannot read properties of undefined (reading 'branch')`.
+
+- [#546](https://github.com/fellwork/aihu/pull/546) [`edc15f2`](https://github.com/fellwork/aihu/commit/edc15f2a2de541fa8f7ffd6266ad984446206257) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Fix two related keyed-list / node-identity defects (FEL-395, FEL-396):
+
+  - **FEL-395** — `each()`'s reconciler skipped re-growing a row whenever its
+    key was unchanged, even when the underlying item was a brand-new object
+    with different field values. Since row bodies capture their item by value
+    at grow time, replacing a list with new objects sharing the same keys left
+    stale field values rendered in the DOM forever. `_reconcileEach` now
+    reference-compares the incoming item against the value each `ChildScope`
+    was last grown from, and re-grows on a mismatch.
+
+  - **FEL-396** — moving a component within a keyed `each()` (e.g. a reorder)
+    destroyed all of its state: inputs lost their values, disclosures closed,
+    scroll position reset, entry animations replayed, `$resource` re-fetched,
+    and `onMount` side effects re-ran. The reconciler now repositions existing
+    rows via the WHATWG `moveBefore()` API where the host supports it (Chrome/
+    Edge 133+, Firefox 144+ — not yet in Safari, and not in jsdom, so the
+    runtime feature-detects per call and falls back to `insertBefore`, today's
+    behavior, everywhere else). `moveBefore` only preserves state for a custom
+    element whose class defines `connectedMoveCallback` — an empty body is
+    sufficient opt-in — so both of `@aihu/runtime`'s `defineComponent` class
+    forms and `defineElement`'s wrapper class now define one.
+
+    Caveat: `connectedMoveCallback` runs neither `_build()` nor
+    `connectedCallback`, so a moved component's DI/context (`provide`/`inject`)
+    chain does NOT re-resolve — it keeps whatever ancestor `provides` object it
+    resolved at first connect, even if the move relocates it under a different
+    provider.
+
+    Review follow-up: unlike `insertBefore`, a real `moveBefore()` throws
+    `HierarchyRequestError` when handed a node that isn't still attached under
+    the same root as the move target — a hazard reachable for a compiler-
+    emitted bare-structural row body (`each(..., (item, i) => when(...))`,
+    what `{#each}{#if}...{/if}{/each}` lowers to): the nested `when()`'s live
+    content nodes land in the outer row's `appendedNodes` snapshot at grow
+    time, and that snapshot goes stale (keeps a detached reference) once the
+    nested `when()` toggles off, without the outer row itself changing. The
+    reposition helper now only takes the `moveBefore` branch for nodes that
+    are still attached under the reorder target's root, falling back to
+    `insertBefore` otherwise (today's behavior). The underlying staleness —
+    `appendedNodes` never getting refreshed when a row's top-level structural
+    toggles — is a separate, pre-existing defect, filed apart from this guard.
+
+- [#565](https://github.com/fellwork/aihu/pull/565) [`51451a4`](https://github.com/fellwork/aihu/commit/51451a47fee517c922d203951baf6442fe806115) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Fix hierarchical context (`provide`/`inject`) silently not working in published
+  builds. `@aihu/runtime`'s shipped bundle inlined a private copy of
+  `@aihu/context`'s internals (`_enterContext`/`_exitContext` plus the module-level
+  context state they close over), so a component's `provide()` during setup wrote to
+  runtime's private copy while `inject()` in descendants read the real
+  `@aihu/context` module — values provided by an ancestor component were silently
+  dropped for anyone consuming the built package. (Workspace tests resolve source
+  files directly, which is why this never surfaced in CI.) `@aihu/context` is a
+  declared peerDependency and is now kept as a real external import, restoring one
+  shared context state. Side benefit: the `@aihu/runtime` bundle sheds ~30 B gz,
+  returning the size-gate row to its original 4750 B contract.
+
+- [#545](https://github.com/fellwork/aihu/pull/545) [`2ea4a8f`](https://github.com/fellwork/aihu/commit/2ea4a8f4197b5d2f4bf07b122f2e9653508ecf42) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Fix `<focusTrap>` (the compiler-level a11y primitive backing `createFocusTrap`
+  in `packages/runtime/src/a11y.ts`) so it actually wires up when it renders
+  inside a shadow root.
+
+  Two `document`-global assumptions silently broke it there:
+
+  - The trap located its own container via plain `document.querySelector`,
+    which never descends into shadow roots — so a `<focusTrap>` rendered inside
+    any component with `shadowMode: 'shadow'` was never found, and trapping
+    simply never activated.
+  - Even once the container is found, the Tab-cycling handler compared the
+    current focus against plain `document.activeElement`, which stops at the
+    outermost shadow host rather than drilling in to the actually-focused leaf
+    — so the "is focus at the first/last focusable" check always failed for
+    focus living inside that shadow root, and Tab silently escaped the trap.
+
+  Both are fixed in place with small local shadow-crossing helpers
+  (`_deepQuerySelector` / `_deepActiveElement`) rather than by taking on a new
+  `@aihu/runtime` -> `@aihu/primitives` dependency: `@aihu/primitives` has no
+  existing dependency edge to/from `@aihu/runtime` (neither package currently
+  depends on the other), and the a11y primitives here are budgeted at ~800 B
+  total — `@aihu/primitives/composed-tree.ts`'s more general tabbable-detection
+  machinery needed for its own `createFocusTrap` would blow that budget on its
+  own, on top of `@aihu/runtime`'s whole-package 4500 B size-limit gate it is
+  already close to (4.29 kB / 4500 B after this fix). The two implementations
+  remain intentionally distinct:
+  `@aihu/primitives`' `createFocusTrap(container)` takes an already-resolved
+  container and exposes an imperative `activate()/deactivate()`; `@aihu/runtime`'s
+  `createFocusTrap(active, returnFocus, initialFocus, childFn)` is the
+  compiler-facing surface for the `<focusTrap>` SFC tag, which must render a
+  placeholder synchronously and resolve its own host asynchronously post-mount
+  (there is no synchronous DOM ref available from `@aihu/arbor`'s `branch()`).
+
+  Adds a regression test: a focus trap rendered inside an open shadow root now
+  correctly cycles Tab between its focusables.
+
+  **Follow-up fix (review pass):** making focus-lookup shadow-aware exposed a
+  second, narrower gap in the same handler: the boundary check for Shift+Tab
+  used `host.contains(t)`, and `Node.contains()` also never crosses shadow
+  boundaries. So once `t` (the deep active element) could legitimately resolve
+  to a leaf living inside a _nested_ open shadow root — a shadow-mode leaf
+  component sitting inside the trap, exactly the composition these helpers'
+  own doc comments describe — `host.contains(t)` read that as "focus escaped
+  the host" on every keystroke and Shift+Tab yanked focus straight to `last`.
+  Replaced with `e.composedPath().includes(host)`, which reflects the true
+  composed ancestry (the keydown reached this `host`-level listener at all only
+  by bubbling, composed, up through those shadow boundaries). Added a
+  regression test that focuses a button inside a nested shadow leaf and
+  asserts Shift+Tab is left alone rather than forced to `last`.
+
+  This does not yet make `focusables()` itself shadow-aware — it still
+  enumerates via light-DOM-only `host.querySelectorAll`, so `first`/`last`
+  cannot resolve to a focusable that lives inside a nested shadow root, and
+  forward Tab can still walk past such a leaf uncaught. Filed as a follow-up
+  (full shadow-aware focusable enumeration) rather than folded in here: it
+  needs `@aihu/primitives/composed-tree.ts`-grade tabbable-walking machinery,
+  which does not fit this package's ~800 B a11y-primitive budget or its
+  whole-package 4500 B size-limit gate (4.30 kB / 4500 B after this change).
+
+- Updated dependencies [[`2f24fa3`](https://github.com/fellwork/aihu/commit/2f24fa3fdc592c85e39f500a48a7e4d3ff67c86d), [`a993aa1`](https://github.com/fellwork/aihu/commit/a993aa19d402c221faa463dfb5d94c86cc87b670), [`edc15f2`](https://github.com/fellwork/aihu/commit/edc15f2a2de541fa8f7ffd6266ad984446206257), [`ad6921a`](https://github.com/fellwork/aihu/commit/ad6921a018ef4a479f6540278e549aa9a8cab387)]:
+  - @aihu/arbor@4.0.0
+  - @aihu/signals@0.5.0
+
 ## 4.0.0
 
 ### Minor Changes

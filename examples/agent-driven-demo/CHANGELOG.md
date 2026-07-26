@@ -1,5 +1,16 @@
 # @aihu/example-agent-driven-demo
 
+## 0.0.24
+
+### Patch Changes
+
+- Updated dependencies [[`2f24fa3`](https://github.com/fellwork/aihu/commit/2f24fa3fdc592c85e39f500a48a7e4d3ff67c86d), [`a993aa1`](https://github.com/fellwork/aihu/commit/a993aa19d402c221faa463dfb5d94c86cc87b670), [`7190b9c`](https://github.com/fellwork/aihu/commit/7190b9c2abb6d7d75473c62b0cae5fe92d39fae3), [`0fe47a9`](https://github.com/fellwork/aihu/commit/0fe47a9e1f686b7da1b863b7b84e1be40501bee1), [`9346b61`](https://github.com/fellwork/aihu/commit/9346b61f3d266805156f93db1415cabbb1ade973), [`3790c91`](https://github.com/fellwork/aihu/commit/3790c91331fa7ecb15649213a66c83078e63dafe), [`edc15f2`](https://github.com/fellwork/aihu/commit/edc15f2a2de541fa8f7ffd6266ad984446206257), [`ad6921a`](https://github.com/fellwork/aihu/commit/ad6921a018ef4a479f6540278e549aa9a8cab387), [`51451a4`](https://github.com/fellwork/aihu/commit/51451a47fee517c922d203951baf6442fe806115), [`2ea4a8f`](https://github.com/fellwork/aihu/commit/2ea4a8f4197b5d2f4bf07b122f2e9653508ecf42), [`c438669`](https://github.com/fellwork/aihu/commit/c4386693ebb1454e2e19094bab15a22157039745), [`549bfc5`](https://github.com/fellwork/aihu/commit/549bfc54020a01b2d10311c7c9b407ea695ef201), [`9d8a49d`](https://github.com/fellwork/aihu/commit/9d8a49db0c31e4a45757f0a645a8dc80c5e370fd)]:
+  - @aihu/arbor@4.0.0
+  - @aihu/compiler@1.1.1
+  - @aihu/runtime@5.0.0
+  - @aihu/signals@0.5.0
+  - @aihu/agent-server@0.4.2
+
 ## 0.0.23
 
 ### Patch Changes

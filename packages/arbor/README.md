@@ -127,7 +127,7 @@ npm install @aihu/arbor
 bun add @aihu/arbor
 ```
 
-<sub><i>Auto-generated against `@aihu/arbor@3.0.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/arbor@4.0.0`.</i></sub>
 
 <!-- END_AUTOGEN: install -->
 
@@ -138,13 +138,13 @@ bun add @aihu/arbor
 
 | | |
 |---|---|
-| **Version** | `3.0.0` |
+| **Version** | `4.0.0` |
 | **Tier** | A — Reactive runtime core — DOM materialization layer |
 | **Bundle size** | 3.10 kB (gz) — limit 3200 B |
 | **Published files** | 3 entries |
 | **License** | MIT |
 
-<sub><i>Auto-generated against `@aihu/arbor@3.0.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/arbor@4.0.0`.</i></sub>
 
 <!-- END_AUTOGEN: stats -->
 
@@ -157,7 +157,7 @@ bun add @aihu/arbor
 |---|---|---|
 | `.` | `./dist/index.js` | `—` |
 
-<sub><i>Auto-generated against `@aihu/arbor@3.0.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/arbor@4.0.0`.</i></sub>
 
 <!-- END_AUTOGEN: exports -->
 
@@ -170,7 +170,7 @@ bun add @aihu/arbor
 
 - `@aihu/signals` — `workspace:^`
 
-<sub><i>Auto-generated against `@aihu/arbor@3.0.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/arbor@4.0.0`.</i></sub>
 
 <!-- END_AUTOGEN: deps -->
 
@@ -185,7 +185,7 @@ bun add @aihu/arbor
 - [@aihu/runtime](../runtime)
 - [Aihu framework root](../../README.md)
 
-<sub><i>Auto-generated against `@aihu/arbor@3.0.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/arbor@4.0.0`.</i></sub>
 
 <!-- END_AUTOGEN: see-also -->
 
@@ -196,6 +196,6 @@ bun add @aihu/arbor
 
 MIT — see [LICENSE](../../LICENSE).
 
-<sub><i>Auto-generated against `@aihu/arbor@3.0.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/arbor@4.0.0`.</i></sub>
 
 <!-- END_AUTOGEN: license -->

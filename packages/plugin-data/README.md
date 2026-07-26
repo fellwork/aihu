@@ -21,7 +21,7 @@ npm install @aihu-plugin/data
 bun add @aihu-plugin/data
 ```
 
-<sub><i>Auto-generated against `@aihu-plugin/data@2.0.4`.</i></sub>
+<sub><i>Auto-generated against `@aihu-plugin/data@2.0.5`.</i></sub>
 
 <!-- END_AUTOGEN: install -->
 
@@ -32,13 +32,13 @@ bun add @aihu-plugin/data
 
 | | |
 |---|---|
-| **Version** | `2.0.4` |
+| **Version** | `2.0.5` |
 | **Tier** | B — Meta-framework — reactive resources + loader protocol |
 | **Bundle size** | 723 B (gz) — limit 800 B |
 | **Published files** | 3 entries |
 | **License** | MIT |
 
-<sub><i>Auto-generated against `@aihu-plugin/data@2.0.4`.</i></sub>
+<sub><i>Auto-generated against `@aihu-plugin/data@2.0.5`.</i></sub>
 
 <!-- END_AUTOGEN: stats -->
 
@@ -51,7 +51,7 @@ bun add @aihu-plugin/data
 |---|---|---|
 | `.` | `./dist/index.js` | `—` |
 
-<sub><i>Auto-generated against `@aihu-plugin/data@2.0.4`.</i></sub>
+<sub><i>Auto-generated against `@aihu-plugin/data@2.0.5`.</i></sub>
 
 <!-- END_AUTOGEN: exports -->
 
@@ -65,7 +65,7 @@ bun add @aihu-plugin/data
 - `@aihu/signals` — `workspace:*`
 - `@aihu/context` — `workspace:*`
 
-<sub><i>Auto-generated against `@aihu-plugin/data@2.0.4`.</i></sub>
+<sub><i>Auto-generated against `@aihu-plugin/data@2.0.5`.</i></sub>
 
 <!-- END_AUTOGEN: deps -->
 
@@ -78,7 +78,7 @@ bun add @aihu-plugin/data
 - [@aihu/context](../context)
 - [Aihu framework root](../../README.md)
 
-<sub><i>Auto-generated against `@aihu-plugin/data@2.0.4`.</i></sub>
+<sub><i>Auto-generated against `@aihu-plugin/data@2.0.5`.</i></sub>
 
 <!-- END_AUTOGEN: see-also -->
 
@@ -89,6 +89,6 @@ bun add @aihu-plugin/data
 
 MIT — see [LICENSE](../../LICENSE).
 
-<sub><i>Auto-generated against `@aihu-plugin/data@2.0.4`.</i></sub>
+<sub><i>Auto-generated against `@aihu-plugin/data@2.0.5`.</i></sub>
 
 <!-- END_AUTOGEN: license -->
