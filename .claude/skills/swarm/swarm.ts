@@ -418,6 +418,50 @@ async function cmdMove(argv: string[]) {
   console.log(`${n.identifier} -> ${st.name} by [${role}]`)
 }
 
+/**
+ * File a new issue. Added because the author of this tool had to fall back to
+ * raw curl to file FEL-426 — a security finding that had already gone a day
+ * unowned. A memory layer you cannot record a finding into is half-built, and
+ * the missing half is the one that matters when something is urgent.
+ */
+async function cmdNew(argv: string[]) {
+  const role = requireRole()
+  const title = argRef(argv, '--title')
+  const project = argRef(argv, '--project') ?? 'aihu'
+  const priority = Number(argRef(argv, '--priority') ?? 3)
+  // Validate BEFORE any stdin read. The first version awaited stdin first and
+  // HUNG FOREVER when invoked with no args from a non-TTY context: isTTY is
+  // false whenever this runs from a script or an agent, so "no pipe" is
+  // indistinguishable from "pipe that has not sent data yet". A hanging tool is
+  // worse than a failing one -- it produces no output to diagnose.
+  if (!title) die('usage: swarm new --title "T" [--project aihu] [--priority 0-4] [--body "..." | --stdin]')
+  if (!PROJECTS.includes(project as any)) {
+    die(`unknown project "${project}". Known: ${PROJECTS.join(', ')}`)
+  }
+
+  const p = await linear<{ projects: { nodes: { id: string; name: string }[] } }>(
+    '{ projects(first:20) { nodes { id name } } }',
+  )
+  const body = argRef(argv, '--body') ?? (argv.includes('--stdin') ? await readStdin() : '')
+  const proj = p.projects.nodes.find((x) => x.name === project)
+  if (!proj) die(`project "${project}" not found in Linear`)
+
+  const d = await linear<{ issueCreate: { issue: { identifier: string; url: string } } }>(
+    `mutation($t:String!,$d:String!,$team:String!,$p:String!,$pri:Int!){
+       issueCreate(input:{title:$t, description:$d, teamId:$team, projectId:$p, priority:$pri}) {
+         issue { identifier url } } }`,
+    {
+      t: title,
+      d: `${body}\n\n---\n_Filed by \`[${role}]\` via swarm._`,
+      team: await teamId(),
+      p: proj.id,
+      pri: priority,
+    },
+  )
+  const i = d.issueCreate.issue
+  console.log(`filed ${i.identifier} in ${project} by [${role}]\n${i.url}`)
+}
+
 let _teamId = ''
 async function teamId(): Promise<string> {
   if (_teamId) return _teamId
@@ -547,8 +591,8 @@ async function cmdWikiWrite(argv: string[]) {
   const role = requireRole()
   const title = argRef(argv, '--title')
   const append = argRef(argv, '--append')
-  const body = argRef(argv, '--body') ?? (await readStdin())
-  if (!body.trim()) die('nothing to write: pass --body "..." or pipe markdown on stdin')
+  const body = argRef(argv, '--body') ?? (argv.includes('--stdin') ? await readStdin() : '')
+  if (!body.trim()) die('nothing to write: pass --body "..." or --stdin (then pipe markdown)')
 
   const stamp = `_[${role}] via swarm_`
 
@@ -579,6 +623,7 @@ function argRef(argv: string[], flag: string): string | undefined {
   return i >= 0 && argv[i + 1] ? argv[i + 1] : undefined
 }
 
+/** Only ever called behind an explicit --stdin flag; see cmdNew for why. */
 async function readStdin(): Promise<string> {
   if (process.stdin.isTTY) return ''
   return await Bun.stdin.text()
@@ -594,6 +639,7 @@ TASKS (Linear, team ${TEAM_KEY}; projects: ${PROJECTS.join(', ')})
   claim  FEL-123                  assign owner + record acting agent
   note   FEL-123 "message"        comment, attributed to your role
   move   FEL-123 "In Progress"
+  new    --title "T" [--project aihu] [--priority 0-4] [--body "..."]
 
 WIKI (Notion)
   wiki-init                       list pages the integration can see
@@ -614,6 +660,7 @@ const table: Record<string, (a: string[]) => Promise<void>> = {
   claim: cmdClaim,
   note: cmdNote,
   move: cmdMove,
+  new: cmdNew,
   'wiki-init': async () => cmdWikiInit(),
   'wiki-root': cmdWikiRoot,
   recall: cmdRecall,
