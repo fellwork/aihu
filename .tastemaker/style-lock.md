@@ -28,7 +28,71 @@ Single-accent identity. Terracotta is the **only** brand hue. The brand doc's ow
 AI/governance/security axis = **graphite** (a neutral from the brand ink). Differentiate the
 two by tone/weight/treatment — never by adding a hue.
 
-### Legal pairings (verified `check_contrast.py --matrix`, light mode)
+### Amendment — brand hue vs. state hues (2026-07-26, E1/E2 colour pass)
+
+This is an **explicit widening** of the paragraph above, made deliberately rather than
+silently. The single-accent rule as practiced was never "no non-terracotta pixel exists":
+`--color-destructive` has shipped since the packs existed, and measured in oklch it is
+terracotta *toned*, not a second hue (`#a8432b` = oklch(0.515 0.139 34.7) vs. accent
+`#c8543a` = oklch(0.591 0.154 34.1) — same hue, lower lightness and chroma). What the rule
+actually protects is **identity**. Restated precisely:
+
+- **Brand hue (unchanged, absolute):** terracotta is the only *identity* hue — logo, links,
+  emphasis, decoration, hero art, "what colour is aihu". Never a second one. The dot is
+  terracotta, never AI-blue.
+- **State hues (the widening):** semantic *state* tokens — `info` / `success` / `warning` /
+  `destructive` / `neutral` — may carry non-terracotta hues, under all three constraints:
+  1. **Placement.** State colours appear only where they signal state: alerts, badges,
+     toasts, form validation, status chips. Never as decoration, section accents, link
+     colour, or identity. If a screen would still make sense with the state colour swapped
+     for another state colour, it is being used as decoration — that use is illegal.
+  2. **Hue bands (a closed list, measured in oklch hue).** Terracotta `h≈29–35` (accent,
+     destructive), ochre `h≈70–82` (warning), sage `h≈153–158` (success), graphite
+     `h≈245–267` (info, neutral, ink, graphite itself). **Any hue outside these bands is
+     banned** — the 2026-07-23 off-brand indigo (h≈280–300 territory) that created this
+     lock falls in no band, and this amendment cannot be cited to admit the next one.
+     Adding a band is a new amendment, not an interpretation.
+  3. **Chroma cap.** Every semantic token's oklch chroma is **strictly below the accent's
+     in the same mode** (accent C=0.154 light / 0.158 dark; current semantic max is 0.110
+     light / 0.125 dark). Terracotta stays the most vivid thing on any screen — its rarity
+     and dominance are the identity.
+
+### Semantic state tokens (daihui layer — `packages/css-engine/src/packs.ts`)
+
+Component-token names (`--color-*`) per the css-engine interchange contract. Every number
+below is computed by `.tastemaker/check_contrast.py --pairings` (run it; do not eyeball).
+
+| Role | Token | Light | Dark | On-colour (light / dark) |
+| --- | --- | --- | --- | --- |
+| Info (state) | `--color-info` | `#3d5a75` | `#8fadc8` | `#faf8f4` / `#1a1d24` |
+| Success (state) | `--color-success` | `#3f6f4f` | `#84b898` | `#faf8f4` / `#1a1d24` |
+| Warning (state) | `--color-warning` | `#945f0e` | `#d8a848` | `#faf8f4` / `#1a1d24` |
+| Neutral (fill) | `--color-neutral` | `#363c47` | `#636a72` | `#faf8f4` / `#faf8f4` |
+
+- **info** — oklch(0.456 0.056 247.4) / (0.734 0.051 245.7): the **graphite band with the
+  chroma raised** (graphite C=0.021 → 0.056). Steel, not AI-blue — the chroma cap is what
+  keeps it on the right side of that line. Conventional info-blue (saturated azure) was
+  rejected as exactly the banned hue.
+- **success** — oklch(0.498 0.074 153.7) / (0.737 0.072 157.1): a warm sage/forest green,
+  desaturated to sit on warm paper. Green cannot be derived from the palette; it is the one
+  genuinely new hue, admitted narrowly via band 153–158. Mint/emerald rejected as off-warmth.
+- **warning** — oklch(0.531 0.110 70.1) / (0.758 0.125 82.0): deep ochre/bronze — the warm
+  neighbour of terracotta, distinct from destructive (h 70 vs 35). Deliberately deep enough
+  that the off-white label passes 4.5 and the colour is text-safe on paper; the conventional
+  bright-amber-with-dark-text daisyUI look was rejected (fails the fill tier on paper at
+  in-family saturation). Template appearance change accepted per founder ruling E1.
+- **neutral** — light is **graphite verbatim** (`#363c47`); dark is a graphite-band mid grey
+  (oklch 0.521 0.015 251.7) lightened until the fill clears 3.0 against the dark bg.
+  **Naming resolution (E2):** `--color-neutral` is the daisyUI-interop name for a *filled
+  neutral surface* (default buttons etc.). It does **not** repurpose graphite's brand
+  meaning — it is the component-token *realization* of the graphite axis, the same way
+  `--color-accent` realizes terracotta. `--graphite` keeps the AI-axis semantic; `neutral`
+  is the fill role that happens to be drawn from it. It is NOT `--color-muted` (de-emphasis
+  text) — mapping those produces visibly wrong buttons.
+- The `aihu-graphite` pack carries the same token names at chroma 0 (states differ by
+  lightness only, per that pack's monochrome identity — pair states with icons/copy there).
+
+### Legal pairings (verified `.tastemaker/check_contrast.py --matrix`)
 
 - **Text-safe (≥4.5 — body text, links, button labels on a fill):** ink/surface (16.9),
   ink/paper (15.9), ink/border (13.9), graphite/surface (11.1), **graphite/paper (10.5)**,
@@ -41,9 +105,23 @@ two by tone/weight/treatment — never by adding a hue.
 - **Decorative only (<3.0 — hairlines, never the sole state signal):** terracotta/graphite (2.5),
   ink/graphite (1.5), any neutral-on-neutral.
 
+Semantic state tokens (all computed; unlike terracotta, the state trio is **text-safe both
+ways** — as text on paper/surface AND as a fill under its on-colour):
+
+- **Light:** info/paper 6.79, info/surface 7.20, on-info label 6.79; success/paper 5.50,
+  success/surface 5.84, on-success label 5.50; warning/paper 5.07, warning/surface 5.38,
+  on-warning label 5.07; neutral fill/paper 10.45, on-neutral label 10.45 — all text-safe.
+- **Dark:** info/bg 7.73, success/bg 8.00, warning/bg 8.28, each with dark-ink label ≥7.2 —
+  text-safe. Neutral fill/bg 3.30 and fill/surface 3.08 — **ui-safe** (the fill tier);
+  its off-white label is 5.16, text-safe. Neutral-as-fill is the only semantic pairing that
+  lives in the ui-safe tier, and only in dark mode.
+
 Any new pairing a screen introduces (a badge fill, disabled state, hover, state border) must be
 checked against this contract and added here before shipping — re-run
-`check_contrast.py --matrix` with the new token, don't eyeball it.
+`.tastemaker/check_contrast.py --matrix` with the new token, don't eyeball it. The claims in
+this section are themselves machine-checked: `check_contrast.py --pairings` recomputes every
+one and exits non-zero if a claim no longer holds. If you change a token here, change the
+`TOKENS` table in that script in the same commit.
 
 ## Type
 
