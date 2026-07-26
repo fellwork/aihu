@@ -152,22 +152,35 @@ export function appPackageJson(
 export function appViteConfig(
   appName = 'app',
   withCssEngine = false,
-  shadowMode: ShadowChoice = 'shadow',
+  shadowMode?: ShadowChoice,
 ): string {
-  // DA4 (#437, the flip): pages and layouts default to light DOM, so shadow
-  // is no longer the implicit default for the scaffolded index page — a
-  // css-engine scaffold whose user chose `--shadow shadow` must CARRY that
-  // choice as the explicit plugin-global `css: { shadowMode: 'shadow' }`, or
-  // the page default 'light' would silently override it. Every css-engine
-  // scaffold therefore emits its chosen mode explicitly. The plain (css-off)
-  // scaffold pins `$shadow: 'light'` per-file instead and emits no css block.
-  const emitCssBlock = withCssEngine
+  // DA4 (#437, the flip): pages and layouts default to light DOM; leaves keep
+  // shadow. A css-engine scaffold emits the plugin-global
+  // `css: { shadowMode: … }` block ONLY when the user explicitly chose a mode
+  // (`--shadow light|shadow` or the wizard) — the config tier outranks the
+  // page/layout default, so an explicit choice must be carried here or the
+  // page default 'light' would silently override `--shadow shadow`. With no
+  // choice, nothing is emitted and the framework defaults apply — a scaffold
+  // that pins the default freezes it (FEL-425: the old unconditional
+  // `'shadow'` fallback silently reversed the DA4 flip for exactly the
+  // scaffold that most needs global CSS to reach component internals). The
+  // plain (css-off) scaffold pins `$shadow: 'light'` per-file instead and
+  // emits no css block.
+  const emitCssBlock = withCssEngine && shadowMode !== undefined
   const cssEngineComment = withCssEngine
-    ? `      // @aihu/css-engine utility classes fold into each component's shadow
-      // <style> automatically (or into the global cascade under 'none').
-      // DA4: pages default to light DOM, so the wizard's --shadow choice is
-      // carried explicitly here — the plugin-global config outranks the
-      // page/layout default (only a per-file $shadow pin outranks the config).
+    ? emitCssBlock
+      ? `      // @aihu/css-engine utility classes fold into each component's shadow
+      // <style> automatically (or into the global cascade under 'light').
+      // Explicit --shadow choice, carried project-wide as the plugin-global
+      // config — it outranks the DA4 page/layout default (only a per-file
+      // $shadow pin outranks the config).
+`
+      : `      // @aihu/css-engine utility classes fold into the global cascade for
+      // light-DOM components and into each shadow component's <style>.
+      // DA4 defaults apply: pages and layouts are light DOM, leaf components
+      // are shadow. To force one mode project-wide, pass
+      // \`shadowMode: 'light' | 'shadow'\` via the plugin's \`css\` option
+      // below (a per-file $shadow pin outranks it).
 `
     : ''
   const cssBlock = emitCssBlock ? `      css: { shadowMode: '${shadowMode}' },\n` : ''
@@ -322,11 +335,12 @@ export function appIndexAihu(appName: string = 'app', withCssEngine = false): st
   // DA4 (#437, flipped): pages default to light DOM now. The plain scaffold
   // keeps a `$shadow: 'light'` pin — it is simply explicit about the default
   // (the legacy-snapshot golden regenerates with the binary token). The
-  // css-engine scaffold still does NOT pin per-file: its shadow mode is the
-  // user's `--shadow` wizard choice, carried as the PLUGIN-GLOBAL
-  // `css: { shadowMode }` in vite.config.ts (now emitted for EVERY choice,
-  // `open` included — the config tier outranks the page default; a per-file
-  // `$shadow` marker would outrank the config and freeze the choice).
+  // css-engine scaffold does NOT pin per-file: an explicit `--shadow` wizard
+  // choice is carried as the PLUGIN-GLOBAL `css: { shadowMode }` in
+  // vite.config.ts (the config tier outranks the page default; a per-file
+  // `$shadow` marker would outrank the config and freeze the choice), and
+  // with no choice nothing is emitted at all, so the DA4 framework defaults
+  // apply (FEL-425 — a scaffold that pins the default freezes it).
   const shadowPin = withCssEngine ? '' : "$shadow: 'light'\n\n"
   const stateBlock = `@state {
 ${shadowPin}import { signal } from '@aihu/signals'
@@ -665,14 +679,19 @@ export function scaffoldApp(
     template?: AppTemplate
     /** `'engine'` includes `@aihu/css-engine` OOTB; `'none'` (default) is the plain scaffold. */
     css?: CssChoice
-    /** Shadow mode when css-engine is opted in. Default `'shadow'` (scoped shadow fold). */
-    shadowMode?: ShadowChoice
+    /**
+     * Explicit shadow-mode choice when css-engine is opted in. `undefined`
+     * (default) emits NO plugin-global `css: { shadowMode }` block, so the
+     * DA4 framework defaults apply (pages/layouts light, leaves shadow) —
+     * only a genuine user choice is written out (FEL-425).
+     */
+    shadowMode?: ShadowChoice | undefined
   },
 ): ScaffoldResult {
   const pm = opts?.pm ?? 'bun'
   const template: AppTemplate = opts?.template ?? 'minimal'
   const withCssEngine = opts?.css === 'engine'
-  const shadowMode = opts?.shadowMode ?? 'shadow'
+  const shadowMode = opts?.shadowMode
   const root = resolve(outDir ?? '.', name)
 
   // `agent` is the showcase template: a durable component driven by both a human

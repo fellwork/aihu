@@ -2,15 +2,16 @@
  * scaffold-css-engine — OOTB `@aihu/css-engine` scaffold option.
  *
  * Covers the Director-specified acceptance for the legacy `scaffoldApp()`
- * css-engine path (updated at the DA4 flip — pages default to light DOM, so
- * shadow is no longer implicit and EVERY css-engine scaffold emits its chosen
- * mode as the explicit plugin-global `css: { shadowMode }` block):
- *   - `{ css: 'engine' }` (default shadow) → `@aihu/css-engine` in deps,
- *     explicit `css: { shadowMode: 'shadow' }` block in vite.config (carries
- *     the choice OVER the DA4 page default), utility-class starter with no
- *     `@style` block.
- *   - `{ css: 'engine', shadowMode: 'light' }` → explicit
- *     `css: { shadowMode: 'light' }` block emitted.
+ * css-engine path (updated at the DA4 flip and again at FEL-425 — pages
+ * default to light DOM, and the scaffold emits the plugin-global
+ * `css: { shadowMode }` block ONLY for a genuine user choice; fabricating a
+ * default would pin it and silently reverse the DA4 flip):
+ *   - `{ css: 'engine' }` (no shadow choice) → `@aihu/css-engine` in deps,
+ *     NO `css: { shadowMode }` block in vite.config (framework defaults
+ *     apply — the scaffolded page is light DOM via the compiler's page
+ *     default), utility-class starter with no `@style` block.
+ *   - `{ css: 'engine', shadowMode: 'shadow' | 'light' }` → explicit
+ *     `css: { shadowMode: … }` block emitted (the deliberate-choice path).
  *   - Default (no opts) scaffold is byte-identical to the no-css path (the
  *     legacy-snapshot.golden test is the cross-process gate; here we assert the
  *     pure generators are unchanged).
@@ -51,13 +52,22 @@ describe('scaffold css-engine · package.json', () => {
 })
 
 describe('scaffold css-engine · vite.config.ts', () => {
-  it('shadow mode (default) emits an explicit css block (DA4: the page default is light)', () => {
+  it('no shadow choice emits NO css block — framework defaults apply (FEL-425)', () => {
+    const cfg = appViteConfig('demo', true)
+    expect(cfg).not.toContain('css: { shadowMode')
+    // The css-engine comment still explains where utilities land and how to
+    // opt into a project-wide mode.
+    expect(cfg).toContain('fold into the global cascade')
+    expect(cfg).toContain('DA4 defaults apply')
+  })
+
+  it('an explicit shadow choice emits the css block (DA4: it outranks the light page default)', () => {
     const cfg = appViteConfig('demo', true, 'shadow')
     expect(cfg).toContain("css: { shadowMode: 'shadow' },")
     expect(cfg).toContain('fold into each')
   })
 
-  it('shadowMode: light emits an explicit css block', () => {
+  it('an explicit light choice emits the css block', () => {
     const cfg = appViteConfig('demo', true, 'light')
     expect(cfg).toContain("css: { shadowMode: 'light' },")
   })
@@ -110,7 +120,7 @@ describe('scaffold css-engine · scaffoldApp() writes the right tree', () => {
     if (dir) rmSync(dir, { recursive: true, force: true })
   })
 
-  it('css: engine (default shadow) — deps + explicit shadow css block + utility starter', () => {
+  it('css: engine (no shadow choice) — deps + NO shadowMode block + utility starter (FEL-425)', () => {
     scaffoldApp('app', dir, { css: 'engine' })
     const root = join(dir, 'app')
     const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as {
@@ -118,15 +128,24 @@ describe('scaffold css-engine · scaffoldApp() writes the right tree', () => {
     }
     expect(pkg.dependencies['@aihu/css-engine']).toBe('latest')
 
+    // No choice was made, so nothing is pinned: the framework defaults decide
+    // (the scaffolded page is light DOM via the compiler's page default).
     const vite = readFileSync(join(root, 'vite.config.ts'), 'utf8')
-    expect(vite).toContain("css: { shadowMode: 'shadow' },")
+    expect(vite).not.toContain('css: { shadowMode')
 
     const sfc = readFileSync(join(root, 'src/pages/index.aihu'), 'utf8')
     expect(sfc).toContain('class="flex flex-col gap-8 max-w-7xl mx-auto p-8"')
     expect(sfc).not.toContain('@style')
+    expect(sfc).not.toContain('$shadow')
   })
 
-  it('css: engine + shadowMode none — explicit css block', () => {
+  it('css: engine + shadowMode shadow — explicit css block (deliberate choice kept)', () => {
+    scaffoldApp('app', dir, { css: 'engine', shadowMode: 'shadow' })
+    const vite = readFileSync(join(dir, 'app', 'vite.config.ts'), 'utf8')
+    expect(vite).toContain("css: { shadowMode: 'shadow' },")
+  })
+
+  it('css: engine + shadowMode light — explicit css block', () => {
     scaffoldApp('app', dir, { css: 'engine', shadowMode: 'light' })
     const vite = readFileSync(join(dir, 'app', 'vite.config.ts'), 'utf8')
     expect(vite).toContain("css: { shadowMode: 'light' },")
@@ -191,11 +210,25 @@ describe('scaffold css-engine · utilities actually emit (compiler transform)', 
   const starter = appIndexAihu('myapp', true)
 
   it.runIf(cssCoreBin)(
+    'no plugin shadowMode (the FEL-425 scaffold default): the page default is light — utility CSS routes to a virtual CSS import',
+    async () => {
+      // The scaffold emits NO `css: { shadowMode }` block when the user made
+      // no --shadow choice, so the compiler's DA4 page default ('light')
+      // decides: utility CSS reaches the global cascade via the virtual CSS
+      // import, not a per-component shadow sheet.
+      const out = await transformStarter(starter)
+      expect(out).toContain('virtual:aihu-utility')
+      expect(out).toContain("{ shadowMode: 'light' }")
+    },
+  )
+
+  it.runIf(cssCoreBin)(
     'shadow mode folds scoped utility CSS into the component shadow __style__',
     async () => {
       // DA4: the starter page defaults to light DOM, so shadow mode means
       // the scaffold's explicit plugin-global config (appViteConfig emits
-      // `css: { shadowMode: 'shadow' }` for that wizard choice) — mirror it.
+      // `css: { shadowMode: 'shadow' }` for the deliberate --shadow shadow
+      // choice) — mirror it.
       const out = await transformStarter(starter, { shadowMode: 'shadow' })
       expect(out).toContain('new CSSStyleSheet()')
       expect(out).toContain('adoptedStyleSheets')

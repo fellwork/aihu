@@ -53,15 +53,21 @@ function extractTemplateFlag(args: ReadonlyArray<string>): string | undefined {
  *
  *   --css <engine|none>     include @aihu/css-engine OOTB (default: none)
  *   --css-engine            boolean alias for `--css engine`
- *   --shadow <light|shadow>       shadow mode when css-engine is on (default: shadow)
+ *   --shadow <light|shadow>       explicit shadow mode when css-engine is on
+ *
+ * `shadowMode` is `undefined` unless the user explicitly chose one — the
+ * scaffold then emits no plugin-global `css: { shadowMode }` block and the
+ * DA4 framework defaults apply (pages/layouts light, leaves shadow). A
+ * fabricated default written into vite.config.ts would silently pin the
+ * framework default at scaffold time (FEL-425).
  *
  * `--shadow` is only meaningful with css-engine; passed without it, we warn and
- * ignore so the semantics stay clear. Invalid values fall back to the default
- * with a stderr note rather than aborting the scaffold.
+ * ignore so the semantics stay clear. Invalid values are ignored (framework
+ * defaults) with a stderr note rather than aborting the scaffold.
  */
 function parseCssOptions(args: ReadonlyArray<string>): {
   css: CssChoice
-  shadowMode: ShadowChoice
+  shadowMode: ShadowChoice | undefined
 } {
   const cssRaw = extractFlag(args, 'css')
   const cssEngineAlias = hasFlag(args, 'css-engine')
@@ -73,16 +79,18 @@ function parseCssOptions(args: ReadonlyArray<string>): {
   }
 
   const shadowRaw = extractFlag(args, 'shadow')
-  let shadowMode: ShadowChoice = 'shadow'
+  let shadowMode: ShadowChoice | undefined
   if (shadowRaw === 'light' || shadowRaw === 'shadow') {
     shadowMode = shadowRaw
   } else if (shadowRaw !== undefined) {
-    process.stderr.write(`  ! Unknown --shadow value '${shadowRaw}'; using 'shadow'.\n`)
+    process.stderr.write(
+      `  ! Unknown --shadow value '${shadowRaw}'; ignoring (framework defaults apply).\n`,
+    )
   }
 
   if (css !== 'engine' && shadowRaw !== undefined) {
     process.stderr.write('  ! --shadow has no effect without --css engine; ignoring.\n')
-    shadowMode = 'shadow'
+    shadowMode = undefined
   }
 
   return { css, shadowMode }
@@ -94,7 +102,7 @@ function usage(): never {
       'Usage:',
       '  aihu app <name> [--template=<id>]  Scaffold a new application (default: client-only SPA; e.g. --template=cf-team for the Cloudflare stack)',
       '      [--css engine|none]            Include @aihu/css-engine OOTB (utility classes); default none',
-      '      [--shadow light|shadow]        Shadow mode when --css engine is set; default shadow (scoped shadow fold)',
+      '      [--shadow light|shadow]        Force one shadow mode project-wide when --css engine is set; default: framework defaults (light-DOM pages/layouts, shadow-DOM leaves)',
       '  aihu page <route>       Scaffold a page file (e.g. /about)',
       '  aihu component <name>   Scaffold a component file',
       '  aihu plugin <name>      Scaffold a plugin package',
@@ -311,8 +319,8 @@ async function main(): Promise<void> {
       }
       // Legacy scaffold path — honor the OOTB css-engine flags. With no
       // css flags this stays byte-identical to the historical output
-      // (css defaults to 'none', shadow to 'shadow'); the legacy-snapshot
-      // golden gates that.
+      // (css defaults to 'none', shadow to unset/framework defaults); the
+      // legacy-snapshot golden gates that.
       const { css, shadowMode } = parseCssOptions(rest)
       result = scaffoldApp(arg, undefined, {
         css,

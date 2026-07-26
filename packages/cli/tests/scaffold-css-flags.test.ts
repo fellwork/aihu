@@ -5,9 +5,12 @@
  * Drives the real `bin.ts` via `bun` (mirrors legacy-snapshot.test.ts) and
  * inspects the emitted tree, since the flag parser runs inside the bin's
  * top-level `main()`. Covers:
- *   --css engine            → css-engine dep + utility starter + no css block
+ *   --css engine            → css-engine dep + utility starter + NO shadowMode
+ *                             block (FEL-425: no --shadow choice means the DA4
+ *                             framework defaults apply — light-DOM pages)
  *   --css-engine (alias)    → same as --css engine
- *   --shadow light|shadow   → explicit css block (binary vocabulary, DA4)
+ *   --shadow light|shadow   → explicit css block (binary vocabulary, DA4);
+ *                             only a genuine user choice is written out
  *   --shadow without --css  → warned + ignored (plain output)
  *   no flags                → plain output (byte-stable path)
  */
@@ -44,19 +47,23 @@ function read(appName: string, rel: string): string {
 }
 
 describe('aihu app · OOTB css-engine flags', () => {
-  it('--css engine: dep + utility starter + explicit shadow css block (DA4)', () => {
+  it('--css engine alone: dep + utility starter + NO shadowMode block (FEL-425)', () => {
     const { status } = run(['a', '--css', 'engine'])
     expect(status).toBe(0)
     const pkg = JSON.parse(read('a', 'package.json')) as {
       dependencies: Record<string, string>
     }
     expect(pkg.dependencies['@aihu/css-engine']).toBe('latest')
-    // DA4: pages default to light DOM, so the shadow wizard choice is carried
-    // as an explicit plugin-global block (it outranks the page default).
-    expect(read('a', 'vite.config.ts')).toContain("css: { shadowMode: 'shadow' },")
+    // FEL-425: no --shadow flag means no choice was made, so NO plugin-global
+    // block is emitted and the DA4 framework defaults apply (the scaffolded
+    // page is light DOM via the compiler's page default). The old behaviour
+    // fabricated `shadowMode: 'shadow'` here, silently reversing the DA4 flip.
+    expect(read('a', 'vite.config.ts')).not.toContain('css: { shadowMode')
     const sfc = read('a', 'src/pages/index.aihu')
     expect(sfc).toContain('class="flex flex-col gap-8 max-w-7xl mx-auto p-8"')
     expect(sfc).not.toContain('@style')
+    // No per-file pin either — the page rides the framework default.
+    expect(sfc).not.toContain('$shadow')
   })
 
   it('--css-engine alias behaves like --css engine', () => {
@@ -80,11 +87,12 @@ describe('aihu app · OOTB css-engine flags', () => {
     expect(read('d', 'vite.config.ts')).toContain("css: { shadowMode: 'shadow' },")
   })
 
-  it('a retired token (--shadow none) is rejected: falls back to the default', () => {
+  it('a retired token (--shadow none) is rejected: ignored, framework defaults', () => {
     const { status, stderr } = run(['g', '--css', 'engine', '--shadow', 'none'])
     expect(status).toBe(0)
     expect(stderr).toContain("Unknown --shadow value 'none'")
-    expect(read('g', 'vite.config.ts')).toContain("css: { shadowMode: 'shadow' },")
+    // An invalid value is not a choice — nothing is pinned (FEL-425).
+    expect(read('g', 'vite.config.ts')).not.toContain('css: { shadowMode')
   })
 
   it('--shadow without --css engine: warns and ignores (plain output)', () => {
