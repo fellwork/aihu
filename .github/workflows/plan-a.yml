@@ -323,6 +323,27 @@ jobs:
     # without an admin override while code PRs gate on the real build AND on the
     # examples / governed-examples smoke lanes.
     #
+    # ONE EXCEPTION to "skipped is allowed" — DRAFT PRs (FEL-437). Drafts skip
+    # `check` / `examples` / `governed-examples` by design (see the `draft ==
+    # false` guards, added to keep the inner Builder loop cheap), so without the
+    # explicit test below this job would see three `skipped` results and report
+    # SUCCESS having built and tested nothing. That is not hypothetical: on #622
+    # and #624 the SAME commit carried two green `ci-ok` runs, one from the draft
+    # pass where `check` was skipped and one from the real pass where it ran.
+    #
+    # It matters because `ci-ok` is the SOLE required context on `main`, and
+    # "merge when ci-ok is green" is an operating rule people and agents act on.
+    # A draft's green is indistinguishable from a real one in `gh pr checks` —
+    # the distinguishing information lives in whether the `needs` were SKIPPED,
+    # which nothing prompted anyone to read. GitHub does block merging a draft,
+    # so this was never an untested-merge hole; the defect is that the status
+    # LIES about coverage, and a stale draft-run green can still be the most
+    # recent reported `ci-ok` for a SHA during the ready-for-review transition.
+    #
+    # Deliberately NOT fixed by removing "skipped is allowed": that exists so a
+    # genuinely doc-only PR merges without an admin override, which is the very
+    # mechanism FEL-429 exists to eliminate. Only the draft case is refused.
+    #
     # `lesson-refs` carries no `if:` and no path filter, so it gates every PR
     # unconditionally, including doc-only ones. Deliberate: a doc-only PR is
     # precisely how an unreachable lesson citation gets in.
@@ -365,11 +386,17 @@ jobs:
           EXAMPLES_RESULT: ${{ needs.examples.result }}
           GOVERNED_EXAMPLES_RESULT: ${{ needs.governed-examples.result }}
           LESSON_REFS_RESULT: ${{ needs.lesson-refs.result }}
+          # `true` only for a pull_request event whose PR is a draft. For push
+          # and workflow_dispatch, `github.event.pull_request` is null and this
+          # evaluates to `false` — so the draft rule below can never fire on a
+          # branch build.
+          IS_DRAFT: ${{ github.event.pull_request.draft == true }}
         run: |
           echo "check:              $CHECK_RESULT"
           echo "examples:           $EXAMPLES_RESULT"
           echo "governed-examples:  $GOVERNED_EXAMPLES_RESULT"
           echo "lesson-refs:        $LESSON_REFS_RESULT"
+          echo "draft PR:           $IS_DRAFT"
           fail=0
           for pair in "check:$CHECK_RESULT" "examples:$EXAMPLES_RESULT" "governed-examples:$GOVERNED_EXAMPLES_RESULT" "lesson-refs:$LESSON_REFS_RESULT"; do
             name="${pair%%:*}"
@@ -379,6 +406,14 @@ jobs:
               fail=1
             fi
           done
+          # FEL-437 — a draft skipped the build, so "skipped is allowed" must
+          # not apply here. Reported as a failure rather than silently green:
+          # a draft cannot be merged anyway, so this blocks nothing, and a red
+          # X that says why beats a green tick that means nothing.
+          if [ "$IS_DRAFT" = "true" ] && [ "$CHECK_RESULT" = "skipped" ]; then
+            echo "::error::Draft PR: 'check' was skipped, so nothing was built or tested. This is NOT a pass — mark the PR ready for review to get a real result. (FEL-437)"
+            fail=1
+          fi
           if [ "$fail" = "1" ]; then
             exit 1
           fi
