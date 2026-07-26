@@ -57,6 +57,12 @@ export function agentPackageJson(name: string, pm = 'bun'): string {
       },
       devDependencies: {
         '@aihu/cli': 'latest',
+        // `server.ts` and `mcp.ts` call `Bun.serve()`. Without these types
+        // the scaffolded project's own `typecheck` script fails on a fresh
+        // install — TS2868 "Cannot find name 'Bun'", plus TS7006 implicit-any
+        // on every `Bun.serve` callback parameter. Must stay in step with the
+        // `types: ['node', 'bun']` entry in agentTsConfig().
+        '@types/bun': '^1.1.0',
         '@types/ws': '^8.5.12',
         concurrently: '^9.0.0',
         typescript: '^5.0.0',
@@ -105,7 +111,17 @@ export function agentTsConfig(): string {
         moduleResolution: 'bundler',
         strict: true,
         lib: ['ES2022', 'DOM', 'DOM.Iterable'],
-        types: ['node'],
+        // 'bun' is required because the emitted `server.ts` / `mcp.ts` use
+        // `Bun.serve()`. Paired with the `@types/bun` devDependency; changing
+        // one without the other breaks `typecheck` on a fresh scaffold.
+        types: ['node', 'bun'],
+        // Required alongside the 'bun' types: @types/bun declares
+        // `ImportMeta.hot` as always-present while vite's
+        // `ModuleRunnerImportMeta` declares it optional, so the two .d.ts files
+        // disagree (TS2430) even though no user code is involved. skipLibCheck
+        // confines type checking to the project's own source, which is what
+        // the scaffolded `typecheck` script is meant to verify.
+        skipLibCheck: true,
         noEmit: true,
       },
       include: ['server.ts', 'mcp.ts', 'src', 'vite.config.ts'],
