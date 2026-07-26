@@ -100,6 +100,9 @@ jobs:
       # samples than expected, so a renamed fence or moved file cannot make it
       # pass by checking nothing.
       - run: bun run check:skill-samples
+      # NOTE: the lesson-citation gate is deliberately NOT here — see the
+      # `lesson-refs` job below. This job is skipped on doc-only PRs via
+      # `changes.code`, which is exactly the PR shape that adds lesson citations.
       # @aihu/use registry parity — a composable's six touch points (src dir,
       # barrel, package.json exports, rolldown input, .size-limit.json row,
       # USE_COMPOSABLES tuple) must all agree, bidirectionally. Needs no build
@@ -225,16 +228,48 @@ jobs:
   # The failure produces silence rather than a signal, which is why it needs to
   # be written down next to the thing it protects rather than remembered.
   # ---------------------------------------------------------------------
+  lesson-refs:
+    # Every docs/lessons/*.md path cited anywhere under docs/ must exist in the
+    # tree. A citation is a claim; an unreachable one fails like a dead binding —
+    # quietly, and in the flattering direction.
+    #
+    # WHY ITS OWN JOB, and not a step in `check`:
+    # `check` is skipped on doc-only PRs (`changes.code` excludes `docs/**` and
+    # `**/*.md`) — which is EXACTLY the PR shape that adds or cites a lesson. A
+    # docs gate inside `check` would never run on docs. So this job carries no
+    # `if:` and no path filter at all: it always runs. It needs only git and
+    # bash — no bun install, no build, no Rust — so it costs seconds.
+    #
+    # `check:ci` in package.json also lists it, for local pre-push. That is NOT
+    # what makes it run: `check:ci` is invoked by no workflow in this repo. THIS
+    # job is the wiring. (check:skill-samples sat unwired for a while on exactly
+    # that misunderstanding; #615 fixed it.)
+    #
+    # Compares against HEAD, not origin/main: a main-based gate on a PR that ADDS
+    # a lesson could never go green — a gate that cannot pass is as useless as
+    # one that cannot fail. `LESSON_REFS_BASE=origin/main` is the separate
+    # publication check, run by hand before citing a lesson outside this repo.
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash scripts/check-lesson-refs.sh
+
   ci-ok:
     # Single stable REQUIRED status for branch protection. Always runs (even
     # when `check` / `examples` / `governed-examples` are skipped — e.g. a
     # doc-only PR skips `check` via the `changes.code` filter, and
     # `governed-examples` skips whenever `changes.governed` is false) so a
     # required context is always reported. Passes when EVERY one of
-    # check/examples/governed-examples succeeded OR was skipped; fails if ANY
-    # of them failed or was cancelled. This lets doc-only PRs merge without an
-    # admin override while code PRs gate on the real build AND on the
+    # check/examples/governed-examples/lesson-refs succeeded OR was skipped;
+    # fails if ANY of them failed or was cancelled. This lets doc-only PRs merge
+    # without an admin override while code PRs gate on the real build AND on the
     # examples / governed-examples smoke lanes.
+    #
+    # `lesson-refs` is the exception to the skip logic: it carries no `if:` and
+    # no path filter, so it is the one lane that also gates DOC-ONLY PRs. That is
+    # deliberate — a doc-only PR is precisely how an unreachable lesson citation
+    # gets in, and every other lane here is blind to it.
     #
     # examples + governed-examples were added after PR #549 merged
     # ci-ok-green while both were RED — `ci-ok` only watched `check`, so
@@ -254,7 +289,7 @@ jobs:
     # resolves every needed job to a terminal state (success/failure/
     # cancelled/skipped) before evaluating this job's `if: always()`, which
     # then runs regardless of what that state was.
-    needs: [check, examples, governed-examples]
+    needs: [check, examples, governed-examples, lesson-refs]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -264,12 +299,14 @@ jobs:
           CHECK_RESULT: ${{ needs.check.result }}
           EXAMPLES_RESULT: ${{ needs.examples.result }}
           GOVERNED_EXAMPLES_RESULT: ${{ needs.governed-examples.result }}
+          LESSON_REFS_RESULT: ${{ needs.lesson-refs.result }}
         run: |
           echo "check:              $CHECK_RESULT"
           echo "examples:           $EXAMPLES_RESULT"
           echo "governed-examples:  $GOVERNED_EXAMPLES_RESULT"
+          echo "lesson-refs:        $LESSON_REFS_RESULT"
           fail=0
-          for pair in "check:$CHECK_RESULT" "examples:$EXAMPLES_RESULT" "governed-examples:$GOVERNED_EXAMPLES_RESULT"; do
+          for pair in "check:$CHECK_RESULT" "examples:$EXAMPLES_RESULT" "governed-examples:$GOVERNED_EXAMPLES_RESULT" "lesson-refs:$LESSON_REFS_RESULT"; do
             name="${pair%%:*}"
             result="${pair#*:}"
             if [ "$result" = "failure" ] || [ "$result" = "cancelled" ]; then
