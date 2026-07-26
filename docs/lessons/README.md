@@ -6,7 +6,7 @@ chat. Add a row when you add a file.
 
 ## Start here — the cross-cutting patterns
 
-These five are not about one subsystem. They recur across bench, CI, release,
+These six are not about one subsystem. They recur across bench, CI, release,
 compiler, docs, and agent coordination, and between them they account for nearly
 every defect found in the 2026-07-25/26 session.
 
@@ -15,6 +15,7 @@ every defect found in the 2026-07-25/26 session.
 | [An absent value rendered as real, failing quietly](absent-value-rendered-as-real.md) | Something that does not exist gets formatted as a plausible, often flattering value. **39 instances** — plus **the mirror**, a *present* value rendered as absent, which is worse because a false absence makes you act immediately on the wrong target. An absence must be loud; and before believing an instrument that reports nothing, prove it can see something. |
 | [The thing being checked is not the thing that changed](checked-thing-is-not-the-changed-thing.md) | An honest measurement of the wrong artifact — a published copy, `src` instead of `dist`, another branch, another machine, or a config comment instead of the config's behaviour. **24 instances**, incl. one that took three instruments to settle and one where I verified a fix against my worktree instead of the commit. Red and green are equally uninformative. |
 | [A structure outliving the constraint that produced it](structure-outliving-its-constraint.md) | The workaround survives the fix, and its comment now argues against the supported path. The value and the subject are both fine; the **explanation** is false — so it survives review. |
+| [A guarantee satisfied by the defect it should have caught](guarantee-satisfied-by-the-defect.md) | The coverage floor said `html: covered ✓`. It was **true** — and its only satisfier was a live stored-XSS. The guarantee is what made the defect invisible, and it blocked the fix. |
 | [Derive-from-disk cannot detect removal](derive-from-disk-cannot-detect-removal.md) | A gate that globs its own universe ratchets one way: adding is checked, **removing is invisible** and the lane goes green. One-line test inside, plus the fix — which already exists in this repo. |
 | [A second instrument beats a second reviewer](second-instrument-beats-second-reviewer.md) | The positive lesson, and the **mutation matrix** — the only method that finds a test which cannot fail. Every defect above survived diff review; a second *measurement* path by a different author is what caught them. With the caveat that cost two agents an afternoon: **two readings are not two instruments — a reading and a measurement are.** |
 

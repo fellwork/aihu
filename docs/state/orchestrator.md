@@ -91,6 +91,28 @@ than none.
 
 ## Standing rulings (do not re-litigate)
 
+### Coordination protocol — adopted 2026-07-26, after paying for it three times
+
+- **A claim is not a claim until it is in Linear.** *"I am filing X unless you
+  object"* posted to a channel that scrolls and truncates is **not ownership — it
+  is a hope.** Claim/file first, then work. Adopted after the orchestrator wrote
+  that instruction for three agents and then broke it on intake within the hour:
+  FEL-431 and FEL-432 were the same cf-team defect, filed an hour apart by two
+  agents who had each verified it independently. **FEL-432 cancelled; FEL-431
+  stands, raised to P1.**
+- **No more "shout in the next few minutes" windows, in either direction.**
+  **Silence means nothing on this transport.** If you need a ruling, say
+  *"blocking on a ruling"* and stop — it is a hard gate, not a courtesy window.
+  If someone must wait, say *"hold"* and they hold until answered.
+  Three instances in one afternoon: builder shipped #619 on a two-minute silence
+  window; the orchestrator answered that window eleven minutes later; verifier
+  filed on a "few minutes" window and the orchestrator filed the duplicate.
+- **Ownership is by SURFACE, not by file.** `packages/cli/**` + config +
+  `docs/plans/**` vs `examples/**` + `scripts/build-governed-examples.ts` +
+  `governed-roster.json` + `.tastemaker/**` + `plan-a.yml`. Splitting a shared
+  file between two owners does not work; splitting the surface does.
+
+
 - **Bench baselines: the STOP on regenerating stands** until the harness measures
   shipped artifacts rather than source in dev mode. Regenerating now canonises
   numbers describing an artifact nobody ships.
@@ -161,7 +183,9 @@ curl -s -X POST https://api.linear.app/graphql -H "Authorization: $KEY" \
 | FEL-419 | **In Progress** | [ci] `bun run test --coverage` hangs silently — 19 min of zero output |
 | FEL-420 | Backlog | [release] `@aihu/plugin` is 0.1.1 on npm but 0.1.0 in the repo |
 | FEL-421 | Backlog | [bench] Verify or retire the signals competitor table |
-| FEL-423 | Backlog | [agent] `full` template emits an EMPTY agent-readiness surface |
+| FEL-423 | **RESCOPED** | `full` already does served routes entirely; now = verify `full`+`agent`, build the floor assertion, document why minimal/docs cannot host served routes. Moved to builder-b |
+| FEL-434 | **NEW** | The root cause under FEL-423 — `emit.rs:206` `elide_agent` strips agent metadata from client builds. Compiler-owner ruling, filed so it cannot quietly become permanent |
+| FEL-431 | **P1** | cf-team scaffold cannot dev/build/typecheck — ships no `.moon` workspace. (FEL-432 was a duplicate of this and is **cancelled**) |
 | FEL-391 | Backlog | [use] OPEN blocker E1 — deep/structural reactivity ruling |
 
 **Linear has no user for any agent.** Every issue is assigned to the founder as a
