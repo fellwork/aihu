@@ -197,6 +197,19 @@ jobs:
       # before publish. See investigation 4a796a8f-0f2b-4865-a498-73cf11b6f04c.
       - run: bun run check:runtime-purity
 
+  # ---------------------------------------------------------------------
+  # DO NOT add a `name:` to this job.
+  #
+  # Branch protection stores the CHECK-RUN name, which GitHub derives from a
+  # job's `name:` if present and falls back to the job id otherwise. Protection
+  # currently matches the literal id `ci-ok`. Adding `name: CI OK` — even as a
+  # cosmetic tidy — renames the check-run, the required context `ci-ok` then
+  # never reports, and protection silently detaches: PRs stay mergeable with
+  # nothing enforced and no error anywhere.
+  #
+  # The failure produces silence rather than a signal, which is why it needs to
+  # be written down next to the thing it protects rather than remembered.
+  # ---------------------------------------------------------------------
   ci-ok:
     # Single stable REQUIRED status for branch protection. Always runs (even
     # when `check` / `examples` / `governed-examples` are skipped — e.g. a
