@@ -584,25 +584,24 @@ async function cmdRecall(argv: string[]) {
     // always available: an unfiltered search returns whatever the integration
     // CAN see, so a zero there means no access rather than no match.
     //
-    // Probe before asserting. If the probe itself cannot run, say the layer is
-    // UNVERIFIABLE — never upgrade an unknown into a reassurance.
-    let visible: number | null = null
-    try {
-      const probe = await notion<{ results: any[] }>('/search', {
-        method: 'POST',
-        body: JSON.stringify({ query: '', page_size: 1 }),
-      })
-      visible = probe.results.length
-    } catch {
-      visible = null
-    }
+    // Probe before asserting. No try/catch here, deliberately: `notion()`
+    // `die()`s on both the network path and `!res.ok`, so it never throws and a
+    // probe failure already exits 1 with a specific cause — "Notion unreachable
+    // ... DEGRADED" or "Notion HTTP 400: ...". Wrapping it would add a branch
+    // nothing can enter.
+    //
+    // FEL-438: this file previously carried exactly that branch, plus a
+    // verification table row claiming it fired. The row was produced by
+    // mutating the assignment into a `throw` — forcing the state at the
+    // VARIABLE rather than the condition at the CAUSE. The mutation applied and
+    // proved nothing; a real probe failure gives `Notion HTTP 400`, never
+    // `UNVERIFIABLE`. Found by verifier, who induced the fault at the endpoint.
+    const probe = await notion<{ results: any[] }>('/search', {
+      method: 'POST',
+      body: JSON.stringify({ query: '', page_size: 1 }),
+    })
+    const visible = probe.results.length
 
-    if (visible === null) {
-      die(
-        `cannot verify the wiki layer: "${q}" returned 0 results and the access probe failed.\n` +
-          `Empty is UNVERIFIABLE here, not empty — treat the wiki layer as DEGRADED.`,
-      )
-    }
     if (visible === 0) {
       die(
         `wiki layer is OFF, not empty: the integration can see ZERO pages.\n` +
@@ -614,7 +613,7 @@ async function cmdRecall(argv: string[]) {
     }
     console.log(
       `(no wiki pages matched "${q}" — genuinely empty: the integration can see ` +
-        `${visible >= 1 ? 'at least one' : 'no'} page, so access is live and the query simply did not match)`,
+        `at least one page, so access is live and the query simply did not match)`,
     )
     return
   }
