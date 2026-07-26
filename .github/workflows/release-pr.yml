@@ -25,9 +25,36 @@ jobs:
     runs-on: ubuntu-22.04
     timeout-minutes: 20
     steps:
+      # Mint a GitHub App installation token. This is NOT a tidy-up.
+      #
+      # A PR opened with the default `secrets.GITHUB_TOKEN` does NOT trigger
+      # workflows — GitHub suppresses events raised by GITHUB_TOKEN to prevent
+      # recursion. So every Release PR this workflow has ever opened reported
+      # ZERO check-runs, `ci-ok` never appeared, and the PR was permanently
+      # unmergeable under branch protection. The observed workaround was
+      # `enforce_admins=false`, which weakened protection for EVERY PR and every
+      # admin push, repo-wide, to route around a defect on one branch — leaving
+      # the one PR that leads to an npm publish as the only PR CI never built.
+      # See FEL-429.
+      #
+      # An App token is a real actor, so the PR it opens DOES trigger workflows.
+      # Unlike a PAT it does not expire and is not tied to one person's account;
+      # a silently-expired PAT would reintroduce exactly this bug, invisibly.
+      - uses: actions/create-github-app-token@v1
+        id: app-token
+        with:
+          app-id: ${{ secrets.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+
+      # BOTH the checkout token and the changesets `env` below must carry the
+      # App token. The `env` covers the PR-creation API call; this one
+      # authenticates the git remote so the branch PUSH is attributed to the App
+      # too. Setting only one is the common half-fix: the PR appears, and still
+      # gets no CI.
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -60,7 +87,10 @@ jobs:
           commit: 'chore(release): version packages'
           title: 'chore(release): version packages'
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # App token, NOT secrets.GITHUB_TOKEN — see the comment on the
+          # create-github-app-token step. This is the line that decides whether
+          # the Release PR gets CI at all.
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
           # Prevent husky pre-push hook from running on the CI runner — moon
           # and other dev tools are not available in this minimal workflow.
           HUSKY: '0'
