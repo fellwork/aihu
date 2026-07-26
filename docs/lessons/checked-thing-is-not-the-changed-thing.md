@@ -136,6 +136,39 @@ An app/cli-only PR touching no `signals`, `arbor` or `runtime` source gets told
 failure mode is worse: a permanently-red gate trains everyone to wave red past,
 which is exactly what lets a real regression through.**
 
+| 25 | A mapping between two tokens | **Only its LIGHT mode** — the one condition where they happen to coincide | `--graphite` (`style-lock.md:23`) is `#363c47` light / `#aab0bd` dark. `--color-neutral` (`:70`) is `#363c47` light / `#636a72` dark. **Identical in light, divergent in dark.** A drift census paired them and reported the dark values as the largest drift in the repo; in fact `color-neutral` matches its lock row *exactly* in both modes and `#aab0bd` appears nowhere in `css-engine`. **Any spot-check done in light alone confirms a pairing that is false half the time.** Flagged by the historian as an open question on a row they did not own, before the fix was written; confirmed independently by the orchestrator. Census 11 → **10** |
+
+## The condition you sampled is part of the check
+
+Instance 25 is not "the wrong artifact" — the census read the *right* files. It is
+subtler:
+
+> **A mapping checked under one condition is not a checked mapping.** And the
+> single condition where two things coincide is precisely the one that makes a
+> wrong pairing look verified.
+
+`--graphite` and `--color-neutral` are **defined separately, on purpose**
+(`style-lock.md:23` and `:70`, with `:86` recording the E2 naming resolution).
+They share a light value and nothing else. Sample light, and the pairing looks
+sound. Sample dark, and it is a colour mismatch so large it reads as the worst
+drift in the codebase — which is how it got reported.
+
+The tell that resolves it is structural, not numeric: `color-neutral` ships a
+`-foreground` partner (`#faf8f4`, near-white), so it is a **background**;
+`--graphite` is a brand **ink**. *A realization is not an identity.*
+
+**This also gives the unmapped-bucket rule its missing half.** Instance 42 says a
+census is only trustworthy once "didn't classify" is zero. That is necessary and
+**not sufficient** — a row can be *mapped to the wrong thing*, which the bucket
+count cannot see. Both failures came out of the same act of making the map
+**total**: completing it moved three rows *into* the census, and checking the
+pairings moved a fourth *out*.
+
+Practical form: **for every mapped pair, verify it under every condition the pair
+varies across** — both modes, both platforms, both build targets. If a pair agrees
+in one condition and not another, that is the signal to check whether they are the
+same thing at all.
+
 ## The special case: regenerating a baseline destroys the evidence
 
 A stale baseline is wrong. Refreshing it is worse, because the refresh is

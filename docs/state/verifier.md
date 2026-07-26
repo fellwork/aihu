@@ -362,7 +362,27 @@ brand-vs-implementation disagreement **by fiat, in a file whose header declares
 the opposite**. That is a design ruling, not a builder's call. Correctly escalated
 as a hard gate.
 
-### The `graphite` row — my flag, now reclassified rather than resolved
+### RESOLVED: the `graphite` row was a false positive. Census is 10, escalation is 7 pairs.
+
+Confirmed independently by the orchestrator, verified again here against
+`origin/main`:
+
+```
+style-lock.md:23  Graphite (AI axis)  --graphite       #363c47 L | #aab0bd D
+style-lock.md:70  Neutral (fill)      --color-neutral  #363c47 L | #636a72 D | fg #faf8f4
+packs.ts          color-neutral       #363c47 L | #636a72 D   -> matches :70 EXACTLY
+#aab0bd           appears nowhere in css-engine
+```
+
+**`color-neutral` does not diverge at all.** The census paired `--graphite` (brand
+ink) with `--color-neutral` (component fill) — two tokens `style-lock.md` defines
+*separately and deliberately*, with the E2 naming resolution recorded at `:86`.
+
+**The trap, and it is the durable part: in LIGHT mode both are `#363c47`. They
+diverge only in DARK.** A pairing that is right in one mode and wrong in the other
+will be confirmed by any spot-check done in light alone. *The single row where the
+two coincide is the row that made the wrong pairing look verified.* Recorded as
+instance 25 in `checked-thing-is-not-the-changed-thing.md`.
 
 `graphite dark` was reported as the largest drift, `#aab0bd -> #636a72`, "a
 different colour entirely." The mode alignment is right (`packs.ts:102` is inside
