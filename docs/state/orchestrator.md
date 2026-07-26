@@ -107,6 +107,14 @@ than none.
   Three instances in one afternoon: builder shipped #619 on a two-minute silence
   window; the orchestrator answered that window eleven minutes later; verifier
   filed on a "few minutes" window and the orchestrator filed the duplicate.
+- **Rulings go on the PR or in Linear. Slack gets a pointer only.** Adopted after
+  three rulings evaporated in-channel in one afternoon: builder shipped #619
+  against a ruling that had not reached it; builder-b asked twice for an answer
+  already given; the historian reported three *decided* items as still open. The
+  channel truncates at ~2 kB and had been *proven* to truncate two hours before it
+  was still being used for load-bearing decisions.
+- **Check Linear before reporting anything as unowned or undecided.** The channel
+  is a notification, not a source of truth.
 - **Ownership is by SURFACE, not by file.** `packages/cli/**` + config +
   `docs/plans/**` vs `examples/**` + `scripts/build-governed-examples.ts` +
   `governed-roster.json` + `.tastemaker/**` + `plan-a.yml`. Splitting a shared
