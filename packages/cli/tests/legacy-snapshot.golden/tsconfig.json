@@ -9,9 +9,12 @@
       "DOM",
       "DOM.Iterable"
     ],
-    "noEmit": true
+    "noEmit": true,
+    "allowImportingTsExtensions": true
   },
   "include": [
-    "src"
+    "src",
+    "aihu.config.ts",
+    "vite.config.ts"
   ]
 }

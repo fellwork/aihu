@@ -47,18 +47,18 @@ $action: {
 
     <section class="card">
       <h2>Agent surface</h2>
-      <p>These actions are exposed to AI agents as MCP tools. An agent drives this same on-screen instance.</p>
+      <p>The buttons above and the list below come from one <code>$action</code> block — the UI and the machine-readable surface are derived from the same source, so they cannot disagree.</p>
       <ul>
         <li>increment — Add 1 to the value</li>
         <li>decrement — Subtract 1 from the value</li>
         <li>reset — Set the value to 0</li>
       </ul>
       <p>
-        <a href="/llms.txt">llms.txt</a> · <a href="/.well-known/mcp/server-card.json">MCP server card</a> — this component's machine-readable interface.
+        <a href="/llms.txt">llms.txt</a> — what this build publishes for agents and crawlers.
       </p>
     </section>
 
-    <p class="note">Run @aihu/server to make these tools callable — then a human and an AI agent control this exact component in parallel.</p>
+    <p class="note">This is a static client build, so these actions are <strong>declared but not callable over HTTP</strong>, and no MCP server card is published — advertising one would promise an endpoint nothing answers. Run the app under @aihu/server and set <code>agentReadiness.endpoint</code> in aihu.config.ts to make them callable; a human and an AI agent then drive this exact component in parallel.</p>
   </main>
 }
 

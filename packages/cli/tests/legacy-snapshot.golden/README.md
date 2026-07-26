@@ -1,75 +1,55 @@
-# legacy-snapshot.golden — provenance
+# legacy-snapshot golden fixture
 
-This directory is the frozen golden tree for the arch-6 §7.3 backward-compat
-freeze (R-CT-06): `aihu app <name> --pm bun` with no `--template` flag must
-keep producing this exact artifact, byte for byte. It is compared by
-`packages/cli/tests/legacy-snapshot.test.ts`; this README is the one file the
-harness skips when walking the golden (provenance annotation, not scaffold
-output).
+Provenance annotation for the fixture in this directory. Not scaffold output —
+the harness skips a top-level `README.md` when walking the golden tree (the skip
+is one-sided, so if the scaffold ever *does* start emitting one, the comparison
+fails loud rather than silently un-gating it).
 
-## Regeneration log
+## What this fixture is
 
-### 2026-07-21 — DA4 flip: binary shadow vocabulary, pin becomes `$shadow: 'light'` (#437)
+Every byte `aihu app <name> --pm bun` writes, with no `--template` flag (which
+resolves to `minimal`). The test byte-compares the produced tree against this
+one, so no change to the default scaffold can land without a reviewer seeing it
+as a diff.
 
-- **Why it moved:** the founder-ratified DA4 flip landed together with the
-  binary `ShadowMode = 'light' | 'shadow'` API (`'open'`/`'closed'`/`'none'`
-  retired; `'closed'` never worked — it nulls `this.shadowRoot` and
-  misdetects as light DOM). The legacy scaffold emitter
-  (`packages/cli/src/index.ts::appIndexAihu`, plain/non-css branch) now pins
-  `$shadow: 'light'` — the same light-DOM posture as before, spelled in the
-  new vocabulary. Pages default to light DOM as of this release, so the pin
-  is simply explicit about the default.
-- **Regenerated:** 2026-07-21, on `feat/da4-light-dom-flip` (base
-  `origin/main` at `89d9c9d5`). Only `src/pages/index.aihu` moved; verified
-  byte-identical by a full harness run
-  (`vitest run packages/cli/tests/legacy-snapshot.test.ts --config
-  vitest.gates.config.ts`).
-- **Diff vs previous golden:** exactly one line, in `src/pages/index.aihu` —
-  `$shadow: 'none'` → `$shadow: 'light'`. No other file changed.
+## Regenerated 2026-07-26
 
-### 2026-07-20 — DA4 scaffold `$shadow: 'none'` pin (#437)
+Previous contract: a backward-compat **freeze** — R-CT-06, "the pre-templates
+`aihu app` workflow keeps producing the same artifact for v0.2.0" (arch-6
+§7.3/§8.8).
 
-- **Why it moved:** DA4 phase 1 (founder-ratified, issue #437) intentionally
-  changed the legacy scaffold emitter (`packages/cli/src/index.ts::appIndexAihu`,
-  plain/non-css branch) to pin `$shadow: 'none'` in the generated index page's
-  `@state` block. Pages default to light DOM at the next major; new apps adopt
-  that now, and the pin keeps a fresh scaffold free of the new W472 warning.
-- **Regenerated:** 2026-07-20, from the emitter on `fix/da4-classifier`
-  (base `origin/main` at `774b38cf`). Only `src/pages/index.aihu` was
-  rewritten — regenerated directly from `appIndexAihu('legacy-snapshot',
-  false)` and then verified byte-identical by a full harness run.
-- **Diff vs previous golden:** exactly one hunk, in `src/pages/index.aihu` —
-  the `$shadow: 'none'` line (plus its blank separator) at the top of
-  `@state`. No other file changed.
+That contract was retired deliberately. Pinning the default scaffold to a
+v0.2.0 artifact guaranteed the default could never be current, which is the
+opposite of what a starting point is for. Concretely, the frozen tree predated
+`aihu.config.ts` being scaffolded at all — so honoring the freeze meant every
+new project shipped without the framework's own configuration surface, and
+`aihu add` failed with `no-config` inside a project the CLI had just created.
 
-### 2026-07-20 — aihu-tsc typecheck (#434)
+What changed in this regeneration:
 
-- **Why it moved:** PR #395 (commit `81279254`, 2026-07-13, "type-check .aihu
-  files (aihu-tsc)") intentionally changed the legacy scaffold emitter
-  (`packages/cli/src/index.ts::appPackageJson`) to emit
-  `"typecheck": "aihu-tsc"` (plain `tsc` cannot see inside `.aihu` files) and
-  a `"@aihu/tsc": "latest"` devDependency. The golden — last written
-  2026-06-16 (`6a0d8e42`, #374) — was never regenerated, because the CI gate
-  naming this test was silently no-opped by the root vitest exclude (#445).
-- **Founder-ratified:** accept the evolution, regenerate the golden
-  (investigation D1 option (a); ratified 2026-07-20 via /autoplan, issue #445).
-- **Regenerated:** 2026-07-20, from emitter at commit `94ad14f7` (worktree of
-  `fix/ci-honesty`, base `origin/main`).
-- **Diff vs previous golden:** exactly two hunks, both in `package.json` —
-  the `typecheck` script line and the `@aihu/tsc` dep addition. No other file
-  changed.
+- **`aihu.config.ts` is new.** It carries `dir`, `app.head`, and the
+  `agentReadiness` block. The generator for it already existed and was simply
+  never called by any template.
+- **`vite.config.ts` shrank.** It no longer inlines `dir.pages`, the css
+  `shadowMode`, or a hand-wired `viteAgentReadinessIntegration(...)` call —
+  those moved into `aihu.config.ts`, which `viteAihuPlugin` consumes.
+- **No MCP `endpoint`.** The old config set `endpoint` to the server card's own
+  URL, which published a card advertising zero tools and named the discovery
+  document as its own transport. A static client build has no process to serve
+  an MCP endpoint, so the card is now not emitted at all (FEL-423).
+- **`tsconfig.json` includes the config files**, so a typo in `aihu.config.ts`
+  is a typecheck error rather than a silently-ignored field.
 
-## How to regenerate (intentional scaffold changes only)
+## Refreshing
 
-Delete this directory and run the test twice through the gates config:
+Delete this directory and run the test twice — the first run writes the fixture
+and fails on purpose, the second verifies the produced tree matches it. The
+harness refuses to self-generate in CI, where a missing golden means the fixture
+was deleted rather than intentionally refreshed.
 
-    bunx vitest run packages/cli/tests/legacy-snapshot.test.ts --config vitest.gates.config.ts
+```
+bun run test packages/cli/tests/legacy-snapshot.test.ts --config vitest.gates.config.ts
+```
 
-First run bootstraps a fresh golden (and fails loudly to say so); second run
-verifies. The harness REFUSES to bootstrap when `process.env.CI` is set.
-Record the regeneration here (why, date, emitter SHA) and commit.
-
-- 2026-07-21 — grammar v2 (the prefix-less template): the legacy scaffold's
-  generated `src/pages/index.aihu` now emits `on:click={…}` colon directives
-  instead of the retired dollar-prefixed event layer (C607), so the frozen artifact
-  compiles against the current `@aihu/compiler`. Emitter: feat/grammar-v2.
+Note the `--config`: the root vitest config **excludes** this test so it isn't
+double-run by the coverage pass. It has its own CI step in `plan-a.yml`.

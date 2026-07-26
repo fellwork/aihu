@@ -53,7 +53,7 @@ describe('aihu app · OOTB css-engine flags', () => {
     expect(pkg.dependencies['@aihu/css-engine']).toBe('latest')
     // DA4: pages default to light DOM, so the shadow wizard choice is carried
     // as an explicit plugin-global block (it outranks the page default).
-    expect(read('a', 'vite.config.ts')).toContain("css: { shadowMode: 'shadow' },")
+    expect(read('a', 'aihu.config.ts')).toContain("css: { shadowMode: 'shadow' },")
     const sfc = read('a', 'src/pages/index.aihu')
     expect(sfc).toContain('class="flex flex-col gap-8 max-w-7xl mx-auto p-8"')
     expect(sfc).not.toContain('@style')
@@ -71,20 +71,20 @@ describe('aihu app · OOTB css-engine flags', () => {
   it('--css engine --shadow light: explicit css block', () => {
     const { status } = run(['c', '--css', 'engine', '--shadow', 'light'])
     expect(status).toBe(0)
-    expect(read('c', 'vite.config.ts')).toContain("css: { shadowMode: 'light' },")
+    expect(read('c', 'aihu.config.ts')).toContain("css: { shadowMode: 'light' },")
   })
 
   it('--css engine --shadow shadow: explicit css block', () => {
     const { status } = run(['d', '--css', 'engine', '--shadow', 'shadow'])
     expect(status).toBe(0)
-    expect(read('d', 'vite.config.ts')).toContain("css: { shadowMode: 'shadow' },")
+    expect(read('d', 'aihu.config.ts')).toContain("css: { shadowMode: 'shadow' },")
   })
 
   it('a retired token (--shadow none) is rejected: falls back to the default', () => {
     const { status, stderr } = run(['g', '--css', 'engine', '--shadow', 'none'])
     expect(status).toBe(0)
     expect(stderr).toContain("Unknown --shadow value 'none'")
-    expect(read('g', 'vite.config.ts')).toContain("css: { shadowMode: 'shadow' },")
+    expect(read('g', 'aihu.config.ts')).toContain("css: { shadowMode: 'shadow' },")
   })
 
   it('--shadow without --css engine: warns and ignores (plain output)', () => {
@@ -95,7 +95,7 @@ describe('aihu app · OOTB css-engine flags', () => {
       dependencies: Record<string, string>
     }
     expect(pkg.dependencies['@aihu/css-engine']).toBeUndefined()
-    expect(read('e', 'vite.config.ts')).not.toContain('      css: { shadowMode')
+    expect(read('e', 'aihu.config.ts')).not.toContain('css: { shadowMode')
   })
 
   it('no flags: plain output (css-engine off)', () => {

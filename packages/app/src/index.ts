@@ -10,6 +10,7 @@ export type {
   RouterConfig,
   RuntimeConfig,
   SiteConfig,
+  UiConfig,
   VitePassthrough,
 } from './config.ts'
 export { AihuConfigError, defineConfig } from './config.ts'

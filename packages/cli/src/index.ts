@@ -115,11 +115,12 @@ export function appPackageJson(
         '@aihu/signals': 'latest',
       },
       devDependencies: {
-        // `@aihu-plugin/agent-readiness` powers the `agentReadiness` pass in
-        // vite.config.ts (llms.txt + MCP server-card emission). It is a
+        // `@aihu-plugin/agent-readiness` powers the `agentReadiness` block in
+        // aihu.config.ts (llms.txt + robots.txt + JSON-LD emission). It is a
         // devDependency of `@aihu/app`, NOT a transitive runtime dep, so a
-        // consumer must list it explicitly — otherwise `viteAihuPlugin`'s
-        // `require('@aihu-plugin/agent-readiness')` throws at config load.
+        // consumer must list it explicitly — otherwise the dynamic
+        // `import('@aihu-plugin/agent-readiness')` inside `viteAihuPlugin`
+        // rejects when `agentReadiness` is configured.
         '@aihu-plugin/agent-readiness': 'latest',
         '@aihu/cli': 'latest',
         '@aihu/compiler': 'latest',
@@ -143,37 +144,20 @@ export function appPackageJson(
 
 /** vite.config.ts for a new aihu application.
  *
- * `viteAihuPlugin()` composes the compiler plugin, the router plugin (which
- * provides `virtual:aihu-routes` consumed by `createApp()`), the head/SSG
- * plugins, and an opt-in agent-readiness pass — see `@aihu/app/vite-plugin`.
- * `dir.pages` tells the router where to scan for `.aihu` page files; this
- * mirrors `examples/blog-router/vite.config.ts`.
+ * Deliberately thin. `viteAihuPlugin()` composes the compiler plugin, the
+ * router plugin (which provides `virtual:aihu-routes` consumed by
+ * `createApp()`), the head/SSG plugins, and the agent-readiness pass — all
+ * driven by the config object, which now lives in `aihu.config.ts`.
+ *
+ * The project-shaped settings this function used to inline (`dir.pages`, the
+ * css `shadowMode`, and a hand-wired `viteAgentReadinessIntegration(...)`
+ * call) moved to `appAihuConfig()`. They are now customizable in one place
+ * rather than split across two files, and `aihu add` can read the same file.
  */
-export function appViteConfig(
-  appName = 'app',
-  withCssEngine = false,
-  shadowMode: ShadowChoice = 'shadow',
-): string {
-  // DA4 (#437, the flip): pages and layouts default to light DOM, so shadow
-  // is no longer the implicit default for the scaffolded index page — a
-  // css-engine scaffold whose user chose `--shadow shadow` must CARRY that
-  // choice as the explicit plugin-global `css: { shadowMode: 'shadow' }`, or
-  // the page default 'light' would silently override it. Every css-engine
-  // scaffold therefore emits its chosen mode explicitly. The plain (css-off)
-  // scaffold pins `$shadow: 'light'` per-file instead and emits no css block.
-  const emitCssBlock = withCssEngine
-  const cssEngineComment = withCssEngine
-    ? `      // @aihu/css-engine utility classes fold into each component's shadow
-      // <style> automatically (or into the global cascade under 'none').
-      // DA4: pages default to light DOM, so the wizard's --shadow choice is
-      // carried explicitly here — the plugin-global config outranks the
-      // page/layout default (only a per-file $shadow pin outranks the config).
-`
-    : ''
-  const cssBlock = emitCssBlock ? `      css: { shadowMode: '${shadowMode}' },\n` : ''
+export function appViteConfig(): string {
   return `import { viteAihuPlugin } from '@aihu/app'
-import { viteAgentReadinessIntegration } from '@aihu-plugin/agent-readiness'
 import { defineConfig } from 'vite'
+import aihuConfig from './aihu.config.ts'
 
 export default defineConfig({
   // Vite/esbuild pre-bundles dependencies for dev. \`@aihu/app\`'s client entry
@@ -181,37 +165,9 @@ export default defineConfig({
   // router plugin resolves at request time — esbuild's pre-bundle pass can't see
   // them, so it MUST be excluded or \`vite dev\` fails to start.
   optimizeDeps: { exclude: ['@aihu/app'] },
-  plugins: [
-    viteAihuPlugin({
-${cssEngineComment}      dir: { pages: 'src/pages' },
-${cssBlock}    }),
-    // Agent-readiness: emit the machine-readable agent surface — llms.txt,
-    // llms-full.txt, robots.txt, and the MCP server card at
-    // /.well-known/mcp/server-card.json (written to dist/ at build, served in
-    // \`vite dev\`). Wired directly (rather than via viteAihuPlugin's
-    // agentReadiness option) so it loads as an ESM import in vite.config.
-    viteAgentReadinessIntegration({
-      name: '${appName}',
-      summary: 'A reactive Web Components app built with aihu — agent-callable by default.',
-      version: '0.1.0',
-      // Canonical origin. Drives JSON-LD, MCP discovery, and the card's endpoint.
-      // Replace 'https://example.com' with your deployed URL.
-      siteUrl: 'https://example.com',
-      // The MCP server card is a DISCOVERY document advertising the tools below.
-      // Making the endpoint actually CALLABLE requires running @aihu/server (SSR)
-      // at this URL; a static client build only publishes the card, not a live
-      // tool endpoint.
-      endpoint: 'https://example.com/.well-known/mcp/server-card.json',
-      mcpDiscovery: true,
-      // No hand-written skills list. The card's tools are DERIVED from the
-      // compiler-populated @aihu/agent registry — the same source
-      // @aihu/agent-server reads — so the MCP card can never drift from the
-      // \`$action\` entries in src/pages/index.aihu (thesis §2, Derived). A static
-      // client build has an empty registry at build time, so the card advertises
-      // no tools until the app runs under @aihu/server (SSR), where the registry
-      // is populated and the card reflects the live \`$action\` surface.
-    }),
-  ],
+  // Everything project-shaped lives in aihu.config.ts — pages dir, <head>,
+  // css mode, and the agent/SEO surface. This file stays Vite-shaped.
+  plugins: [viteAihuPlugin(aihuConfig)],
 })
 `
 }
@@ -227,8 +183,21 @@ export function appTsConfig(): string {
         strict: true,
         lib: ['ES2022', 'DOM', 'DOM.Iterable'],
         noEmit: true,
+        // aihu.config.ts / vite.config.ts are ESM sources loaded by Vite, which
+        // resolves the `./aihu.config.ts` specifier itself. `allowImportingTsExtensions`
+        // lets tsc accept that explicit-.ts import instead of erroring on it.
+        allowImportingTsExtensions: true,
+        // Including the config files pulls Vite's own .d.ts into the program,
+        // and it references Node globals (`Buffer`) that a browser-lib project
+        // does not declare. Skip dependency typings rather than make every
+        // scaffolded app depend on @types/node to satisfy someone else's .d.ts;
+        // the project's OWN sources are still fully checked.
+        skipLibCheck: true,
       },
-      include: ['src'],
+      // Config files are included so a typo in `aihu.config.ts` is a typecheck
+      // error rather than a silently-ignored field at build time. This is the
+      // project's customization surface — it should be checked like source.
+      include: ['src', 'aihu.config.ts', 'vite.config.ts'],
     },
     null,
     2,
@@ -288,9 +257,85 @@ export function appVscodeSettings(): string {
   )}\n`
 }
 
-/** aihu.config.ts — kept for server/SSR config; optional for client-only apps. */
-export function appAihuConfig(): string {
-  return "import { defineAihuConfig } from '@aihu/server'\nimport { definePlugin as data } from '@aihu-plugin/data'\nimport { definePlugin as agent } from '@aihu/agent'\n\nexport default defineAihuConfig({\n  build: { target: 'universal' },\n  plugins: [data(), agent()],\n})\n"
+/**
+ * `aihu.config.ts` — the project's single configuration surface.
+ *
+ * This is what `vite.config.ts` hands to `viteAihuPlugin()`, and what the
+ * `aihu add` CLI dynamic-imports to read `ui`. One file, both consumers.
+ *
+ * Previously this generator emitted a `defineAihuConfig()` (the `@aihu/server`
+ * config) and — more to the point — was never called by any template. Every
+ * scaffolded app shipped with no aihu config at all, which is why the old
+ * `vite.config.ts` hand-wired `viteAgentReadinessIntegration()` inline rather
+ * than going through `viteAihuPlugin`'s own `agentReadiness` option: there was
+ * no config file for it to live in, so there was no idiomatic path to follow.
+ *
+ * `defineConfig` is `@aihu/app`'s — the one `viteAihuPlugin()` consumes and the
+ * only one carrying `agentReadiness`. `@aihu/server`'s `defineAihuConfig` is a
+ * different type of the same name, for SSR/server projects.
+ *
+ * @param withUi  emit the `ui` block (the `@aihu/ui` recipe registry). Only
+ *   templates that actually depend on `@aihu/ui` should set this — pointing
+ *   `aihu add` at a registry the project has not installed trades one error
+ *   for another.
+ */
+export function appAihuConfig(
+  appName = 'app',
+  withCssEngine = false,
+  shadowMode: ShadowChoice = 'shadow',
+  withUi = false,
+): string {
+  const tag = `${toSafe(appName)}-root`
+  // Carried through config rather than as a `viteAihuPlugin({ css })` argument
+  // so the whole project is described in one file. Only emitted for css-engine
+  // scaffolds: the plain scaffold pins `$shadow` per-file instead.
+  const cssBlock = withCssEngine ? `\n  css: { shadowMode: '${shadowMode}' },\n` : ''
+  const uiBlock = withUi
+    ? `
+  // \`aihu add <recipe>\` copies styled recipes out of the registry into
+  // \`target\`. Read by the CLI from THIS file — see \`aihu add --help\`.
+  ui: { registry: '@aihu/ui', target: './src/components/ui' },
+`
+    : ''
+  return `import { defineConfig } from '@aihu/app'
+
+/**
+ * Project configuration. Consumed by \`vite.config.ts\` (via \`viteAihuPlugin\`)
+ * and by the \`aihu\` CLI. Everything below is optional — delete what you do
+ * not need.
+ */
+export default defineConfig({
+  dir: { pages: 'src/pages' },
+
+  // Injected into index.html's <head> at build time.
+  app: {
+    head: {
+      title: '${appName}',
+    },
+  },
+${cssBlock}${uiBlock}
+  // ── Agent + SEO surface ─────────────────────────────────────────────────
+  // Emits /llms.txt, /llms-full.txt, /robots.txt and JSON-LD at build time,
+  // and serves them in \`vite dev\`. Set to \`false\` to turn the whole surface
+  // off.
+  //
+  // The <${tag}> component's \`$action\` entries are its agent-callable
+  // surface. NOTE: a static client build compiles them out (they are
+  // server-only artifacts), so this config deliberately does NOT declare an
+  // MCP \`endpoint\` — there is no process to serve one. Adding \`endpoint\`
+  // here publishes a server card advertising tools that nothing answers for.
+  // Run the app under @aihu/server (SSR) and set \`endpoint\` to the real MCP
+  // URL to make the card meaningful.
+  agentReadiness: {
+    name: '${appName}',
+    summary: 'A reactive Web Components app built with aihu.',
+    version: '0.1.0',
+    // Replace with your deployed origin. Drives JSON-LD, robots' Sitemap:
+    // line, and absolute URLs in the generated documents.
+    siteUrl: 'https://example.com',
+  },
+})
+`
 }
 
 /** src/pages/index.aihu for Hello World (v1 syntax).
@@ -377,18 +422,18 @@ ${stateBlock}
 
     <section class="flex flex-col gap-4">
       <h2 class="text-xl font-semibold">Agent surface</h2>
-      <p>These actions are exposed to AI agents as MCP tools. An agent drives this same on-screen instance.</p>
+      <p>The buttons above and the list below come from one <code>$action</code> block — the UI and the machine-readable surface are derived from the same source, so they cannot disagree.</p>
       <ul class="flex flex-col gap-1">
         <li>increment — Add 1 to the value</li>
         <li>decrement — Subtract 1 from the value</li>
         <li>reset — Set the value to 0</li>
       </ul>
       <p>
-        <a href="/llms.txt">llms.txt</a> · <a href="/.well-known/mcp/server-card.json">MCP server card</a> — this component's machine-readable interface.
+        <a href="/llms.txt">llms.txt</a> — what this build publishes for agents and crawlers.
       </p>
     </section>
 
-    <p>Run @aihu/server to make these tools callable — then a human and an AI agent control this exact component in parallel.</p>
+    <p>This is a static client build, so these actions are <strong>declared but not callable over HTTP</strong>, and no MCP server card is published — advertising one would promise an endpoint nothing answers. Run the app under @aihu/server and set <code>agentReadiness.endpoint</code> in aihu.config.ts to make them callable; a human and an AI agent then drive this exact component in parallel.</p>
   </main>
 }
 `
@@ -418,18 +463,18 @@ ${stateBlock}
 
     <section class="card">
       <h2>Agent surface</h2>
-      <p>These actions are exposed to AI agents as MCP tools. An agent drives this same on-screen instance.</p>
+      <p>The buttons above and the list below come from one <code>$action</code> block — the UI and the machine-readable surface are derived from the same source, so they cannot disagree.</p>
       <ul>
         <li>increment — Add 1 to the value</li>
         <li>decrement — Subtract 1 from the value</li>
         <li>reset — Set the value to 0</li>
       </ul>
       <p>
-        <a href="/llms.txt">llms.txt</a> · <a href="/.well-known/mcp/server-card.json">MCP server card</a> — this component's machine-readable interface.
+        <a href="/llms.txt">llms.txt</a> — what this build publishes for agents and crawlers.
       </p>
     </section>
 
-    <p class="note">Run @aihu/server to make these tools callable — then a human and an AI agent control this exact component in parallel.</p>
+    <p class="note">This is a static client build, so these actions are <strong>declared but not callable over HTTP</strong>, and no MCP server card is published — advertising one would promise an endpoint nothing answers. Run the app under @aihu/server and set <code>agentReadiness.endpoint</code> in aihu.config.ts to make them callable; a human and an AI agent then drive this exact component in parallel.</p>
   </main>
 }
 
@@ -701,13 +746,17 @@ export function scaffoldApp(
     ])
   }
 
-  // Shared base across every template. `minimal` is exactly this set (8 files),
-  // byte-identical to the historical scaffold (modulo the trustedDependencies
-  // line) so the legacy-snapshot golden + default-e2e stay green.
+  // Shared base across every template. `minimal` is exactly this set.
+  //
+  // This set previously carried no `aihu.config.ts` at all — the generator for
+  // it existed but was never called, so every scaffolded project had no aihu
+  // config, `vite.config.ts` hand-wired the agent-readiness plugin inline, and
+  // `aihu add` failed with `no-config` in a project the CLI had just created.
   const indexPage = template === 'docs' ? appDocsIndexAihu(name) : appIndexAihu(name, withCssEngine)
   const files: Array<readonly [string, string]> = [
     ['package.json', appPackageJson(name, pm, withCssEngine)],
-    ['vite.config.ts', appViteConfig(name, withCssEngine, shadowMode)],
+    ['aihu.config.ts', appAihuConfig(name, withCssEngine, shadowMode)],
+    ['vite.config.ts', appViteConfig()],
     ['tsconfig.json', appTsConfig()],
     ['index.html', appIndexHtml(name)],
     ['src/main.ts', appMainTs(name)],

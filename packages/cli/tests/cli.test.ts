@@ -103,21 +103,56 @@ describe('appViteConfig', () => {
     expect(appViteConfig()).toContain('viteAihuPlugin(')
   })
 
-  it('points the router at src/pages', () => {
-    // `viteAihuPlugin({ dir: { pages: 'src/pages' } })` matches the
-    // scaffold's `src/pages/index.aihu` location and the convention used by
-    // `examples/blog-router`.
-    expect(appViteConfig()).toContain("pages: 'src/pages'")
+  it('reads its config from aihu.config.ts rather than inlining it', () => {
+    // The project-shaped settings (pages dir, css mode, agent surface) moved
+    // to aihu.config.ts so one file serves both Vite and the `aihu add` CLI.
+    const cfg = appViteConfig()
+    expect(cfg).toContain("import aihuConfig from './aihu.config.ts'")
+    expect(cfg).toContain('viteAihuPlugin(aihuConfig)')
+  })
+
+  it('no longer hand-wires the agent-readiness plugin', () => {
+    // It is composed by viteAihuPlugin from `agentReadiness` in aihu.config.ts.
+    // Hand-wiring here is what made the framework's own config path unused.
+    expect(appViteConfig()).not.toContain('viteAgentReadinessIntegration')
   })
 })
 
 describe('appAihuConfig', () => {
-  it('references defineAihuConfig', () => {
-    expect(appAihuConfig()).toContain('defineAihuConfig')
+  it("uses @aihu/app's defineConfig — the one viteAihuPlugin consumes", () => {
+    // NOT @aihu/server's `defineAihuConfig`: that is a different type of the
+    // same name, for SSR projects, and carries no `agentReadiness` field.
+    const cfg = appAihuConfig('demo')
+    expect(cfg).toContain("import { defineConfig } from '@aihu/app'")
+    expect(cfg).toContain('export default defineConfig({')
   })
 
-  it('sets build.target to universal', () => {
-    expect(appAihuConfig()).toContain("target: 'universal'")
+  it('points the router at src/pages', () => {
+    expect(appAihuConfig('demo')).toContain("dir: { pages: 'src/pages' }")
+  })
+
+  it('enables the agent + SEO surface by default', () => {
+    const cfg = appAihuConfig('demo')
+    expect(cfg).toContain('agentReadiness: {')
+    expect(cfg).toContain("name: 'demo'")
+  })
+
+  it('declares NO mcp endpoint — a static build has nothing to serve one', () => {
+    // Regression guard for FEL-423. The previous scaffold set
+    // `endpoint: 'https://example.com/.well-known/mcp/server-card.json'` —
+    // the card's OWN url — which both published a card advertising zero tools
+    // and told agents the MCP transport was the discovery document itself.
+    // With no `endpoint`, mcpServerCard 404s and is not emitted at all.
+    const cfg = appAihuConfig('demo')
+    expect(cfg).not.toContain('endpoint:')
+    expect(cfg).not.toContain('mcpDiscovery:')
+  })
+
+  it('omits the ui block unless the template ships @aihu/ui', () => {
+    // Pointing `aihu add` at a registry the project has not installed trades
+    // the `no-config` error for a `registry-not-resolvable` one.
+    expect(appAihuConfig('demo')).not.toContain('ui: {')
+    expect(appAihuConfig('demo', false, 'shadow', true)).toContain("registry: '@aihu/ui'")
   })
 })
 
@@ -243,9 +278,13 @@ afterEach(() => {
 })
 
 describe('scaffoldApp', () => {
-  it('creates all 8 expected files', () => {
+  it('creates all 9 expected files', () => {
+    // 9, not 8: `aihu.config.ts` joined the base set. It was previously
+    // generated-but-never-written, so every scaffold shipped without the
+    // framework's own configuration surface.
     const result = scaffoldApp('demo', tmpDir)
-    expect(result.created).toHaveLength(8)
+    expect(result.created).toContain('aihu.config.ts')
+    expect(result.created).toHaveLength(9)
     expect(result.skipped).toHaveLength(0)
   })
 
@@ -307,7 +346,7 @@ describe('scaffoldApp', () => {
     scaffoldApp('demo', tmpDir)
     const second = scaffoldApp('demo', tmpDir)
     expect(second.created).toHaveLength(0)
-    expect(second.skipped).toHaveLength(8)
+    expect(second.skipped).toHaveLength(9)
   })
 
   it('writes package.json with trustedDependencies on disk (FIX 1)', () => {
@@ -320,9 +359,9 @@ describe('scaffoldApp', () => {
 })
 
 describe('scaffoldApp · template differentiation (FIX 3)', () => {
-  it('minimal produces the baseline 8-file set (no layout, no extra pages)', () => {
+  it('minimal produces the baseline 9-file set (no layout, no extra pages)', () => {
     const result = scaffoldApp('demo', tmpDir, { template: 'minimal' })
-    expect(result.created).toHaveLength(8)
+    expect(result.created).toHaveLength(9)
     expect(result.created).not.toContain('src/layouts/default.aihu')
     expect(result.created).not.toContain('src/pages/about.aihu')
   })

@@ -67,6 +67,34 @@ export type AihuPlugin = Plugin
 export type AgentReadinessConfig = import('@aihu-plugin/agent-readiness').AgentReadinessConfig
 
 /**
+ * `@aihu/ui` styled-recipe registry configuration.
+ *
+ * Declared here rather than re-exported from `@aihu/server` on purpose. A
+ * type-only `import('@aihu/server')` would make `@aihu/server` resolvable-or-
+ * bust for anyone type-checking a config that uses this field — and the app
+ * templates are deliberately client-only, with no `@aihu/server` dependency.
+ * Forcing a server package into every static SPA to name a build-time-only
+ * option is the wrong trade.
+ *
+ * MUST stay structurally compatible with `@aihu/server`'s `UiConfig`: the
+ * `aihu add` CLI dynamic-imports `aihu.config.ts` and reads `.ui` off the
+ * default export, so it sees whichever of the two wrote the object. Nominal
+ * identity is irrelevant there; field shape is not.
+ */
+export interface UiConfig {
+  /** Source registry to pull recipes from. Default: '@aihu/ui'. */
+  readonly registry?: string
+  /** Directory `aihu add` copies recipe sources into. Default: './src/components/ui'. */
+  readonly target?: string
+  /** Active style pack name. Default: 'aihu-default'. */
+  readonly style?: string
+  /** Custom-element tag prefix for copied recipes. Default: 'aihu'. */
+  readonly prefix?: string
+  /** RESERVED for v2 multi-registry support — schema slot only, unimplemented. */
+  readonly registries?: Readonly<Record<string, string>>
+}
+
+/**
  * CSS / styling options forwarded to the compiler's Vite plugin.
  *
  * Today this surfaces the rendering mode the compiler injects into every
@@ -168,6 +196,20 @@ export interface AihuConfig {
    * when using a cascade-dependent CSS framework (Tailwind, UnoCSS, Pico).
    */
   readonly css?: CssConfig
+  /**
+   * `@aihu/ui` styled-recipe registry configuration.
+   *
+   * BUILD-TIME ONLY — no runtime or edge effect. Admitted here so a single
+   * scaffolded `aihu.config.ts` serves both the Vite build (this config) and
+   * the `aihu add` CLI, which dynamic-imports the same file and reads `.ui`
+   * off the default export (`registry-resolve.ts`). Without this field the
+   * two would need separate config files for the same project.
+   *
+   * Same shape as `@aihu/server`'s `AihuConfig.ui`; `aihu add` resolves the
+   * defaults at read time, so omitting `ui` is valid — it just means the
+   * project has no recipe registry wired.
+   */
+  readonly ui?: UiConfig
 }
 
 /** Thrown by defineConfig when configuration validation fails. */

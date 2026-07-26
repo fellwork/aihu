@@ -28,7 +28,13 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { type AihuCompilerPluginOptions, aihuCompilerPlugin } from '../../compiler/js/index.ts'
-import { appIndexAihu, appPackageJson, appViteConfig, scaffoldApp } from '../src/index.ts'
+import {
+  appAihuConfig,
+  appIndexAihu,
+  appPackageJson,
+  appViteConfig,
+  scaffoldApp,
+} from '../src/index.ts'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 
@@ -50,34 +56,43 @@ describe('scaffold css-engine · package.json', () => {
   })
 })
 
-describe('scaffold css-engine · vite.config.ts', () => {
+// The shadowMode setting moved from vite.config.ts to aihu.config.ts, so these
+// assertions follow it there. vite.config.ts is now project-agnostic.
+describe('scaffold css-engine · aihu.config.ts', () => {
   it('shadow mode (default) emits an explicit css block (DA4: the page default is light)', () => {
-    const cfg = appViteConfig('demo', true, 'shadow')
-    expect(cfg).toContain("css: { shadowMode: 'shadow' },")
-    expect(cfg).toContain('fold into each')
+    expect(appAihuConfig('demo', true, 'shadow')).toContain("css: { shadowMode: 'shadow' },")
   })
 
   it('shadowMode: light emits an explicit css block', () => {
-    const cfg = appViteConfig('demo', true, 'light')
-    expect(cfg).toContain("css: { shadowMode: 'light' },")
+    expect(appAihuConfig('demo', true, 'light')).toContain("css: { shadowMode: 'light' },")
   })
 
-  it('css off (default) emits the base config: optimizeDeps + agentReadiness, no css block', () => {
-    const cfg = appViteConfig('demo')
-    // Gap 1: dev-server fix — @aihu/app must be excluded from esbuild pre-bundle.
-    expect(cfg).toContain("optimizeDeps: { exclude: ['@aihu/app'] }")
-    // Gap 2: the agent surface is enabled by default. Its skills are DERIVED
-    // from the @aihu/agent registry at runtime, NOT a hand-written literal —
-    // so the emitted config carries no `skills:` array (thesis §2, Derived).
-    expect(cfg).toContain('viteAgentReadinessIntegration(')
-    expect(cfg).toContain("from '@aihu-plugin/agent-readiness'")
+  it('css off (default) emits the base config: agent surface, no css block', () => {
+    const cfg = appAihuConfig('demo')
+    // The agent surface is enabled by default. Its skills are DERIVED from the
+    // @aihu/agent registry, NOT a hand-written literal — so the emitted config
+    // carries no `skills:` array (thesis §2, Derived).
+    expect(cfg).toContain('agentReadiness: {')
     expect(cfg).toContain("name: 'demo'")
     expect(cfg).not.toContain('skills:')
     expect(cfg).not.toContain("name: 'increment'")
     expect(cfg).toContain("dir: { pages: 'src/pages' }")
-    // css off → no shadowMode block and no css-engine comment.
-    expect(cfg).not.toContain('      css: { shadowMode')
-    expect(cfg).not.toContain('fold into each')
+    // css off → no shadowMode block.
+    expect(cfg).not.toContain('css: { shadowMode')
+  })
+})
+
+describe('scaffold · vite.config.ts stays Vite-shaped', () => {
+  it('excludes @aihu/app from esbuild pre-bundling', () => {
+    // Dev-server fix: @aihu/app's client entry imports `virtual:aihu-routes`,
+    // which esbuild's pre-bundle pass cannot resolve.
+    expect(appViteConfig()).toContain("optimizeDeps: { exclude: ['@aihu/app'] }")
+  })
+
+  it('carries no project settings of its own', () => {
+    const cfg = appViteConfig()
+    expect(cfg).not.toContain('shadowMode')
+    expect(cfg).not.toContain('dir: {')
   })
 })
 
@@ -118,8 +133,8 @@ describe('scaffold css-engine · scaffoldApp() writes the right tree', () => {
     }
     expect(pkg.dependencies['@aihu/css-engine']).toBe('latest')
 
-    const vite = readFileSync(join(root, 'vite.config.ts'), 'utf8')
-    expect(vite).toContain("css: { shadowMode: 'shadow' },")
+    const cfg = readFileSync(join(root, 'aihu.config.ts'), 'utf8')
+    expect(cfg).toContain("css: { shadowMode: 'shadow' },")
 
     const sfc = readFileSync(join(root, 'src/pages/index.aihu'), 'utf8')
     expect(sfc).toContain('class="flex flex-col gap-8 max-w-7xl mx-auto p-8"')
@@ -128,8 +143,8 @@ describe('scaffold css-engine · scaffoldApp() writes the right tree', () => {
 
   it('css: engine + shadowMode none — explicit css block', () => {
     scaffoldApp('app', dir, { css: 'engine', shadowMode: 'light' })
-    const vite = readFileSync(join(dir, 'app', 'vite.config.ts'), 'utf8')
-    expect(vite).toContain("css: { shadowMode: 'light' },")
+    const cfg = readFileSync(join(dir, 'app', 'aihu.config.ts'), 'utf8')
+    expect(cfg).toContain("css: { shadowMode: 'light' },")
   })
 
   it('default (no opts) does not emit css-engine — byte-stable plain path', () => {

@@ -5,7 +5,7 @@ export const PKG: ApiPackage = {
   name: '@aihu/cli',
   slug: 'cli',
   tier: 'Compiler & tooling',
-  version: '1.0.0',
+  version: '1.0.1',
   tagline: 'Aihu CLI (`aihu`, `create-aihu`) — scaffolding, dev, build commands.',
   note: '',
 }
@@ -21,8 +21,10 @@ export const EXPORTS: readonly ApiExport[] = [
   {
     name: 'appAihuConfig',
     kind: 'function',
-    signature: 'function appAihuConfig(): string',
-    summary: 'aihu.config.ts — kept for server/SSR config; optional for client-only apps.',
+    signature:
+      "function appAihuConfig( appName = 'app', withCssEngine = false, shadowMode: ShadowChoice = 'shadow', withUi = false, ): string",
+    summary: "`aihu.config.ts` — the project's single configuration surface.",
+    agent: true,
   },
   {
     name: 'appDefaultLayout',
@@ -76,8 +78,7 @@ export const EXPORTS: readonly ApiExport[] = [
   {
     name: 'appViteConfig',
     kind: 'function',
-    signature:
-      "function appViteConfig( appName = 'app', withCssEngine = false, shadowMode: ShadowChoice = 'shadow', ): string",
+    signature: 'function appViteConfig(): string',
     summary: 'vite.config.ts for a new aihu application.',
   },
   {
