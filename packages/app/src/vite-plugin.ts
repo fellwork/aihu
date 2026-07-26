@@ -11,7 +11,7 @@ import type { AdapterContext, CreateHandlerSourceOptions } from './adapter.ts'
 import type { AihuConfig } from './config.ts'
 import { validateAihuConfig } from './config.ts'
 import { applyHeadConfig } from './head.ts'
-import { AIHU_CONFIG_PLUGIN, type AihuPluginApi } from './load-config.ts'
+import { AIHU_CONFIG_PLUGIN, type AihuModuleApi, type AihuPluginApi } from './load-config.ts'
 import { prerenderClose } from './prerender.ts'
 
 /** Map a pages-dir file path to a minimal RouteDefinition for adapter context. */
@@ -144,7 +144,13 @@ export function viteAihuPlugin(config?: AihuConfig): PluginOption[] {
   // imported fragments all work, because the config genuinely ran.
   const configMarkerPlugin: Plugin = {
     name: AIHU_CONFIG_PLUGIN,
-    api: { getAihuConfig: () => resolved } satisfies AihuPluginApi,
+    api: {
+      getAihuConfig: () => resolved,
+      // @aihu/app declares itself under the same module contract every other
+      // package uses, so nothing has to special-case the framework's own entry.
+      aihuModule: '@aihu/app',
+      getOptions: () => resolved,
+    } satisfies AihuPluginApi & AihuModuleApi<AihuConfig>,
   }
 
   const routerOpts = {
