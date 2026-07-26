@@ -39,14 +39,15 @@ Two packs ship with the engine. They declare the **same token names** — only
 the values differ — so they are drop-in interchangeable:
 
 - **`aihu-default`** — the aihu brand palette (warm paper + ink, accent
-  `#c8543a`), light values in `:root`, dark overrides in `.dark`.
+  `#c8543a`), light values in `:root`, dark overrides in `.dark, [data-theme="dark"]`.
 - **`aihu-graphite`** — a neutral monochrome ramp expressed in `oklch()`
-  (chroma ≈ 0), same token names, same `:root` + `.dark` structure.
+  (chroma ≈ 0), same token names, same `:root` + dark structure.
 
-A pack emits a light block under `:root { … }` and an optional dark block under
-`.dark { … }`. The consumer toggles dark by putting the `.dark` class on (or
-above) the themed subtree; the same token names carry the dark values, so
-nothing in component markup changes.
+A pack emits a light block under `:root { … }`, an optional dark block under
+`.dark, [data-theme="dark"] { … }`, and one `[data-theme="<name>"] { … }` block
+per named theme. The consumer selects dark by putting **either** the `.dark`
+class **or** `data-theme="dark"` on (or above) the themed subtree; the same
+token names carry the dark values, so nothing in component markup changes.
 
 ```css
 /* shape of a shipped pack (aihu-default) */
@@ -88,7 +89,7 @@ re-declaring anything:
 import { aihuDefault, aihuGraphite } from '@aihu/css-engine/packs'
 
 aihuDefault.tokens['color-accent'] // '#c8543a'
-aihuDefault.toCss()                // ':root { … } .dark { … }'
+aihuDefault.toCss()                // ':root { … } .dark, [data-theme="dark"] { … }'
 aihuGraphite.toCss()               // the monochrome oklch() bundle
 ```
 
@@ -119,7 +120,7 @@ acme.toCss()
 //   --color-primary: #0a7;
 //   --radius-md: 6px;
 // }
-// .dark {
+// .dark, [data-theme="dark"] {
 //   --color-primary: #3fc;
 // }
 ```
@@ -128,9 +129,13 @@ acme.toCss()
 
 - `name` — the pack name (used for registration / debugging).
 - `tokens` — the light-theme `TokenMap` (the `:root` block).
-- `dark` — the dark-theme `TokenMap` (the `.dark` block); empty if you pass none.
-- `toCss()` — serialize to a `:root { … }` (+ `.dark { … }`) CSS string in the
-  same shape as the shipped bundles.
+- `dark` — the dark-theme `TokenMap`, emitted under `.dark, [data-theme="dark"]`;
+  empty if you pass none.
+- `themes` — optional named themes, `Record<string, TokenMap>`; each emits its own
+  `[data-theme="<name>"]` block. See [Named themes](#named-themes).
+- `themeNames` — the named themes this pack declares, in declaration order.
+- `toCss()` — serialize to a `:root { … }` (+ dark, + named-theme) CSS string in
+  the same shape as the shipped bundles.
 
 Token names are normalized whether or not you write the leading `--`
 (`'color-accent'` and `'--color-accent'` both emit `--color-accent`). An empty
@@ -138,11 +143,56 @@ Token names are normalized whether or not you write the leading `--`
 declare the full contract set (above) if you want a stand-alone pack with no
 dangling utilities.
 
+## Named themes
+
+Beyond light (`:root`) and dark, a pack can declare any number of **named themes**.
+Each emits its own `[data-theme="<name>"] { … }` block, selected by putting
+`data-theme="<name>"` on the document root (or any ancestor of the themed subtree):
+
+```ts
+const acme = defineStylePack({
+  name: 'acme',
+  tokens: { 'color-primary': '#0a7', 'color-background': '#fff' },
+  dark:   { 'color-primary': '#3fc' },
+  themes: {
+    cupcake: { 'color-primary': '#65c3c8', 'color-background': '#faf7f5' },
+    dracula: { 'color-primary': '#ff79c6' },
+  },
+})
+
+acme.themeNames // ['cupcake', 'dracula']
+```
+
+```html
+<html data-theme="cupcake">
+```
+
+A named theme is an **override layer over `tokens`**, not a standalone theme —
+list only the names that differ from the base, exactly as `dark` works. Anything
+a theme omits falls through to the `:root` block.
+
+**Order is the cascade.** `:root`, the dark block, and every `[data-theme="…"]`
+block all have identical (0,1,0) specificity, so the last matching one wins.
+`toCss()` emits them in that order deliberately: with
+`<html class="dark" data-theme="cupcake">` you get cupcake, because an explicit
+selection should beat an inherited one.
+
+**Naming rules.** Theme names must match `/^[a-z][a-z0-9-]*$/`, since they become
+attribute selectors. `dark` is reserved — use the `dark` field, which is
+dual-keyed on both `.dark` and `[data-theme="dark"]` so either convention works.
+
+> **Caveat — `dark:` utilities.** The dual-keyed dark block covers **token
+> values**. The `dark:` *variant* (e.g. `dark:bg-surface`) is still gated on
+> `:root.dark` or a `data-theme="dark"` attribute on the **component host**, so a
+> page that sets only `data-theme="dark"` on `<html>` gets correct token values
+> but not `dark:`-variant utilities. Until that is reconciled, set the `.dark`
+> class as well if you use `dark:` variants.
+
 ## Applying a pack
 
-A pack is just a `:root { … }` (+ `.dark { … }`) stylesheet. You apply it by
-getting that CSS onto the page's `:root`, then toggling `.dark` for dark mode.
-Three subpath-exported, verified paths:
+A pack is just a `:root { … }` (+ dark, + named-theme) stylesheet. You apply it by
+getting that CSS onto the page's `:root`, then selecting a theme on the document
+root. Three subpath-exported, verified paths:
 
 **1. Import a built-in CSS bundle directly.** `@aihu/css-engine/styles/aihu-default.css`
 and `@aihu/css-engine/styles/aihu-graphite.css` are declared in the package
@@ -153,8 +203,9 @@ your app's stylesheet:
 // in your app entry — Vite inlines the CSS, no extra config
 import '@aihu/css-engine/styles/aihu-default.css'
 
-// dark mode: toggle the class the pack's `.dark` block targets
+// dark mode — either key works; the pack's dark block targets both
 document.documentElement.classList.toggle('dark')
+document.documentElement.setAttribute('data-theme', 'dark')
 ```
 
 **2. The built-in packs as JS objects.** Import the ready-made `StylePack`
@@ -193,11 +244,12 @@ document.head.appendChild(style)
 
 If you layer your own semantic custom properties over the pack's `--color-*`
 tokens (e.g. `--surface`, `--ink`), declare the alias under **every theme
-selector the pack uses** (`:root` *and* `.dark`) — not just `:root`:
+selector the pack uses** (`:root`, the dark block, *and* every named theme) —
+not just `:root`:
 
 ```css
 /* ✅ re-resolves per theme */
-:root, .dark {
+:root, .dark, [data-theme="dark"] {
   --surface: var(--color-surface);
   --ink: var(--color-text);
 }

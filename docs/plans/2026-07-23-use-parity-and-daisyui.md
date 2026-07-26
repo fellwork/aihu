@@ -301,11 +301,16 @@ something is *excluded* or *relocated* rather than added directly to `@aihu/use`
 >   global-cascade / second-vocabulary problem css-engine's shadow-DOM-scoped design exists to
 >   avoid), not merely cost.
 >
-> **PLACEHOLDER — the detailed Option 4 design (token-mapping mechanics, tree-shake/content-scan
-> implementation, recipe-transcription workflow, migration plan for the `.dark`-class → the
-> `data-theme` StylePack reconciliation named in the Founder decisions) is being produced as a
-> separate design pass by another agent. Do not treat the bullets above, or the Option 1/2/3
-> table retained below, as that spec — they only capture the decision, not the mechanism.**
+> **~~PLACEHOLDER~~ — RESOLVED 2026-07-26. The detailed Option 4 design (token-mapping
+> mechanics, tree-shake/content-scan implementation, recipe-transcription workflow, migration
+> plan for the `.dark`-class → the `data-theme` StylePack reconciliation named in the Founder
+> decisions) now lives at
+> [`2026-07-26-option-4-daisyui-design.md`](./2026-07-26-option-4-daisyui-design.md).** That
+> document is the spec; the bullets above and the Option 1/2/3 table retained below capture only
+> the decision, not the mechanism. Two items in it require founder sign-off before the
+> token-contract slice can land (its §7.4). Note also that per the light-DOM-flip amendment at
+> the top of this file, §3(a)'s "shadow-DOM-scoped model" wording is left unedited on purpose —
+> it is rewritten only once the flip itself is founder-approved.
 
 Options 1/2/3 as originally analyzed (retained for context; superseded per above):
 
