@@ -483,11 +483,35 @@ async function cmdRecall(argv: string[]) {
     console.log(`(no wiki pages matched "${q}" — query succeeded, result is genuinely empty)`)
     return
   }
-  for (const p of d.results) {
+
+  // Notion search is fuzzy AND index-delayed: a page created seconds ago may be
+  // absent, while an unrelated page ranks first. Searching "Roster Operating
+  // Protocol" once returned "Fellwork Operations" as the top hit. An agent that
+  // trusts result[0] therefore reads the WRONG page and has no signal it did.
+  //
+  // So rank exact/substring title matches above whatever Notion's relevance
+  // returned, and label every row with how it matched. The agent decides.
+  const rows = d.results.map((p: any) => {
     const title = plain(
       Object.values(p.properties ?? {}).find((v: any) => v?.type === 'title')?.title ?? [],
     )
-    console.log(`${p.id}  ${title || '(untitled)'}\n    ${p.url ?? ''}`)
+    const lt = title.toLowerCase()
+    const lq = q.toLowerCase()
+    const rank = lt === lq ? 0 : lt.includes(lq) ? 1 : lq.includes(lt) && lt ? 2 : 3
+    return { id: p.id, title, url: p.url ?? '', rank }
+  })
+  rows.sort((a, b) => a.rank - b.rank)
+
+  const LABEL = ['EXACT title', 'title contains query', 'query contains title', 'fuzzy — Notion relevance only']
+  for (const r of rows) {
+    console.log(`${r.id}  ${r.title || '(untitled)'}\n    [${LABEL[r.rank]}]  ${r.url}`)
+  }
+  if (rows[0].rank === 3) {
+    console.log(
+      `\nNOTE: no title matched "${q}". Every hit above is Notion's fuzzy relevance,\n` +
+        'which regularly ranks an unrelated page first. Confirm the title before\n' +
+        'trusting the content. A page created moments ago may not be indexed yet.',
+    )
   }
 }
 
