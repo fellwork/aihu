@@ -314,7 +314,7 @@ See [`packages/`](./packages) for all packages on disk. By tier:
 | [`@aihu/app`](./packages/app) | `7.1.0` | Top-level app integration — wires runtime, router, and adapters into a Vite app. |
 | [`@aihu/arbor`](./packages/arbor) | `4.0.0` | Reactive component tree (the rendering layer that consumes @aihu/signals). |
 | [`@aihu/auth`](./packages/auth) | `5.0.0` | JWT scope checks, ScopeSignal, and server middleware for aihu auth. |
-| [`@aihu/cli`](./packages/cli) | `1.1.0` | Aihu CLI (`aihu`, `create-aihu`) — scaffolding, dev, build commands. |
+| [`@aihu/cli`](./packages/cli) | `1.1.1` | Aihu CLI (`aihu`, `create-aihu`) — scaffolding, dev, build commands. |
 | [`@aihu/compiler`](./packages/compiler) | `1.1.1` | Single File Component (.aihu) compiler — Rust binary + JS glue. |
 | [`@aihu/compiler-native-darwin-arm64`](./packages/compiler/npm-native/darwin-arm64) | `0.1.2` | aihu compiler native addon (napi) — darwin-arm64 platform binary. |
 | [`@aihu/compiler-native-darwin-x64`](./packages/compiler/npm-native/darwin-x64) | `0.1.2` | aihu compiler native addon (napi) — darwin-x64 platform binary. |
@@ -343,7 +343,7 @@ See [`packages/`](./packages) for all packages on disk. By tier:
 | [`@aihu/tsc`](./packages/tsc) | `0.2.6` | aihu-tsc — `tsc` for projects containing .aihu Single File Components. Type-checks .aihu sources as virtual TypeScript, with no .aihu.ts files written to disk. |
 | [`@aihu/ui`](./packages/ui) | `0.1.0` | aihu styled-recipe registry — copy-paste .aihu recipes distributed as source via `aihu add` (no runtime bundle). |
 | [`@aihu/use`](./packages/use) | `0.4.0` | aihu utility/sensor/state composables — SSR-safe, scope-aware, per-composable subpath entries. |
-| [`create-aihu`](./packages/create-aihu) | `0.1.7` | Scaffold a new Aihu app — the `npm create aihu` / `npx create-aihu` entry point. Thin delegator to @aihu/cli. |
+| [`create-aihu`](./packages/create-aihu) | `0.1.8` | Scaffold a new Aihu app — the `npm create aihu` / `npx create-aihu` entry point. Thin delegator to @aihu/cli. |
 | [`vscode-aihu`](./packages/vscode-aihu) | `1.0.0` | Syntax highlighting, snippets, and language support for .aihu Single File Components |
 
 <sub><i>Auto-generated — run `bun scripts/sync-readme.ts` to update.</i></sub>
