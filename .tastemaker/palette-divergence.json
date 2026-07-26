@@ -1,0 +1,84 @@
+{
+  "$comment": [
+    "KNOWN divergences between the brand contract (.tastemaker/style-lock.md) and",
+    "the shipped pack (packages/css-engine/src/packs.ts), FEL-435.",
+    "",
+    "Why this file exists. The two artefacts disagree on 7 values. Each is",
+    "internally consistent, and until now NO gate compared them — check_contrast.py",
+    "audits the lock, and nothing at all audits the palette that actually ships.",
+    "That is how `accent`/`border` came to be reported at 3.62 (+0.62 over the",
+    "3.0 floor) while the shipped pairing is 3.12 (+0.12). The number was right",
+    "about the contract and wrong about the product.",
+    "",
+    "These entries are DEBT, not settled policy. Which artefact wins is a brand",
+    "decision escalated to Shane; a builder resolving it by editing one side would",
+    "be deciding it by fiat. Until that ruling lands, the divergences are recorded",
+    "with a reason and PRINTED on every run so they cannot go quiet.",
+    "",
+    "check_palette_parity.py fails when:",
+    "  - a divergence exists that is NOT listed here          (new drift)",
+    "  - an entry here NO LONGER diverges                     (stale — reconcile and delete it)",
+    "",
+    "So the gate is green today and loud on change in either direction. It is",
+    "deliberately not left permanently red: a gate that can never pass gets",
+    "disabled, which is worse than either artefact winning.",
+    "",
+    "NOT LISTED, deliberately: `--graphite`. It has no counterpart in packs.ts.",
+    "`--color-neutral` is a separate token that style-lock.md:70 defines in its own",
+    "right, and packs.ts matches THAT line exactly. Pairing graphite (a brand ink)",
+    "against color-neutral (a component fill, with a near-white -foreground) was a",
+    "mapping error, not a divergence. It looked verified because the two coincide",
+    "in LIGHT (#363c47) and differ only in DARK."
+  ],
+  "divergences": [
+    {
+      "token": "fg",
+      "mode": "dark",
+      "lock": "#ece9e2",
+      "packs": "#ede8e0",
+      "reason": "Near-identical warm off-white; unresolved which is canonical."
+    },
+    {
+      "token": "bg",
+      "mode": "dark",
+      "lock": "#14161c",
+      "packs": "#13151b",
+      "reason": "One-step difference in the dark paper value."
+    },
+    {
+      "token": "surface",
+      "mode": "light",
+      "lock": "#ffffff",
+      "packs": "#faf8f4",
+      "reason": "Lock raises surface to pure white above paper; the pack keeps surface equal to paper. A real design difference, not a typo."
+    },
+    {
+      "token": "accent",
+      "mode": "dark",
+      "lock": "#e0674b",
+      "packs": "#e8705a",
+      "reason": "The pack's dark accent is lighter/warmer than the lock's."
+    },
+    {
+      "token": "border",
+      "mode": "light",
+      "lock": "#ece9e2",
+      "packs": "#ddd9d2",
+      "reason": "HIGHEST IMPACT. accent/border is 3.62 against the lock and 3.12 against the pack, over a 3.0 ui-safe floor. The shipped pairing has ~1/5 the headroom the tool reports."
+    },
+    {
+      "token": "border",
+      "mode": "dark",
+      "lock": "#2b3038",
+      "packs": "#2e3240",
+      "reason": "Dark border, pack is slightly lighter/bluer."
+    },
+    {
+      "token": "muted",
+      "mode": "dark",
+      "lock": "#a39a92",
+      "packs": "#9e9890",
+      "reason": "Dark muted text, pack is slightly darker."
+    }
+  ]
+}

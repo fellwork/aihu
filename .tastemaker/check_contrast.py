@@ -45,11 +45,11 @@ TOKENS: dict[str, dict[str, str]] = {
     "destructive-fg": {"light": "#faf8f4", "dark": "#1a1d24"},
     # Semantic state tokens (daihui layer, E1/E2 colour pass)
     "info": {"light": "#3d5a75", "dark": "#8fadc8"},
-    "info-fg": {"light": "#faf8f4", "dark": "#14161c"},
+    "info-fg": {"light": "#faf8f4", "dark": "#1a1d24"},
     "success": {"light": "#3f6f4f", "dark": "#84b898"},
-    "success-fg": {"light": "#faf8f4", "dark": "#14161c"},
+    "success-fg": {"light": "#faf8f4", "dark": "#1a1d24"},
     "warning": {"light": "#945f0e", "dark": "#d8a848"},
-    "warning-fg": {"light": "#faf8f4", "dark": "#14161c"},
+    "warning-fg": {"light": "#faf8f4", "dark": "#1a1d24"},
     "neutral": {"light": "#363c47", "dark": "#636a72"},
     "neutral-fg": {"light": "#faf8f4", "dark": "#faf8f4"},
 }

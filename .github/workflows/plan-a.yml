@@ -275,6 +275,43 @@ jobs:
       - uses: actions/checkout@v4
       - run: bash scripts/check-lesson-refs.sh
 
+  palette:
+    # The brand palette that SHIPS must match the brand contract, or the
+    # difference must be recorded (FEL-435).
+    #
+    # Two checks, and the second exists because of what the first could not see.
+    # `check_contrast.py` audits `.tastemaker/style-lock.md`, and audits it
+    # faithfully — 27 of its 30 lock-derived values were exact transcriptions.
+    # What nothing audited was `packages/css-engine/src/packs.ts`, the palette a
+    # user actually receives. Both artefacts were internally consistent and no
+    # gate compared them, so `accent`/`border` reported 3.62 (+0.62 over the 3.0
+    # ui-safe floor) while the shipped pairing is 3.12 (+0.12). The number was
+    # right about the contract and silent about the product.
+    #
+    # WHY THIS JOB EXISTS AT ALL: `style-lock.md` mandates "re-run
+    # check_contrast.py with the new token, don't eyeball it" — and NOTHING RAN
+    # IT. `grep -rn check_contrast .github/ package.json scripts/` returned
+    # nothing; every reference to it was prose. A mandated verification that no
+    # gate performs is a gate that cannot fail, so the wiring lands in the same
+    # commit as the check rather than being left for later.
+    #
+    # Own job, no `if:`, no path filter — historian's `lesson-refs` pattern, for
+    # the same reason: `check` is gated on `changes.code`, whose leading '**'
+    # makes every negation inert, so it runs on everything today BY ACCIDENT. A
+    # gate depending on that keeps working only until someone fixes the filter.
+    # This needs python3 and two files: seconds, no install, no build, no Rust.
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      # The lock's own mandated tool. Exits 1 if any claimed pairing fails.
+      - run: python3 .tastemaker/check_contrast.py --pairings
+      # Lock vs shipped pack. Green when divergences match the recorded set; RED
+      # on a new one AND on a recorded one that has quietly been fixed. Prints
+      # the recorded set as DEBT every run so it cannot go quiet. Deliberately
+      # not permanently red — that is the state that gets a gate disabled.
+      - run: python3 .tastemaker/check_palette_parity.py --verbose
+
   ci-ok:
     # Single stable REQUIRED status for branch protection. Always runs (even
     # when `check` / `examples` / `governed-examples` are skipped — e.g. a
@@ -317,7 +354,7 @@ jobs:
     # resolves every needed job to a terminal state (success/failure/
     # cancelled/skipped) before evaluating this job's `if: always()`, which
     # then runs regardless of what that state was.
-    needs: [check, examples, governed-examples, lesson-refs]
+    needs: [check, examples, governed-examples, lesson-refs, palette]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 10
