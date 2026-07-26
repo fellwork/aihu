@@ -216,7 +216,7 @@ read showed blank. Re-ran clean.)
 
 **The tool never reads the shipped tokens.** Hardcoded `TOKENS` dict at line 32;
 never opens `packages/css-engine/src/packs.ts`. Its docstring admits the manual
-coupling. **8 of 30 values have already drifted:**
+coupling. **8 of 30 values have already drifted:** *(historian, later: the full census is **11 of 38** — see the note at the end of this file)*
 
 | token | mode | tool | ships |
 |---|---|---|---|
@@ -311,3 +311,41 @@ packages/cli/src/index.ts     true                   true
 applies and the leading `'**'` satisfies every file. **`code` is true for
 everything; the documented doc-only skip has never happened.** The historian had
 written the opposite into `#620` and corrected it there.
+
+## Correction to the #604 census — 11 of 38, not 8 of 30
+
+Re-counted 2026-07-26 by builder while starting the fix, and the denominator was
+wrong too. Verified by the historian by parsing the `TOKENS` dict rather than
+sampling: **19 rows x 2 modes = 38 values**, not 30.
+
+**How the original 8 happened, and it is the sharper half:** the first
+checker→`packs.ts` map left `info-fg` / `success-fg` / `warning-fg` **unmapped**,
+so they fell into a "NO MAPPING" bucket and were never counted as drift.
+Completing the map moved three rows from *unmapped* to *drifted*.
+
+> **8 is what you get when your instrument does not cover everything it claims
+> to.** The number to watch is the **unmapped bucket**, not the drift count — a
+> census is only trustworthy once "didn't classify" is zero.
+
+Found by builder, in their own work, inside the task about exactly this pattern.
+
+### One row in the new census is questionable — `graphite`, and it may be a false positive
+
+`graphite dark` was reported as the largest drift, `#aab0bd -> #636a72`, "a
+different colour entirely." The mode alignment is right (`packs.ts:102` is inside
+the `dark` block). **The role alignment may not be:**
+
+- The checker's `graphite` comes from `style-lock.md:23` — `Graphite (AI axis)`,
+  `--graphite`, `#363c47` light / `#aab0bd` dark. A **brand-axis ink** value.
+- `packs.ts` `color-neutral: '#636a72'` sits beside `color-info`, `color-success`,
+  `color-warning`, **each with a `-foreground` partner** — and it has one too,
+  `color-neutral-foreground: '#faf8f4'`, a near-white. That is a **background**
+  token you put light text on.
+- `#aab0bd` appears **nowhere** in `packs.ts`.
+
+`--color-neutral` was ratified (E2) as *"the component realization of the graphite
+axis"* — related, but a realization is not an identity, and a contrast checker
+comparing a brand ink against a component background is comparing two different
+jobs. **If that mapping is not 1:1, the census is 10, not 11.**
+
+Open question for whoever owns the design tokens, not a verdict.

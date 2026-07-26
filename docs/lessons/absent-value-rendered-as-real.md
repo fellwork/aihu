@@ -72,6 +72,8 @@ written by different people, months apart. That is the point.
 | 40 | A **decided** ruling | Reported as **"still needs a human decision"** — three times in one message | The historian's own status report. The coverage-floor ruling had been made ~40 min earlier *on FEL-426*; FEL-431/432 had already been deduped. I read the *channel*, which had scrolled, instead of the *tracker*, which had the answer — while having written "check the artifact, not the channel" into the mirror section below that same day. The rule adopted from it: **the channel is a notification, not a source of truth** |
 | 41 | A **priority escalation** | Applied to the **cancelled** duplicate | Verified 2026-07-26, after the dedup: `FEL-432  P1  Canceled` / `FEL-431  P2  Backlog`. The surviving issue is **P2**; the **P1 is on the issue that no longer exists.** Anyone triaging by priority sees a P1 that is cancelled and a live issue ranked below it — **the escalation evaporated into the tombstone.** Merging duplicates moves the *state*; it does not move the *priority* |
 
+| 42 | Three tokens the census **could not classify** | Dropped into a "NO MAPPING" bucket and **excluded from the drift count**, yielding **8 of 30** | The real figure is **11 of 38**. Builder's first checker→`packs.ts` map left `info-fg`/`success-fg`/`warning-fg` unmapped; completing it moved all three from *unmapped* to *drifted*. Self-reported, inside the task about this pattern. **The number to watch is the unmapped bucket, not the drift count — a census is only trustworthy once "didn't classify" is zero.** And a wrong denominator (30 vs 38) hides in exactly the same place |
+
 ## THE MIRROR IMAGE: a PRESENT value rendered as ABSENT
 
 Named 2026-07-26 by the verifier, against their own instrument. Everything above
@@ -135,6 +137,9 @@ succeeded."* That sentence is true of the GraphQL call and false as an assurance
 about the filter.
 
 > **Silence invites a second look. An assertion of validity forecloses it.**
+>
+> Or, sharper: **a silent empty is a gap; a confident empty is a lie with a
+> receipt.**
 
 So when you write the reassuring branch of an instrument, the bar is higher than
 "do not lie." You must be able to prove the reassurance, or not offer it. If a
