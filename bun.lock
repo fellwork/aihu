@@ -74,7 +74,7 @@
     },
     "apps/docs-next": {
       "name": "aihu-docs-next",
-      "version": "0.0.1",
+      "version": "0.0.2",
       "dependencies": {
         "@aihu/app": "workspace:*",
         "@aihu/arbor": "workspace:*",
@@ -276,7 +276,7 @@
     },
     "examples/cf-adapter": {
       "name": "@aihu/example-cf-adapter",
-      "version": "0.0.25",
+      "version": "0.0.26",
       "dependencies": {
         "@aihu/adapter-cloudflare": "workspace:*",
         "@aihu/agent": "workspace:*",
@@ -450,7 +450,7 @@
     },
     "examples/ssg-site": {
       "name": "@aihu/example-ssg-site",
-      "version": "0.0.2",
+      "version": "0.0.3",
       "dependencies": {
         "@aihu/agent": "workspace:*",
         "@aihu/app": "workspace:*",
@@ -553,7 +553,7 @@
     },
     "packages/adapter-cloudflare": {
       "name": "@aihu/adapter-cloudflare",
-      "version": "8.0.0",
+      "version": "9.0.0",
       "peerDependencies": {
         "@aihu/app": "workspace:*",
         "vite": ">=5.0.0",
@@ -561,7 +561,7 @@
     },
     "packages/adapter-vercel": {
       "name": "@aihu/adapter-vercel",
-      "version": "8.0.0",
+      "version": "9.0.0",
       "peerDependencies": {
         "@aihu/app": "workspace:*",
         "vite": ">=5.0.0",
@@ -622,7 +622,7 @@
     },
     "packages/app": {
       "name": "@aihu/app",
-      "version": "7.0.0",
+      "version": "7.1.0",
       "devDependencies": {
         "@aihu-plugin/agent-readiness": "workspace:*",
         "@aihu/compiler": "workspace:*",
@@ -663,7 +663,7 @@
     },
     "packages/cli": {
       "name": "@aihu/cli",
-      "version": "1.0.1",
+      "version": "1.1.0",
       "bin": {
         "aihu": "./dist/bin.js",
         "create-aihu": "./dist/create.js",
@@ -706,7 +706,7 @@
     },
     "packages/create-aihu": {
       "name": "create-aihu",
-      "version": "0.1.6",
+      "version": "0.1.7",
       "bin": {
         "create-aihu": "./bin.mjs",
       },
@@ -716,7 +716,7 @@
     },
     "packages/css-engine": {
       "name": "@aihu/css-engine",
-      "version": "0.4.6",
+      "version": "0.5.0",
       "dependencies": {
         "@aihu/compiler": "workspace:^",
       },
@@ -866,7 +866,7 @@
     },
     "packages/primitives": {
       "name": "@aihu/primitives",
-      "version": "0.1.5",
+      "version": "0.1.6",
       "dependencies": {
         "@aihu/arbor": "workspace:*",
         "@aihu/css-engine": "workspace:*",
@@ -944,7 +944,7 @@
     },
     "packages/templates/cf-team": {
       "name": "@aihu/templates-cf-team",
-      "version": "3.0.1",
+      "version": "3.0.2",
     },
     "packages/tsc": {
       "name": "@aihu/tsc",

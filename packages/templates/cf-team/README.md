@@ -69,7 +69,7 @@ npm install @aihu/templates-cf-team
 bun add @aihu/templates-cf-team
 ```
 
-<sub><i>Auto-generated against `@aihu/templates-cf-team@3.0.1`.</i></sub>
+<sub><i>Auto-generated against `@aihu/templates-cf-team@3.0.2`.</i></sub>
 
 <!-- END_AUTOGEN: install -->
 
@@ -80,12 +80,12 @@ bun add @aihu/templates-cf-team
 
 | | |
 |---|---|
-| **Version** | `3.0.1` |
+| **Version** | `3.0.2` |
 | **Tier** | E — Starter — Cloudflare Workers + bun/moon monorepo team template |
 | **Published files** | 5 entries |
 | **License** | MIT |
 
-<sub><i>Auto-generated against `@aihu/templates-cf-team@3.0.1`.</i></sub>
+<sub><i>Auto-generated against `@aihu/templates-cf-team@3.0.2`.</i></sub>
 
 <!-- END_AUTOGEN: stats -->
 
@@ -96,7 +96,7 @@ bun add @aihu/templates-cf-team
 
 _No `exports` field in `package.json`. Main entry: `./template.config.js`._
 
-<sub><i>Auto-generated against `@aihu/templates-cf-team@3.0.1`.</i></sub>
+<sub><i>Auto-generated against `@aihu/templates-cf-team@3.0.2`.</i></sub>
 
 <!-- END_AUTOGEN: exports -->
 
@@ -107,7 +107,7 @@ _No `exports` field in `package.json`. Main entry: `./template.config.js`._
 
 _Zero runtime dependencies_ (per the [dep-free thesis](../../README.md#project-posture))_._
 
-<sub><i>Auto-generated against `@aihu/templates-cf-team@3.0.1`.</i></sub>
+<sub><i>Auto-generated against `@aihu/templates-cf-team@3.0.2`.</i></sub>
 
 <!-- END_AUTOGEN: deps -->
 
@@ -120,7 +120,7 @@ _Zero runtime dependencies_ (per the [dep-free thesis](../../README.md#project-p
 - [@aihu/cli](../cli)
 - [Aihu framework root](../../../README.md)
 
-<sub><i>Auto-generated against `@aihu/templates-cf-team@3.0.1`.</i></sub>
+<sub><i>Auto-generated against `@aihu/templates-cf-team@3.0.2`.</i></sub>
 
 <!-- END_AUTOGEN: see-also -->
 
@@ -131,6 +131,6 @@ _Zero runtime dependencies_ (per the [dep-free thesis](../../README.md#project-p
 
 MIT — see [LICENSE](../../../LICENSE).
 
-<sub><i>Auto-generated against `@aihu/templates-cf-team@3.0.1`.</i></sub>
+<sub><i>Auto-generated against `@aihu/templates-cf-team@3.0.2`.</i></sub>
 
 <!-- END_AUTOGEN: license -->

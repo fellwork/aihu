@@ -1,5 +1,238 @@
 # @aihu/cli
 
+## 1.1.0
+
+### Minor Changes
+
+- [#601](https://github.com/fellwork/aihu/pull/601) [`5720298`](https://github.com/fellwork/aihu/commit/572029884dca3bc381f09936431afcd28ae989f3) Thanks [@srmcguirt](https://github.com/srmcguirt)! - **`--template agent`: give the agent template an agent-readiness surface, and fix its gate.**
+
+  The template named for agents was the only one with no discovery surface — the generic
+  `full` template had one, `agent` had none. An agent handed the app's URL could not find
+  out what the app was or how to call it. It now serves the full surface, and two of its
+  own headline flows that were broken are fixed.
+
+  **Discovery, served live rather than emitted statically.** `readiness.ts` wires
+  `@aihu-plugin/agent-readiness`'s `createAgentReadinessRoutes()` into `server.ts` and
+  `mcp.ts`, and `vite.config.ts` proxies the paths so they answer on the app's own URL:
+
+  | Path                                                                              | Content-Type       |
+  | --------------------------------------------------------------------------------- | ------------------ |
+  | `/llms.txt`, `/llms-full.txt`, `/robots.txt`                                      | `text/plain`       |
+  | `/sitemap.xml`                                                                    | `application/xml`  |
+  | `/.well-known/mcp/server-card.json`                                               | `application/json` |
+  | `/.well-known/agent-card.json` (+ the deprecated `/.well-known/agent.json` alias) | `application/json` |
+  | `/.well-known/mcp.json`                                                           | `application/json` |
+
+  This template deliberately does not use `viteAgentReadinessIntegration()` the way
+  `minimal`/`full`/`docs` do. That integration emits the documents from a browser-target
+  build, where the `@aihu/agent` registry is empty — the files would exist and advertise
+  zero tools. Serving them from the process that calls `registerAgentMetadata()` means the
+  MCP card's tools, the A2A card's skills and llms.txt's `## Components` section are all
+  derived from the same registry the `/agent/call` gate authorizes against, so the
+  advertised surface cannot drift from the callable one.
+
+  Also in this template:
+
+  - **`/agent/call` was returning 401 `AUTH_UNVERIFIABLE` for every call**, authorized or
+    not — the whole documented 404/401/403/429/200 ladder was dead. `@aihu/agent-service`
+    will not serve a scoped or rate-limited tool through an auth plugin that cannot
+    signature-verify a credential, and the template's demo plugin only implemented
+    `checkScope`. It now implements `verify` as well.
+  - **The A2A card was emitted with no skills**; it is now handed the registry-derived list,
+    so both cards describe the same surface.
+  - `registerAgentMetadata` actions carry their `describe:` text, so the MCP tool
+    descriptions are populated instead of empty strings.
+  - Documented that `/agent/call` always answers HTTP 200 with the outcome in the body's
+    `code`, and that the rate-limit key is the verified subject — not the caller-supplied
+    `userId`, which rotating does not reset the quota.
+
+- [#609](https://github.com/fellwork/aihu/pull/609) [`bef4c66`](https://github.com/fellwork/aihu/commit/bef4c66fb59c8d9224d131e158106713cdb0da05) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Config lives in `vite.config.ts`; the CLI reads it from there
+
+  The scaffold no longer emits a separate `aihu.config.ts`. Everything aihu is
+  configured with goes inline on `viteAihuPlugin({...})` in `vite.config.ts`, and
+  non-Vite consumers read it back from there.
+
+  A second config file is justified exactly as long as something other than Vite
+  needs the config and cannot parse the Vite config. That was SvelteKit's stated
+  reason for `svelte.config.js` in 2022 — the language server had to know your
+  preprocessors and does not run Vite. SvelteKit then removed the reason rather
+  than living with it: once the language server could read `vite.config.js`, the
+  second file became optional, and SvelteKit 3 makes the Vite config the required
+  location.
+
+  **New in `@aihu/app`:**
+
+  - `viteAihuPlugin()` registers an `aihu:config` marker plugin carrying the
+    evaluated config on a public `api` handle.
+  - `loadAihuConfig(root)` reads it back through Vite's own `loadConfigFromFile`
+    — no build. Returns the config, its source path, Vite's dependency list, and
+    every registered aihu module's options.
+  - `declareAihuModule()` + `collectAihuModules()`: the contract by which any
+    package becomes readable by the CLI and the language server without a central
+    registry to update.
+  - `viteAihuPlugin()` now validates its inline argument. Only `defineConfig` did
+    before, so the path every example uses was unvalidated. Unknown keys throw
+    with a keypath and a did-you-mean.
+  - New options that previously required abandoning `viteAihuPlugin` and wiring
+    the underlying plugin by hand: `dir.components`, `compiler.islands`,
+    `compiler.target`, `build.bundler`, `dev.*`, `typecheck.*`.
+
+  **In `@aihu/cli`:** `aihu build` and `aihu dev` each had a private loader that
+  dynamic-imported `aihu.config.ts` with its own local interface. They now share
+  one loader that prefers `vite.config.ts` and falls back to `aihu.config.ts`, so
+  existing projects keep working.
+
+  **Also:** the scaffolded config declares no MCP `endpoint`. The previous one
+  pointed `endpoint` at the server card's own URL, publishing a card that
+  advertised zero tools and named the discovery document as its own transport.
+  A static client build has no process to serve MCP, so no card is emitted.
+
+- [#600](https://github.com/fellwork/aihu/pull/600) [`3ed4072`](https://github.com/fellwork/aihu/commit/3ed407299c68644cb522d919204b4f4a3f96025e) Thanks [@srmcguirt](https://github.com/srmcguirt)! - `create-aihu --template` now spans both template tiers.
+
+  npm users could only ever reach the built-in templates. The npm-published
+  `@aihu/templates-*` tier was reachable only through `aihu app --template <pkg>`,
+  and that command cannot run under npx at all:
+
+  ```
+  $ npx -y @aihu/cli@latest app my-app --template cf-team
+  npm error could not determine executable to run
+  ```
+
+  npx infers the executable from the package NAME — for `@aihu/cli` it looks for
+  a bin called `cli`, and the bins are `aihu` and `create-aihu`. `bunx` resolves
+  differently, so the failure was npm-only. `create-aihu` is the entry point npm
+  users actually reach, so it is now the complete one:
+
+  ```
+  npm create aihu my-app -- --template cf-team
+  npx create-aihu my-app --template cf-team
+  ```
+
+  Both tiers run the SAME scaffold pipeline, factored out of `bin.ts` into
+  `scaffold-pipeline.ts` rather than reimplemented.
+
+  Also fixes a silent-wrong-result path: `--template cf-team` previously fell
+  through to scaffolding a `minimal` app. The run "succeeded" and the user found
+  out later. Unknown, missing, and declared-but-unpublished template names now
+  each fail with an explicit message that LISTS what is available, and exit 1.
+
+  The catalogue distinguishes three states honestly — built-in, available from
+  npm, and declared-but-not-yet-published (`vercel-team`, `fly-team`, `cf-solo`,
+  `cf-full-agent` are in the registry but 404 on npm, and are shown as
+  unselectable rather than offered or hidden).
+
+- [#612](https://github.com/fellwork/aihu/pull/612) [`9286182`](https://github.com/fellwork/aihu/commit/9286182f38211a61344d46d9a38ef4821605bf93) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Scaffold experience: agent tooling, honest per-build-target claims, teaching voice.
+
+  Adds `AGENTS.md`, `CLAUDE.md` (a one-line `@AGENTS.md` import, per Anthropic's
+  guidance) and `.mcp.json` to scaffolded projects, gated behind
+  `--no-agent-tooling` for users who want a clean tree. `.mcp.json` registers
+  `npx aihu mcp serve` — the `@aihu/mcp` server exposing `aihu_validate`
+  (compiles source, returns real diagnostics) and `aihu_example` (cookbook
+  recipes), so an agent working in a scaffolded project can check its own work
+  against the compiler instead of guessing at novel syntax.
+
+  Previously only the cf-team template emitted any of this; the built-in
+  templates shipped `.vscode/*` and nothing else.
+
+  Also corrects what a static build claims about itself. The starter page said
+  "These actions are exposed to AI agents as MCP tools" and linked an MCP server
+  card — neither true for a client build, where `emit.rs`'s `elide_agent` strips
+  agent metadata by design. It now distinguishes the declaration a static build
+  genuinely publishes from the live, callable tools a server provides.
+
+### Patch Changes
+
+- [#613](https://github.com/fellwork/aihu/pull/613) [`8aa12dc`](https://github.com/fellwork/aihu/commit/8aa12dc1412125635880b09fe7b8f8a36fb6c7a4) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Fix the agent template's typecheck failing again on a fresh scaffold.
+
+  `bun run typecheck` — the command the template's own next-steps prints —
+  failed with TS7006 on the websocket `message` handler's parameters. Contextual
+  typing from `Bun.serve`'s handler map does not reach them, so under the
+  scaffolded project's `strict` they are implicit-any.
+
+  This is a regression, not a new bug: [#595](https://github.com/fellwork/aihu/issues/595) fixed this class of error by adding
+  `@types/bun` and `skipLibCheck`, and [#601](https://github.com/fellwork/aihu/issues/601) reintroduced it while wiring the
+  readiness surface into `server.ts`. Both websocket handler blocks in the
+  generator are fixed, and the reasoning is recorded inline so the next edit to
+  that file does not undo it a third time.
+
+  Verified on a real npm scaffold outside the monorepo: `typecheck` exits 0 with
+  zero implicit-any errors.
+
+- [#599](https://github.com/fellwork/aihu/pull/599) [`2dff3b5`](https://github.com/fellwork/aihu/commit/2dff3b5df8d8cead0e14446e9c4bbbc0cbc9d747) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Fix the agent template's own typecheck failing on a fresh scaffold.
+
+  `npm create aihu --template agent` then `npm run typecheck` — the script the
+  template emits, and the one its own next-steps output tells you to run —
+  failed immediately with 12 errors:
+
+  ```
+  mcp.ts(72,1):     error TS2868: Cannot find name 'Bun'.
+  server.ts(115,1): error TS2868: Cannot find name 'Bun'.
+  mcp.ts(74,9):     error TS7006: Parameter 'req' implicitly has an 'any' type.
+  ```
+
+  The template emits `server.ts` and `mcp.ts` calling `Bun.serve()` while
+  declaring `types: ['node']` with nothing providing Bun's globals. Under
+  `strict: true` the missing namespace also made every callback parameter an
+  implicit-any, so one missing dependency produced twelve errors.
+
+  Adds `@types/bun` and `types: ['node', 'bun']`, plus `skipLibCheck` — required
+  because `@types/bun` and vite declare `ImportMeta.hot` incompatibly (TS2430)
+  with no user code involved.
+
+  Verified on both package managers: typecheck and build exit 0.
+
+- [#606](https://github.com/fellwork/aihu/pull/606) [`c8c1d71`](https://github.com/fellwork/aihu/commit/c8c1d714a9a221708ab6db3399c1e6e13d63f7ab) Thanks [@srmcguirt](https://github.com/srmcguirt)! - **Scaffold: `--css engine` no longer silently pins `shadowMode: 'shadow'` (FEL-425).**
+
+  `create-aihu app --css engine` (and `aihu app --css engine`) emitted a plugin-global
+  `css: { shadowMode: 'shadow' }` block even when the user never passed `--shadow` —
+  fabricating a "choice" that outranks the DA4 page/layout light-DOM default and put
+  the scaffolded page in shadow DOM, for exactly the scaffold that most needs global
+  CSS to reach component internals.
+
+  The shadow choice is now `ShadowChoice | undefined` end to end: the `css: { shadowMode }`
+  block is written **only when the user explicitly chose** a mode (`--shadow light|shadow`
+  or a deliberate wizard selection). With no choice, nothing is emitted and the framework
+  defaults apply — pages and layouts light DOM, leaf components shadow DOM. A scaffold
+  that pins the default freezes it.
+
+  - `create-aihu app --css engine` → light-DOM page, utility CSS reaches the global cascade
+  - `create-aihu app --css engine --shadow shadow` → still explicitly shadow (deliberate choice kept)
+  - `create-aihu app --css engine --shadow light` → still explicitly light
+  - The wizard's shadow-mode prompt gained a "default (framework defaults)" first option;
+    pressing Enter is no longer treated as choosing `shadow`.
+  - Invalid `--shadow` values are now ignored (framework defaults) instead of silently
+    becoming `shadow`.
+
+  Note: an explicit `--shadow` choice is still carried as the **project-wide** plugin
+  config, so it also governs leaves and layouts (e.g. `--shadow light` flips leaves to
+  light DOM too). That is the existing semantic of the flag; a per-file mechanism for
+  the scaffolded page only would be a separate change.
+
+- [#599](https://github.com/fellwork/aihu/pull/599) [`2dff3b5`](https://github.com/fellwork/aihu/commit/2dff3b5df8d8cead0e14446e9c4bbbc0cbc9d747) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Resolve auto-installed templates from the invoking project, not the CLI's cache.
+
+  `aihu app --template <pkg>` could not work for any user outside the monorepo,
+  on any package manager:
+
+  ```
+  $ bunx @aihu/cli@latest app testapp --template cf-team --pm bun
+  Installing template package @aihu/templates-cf-team...
+  Resolved, downloaded and extracted [2]        <- install SUCCEEDED
+  ERROR: Failed to install template package     <- resolution FAILED
+  ```
+
+  `autoInstallTemplate()` runs `<pm> add <pkg>` in `process.cwd()`, so the
+  template lands in the user's project. `resolveTemplatePackagePath()` then used
+  `import.meta.resolve()`, which resolves relative to the CLI module — and under
+  `bunx`/`npx` that module lives in a package-manager cache with no view of the
+  user's project. Install and resolve were looking in different places; the
+  package was on disk the whole time.
+
+  The existing fallback only searched `packages/templates/<short>`, which exists
+  only inside the aihu monorepo — so the one environment where this worked was
+  the one no user is in.
+
+  Adds a first-choice strategy that checks `<cwd>/node_modules/<pkg>`.
+
 ## 1.0.1
 
 ### Patch Changes

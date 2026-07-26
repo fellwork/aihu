@@ -1,7 +1,7 @@
 {
   "name": "aihu-docs-next",
   "private": true,
-  "version": "0.0.1",
+  "version": "0.0.2",
   "type": "module",
   "description": "Redesigned aihu documentation + DX site — a full dogfood aihu SSG app (@aihu/app + file router + output:'static').",
   "scripts": {
