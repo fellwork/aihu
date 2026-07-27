@@ -10,6 +10,6 @@ tasks:
   build:
     command: 'noop'
   test:
-    command: 'vitest run'
+    command: 'bun run vitest run'
   typecheck:
-    command: 'tsc --noEmit'
+    command: 'bun run tsc --noEmit'

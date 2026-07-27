@@ -7,11 +7,11 @@ language: 'typescript'
 
 tasks:
   dev:
-    command: 'vite dev'
+    command: 'bun run vite dev'
     preset: 'server'
   build:
-    command: 'vite build'
+    command: 'bun run vite build'
   test:
-    command: 'vitest run'
+    command: 'bun run vitest run'
   typecheck:
-    command: 'tsc --noEmit'
+    command: 'bun run tsc --noEmit'
