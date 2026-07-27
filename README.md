@@ -316,11 +316,11 @@ See [`packages/`](./packages) for all packages on disk. By tier:
 | [`@aihu/auth`](./packages/auth) | `5.0.0` | JWT scope checks, ScopeSignal, and server middleware for aihu auth. |
 | [`@aihu/cli`](./packages/cli) | `1.1.1` | Aihu CLI (`aihu`, `create-aihu`) — scaffolding, dev, build commands. |
 | [`@aihu/compiler`](./packages/compiler) | `1.1.1` | Single File Component (.aihu) compiler — Rust binary + JS glue. |
-| [`@aihu/compiler-native-darwin-arm64`](./packages/compiler/npm-native/darwin-arm64) | `0.1.4` | aihu compiler native addon (napi) — darwin-arm64 platform binary. |
-| [`@aihu/compiler-native-darwin-x64`](./packages/compiler/npm-native/darwin-x64) | `0.1.4` | aihu compiler native addon (napi) — darwin-x64 platform binary. |
-| [`@aihu/compiler-native-linux-arm64-gnu`](./packages/compiler/npm-native/linux-arm64-gnu) | `0.1.4` | aihu compiler native addon (napi) — linux-arm64-gnu platform binary. |
-| [`@aihu/compiler-native-linux-x64-gnu`](./packages/compiler/npm-native/linux-x64-gnu) | `0.1.4` | aihu compiler native addon (napi) — linux-x64-gnu platform binary. |
-| [`@aihu/compiler-native-win32-x64-msvc`](./packages/compiler/npm-native/win32-x64-msvc) | `0.1.4` | aihu compiler native addon (napi) — win32-x64-msvc platform binary. |
+| [`@aihu/compiler-native-darwin-arm64`](./packages/compiler/npm-native/darwin-arm64) | `0.1.5` | aihu compiler native addon (napi) — darwin-arm64 platform binary. |
+| [`@aihu/compiler-native-darwin-x64`](./packages/compiler/npm-native/darwin-x64) | `0.1.5` | aihu compiler native addon (napi) — darwin-x64 platform binary. |
+| [`@aihu/compiler-native-linux-arm64-gnu`](./packages/compiler/npm-native/linux-arm64-gnu) | `0.1.5` | aihu compiler native addon (napi) — linux-arm64-gnu platform binary. |
+| [`@aihu/compiler-native-linux-x64-gnu`](./packages/compiler/npm-native/linux-x64-gnu) | `0.1.5` | aihu compiler native addon (napi) — linux-x64-gnu platform binary. |
+| [`@aihu/compiler-native-win32-x64-msvc`](./packages/compiler/npm-native/win32-x64-msvc) | `0.1.5` | aihu compiler native addon (napi) — win32-x64-msvc platform binary. |
 | [`@aihu/context`](./packages/context) | `0.2.0` | Async-context-friendly request/SSR context primitives for aihu. |
 | [`@aihu/css-engine`](./packages/css-engine) | `0.5.0` | aihu CSS engine — Tailwind v4 hard fork with WC-native scoped output. |
 | [`@aihu/data`](./packages/_moved/data) | `2.0.5` | [MOVED] This package has moved to @aihu-plugin/data. |
