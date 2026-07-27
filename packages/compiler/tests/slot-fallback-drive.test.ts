@@ -110,31 +110,28 @@ describe('FEL-GH478 — <$slot> fallback content renders and is overridable', ()
     },
   )
 
-  it.skipIf(!HAVE_COMPILER)(
-    'supplying slotted content overrides the fallback',
-    async () => {
-      const src = `@template {
+  it.skipIf(!HAVE_COMPILER)('supplying slotted content overrides the fallback', async () => {
+    const src = `@template {
   <div class="wrap">
     <slot>fallback text</slot>
   </div>
 }
 `
-      const compiled = compile(src, 'slot-override-fb', 'slot-override-fb.aihu')
-      await load(compiled, 'slot-override-fb')
+    const compiled = compile(src, 'slot-override-fb', 'slot-override-fb.aihu')
+    await load(compiled, 'slot-override-fb')
 
-      const el = jsdom.window.document.createElement('slot-override-fb') as HTMLElement
-      const real = jsdom.window.document.createElement('span')
-      real.textContent = 'real content'
-      el.appendChild(real) // light-DOM child → assigned to the default slot
-      jsdom.window.document.body.appendChild(el)
+    const el = jsdom.window.document.createElement('slot-override-fb') as HTMLElement
+    const real = jsdom.window.document.createElement('span')
+    real.textContent = 'real content'
+    el.appendChild(real) // light-DOM child → assigned to the default slot
+    jsdom.window.document.body.appendChild(el)
 
-      const slotEl = root(el).querySelector('slot') as HTMLSlotElement
-      const assigned = slotEl.assignedNodes()
-      // The assigned node is the projected content; it overrides the fallback.
-      expect(assigned.length).toBe(1)
-      expect(assigned[0].textContent).toBe('real content')
-      // Fallback children still exist in the slot (native: hidden while assigned).
-      expect(slotEl.textContent).toContain('fallback text')
-    },
-  )
+    const slotEl = root(el).querySelector('slot') as HTMLSlotElement
+    const assigned = slotEl.assignedNodes()
+    // The assigned node is the projected content; it overrides the fallback.
+    expect(assigned.length).toBe(1)
+    expect(assigned[0].textContent).toBe('real content')
+    // Fallback children still exist in the slot (native: hidden while assigned).
+    expect(slotEl.textContent).toContain('fallback text')
+  })
 })
