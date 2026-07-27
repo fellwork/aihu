@@ -69,3 +69,18 @@ Decisions:
 
 No new hex/hue introduced beyond the eleven listed above, all traceable to
 `style-lock.md` or `packages/css-engine/src/packs.ts`.
+
+- **Motion — "staggered row entrance" scoped to sections, not rows.** The
+  brief asks for staggered entrance on individual DECIDE/REVIEW/CONTRACTS/
+  AGENTS/ACTIVITY rows. Implemented and then load-tested live (repeated
+  headless-browser screenshots a few seconds apart against the real bus):
+  animating each `each`-loop row directly re-triggers the fade-in on every
+  ~1s SSE frame, because the row list is a `derived()` that recomputes a
+  brand-new array of brand-new objects every frame — a real once-a-second
+  flicker across the whole ledger/roster, the opposite of "calm". Rescoped
+  the entrance animation to the three top-level `.sc-content` zones
+  (your-move / contracts+agents / activity), which mount exactly once
+  (gated by `hasData`, which flips false→true a single time). Keeps a
+  staggered reveal on first data without a recurring visual defect on a
+  screen meant to be watched all day. See the code comment beside
+  `.sc-yourmove, .sc-columns, .sc-activity` in `swarm-console.aihu`.
