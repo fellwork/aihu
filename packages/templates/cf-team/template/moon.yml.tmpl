@@ -4,7 +4,7 @@
 
 $schema: 'https://moonrepo.dev/schemas/project.json'
 
-type: 'application'
+layer: 'application'
 language: 'typescript'
 
 project:
@@ -15,20 +15,20 @@ tasks:
   build:
     command: 'noop'
     deps:
-      - 'apps/web:build'
-      - 'packages/shared:build'
+      - 'web:build'
+      - 'shared:build'
 
   test:
     command: 'noop'
     deps:
-      - 'apps/web:test'
-      - 'packages/shared:test'
+      - 'web:test'
+      - 'shared:test'
 
   dev:
     command: 'noop'
     deps:
-      - 'apps/web:dev'
-    local: true
+      - 'web:dev'
+    preset: 'server'
 
   lint:
     command: 'biome lint .'
@@ -43,5 +43,5 @@ tasks:
   typecheck:
     command: 'noop'
     deps:
-      - 'apps/web:typecheck'
-      - 'packages/shared:typecheck'
+      - 'web:typecheck'
+      - 'shared:typecheck'

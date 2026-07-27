@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=https://moonrepo.dev/schemas/workspace.json
+#
+# Workspace root for the scaffolded monorepo. WITHOUT this file `moon <task>`
+# fails `app::missing_workspace` ("Unable to determine workspace root") — the
+# app-root `moon.yml` is a PROJECT config and cannot anchor a workspace on its
+# own. This is the file that lets `moon check` / `moon run :typecheck` resolve
+# the graph on a pristine scaffold.
+#
+# Mirrors the bun `workspaces` globs in package.json so the two agree.
+projects:
+  - '.'
+  - 'apps/*'
+  - 'packages/*'
+
+vcs:
+  defaultBranch: 'main'
