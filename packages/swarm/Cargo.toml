@@ -1,0 +1,23 @@
+[package]
+name    = "aihu-swarm"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+# Portable, compiled core of the swarm coordination bus. Reimplements
+# ~/.swarm/bus.py (the ORACLE) against the same SQLite file — same schema,
+# same exit-code contract (0 ok / 2 unknown-or-missing / 3 genuinely-empty /
+# 4 conflict / 64 unknown command). See src/main.rs for a divergence log.
+[[bin]]
+name = "swarm-bus"
+path = "src/main.rs"
+
+[dependencies]
+# "bundled" statically links sqlite3 so the binary has no system-library
+# dependency — this crate is meant to be dropped anywhere the bus needs to
+# run, not just where a matching libsqlite3 happens to be installed.
+rusqlite = { version = "0.31", features = ["bundled"] }
+# preserve_order keeps JSON object keys in insertion order (id, ts, from, to,
+# kind, body, contract, attempts) to match the oracle's dict-based output.
+serde_json = { version = "1", features = ["preserve_order"] }
+uuid = { version = "1", features = ["v4"] }
