@@ -1,17 +1,26 @@
-// swarm-console — the root shell. Composes the five section components
-// (swarm-header, your-move, contracts-ledger, agents-roster, activity-log —
-// each its own `.aihu` file under src/components/, mounted/composed the
-// same way apps/docs-next composes `<site-header>`/`<theme-toggle>`/etc.:
-// registered globally in main.ts, referenced by tag name here) behind the
-// skeleton/content gate. This is still a single-view app-shell, not a
-// multi-page site, so there is no `@aihu/app` file-router (see
-// ../../vite.config.ts).
+// swarm-console — the root shell. Composes the six section components
+// (swarm-header, tab-bar, your-move, contracts-ledger, agents-roster,
+// activity-log — each its own `.aihu` file under src/components/,
+// mounted/composed the same way apps/docs-next composes
+// `<site-header>`/`<theme-toggle>`/etc.: registered globally in main.ts,
+// referenced by tag name here) behind the skeleton/content gate.
+//
+// Sections-as-pages: your-move / contracts-ledger / agents-roster /
+// activity-log used to all render on one long-scrolling page; per founder
+// direction they are now one-at-a-time "pages" switched by tab-bar's
+// `location.hash` route (../lib/swarm-store.ts's `activeTab` signal — still
+// no `@aihu/app` file-router, see ../../vite.config.ts; this is a hash
+// switch inside one single-view app-shell, not real multi-page routing).
+// This root reads that same `activeTab` signal to decide which section to
+// mount — tab-bar only renders the nav chrome, it does not own the content
+// switch.
 //
 // Data: the ONLY data source is the shared `swarm` singleton
 // (../lib/swarm-store.ts, wrapping `useSwarm()` — see that module's doc
 // comment for why every component reads it directly rather than receiving
-// it as a prop from here). This root only needs the one `hasData` gate;
-// every section derives its own slice of state independently.
+// it as a prop from here). This root only needs the `hasData` gate plus the
+// four tab-visibility flags derived from `activeTab`; every section still
+// derives its own slice of swarm state independently.
 //
 // Design: `.tastemaker/style-lock.md`, realized as Tailwind utilities
 // against the `@theme` in ../styles/theme.css — instrument-grade, calm,
@@ -19,11 +28,11 @@
 // data/labels. Terracotta is used ONLY for identity + liveness (scoped to
 // swarm-header/agents-roster's dots) — never for decoration. State tones
 // (success/warning/destructive/neutral) are used ONLY where they signal
-// state (chips, flags, the stale banner), scoped to the components that
-// render them.
+// state (chips, flags, the stale banner, the your-move tab badge), scoped
+// to the components that render them.
 
 @state {
-  import { swarm } from '../lib/swarm-store.ts'
+  import { swarm, activeTab } from '../lib/swarm-store.ts'
 
   const swarmState = swarm.state
 
@@ -31,25 +40,36 @@
   // SSR/pre-connect default). Everything below the header stays in the
   // connecting/skeleton state until this flips.
   const hasData = derived(() => swarmState().t !== 0)
+
+  const showYourMove = derived(() => activeTab() === 'your-move')
+  const showContracts = derived(() => activeTab() === 'contracts')
+  const showAgents = derived(() => activeTab() === 'agents')
+  const showActivity = derived(() => activeTab() === 'activity')
 }
 
 @template {
   <div class="min-h-screen flex flex-col">
     <swarm-header></swarm-header>
+    <tab-bar></tab-bar>
 
     <main class="flex-1 max-w-[1160px] w-full mx-auto px-4 pt-6 pb-8 sm:px-6 sm:pt-8 sm:pb-12">
       <div class="py-12 text-center" if={!hasData}>
         <p class="text-muted font-mono text-sm motion-safe:animate-[sc-skeleton-pulse_1.6s_ease-in-out_infinite]">connecting to the swarm bus…</p>
       </div>
 
-      <div if={hasData}>
+      <div class="motion-safe:animate-[sc-row-in_260ms_ease_both]" if={hasData && showYourMove}>
         <your-move></your-move>
+      </div>
 
-        <section class="grid grid-cols-1 md:grid-cols-[7fr_5fr] gap-8 mb-12 motion-safe:animate-[sc-row-in_260ms_ease_both] motion-safe:[animation-delay:60ms]">
-          <contracts-ledger></contracts-ledger>
-          <agents-roster></agents-roster>
-        </section>
+      <div class="motion-safe:animate-[sc-row-in_260ms_ease_both]" if={hasData && showContracts}>
+        <contracts-ledger></contracts-ledger>
+      </div>
 
+      <div class="motion-safe:animate-[sc-row-in_260ms_ease_both]" if={hasData && showAgents}>
+        <agents-roster></agents-roster>
+      </div>
+
+      <div class="motion-safe:animate-[sc-row-in_260ms_ease_both]" if={hasData && showActivity}>
         <activity-log></activity-log>
       </div>
     </main>

@@ -17,22 +17,38 @@ export type Tone = 'success' | 'warning' | 'destructive' | 'neutral'
 export interface StatusTag {
   readonly label: string
   readonly tone: Tone
+  /** Tooltip text — always a real string (never `undefined`), because the
+   * `title` DOM property coerces a JS `undefined` to the literal string
+   * `"undefined"` on assignment (see `packages/arbor/src/attrs.ts`'s
+   * property-vs-attribute split: `title` is `key in el`, so a reactive
+   * `title={...}` binding writes `el.title = value` directly, no
+   * `removeAttribute` fallback). Empty string means "no tooltip". */
+  readonly title: string
 }
+
+/** `no-claims` is the one status shared verbatim between the REVIEW and
+ * CONTRACTS taxonomies (`packages/swarm/src/main.rs`'s Contract.status enum
+ * also allows `"no-claims"`). Display label shortened to `unchecked`
+ * (founder: "claims-unchecked takes too much room") — the underlying status
+ * VALUE is untouched everywhere else in the bus/data path; only this
+ * display string and its tooltip change. */
+const NO_CLAIMS_LABEL = 'unchecked'
+const NO_CLAIMS_TITLE = 'verdict had no checkable action-claims — not a correctness pass'
 
 /**
  * REVIEW row verification tag (design-lock taxonomy, verbatim):
  * verified -> success, submitted/reconciling -> warning,
- * no-claims -> neutral text 'claims-unchecked', DISPUTED -> destructive.
- * An unrecognized status (the bus adds one later) reads as neutral rather
- * than silently borrowing a state color it hasn't earned.
+ * no-claims -> neutral text 'unchecked' (see NO_CLAIMS_LABEL), DISPUTED ->
+ * destructive. An unrecognized status (the bus adds one later) reads as
+ * neutral rather than silently borrowing a state color it hasn't earned.
  */
 export function reviewTag(status: unknown): StatusTag {
   const s = typeof status === 'string' ? status.toLowerCase() : ''
-  if (s === 'verified') return { label: 'verified', tone: 'success' }
-  if (s === 'submitted' || s === 'reconciling') return { label: s, tone: 'warning' }
-  if (s === 'no-claims') return { label: 'claims-unchecked', tone: 'neutral' }
-  if (s === 'disputed') return { label: 'disputed', tone: 'destructive' }
-  return { label: s || 'unknown', tone: 'neutral' }
+  if (s === 'verified') return { label: 'verified', tone: 'success', title: '' }
+  if (s === 'submitted' || s === 'reconciling') return { label: s, tone: 'warning', title: '' }
+  if (s === 'no-claims') return { label: NO_CLAIMS_LABEL, tone: 'neutral', title: NO_CLAIMS_TITLE }
+  if (s === 'disputed') return { label: 'disputed', tone: 'destructive', title: '' }
+  return { label: s || 'unknown', tone: 'neutral', title: '' }
 }
 
 /**
@@ -44,15 +60,20 @@ export function reviewTag(status: unknown): StatusTag {
  */
 export function contractTag(status: unknown): StatusTag {
   const s = typeof status === 'string' ? status.toLowerCase() : ''
-  // Destructive family FIRST: "unverified" contains the substring
+  // `no-claims` FIRST: it contains the substring "claim", which the warning
+  // family regex below would otherwise match, painting a not-yet-checked
+  // contract as an in-progress (warning) chip instead of neutral.
+  if (s === 'no-claims') return { label: NO_CLAIMS_LABEL, tone: 'neutral', title: NO_CLAIMS_TITLE }
+  // Destructive family next: "unverified" contains the substring
   // "verified", so a success-first check painted a disputed/unverified
   // contract with a green chip — the operator panel showing the opposite
   // of reality (pre-merge review finding, verified empirically).
-  if (/(unverified|blocked|error|disput|fail)/.test(s)) return { label: s, tone: 'destructive' }
-  if (/(verified|done|merged|success)/.test(s)) return { label: s, tone: 'success' }
+  if (/(unverified|blocked|error|disput|fail)/.test(s))
+    return { label: s, tone: 'destructive', title: '' }
+  if (/(verified|done|merged|success)/.test(s)) return { label: s, tone: 'success', title: '' }
   if (/(claim|submit|reconcil|progress|pending|review|offer)/.test(s))
-    return { label: s, tone: 'warning' }
-  return { label: s || 'unknown', tone: 'neutral' }
+    return { label: s, tone: 'warning', title: '' }
+  return { label: s || 'unknown', tone: 'neutral', title: '' }
 }
 
 /** Extract the PR number out of a bus-supplied `pr` field. The bus sends an
