@@ -51,12 +51,18 @@ accepted, so **read the exit code**:
 ~/.swarm/bin/swarm-bus watch --role <role>                   # traffic not addressed to you
 ```
 
-Anything that changes state — a claim, a verdict, a blocked question, a
-disclosure — goes on the **bus**. Slack (`#aihu`) is for human-facing narration
-only. The distinction is load-bearing: the bus is what the reconciler checks,
-what the console displays, and what the Linear/GitHub sync publishes. **Work
-reported only in Slack is invisible to every gate and every audit — in ledger
-terms it did not happen.**
+**The bus is the ONLY channel. Do not post to Slack.** (Founder ruling,
+2026-07-27.) Everything — claims, verdicts, blocked questions, disclosures,
+status — goes on the bus. The bus is what the reconciler checks, what the
+console displays, and what the Linear/GitHub sync publishes; Slack is none of
+those things. **Work reported only in Slack is invisible to every gate and
+every audit — in ledger terms it did not happen.** A significant incident
+disclosure was lost this way on 2026-07-27.
+
+If something genuinely needs a human right now, that is what
+`--kind blocked --question '<the one thing to decide>'` is for: it surfaces in
+the console's DECIDE bucket, and unlike a Slack message it is attached to the
+contract and survives.
 
 **Durable role state lives at `docs/state/<role>.md`** — committed files named
 by ROLE, not by scope. Each ends with "what the next instance must not redo";
