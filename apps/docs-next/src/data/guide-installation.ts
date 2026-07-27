@@ -39,20 +39,29 @@ The scaffolder generates the following files:
 ~~~
 my-app/
   package.json
-  aihu.config.ts
   vite.config.ts
+  tsconfig.json
+  index.html
   src/
+    main.ts
     pages/
       index.aihu
-    layouts/
-      default.aihu
+  .vscode/
+    extensions.json
+    settings.json
+  AGENTS.md
+  CLAUDE.md
+  .mcp.json
 ~~~
 
-- <b><code>package.json</code></b> — workspace manifest with <code>@aihu/runtime</code>, <code>@aihu/signals</code>, <code>@aihu/arbor</code>, <code>@aihu/router</code>, <code>@aihu/server</code>, and <code>@aihu/agent</code> as dependencies, plus Vite and <code>@aihu/cli</code> as devDependencies.
-- <b><code>aihu.config.ts</code></b> — framework config via <code>defineAihuConfig</code> (build target, plugins, adapters).
-- <b><code>vite.config.ts</code></b> — Vite config with <code>viteRouterIntegration()</code> and <code>viteAgentReadinessIntegration()</code> wired in.
-- <b><code>src/pages/index.aihu</code></b> — the Hello World SFC with <code>@state</code>, <code>@template</code>, and <code>@route</code> blocks.
-- <b><code>src/layouts/default.aihu</code></b> — the default layout shell (<code>&lt;slot /&gt;</code>).
+- <b><code>package.json</code></b> — workspace manifest with <code>@aihu/app</code>, <code>@aihu/runtime</code>, <code>@aihu/signals</code>, <code>@aihu/arbor</code>, and <code>@aihu/router</code> as dependencies, plus <code>@aihu-plugin/agent-readiness</code>, <code>@aihu/cli</code>, <code>@aihu/compiler</code>, <code>@aihu/tsc</code>, TypeScript, and Vite as devDependencies.
+- <b><code>vite.config.ts</code></b> — the whole aihu configuration surface: a single <code>viteAihuPlugin({...})</code> from <code>@aihu/app</code> that composes the Rust compiler and the router, and takes the agent-readiness surface inline via its <code>agentReadiness</code> option. Config lives here rather than in a separate <code>aihu.config.ts</code> so the <code>aihu</code> CLI and the language server read one file and cannot drift. <i>(A standalone <code>aihu.config.ts</code> still works as a legacy fallback, but the scaffold no longer emits one.)</i>
+- <b><code>tsconfig.json</code></b> — TypeScript configuration; <code>bun run typecheck</code> runs <code>aihu-tsc</code> against it.
+- <b><code>index.html</code></b> — the HTML entry document; loads <code>src/main.ts</code> as a module.
+- <b><code>src/main.ts</code></b> — the client bootstrap: <code>createApp()</code> from <code>@aihu/app/client</code>.
+- <b><code>src/pages/index.aihu</code></b> — the Hello World SFC with <code>@route</code>, <code>@state</code>, <code>@template</code>, and <code>@style</code> blocks.
+- <b><code>.vscode/</code></b> — recommended extensions and editor settings for working with <code>.aihu</code> files.
+- <b><code>AGENTS.md</code></b>, <b><code>CLAUDE.md</code></b>, <b><code>.mcp.json</code></b> — coding-agent tooling files; pass <code>--no-agent-tooling</code> to the scaffolder to omit them.
 
 ## Install and run
 
