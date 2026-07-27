@@ -386,6 +386,14 @@ jobs:
           EXAMPLES_RESULT: ${{ needs.examples.result }}
           GOVERNED_EXAMPLES_RESULT: ${{ needs.governed-examples.result }}
           LESSON_REFS_RESULT: ${{ needs.lesson-refs.result }}
+          # `palette` was already in `needs:` — so this job WAITED on it — but
+          # its result was never read here, so the gate reported green on a red
+          # palette. The brand-contract check could not fail anything: exactly
+          # the "a mandated verification that no gate performs is a gate that
+          # cannot fail" defect the palette job's own comment was written to
+          # end, reproduced one layer up. Being in `needs` is NOT being gated
+          # on; only appearing in the loop below is.
+          PALETTE_RESULT: ${{ needs.palette.result }}
           # `true` only for a pull_request event whose PR is a draft. For push
           # and workflow_dispatch, `github.event.pull_request` is null and this
           # evaluates to `false` — so the draft rule below can never fire on a
@@ -396,9 +404,10 @@ jobs:
           echo "examples:           $EXAMPLES_RESULT"
           echo "governed-examples:  $GOVERNED_EXAMPLES_RESULT"
           echo "lesson-refs:        $LESSON_REFS_RESULT"
+          echo "palette:            $PALETTE_RESULT"
           echo "draft PR:           $IS_DRAFT"
           fail=0
-          for pair in "check:$CHECK_RESULT" "examples:$EXAMPLES_RESULT" "governed-examples:$GOVERNED_EXAMPLES_RESULT" "lesson-refs:$LESSON_REFS_RESULT"; do
+          for pair in "check:$CHECK_RESULT" "examples:$EXAMPLES_RESULT" "governed-examples:$GOVERNED_EXAMPLES_RESULT" "lesson-refs:$LESSON_REFS_RESULT" "palette:$PALETTE_RESULT"; do
             name="${pair%%:*}"
             result="${pair#*:}"
             if [ "$result" = "failure" ] || [ "$result" = "cancelled" ]; then
@@ -489,6 +498,19 @@ jobs:
     # baseline RESULTS.md on `main`; fails if @aihu/signals regresses
     # > 10 % on any workload. Override via `[bench-bump]` in the commit
     # message — see bench/signals/HARNESS.md for the override path.
+    #
+    # ADVISORY, not blocking (2026-07-27). It is NOT in `ci-ok`'s needs, so it
+    # never gated anything — but it still painted the PR red, and it is
+    # red-by-construction: the comparison runs against a frozen baseline on
+    # shared CI runners whose timing noise is unrelated to the diff under
+    # review. A red X that cannot block, for a reason that is not your change,
+    # is worse than no signal: it teaches everyone to ignore red, which is how
+    # a REAL failure gets waved through. `continue-on-error` makes the status
+    # honest — the job still runs and its numbers stay in the log, it just
+    # stops claiming to be a verdict it was never wired to deliver. Promote it
+    # back to blocking by adding it to `ci-ok`'s needs AND its gate loop
+    # (being in `needs` alone does nothing — see the palette hole above).
+    continue-on-error: true
     runs-on: ubuntu-latest
     timeout-minutes: 45
     needs: [check, changes]
@@ -608,6 +630,17 @@ jobs:
             echo "BENCH_BUMP_REASON=$REASON"
           fi
       - name: Regression gate (timing — RED is the designed state until R1)
+        # STEP-scoped, deliberately not job-scoped (2026-07-27). This step's own
+        # comment says RED is its DESIGNED state (the committed baseline is
+        # provably invalid), so its failure carried no information about the
+        # diff under review while still painting the job — and the PR — red.
+        # The sibling "Counted-metric gate (R8)" in this same job IS the
+        # trustworthy signal and MUST keep failing the job, so silencing the
+        # whole job would have traded a false red for a real blind spot.
+        # Scoped here, the timing numbers stay in the log and the counted gate
+        # keeps its teeth. Remove this line when R1 (same-job A/B vs merge
+        # base) replaces the mechanism — that is the point of the exercise.
+        continue-on-error: true
         if: env.FIRST_RUN != '1'
         working-directory: bench/arbor
         run: bun src/gate.ts /tmp/bench-arbor-prev/RESULTS.md ./RESULTS.md
