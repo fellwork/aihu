@@ -863,13 +863,23 @@ pub(crate) fn emit_function_form(
     // W3: the emitter's rewrite front-end follows the unit's `--expr-parser`
     // mode (Legacy = byte-identical token pipeline; Ast = scope-aware oxc
     // rewrite).
+    // FEL-441: owner-scope `$ref` onMount registrations are HOISTED out of the
+    // return-tree IIFE into `ref_hoist_sink`, so they can be spliced in BEFORE
+    // macro_code (below) and thus register — and therefore run — ahead of the
+    // author's `@state onMount` callbacks. Without this, a `@state onMount` that
+    // read a ref saw null (GH #637): the setter's onMount was registered while
+    // building the return tree, i.e. after macro_code. `RefHoist::owner` marks
+    // the top of the template as sharing the component setup owner.
+    let ref_hoist_sink: std::cell::RefCell<Vec<String>> = std::cell::RefCell::new(Vec::new());
     let return_expr = emit_nodes(
         template_nodes,
         &signal_map,
         &state_names,
         "    ",
         unit.expr_parser,
+        crate::codegen::template_emit::RefHoist::owner(&ref_hoist_sink),
     );
+    let ref_hoist_regs = ref_hoist_sink.into_inner();
 
     // R1 — when `$prop` entries exist, switch to the options-form
     // `defineComponent({ props, setup })` so the runtime can synthesize
@@ -1132,6 +1142,19 @@ pub(crate) fn emit_function_form(
         if !plain_body.is_empty() {
             b.push_str(&plain_body);
             b.push_str("\n\n");
+        }
+        // FEL-441: hoisted owner-scope `$ref` onMount registrations. Emitted
+        // AFTER plain_body (the holder onMount closes over the ref's target
+        // signal/binding, declared there) and BEFORE macro_code, so the ref
+        // setter registers — and at mount runs — ahead of the author's
+        // `@state onMount` callbacks. Each entry declares its `__aihu_ref_N`
+        // holder (assigned in the return tree at build time) and registers the
+        // onMount that reads `holder.el`. `onMount` is already imported whenever
+        // a `$ref` is present (see needs_on_mount).
+        for reg in &ref_hoist_regs {
+            b.push_str("  ");
+            b.push_str(reg);
+            b.push('\n');
         }
         if !macro_code.is_empty() {
             b.push_str(&macro_code);
