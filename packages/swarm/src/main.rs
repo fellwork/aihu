@@ -24,12 +24,14 @@
 //!
 //! FULL COMMAND SURFACE (parity with bus.py)
 //!   send offer claim ack attempt setstatus pull watch ready sync link
+//!   verify-merged
 //!   (`status`, the oracle's pretty-printed contract table, is intentionally
 //!   not reproduced here — it's a human dashboard, not a coordination
 //!   primitive, and every field it prints is already reachable via `pull`/
-//!   direct DB read. Nothing in the brief asked for it. `link` has no oracle
-//!   counterpart at all — it exists solely for this crate's Linear/GitHub
-//!   accountability sync; see ACCOUNTABILITY SYNC below.)
+//!   direct DB read. Nothing in the brief asked for it. `link` and
+//!   `verify-merged` have no oracle counterpart at all — they exist solely
+//!   for this crate's Linear/GitHub accountability sync; see ACCOUNTABILITY
+//!   SYNC below.)
 //!
 //! TYPED PAYLOADS (docs/typed-bus-payloads.md, agent-swarm@design/typed-bus-payloads)
 //!   The actionable parts of a message are validated FIELDS, not prose to be
@@ -110,6 +112,58 @@
 //!                                prints `could-not-sync` and the whole
 //!                                command exits nonzero — it never assumes
 //!                                success.
+//!   verify-merged [--confirm]   closes the swarm's last accountability
+//!                                gap: a MERGED pull request is the
+//!                                strongest evidence a contract's work is
+//!                                real (it passed CI and the three-clause
+//!                                merge gate), yet merging one advances
+//!                                NOTHING today — a contract sits at
+//!                                claimed/building/submitted/no-claims
+//!                                forever while the code is already on main
+//!                                and the tracking issue stays open. For
+//!                                every such contract (never one already
+//!                                `verified` — the selecting query excludes
+//!                                it), resolve a PR number in priority
+//!                                order: (a) contract.github_pr, (b) the
+//!                                typed `pr` column on the contract's most
+//!                                recent verdict message, (c) a STRICT
+//!                                prose parse of that verdict's body
+//!                                (`parse_pr_ref` — only a full GitHub pull
+//!                                URL or `PR #N` / `PR#N`; a bare `#N` is
+//!                                NEVER a PR reference, on purpose — see
+//!                                that function's doc comment). No PR
+//!                                anywhere in that chain -> skip, reported
+//!                                explicitly (`no PR reference — skipped`),
+//!                                never guessed. Checked via `gh pr view
+//!                                --json state,mergedAt,mergeCommit`: MERGED
+//!                                with a non-null `mergedAt` is the ONLY
+//!                                accepted evidence (`is_merged_evidence`) —
+//!                                an open or closed-unmerged PR proves
+//!                                nothing. On merged evidence the contract
+//!                                is written through `write_contract_status`
+//!                                — the SAME internal path `setstatus
+//!                                --reconciled` uses, because this command
+//!                                IS a reconcile pass, just gated by an
+//!                                objective external fact instead of a
+//!                                human's judgment call — and that shared
+//!                                path is exactly what lets the existing
+//!                                `sync --push` go on to mirror the
+//!                                resulting `verified` status out to
+//!                                Linear/GitHub as Done, which in turn
+//!                                closes the GitHub issue. DRY RUN BY
+//!                                DEFAULT, exactly like `sync --push`:
+//!                                without --confirm this still performs the
+//!                                `gh pr view` reads (so the printed plan
+//!                                reflects real GitHub state) but writes
+//!                                NOTHING locally; `--confirm` performs the
+//!                                writes. A `gh` failure for one contract
+//!                                prints `could-not-check: <id> <reason>`
+//!                                and the loop continues to the next
+//!                                contract — a failed query is NEVER treated
+//!                                as "not merged". Idempotent: an
+//!                                already-`verified` contract is excluded
+//!                                by the selecting query, so re-running
+//!                                writes nothing new.
 //!   link --id C-X [--github-issue N] [--linear FEL-N]
 //!                                manual, LOCAL-ONLY linkage for a human who
 //!                                has recognized a contract and a pre-
@@ -864,19 +918,48 @@ fn cmd_setstatus(args: &Args) -> rusqlite::Result<()> {
         },
         None => None,
     };
-    if let Some(pr) = github_pr {
+    if let Err(e) = write_contract_status(&conn, cid, status, recon, github_pr) {
+        die(&e, 1);
+    }
+    println!("{cid} -> {status}");
+    Ok(())
+}
+
+/// The single write path for a contract status transition, shared by
+/// `setstatus` (gated by a human's `--reconciled` flag) and `verify-merged`
+/// (gated by an objectively merged PR) — both callers ARE the reconcile
+/// pass, acting on different evidence. Re-validates the closed enum
+/// unconditionally rather than trusting the caller already did: a status
+/// outside `CONTRACT_STATUSES` reaching this function is a bug to report,
+/// never a value to persist. `github_pr`, when given, is written alongside
+/// the status in the same statement — same one-UPDATE-per-call shape
+/// `cmd_setstatus` has always used, just factored out so a second caller
+/// cannot silently diverge from it.
+fn write_contract_status(
+    conn: &Connection,
+    cid: &str,
+    status: &str,
+    recon: &str,
+    github_pr: Option<i64>,
+) -> Result<(), String> {
+    if !CONTRACT_STATUSES.contains(&status) {
+        return Err(format!(
+            "unknown status '{status}'. Valid: {}",
+            CONTRACT_STATUSES.join(", ")
+        ));
+    }
+    let res = if let Some(pr) = github_pr {
         conn.execute(
             "UPDATE contract SET status = ?1, recon = ?2, github_pr = ?3 WHERE id = ?4",
             params![status, recon, pr, cid],
-        )?;
+        )
     } else {
         conn.execute(
             "UPDATE contract SET status = ?1, recon = ?2 WHERE id = ?3",
             params![status, recon, cid],
-        )?;
-    }
-    println!("{cid} -> {status}");
-    Ok(())
+        )
+    };
+    res.map(|_| ()).map_err(|e| e.to_string())
 }
 
 /// UTC HH:MM:SS from a unix-epoch-seconds float — no timezone crate; see
@@ -1399,6 +1482,23 @@ fn gh_issue_view(number: i64, fields: &str) -> Result<Value, String> {
     let n = number.to_string();
     let out = gh_run(&["issue", "view", &n, "--repo", GITHUB_REPO, "--json", fields])?;
     serde_json::from_slice(&out).map_err(|e| format!("gh issue view returned non-JSON: {e}"))
+}
+
+/// `gh pr view` — used by `verify-merged` to ask GitHub, authoritatively,
+/// whether a resolved PR number is merged. Read-only: this is safe to call
+/// even in a `verify-merged` dry run.
+fn gh_pr_view(number: i64) -> Result<Value, String> {
+    let n = number.to_string();
+    let out = gh_run(&[
+        "pr",
+        "view",
+        &n,
+        "--repo",
+        GITHUB_REPO,
+        "--json",
+        "state,mergedAt,mergeCommit",
+    ])?;
+    serde_json::from_slice(&out).map_err(|e| format!("gh pr view returned non-JSON: {e}"))
 }
 
 /// Open GitHub issues on GITHUB_REPO labelled GITHUB_SWARM_LABEL.
@@ -2179,12 +2279,268 @@ fn cmd_sync_push(args: &Args) -> rusqlite::Result<()> {
 }
 
 // ---------------------------------------------------------------------------
+// FEATURE 4 — `verify-merged`: closes the swarm's last accountability gap.
+// See the module doc comment's `verify-merged` entry for the full contract;
+// this section is the implementation.
+// ---------------------------------------------------------------------------
+
+/// STRICT PR reference parser (`verify-merged` PR resolution, priority (c)).
+/// Only two shapes count as a PR reference:
+///   - a full GitHub pull URL segment `github.com/<owner>/<repo>/pull/NNN`
+///   - `PR #NNN` or `PR#NNN` (case-sensitive "PR", an optional single space
+///     before the digits, "PR" itself not glued onto a preceding letter/
+///     digit — so this never fires inside a longer word like "APPROVED#5")
+///
+/// A BARE `#NNN` — with no leading "PR" and no `github.com/.../pull/`
+/// context — must NEVER match. That exact laxity once grabbed the PR that
+/// CAUSED a bug, quoted as context in a verdict body, for a read-only audit
+/// that had no PR of its own. No `regex` dependency: bodies are short prose/
+/// URLs, so a hand-rolled byte scan is enough and adds nothing to the
+/// dependency surface.
+fn parse_pr_ref(body: &str) -> Option<i64> {
+    let bytes = body.as_bytes();
+    let len = bytes.len();
+    let mut i = 0;
+    while i < len {
+        if bytes[i..].starts_with(b"github.com/") {
+            if let Some(n) = parse_github_pull_url(bytes, i + "github.com/".len()) {
+                return Some(n);
+            }
+        }
+        if bytes[i..].starts_with(b"PR") {
+            let prev_ok = i == 0 || !bytes[i - 1].is_ascii_alphanumeric();
+            if prev_ok {
+                if let Some(n) = parse_pr_hash(bytes, i + 2) {
+                    return Some(n);
+                }
+            }
+        }
+        i += 1;
+    }
+    None
+}
+
+/// The longest run of ASCII digits starting at `start`, parsed as an i64.
+/// `None` when there is no digit at `start` at all — an empty digit run is
+/// not a number, it's the absence of one.
+fn parse_digits(bytes: &[u8], start: usize) -> Option<i64> {
+    let mut end = start;
+    while end < bytes.len() && bytes[end].is_ascii_digit() {
+        end += 1;
+    }
+    if end == start {
+        return None;
+    }
+    std::str::from_utf8(&bytes[start..end]).ok()?.parse::<i64>().ok()
+}
+
+/// From just past a matched `"PR"`, accept an optional single space then a
+/// required `#` then digits. `"PR"` alone, `"PR "` alone, or `"PR "` (or
+/// `"PR"`) followed by anything other than `#`+digit is not a match.
+fn parse_pr_hash(bytes: &[u8], mut j: usize) -> Option<i64> {
+    if j < bytes.len() && bytes[j] == b' ' {
+        j += 1;
+    }
+    if j < bytes.len() && bytes[j] == b'#' {
+        return parse_digits(bytes, j + 1);
+    }
+    None
+}
+
+/// From just past a matched `"github.com/"`, require `<owner>/<repo>/pull/`
+/// (exactly `"pull"`, never `"issue"` or `"issues"`) followed by digits.
+fn parse_github_pull_url(bytes: &[u8], start: usize) -> Option<i64> {
+    let rest = &bytes[start..];
+    let s = std::str::from_utf8(rest).ok()?;
+    let segs: Vec<&str> = s.splitn(4, '/').collect();
+    if segs.len() == 4 && segs[2] == "pull" {
+        let digits: String = segs[3].chars().take_while(char::is_ascii_digit).collect();
+        if !digits.is_empty() {
+            return digits.parse::<i64>().ok();
+        }
+    }
+    None
+}
+
+/// The merged-vs-not decision, isolated from any I/O so it's unit-testable
+/// against every shape `gh pr view --json state,mergedAt` can hand back.
+/// MERGED plus a non-empty `mergedAt` is the ONLY accepted combination — an
+/// OPEN PR, a CLOSED-but-unmerged PR, and (defensively) a MERGED state with
+/// a null/empty timestamp are all rejected as evidence.
+fn is_merged_evidence(state: &str, merged_at: Option<&str>) -> bool {
+    state == "MERGED" && merged_at.is_some_and(|s| !s.is_empty())
+}
+
+/// PR resolution for one contract, in priority order (module doc,
+/// `verify-merged`): (a) `contract.github_pr` if the caller already has it,
+/// (b) the typed `pr` column on the contract's most recent verdict message,
+/// (c) a STRICT prose parse (`parse_pr_ref`) of that contract's most recent
+/// verdict body. Returns `None` — never a guess — when nothing in that
+/// chain resolves.
+fn resolve_pr(conn: &Connection, cid: &str, contract_pr: Option<i64>) -> rusqlite::Result<Option<i64>> {
+    if let Some(pr) = contract_pr {
+        return Ok(Some(pr));
+    }
+    let from_column: Option<i64> = conn
+        .query_row(
+            "SELECT pr FROM msg WHERE contract = ?1 AND kind = 'verdict' AND pr IS NOT NULL \
+             ORDER BY ts DESC LIMIT 1",
+            params![cid],
+            |r| r.get(0),
+        )
+        .optional()?;
+    if from_column.is_some() {
+        return Ok(from_column);
+    }
+    let latest_verdict_body: Option<String> = conn
+        .query_row(
+            "SELECT body FROM msg WHERE contract = ?1 AND kind = 'verdict' \
+             ORDER BY ts DESC LIMIT 1",
+            params![cid],
+            |r| r.get(0),
+        )
+        .optional()?;
+    Ok(latest_verdict_body.as_deref().and_then(parse_pr_ref))
+}
+
+/// `verify-merged`: for every contract not already `verified` and sitting
+/// at claimed/building/submitted/no-claims, resolve a PR (`resolve_pr`),
+/// ask GitHub whether it is genuinely merged (`is_merged_evidence`), and if
+/// so promote the contract to `verified` through the exact same write path
+/// (`write_contract_status`) `setstatus --reconciled` uses. See the module
+/// doc comment for the full contract (dry-run default, `could-not-check`
+/// posture, idempotency).
+fn cmd_verify_merged(args: &Args) -> rusqlite::Result<()> {
+    // Same value-blind-proofing as `sync --push`'s `--confirm` and
+    // `setstatus`'s `--reconciled`: `--confirm false` must die, not be read
+    // as "confirmed" because the flag was merely present.
+    let confirm = match args.get("confirm") {
+        None => false,
+        Some(ArgVal::Flag) => true,
+        Some(ArgVal::Str(v)) => die(
+            &format!(
+                "--confirm takes no value (got '{v}'). Pass --confirm alone to \
+                 verify contracts from merged PRs, or omit it for a dry run."
+            ),
+            2,
+        ),
+    };
+
+    let conn = open_db()?;
+    let mut candidates: Vec<(String, Option<i64>)> = Vec::new();
+    {
+        // The status filter IS the "not already verified" + idempotency
+        // guard: `verified` is deliberately absent from this list, so a
+        // contract this command already promoted is never reselected.
+        let mut stmt = conn.prepare(
+            "SELECT id, github_pr FROM contract \
+             WHERE status IN ('claimed','building','submitted','no-claims') \
+             ORDER BY id",
+        )?;
+        let rows =
+            stmt.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, Option<i64>>(1)?)))?;
+        for r in rows {
+            candidates.push(r?);
+        }
+    }
+
+    if confirm {
+        println!(
+            "verify-merged --confirm: checking {} candidate contract(s):",
+            candidates.len()
+        );
+    } else {
+        println!(
+            "DRY RUN (pass --confirm to write) — checking {} candidate contract(s). \
+             `gh pr view` reads still run so the plan reflects real GitHub state; \
+             nothing is written.",
+            candidates.len()
+        );
+    }
+
+    let mut verified = 0i64;
+    let mut skipped_no_pr = 0i64;
+    let mut could_not_check = 0i64;
+
+    for (cid, contract_pr) in &candidates {
+        let pr = match resolve_pr(&conn, cid, *contract_pr) {
+            Ok(Some(p)) => p,
+            Ok(None) => {
+                println!("  {cid}: no PR reference — skipped");
+                skipped_no_pr += 1;
+                continue;
+            }
+            Err(e) => {
+                println!("  could-not-check: {cid} {e}");
+                could_not_check += 1;
+                continue;
+            }
+        };
+
+        let data = match gh_pr_view(pr) {
+            Ok(d) => d,
+            Err(e) => {
+                // A failed query is NEVER "not merged" — it's unknown, and
+                // reported as such.
+                println!("  could-not-check: {cid} PR #{pr}: {e}");
+                could_not_check += 1;
+                continue;
+            }
+        };
+        let state = data.get("state").and_then(Value::as_str).unwrap_or("");
+        let merged_at = data.get("mergedAt").and_then(Value::as_str);
+        if !is_merged_evidence(state, merged_at) {
+            println!("  {cid}: PR #{pr} not merged (state={state}) — not verified");
+            continue;
+        }
+        let merge_commit_oid = data
+            .pointer("/mergeCommit/oid")
+            .and_then(Value::as_str)
+            .unwrap_or("");
+        let short: String = merge_commit_oid.chars().take(8).collect();
+        let merged_at_str = merged_at.unwrap_or("");
+        let recon = format!("merged: PR #{pr} @ {short} {merged_at_str}");
+
+        if confirm {
+            // The SAME internal path as `setstatus --reconciled` — this IS
+            // the reconcile pass, acting on objective evidence rather than
+            // a human's --reconciled flag.
+            match write_contract_status(&conn, cid, "verified", &recon, Some(pr)) {
+                Ok(()) => {
+                    verified += 1;
+                    println!("  {cid}: verified — {recon}");
+                }
+                Err(e) => {
+                    println!("  could-not-check: {cid} write failed: {e}");
+                    could_not_check += 1;
+                }
+            }
+        } else {
+            verified += 1;
+            println!("  {cid}: WOULD verify — {recon}");
+        }
+    }
+
+    println!(
+        "verify-merged: {verified} verified from merged PRs, {skipped_no_pr} skipped (no PR), \
+         {could_not_check} could-not-check"
+    );
+
+    // Same posture as `sync --push`: a real failure exits nonzero even
+    // though partial progress was made and printed.
+    if could_not_check > 0 {
+        std::process::exit(1);
+    }
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
 
 fn main() {
     let raw_args: Vec<String> = env::args().collect();
     if raw_args.len() < 2 {
         die(
-            "usage: swarm-bus <send|pull|offer|claim|ack|attempt|setstatus|watch|ready|sync|link> [--k v ...]",
+            "usage: swarm-bus <send|pull|offer|claim|ack|attempt|setstatus|watch|ready|sync|link|verify-merged> [--k v ...]",
             64,
         );
     }
@@ -2203,6 +2559,7 @@ fn main() {
         "ready" => cmd_ready(&args),
         "sync" => cmd_sync(&args),
         "link" => cmd_link(&args),
+        "verify-merged" => cmd_verify_merged(&args),
         other => die(&format!("unknown command '{other}'"), 64),
     };
 
@@ -2325,5 +2682,84 @@ mod tests {
             Err(LinkConflict::Other(o)) => assert_eq!(o, "C-OTHER"),
             _ => panic!("expected Other(\"C-OTHER\")"),
         }
+    }
+
+    // FEATURE 4 (`verify-merged`) — `parse_pr_ref` is the strict prose
+    // parser; all six required shapes from the spec, exhaustively.
+
+    #[test]
+    fn parse_pr_ref_matches_full_github_pull_url() {
+        assert_eq!(
+            parse_pr_ref("merged as https://github.com/fellwork/aihu/pull/641 today"),
+            Some(641)
+        );
+    }
+
+    #[test]
+    fn parse_pr_ref_matches_pr_hash_with_space() {
+        assert_eq!(parse_pr_ref("Verdict: closed via PR #641."), Some(641));
+    }
+
+    #[test]
+    fn parse_pr_ref_matches_pr_hash_no_space() {
+        assert_eq!(parse_pr_ref("Verdict: closed via PR#641."), Some(641));
+    }
+
+    #[test]
+    fn parse_pr_ref_rejects_bare_hash() {
+        // No leading "PR" and no github.com/.../pull/ context — a bare
+        // `#NNN` must never be read as a PR reference.
+        assert_eq!(parse_pr_ref("closes #641"), None);
+    }
+
+    #[test]
+    fn parse_pr_ref_rejects_bare_hash_in_prose() {
+        // The exact laxity that once grabbed the PR that CAUSED a bug,
+        // quoted as context, for a read-only audit with no PR of its own.
+        assert_eq!(
+            parse_pr_ref("root-caused by the change in #12, verified as read-only"),
+            None
+        );
+    }
+
+    #[test]
+    fn parse_pr_ref_rejects_issue_path() {
+        assert_eq!(parse_pr_ref("see issue/641 for background"), None);
+        // Also rejects the URL-shaped equivalent: an /issue/ path is not a
+        // /pull/ path, even under github.com/.
+        assert_eq!(
+            parse_pr_ref("https://github.com/fellwork/aihu/issue/641"),
+            None
+        );
+    }
+
+    #[test]
+    fn parse_pr_ref_does_not_false_positive_on_pr_inside_a_word() {
+        // "APPROVED#5" contains the substring "PR" at a non-word-boundary
+        // position — must not be read as "PR#5".
+        assert_eq!(parse_pr_ref("STATUS: APPROVED#5"), None);
+    }
+
+    // FEATURE 4 — `is_merged_evidence`: MERGED + non-null mergedAt is the
+    // only accepted combination.
+
+    #[test]
+    fn is_merged_evidence_accepts_merged_with_timestamp() {
+        assert!(is_merged_evidence("MERGED", Some("2026-07-27T18:38:35Z")));
+    }
+
+    #[test]
+    fn is_merged_evidence_rejects_open() {
+        assert!(!is_merged_evidence("OPEN", None));
+    }
+
+    #[test]
+    fn is_merged_evidence_rejects_closed_unmerged() {
+        assert!(!is_merged_evidence("CLOSED", None));
+    }
+
+    #[test]
+    fn is_merged_evidence_rejects_merged_with_null_merged_at() {
+        assert!(!is_merged_evidence("MERGED", None));
     }
 }
