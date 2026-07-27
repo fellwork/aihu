@@ -23,7 +23,7 @@
 //!        exits 1.
 //!
 //! FULL COMMAND SURFACE (parity with bus.py)
-//!   send offer claim ack attempt setstatus pull watch ready
+//!   send offer claim ack attempt setstatus pull watch ready sync
 //!   (`status`, the oracle's pretty-printed contract table, is intentionally
 //!   not reproduced here — it's a human dashboard, not a coordination
 //!   primitive, and every field it prints is already reachable via `pull`/
@@ -41,6 +41,55 @@
 //!     - `contract.needs` (new, nullable TEXT, comma-separated contract ids)
 //!       — the Graph/DAG edge. `ready --id C` reports whether every upstream
 //!       need has reached a satisfied status.
+//!
+//! ACCOUNTABILITY SYNC (docs/typed-bus-payloads.md, "Accountability" section,
+//! contract C-SWARM-SYNC) — binds the contract lifecycle to Linear + GitHub,
+//! the systems people already trust and audit. `contract` gains three
+//! nullable columns: `linear` (a Linear identifier, e.g. "FEL-440"),
+//! `github_issue`, `github_pr` (integers).
+//!
+//!   sync --pull                 read-only. Pulls the real backlog IN as
+//!                                candidate contracts: open Linear FEL issues
+//!                                (state not Done/Canceled) and open GitHub
+//!                                issues labelled `swarm` each become a
+//!                                `status='offered', owner=NULL` contract
+//!                                row carrying its external id. Idempotent —
+//!                                matched and deduped on the external id
+//!                                (`linear` / `github_issue`), never
+//!                                re-inserted. NEVER auto-assigns an owner —
+//!                                same rule as onboarding: a pulled ticket
+//!                                carries no role.
+//!   sync --push [--confirm]     mirrors contract state OUT. Defaults to a
+//!                                DRY RUN: prints the plan computed purely
+//!                                from local DB state and performs zero
+//!                                network calls. `--confirm` is required to
+//!                                perform any real read or write. THE
+//!                                LOAD-BEARING RULE: external "Done" mirrors
+//!                                `status == verified` ONLY — `submitted` (an
+//!                                agent's own claim) never produces a Done
+//!                                transition; that gate is structural (see
+//!                                `classify`), not a flag checked at the last
+//!                                moment. DISPUTED/unverified stay In
+//!                                Progress and get a comment explaining why.
+//!                                Every write is idempotent (a marker HTML
+//!                                comment is checked before posting; a state
+//!                                mutation is skipped if already at target)
+//!                                and logged to the new `activity` table so
+//!                                the mirror itself is auditable. A failed
+//!                                per-contract sync prints `could-not-sync`
+//!                                and the whole command exits nonzero — it
+//!                                never assumes success.
+//!
+//! SECURITY (non-negotiable): the Linear API key lives ONLY in the macOS
+//! keychain (`security find-generic-password -s LINEAR_API_KEY -w`), read at
+//! call time. It is never printed, never logged, never written to a file,
+//! and never appears in any child process's argv (so it is invisible to
+//! `ps`). It reaches `curl` exclusively via that one child process's
+//! environment — curl's own `--variable %LINEAR_API_KEY` / `--expand-header`
+//! feature (curl >= 8.3) reads and substitutes it internally; this program
+//! never assembles the header string itself. GitHub calls shell out to `gh`,
+//! which manages its own separate, already-authenticated credential store —
+//! this code never touches a GitHub token at all.
 //!
 //! DIVERGENCES FROM THE ORACLE (deliberate, logged per the brief)
 //!   1. `offer` here does NOT require `--brief`. The oracle's cmd_offer
@@ -86,6 +135,16 @@ const ROLES: &[&str] = &[
     "builder-b",
     "investigator",
 ];
+
+// Accountability sync targets (docs/typed-bus-payloads.md). Same team/repo
+// scope `~/.agent-swarm/skills/swarm/swarm.ts` already uses for this project.
+const LINEAR_TEAM_KEY: &str = "FEL";
+const GITHUB_REPO: &str = "fellwork/aihu";
+/// Convention for "opted into the swarm backlog", not yet in use anywhere in
+/// this repo as of this writing (checked via `gh label list`) — until an
+/// orchestrator/architect creates and applies it, `sync --pull`'s GitHub
+/// half is a real, correct empty, not a bug.
+const GITHUB_SWARM_LABEL: &str = "swarm";
 
 // ---------------------------------------------------------------------------
 // Argument parsing: a per-arg `--k v` pairs parser, mirroring bus.py's hand
@@ -316,7 +375,10 @@ fn open_db() -> rusqlite::Result<Connection> {
          CREATE TABLE IF NOT EXISTS attempt(role TEXT, msg TEXT, n INTEGER, PRIMARY KEY(role,msg));
          CREATE TABLE IF NOT EXISTS contract(
            id TEXT PRIMARY KEY, ts REAL, issue TEXT, owner TEXT, surface TEXT,
-           must_pass TEXT, must_fail TEXT, status TEXT, note TEXT);",
+           must_pass TEXT, must_fail TEXT, status TEXT, note TEXT);
+         CREATE TABLE IF NOT EXISTS activity(
+           id TEXT PRIMARY KEY, ts REAL, contract TEXT, target TEXT,
+           action TEXT, detail TEXT);",
     )?;
     // Idempotent ALTERs — same posture as the oracle's `recon` upgrade path,
     // extended for the typed-payload fields (docs/typed-bus-payloads.md).
@@ -324,6 +386,12 @@ fn open_db() -> rusqlite::Result<Connection> {
     ensure_column(&conn, "contract", "needs", "TEXT")?;
     ensure_column(&conn, "msg", "pr", "INTEGER")?;
     ensure_column(&conn, "msg", "claims", "TEXT")?;
+    // Accountability sync fields (docs/typed-bus-payloads.md, C-SWARM-SYNC):
+    // the contract's Linear/GitHub home, all nullable — absent until a
+    // `sync --pull` or an explicit `offer`/`setstatus` sets them.
+    ensure_column(&conn, "contract", "linear", "TEXT")?;
+    ensure_column(&conn, "contract", "github_issue", "INTEGER")?;
+    ensure_column(&conn, "contract", "github_pr", "INTEGER")?;
     Ok(conn)
 }
 
@@ -479,6 +547,26 @@ fn cmd_offer(args: &Args) -> rusqlite::Result<()> {
     // upstream contract ids this contract depends on. Optional — a contract
     // with no needs is trivially ready.
     let needs = args.get_str("needs");
+    // Accountability linkage (docs/typed-bus-payloads.md "Accountability",
+    // C-SWARM-SYNC): a contract can already know its Linear/GitHub home —
+    // either because `sync --pull` created the candidate row first, or the
+    // orchestrator is hand-authoring a contract for a ticket that already
+    // exists. All optional; a bare `--issue` offer is unaffected.
+    let linear = args.get_str("linear");
+    let github_issue: Option<i64> = match args.get_str("github-issue") {
+        Some(v) => match v.parse::<i64>() {
+            Ok(n) => Some(n),
+            Err(_) => die(&format!("--github-issue must be an integer, got '{v}'"), 2),
+        },
+        None => None,
+    };
+    let github_pr: Option<i64> = match args.get_str("github-pr") {
+        Some(v) => match v.parse::<i64>() {
+            Ok(n) => Some(n),
+            Err(_) => die(&format!("--github-pr must be an integer, got '{v}'"), 2),
+        },
+        None => None,
+    };
     let cid = args
         .get_str("id")
         .map(|s| s.to_string())
@@ -486,13 +574,32 @@ fn cmd_offer(args: &Args) -> rusqlite::Result<()> {
 
     let conn = open_db()?;
     let ts = now_ts();
-    // Column-explicit insert: a positional VALUES(...) breaks the moment a
-    // column is added (recon, needs) and the writer isn't updated.
+    // Upsert, NOT `INSERT OR REPLACE`: a plain REPLACE deletes-then-reinserts
+    // the row, which would silently wipe `linear`/`github_issue`/`github_pr`
+    // set by an earlier `sync --pull` the moment the contract is re-offered
+    // (e.g. an architect filling in surface/must-pass/must-fail on a pulled
+    // candidate) — destroying exactly the accountability link this exists to
+    // preserve. COALESCE keeps the prior value when this call doesn't name a
+    // new one. `needs` is deliberately NOT given this treatment — that is
+    // unchanged, pre-existing behavior (a re-offer without `--needs` still
+    // clears it), out of scope for this change.
     conn.execute(
-        "INSERT OR REPLACE INTO contract \
-         (id, ts, issue, owner, surface, must_pass, must_fail, status, note, needs) \
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'offered', ?8, ?9)",
-        params![cid, ts, issue, to, surface, must_pass, must_fail, note, needs],
+        "INSERT INTO contract \
+         (id, ts, issue, owner, surface, must_pass, must_fail, status, note, needs, \
+          linear, github_issue, github_pr) \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'offered', ?8, ?9, ?10, ?11, ?12) \
+         ON CONFLICT(id) DO UPDATE SET \
+           ts=excluded.ts, issue=excluded.issue, owner=excluded.owner, \
+           surface=excluded.surface, must_pass=excluded.must_pass, \
+           must_fail=excluded.must_fail, status='offered', note=excluded.note, \
+           needs=excluded.needs, \
+           linear=COALESCE(excluded.linear, contract.linear), \
+           github_issue=COALESCE(excluded.github_issue, contract.github_issue), \
+           github_pr=COALESCE(excluded.github_pr, contract.github_pr)",
+        params![
+            cid, ts, issue, to, surface, must_pass, must_fail, note, needs, linear, github_issue,
+            github_pr
+        ],
     )?;
 
     // Dispatch the brief atomically: no contract without a work order.
@@ -624,10 +731,27 @@ fn cmd_setstatus(args: &Args) -> rusqlite::Result<()> {
     }
 
     let recon = args.get_str("recon").unwrap_or("");
-    conn.execute(
-        "UPDATE contract SET status = ?1, recon = ?2 WHERE id = ?3",
-        params![status, recon, cid],
-    )?;
+    // Optional PR linkage (docs/typed-bus-payloads.md "Accountability"):
+    // verification time is the natural moment a resolving PR becomes known,
+    // e.g. `setstatus --id C-X --status verified --recon "..." --github-pr 640`.
+    let github_pr: Option<i64> = match args.get_str("github-pr") {
+        Some(v) => match v.parse::<i64>() {
+            Ok(n) => Some(n),
+            Err(_) => die(&format!("--github-pr must be an integer, got '{v}'"), 2),
+        },
+        None => None,
+    };
+    if let Some(pr) = github_pr {
+        conn.execute(
+            "UPDATE contract SET status = ?1, recon = ?2, github_pr = ?3 WHERE id = ?4",
+            params![status, recon, pr, cid],
+        )?;
+    } else {
+        conn.execute(
+            "UPDATE contract SET status = ?1, recon = ?2 WHERE id = ?3",
+            params![status, recon, cid],
+        )?;
+    }
     println!("{cid} -> {status}");
     Ok(())
 }
@@ -731,12 +855,632 @@ fn cmd_ready(args: &Args) -> rusqlite::Result<()> {
 }
 
 // ---------------------------------------------------------------------------
+// Accountability sync (docs/typed-bus-payloads.md "Accountability",
+// contract C-SWARM-SYNC): bind the contract lifecycle to Linear + GitHub.
+// See the module doc comment at the top of this file for the command
+// summary and the security posture for the Linear key.
+// ---------------------------------------------------------------------------
+
+/// Read the Linear API key from the macOS keychain. Never logged, never
+/// echoed — the only thing done with the returned string is handing it to
+/// one child process's environment (see `linear_call`).
+fn linear_key() -> Result<String, String> {
+    let out = std::process::Command::new("security")
+        .args(["find-generic-password", "-s", "LINEAR_API_KEY", "-w"])
+        .output()
+        .map_err(|e| format!("could not invoke `security`: {e}"))?;
+    if !out.status.success() {
+        return Err("LINEAR_API_KEY not found in keychain (security exited non-zero)".to_string());
+    }
+    let key = String::from_utf8_lossy(&out.stdout).trim().to_string();
+    if key.is_empty() {
+        return Err("LINEAR_API_KEY in keychain is empty".to_string());
+    }
+    Ok(key)
+}
+
+/// POST one GraphQL query/mutation to Linear.
+///
+/// SECURITY: the key is handed to `curl` exclusively via that one child
+/// process's environment (`Command::env`, scoped to this single spawn — it
+/// is not inherited by this program's own environment or by any other
+/// child). curl's own `--variable %LINEAR_API_KEY` / `--expand-header`
+/// feature (curl >= 8.3, confirmed present) reads and substitutes the value
+/// INSIDE curl's process; this program never assembles the header string,
+/// so the key never appears in curl's argv (invisible to `ps`), never in a
+/// shell (no shell is spawned — `Command::new("curl")` execs it directly),
+/// never in a file, and never in this function's own error strings (every
+/// `Err` below is built from HTTP/JSON shape, never from `key`).
+fn linear_call(query: &str, variables: &Value) -> Result<Value, String> {
+    let key = linear_key()?;
+    let body = json!({ "query": query, "variables": variables }).to_string();
+    let output = std::process::Command::new("curl")
+        .args([
+            "-sS",
+            "--max-time",
+            "20",
+            "--variable",
+            "%LINEAR_API_KEY",
+            "--expand-header",
+            "Authorization: {{LINEAR_API_KEY}}",
+            "-H",
+            "Content-Type: application/json",
+            "-X",
+            "POST",
+            "-d",
+            &body,
+            "https://api.linear.app/graphql",
+        ])
+        .env("LINEAR_API_KEY", &key)
+        .output();
+    // `key` is dropped at the end of this statement's scope either way; it
+    // is not referenced again below.
+    let out = output.map_err(|e| format!("could not invoke curl: {e}"))?;
+    if !out.status.success() {
+        return Err(format!("curl exited {}", out.status));
+    }
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    let v: Value =
+        serde_json::from_str(&stdout).map_err(|e| format!("Linear returned non-JSON ({e})"))?;
+    if let Some(errors) = v.get("errors") {
+        return Err(format!("Linear API error: {errors}"));
+    }
+    match v.get("data") {
+        Some(d) if !d.is_null() => Ok(d.clone()),
+        _ => Err("Linear returned no data and no error".to_string()),
+    }
+}
+
+/// All open (state.type not completed/canceled) issues on team FEL, paged.
+/// Returns (identifier, title, url) triples, e.g. ("FEL-440", "...", "https://...").
+fn linear_open_fel_issues() -> Result<Vec<(String, String, String)>, String> {
+    let query = "query($first:Int!,$after:String,$team:String!){ \
+         issues(first:$first, after:$after, filter:{ team:{key:{eq:$team}}, \
+           state:{type:{nin:[\"completed\",\"canceled\"]}} }) { \
+           nodes { identifier title url } \
+           pageInfo { hasNextPage endCursor } \
+         } }";
+    let mut out = Vec::new();
+    let mut after: Option<String> = None;
+    loop {
+        let vars = json!({ "first": 100, "after": after, "team": LINEAR_TEAM_KEY });
+        let data = linear_call(query, &vars)?;
+        let issues = data.get("issues").ok_or("Linear response missing 'issues'")?;
+        let nodes = issues
+            .get("nodes")
+            .and_then(Value::as_array)
+            .ok_or("Linear response missing 'issues.nodes'")?;
+        for n in nodes {
+            let identifier = n.get("identifier").and_then(Value::as_str).unwrap_or("");
+            if identifier.is_empty() {
+                continue;
+            }
+            let title = n.get("title").and_then(Value::as_str).unwrap_or("").to_string();
+            let url = n.get("url").and_then(Value::as_str).unwrap_or("").to_string();
+            out.push((identifier.to_string(), title, url));
+        }
+        let page_info = issues.get("pageInfo");
+        let has_next = page_info
+            .and_then(|p| p.get("hasNextPage"))
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+        let cursor = page_info
+            .and_then(|p| p.get("endCursor"))
+            .and_then(Value::as_str)
+            .map(str::to_string);
+        if !has_next || cursor.is_none() || out.len() >= 5000 {
+            break;
+        }
+        after = cursor;
+    }
+    Ok(out)
+}
+
+/// Cache-free lookup of team FEL's workflow states (id, name).
+fn linear_team_states() -> Result<Vec<(String, String)>, String> {
+    let query = "query($team:String!){ teams(first:1, filter:{key:{eq:$team}}) { \
+         nodes { states(first:25) { nodes { id name } } } } }";
+    let data = linear_call(query, &json!({ "team": LINEAR_TEAM_KEY }))?;
+    let nodes = data
+        .pointer("/teams/nodes/0/states/nodes")
+        .and_then(Value::as_array)
+        .ok_or_else(|| "Linear: could not read team FEL's workflow states".to_string())?;
+    Ok(nodes
+        .iter()
+        .filter_map(|n| {
+            let id = n.get("id")?.as_str()?.to_string();
+            let name = n.get("name")?.as_str()?.to_string();
+            Some((id, name))
+        })
+        .collect())
+}
+
+/// Resolve a Linear identifier like "FEL-440" to (issueId, currentStateName).
+fn linear_issue_lookup(identifier: &str) -> Result<(String, String), String> {
+    let number: i64 = identifier
+        .rsplit('-')
+        .next()
+        .and_then(|n| n.parse().ok())
+        .ok_or_else(|| format!("malformed linear identifier '{identifier}'"))?;
+    let query = "query($n:Float!,$team:String!){ issues(first:1, filter:{ team:{key:{eq:$team}}, \
+         number:{eq:$n} }) { nodes { id state { name } } } }";
+    let data = linear_call(query, &json!({ "n": number, "team": LINEAR_TEAM_KEY }))?;
+    let node = data
+        .pointer("/issues/nodes/0")
+        .ok_or_else(|| format!("linear issue '{identifier}' not found"))?;
+    let id = node
+        .get("id")
+        .and_then(Value::as_str)
+        .ok_or("Linear: issue node missing id")?
+        .to_string();
+    let state = node.pointer("/state/name").and_then(Value::as_str).unwrap_or("").to_string();
+    Ok((id, state))
+}
+
+/// Move a Linear issue to `target_name`, unless it is already there
+/// (idempotent — a repeated push must not re-fire the same transition).
+fn linear_ensure_state(identifier: &str, target_name: &str) -> Result<(), String> {
+    let (issue_id, current) = linear_issue_lookup(identifier)?;
+    if current.eq_ignore_ascii_case(target_name) {
+        return Ok(());
+    }
+    let states = linear_team_states()?;
+    let st = states
+        .iter()
+        .find(|(_, n)| n.eq_ignore_ascii_case(target_name))
+        .ok_or_else(|| format!("no Linear workflow state named '{target_name}' on team FEL"))?;
+    let mutation =
+        "mutation($id:String!,$s:String!){ issueUpdate(id:$id, input:{stateId:$s}) { success } }";
+    let data = linear_call(mutation, &json!({ "id": issue_id, "s": st.0 }))?;
+    match data.pointer("/issueUpdate/success").and_then(Value::as_bool) {
+        Some(true) => Ok(()),
+        _ => Err(format!("Linear issueUpdate reported failure for {identifier}")),
+    }
+}
+
+/// Post `body` as a comment on a Linear issue UNLESS an existing comment
+/// already contains `marker` — the idempotency check the spec requires
+/// ("check for the marker first").
+fn linear_comment_if_absent(identifier: &str, marker: &str, body: &str) -> Result<(), String> {
+    let (issue_id, _) = linear_issue_lookup(identifier)?;
+    let query = "query($id:String!){ issue(id:$id){ comments(first:50){ nodes { body } } } }";
+    let data = linear_call(query, &json!({ "id": issue_id }))?;
+    let comments: Vec<Value> = data
+        .pointer("/issue/comments/nodes")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    for cm in &comments {
+        if cm.get("body").and_then(Value::as_str).is_some_and(|b| b.contains(marker)) {
+            return Ok(()); // already posted
+        }
+    }
+    let mutation =
+        "mutation($id:String!,$body:String!){ commentCreate(input:{issueId:$id, body:$body}) { success } }";
+    let data = linear_call(mutation, &json!({ "id": issue_id, "body": body }))?;
+    match data.pointer("/commentCreate/success").and_then(Value::as_bool) {
+        Some(true) => Ok(()),
+        _ => Err(format!("Linear commentCreate reported failure for {identifier}")),
+    }
+}
+
+/// Run `gh` and return stdout, or an Err describing the failure (never
+/// panics, never assumes success from a nonzero exit).
+fn gh_run(args: &[&str]) -> Result<Vec<u8>, String> {
+    let out = std::process::Command::new("gh")
+        .args(args)
+        .output()
+        .map_err(|e| format!("could not invoke gh: {e}"))?;
+    if !out.status.success() {
+        let stderr = String::from_utf8_lossy(&out.stderr);
+        return Err(format!("gh exited {}: {}", out.status, stderr.trim()));
+    }
+    Ok(out.stdout)
+}
+
+fn gh_issue_view(number: i64, fields: &str) -> Result<Value, String> {
+    let n = number.to_string();
+    let out = gh_run(&["issue", "view", &n, "--repo", GITHUB_REPO, "--json", fields])?;
+    serde_json::from_slice(&out).map_err(|e| format!("gh issue view returned non-JSON: {e}"))
+}
+
+/// Open GitHub issues on GITHUB_REPO labelled GITHUB_SWARM_LABEL.
+/// Returns (number, title, url) triples.
+fn github_open_swarm_issues() -> Result<Vec<(i64, String, String)>, String> {
+    let out = gh_run(&[
+        "issue",
+        "list",
+        "--repo",
+        GITHUB_REPO,
+        "--label",
+        GITHUB_SWARM_LABEL,
+        "--state",
+        "open",
+        "--json",
+        "number,title,url",
+        "--limit",
+        "500",
+    ])?;
+    let arr: Vec<Value> =
+        serde_json::from_slice(&out).map_err(|e| format!("gh returned non-JSON: {e}"))?;
+    Ok(arr
+        .iter()
+        .filter_map(|it| {
+            let number = it.get("number").and_then(Value::as_i64)?;
+            let title = it.get("title").and_then(Value::as_str).unwrap_or("").to_string();
+            let url = it.get("url").and_then(Value::as_str).unwrap_or("").to_string();
+            Some((number, title, url))
+        })
+        .collect())
+}
+
+/// Post `body` as a comment on a GitHub issue UNLESS an existing comment
+/// already contains `marker` (same idempotency contract as the Linear side).
+fn gh_comment_if_absent(number: i64, marker: &str, body: &str) -> Result<(), String> {
+    let data = gh_issue_view(number, "comments")?;
+    let comments: Vec<Value> = data.get("comments").and_then(Value::as_array).cloned().unwrap_or_default();
+    for cm in &comments {
+        if cm.get("body").and_then(Value::as_str).is_some_and(|b| b.contains(marker)) {
+            return Ok(()); // already posted
+        }
+    }
+    let n = number.to_string();
+    gh_run(&["issue", "comment", &n, "--repo", GITHUB_REPO, "--body", body])?;
+    Ok(())
+}
+
+/// Close a GitHub issue unless it is already closed (idempotent).
+fn gh_close_issue(number: i64) -> Result<(), String> {
+    let data = gh_issue_view(number, "state")?;
+    let state = data.get("state").and_then(Value::as_str).unwrap_or("");
+    if state.eq_ignore_ascii_case("closed") {
+        return Ok(());
+    }
+    let n = number.to_string();
+    gh_run(&["issue", "close", &n, "--repo", GITHUB_REPO])?;
+    Ok(())
+}
+
+/// Best-effort audit trail for every real external write `sync --push
+/// --confirm` performs, per the spec ("log every external write ... so the
+/// mirror itself is auditable"). Failing to log is not a reason to fail a
+/// write that already succeeded, so this only warns.
+fn log_activity(conn: &Connection, contract: &str, target: &str, action: &str, detail: &str) {
+    let res = conn.execute(
+        "INSERT INTO activity (id, ts, contract, target, action, detail) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        params![new_id(), now_ts(), contract, target, action, detail],
+    );
+    if let Err(e) = res {
+        eprintln!("swarm-bus: warning: could not record activity entry for {contract}: {e}");
+    }
+}
+
+fn cmd_sync(args: &Args) -> rusqlite::Result<()> {
+    let pull = args.get_flag("pull");
+    let push = args.get_flag("push");
+    match (pull, push) {
+        (true, true) => die("swarm-bus sync takes exactly one of --pull or --push, not both", 2),
+        (true, false) => cmd_sync_pull(args),
+        (false, true) => cmd_sync_push(args),
+        (false, false) => die("swarm-bus sync requires --pull or --push", 2),
+    }
+}
+
+/// PART 1 — INBOUND, the safe half: pull the real backlog in as candidate
+/// contracts. Read-only against nothing local except an insert of brand new
+/// rows; never mutates Linear or GitHub.
+fn cmd_sync_pull(_args: &Args) -> rusqlite::Result<()> {
+    let conn = open_db()?;
+    let mut had_error = false;
+    let mut pulled_ids: Vec<String> = Vec::new();
+    let (mut linear_new, mut linear_skipped) = (0i64, 0i64);
+    let (mut github_new, mut github_skipped) = (0i64, 0i64);
+
+    match linear_open_fel_issues() {
+        Ok(issues) => {
+            for (identifier, title, url) in issues {
+                // Idempotency: match on the external id, never re-insert.
+                let exists: Option<i64> = conn
+                    .query_row(
+                        "SELECT 1 FROM contract WHERE linear = ?1",
+                        params![identifier],
+                        |r| r.get(0),
+                    )
+                    .optional()?;
+                if exists.is_some() {
+                    linear_skipped += 1;
+                    continue;
+                }
+                let cid = format!("C-{identifier}");
+                let ts = now_ts();
+                let note = format!("{title}\n{url}");
+                // owner is left NULL — offered to NOBODY; the
+                // orchestrator/architect assigns. `INSERT OR IGNORE` is a
+                // second idempotency layer in case `id` (not `linear`)
+                // collides, e.g. a hand-authored contract already claimed
+                // this id — in that rare case the pull silently no-ops
+                // rather than clobbering an in-flight contract.
+                conn.execute(
+                    "INSERT OR IGNORE INTO contract \
+                     (id, ts, issue, owner, surface, must_pass, must_fail, status, note, linear) \
+                     VALUES (?1, ?2, ?3, NULL, '', '', '', 'offered', ?4, ?5)",
+                    params![cid, ts, identifier, note, identifier],
+                )?;
+                linear_new += 1;
+                pulled_ids.push(cid);
+            }
+        }
+        Err(e) => {
+            eprintln!("swarm-bus: could-not-sync (linear pull): {e}");
+            had_error = true;
+        }
+    }
+
+    match github_open_swarm_issues() {
+        Ok(issues) => {
+            for (number, title, url) in issues {
+                let exists: Option<i64> = conn
+                    .query_row(
+                        "SELECT 1 FROM contract WHERE github_issue = ?1",
+                        params![number],
+                        |r| r.get(0),
+                    )
+                    .optional()?;
+                if exists.is_some() {
+                    github_skipped += 1;
+                    continue;
+                }
+                let cid = format!("C-GH-{number}");
+                let ts = now_ts();
+                let issue_label = format!("GH-{number}");
+                let note = format!("{title}\n{url}");
+                conn.execute(
+                    "INSERT OR IGNORE INTO contract \
+                     (id, ts, issue, owner, surface, must_pass, must_fail, status, note, github_issue) \
+                     VALUES (?1, ?2, ?3, NULL, '', '', '', 'offered', ?4, ?5)",
+                    params![cid, ts, issue_label, note, number],
+                )?;
+                github_new += 1;
+                pulled_ids.push(cid);
+            }
+        }
+        Err(e) => {
+            eprintln!("swarm-bus: could-not-sync (github pull): {e}");
+            had_error = true;
+        }
+    }
+
+    println!(
+        "pull: linear +{linear_new} new / {linear_skipped} already known (skipped); \
+         github +{github_new} new / {github_skipped} already known (skipped)"
+    );
+    for cid in &pulled_ids {
+        println!("  {cid}");
+    }
+
+    if had_error {
+        std::process::exit(1);
+    }
+    Ok(())
+}
+
+/// The action a contract's current status maps to on the outward sync. The
+/// LOAD-BEARING GATE lives here, structurally: `submitted` is not one of the
+/// match arms that produces `Verified` — it is textually impossible for a
+/// `submitted` contract to reach the Done-transition branch, not merely
+/// checked-and-skipped at the last moment.
+enum SyncEvent {
+    /// claim/building/submitted — mirror "In Progress"; NEVER Done.
+    ClaimAccepted,
+    /// status == verified (reconciled + reviewed) — the ONLY path to Done.
+    Verified,
+    /// DISPUTED / unverified — stays In Progress, comment explains why.
+    Flagged(String),
+    /// offered / no-claims / declined / anything else — no event defined.
+    NoOp,
+}
+
+fn classify(status: &str, recon: &str, note: &str) -> SyncEvent {
+    match status {
+        "claimed" | "building" | "submitted" => SyncEvent::ClaimAccepted,
+        "verified" => SyncEvent::Verified,
+        "DISPUTED" | "unverified" => {
+            let why = if !recon.is_empty() {
+                recon.to_string()
+            } else if !note.is_empty() {
+                note.to_string()
+            } else {
+                "no reason recorded".to_string()
+            };
+            SyncEvent::Flagged(why)
+        }
+        _ => SyncEvent::NoOp,
+    }
+}
+
+struct SyncContract {
+    id: String,
+    status: String,
+    owner: Option<String>,
+    note: String,
+    recon: String,
+    linear: Option<String>,
+    github_issue: Option<i64>,
+    github_pr: Option<i64>,
+}
+
+fn load_sync_contracts(conn: &Connection) -> rusqlite::Result<Vec<SyncContract>> {
+    let mut stmt = conn.prepare(
+        "SELECT id, status, owner, note, COALESCE(recon,''), linear, github_issue, github_pr \
+         FROM contract WHERE linear IS NOT NULL OR github_issue IS NOT NULL ORDER BY id",
+    )?;
+    let rows = stmt.query_map([], |r| {
+        Ok(SyncContract {
+            id: r.get(0)?,
+            status: r.get(1)?,
+            owner: r.get(2)?,
+            note: r.get(3)?,
+            recon: r.get(4)?,
+            linear: r.get(5)?,
+            github_issue: r.get(6)?,
+            github_pr: r.get(7)?,
+        })
+    })?;
+    rows.collect()
+}
+
+/// Perform the real reads/writes for one contract's event. Only ever called
+/// under `--confirm`. Every branch is idempotent (marker-checked comments,
+/// state mutations skipped if already at target).
+fn apply_sync_event(conn: &Connection, c: &SyncContract, event: &SyncEvent) -> Result<(), String> {
+    match event {
+        SyncEvent::NoOp => Ok(()),
+        SyncEvent::ClaimAccepted => {
+            let owner = c.owner.clone().unwrap_or_else(|| "unassigned".to_string());
+            let marker = format!("<!-- swarm-sync:{}:claim -->", c.id);
+            let body = format!(
+                "{marker}\n**[{owner}]** claim accepted — contract `{}` in progress.",
+                c.id
+            );
+            if let Some(identifier) = &c.linear {
+                linear_ensure_state(identifier, "In Progress")?;
+                linear_comment_if_absent(identifier, &marker, &body)?;
+                log_activity(conn, &c.id, &format!("linear:{identifier}"), "claim-accepted", "In Progress + comment");
+            }
+            if let Some(num) = c.github_issue {
+                gh_comment_if_absent(num, &marker, &body)?;
+                log_activity(conn, &c.id, &format!("github:#{num}"), "claim-accepted", "comment");
+            }
+            Ok(())
+        }
+        SyncEvent::Verified => {
+            let pr_part = c.github_pr.map(|p| format!("PR #{p}")).unwrap_or_else(|| "no PR recorded".to_string());
+            let recon = if c.recon.is_empty() { "(no recon detail recorded)" } else { &c.recon };
+            let marker = format!("<!-- swarm-sync:{}:verified -->", c.id);
+            let body = format!("{marker}\nVerified. {pr_part}. recon: {recon}");
+            if let Some(identifier) = &c.linear {
+                // THE gate: this branch is only reachable when `event` was
+                // classified as `Verified`, which only happens for
+                // `status == "verified"` — never for `submitted`.
+                linear_ensure_state(identifier, "Done")?;
+                linear_comment_if_absent(identifier, &marker, &body)?;
+                log_activity(conn, &c.id, &format!("linear:{identifier}"), "verified-done", "Done + comment");
+            }
+            if let Some(num) = c.github_issue {
+                gh_comment_if_absent(num, &marker, &body)?;
+                gh_close_issue(num)?;
+                log_activity(conn, &c.id, &format!("github:#{num}"), "verified-done", "close + comment");
+            }
+            Ok(())
+        }
+        SyncEvent::Flagged(why) => {
+            let marker = format!("<!-- swarm-sync:{}:disputed -->", c.id);
+            let body = format!("{marker}\nDISPUTED/unverified — stays In Progress. {why}");
+            if let Some(identifier) = &c.linear {
+                linear_ensure_state(identifier, "In Progress")?; // never Done
+                linear_comment_if_absent(identifier, &marker, &body)?;
+                log_activity(conn, &c.id, &format!("linear:{identifier}"), "flagged", "stays In Progress + comment");
+            }
+            if let Some(num) = c.github_issue {
+                gh_comment_if_absent(num, &marker, &body)?;
+                log_activity(conn, &c.id, &format!("github:#{num}"), "flagged", "comment");
+            }
+            Ok(())
+        }
+    }
+}
+
+/// PART 2 — OUTBOUND, the gated half. Defaults to a dry run computed purely
+/// from local DB state (zero network calls); `--confirm` is required for
+/// any real read or write.
+fn cmd_sync_push(args: &Args) -> rusqlite::Result<()> {
+    let confirm = args.get_flag("confirm");
+    let conn = open_db()?;
+    let contracts = load_sync_contracts(&conn)?;
+
+    if contracts.is_empty() {
+        println!("sync --push: no contract carries a linear/github id yet — nothing to mirror.");
+        return Ok(());
+    }
+
+    if confirm {
+        println!("sync --push --confirm: applying plan for {} contract(s) with an external id:", contracts.len());
+    } else {
+        println!(
+            "DRY RUN (pass --confirm to write) — plan for {} contract(s) with an external id. \
+             Zero network calls are made in this mode.",
+            contracts.len()
+        );
+    }
+
+    let mut failures = 0usize;
+    for c in &contracts {
+        let event = classify(&c.status, &c.recon, &c.note);
+        let target_desc = match (&c.linear, c.github_issue) {
+            (Some(l), Some(g)) => format!("linear={l} github_issue=#{g}"),
+            (Some(l), None) => format!("linear={l}"),
+            (None, Some(g)) => format!("github_issue=#{g}"),
+            (None, None) => "no external id".to_string(), // filtered out by the query above
+        };
+
+        match &event {
+            SyncEvent::NoOp => {
+                println!("  {} [{target_desc}] status={} -> no sync action defined, skipping", c.id, c.status);
+                continue;
+            }
+            SyncEvent::ClaimAccepted => {
+                let verb = if confirm { "moving" } else { "WOULD move" };
+                println!(
+                    "  {} [{target_desc}] status={} -> {verb} Linear/GitHub to In Progress + comment; NO Done transition",
+                    c.id, c.status
+                );
+            }
+            SyncEvent::Verified => {
+                let verb = if confirm { "moving" } else { "WOULD move" };
+                println!(
+                    "  {} [{target_desc}] status=verified -> {verb} Linear to Done + close/comment on GitHub with PR + recon result",
+                    c.id
+                );
+            }
+            SyncEvent::Flagged(why) => {
+                let trimmed: String = why.chars().take(120).collect();
+                println!(
+                    "  {} [{target_desc}] status={} -> stays In Progress (NOT Done) + comment flags: {trimmed}",
+                    c.id, c.status
+                );
+            }
+        }
+
+        if !confirm {
+            continue; // dry run: plan printed above, nothing external touched
+        }
+
+        if let Err(e) = apply_sync_event(&conn, c, &event) {
+            eprintln!("swarm-bus: could-not-sync: {} — {e}", c.id);
+            failures += 1;
+        }
+    }
+
+    if !confirm {
+        println!("DRY RUN complete — 0 external writes performed. Re-run with --confirm to apply.");
+        return Ok(());
+    }
+
+    if failures > 0 {
+        eprintln!("swarm-bus: sync --push completed with {failures} could-not-sync failure(s)");
+        std::process::exit(1);
+    }
+    println!("sync --push: confirmed writes complete for {} contract(s)", contracts.len());
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
 
 fn main() {
     let raw_args: Vec<String> = env::args().collect();
     if raw_args.len() < 2 {
         die(
-            "usage: swarm-bus <send|pull|offer|claim|ack|attempt|setstatus|watch|ready> [--k v ...]",
+            "usage: swarm-bus <send|pull|offer|claim|ack|attempt|setstatus|watch|ready|sync> [--k v ...]",
             64,
         );
     }
@@ -753,6 +1497,7 @@ fn main() {
         "setstatus" => cmd_setstatus(&args),
         "watch" => cmd_watch(&args),
         "ready" => cmd_ready(&args),
+        "sync" => cmd_sync(&args),
         other => die(&format!("unknown command '{other}'"), 64),
     };
 
