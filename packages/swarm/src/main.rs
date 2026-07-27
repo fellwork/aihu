@@ -23,11 +23,13 @@
 //!        exits 1.
 //!
 //! FULL COMMAND SURFACE (parity with bus.py)
-//!   send offer claim ack attempt setstatus pull watch ready sync
+//!   send offer claim ack attempt setstatus pull watch ready sync link
 //!   (`status`, the oracle's pretty-printed contract table, is intentionally
 //!   not reproduced here — it's a human dashboard, not a coordination
 //!   primitive, and every field it prints is already reachable via `pull`/
-//!   direct DB read. Nothing in the brief asked for it.)
+//!   direct DB read. Nothing in the brief asked for it. `link` has no oracle
+//!   counterpart at all — it exists solely for this crate's Linear/GitHub
+//!   accountability sync; see ACCOUNTABILITY SYNC below.)
 //!
 //! TYPED PAYLOADS (docs/typed-bus-payloads.md, agent-swarm@design/typed-bus-payloads)
 //!   The actionable parts of a message are validated FIELDS, not prose to be
@@ -43,22 +45,41 @@
 //!       need has reached a satisfied status.
 //!
 //! ACCOUNTABILITY SYNC (docs/typed-bus-payloads.md, "Accountability" section,
-//! contract C-SWARM-SYNC) — binds the contract lifecycle to Linear + GitHub,
-//! the systems people already trust and audit. `contract` gains three
+//! contract C-SWARM-SYNC) — binds the contract lifecycle to Linear + GitHub.
+//! LINEAR IS THE PRIMARY TRACKER; GitHub issues are a MIRRORED SECONDARY
+//! surface — the public one, not the source of truth. `contract` gains three
 //! nullable columns: `linear` (a Linear identifier, e.g. "FEL-440"),
 //! `github_issue`, `github_pr` (integers).
 //!
-//!   sync --pull                 read-only. Pulls the real backlog IN as
-//!                                candidate contracts: open Linear FEL issues
-//!                                (state not Done/Canceled) and open GitHub
-//!                                issues labelled `swarm` each become a
-//!                                `status='offered', owner=NULL` contract
-//!                                row carrying its external id. Idempotent —
-//!                                matched and deduped on the external id
-//!                                (`linear` / `github_issue`), never
-//!                                re-inserted. NEVER auto-assigns an owner —
-//!                                same rule as onboarding: a pulled ticket
-//!                                carries no role.
+//!   sync --pull                 reads Linear/GitHub, but DOES write locally
+//!                                in two passes. (1) PULL: the real backlog
+//!                                comes IN as candidate contracts — open
+//!                                Linear FEL issues (state not Done/Canceled)
+//!                                and open GitHub issues labelled `swarm`
+//!                                each become a `status='offered',
+//!                                owner=NULL` contract row carrying its
+//!                                external id. Idempotent — matched and
+//!                                deduped on the external id (`linear` /
+//!                                `github_issue`), never re-inserted. NEVER
+//!                                auto-assigns an owner — same rule as
+//!                                onboarding: a pulled ticket carries no
+//!                                role. (2) NORMALIZE: because Linear is
+//!                                primary, no contract may permanently carry
+//!                                only a GitHub-side id — every contract with
+//!                                `github_issue` set and `linear` still NULL
+//!                                gets a Linear task CREATED for it on team
+//!                                FEL (title = the GitHub issue's title,
+//!                                description points back at the GitHub
+//!                                issue), the contract keeps BOTH ids (never
+//!                                renamed), and the GitHub issue gets a
+//!                                one-time marker comment naming the new
+//!                                Linear identifier. Idempotent — a contract
+//!                                with both ids is never selected again, so a
+//!                                converged backlog re-normalizes 0. A failed
+//!                                per-contract create/link prints
+//!                                `could-not-sync` and the command still
+//!                                exits nonzero, same posture as everywhere
+//!                                else in sync.
 //!   sync --push [--confirm]     mirrors contract state OUT. Defaults to a
 //!                                DRY RUN: prints the plan computed purely
 //!                                from local DB state and performs zero
@@ -70,15 +91,37 @@
 //!                                transition; that gate is structural (see
 //!                                `classify`), not a flag checked at the last
 //!                                moment. DISPUTED/unverified stay In
-//!                                Progress and get a comment explaining why.
-//!                                Every write is idempotent (a marker HTML
-//!                                comment is checked before posting; a state
-//!                                mutation is skipped if already at target)
-//!                                and logged to the new `activity` table so
-//!                                the mirror itself is auditable. A failed
-//!                                per-contract sync prints `could-not-sync`
-//!                                and the whole command exits nonzero — it
-//!                                never assumes success.
+//!                                Progress and get a comment explaining why —
+//!                                and if the contract's GitHub issue is
+//!                                already CLOSED at that moment (e.g. a
+//!                                DISPUTED verdict arriving after an earlier
+//!                                `verified` had closed it), it is REOPENED
+//!                                first, before the comment: a disputed
+//!                                contract must not leave its public issue
+//!                                looking resolved. Symmetric with the
+//!                                Verified arm's close — logged as
+//!                                `"reopened"` only when a reopen actually
+//!                                happened. Every write is idempotent (a
+//!                                marker HTML comment is checked before
+//!                                posting; a state mutation is skipped if
+//!                                already at target) and logged to the new
+//!                                `activity` table so the mirror itself is
+//!                                auditable. A failed per-contract sync
+//!                                prints `could-not-sync` and the whole
+//!                                command exits nonzero — it never assumes
+//!                                success.
+//!   link --id C-X [--github-issue N] [--linear FEL-N]
+//!                                manual, LOCAL-ONLY linkage for a human who
+//!                                has recognized a contract and a pre-
+//!                                existing Linear/GitHub item as the same
+//!                                twin — no network calls. COALESCE
+//!                                semantics: never overwrites a non-null
+//!                                linkage. A field already set to a
+//!                                DIFFERENT value dies (exit 2) naming both,
+//!                                rather than silently picking one. A value
+//!                                already claimed by ANOTHER contract dies
+//!                                CONFLICT (exit 4) naming that contract —
+//!                                one external issue, one owning contract.
 //!
 //! SECURITY (non-negotiable): the Linear API key lives ONLY in the macOS
 //! keychain (`security find-generic-password -s LINEAR_API_KEY -w`), read at
@@ -935,6 +978,157 @@ fn cmd_ready(args: &Args) -> rusqlite::Result<()> {
 }
 
 // ---------------------------------------------------------------------------
+// FEATURE 2 — `link`: manual, local-only external-id linkage. This is the
+// tool for merging twins a human recognizes (a contract and a pre-existing
+// Linear/GitHub item that are the same underlying work) when `sync --pull`'s
+// automatic id-matching didn't already catch it. No network calls.
+// ---------------------------------------------------------------------------
+
+/// The outcome `link` should apply for ONE field, decided from purely local
+/// values so it's unit-testable without a DB or a live Linear/GitHub call.
+/// `other_owner` is the id of a DIFFERENT contract that already carries this
+/// exact external value (the caller finds this via a `WHERE ... AND id !=
+/// ?` query) — checked before the same-contract comparison, so a genuine
+/// cross-contract collision is never masked by this contract's own
+/// already-set value.
+enum LinkDecision {
+    /// The field was NULL on this contract: `link` should SET it.
+    Set,
+    /// The field already equals the requested value: no-op, still success.
+    AlreadyMatches,
+}
+
+enum LinkConflict {
+    /// Another contract already owns this exact value — CONFLICT, exit 4.
+    Other(String),
+    /// This contract already has a DIFFERENT value in this field — exit 2.
+    Different(String),
+}
+
+fn decide_link(
+    existing: Option<&str>,
+    requested: &str,
+    other_owner: Option<&str>,
+) -> Result<LinkDecision, LinkConflict> {
+    if let Some(owner) = other_owner {
+        return Err(LinkConflict::Other(owner.to_string()));
+    }
+    match existing {
+        None => Ok(LinkDecision::Set),
+        Some(e) if e == requested => Ok(LinkDecision::AlreadyMatches),
+        Some(e) => Err(LinkConflict::Different(e.to_string())),
+    }
+}
+
+fn cmd_link(args: &Args) -> rusqlite::Result<()> {
+    let cid = match args.get_str("id") {
+        Some(v) if !v.is_empty() => v,
+        _ => die("--id is required", 2),
+    };
+    let github_issue: Option<i64> = match args.get_str("github-issue") {
+        Some(v) => match v.parse::<i64>() {
+            Ok(n) => Some(n),
+            Err(_) => die(&format!("--github-issue must be an integer, got '{v}'"), 2),
+        },
+        None => None,
+    };
+    let linear = args.get_str("linear");
+    if github_issue.is_none() && linear.is_none() {
+        die(
+            "swarm-bus link requires at least one of --github-issue or --linear",
+            2,
+        );
+    }
+
+    let conn = open_db()?;
+    let row: Option<(Option<String>, Option<i64>)> = conn
+        .query_row(
+            "SELECT linear, github_issue FROM contract WHERE id = ?1",
+            params![cid],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .optional()?;
+    let (cur_linear, cur_github) = match row {
+        Some(v) => v,
+        None => die(&format!("no contract '{cid}'"), 2),
+    };
+
+    if let Some(n) = github_issue {
+        let n_str = n.to_string();
+        let other: Option<String> = conn
+            .query_row(
+                "SELECT id FROM contract WHERE github_issue = ?1 AND id != ?2",
+                params![n, cid],
+                |r| r.get(0),
+            )
+            .optional()?;
+        let cur = cur_github.map(|g| g.to_string());
+        match decide_link(cur.as_deref(), &n_str, other.as_deref()) {
+            Ok(_) => {}
+            Err(LinkConflict::Other(o)) => die(
+                &format!("CONFLICT: github_issue #{n} is already claimed by contract '{o}'"),
+                4,
+            ),
+            Err(LinkConflict::Different(e)) => die(
+                &format!(
+                    "{cid} already has github_issue=#{e}, cannot also set #{n} — \
+                     decide which is right and fix by hand"
+                ),
+                2,
+            ),
+        }
+    }
+    if let Some(l) = linear {
+        let other: Option<String> = conn
+            .query_row(
+                "SELECT id FROM contract WHERE linear = ?1 AND id != ?2",
+                params![l, cid],
+                |r| r.get(0),
+            )
+            .optional()?;
+        match decide_link(cur_linear.as_deref(), l, other.as_deref()) {
+            Ok(_) => {}
+            Err(LinkConflict::Other(o)) => die(
+                &format!("CONFLICT: linear {l} is already claimed by contract '{o}'"),
+                4,
+            ),
+            Err(LinkConflict::Different(e)) => die(
+                &format!(
+                    "{cid} already has linear={e}, cannot also set {l} — \
+                     decide which is right and fix by hand"
+                ),
+                2,
+            ),
+        }
+    }
+
+    // Every conflict/mismatch above already `die`d, so both fields (if
+    // requested) are either NULL locally or already match — a plain COALESCE
+    // write is safe and cannot clobber anything.
+    conn.execute(
+        "UPDATE contract SET \
+           github_issue = COALESCE(github_issue, ?1), \
+           linear = COALESCE(linear, ?2) \
+         WHERE id = ?3",
+        params![github_issue, linear, cid],
+    )?;
+
+    let (final_linear, final_github): (Option<String>, Option<i64>) = conn.query_row(
+        "SELECT linear, github_issue FROM contract WHERE id = ?1",
+        params![cid],
+        |r| Ok((r.get(0)?, r.get(1)?)),
+    )?;
+    println!(
+        "{cid} linked: linear={} github_issue={}",
+        final_linear.as_deref().unwrap_or("(none)"),
+        final_github
+            .map(|n| format!("#{n}"))
+            .unwrap_or_else(|| "(none)".to_string())
+    );
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
 // Accountability sync (docs/typed-bus-payloads.md "Accountability",
 // contract C-SWARM-SYNC): bind the contract lifecycle to Linear + GitHub.
 // See the module doc comment at the top of this file for the command
@@ -1150,6 +1344,43 @@ fn linear_comment_if_absent(identifier: &str, marker: &str, body: &str) -> Resul
     }
 }
 
+/// Resolve team FEL's internal Linear id — `issueCreate`'s `teamId` input
+/// wants the internal id, not the human-facing key, unlike the `key:{eq:..}`
+/// filters used elsewhere in this file.
+fn linear_team_id() -> Result<String, String> {
+    let query = "query($team:String!){ teams(filter:{key:{eq:$team}}, first:1){ nodes { id } } }";
+    let data = linear_call(query, &json!({ "team": LINEAR_TEAM_KEY }))?;
+    data.pointer("/teams/nodes/0/id")
+        .and_then(Value::as_str)
+        .map(str::to_string)
+        .ok_or_else(|| format!("Linear: team '{LINEAR_TEAM_KEY}' not found"))
+}
+
+/// Create a new issue on team FEL. Returns the created issue's identifier
+/// (e.g. "FEL-450"). Used only by `sync --pull`'s normalization pass
+/// (FEATURE 1, "Linear is primary"): NOT idempotent by itself — calling it
+/// twice creates two issues — so the caller must only ever invoke this once
+/// per external id, gated by the `linear IS NULL` selection in
+/// `cmd_sync_pull`.
+fn linear_create_issue(title: &str, description: &str) -> Result<String, String> {
+    let team_id = linear_team_id()?;
+    let mutation = "mutation($team:String!,$title:String!,$desc:String!){ \
+         issueCreate(input:{ teamId:$team, title:$title, description:$desc }) { \
+         success issue { identifier } } }";
+    let data = linear_call(
+        mutation,
+        &json!({ "team": team_id, "title": title, "desc": description }),
+    )?;
+    match data.pointer("/issueCreate/success").and_then(Value::as_bool) {
+        Some(true) => {}
+        _ => return Err("Linear issueCreate reported failure".to_string()),
+    }
+    data.pointer("/issueCreate/issue/identifier")
+        .and_then(Value::as_str)
+        .map(str::to_string)
+        .ok_or_else(|| "Linear issueCreate succeeded but returned no identifier".to_string())
+}
+
 /// Run `gh` and return stdout, or an Err describing the failure (never
 /// panics, never assumes success from a nonzero exit).
 fn gh_run(args: &[&str]) -> Result<Vec<u8>, String> {
@@ -1226,6 +1457,22 @@ fn gh_close_issue(number: i64) -> Result<(), String> {
     let n = number.to_string();
     gh_run(&["issue", "close", &n, "--repo", GITHUB_REPO])?;
     Ok(())
+}
+
+/// Reopen a GitHub issue unless it is already open (idempotent) — the
+/// FEATURE 3 reopen guard's primitive. Returns Ok(true) when it actually
+/// reopened the issue, Ok(false) when it was already open: same
+/// only-log-real-changes discipline as `changed_detail`/`linear_ensure_state`
+/// elsewhere in this file.
+fn gh_reopen_issue(number: i64) -> Result<bool, String> {
+    let data = gh_issue_view(number, "state")?;
+    let state = data.get("state").and_then(Value::as_str).unwrap_or("");
+    if !state.eq_ignore_ascii_case("closed") {
+        return Ok(false);
+    }
+    let n = number.to_string();
+    gh_run(&["issue", "reopen", &n, "--repo", GITHUB_REPO])?;
+    Ok(true)
 }
 
 /// Best-effort audit trail for every real external write `sync --push
@@ -1382,10 +1629,101 @@ fn cmd_sync_pull(_args: &Args) -> rusqlite::Result<()> {
         println!("  {cid}");
     }
 
+    // FEATURE 1 — NORMALIZE: Linear is the primary tracker (module doc,
+    // ACCOUNTABILITY SYNC), so no contract may permanently carry only a
+    // GitHub-side id. Re-queried fresh from the table (not `pulled_ids`
+    // above) so this also heals contracts that predate this pass — e.g. one
+    // hand-authored via `offer --github-issue` — not just rows this very
+    // run just inserted. Selection on `linear IS NULL` is itself the
+    // idempotency guard: once a contract carries both ids it is never
+    // selected again, so re-running converges to 0.
+    let mut normalize_targets: Vec<(String, i64)> = Vec::new();
+    {
+        let mut stmt = conn.prepare(
+            "SELECT id, github_issue FROM contract \
+             WHERE github_issue IS NOT NULL AND linear IS NULL ORDER BY id",
+        )?;
+        let rows = stmt.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?)))?;
+        for r in rows {
+            normalize_targets.push(r?);
+        }
+    }
+    let mut normalized = 0i64;
+    let mut normalized_lines: Vec<String> = Vec::new();
+    for (cid, number) in &normalize_targets {
+        match normalize_github_only_contract(&conn, cid, *number) {
+            Ok(identifier) => {
+                normalized += 1;
+                normalized_lines.push(format!("{cid} -> {identifier} (created from github:#{number})"));
+            }
+            Err(e) => {
+                eprintln!("swarm-bus: could-not-sync (normalize {cid}): {e}");
+                had_error = true;
+            }
+        }
+    }
+    println!("normalize: {normalized} github-only contract(s) given Linear twins");
+    for line in &normalized_lines {
+        println!("  {line}");
+    }
+
     if had_error {
         std::process::exit(1);
     }
     Ok(())
+}
+
+/// FEATURE 1's per-contract action: CREATE a Linear twin for a contract that
+/// so far only carries a `github_issue`, link it onto the same contract row
+/// (both ids, id unchanged — contract ids are referenced elsewhere), and
+/// leave a one-time marker comment on the GitHub issue naming the new
+/// identifier. NOT internally idempotent (see `linear_create_issue`) — the
+/// caller in `cmd_sync_pull` guarantees this runs at most once per contract
+/// by only selecting rows where `linear IS NULL`.
+fn normalize_github_only_contract(conn: &Connection, cid: &str, number: i64) -> Result<String, String> {
+    let issue = gh_issue_view(number, "title,url")?;
+    let title = issue.get("title").and_then(Value::as_str).unwrap_or("").to_string();
+    let url = issue.get("url").and_then(Value::as_str).unwrap_or("").to_string();
+    let description = format!(
+        "Mirrors GitHub issue #{number} — {url}\n\n\
+         Created by swarm-bus sync (Linear is the primary tracker; the GitHub \
+         issue is the public surface)."
+    );
+    let identifier = linear_create_issue(&title, &description)?;
+
+    // Link locally right away. If THIS fails, the contract is left with
+    // `linear IS NULL` and will be re-selected next pull — which would
+    // create a SECOND Linear issue. Surfaced loudly, with the manual escape
+    // hatch (FEATURE 2) named explicitly, rather than silently retried.
+    if let Err(e) = conn.execute(
+        "UPDATE contract SET linear = ?1 WHERE id = ?2",
+        params![identifier, cid],
+    ) {
+        return Err(format!(
+            "created Linear {identifier} for {cid} but failed to link it locally ({e}) — \
+             a re-run of `sync --pull` will create a DUPLICATE Linear issue for {cid}; \
+             fix immediately with `swarm-bus link --id {cid} --linear {identifier}`"
+        ));
+    }
+
+    let marker = "<!-- swarm-sync:linear-mirror -->";
+    // The marker MUST be embedded in the posted body itself — the same
+    // convention every other `gh_comment_if_absent`/`linear_comment_if_absent`
+    // call site in this file follows (see `apply_sync_event`) — because that
+    // marker string is exactly what the idempotency check on the next call
+    // greps existing comments for. A marker that's only ever passed as the
+    // check argument and never actually written is not idempotent, it's
+    // decorative.
+    let comment = format!(
+        "{marker}\nTracked as {identifier} in Linear (primary tracker) by the aihu swarm."
+    );
+    gh_comment_if_absent(number, marker, &comment)?;
+
+    log_activity(
+        conn, cid, &format!("linear:{identifier}"), "normalized",
+        &format!("created from github:#{number}"),
+    );
+    Ok(identifier)
 }
 
 /// The action a contract's current status maps to on the outward sync. The
@@ -1706,9 +2044,28 @@ fn apply_sync_event(conn: &Connection, c: &SyncContract, event: &SyncEvent) -> R
                 }
             }
             if let Some(num) = c.github_issue {
-                match gh_comment_if_absent(num, &marker, &body) {
-                    Ok(true) => log_activity(conn, &c.id, &format!("github:#{num}"), "flagged", "comment"),
-                    Ok(false) => {}
+                // Reopen guard (FEATURE 3, symmetric with the Verified arm's
+                // close): a DISPUTED/unverified verdict arriving after an
+                // earlier `verified` had already closed this issue must not
+                // leave the public issue looking resolved. Reopen BEFORE
+                // posting so the comment lands on the now-open issue, same
+                // ordering as Verified's comment-then-close.
+                match (|| -> Result<(bool, bool), String> {
+                    let reopened = gh_reopen_issue(num)?;
+                    let posted = gh_comment_if_absent(num, &marker, &body)?;
+                    Ok((reopened, posted))
+                })() {
+                    Ok((reopened, posted)) => {
+                        if reopened {
+                            log_activity(
+                                conn, &c.id, &format!("github:#{num}"), "reopened",
+                                "DISPUTED/unverified after the issue had been closed",
+                            );
+                        }
+                        if posted {
+                            log_activity(conn, &c.id, &format!("github:#{num}"), "flagged", "comment");
+                        }
+                    }
                     Err(e) => errs.push(format!("github: {e}")),
                 }
             }
@@ -1827,7 +2184,7 @@ fn main() {
     let raw_args: Vec<String> = env::args().collect();
     if raw_args.len() < 2 {
         die(
-            "usage: swarm-bus <send|pull|offer|claim|ack|attempt|setstatus|watch|ready|sync> [--k v ...]",
+            "usage: swarm-bus <send|pull|offer|claim|ack|attempt|setstatus|watch|ready|sync|link> [--k v ...]",
             64,
         );
     }
@@ -1845,6 +2202,7 @@ fn main() {
         "watch" => cmd_watch(&args),
         "ready" => cmd_ready(&args),
         "sync" => cmd_sync(&args),
+        "link" => cmd_link(&args),
         other => die(&format!("unknown command '{other}'"), 64),
     };
 
@@ -1923,6 +2281,49 @@ mod tests {
     fn contract_statuses_cover_classify_arms() {
         for s in ["claimed", "building", "submitted", "verified", "DISPUTED", "unverified"] {
             assert!(CONTRACT_STATUSES.contains(&s), "'{s}' missing from CONTRACT_STATUSES");
+        }
+    }
+
+    // FEATURE 2 (`link`) — decide_link is the pure core of the COALESCE +
+    // conflict logic, exercised here without a DB or a live query.
+
+    #[test]
+    fn decide_link_sets_when_field_is_null() {
+        assert!(matches!(decide_link(None, "FEL-1", None), Ok(LinkDecision::Set)));
+    }
+
+    #[test]
+    fn decide_link_is_a_noop_when_already_matching() {
+        assert!(matches!(
+            decide_link(Some("FEL-1"), "FEL-1", None),
+            Ok(LinkDecision::AlreadyMatches)
+        ));
+    }
+
+    #[test]
+    fn decide_link_dies_different_when_this_contract_disagrees() {
+        match decide_link(Some("FEL-1"), "FEL-2", None) {
+            Err(LinkConflict::Different(e)) => assert_eq!(e, "FEL-1"),
+            _ => panic!("expected Different(\"FEL-1\")"),
+        }
+    }
+
+    #[test]
+    fn decide_link_conflict_takes_priority_over_same_contract_state() {
+        // Even when this contract's own field already matches the request,
+        // another contract owning the SAME value must still win as a
+        // CONFLICT — one external id, one owning contract, no exceptions.
+        match decide_link(Some("FEL-1"), "FEL-1", Some("C-OTHER")) {
+            Err(LinkConflict::Other(o)) => assert_eq!(o, "C-OTHER"),
+            _ => panic!("expected Other(\"C-OTHER\")"),
+        }
+    }
+
+    #[test]
+    fn decide_link_conflict_when_another_contract_owns_it_and_this_one_is_null() {
+        match decide_link(None, "FEL-1", Some("C-OTHER")) {
+            Err(LinkConflict::Other(o)) => assert_eq!(o, "C-OTHER"),
+            _ => panic!("expected Other(\"C-OTHER\")"),
         }
     }
 }
