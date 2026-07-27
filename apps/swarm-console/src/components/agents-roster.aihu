@@ -4,15 +4,21 @@
 // shared `swarm` singleton directly (../lib/swarm-store.ts) rather than a
 // prop from the root — see that module's doc comment for why.
 //
-// A real fixed-column CSS grid (role / city / held contract / last active /
-// flags), one column template shared by the header row and every data row
-// (`role="table"`/`row`/`columnheader`/`cell` for a11y) — same alignment
-// mechanism as contracts-ledger and your-move's review rows (founder
-// feedback: rows need to line up vertically down the list). Not paginated —
-// the roster is bounded by the live agent count (typically a handful), not
-// an accumulating log, so the founder addendum's pagination list omits it.
+// A REAL native `<table>` (`<thead>`/`<tbody>`/`<tr>`/`<th>`/`<td>`), not the
+// `role="table"`/`row`/`cell` CSS-grid-of-divs the previous pass used — see
+// contracts-ledger.aihu's module doc comment for the root-cause writeup
+// (per-row independent grid + `items-center` let an empty cell's shorter
+// content box float its border above its siblings'; a native `<tr>` gives
+// every `<td>` the row's shared height by construction). `table-fixed` +
+// explicit `w-*` widths on `<th>` fix the column widths (role / city / held
+// contract / last active / flags) — same alignment goal as before (founder
+// feedback: rows need to line up vertically down the list), same mechanism
+// as contracts-ledger and your-move's review rows. Not paginated — the
+// roster is bounded by the live agent count (typically a handful), not an
+// accumulating log, so the founder addendum's pagination list omits it.
 
 @state {
+  import { computed } from '@aihu/signals'
   import { swarm } from '../lib/swarm-store.ts'
   import { arr, bool, dotClasses, str } from '../lib/format.ts'
 
@@ -20,13 +26,33 @@
 
   const swarmState = swarm.state
 
-  const agentRows = derived(() =>
+  // NOTE: written as a direct `computed(...)` call, not the `derived(...)`
+  // sugar used everywhere else in this app — the compiler's state_wrappers
+  // scanner left THIS PARTICULAR `derived(...)` call un-lowered in this
+  // file's context (`ReferenceError: derived is not defined` at runtime,
+  // confirmed live: the AGENTS tab rendered blank before this fix — same
+  // known trap documented in your-move.aihu's `allReviewRows`). `computed`
+  // is the exact primitive `derived(...)` lowers to, so this is
+  // behaviorally identical. Unlike your-move.aihu (which has several OTHER
+  // `derived(...)` calls in the same file that DO lower correctly, so the
+  // scanner still adds the `computed` import), `agentRows` is the only
+  // reactive derivation in this file — nothing else triggers the
+  // auto-import, so `computed` is imported explicitly above
+  // (`ReferenceError: computed is not defined` otherwise, also confirmed
+  // live).
+  const agentRows = computed(() =>
     (arr(swarmState().agents) as Rec[]).map((a, i) => {
       const flags = Array.isArray(a.flags)
         ? (a.flags as unknown[]).filter((f): f is string => typeof f === 'string')
         : []
       const liveActive = bool(a.live_active)
       const dotCls = dotClasses(liveActive)
+      // Local, not an inline object-literal value — see contracts-ledger's
+      // recon field for why (the compiler reactive-declaration scanner
+      // trap). An agent with no flags still renders its 5th <td> — see the
+      // @template comment below — just with this muted placeholder.
+      const flagsJoined = flags.join(', ')
+      const flagsText = flagsJoined !== '' ? flagsJoined : '—'
       return {
         key: `agent-${str(a.role, String(i))}`,
         role: str(a.role, '—'),
@@ -34,36 +60,44 @@
         held: str(a.held, ''),
         last: str(a.last, ''),
         dotCls,
-        flags: flags.join(', '),
+        flags: flagsText,
       }
     }),
   )
-
-  const AGENT_COLS = 'grid grid-cols-[8rem_7rem_9rem_6rem_1fr] gap-x-6 items-center'
 }
 
 @template {
   <div>
     <p class="font-mono text-xs font-medium tracking-[0.12em] uppercase text-muted mb-4 pb-2 border-b border-border">agents</p>
 
-    <div role="table" aria-label="Agent roster">
-      <div class={AGENT_COLS} role="row">
-        <span role="columnheader" class="font-mono text-xs font-medium tracking-[0.04em] uppercase text-muted pb-2 border-b border-border">role</span>
-        <span role="columnheader" class="font-mono text-xs font-medium tracking-[0.04em] uppercase text-muted pb-2 border-b border-border">city</span>
-        <span role="columnheader" class="font-mono text-xs font-medium tracking-[0.04em] uppercase text-muted pb-2 border-b border-border">contract</span>
-        <span role="columnheader" class="font-mono text-xs font-medium tracking-[0.04em] uppercase text-muted pb-2 border-b border-border">last active</span>
-        <span role="columnheader" class="font-mono text-xs font-medium tracking-[0.04em] uppercase text-muted pb-2 border-b border-border">flags</span>
-      </div>
-      <div class={AGENT_COLS} role="row" each={a of agentRows} key={a.key}>
-        <span role="cell" class="inline-flex items-center gap-2 py-4 border-b border-border">
-          <span class={a.dotCls}></span>
-          <span class="font-[550] text-ink">{a.role}</span>
-        </span>
-        <span role="cell" class="py-4 border-b border-border text-muted text-xs">{a.city}</span>
-        <span role="cell" class="font-mono tabular-nums py-4 border-b border-border text-ink text-xs">{a.held}</span>
-        <span role="cell" class="font-mono tabular-nums py-4 border-b border-border text-muted text-xs">{a.last}</span>
-        <span role="cell" class="py-4 border-b border-border text-warning text-xs">{a.flags}</span>
-      </div>
-    </div>
+    <table class="w-full table-fixed border-collapse" aria-label="Agent roster">
+      <thead>
+        <tr>
+          <th scope="col" class="w-32 text-left font-mono text-xs font-medium tracking-[0.04em] uppercase text-muted pb-2 border-b border-border">role</th>
+          <th scope="col" class="w-28 text-left font-mono text-xs font-medium tracking-[0.04em] uppercase text-muted pb-2 border-b border-border">city</th>
+          <th scope="col" class="w-36 text-left font-mono text-xs font-medium tracking-[0.04em] uppercase text-muted pb-2 border-b border-border">contract</th>
+          <th scope="col" class="w-24 text-left font-mono text-xs font-medium tracking-[0.04em] uppercase text-muted pb-2 border-b border-border">last active</th>
+          <th scope="col" class="text-left font-mono text-xs font-medium tracking-[0.04em] uppercase text-muted pb-2 border-b border-border">flags</th>
+        </tr>
+      </thead>
+      <!-- Every row renders every <td>, always — no cell is ever
+           conditionally omitted. An agent with no flags still gets its 5th
+           <td>, just with the '—' placeholder computed above instead of
+           blank text. -->
+      <tbody>
+        <tr each={a of agentRows} key={a.key}>
+          <td class="align-middle py-4 border-b border-border">
+            <span class="inline-flex items-center gap-2">
+              <span class={a.dotCls}></span>
+              <span class="font-[550] text-ink">{a.role}</span>
+            </span>
+          </td>
+          <td class="align-middle py-4 border-b border-border text-muted text-xs">{a.city}</td>
+          <td class="align-middle font-mono tabular-nums py-4 border-b border-border text-ink text-xs">{a.held}</td>
+          <td class="align-middle font-mono tabular-nums py-4 border-b border-border text-muted text-xs">{a.last}</td>
+          <td class="align-middle py-4 border-b border-border text-warning text-xs">{a.flags}</td>
+        </tr>
+      </tbody>
+    </table>
   </div>
 }

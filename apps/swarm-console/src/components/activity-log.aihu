@@ -4,14 +4,21 @@
 // (../lib/swarm-store.ts) rather than a prop from the root — see that
 // module's doc comment for why.
 //
-// A real fixed-column CSS grid (ago / from→to / kind / contract) — the
-// original flex row only fixed the width of its first two columns
-// (`w-[4.5rem]`/`min-w-[10rem]`); `kind` had no fixed width, so it (and
-// `contract` right after it) drifted per row depending on `kind`'s own text
-// length. Same alignment mechanism as your-move/contracts-ledger/
-// agents-roster. Paginated at ACTIVITY_PAGE_SIZE (../lib/swarm-store.ts) —
-// founder addendum: "show the most recent ~15 with the same pager", resets
-// to page 1 on every tab switch (swarm-store's shared hashchange listener).
+// A REAL native `<table>` (`<thead>`/`<tbody>`/`<tr>`/`<th>`/`<td>`), not the
+// `role="table"`/`row`/`cell` CSS-grid-of-divs an intermediate pass used —
+// see contracts-ledger.aihu's module doc comment for the root-cause writeup
+// (per-row independent grid + `items-center` let an empty cell's shorter
+// content box float its border above its siblings'; a native `<tr>` gives
+// every `<td>` the row's shared height by construction, so this can't
+// recur). Before that: the original flex row only fixed the width of its
+// first two columns (`w-[4.5rem]`/`min-w-[10rem]`); `kind` had no fixed
+// width, so it (and `contract` right after it) drifted per row depending on
+// `kind`'s own text length — `table-fixed` + explicit `w-*` widths on
+// `<th>` fix that too. Same alignment mechanism as your-move/
+// contracts-ledger/agents-roster. Paginated at ACTIVITY_PAGE_SIZE
+// (../lib/swarm-store.ts) — founder addendum: "show the most recent ~15
+// with the same pager", resets to page 1 on every tab switch (swarm-store's
+// shared hashchange listener).
 
 @state {
   import { swarm, ACTIVITY_PAGE_SIZE, activityPage, goToActivityPage } from '../lib/swarm-store.ts'
@@ -51,8 +58,6 @@
   const prevActivityPage = () => goToActivityPage(Math.max(1, activityPageClamped() - 1))
   const nextActivityPage = () =>
     goToActivityPage(Math.min(totalActivityPages(), activityPageClamped() + 1))
-
-  const ACTIVITY_COLS = 'grid grid-cols-[4.5rem_11rem_7rem_1fr] gap-x-6 items-baseline'
 }
 
 @template {
@@ -61,20 +66,27 @@
     <p class="text-muted text-sm py-2" if={totalActivity === 0}>no activity yet</p>
 
     <div if={totalActivity > 0}>
-      <div class={ACTIVITY_COLS} role="row">
-        <span role="columnheader" class="font-mono text-xs font-medium tracking-[0.04em] uppercase text-muted pb-2 border-b border-border">ago</span>
-        <span role="columnheader" class="font-mono text-xs font-medium tracking-[0.04em] uppercase text-muted pb-2 border-b border-border">from → to</span>
-        <span role="columnheader" class="font-mono text-xs font-medium tracking-[0.04em] uppercase text-muted pb-2 border-b border-border">kind</span>
-        <span role="columnheader" class="font-mono text-xs font-medium tracking-[0.04em] uppercase text-muted pb-2 border-b border-border">contract</span>
-      </div>
-      <div role="table">
-        <div class={ACTIVITY_COLS} role="row" each={e of activityRows} key={e.key}>
-          <span role="cell" class="font-mono tabular-nums py-3 border-b border-border text-muted text-xs">{e.ago}</span>
-          <span role="cell" class="font-mono tabular-nums py-3 border-b border-border text-muted text-xs">{e.from} → {e.to}</span>
-          <span role="cell" class="font-mono tabular-nums py-3 border-b border-border text-muted text-xs">{e.kind}</span>
-          <span role="cell" class="font-mono tabular-nums py-3 border-b border-border text-muted text-xs">{e.contract}</span>
-        </div>
-      </div>
+      <table class="w-full table-fixed border-collapse" aria-label="Activity history">
+        <thead>
+          <tr>
+            <th scope="col" class="w-[4.5rem] text-left font-mono text-xs font-medium tracking-[0.04em] uppercase text-muted pb-2 border-b border-border">ago</th>
+            <th scope="col" class="w-[11rem] text-left font-mono text-xs font-medium tracking-[0.04em] uppercase text-muted pb-2 border-b border-border">from → to</th>
+            <th scope="col" class="w-28 text-left font-mono text-xs font-medium tracking-[0.04em] uppercase text-muted pb-2 border-b border-border">kind</th>
+            <th scope="col" class="text-left font-mono text-xs font-medium tracking-[0.04em] uppercase text-muted pb-2 border-b border-border">contract</th>
+          </tr>
+        </thead>
+        <!-- Every row renders every <td>, always — no cell is ever
+             conditionally omitted, even when a field (e.g. `kind`) is
+             blank on the bus. -->
+        <tbody>
+          <tr each={e of activityRows} key={e.key}>
+            <td class="align-middle font-mono tabular-nums py-3 border-b border-border text-muted text-xs">{e.ago}</td>
+            <td class="align-middle font-mono tabular-nums py-3 border-b border-border text-muted text-xs">{e.from} → {e.to}</td>
+            <td class="align-middle font-mono tabular-nums py-3 border-b border-border text-muted text-xs">{e.kind}</td>
+            <td class="align-middle font-mono tabular-nums py-3 border-b border-border text-muted text-xs">{e.contract}</td>
+          </tr>
+        </tbody>
+      </table>
       <div class="flex items-center gap-4 pt-3 font-mono text-xs text-muted" if={showActivityPager}>
         <span class="tabular-nums">{activityRangeStart}–{activityRangeEnd} of {totalActivity}</span>
         <button type="button" class="hover:text-ink disabled:opacity-40 disabled:pointer-events-none motion-safe:transition-colors motion-safe:duration-150" on:click={prevActivityPage} disabled={!activityHasPrev} aria-label="Previous page of activity">‹</button>

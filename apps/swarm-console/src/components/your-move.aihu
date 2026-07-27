@@ -4,12 +4,19 @@
 // singleton directly (../lib/swarm-store.ts) rather than a prop from the
 // root — see that module's doc comment for why.
 //
-// Review rows are a real fixed-column CSS grid (contract / owner / status /
-// pr), one column template shared by the header row and every data row, so
-// every value lines up down the list regardless of each row's own text
-// width (founder feedback: the old flex row let variable-width id+owner
-// text push the status column to a different x-position on every row).
-// Paginated at REVIEWS_PAGE_SIZE (../lib/swarm-store.ts) — founder
+// Review rows are a REAL native `<table>` (`<thead>`/`<tbody>`/`<tr>`/
+// `<th>`/`<td>`), not the `role="table"`/`row`/`cell` CSS-grid-of-divs an
+// intermediate pass used — see contracts-ledger.aihu's module doc comment
+// for the root-cause writeup (per-row independent grid + `items-center` let
+// a shorter-content cell's border float above its siblings'; a native
+// `<tr>` gives every `<td>` the row's shared height by construction, so
+// this can't recur — a review with no PR link, e.g. a "verdict only" row,
+// keeps its remaining cells aligned with every other row). Before that: the
+// old flex row let variable-width id+owner text push the status column to a
+// different x-position on every row (founder feedback) — `table-fixed` +
+// explicit `w-*` widths on `<th>` fix that too. DECIDE cards below stay
+// cards (prose questions, not tabular data) — only the review list is a
+// table. Paginated at REVIEWS_PAGE_SIZE (../lib/swarm-store.ts) — founder
 // addendum: "usually short; cap at ~10 with pager if more", resets to page
 // 1 on every tab switch (swarm-store's shared hashchange listener).
 
@@ -102,8 +109,6 @@
   const yourMoveEmpty = derived(
     () => decideRows().length === 0 && allReviewRows().length === 0 && errorRows().length === 0,
   )
-
-  const REVIEW_COLS = 'grid grid-cols-[9rem_7rem_8rem_1fr] gap-x-6 items-center'
 }
 
 @template {
@@ -123,26 +128,37 @@
       </article>
 
       <div if={totalReviews > 0}>
-        <div class={REVIEW_COLS} role="row">
-          <span role="columnheader" class="font-mono text-xs font-medium tracking-[0.04em] uppercase text-muted pb-2 border-b border-border">contract</span>
-          <span role="columnheader" class="font-mono text-xs font-medium tracking-[0.04em] uppercase text-muted pb-2 border-b border-border">owner</span>
-          <span role="columnheader" class="font-mono text-xs font-medium tracking-[0.04em] uppercase text-muted pb-2 border-b border-border">status</span>
-          <span role="columnheader" class="font-mono text-xs font-medium tracking-[0.04em] uppercase text-muted pb-2 border-b border-border text-right">pr</span>
-        </div>
-        <div role="table">
-          <div class={REVIEW_COLS} role="row" each={r of reviewRows} key={r.key}>
-            <code role="cell" class="font-mono tabular-nums text-ink py-4 border-b border-border">{r.contract}</code>
-            <span role="cell" class="text-muted text-sm py-4 border-b border-border">{r.owner}</span>
-            <span role="cell" class="py-4 border-b border-border">
-              <span class={r.tagClasses} if={r.isChip} title={r.tagTitle}>{r.tagLabel}</span>
-              <span class={r.neutralClasses} if={!r.isChip} title={r.tagTitle}>{r.tagLabel}</span>
-            </span>
-            <span role="cell" class="text-right py-4 border-b border-border">
-              <a class="font-mono tabular-nums text-ink hover:text-accent" if={r.prHref} href={r.prHref} target="_blank" rel="noopener noreferrer">{r.prLabel}</a>
-              <span class="text-muted text-xs" if={!r.prHref}>verdict only — read it</span>
-            </span>
-          </div>
-        </div>
+        <table class="w-full table-fixed border-collapse" aria-label="Review queue">
+          <thead>
+            <tr>
+              <th scope="col" class="w-36 text-left font-mono text-xs font-medium tracking-[0.04em] uppercase text-muted pb-2 border-b border-border">contract</th>
+              <th scope="col" class="w-28 text-left font-mono text-xs font-medium tracking-[0.04em] uppercase text-muted pb-2 border-b border-border">owner</th>
+              <th scope="col" class="w-32 text-left font-mono text-xs font-medium tracking-[0.04em] uppercase text-muted pb-2 border-b border-border">status</th>
+              <th scope="col" class="text-right font-mono text-xs font-medium tracking-[0.04em] uppercase text-muted pb-2 border-b border-border">pr</th>
+            </tr>
+          </thead>
+          <!-- Every row renders every <td>, always — no cell is ever
+               conditionally omitted. A review with no PR (a "verdict
+               only" row) still gets its 4th <td>; only the INNER content
+               of that cell is if/if-gated between a link and the
+               "verdict only — read it" affordance text, same for the
+               status cell's chip-vs-neutral-text branches — the <td>
+               itself is unconditional in both cases. -->
+          <tbody>
+            <tr each={r of reviewRows} key={r.key}>
+              <td class="align-middle font-mono tabular-nums text-ink py-4 border-b border-border">{r.contract}</td>
+              <td class="align-middle text-muted text-sm py-4 border-b border-border">{r.owner}</td>
+              <td class="align-middle py-4 border-b border-border">
+                <span class={r.tagClasses} if={r.isChip} title={r.tagTitle}>{r.tagLabel}</span>
+                <span class={r.neutralClasses} if={!r.isChip} title={r.tagTitle}>{r.tagLabel}</span>
+              </td>
+              <td class="align-middle text-right py-4 border-b border-border">
+                <a class="font-mono tabular-nums text-ink hover:text-accent" if={r.prHref} href={r.prHref} target="_blank" rel="noopener noreferrer">{r.prLabel}</a>
+                <span class="text-muted text-xs" if={!r.prHref}>verdict only — read it</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
         <div class="flex items-center gap-4 pt-3 font-mono text-xs text-muted" if={showReviewPager}>
           <span class="tabular-nums">{reviewRangeStart}–{reviewRangeEnd} of {totalReviews}</span>
           <button type="button" class="hover:text-ink disabled:opacity-40 disabled:pointer-events-none motion-safe:transition-colors motion-safe:duration-150" on:click={prevReviewPage} disabled={!reviewHasPrev} aria-label="Previous page of reviews">‹</button>

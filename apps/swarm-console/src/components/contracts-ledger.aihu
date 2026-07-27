@@ -4,13 +4,21 @@
 // (../lib/swarm-store.ts) rather than a prop from the root — see that
 // module's doc comment for why.
 //
-// A real fixed-column CSS grid (id / issue / owner / status / recon), not
-// the native `<table>` this used to be — one column template shared by the
-// header row and every data row (`role="table"`/`row`/`columnheader`/`cell`
-// preserve the table semantics a screen reader would otherwise lose).
-// Converted alongside your-move's review rows and agents-roster for one
-// consistent alignment mechanism across the app (founder feedback: rows
-// need to line up vertically down the list). Paginated at
+// A REAL native `<table>` (`<thead>`/`<tbody>`/`<tr>`/`<th>`/`<td>`), not the
+// `role="table"`/`row`/`cell` CSS-grid-of-divs the previous pass used. That
+// grid version rendered every row as its OWN independent `display: grid`
+// container with `items-center` (non-stretch) alignment, so each cell's box
+// height matched its OWN content instead of the row's — a cell with no text
+// (e.g. an empty `recon` note) got a shorter content box than its siblings,
+// and centering that shorter box within the row visibly floated its
+// `border-b` line above the neighboring cells' — exactly the founder's "rows
+// are offset where there is no data" report (confirmed live: C-FEL-440 /
+// C-DEMO-1, both `recon`-less, before this fix). `table-fixed` + explicit
+// `w-*` widths on `<th>` fix the column widths (founder feedback: rows need
+// to line up vertically down the list); a native `<tr>` gives every `<td>`
+// in it the row's SHARED height by construction, so this class of bug can't
+// recur regardless of which cell is empty. Converted alongside your-move's
+// review rows and agents-roster for the same reason. Paginated at
 // CONTRACTS_PAGE_SIZE (../lib/swarm-store.ts) — founder addendum: "~12-15
 // rows per page", resets to page 1 on every tab switch (swarm-store's
 // shared hashchange listener).
@@ -27,6 +35,15 @@
     (arr(swarmState().contracts) as Rec[]).map((c, i) => {
       const tag = contractTag(c.status)
       const tagClasses = chipClasses(tag.tone)
+      // Local, not an inline object-literal value — the compiler's
+      // reactive-declaration scanner mis-reads an object property whose
+      // value is a bare comparison/ternary as an un-`let`'d state decl
+      // (same trap documented in your-move.aihu). A contract with no recon
+      // note yet (`truncate` defaults to '') still renders its <td> — see
+      // the @template comment below — just with this muted placeholder
+      // instead of blank text.
+      const reconText = truncate(c.recon)
+      const recon = reconText !== '' ? reconText : '—'
       return {
         key: `contract-${str(c.id, String(i))}`,
         id: str(c.id, '—'),
@@ -35,7 +52,7 @@
         tagLabel: tag.label,
         tagTitle: tag.title,
         tagClasses,
-        recon: truncate(c.recon),
+        recon,
       }
     }),
   )
@@ -70,30 +87,38 @@
       ? `${count} open issues pulled from Linear/GitHub, unassigned — latest: ${latest}`
       : `${count} open issues pulled from Linear/GitHub, unassigned`
   })
-
-  const CONTRACT_COLS = 'grid grid-cols-[9rem_6rem_7rem_8rem_1fr] gap-x-6 items-center'
 }
 
 @template {
   <div>
     <p class="font-mono text-xs font-medium tracking-[0.12em] uppercase text-muted mb-4 pb-2 border-b border-border">contracts</p>
 
-    <div role="table" aria-label="Contracts ledger">
-      <div class={CONTRACT_COLS} role="row">
-        <span role="columnheader" class="font-mono text-xs font-medium tracking-[0.04em] uppercase text-muted pb-2 border-b border-border">id</span>
-        <span role="columnheader" class="font-mono text-xs font-medium tracking-[0.04em] uppercase text-muted pb-2 border-b border-border">issue</span>
-        <span role="columnheader" class="font-mono text-xs font-medium tracking-[0.04em] uppercase text-muted pb-2 border-b border-border">owner</span>
-        <span role="columnheader" class="font-mono text-xs font-medium tracking-[0.04em] uppercase text-muted pb-2 border-b border-border">status</span>
-        <span role="columnheader" class="font-mono text-xs font-medium tracking-[0.04em] uppercase text-muted pb-2 border-b border-border">recon</span>
-      </div>
-      <div class={CONTRACT_COLS} role="row" each={c of contractRows} key={c.key}>
-        <span role="cell" class="font-mono tabular-nums py-4 border-b border-border text-ink">{c.id}</span>
-        <span role="cell" class="font-mono tabular-nums py-4 border-b border-border text-muted">{c.issue}</span>
-        <span role="cell" class="py-4 border-b border-border text-ink">{c.owner}</span>
-        <span role="cell" class="py-4 border-b border-border"><span class={c.tagClasses} title={c.tagTitle}>{c.tagLabel}</span></span>
-        <span role="cell" class="py-4 border-b border-border text-muted text-xs">{c.recon}</span>
-      </div>
-    </div>
+    <table class="w-full table-fixed border-collapse" aria-label="Contracts ledger">
+      <thead>
+        <tr>
+          <th scope="col" class="w-36 text-left font-mono text-xs font-medium tracking-[0.04em] uppercase text-muted pb-2 border-b border-border">id</th>
+          <th scope="col" class="w-24 text-left font-mono text-xs font-medium tracking-[0.04em] uppercase text-muted pb-2 border-b border-border">issue</th>
+          <th scope="col" class="w-28 text-left font-mono text-xs font-medium tracking-[0.04em] uppercase text-muted pb-2 border-b border-border">owner</th>
+          <th scope="col" class="w-32 text-left font-mono text-xs font-medium tracking-[0.04em] uppercase text-muted pb-2 border-b border-border">status</th>
+          <th scope="col" class="text-left font-mono text-xs font-medium tracking-[0.04em] uppercase text-muted pb-2 border-b border-border">recon</th>
+        </tr>
+      </thead>
+      <!-- Every row renders every <td>, always — no cell is ever
+           conditionally omitted. A contract with no recon note yet still
+           gets its 5th <td>, just with the '—' placeholder computed above
+           instead of blank text. This is the fix for the founder's "rows
+           are offset where there is no data" report: see the module doc
+           comment at the top of this file for the root cause. -->
+      <tbody>
+        <tr each={c of contractRows} key={c.key}>
+          <td class="align-middle font-mono tabular-nums py-4 border-b border-border text-ink">{c.id}</td>
+          <td class="align-middle font-mono tabular-nums py-4 border-b border-border text-muted">{c.issue}</td>
+          <td class="align-middle py-4 border-b border-border text-ink">{c.owner}</td>
+          <td class="align-middle py-4 border-b border-border"><span class={c.tagClasses} title={c.tagTitle}>{c.tagLabel}</span></td>
+          <td class="align-middle py-4 border-b border-border text-muted text-xs">{c.recon}</td>
+        </tr>
+      </tbody>
+    </table>
 
     <div class="flex items-center gap-4 pt-3 font-mono text-xs text-muted" if={showContractPager}>
       <span class="tabular-nums">{contractRangeStart}–{contractRangeEnd} of {totalContracts}</span>
