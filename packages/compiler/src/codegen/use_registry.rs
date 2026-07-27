@@ -100,6 +100,7 @@ pub(crate) const USE_COMPOSABLES: &[(&str, &str)] = &[
     ("useActiveElement", "@aihu/use/useActiveElement"),
     ("useHover", "@aihu/use/useHover"),
     ("useMouseInElement", "@aihu/use/useMouseInElement"),
+    ("useSwarm", "@aihu/use/useSwarm"),
 ];
 
 /// The registry entries to auto-import for this `@state` script.

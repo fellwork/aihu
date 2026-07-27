@@ -1,0 +1,9 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["node"],
+    "moduleDetection": "force"
+  },
+  "include": ["src/lib", "src/main.ts", "vite.config.ts"]
+}

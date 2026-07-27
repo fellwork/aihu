@@ -1,6 +1,6 @@
 {
   "name": "@aihu/compiler-native-linux-x64-gnu",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "license": "MIT",
   "os": [
     "linux"
@@ -12,5 +12,5 @@
   "files": [
     "aihu-compiler-native.linux-x64-gnu.node"
   ],
-  "description": "aihu compiler native addon (napi) — linux-x64-gnu platform binary."
+  "description": "aihu compiler native addon (napi) \u2014 linux-x64-gnu platform binary."
 }

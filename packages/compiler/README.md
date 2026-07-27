@@ -65,16 +65,16 @@ bun add @aihu/compiler
 
 **Optional dependencies (platform-specific):**
 
-- `@aihu/compiler-darwin-arm64` — `0.1.37`
-- `@aihu/compiler-darwin-x64` — `0.1.37`
-- `@aihu/compiler-linux-x64-gnu` — `0.1.37`
-- `@aihu/compiler-linux-arm64-gnu` — `0.1.37`
-- `@aihu/compiler-win32-x64-msvc` — `0.1.37`
-- `@aihu/compiler-native-darwin-arm64` — `0.1.2`
-- `@aihu/compiler-native-darwin-x64` — `0.1.2`
-- `@aihu/compiler-native-linux-x64-gnu` — `0.1.2`
-- `@aihu/compiler-native-linux-arm64-gnu` — `0.1.2`
-- `@aihu/compiler-native-win32-x64-msvc` — `0.1.2`
+- `@aihu/compiler-darwin-arm64` — `0.1.38`
+- `@aihu/compiler-darwin-x64` — `0.1.38`
+- `@aihu/compiler-linux-x64-gnu` — `0.1.38`
+- `@aihu/compiler-linux-arm64-gnu` — `0.1.38`
+- `@aihu/compiler-win32-x64-msvc` — `0.1.38`
+- `@aihu/compiler-native-darwin-arm64` — `0.1.3`
+- `@aihu/compiler-native-darwin-x64` — `0.1.3`
+- `@aihu/compiler-native-linux-x64-gnu` — `0.1.3`
+- `@aihu/compiler-native-linux-arm64-gnu` — `0.1.3`
+- `@aihu/compiler-native-win32-x64-msvc` — `0.1.3`
 
 <sub><i>Auto-generated against `@aihu/compiler@1.1.1`.</i></sub>
 

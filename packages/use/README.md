@@ -161,6 +161,7 @@ bun add @aihu/use
 | `./useSet` | `./dist/useSet.js` | `—` |
 | `./useStopwatch` | `./dist/useStopwatch.js` | `—` |
 | `./useSupported` | `./dist/useSupported.js` | `—` |
+| `./useSwarm` | `./dist/useSwarm.js` | `—` |
 | `./useTextDirection` | `./dist/useTextDirection.js` | `—` |
 | `./useThrottle` | `./dist/useThrottle.js` | `—` |
 | `./useTimeAgo` | `./dist/useTimeAgo.js` | `—` |

@@ -76,6 +76,7 @@ export default defineConfig({
     useSet: 'src/useSet/index.ts',
     useStopwatch: 'src/useStopwatch/index.ts',
     useSupported: 'src/useSupported/index.ts',
+    useSwarm: 'src/useSwarm/index.ts',
     useTextDirection: 'src/useTextDirection/index.ts',
     useThrottle: 'src/useThrottle/index.ts',
     useTimeAgo: 'src/useTimeAgo/index.ts',
