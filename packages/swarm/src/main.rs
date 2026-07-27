@@ -354,7 +354,19 @@ fn ensure_column(conn: &Connection, table: &str, column: &str, coltype: &str) ->
         }
     }
     if !has_col {
-        conn.execute(&format!("ALTER TABLE {table} ADD COLUMN {column} {coltype}"), [])?;
+        // The PRAGMA check and the ALTER are two statements; every CLI
+        // invocation runs this on open_db(), so two concurrent processes can
+        // both see "missing" and race the ALTER. The loser's "duplicate
+        // column name" is the race resolving correctly, not an error —
+        // anything else still propagates.
+        if let Err(e) = conn.execute(
+            &format!("ALTER TABLE {table} ADD COLUMN {column} {coltype}"),
+            [],
+        ) {
+            if !e.to_string().contains("duplicate column name") {
+                return Err(e);
+            }
+        }
     }
     Ok(())
 }
@@ -661,10 +673,34 @@ fn cmd_claim(args: &Args) -> rusqlite::Result<()> {
         }
     }
 
-    conn.execute(
-        "UPDATE contract SET owner = ?1, status = 'claimed' WHERE id = ?2",
+    // The pre-check above gives a good error message, but two concurrent
+    // claims can BOTH pass it (SELECT then UPDATE are separate autocommit
+    // statements — a TOCTOU). The UPDATE therefore re-states the guard and
+    // we check rows-affected: the race loser matches zero rows and gets the
+    // same CONFLICT it would have gotten had it arrived a moment later.
+    let n = conn.execute(
+        "UPDATE contract SET owner = ?1, status = 'claimed' \
+         WHERE id = ?2 AND (owner IS NULL OR owner = '' OR owner = ?1 OR status = 'offered')",
         params![who, cid],
     )?;
+    if n == 0 {
+        let (now_owner, now_status): (Option<String>, String) = conn
+            .query_row(
+                "SELECT owner, status FROM contract WHERE id = ?1",
+                params![cid],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .optional()?
+            .unwrap_or((None, "gone".into()));
+        die(
+            &format!(
+                "CONFLICT: '{cid}' is already {now_status} by {}. \
+                 Counter or decline; do not co-own.",
+                now_owner.as_deref().unwrap_or("?")
+            ),
+            4,
+        );
+    }
     println!("{cid} claimed by {who}");
     Ok(())
 }
@@ -712,11 +748,29 @@ fn cmd_attempt(args: &Args) -> rusqlite::Result<()> {
     Ok(())
 }
 
+const CONTRACT_STATUSES: [&str; 9] = [
+    "offered", "claimed", "building", "submitted", "verified",
+    "no-claims", "DISPUTED", "unverified", "declined",
+];
+
 fn cmd_setstatus(args: &Args) -> rusqlite::Result<()> {
     let (cid, status) = match (args.get_str("id"), args.get_str("status")) {
         (Some(c), Some(s)) if !c.is_empty() && !s.is_empty() => (c, s),
         _ => die("--id and --status are required", 2),
     };
+    // Closed enum, validated at the boundary. `classify()` matches these
+    // exact strings; without this check a typo like "Verified" would be
+    // stored verbatim and silently classify as NoOp — the sync would skip
+    // the contract forever while the ledger looks fine.
+    if !CONTRACT_STATUSES.contains(&status) {
+        die(
+            &format!(
+                "unknown status '{status}'. Valid: {}",
+                CONTRACT_STATUSES.join(", ")
+            ),
+            2,
+        );
+    }
 
     let conn = open_db()?;
     let exists: Option<i64> = conn
@@ -1379,50 +1433,76 @@ fn apply_sync_event(conn: &Connection, c: &SyncContract, event: &SyncEvent) -> R
                 "{marker}\n**[{owner}]** claim accepted — contract `{}` in progress.",
                 c.id
             );
+            // The two legs are independent external systems: a Linear failure
+            // must not silently skip a reachable GitHub (and vice versa).
+            // Attempt both, then report every failure.
+            let mut errs: Vec<String> = Vec::new();
             if let Some(identifier) = &c.linear {
-                linear_ensure_state(identifier, "In Progress")?;
-                linear_comment_if_absent(identifier, &marker, &body)?;
-                log_activity(conn, &c.id, &format!("linear:{identifier}"), "claim-accepted", "In Progress + comment");
+                match (|| -> Result<(), String> {
+                    linear_ensure_state(identifier, "In Progress")?;
+                    linear_comment_if_absent(identifier, &marker, &body)
+                })() {
+                    Ok(()) => log_activity(conn, &c.id, &format!("linear:{identifier}"), "claim-accepted", "In Progress + comment"),
+                    Err(e) => errs.push(format!("linear: {e}")),
+                }
             }
             if let Some(num) = c.github_issue {
-                gh_comment_if_absent(num, &marker, &body)?;
-                log_activity(conn, &c.id, &format!("github:#{num}"), "claim-accepted", "comment");
+                match gh_comment_if_absent(num, &marker, &body) {
+                    Ok(()) => log_activity(conn, &c.id, &format!("github:#{num}"), "claim-accepted", "comment"),
+                    Err(e) => errs.push(format!("github: {e}")),
+                }
             }
-            Ok(())
+            if errs.is_empty() { Ok(()) } else { Err(errs.join("; ")) }
         }
         SyncEvent::Verified => {
             let pr_part = c.github_pr.map(|p| format!("PR #{p}")).unwrap_or_else(|| "no PR recorded".to_string());
             let recon = if c.recon.is_empty() { "(no recon detail recorded)" } else { &c.recon };
             let marker = format!("<!-- swarm-sync:{}:verified -->", c.id);
             let body = format!("{marker}\nVerified. {pr_part}. recon: {recon}");
+            let mut errs: Vec<String> = Vec::new();
             if let Some(identifier) = &c.linear {
                 // THE gate: this branch is only reachable when `event` was
                 // classified as `Verified`, which only happens for
                 // `status == "verified"` — never for `submitted`.
-                linear_ensure_state(identifier, "Done")?;
-                linear_comment_if_absent(identifier, &marker, &body)?;
-                log_activity(conn, &c.id, &format!("linear:{identifier}"), "verified-done", "Done + comment");
+                match (|| -> Result<(), String> {
+                    linear_ensure_state(identifier, "Done")?;
+                    linear_comment_if_absent(identifier, &marker, &body)
+                })() {
+                    Ok(()) => log_activity(conn, &c.id, &format!("linear:{identifier}"), "verified-done", "Done + comment"),
+                    Err(e) => errs.push(format!("linear: {e}")),
+                }
             }
             if let Some(num) = c.github_issue {
-                gh_comment_if_absent(num, &marker, &body)?;
-                gh_close_issue(num)?;
-                log_activity(conn, &c.id, &format!("github:#{num}"), "verified-done", "close + comment");
+                match (|| -> Result<(), String> {
+                    gh_comment_if_absent(num, &marker, &body)?;
+                    gh_close_issue(num)
+                })() {
+                    Ok(()) => log_activity(conn, &c.id, &format!("github:#{num}"), "verified-done", "close + comment"),
+                    Err(e) => errs.push(format!("github: {e}")),
+                }
             }
-            Ok(())
+            if errs.is_empty() { Ok(()) } else { Err(errs.join("; ")) }
         }
         SyncEvent::Flagged(why) => {
             let marker = format!("<!-- swarm-sync:{}:disputed -->", c.id);
             let body = format!("{marker}\nDISPUTED/unverified — stays In Progress. {why}");
+            let mut errs: Vec<String> = Vec::new();
             if let Some(identifier) = &c.linear {
-                linear_ensure_state(identifier, "In Progress")?; // never Done
-                linear_comment_if_absent(identifier, &marker, &body)?;
-                log_activity(conn, &c.id, &format!("linear:{identifier}"), "flagged", "stays In Progress + comment");
+                match (|| -> Result<(), String> {
+                    linear_ensure_state(identifier, "In Progress")?; // never Done
+                    linear_comment_if_absent(identifier, &marker, &body)
+                })() {
+                    Ok(()) => log_activity(conn, &c.id, &format!("linear:{identifier}"), "flagged", "stays In Progress + comment"),
+                    Err(e) => errs.push(format!("linear: {e}")),
+                }
             }
             if let Some(num) = c.github_issue {
-                gh_comment_if_absent(num, &marker, &body)?;
-                log_activity(conn, &c.id, &format!("github:#{num}"), "flagged", "comment");
+                match gh_comment_if_absent(num, &marker, &body) {
+                    Ok(()) => log_activity(conn, &c.id, &format!("github:#{num}"), "flagged", "comment"),
+                    Err(e) => errs.push(format!("github: {e}")),
+                }
             }
-            Ok(())
+            if errs.is_empty() { Ok(()) } else { Err(errs.join("; ")) }
         }
     }
 }
@@ -1431,7 +1511,21 @@ fn apply_sync_event(conn: &Connection, c: &SyncContract, event: &SyncEvent) -> R
 /// from local DB state (zero network calls); `--confirm` is required for
 /// any real read or write.
 fn cmd_sync_push(args: &Args) -> rusqlite::Result<()> {
-    let confirm = args.get_flag("confirm");
+    // `--confirm` gates real external writes, so it must be VALUE-BLIND-proof:
+    // the parser stores `--confirm false` as Str("false"), and a bare
+    // presence check would treat that as confirmed — the exact "the flag said
+    // no but the code heard yes" failure this codebase exists to prevent.
+    let confirm = match args.get("confirm") {
+        None => false,
+        Some(ArgVal::Flag) => true,
+        Some(ArgVal::Str(v)) => die(
+            &format!(
+                "--confirm takes no value (got '{v}'). Pass --confirm alone to \
+                 perform real external writes, or omit it for a dry run."
+            ),
+            2,
+        ),
+    };
     let conn = open_db()?;
     let contracts = load_sync_contracts(&conn)?;
 
@@ -1541,5 +1635,71 @@ fn main() {
     if let Err(e) = result {
         eprintln!("swarm-bus: {e}");
         std::process::exit(1);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// THE gate, exhaustively: external Done mirrors `verified` ONLY.
+    /// Every status in the closed enum, plus the traps (case variants,
+    /// whitespace, the empty string), asserting which SyncEvent each
+    /// produces. If a refactor ever lets any non-"verified" status reach
+    /// SyncEvent::Verified, this fails before it ships.
+    #[test]
+    fn classify_done_gate_is_exhaustive() {
+        let verified = |s: &str| matches!(classify(s, "", ""), SyncEvent::Verified);
+
+        assert!(verified("verified"), "verified must reach Verified");
+        for s in [
+            "offered", "claimed", "building", "submitted", "no-claims",
+            "DISPUTED", "unverified", "declined",
+            // the traps: case/whitespace variants and garbage must NEVER
+            // produce a Done transition
+            "Verified", "VERIFIED", " verified", "verified ", "", "done",
+            "submitted-but-really-done",
+        ] {
+            assert!(!verified(s), "status '{s}' must NEVER classify as Verified");
+        }
+    }
+
+    #[test]
+    fn classify_in_progress_and_flagged_families() {
+        for s in ["claimed", "building", "submitted"] {
+            assert!(matches!(classify(s, "", ""), SyncEvent::ClaimAccepted));
+        }
+        for s in ["DISPUTED", "unverified"] {
+            assert!(matches!(classify(s, "r", ""), SyncEvent::Flagged(_)));
+        }
+        // offered/declined and unknown strings are NoOp — never an external write
+        for s in ["offered", "declined", "garbage", ""] {
+            assert!(matches!(classify(s, "", ""), SyncEvent::NoOp));
+        }
+    }
+
+    #[test]
+    fn flagged_reason_prefers_recon_then_note() {
+        match classify("DISPUTED", "recon-detail", "note-detail") {
+            SyncEvent::Flagged(w) => assert_eq!(w, "recon-detail"),
+            _ => panic!("expected Flagged"),
+        }
+        match classify("unverified", "", "note-detail") {
+            SyncEvent::Flagged(w) => assert_eq!(w, "note-detail"),
+            _ => panic!("expected Flagged"),
+        }
+        match classify("DISPUTED", "", "") {
+            SyncEvent::Flagged(w) => assert_eq!(w, "no reason recorded"),
+            _ => panic!("expected Flagged"),
+        }
+    }
+
+    /// The setstatus boundary enum must stay in lockstep with classify():
+    /// every status classify() handles specially is in the closed list.
+    #[test]
+    fn contract_statuses_cover_classify_arms() {
+        for s in ["claimed", "building", "submitted", "verified", "DISPUTED", "unverified"] {
+            assert!(CONTRACT_STATUSES.contains(&s), "'{s}' missing from CONTRACT_STATUSES");
+        }
     }
 }
