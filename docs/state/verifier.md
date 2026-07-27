@@ -8,7 +8,7 @@ the PR when they do.
 `srmcguirt/verify-pr-queue`. **Curated into `docs/state/` by the historian**
 2026-07-26 at the verifier's request and the orchestrator's ruling — one copy,
 not two. The verdicts, receipts and wording below are the verifier's.
-**Last updated:** 2026-07-26
+**Last updated:** 2026-07-27 (Round 3 — swarm-core review, verifier)
 
 > **Historian's correction to my own earlier seed of this file.** I first seeded
 > `docs/state/verifier.md` from the Slack record and wrote that **#612 was
@@ -402,3 +402,55 @@ comparing a brand ink against a component background is comparing two different
 jobs. **If that mapping is not 1:1, the census is 10, not 11.**
 
 Open question for whoever owns the design tokens, not a verdict.
+
+## Round 3 — the swarm-core merge day, independently reproduced (`origin/main` @ `2350f49c`)
+
+Thirteen PRs (mostly the swarm core itself) merged in one day, each verified only
+by the orchestrator at merge time — the same instance that dispatched the work.
+C-FEL-REVIEW-0727 was the correction: re-run every acceptance bar from a clean
+checkout I built myself. Method held — **ran each gate, mutation-tested both
+directions, built from source, isolated every `swarm-bus` test with `SWARM_DB`.**
+All four groups reproduced green. Two residual soft spots reported (not false
+greens, not blockers).
+
+**Isolation discipline that matters (write it down):** every `swarm-bus`
+invocation uses `SWARM_DB=<temp>`. The live `~/.swarm/bus.db` is production; the
+reconciler reads it. **Merely OPENING the DB mutates the file** — a copy I ran a
+read-only dry-run against changed md5 (`5f07fa0c`→`50c44017`) purely from SQLite's
+WAL/schema-touch on open. So a test that runs against the default DB corrupts the
+ledger even if it "only reads." Live md5 stayed `5f07fa0c` start→end **because no
+test ever opened it.** `claim` does not touch `bus.db` (it writes `agents.json`);
+`send` does.
+
+### #651 verify-merged — PASS. Bare `#NNN` is closed; wrong-PR-by-prose is not.
+`cargo test -p aihu-swarm` → 21 pass. The two negatives are real AND non-vacuous,
+proven by targeted mutation then revert:
+- mutated `parse_pr_ref` (main.rs:2310/2313) to scan a bare `#` → `parse_pr_ref_rejects_bare_hash` + `_in_prose` FLIP to FAILED → revert → pass. Only `github.com/<o>/<r>/pull/N` and `PR#N`/`PR #N` parse.
+- mutated `is_merged_evidence` (main.rs:2371) to drop the mergedAt check → `is_merged_evidence_rejects_merged_with_null_merged_at` FLIPS to FAILED → revert → pass.
+**Residual:** `gh pr view` is unstubbable, repo hardcoded `fellwork/aihu` (main.rs:239), no e2e test of `cmd_verify_merged`. `parse_pr_ref` is a first-match whole-body scan, so a verdict quoting *someone else's* `pull/N` or `PR #N` resolves to THAT pr — if merged in fellwork/aihu it verifies the contract. The next reviewer should push on that path, not on bare-`#NNN` (closed).
+
+### #647/#645 sync — PASS. `--confirm <value>` → exit 2; dry-run offline.
+`sync --push --confirm false|xyz` and `verify-merged --confirm false` all → **exit 2** (main.rs:2191 `die(...,2)`). `sync --push` no-confirm → exit 0 offline, "nothing to mirror" (gate: `if !confirm { continue }` main.rs:2258 + early return 2268). Did NOT run bare `--confirm` (real Linear/GitHub writes).
+**Residual:** no contract carries a linear/github id, so I never saw a populated "WOULD move" plan — the zero-write proof is the structural gate + offline exit-0, not a watched plan. Seed a contract with an id to exercise it fully.
+
+### #649 palette gate — PASS. The bug (present-in-needs, never evaluated) is fixed.
+`check_palette_parity.py --verbose` → exit 0; mutate a `packs.ts` hex → exit 1 ("NEW divergence"). Enforcement: plan-a.yml:396 binds `PALETTE_RESULT: needs.palette.result`, :410 puts `"palette:$PALETTE_RESULT"` in the `ci-ok` failure loop → :427 `exit 1`. `ci-ok` is the sole required status. **Being in `needs:` is sequencing, not gating — only appearing in the loop gates.** (Same shape as the Round-2 `check` fuse: needs/loop wiring is where inert gates hide.)
+
+### #643/#646/#648/#650 useSwarm SSR no-op — PASS.
+`vitest packages/use/tests/use-swarm.test.ts` → 11 pass. EventSource (index.ts:138) is behind a SYNCHRONOUS early return (index.ts:125, `!isClient || win===undefined || typeof EventSource==='undefined'`) — NOT a useEffect, so SSR never constructs one. Mutation (disable guard) → the SSR no-op test FAILS; the suite's own DOM-direction control still passes. swarm-console is a plain Vite SPA (no SSR entry).
+
+### Method lesson this wake earned — a false green I nearly shipped.
+My first #651 mutation run printed `exit 1` and I almost recorded it as "tests
+failed under mutation = good." It was a **cargo CLI usage error** (`cargo test`
+takes ONE positional filter; I passed two), so the tests **never ran**. Exit-1
+from the *harness refusing to start* looks identical to exit-1 from a *test
+failing*. **Read the actual output, not just the exit code** — "a failed check is
+never a pass" cuts both ways: a check that didn't run is not a fail either. Re-ran
+with `-- <filter>`; the real result (3 FAILED under mutation, 6 pass reverted) is
+what's above. Recorded as a sibling to the `${PIPESTATUS[0]}`-is-empty trap.
+
+**What the next instance must not redo:**
+- Do NOT run `swarm-bus` tests against the default DB — `SWARM_DB=<temp>` always; opening the live DB mutates it (WAL), which is itself the defect that "happened today."
+- Do NOT re-attack bare-`#NNN` in `verify-merged` — it is closed and mutation-proven. Attack the wrong-PR-by-prose path (foreign `pull/N` / `PR #N` in a verdict body) and the untested `cmd_verify_merged` e2e seam.
+- Do NOT trust a bare exit code from `cargo test` with multiple positional filters — it errors out (exit 1/101) WITHOUT running; grep the output for `test result:` before believing a pass or a fail.
+- Build in a DEDICATED detached worktree (`git worktree add`), never the shared checkout — the shared-worktree identity-swap hazard is live (it force-pushed the historian onto a merged branch this same day).
