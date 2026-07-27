@@ -786,9 +786,12 @@ fn cmd_setstatus(args: &Args) -> rusqlite::Result<()> {
             }
             None => die(
                 &format!(
-                    "status '{status}' has external side effects (sync mirrors \
-                     it as Done) and requires --reconciled — set by the \
-                     reconcile pass, not by hand out of habit."
+                    "status '{status}' is a RECONCILE VERDICT and requires \
+                     --reconciled — set by the reconcile pass after checking \
+                     claims against the trace, not by hand out of habit. \
+                     ('verified' additionally mirrors outward as Done; \
+                     'no-claims' does not mirror, but is equally not a \
+                     status any agent may assert about its own work.)"
                 ),
                 2,
             ),
@@ -1096,10 +1099,15 @@ fn linear_issue_lookup(identifier: &str) -> Result<(String, String), String> {
 
 /// Move a Linear issue to `target_name`, unless it is already there
 /// (idempotent — a repeated push must not re-fire the same transition).
-fn linear_ensure_state(identifier: &str, target_name: &str) -> Result<(), String> {
+/// Returns Ok(true) when it actually CHANGED the state, Ok(false) when the
+/// issue was already there. The caller logs that distinction: an audit trail
+/// that records "moved to In Progress + comment" on a re-run where nothing
+/// was written is the log overstating reality — the same overselling this
+/// project keeps catching in panels, now in the ledger meant to prove it.
+fn linear_ensure_state(identifier: &str, target_name: &str) -> Result<bool, String> {
     let (issue_id, current) = linear_issue_lookup(identifier)?;
     if current.eq_ignore_ascii_case(target_name) {
-        return Ok(());
+        return Ok(false);
     }
     let states = linear_team_states()?;
     let st = states
@@ -1110,7 +1118,7 @@ fn linear_ensure_state(identifier: &str, target_name: &str) -> Result<(), String
         "mutation($id:String!,$s:String!){ issueUpdate(id:$id, input:{stateId:$s}) { success } }";
     let data = linear_call(mutation, &json!({ "id": issue_id, "s": st.0 }))?;
     match data.pointer("/issueUpdate/success").and_then(Value::as_bool) {
-        Some(true) => Ok(()),
+        Some(true) => Ok(true),
         _ => Err(format!("Linear issueUpdate reported failure for {identifier}")),
     }
 }
@@ -1118,7 +1126,8 @@ fn linear_ensure_state(identifier: &str, target_name: &str) -> Result<(), String
 /// Post `body` as a comment on a Linear issue UNLESS an existing comment
 /// already contains `marker` — the idempotency check the spec requires
 /// ("check for the marker first").
-fn linear_comment_if_absent(identifier: &str, marker: &str, body: &str) -> Result<(), String> {
+/// Ok(true) = a comment was posted; Ok(false) = the marker was already there.
+fn linear_comment_if_absent(identifier: &str, marker: &str, body: &str) -> Result<bool, String> {
     let (issue_id, _) = linear_issue_lookup(identifier)?;
     let query = "query($id:String!){ issue(id:$id){ comments(first:50){ nodes { body } } } }";
     let data = linear_call(query, &json!({ "id": issue_id }))?;
@@ -1129,14 +1138,14 @@ fn linear_comment_if_absent(identifier: &str, marker: &str, body: &str) -> Resul
         .unwrap_or_default();
     for cm in &comments {
         if cm.get("body").and_then(Value::as_str).is_some_and(|b| b.contains(marker)) {
-            return Ok(()); // already posted
+            return Ok(false); // already posted
         }
     }
     let mutation =
         "mutation($id:String!,$body:String!){ commentCreate(input:{issueId:$id, body:$body}) { success } }";
     let data = linear_call(mutation, &json!({ "id": issue_id, "body": body }))?;
     match data.pointer("/commentCreate/success").and_then(Value::as_bool) {
-        Some(true) => Ok(()),
+        Some(true) => Ok(true),
         _ => Err(format!("Linear commentCreate reported failure for {identifier}")),
     }
 }
@@ -1193,17 +1202,18 @@ fn github_open_swarm_issues() -> Result<Vec<(i64, String, String)>, String> {
 
 /// Post `body` as a comment on a GitHub issue UNLESS an existing comment
 /// already contains `marker` (same idempotency contract as the Linear side).
-fn gh_comment_if_absent(number: i64, marker: &str, body: &str) -> Result<(), String> {
+/// Ok(true) = a comment was posted; Ok(false) = the marker was already there.
+fn gh_comment_if_absent(number: i64, marker: &str, body: &str) -> Result<bool, String> {
     let data = gh_issue_view(number, "comments")?;
     let comments: Vec<Value> = data.get("comments").and_then(Value::as_array).cloned().unwrap_or_default();
     for cm in &comments {
         if cm.get("body").and_then(Value::as_str).is_some_and(|b| b.contains(marker)) {
-            return Ok(()); // already posted
+            return Ok(false); // already posted
         }
     }
     let n = number.to_string();
     gh_run(&["issue", "comment", &n, "--repo", GITHUB_REPO, "--body", body])?;
-    Ok(())
+    Ok(true)
 }
 
 /// Close a GitHub issue unless it is already closed (idempotent).
@@ -1446,6 +1456,19 @@ fn load_sync_contracts(conn: &Connection) -> rusqlite::Result<Vec<SyncContract>>
 /// Perform the real reads/writes for one contract's event. Only ever called
 /// under `--confirm`. Every branch is idempotent (marker-checked comments,
 /// state mutations skipped if already at target).
+/// Describe ONLY what actually changed. A sync pass that re-runs over an
+/// already-current issue must not write an audit line claiming it moved the
+/// state and posted a comment — the ledger that exists to prove the mirror
+/// is honest cannot itself oversell.
+fn changed_detail(moved: bool, posted: bool, target: &str) -> String {
+    match (moved, posted) {
+        (true, true) => format!("{target} + comment"),
+        (true, false) => format!("{target} (comment already present)"),
+        (false, true) => format!("comment (already {target})"),
+        (false, false) => "no change".to_string(),
+    }
+}
+
 fn apply_sync_event(conn: &Connection, c: &SyncContract, event: &SyncEvent) -> Result<(), String> {
     match event {
         SyncEvent::NoOp => Ok(()),
@@ -1461,17 +1484,23 @@ fn apply_sync_event(conn: &Connection, c: &SyncContract, event: &SyncEvent) -> R
             // Attempt both, then report every failure.
             let mut errs: Vec<String> = Vec::new();
             if let Some(identifier) = &c.linear {
-                match (|| -> Result<(), String> {
-                    linear_ensure_state(identifier, "In Progress")?;
-                    linear_comment_if_absent(identifier, &marker, &body)
+                match (|| -> Result<(bool, bool), String> {
+                    let moved = linear_ensure_state(identifier, "In Progress")?;
+                    let posted = linear_comment_if_absent(identifier, &marker, &body)?;
+                    Ok((moved, posted))
                 })() {
-                    Ok(()) => log_activity(conn, &c.id, &format!("linear:{identifier}"), "claim-accepted", "In Progress + comment"),
+                    Ok((moved, posted)) => {
+                        if moved || posted {
+                            log_activity(conn, &c.id, &format!("linear:{identifier}"), "claim-accepted", &changed_detail(moved, posted, "In Progress"))
+                        }
+                    }
                     Err(e) => errs.push(format!("linear: {e}")),
                 }
             }
             if let Some(num) = c.github_issue {
                 match gh_comment_if_absent(num, &marker, &body) {
-                    Ok(()) => log_activity(conn, &c.id, &format!("github:#{num}"), "claim-accepted", "comment"),
+                    Ok(true) => log_activity(conn, &c.id, &format!("github:#{num}"), "claim-accepted", "comment"),
+                    Ok(false) => {}
                     Err(e) => errs.push(format!("github: {e}")),
                 }
             }
@@ -1487,20 +1516,26 @@ fn apply_sync_event(conn: &Connection, c: &SyncContract, event: &SyncEvent) -> R
                 // THE gate: this branch is only reachable when `event` was
                 // classified as `Verified`, which only happens for
                 // `status == "verified"` — never for `submitted`.
-                match (|| -> Result<(), String> {
-                    linear_ensure_state(identifier, "Done")?;
-                    linear_comment_if_absent(identifier, &marker, &body)
+                match (|| -> Result<(bool, bool), String> {
+                    let moved = linear_ensure_state(identifier, "Done")?;
+                    let posted = linear_comment_if_absent(identifier, &marker, &body)?;
+                    Ok((moved, posted))
                 })() {
-                    Ok(()) => log_activity(conn, &c.id, &format!("linear:{identifier}"), "verified-done", "Done + comment"),
+                    Ok((moved, posted)) => {
+                        if moved || posted {
+                            log_activity(conn, &c.id, &format!("linear:{identifier}"), "verified-done", &changed_detail(moved, posted, "Done"))
+                        }
+                    }
                     Err(e) => errs.push(format!("linear: {e}")),
                 }
             }
             if let Some(num) = c.github_issue {
-                match (|| -> Result<(), String> {
-                    gh_comment_if_absent(num, &marker, &body)?;
-                    gh_close_issue(num)
+                match (|| -> Result<bool, String> {
+                    let posted = gh_comment_if_absent(num, &marker, &body)?;
+                    gh_close_issue(num)?;
+                    Ok(posted)
                 })() {
-                    Ok(()) => log_activity(conn, &c.id, &format!("github:#{num}"), "verified-done", "close + comment"),
+                    Ok(posted) => log_activity(conn, &c.id, &format!("github:#{num}"), "verified-done", if posted { "close + comment" } else { "close (comment already present)" }),
                     Err(e) => errs.push(format!("github: {e}")),
                 }
             }
@@ -1511,17 +1546,23 @@ fn apply_sync_event(conn: &Connection, c: &SyncContract, event: &SyncEvent) -> R
             let body = format!("{marker}\nDISPUTED/unverified — stays In Progress. {why}");
             let mut errs: Vec<String> = Vec::new();
             if let Some(identifier) = &c.linear {
-                match (|| -> Result<(), String> {
-                    linear_ensure_state(identifier, "In Progress")?; // never Done
-                    linear_comment_if_absent(identifier, &marker, &body)
+                match (|| -> Result<(bool, bool), String> {
+                    let moved = linear_ensure_state(identifier, "In Progress")?; // never Done
+                    let posted = linear_comment_if_absent(identifier, &marker, &body)?;
+                    Ok((moved, posted))
                 })() {
-                    Ok(()) => log_activity(conn, &c.id, &format!("linear:{identifier}"), "flagged", "stays In Progress + comment"),
+                    Ok((moved, posted)) => {
+                        if moved || posted {
+                            log_activity(conn, &c.id, &format!("linear:{identifier}"), "flagged", &changed_detail(moved, posted, "In Progress"))
+                        }
+                    }
                     Err(e) => errs.push(format!("linear: {e}")),
                 }
             }
             if let Some(num) = c.github_issue {
                 match gh_comment_if_absent(num, &marker, &body) {
-                    Ok(()) => log_activity(conn, &c.id, &format!("github:#{num}"), "flagged", "comment"),
+                    Ok(true) => log_activity(conn, &c.id, &format!("github:#{num}"), "flagged", "comment"),
+                    Ok(false) => {}
                     Err(e) => errs.push(format!("github: {e}")),
                 }
             }
