@@ -1,4 +1,4 @@
-use super::mcp_emit::{collect_agent_members, emit_agent_binding_export, emit_agent_bindings, emit_agent_client_dispatcher, emit_agent_metadata_registration, inject_dispatcher_registration, inject_server_binding_registration};
+use super::mcp_emit::{build_dispatcher_registration_stmt, build_server_binding_registration_stmt, collect_agent_members, emit_agent_binding_export, emit_agent_bindings, emit_agent_client_dispatcher, emit_agent_metadata_registration};
 use super::sidecar_json::{collect_component_tags, emit_manifest, emit_route_json};
 use super::sidecar_ts::emit_sidecar_ts;
 use super::state_emit::{collect_prop_entries, emit_aria_wiring, emit_form_wiring, emit_prop_bindings, emit_props_config, emit_state_macro_code, process_state_body};
@@ -73,6 +73,49 @@ impl IslandKind {
             IslandKind::Static => "static",
             IslandKind::Interactive => "interactive",
         }
+    }
+}
+
+/// FEL-440 — which per-instance agent registration `emit_function_form` must
+/// emit into the setup body. Computed ONCE in `emit_with_options` from the build
+/// target + exposed-member set, then threaded in as a codegen INPUT so the
+/// registration is data in the same path as the runtime import (see
+/// `build_function_imports`) — no post-emit string surgery, no exact-literal
+/// anchor to miss (GH #636: any third runtime symbol silently dropped it).
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum AgentReg {
+    /// Component exposes no agent members — emit nothing.
+    None,
+    /// Client build — opaque-ID, policy-free `_registerAgentDispatcher`.
+    ClientDispatcher,
+    /// Server/universal build — named, policy-carrying `_registerAgentServerBinding`.
+    ServerBinding,
+}
+
+/// FEL-440 tripwire — the registration is now emitted structurally, so its
+/// absence when one was REQUIRED is a compiler bug, never the old silent no-op.
+/// Unreachable by construction post-refactor (a non-`None` `AgentReg` is set iff
+/// the component has members, and the statement builders emit iff members exist),
+/// so this is the hard-error backstop the pre-440 string-surgery bail-out
+/// (`return base_js.to_string()`) silently lacked. Returns `Err` (which the
+/// caller turns into a hard compile failure) rather than shipping an agent
+/// component whose `LiveBinding` would never register.
+pub(crate) fn verify_agent_registration(agent_reg: AgentReg, setup_body: &str) -> Result<(), String> {
+    let expected = match agent_reg {
+        AgentReg::None => return Ok(()),
+        AgentReg::ClientDispatcher => "_registerAgentDispatcher(",
+        AgentReg::ServerBinding => "_registerAgentServerBinding(",
+    };
+    if setup_body.contains(expected) {
+        Ok(())
+    } else {
+        Err(format!(
+            "FEL-440: agent registration `{}` was required for this component but is absent \
+             from the emitted setup body. This is a compiler bug — the registration must be \
+             emitted structurally (as a codegen input), never string-spliced onto an anchor. \
+             Refusing to emit an agent component whose LiveBinding would silently never register.",
+            expected.trim_end_matches('(')
+        ))
     }
 }
 
@@ -207,6 +250,25 @@ pub fn emit_with_options(unit: &CompileUnit, tag_name: &str, strict_templates: b
     // v0.4.0: @stream block is server-only. Elide in client builds.
     let elide_stream = target == BuildTarget::Client && unit.source.stream.is_some();
 
+    // FEL-440 — resolve the per-instance agent registration ONCE, as a codegen
+    // input to `emit_function_form`. Non-`None` iff the component actually
+    // exposes members (`is_agent_component` can be true via an `@agent` block
+    // with no exposed members — that carries policy but registers nothing, so it
+    // stays `None`, matching the pre-440 injectors' member-empty early return).
+    // Client agent build → opaque-ID dispatcher; server/universal → named,
+    // policy-carrying server binding. This drives BOTH the runtime import symbol
+    // and the in-setup registration statement, so the import can no longer say
+    // one thing while the body does another.
+    let agent_reg = if !has_exposed_members {
+        AgentReg::None
+    } else if elide_agent {
+        AgentReg::ClientDispatcher
+    } else if is_agent_component {
+        AgentReg::ServerBinding
+    } else {
+        AgentReg::None
+    };
+
     // GX P3 (server emission, keystone slice) — a `--target server` build of a
     // NON-agent component emits a standalone SSR entry: setup is hoisted to a
     // named module const, the `defineElement(...)` registration is gated behind
@@ -214,12 +276,14 @@ pub fn emit_with_options(unit: &CompileUnit, tag_name: &str, strict_templates: b
     // arbor-tree factory that `@aihu/server`'s `renderToString` and
     // `@aihu/app`'s `resolveComponent` (`mod.default`) consume directly.
     //
-    // Agent components are EXCLUDED for now: their server artifact is consumed
-    // by the `@aihu/agent-service` headless mount path, whose string-surgery
-    // injectors (`inject_server_binding_registration`) anchor on the
-    // `defineComponent((_ctx) => {` shape — restructuring it would silently
-    // drop the LiveBinding registration. That lane gets its SSR entry when the
-    // stubbed server SetupContext grows attr/prop signal support (full P3).
+    // Agent components are EXCLUDED for now. The original string-surgery reason
+    // (their `inject_server_binding_registration` anchored on the exact
+    // `defineComponent((_ctx) => {` shape, so a restructure silently dropped the
+    // LiveBinding) is GONE as of FEL-440 — registration is now a codegen input
+    // with no anchor. The remaining, still-live gate is the stubbed server
+    // SetupContext lacking attr/prop signal support; that lane gets its SSR entry
+    // when that lands (full P3). Lifting this exclusion is a separate decision,
+    // deliberately NOT part of FEL-440.
     let emit_ssr_entry = target == BuildTarget::Server && !is_agent_component;
 
     // Wave 3c — island classification, hoisted out of the `js` block below so it
@@ -241,6 +305,7 @@ pub fn emit_with_options(unit: &CompileUnit, tag_name: &str, strict_templates: b
             unit.source.agent.as_ref(),
             &extract,
             emit_ssr_entry,
+            agent_reg,
         );
         island_kind = island_k;
         // v0.4.0: append __streamBinding export for server artifacts.
@@ -272,17 +337,13 @@ pub fn emit_with_options(unit: &CompileUnit, tag_name: &str, strict_templates: b
             // so calling them there throws ReferenceError. The capability bridge
             // needs invokers bound to a SPECIFIC mounted instance's signals.
             //
-            // So, in addition to the (introspection-only) module-scope export, we
-            // inject a `_registerAgentDispatcher(ctx.element, { … })` call INSIDE
-            // the setup body — where the real `increment`/`reset`/`count`
-            // closures resolve. The runtime keys it by the mounted element so the
-            // browser bridge can take the instance-bound dispatcher after mount.
-            // No policy is carried (same opaque-ID-only shape as the export).
-            let with_reg = inject_dispatcher_registration(&base_js, tag_name, raw_script);
-            // Prepend elision comment to the emitted JS, append the dispatcher.
+            // FEL-440 — the in-setup `_registerAgentDispatcher(ctx.element, { … })`
+            // call is now emitted STRUCTURALLY by `emit_function_form`
+            // (`agent_reg == ClientDispatcher`), so `base_js` already carries it.
+            // We only append the (introspection-only) module-scope export here.
             format!(
                 "// [client build] @agent block elided\n{}\n{}",
-                with_reg, dispatcher
+                base_js, dispatcher
             )
         } else if is_agent_component {
             // A component with exposed members but no `@agent` block carries no
@@ -312,15 +373,19 @@ pub fn emit_with_options(unit: &CompileUnit, tag_name: &str, strict_templates: b
             //      safe at module scope (unlike `__agentBinding`, whose invoker
             //      bodies close over setup locals).
             let raw_script = unit.source.script.unwrap_or("");
-            let with_reg = inject_server_binding_registration(&base_js, tag_name, agent, raw_script);
+            // FEL-440 — the in-setup `_registerAgentServerBinding(ctx.element, …)`
+            // call is now emitted STRUCTURALLY by `emit_function_form`
+            // (`agent_reg == ServerBinding`), so `base_js` already carries it. Only
+            // the module-scope `__agentBinding` export + `registerAgentMetadata`
+            // (both pure data) are appended here.
             let agent_binding_export = emit_agent_binding_export(tag_name, agent, raw_script);
             let agent_metadata = emit_agent_metadata_registration(tag_name, raw_script, &extract);
             let with_metadata = if agent_metadata.is_empty() {
-                with_reg
+                base_js
             } else {
                 format!(
                     "import {{ registerAgentMetadata }} from '@aihu/agent'\n{}\n{}",
-                    with_reg, agent_metadata
+                    base_js, agent_metadata
                 )
             };
             format!("{}\n{}\n", with_metadata, agent_binding_export)
@@ -666,6 +731,9 @@ pub(crate) fn emit_function_form(
     // form emits the standalone-SSR shape: hoisted setup const, DOM-gated
     // registration, `export default __ssr`. See the caller in `emit()`.
     ssr_entry: bool,
+    // FEL-440 — which per-instance agent registration to emit into the setup
+    // body (and which runtime symbol to import). See `AgentReg`.
+    agent_reg: AgentReg,
 ) -> (String, IslandKind) {
     let raw_script = unit.source.script.unwrap_or("");
 
@@ -790,6 +858,7 @@ pub(crate) fn emit_function_form(
         &si,
         helpers_needed.each_boundary,
         &helpers_needed,
+        agent_reg,
     );
     // W3: the emitter's rewrite front-end follows the unit's `--expr-parser`
     // mode (Legacy = byte-identical token pipeline; Ast = scope-aware oxc
@@ -847,9 +916,9 @@ pub(crate) fn emit_function_form(
     //   - `$extends` — evaluating a custom base class touches HTMLElement at
     //     module scope in the BASE module, which this gate cannot reach;
     //   - agent inputs — agent components are excluded from `ssr_entry`
-    //     already (their `inject_server_binding_registration` string-surgery
-    //     anchors on the legacy shape); the `!has_agent_inputs` term is a
-    //     belt-and-suspenders restatement of that exclusion.
+    //     already (see the `emit_ssr_entry` gate above; post-FEL-440 the reason
+    //     is the server SetupContext stub, not string-surgery); the
+    //     `!has_agent_inputs` term is a belt-and-suspenders restatement.
     let ssr_options = ssr_entry
         && uses_options_form
         && !has_form
@@ -1082,9 +1151,32 @@ pub(crate) fn emit_function_form(
         // instead of returning the tree — capture the body without the
         // `return <tree>` tail for it.
         let prefix = b.clone();
+        // FEL-440 — the per-instance agent registration, emitted STRUCTURALLY
+        // here (referencing the real `ctx_param`) rather than string-spliced onto
+        // a fragile import anchor afterward. Placed AFTER the `prefix` clone so it
+        // stays out of the SSR-string fast path (agent components never take it),
+        // and immediately BEFORE `return` so it runs after every state/action
+        // closure it references is in scope. Empty for non-agent components.
+        let agent_registration = match agent_reg {
+            AgentReg::None => String::new(),
+            AgentReg::ClientDispatcher => {
+                build_dispatcher_registration_stmt(tag_name, raw_script, ctx_param)
+            }
+            AgentReg::ServerBinding => {
+                build_server_binding_registration_stmt(tag_name, agent, raw_script, ctx_param)
+            }
+        };
+        b.push_str(&agent_registration);
         b.push_str(&format!("  return {}\n", return_expr));
         (b, prefix)
     };
+
+    // FEL-440 tripwire — a required registration must be present in the emitted
+    // body. Unreachable by construction; a hard failure if it ever regresses,
+    // never the pre-440 silent drop. See `verify_agent_registration`.
+    if let Err(msg) = verify_agent_registration(agent_reg, &body) {
+        panic!("{}", msg);
+    }
 
     // Wave-3 — the `__ssrString` export block appended to standalone-SSR
     // artifacts when the template lowered. Shape:
@@ -1447,6 +1539,7 @@ fn build_function_imports(
     si: &StateImports,
     needs_each: bool,
     helpers: &NeededHelpers,
+    agent_reg: AgentReg,
 ) -> String {
     let script_uses_effect = script.contains("effect(");
     // arch-5 M1: routing helpers (`<$link>`, `<$outlet>`, `<$navigate>`)
@@ -1521,6 +1614,16 @@ fn build_function_imports(
     if helpers.a11y_announce {
         rt_items.push("announce as __a11y_announce".to_string());
     }
+    // FEL-440 — the agent registration helper is now a runtime import like any
+    // other symbol (`onMount` etc.), added to the SAME `rt_items` Vec. The import
+    // is therefore data, not a literal an injector string-matches after the fact:
+    // whatever else joins this list, the registration symbol rides along, so the
+    // registration call in the body can never reference an un-imported name.
+    match agent_reg {
+        AgentReg::ClientDispatcher => rt_items.push("_registerAgentDispatcher".to_string()),
+        AgentReg::ServerBinding => rt_items.push("_registerAgentServerBinding".to_string()),
+        AgentReg::None => {}
+    }
     lines.push(format!("import {{ {} }} from '@aihu/runtime'", rt_items.join(", ")));
 
     // arch-5 M1: namespace import for @aihu/router when `$route`,
@@ -1587,4 +1690,54 @@ pub(crate) fn decode_html_entities(s: &str) -> String {
      .replace("&hellip;", "…")
      .replace("&copy;", "©")
      .replace("&reg;", "®")
+}
+
+// ─── FEL-440 — agent-registration tripwire (the MUST-FAIL direction) ──────────
+//
+// Post-refactor the registration is emitted as a codegen input, so its absence
+// when one was required is unreachable by construction. These tests exercise the
+// hard-error backstop directly: given a required registration and a body that
+// LACKS the call (the "unanchorable input" the old code silently swallowed with
+// `return base_js.to_string()`), the compiler must ERROR — not pass it through.
+#[cfg(test)]
+mod agent_registration_tripwire_tests {
+    use super::{verify_agent_registration, AgentReg};
+
+    #[test]
+    fn none_never_errors_even_with_empty_body() {
+        assert!(verify_agent_registration(AgentReg::None, "").is_ok());
+    }
+
+    #[test]
+    fn present_registration_passes() {
+        let body = "  function go() {}\n  _registerAgentDispatcher(_ctx?.element, { tag: 'x' })\n  return x\n";
+        assert!(verify_agent_registration(AgentReg::ClientDispatcher, body).is_ok());
+        let sbody = "  _registerAgentServerBinding(_ctx?.element, { tag: 'x' })\n  return x\n";
+        assert!(verify_agent_registration(AgentReg::ServerBinding, sbody).is_ok());
+    }
+
+    #[test]
+    fn client_registration_absent_is_a_hard_error() {
+        // The exact silent-drop scenario pre-FEL-440: a required client dispatcher
+        // registration missing from the body. Must be an error, not a no-op.
+        let err = verify_agent_registration(AgentReg::ClientDispatcher, "  return x\n")
+            .expect_err("absent client registration must error, never pass silently");
+        assert!(err.contains("_registerAgentDispatcher"), "error must name the missing symbol: {err}");
+        assert!(err.contains("FEL-440"), "error must be attributable: {err}");
+    }
+
+    #[test]
+    fn server_registration_absent_is_a_hard_error() {
+        let err = verify_agent_registration(AgentReg::ServerBinding, "  return x\n")
+            .expect_err("absent server registration must error, never pass silently");
+        assert!(err.contains("_registerAgentServerBinding"), "error must name the missing symbol: {err}");
+    }
+
+    #[test]
+    fn a_server_body_does_not_satisfy_a_client_requirement() {
+        // Cross-check: the wrong registration symbol must NOT satisfy the tripwire
+        // (a server binding present cannot stand in for a required client one).
+        let sbody = "  _registerAgentServerBinding(_ctx?.element, {})\n  return x\n";
+        assert!(verify_agent_registration(AgentReg::ClientDispatcher, sbody).is_err());
+    }
 }
