@@ -5,7 +5,7 @@
 committed artifacts, records corrections as loudly as wins, and keeps the receipt
 attached to every claim.
 **Seeded:** 2026-07-26.
-**Last verified:** 2026-07-26 against `origin/main` @ `8aa12dc1`
+**Last verified:** 2026-07-27 against `origin/main` @ `2350f49c` (retro C-FEL-RETRO-0727)
 
 ## Why this role exists
 
@@ -201,8 +201,51 @@ MERGEABLE.
 - **`docs/retros/` and `docs/lessons/` are not cross-linked from `docs/state/`.**
   The lesson index is discoverable only by `ls`.
 
+## 2026-07-27 — the first retro (C-FEL-RETRO-0727), and its own meta-finding
+
+The historian's **first retro ever run**, which is the finding: the `C-SWARM-RETRO`
+triggers are **spec only** (`~/.agent-swarm/docs/typed-bus-payloads.md:204`, table at
+`:214-220`), **zero implementation** — nothing auto-offers the historian work, so
+lessons were banked by hand in the orchestrator's head. Landed as **PR #657** (draft,
+docs-only, off `origin/main`), banking **eight** 2026-07-27 incidents, each with the
+three required fields (trigger / mechanism `file:line` / **promotion rung**):
+
+- The rung vocabulary now has a home: **`docs/lessons/promotion-rungs.md`** — the
+  ladder (`prose → injected-at-dispatch → structural gate`) plus the 8-incident audit
+  table. **This is the durable answer to "a lesson that only restates is rejected."**
+- New: `hyphenless-custom-element-tags.md` (5, open), `compiler-comment-apostrophe-codegen.md` (6, open),
+  `swarm-db-env-ignored.md` (2, #642), `launchd-path-and-throttle.md` (3).
+- Amended: `checked-thing-…` (1 + the exit-code **recurrence** + 8 shared-checkout),
+  `absent-value-…` (4, palette #649), `team-read-latest-ordering-bug.md` (7).
+
+**Incident 8 hit me while writing these lessons:** a shared worktree changed identity
+between turns and I force-pushed a lessons commit onto an already-merged branch
+(`e89e3c83`, orphaned on `2350f49c`; verified harmless — `#639` merged at `e71f80c0`
+first, orphan is not an ancestor of `origin/main`). **The orchestrator ruled:** it is
+a **supervisor defect, not a discipline failure**; my `git branch --show-current`
+before every commit rule is the **weakest rung** (depends on remembering); the durable
+fix — **the supervisor pinning each role's checkout per wake — is the orchestrator's,
+not mine.** The orphaned branch is the orchestrator's cleanup; **do not force-push it
+to "fix" it — that is the same error twice.**
+
+**Gate proof:** `bash scripts/check-lesson-refs.sh` → exit 0, 25 cited lessons all
+reachable. `check-lesson-refs` only validates `docs/lessons/*.md` citations — the
+`~/.swarm/*`, `packages/*`, `.github/*`, and launchd paths I cite are **not** checked
+by it, so open them yourself when auditing.
+
 ## WHAT THE NEXT INSTANCE MUST NOT REDO
 
+- **Do not re-derive the eight 2026-07-27 incidents.** They are banked with receipts
+  in `docs/lessons/` (index in `promotion-rungs.md`). Cite the rung, don't re-audit.
+- **Do not re-litigate the shared-checkout force-push (incident 8).** The rung is
+  settled: prose (branch-check) → structural (supervisor pins the checkout, the
+  orchestrator's to build). Do not touch the orphaned `e89e3c83` branch.
+- **Do not run receipt-gathering in a background subagent in this environment.** One
+  died mid-run this session (host process exited) and returned nothing; gather
+  citations foreground. You have to open every cited path yourself anyway.
+- **Report on the bus, never Slack** (founder ruling 2026-07-27). Slack is read by no
+  gate — not the reconciler, console, or Linear/GitHub sync — so a report there did
+  not happen in ledger terms. A human decision is `--kind blocked --question '…'`.
 - **Do not re-read the Slack channel from the API.** It is archived under
   `docs/state/transcripts/`, and the API copy will age out. Read the files.
 - **Do not re-verify the 24-PR merge table.** SHAs are above. If you need to check
