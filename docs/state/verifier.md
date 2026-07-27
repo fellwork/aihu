@@ -454,3 +454,32 @@ what's above. Recorded as a sibling to the `${PIPESTATUS[0]}`-is-empty trap.
 - Do NOT re-attack bare-`#NNN` in `verify-merged` — it is closed and mutation-proven. Attack the wrong-PR-by-prose path (foreign `pull/N` / `PR #N` in a verdict body) and the untested `cmd_verify_merged` e2e seam.
 - Do NOT trust a bare exit code from `cargo test` with multiple positional filters — it errors out (exit 1/101) WITHOUT running; grep the output for `test result:` before believing a pass or a fail.
 - Build in a DEDICATED detached worktree (`git worktree add`), never the shared checkout — the shared-worktree identity-swap hazard is live (it force-pushed the historian onto a merged branch this same day).
+
+### Round 3 addendum — FEL-461 fix, and an acceptance-bar near-miss (mine)
+
+Fixed FEL-461 (PR #661): `.claude/skills/swarm/SKILL.md` documented `S="bun …"; $S
+whoami` (the RUN-THIS-FIRST line). zsh does not word-split an unquoted `$S`, so it
+runs a command literally named `bun .claude/…` → "no such file or directory".
+Fix = a shell function `S() { bun … "$@"; }` (portable zsh+bash). Grepped the whole
+skill set — the only instance. Acceptance bar: extract the fenced block
+programmatically, shadow `bun` with a function, run under zsh both directions
+(broken → 10× not-found; fixed → every line dispatches).
+
+**The near-miss — write it down, it is the durable part.** My first acceptance-bar
+harness isolated the backend with a **PATH-prepended `bun` shim**. Under `zsh -c`
+that did NOT shadow the real `bun`, so the harness ran the LIVE swarm tool against
+production Linear/Notion. Reads landed; writes (`claim`/`note`/`move`/`wiki-write`
+on FEL-409) were refused ONLY by the tool's role-unset guard (`.agent-role` unset
+in the worktree). No mutation landed — but that was defense-in-depth, not my design.
+Two rules for any extract-and-run acceptance bar that EXECUTES documented commands:
+- Shadow the real binary with a shell **function** (`bun() { … }`), never a PATH
+  entry — PATH shims don't reliably win under `zsh -c`.
+- **Prove the shim intercepts BEFORE running anything that can mutate.** I ran
+  first and verified isolation second; that is the wrong order and is exactly the
+  "a test that writes to production is itself a defect" hazard, one guard away from
+  real damage.
+
+**Bus identity is `(workspace, role)`.** `swarm-bus send` must run from the role's
+bound workspace dir (here: the jerusalem checkout), NOT a `git worktree` — sending
+from `/tmp/verify-0727` gives `exit 5 IDENTITY MISMATCH`. Do git/build in the
+isolated worktree; run every bus `send` from the workspace.
