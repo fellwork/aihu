@@ -1173,8 +1173,8 @@ fn cmd_sync_pull(_args: &Args) -> rusqlite::Result<()> {
     let conn = open_db()?;
     let mut had_error = false;
     let mut pulled_ids: Vec<String> = Vec::new();
-    let (mut linear_new, mut linear_skipped) = (0i64, 0i64);
-    let (mut github_new, mut github_skipped) = (0i64, 0i64);
+    let (mut linear_new, mut linear_skipped, mut linear_linked) = (0i64, 0i64, 0i64);
+    let (mut github_new, mut github_skipped, mut github_linked) = (0i64, 0i64, 0i64);
 
     match linear_open_fel_issues() {
         Ok(issues) => {
@@ -1192,16 +1192,34 @@ fn cmd_sync_pull(_args: &Args) -> rusqlite::Result<()> {
                     continue;
                 }
                 let cid = format!("C-{identifier}");
+                // An `id` (not `linear`) collision means a hand-authored,
+                // possibly in-flight contract already owns this id. The old
+                // `INSERT OR IGNORE` silently no-opped there — which protected
+                // status/owner but left the ACTIVE contract permanently
+                // unlinked (push could never mirror it) and re-counted it
+                // "+new" on every pull. Instead: attach the linkage, touch
+                // nothing else, and report it as linked, not new.
+                let id_exists: Option<i64> = conn
+                    .query_row(
+                        "SELECT 1 FROM contract WHERE id = ?1",
+                        params![cid],
+                        |r| r.get(0),
+                    )
+                    .optional()?;
+                if id_exists.is_some() {
+                    conn.execute(
+                        "UPDATE contract SET linear = COALESCE(linear, ?1) WHERE id = ?2",
+                        params![identifier, cid],
+                    )?;
+                    linear_linked += 1;
+                    continue;
+                }
                 let ts = now_ts();
                 let note = format!("{title}\n{url}");
                 // owner is left NULL — offered to NOBODY; the
-                // orchestrator/architect assigns. `INSERT OR IGNORE` is a
-                // second idempotency layer in case `id` (not `linear`)
-                // collides, e.g. a hand-authored contract already claimed
-                // this id — in that rare case the pull silently no-ops
-                // rather than clobbering an in-flight contract.
+                // orchestrator/architect assigns.
                 conn.execute(
-                    "INSERT OR IGNORE INTO contract \
+                    "INSERT INTO contract \
                      (id, ts, issue, owner, surface, must_pass, must_fail, status, note, linear) \
                      VALUES (?1, ?2, ?3, NULL, '', '', '', 'offered', ?4, ?5)",
                     params![cid, ts, identifier, note, identifier],
@@ -1231,11 +1249,28 @@ fn cmd_sync_pull(_args: &Args) -> rusqlite::Result<()> {
                     continue;
                 }
                 let cid = format!("C-GH-{number}");
+                // Same id-collision rule as the Linear side: attach the
+                // linkage to an existing contract, never clobber it.
+                let id_exists: Option<i64> = conn
+                    .query_row(
+                        "SELECT 1 FROM contract WHERE id = ?1",
+                        params![cid],
+                        |r| r.get(0),
+                    )
+                    .optional()?;
+                if id_exists.is_some() {
+                    conn.execute(
+                        "UPDATE contract SET github_issue = COALESCE(github_issue, ?1) WHERE id = ?2",
+                        params![number, cid],
+                    )?;
+                    github_linked += 1;
+                    continue;
+                }
                 let ts = now_ts();
                 let issue_label = format!("GH-{number}");
                 let note = format!("{title}\n{url}");
                 conn.execute(
-                    "INSERT OR IGNORE INTO contract \
+                    "INSERT INTO contract \
                      (id, ts, issue, owner, surface, must_pass, must_fail, status, note, github_issue) \
                      VALUES (?1, ?2, ?3, NULL, '', '', '', 'offered', ?4, ?5)",
                     params![cid, ts, issue_label, note, number],
@@ -1251,8 +1286,10 @@ fn cmd_sync_pull(_args: &Args) -> rusqlite::Result<()> {
     }
 
     println!(
-        "pull: linear +{linear_new} new / {linear_skipped} already known (skipped); \
-         github +{github_new} new / {github_skipped} already known (skipped)"
+        "pull: linear +{linear_new} new / {linear_skipped} already known (skipped) / \
+         {linear_linked} linked to existing contract; \
+         github +{github_new} new / {github_skipped} already known (skipped) / \
+         {github_linked} linked to existing contract"
     );
     for cid in &pulled_ids {
         println!("  {cid}");
