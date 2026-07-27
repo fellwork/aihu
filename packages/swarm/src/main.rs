@@ -1469,8 +1469,154 @@ fn changed_detail(moved: bool, posted: bool, target: &str) -> String {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Agent attribution labels (founder design, 2026-07-27).
+//
+// The Linear label `agent:<role>@<city>` carries the swarm's identity tuple —
+// the same (workspace, role) the bus enforces at exit 5 — as FILTERABLE
+// metadata: "everything builder@almaty owns" is a board filter, not an
+// archaeology dig through comment bodies. The unique identifier is the AGENT
+// IDENTITY, deliberately not the contract id: identity labels are a closed
+// set bounded by the registry, per-contract labels would grow forever. The
+// contract id keeps living in the marker comment and the `linear` column.
+//
+// Honest limit unchanged (FEL-436): the label is applied by the one shared
+// credential, so it is checkable, not cryptographic. This upgrades
+// attribution from buried to queryable — no further.
+// ---------------------------------------------------------------------------
+
+/// `agent:<role>@<city>`, or `agent:<role>` when the role has no registry
+/// binding (human-driven roles the supervisor cannot vouch for).
+fn agent_label_name(role: &str, city: Option<&str>) -> String {
+    match city {
+        Some(c) => format!("agent:{role}@{c}"),
+        None => format!("agent:{role}"),
+    }
+}
+
+/// The role's workspace city (basename of its registered cwd), from the same
+/// registry `bound_identity` enforces against.
+fn agent_city(role: &str) -> Option<String> {
+    let raw = std::fs::read_to_string(agents_registry_path()).ok()?;
+    let reg: Value = serde_json::from_str(&raw).ok()?;
+    let cwd = reg.get(role)?.get("cwd")?.as_str()?;
+    std::path::Path::new(cwd)
+        .file_name()
+        .map(|b| b.to_string_lossy().to_string())
+}
+
+/// Ensure the owner's identity label is on the issue and stale `agent:*`
+/// labels are not (a contract has ONE owner; the bus refuses co-ownership,
+/// so the labels must not imply it). Returns Ok(Some(label)) when the issue
+/// actually changed, Ok(None) when it was already correct — the audit trail
+/// records only real changes.
+fn linear_ensure_agent_label(identifier: &str, role: &str) -> Result<Option<String>, String> {
+    let want = agent_label_name(role, agent_city(role).as_deref());
+
+    let number: i64 = identifier
+        .rsplit('-')
+        .next()
+        .and_then(|n| n.parse().ok())
+        .ok_or_else(|| format!("malformed linear identifier '{identifier}'"))?;
+    let query = "query($n:Float!,$team:String!){ issues(first:1, filter:{ team:{key:{eq:$team}}, \
+         number:{eq:$n} }) { nodes { id labels(first:50){ nodes { id name } } } } }";
+    let data = linear_call(query, &json!({ "n": number, "team": LINEAR_TEAM_KEY }))?;
+    let node = data
+        .pointer("/issues/nodes/0")
+        .ok_or_else(|| format!("linear issue '{identifier}' not found"))?;
+    let issue_id = node
+        .get("id")
+        .and_then(Value::as_str)
+        .ok_or("Linear: issue node missing id")?
+        .to_string();
+    let current: Vec<(String, String)> = node
+        .pointer("/labels/nodes")
+        .and_then(Value::as_array)
+        .map(|a| {
+            a.iter()
+                .filter_map(|l| {
+                    Some((
+                        l.get("id")?.as_str()?.to_string(),
+                        l.get("name")?.as_str()?.to_string(),
+                    ))
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+
+    if current.iter().any(|(_, n)| n == &want)
+        && !current.iter().any(|(_, n)| n.starts_with("agent:") && n != &want)
+    {
+        return Ok(None); // already correct — write nothing, log nothing
+    }
+
+    // Find or create the team label (lazily; the set is bounded by the
+    // registry). Colour is the brand graphite — agents are the AI axis.
+    let tq = "query($team:String!){ teams(filter:{key:{eq:$team}}, first:1){ nodes { id \
+         labels(first:250){ nodes { id name } } } } }";
+    let tdata = linear_call(tq, &json!({ "team": LINEAR_TEAM_KEY }))?;
+    let tnode = tdata
+        .pointer("/teams/nodes/0")
+        .ok_or("Linear: team FEL not found")?;
+    let team_id = tnode
+        .get("id")
+        .and_then(Value::as_str)
+        .ok_or("Linear: team node missing id")?
+        .to_string();
+    let label_id = match tnode
+        .pointer("/labels/nodes")
+        .and_then(Value::as_array)
+        .and_then(|a| {
+            a.iter().find(|l| l.get("name").and_then(Value::as_str) == Some(want.as_str()))
+        })
+        .and_then(|l| l.get("id"))
+        .and_then(Value::as_str)
+    {
+        Some(id) => id.to_string(),
+        None => {
+            let m = "mutation($name:String!,$team:String!){ issueLabelCreate(input:{ \
+                 name:$name, teamId:$team, color:\"#636a72\" }) { issueLabel { id } } }";
+            let d = linear_call(m, &json!({ "name": want, "team": team_id }))?;
+            d.pointer("/issueLabelCreate/issueLabel/id")
+                .and_then(Value::as_str)
+                .ok_or_else(|| format!("Linear: could not create label '{want}'"))?
+                .to_string()
+        }
+    };
+
+    let mut ids: Vec<String> = current
+        .iter()
+        .filter(|(_, n)| !n.starts_with("agent:"))
+        .map(|(i, _)| i.clone())
+        .collect();
+    ids.push(label_id);
+    let m = "mutation($id:String!,$ids:[String!]!){ issueUpdate(id:$id, input:{labelIds:$ids}) { success } }";
+    let d = linear_call(m, &json!({ "id": issue_id, "ids": ids }))?;
+    match d.pointer("/issueUpdate/success").and_then(Value::as_bool) {
+        Some(true) => Ok(Some(want)),
+        _ => Err(format!("Linear issueUpdate(labels) reported failure for {identifier}")),
+    }
+}
+
 fn apply_sync_event(conn: &Connection, c: &SyncContract, event: &SyncEvent) -> Result<(), String> {
-    match event {
+    // Attribution runs for every OWNED, linked contract the sync touches.
+    // Its failure must be visible (it is part of the accountability
+    // contract), but it must not block the state mirror — both legs run,
+    // both report.
+    let mut attribution_err: Option<String> = None;
+    if !matches!(event, SyncEvent::NoOp) {
+        if let (Some(identifier), Some(owner)) = (&c.linear, &c.owner) {
+            match linear_ensure_agent_label(identifier, owner) {
+                Ok(Some(label)) => log_activity(
+                    conn, &c.id, &format!("linear:{identifier}"), "attribution",
+                    &format!("label {label}"),
+                ),
+                Ok(None) => {}
+                Err(e) => attribution_err = Some(format!("linear-label: {e}")),
+            }
+        }
+    }
+    let result = match event {
         SyncEvent::NoOp => Ok(()),
         SyncEvent::ClaimAccepted => {
             let owner = c.owner.clone().unwrap_or_else(|| "unassigned".to_string());
@@ -1568,6 +1714,12 @@ fn apply_sync_event(conn: &Connection, c: &SyncContract, event: &SyncEvent) -> R
             }
             if errs.is_empty() { Ok(()) } else { Err(errs.join("; ")) }
         }
+    };
+    match (result, attribution_err) {
+        (Ok(()), None) => Ok(()),
+        (Ok(()), Some(a)) => Err(a),
+        (Err(e), None) => Err(e),
+        (Err(e), Some(a)) => Err(format!("{e}; {a}")),
     }
 }
 
@@ -1760,6 +1912,13 @@ mod tests {
 
     /// The setstatus boundary enum must stay in lockstep with classify():
     /// every status classify() handles specially is in the closed list.
+    #[test]
+    fn agent_label_carries_the_identity_tuple() {
+        assert_eq!(agent_label_name("builder", Some("almaty")), "agent:builder@almaty");
+        // No registry binding -> role-only label, never a fabricated city.
+        assert_eq!(agent_label_name("orchestrator", None), "agent:orchestrator");
+    }
+
     #[test]
     fn contract_statuses_cover_classify_arms() {
         for s in ["claimed", "building", "submitted", "verified", "DISPUTED", "unverified"] {
