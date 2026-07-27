@@ -17,36 +17,47 @@ bun run preview
 
 <code>bun run build</code> compiles all <code>.aihu</code> SFCs through the Rust compiler, bundles with Vite/Rolldown, and validates against the per-package size budgets in <code>.size-limit.json</code>. <code>bun run preview</code> serves the production build locally to verify output before deploying.
 
-## <code>defineAihuConfig</code>
+## App configuration
 
-The app configuration lives in <code>aihu.config.ts</code>:
+The app configuration is inline in <code>vite.config.ts</code>, as the argument to <code>viteAihuPlugin({...})</code> from <code>@aihu/app</code>:
 
 ~~~typescript
-import { defineAihuConfig } from '@aihu/server'
+// vite.config.ts
+import { viteAihuPlugin } from '@aihu/app'
+import { defineConfig } from 'vite'
 
-export default defineAihuConfig({
-  build: {
-    target: 'universal',
-    outDir: 'dist',
-    sourcemap: false,
-  },
-  plugins: [],
+export default defineConfig({
+  optimizeDeps: { exclude: ['@aihu/app'] },
+  plugins: [
+    viteAihuPlugin({
+      output: 'static',            // 'spa' (default) | 'static' (prerendered)
+      dir: { pages: 'src/pages' },
+      build: { bundler: 'vite' },  // 'vite' | 'rolldown'
+    }),
+  ],
 })
 ~~~
 
-Build target options: <code>'client'</code> (browser bundle only), <code>'server'</code> (server bundle only), <code>'universal'</code> (both, default).
+The config object is <code>@aihu/app</code>'s <code>AihuConfig</code>. Key fields: <code>dir</code> (pages / layouts / public / components), <code>output</code> (<code>'spa'</code> | <code>'static'</code>), <code>site</code>, <code>app.head</code>, <code>css</code> (<code>{ shadowMode: 'light' | 'shadow' }</code>), <code>agentReadiness</code>, <code>adapter</code>, and <code>build.bundler</code> (<code>'vite'</code> | <code>'rolldown'</code>). Pass the same object to <code>defineConfig</code> from <code>@aihu/app</code> to type-check it in its own file.
+
+> A standalone <code>aihu.config.ts</code> that default-exports <code>defineAihuConfig</code> from <code>@aihu/server</code> still works as a legacy fallback for server/SSR build config — including a <code>build.target</code> of <code>'client'</code>, <code>'server'</code>, or <code>'universal'</code> — but the scaffold no longer emits one, and the inline plugin config is the primary surface.
 
 ## Cloudflare Workers
 
 Use <code>@aihu/adapter-cloudflare</code> to deploy to Cloudflare Workers or Pages:
 
 ~~~typescript
-// aihu.config.ts
-import { defineConfig } from '@aihu/app'
+// vite.config.ts
+import { viteAihuPlugin } from '@aihu/app'
 import { cloudflare } from '@aihu/adapter-cloudflare'
+import { defineConfig } from 'vite'
 
 export default defineConfig({
-  adapter: cloudflare({ name: 'my-worker' }),
+  plugins: [
+    viteAihuPlugin({
+      adapter: cloudflare({ name: 'my-worker' }),
+    }),
+  ],
 })
 ~~~
 
@@ -88,12 +99,17 @@ export default { fetch: router }
 Use <code>@aihu/adapter-vercel</code> to deploy using the Vercel Build Output API v3:
 
 ~~~typescript
-// aihu.config.ts
-import { defineConfig } from '@aihu/app'
+// vite.config.ts
+import { viteAihuPlugin } from '@aihu/app'
 import { vercel } from '@aihu/adapter-vercel'
+import { defineConfig } from 'vite'
 
 export default defineConfig({
-  adapter: vercel(),
+  plugins: [
+    viteAihuPlugin({
+      adapter: vercel(),
+    }),
+  ],
 })
 ~~~
 

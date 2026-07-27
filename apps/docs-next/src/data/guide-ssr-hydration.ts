@@ -8,13 +8,33 @@
  */
 export const SSR_HYDRATION = `# SSR and Hydration
 
-aihu supports server-side rendering via <code>@aihu/server</code>. The build system supports three targets: <code>client</code>, <code>server</code>, and <code>universal</code>.
+aihu supports server-side rendering via <code>@aihu/server</code>. An app's build mode is set with <code>output</code> in the inline <code>viteAihuPlugin({...})</code> config — <code>'spa'</code> (client-rendered) or <code>'static'</code> (pages prerendered to HTML). Server-side rendering itself is provided by <code>@aihu/server</code>, whose legacy build config additionally exposes a <code>build.target</code> of <code>'client'</code>, <code>'server'</code>, or <code>'universal'</code>.
 
-## Build targets
+## Build mode and targets
 
-Set the build target in <code>aihu.config.ts</code>:
+The app build mode is set inline in <code>vite.config.ts</code> via <code>output</code>:
 
 ~~~typescript
+// vite.config.ts
+import { viteAihuPlugin } from '@aihu/app'
+import { defineConfig } from 'vite'
+
+export default defineConfig({
+  plugins: [
+    viteAihuPlugin({ output: 'static' }), // 'spa' | 'static'
+  ],
+})
+~~~
+
+| Mode | Description |
+|--------|-------------|
+| <code>spa</code> | Client-rendered single-page app. Default. |
+| <code>static</code> | Pages prerendered to static HTML at build time. |
+
+For server-side rendering, <code>@aihu/server</code>'s legacy config additionally exposes a <code>build.target</code>, set via a standalone <code>aihu.config.ts</code> that default-exports <code>defineAihuConfig</code>. This file still works as a fallback:
+
+~~~typescript
+// aihu.config.ts (legacy fallback)
 import { defineAihuConfig } from '@aihu/server'
 
 export default defineAihuConfig({
