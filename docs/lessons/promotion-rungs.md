@@ -39,7 +39,7 @@ enough that the next person cannot skip it.** Three rungs, weakest to strongest:
 > almost always that the previous fix landed on **prose** or **injected-at-dispatch**
 > when only a **structural gate** would have held.
 
-## The seven incidents of 2026-07-27 — audit table
+## The eight incidents of 2026-07-27 — audit table
 
 Every row is verifiable in the repo or the swarm tooling on disk. `file:line` cited
 where code exists; each was opened before being written here.
@@ -53,16 +53,21 @@ where code exists; each was opened before being written here.
 | 5 | Hyphenless custom-element tags (`timer`, `link`, `outlet`) are emitted and **cannot register** in a browser; the compiler **warns ~32×** per CI run and the build stays **green**. Latent, SHIPPED, still open. | `packages/compiler/src/lib.rs:431` (`&& !name.contains('-')`) gates the diagnostic; the message is at `:822`/`:825`. The emit path **keeps the historical WARNING rather than erroring** — `packages/compiler/src/bin/main.rs:160-161`: *"only component references are a hard error."* Component *references* DO hard-error: `packages/compiler/src/tags.rs:130` (C450). | **below prose** — the diagnostic is a non-failing warning in build output that nothing gates. No fix has landed. Needs promotion to a **hard error** or a CI grep-for-warning gate. See `hyphenless-custom-element-tags.md`. |
 | 6 | Two apostrophes in **adjacent line comments**, the second parenthesised, emit a stray comma-paren and break codegen. New, found while building the swarm console. | Suspected in the comment/string-aware expression splitter — `packages/compiler/src/parser/directives.rs:633-759` ("splitting inside strings, template literals, comments, and regex does not close"). **Not yet root-caused to a line.** | **prose** — now documented with a repro; fix OPEN. See `compiler-comment-apostrophe-codegen.md`. |
 | 7 | The dashboard showed a **stale** contract as an agent's *current task*, and **hid** that one agent held **two** contracts. | `~/.swarm/dashboard.py` — the per-role current-task query had **no `ORDER BY`** and took `fetchone()`, so SQLite returned an arbitrary row (yesterday's), and one row hid the multiplicity. The fix comment is at `:87-93`. | **structural** — fixed at `dashboard.py:97-98`: `… ORDER BY ts DESC` + `fetchall()`, and it now **surfaces** multiple holds instead of hiding them. Same family as `team-read-latest-ordering-bug.md`. |
+| 8 | Force-pushed onto an **already-merged** branch, orphaning a lessons commit. A worktree that **changed identity between the agent's turns** left the checkout on a different branch than the agent last saw. Disclosed unprompted; verified nothing was endangered — `#639` merged at `e71f80c0` **before** the push, and the orphaned tip `e89e3c83` is **not** an ancestor of `origin/main`, so no live work was touched. | Not a code line — a **shared checkout with no per-agent identity**. `git worktree list` shows 100+ worktrees; nothing pins which branch a role's checkout sits on across wakes, so the checkout the agent last saw is not necessarily the one it commits to. The agent's mitigation — `git branch --show-current` before every commit — is correct but **remembering-dependent**. | **prose → structural.** The branch-check-before-commit rule is **prose, the weakest rung**: it holds only while the agent remembers. The durable fix is the **supervisor pinning the checkout/branch per wake** (owned by the orchestrator, not the historian). See `checked-thing-is-not-the-changed-thing.md`, "shared checkout." |
 
 ## The through-line
 
-Five of these seven are the same shape this directory already documents — an absent
+Six of these eight are the same shape this directory already documents — an absent
 or failed value rendered as a present, passing one (`absent-value-rendered-as-real.md`),
-or a check reading the wrong subject (`checked-thing-is-not-the-changed-thing.md`).
-What the retro adds is the **rung**: incident 4's palette hole and incident 2's
-`SWARM_DB` both had prose warnings nearby and shipped anyway; they were only killed
-by a **structural** fix. Incident 5 is the counter-example still open — a real
-diagnostic that has never been promoted above a warning, so it ships every release.
+or a check reading the wrong subject (`checked-thing-is-not-the-changed-thing.md`):
+incidents 1, 2, 4, 5, 7, and 8. What the retro adds is the **rung**: incident 4's
+palette hole and incident 2's `SWARM_DB` both had prose warnings nearby and shipped
+anyway; they were only killed by a **structural** fix. Incident 5 is the
+counter-example still open — a real diagnostic that has never been promoted above a
+warning, so it ships every release. Incident 8 is the retro's own author hitting the
+shared-checkout hazard **while writing these lessons** — the sharpest proof that the
+rung, not the writing-down, is what holds: this file existed and did not prevent it,
+because a lessons file is prose and the checkout has no structural identity.
 
 **When you fix one of these, write down which rung you landed on. If it is prose,
 say so, and say what the structural gate would be — because prose is the rung these

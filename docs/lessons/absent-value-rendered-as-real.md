@@ -238,6 +238,31 @@ gh api repos/:owner/:repo/commits/<sha>/check-runs \
 **A green `ci-ok` is necessary and not sufficient. Read the conclusion of the job
 underneath it.**
 
+### The seventh, found 2026-07-27: being in `needs` is not being gated on
+
+A new instance of the same family, one layer more insidious than #1-#6 because the
+job actually **ran and concluded RED**. The `palette` brand-contract check failed,
+and `ci-ok` — the **sole required context** — reported **green**.
+
+- `palette` was in `ci-ok`'s `needs:`, so the gate *waited* for it — which looks
+  exactly like being gated on it.
+- But the aggregation loop in `.github/workflows/plan-a.yml` only iterated
+  `check / examples / governed-examples / lesson-refs`. **`palette`'s result was
+  never read**, so its RED could not turn `ci-ok` red. *"Being in `needs` is not
+  being gated on."* The job's own conclusion was the value; the loop was an absent
+  reader of it.
+
+This is `#1` (a gate that reads nothing about the subject) wearing the costume of a
+correctly-wired dependency. `needs:` controls **ordering**; the gate loop controls
+**verdict**; they are different lists and the second silently omitted a job.
+
+**Promotion rung: structural gate.** Fixed in **#649** (`d1e2af0d`) —
+`PALETTE_RESULT: ${{ needs.palette.result }}` (`plan-a.yml:396`) and
+`"palette:$PALETTE_RESULT"` appended to the `for pair in …` loop (`:410`). Not a
+prose warning to reviewers ("remember to check palette"), which would have been the
+weak rung: a required job's result is now read by the machine that computes the
+verdict. See `promotion-rungs.md`, incident 4.
+
 **And the trigger scope documents the property it does not have.** `plan-a.yml:17`
 reads *"the workflow must trigger on EVERY PR so the always-on `ci-ok` job reports
 a required status"* — three lines under `branches: [main]`. A stacked PR gets no

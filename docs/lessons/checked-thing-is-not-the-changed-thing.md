@@ -67,6 +67,8 @@ And the reply that adopted it:
 
 | 28 | The PR's own 5-file diff | **25 files, including two other agents' merged work** | Builder-b listing #622's blast radius: a **two-dot** diff against a **stale local `origin/main`** returned `examples/hacker-news/**` and `docs/state/builder.md` — other people's landed changes, read as theirs. `git fetch` + **three-dot** `...` gives the real answer: **5 files.** They would have reported a 25-file blast radius across two surfaces they do not own. *"The thing I compared against was not the thing I thought it was."* Two independent causes in one command: a stale ref **and** the wrong dot count |
 | 29 | This PR's `matrix` result | **A remembered result from a different PR** | Builder-b nearly reported *"matrix is environmental"* by carrying forward the #609 analysis — while their diff **deletes `packages/cli/src/templates/`**, making *"scaffold still works"* the one claim they were least entitled to assume. Re-ran the grid instead: **all four CLI templates scaffold `ok` on every package manager**, and the only product-red cell is `cf-team × bun typecheck` = FEL-431, which is *supposed* to be red. **A conclusion is scoped to the premises it was drawn under; changing the diff changes the premises** |
+| 30 | Whether the `git checkout` **succeeded** | **Whether the script kept running** | 2026-07-27 (retro incident 1): an ad-hoc `checkout; rebase; push --force` chain ran `git checkout <branch>`, which **failed with exit 128** because the branch was checked out in **another worktree** (git refuses that) — and the chain **continued anyway**, rebasing and force-pushing an **unrelated** branch over a builder's PR. Repaired from the `almaty` worktree; **no work lost**. The exit code carried the whole truth and nothing read it. The correct pattern was one file over the whole time: `~/.agent-swarm/transport/wire-workspace.sh:21` (`set -uo pipefail`) with `\|\| die` on every step. See "The recurrence" below |
+| 31 | The branch the agent **last saw** in its checkout | **The branch the shared worktree was on THIS wake** | 2026-07-27 (retro incident 8): the historian force-pushed a lessons commit onto an **already-merged** branch because the shared worktree had changed identity between turns and sat on a different branch than the previous turn left it. Disclosed unprompted and verified harmless — `#639` had merged at `e71f80c0` first, and the orphaned tip `e89e3c83` is **not** an ancestor of `origin/main`. The mitigation — `git branch --show-current` before every commit — is **prose that depends on remembering** (the weakest rung); the durable fix is the **supervisor pinning each role's checkout per wake** (orchestrator-owned). Third shared-checkout instance, with #10 and #28 — the social-convention mitigation failed again, this time with a force-push |
 
 ## Instance 20 in full: two agents, one file, opposite conclusions, and the tie-break
 
@@ -206,6 +208,54 @@ bisect before regenerating.** This is why the STOP in
    (`git worktree list`), the primary checkout is on whatever branch someone left
    it on.
 
+## The recurrence (named 2026-07-27): a failed command read as success because its exit code was not checked
+
+This is the sub-family the retro was told to name, and the naming carries a
+promotion-rung finding (`promotion-rungs.md`). **Incident 1 above (row #30) and an
+earlier incident the same morning are the SAME failure:** a command failed, its
+nonzero exit was never inspected, and the surrounding logic proceeded as if it had
+succeeded. It is the shell-level form of the whole directory — *"not evaluated"
+rendered as *"passed""* (`absent-value-rendered-as-real.md`), where the "not
+evaluated" is a command that ran, failed, and was waved through.
+
+**The same shape, already in this file and in the tooling:**
+
+- Row **#30** — `git checkout` exits 128 (branch held elsewhere), the chain
+  force-pushes the wrong branch.
+- Row **#22** — a `bun` shim failing to download itself (`exit=1`) nearly recorded
+  **PASS**; the script never ran.
+- Row **#24** — `git commit --amend` without `git add` left the file unstaged; the
+  remote carried the false claim for ~50 minutes.
+- Row **#26** — the zsh word-split cluster: a command that silently did something
+  other than intended.
+- `~/.swarm/supervisor.py:82-96` — the **documented sibling**: every `bus(…)` call
+  passed `check=False`, so bus failures *"failed SILENTLY: no wake failure has ever
+  reached the bus, and the ERRORS panel was structurally empty while agents sat
+  stalled."* Now guarded — `bus()` defaults to `check=True` and **raises** on a bad
+  exit (`supervisor.py:95`).
+
+**Why the earlier fix did not prevent the later one — state it plainly:** every
+prior remedy landed on **prose or a per-script idiom**, never a **structural gate
+that all shell orchestration inherits**. `wire-workspace.sh` got `set -uo pipefail`
+and `\|\| die` on every line — a *local* fix to *one* script. The lessons file got
+rows #22/#24/#26 — *prose*. `supervisor.py` got `check=True` — a *local* fix to *one*
+module. None of these reaches an **ad-hoc `checkout; rebase; push --force` chain
+typed at a shell**, because that chain went through none of the guarded paths. Prose
+does not execute; a per-file idiom protects only that file. So the failure recurred
+in the one place no one had hardened, which is exactly where the *next* one will be.
+
+> **An exit code is a value, and an unchecked exit code is an absent value rendered
+> as success.** The only rung that holds is structural: `set -euo pipefail` (or an
+> explicit exit-code check, or a wrapper that refuses to continue past a failed
+> `git` op) as the **default for every orchestration script**, not a habit applied
+> where someone remembered. Until the guard is universal, "we have a lesson about
+> this" is itself an instance of the lesson: a fix that lives as prose.
+
+**Promotion rung: prose / per-script idiom → needs a universal structural default.**
+The stopgap that would have caught incident 1: no `git` mutation (`rebase`,
+`push --force`) runs in a script that did not begin with `set -euo pipefail`, or that
+does not gate each destructive step on the prior command's exit status.
+
 ## Fix / recipe
 
 1. **Make the gate name its subject, in its own output.** Print the resolved path,
@@ -251,7 +301,11 @@ every green run of it was read as evidence, and every one of them was measuring 
 - **A skip must be neutral, not green** — see #10 in
   `absent-value-rendered-as-real.md`. Open, unassigned.
 - **Per-agent checkout ownership** is enforced by nothing but a social convention
-  (*"I will post before I move it"*).
+  (*"I will post before I move it"*). **Recurred with real damage on 2026-07-27**
+  (instance #31): a worktree that changed identity between turns led to a force-push
+  onto an already-merged branch. The `git branch --show-current`-before-every-commit
+  rule is prose that depends on remembering; **the durable fix is structural — the
+  supervisor pins each role's checkout/branch per wake.** Owned by the orchestrator.
 
 ## Related
 
