@@ -30,6 +30,10 @@
         if (!text) return
         todos = [...todos(), { id: newId(), text, done: false }]
         draft = ''
+        // Refocus the new-todo input via the ref captured on mount, so rapid
+        // entry keeps the caret in place. This is the behavior the `inputEl`
+        // comment promises; FEL-441 makes the captured ref reliable.
+        inputEl?.focus()
       })
   const toggle = action((id: string) => {
       todos = todos.map(t => t.id === id ? { ...t, done: !t.done } : t)
