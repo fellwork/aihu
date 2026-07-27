@@ -73,6 +73,53 @@ because a lessons file is prose and the checkout has no structural identity.
 say so, and say what the structural gate would be — because prose is the rung these
 failures climb back over.**
 
+## Coordination addendum (2026-07-27, architect triage batch 5): one defect, two contracts
+
+A finding that arrived after the eight above, flagged by the architect with the exact
+words *"the failure this system exists to prevent"* and *"No durable state"* — so it
+is banked here, which is the whole point of the file.
+
+**Two contracts describe one defect.** `C-FEL-423` (full template emits an empty
+agent-readiness surface) and `C-FEL-434` (client-target builds elide
+`registerAgentMetadata`, so `llms.txt` asserts no components) resolve to the **same
+line**: `packages/compiler/src/codegen/emit.rs:249` —
+`let elide_agent = target == BuildTarget::Client && is_agent_component` — which drops
+the module-scope `registerAgentMetadata({ … })` (`emit.rs:369-398`) that populates
+the registry the generator reads. Verified on `origin/main`, and
+`packages/cli/tests/scaffold-default-e2e.test.ts:103` names it in a comment:
+*"KNOWN GAP — the remaining half of FEL-423, deliberately NOT asserted."* One
+`elide_agent` fix satisfies both contracts.
+
+**Why this is dangerous, not just redundant.** `C-FEL-434` is **claimed and in flight**
+by a builder editing `emit.rs`. Offering `C-FEL-423` as separate build work would put
+a **second** builder into the same `elide_agent` branch — the *force-push-onto-claimed-work*
+hazard (retro incident 8, and the FEL-425 duplicate-work collision) one level up. The
+architect correctly **declined to re-offer** it.
+
+**The rung.** Detection today is **prose / human triage** — the architect caught it by
+reading `emit.rs`, not from any gate. The structural gate has a **precedent already in
+the bus**: `packages/swarm/src/main.rs:1312-1344` refuses a second contract that reuses
+a `github_issue` or `linear` id (*"CONFLICT: … already claimed by contract '…'"*). But
+`423` and `434` carry **different** tracker ids and the **same code surface**, so the
+dedup — keyed on tracker id, not on the declared surface — never fires.
+
+> **prose (human triage) → structural.** The dedup that exists for tracker ids
+> (`main.rs:1312-1344`) needs a sibling keyed on the **declared surface** (file +
+> symbol), so two contracts naming `emit.rs::elide_agent` collide the way two naming
+> `linear FEL-434` already do. Failing that, a `needs`-link `423 → 434`.
+
+**Reported, not independently pinned to a line:** the architect also notes that
+done/blocked/duplicate contracts keep **recirculating** (dispositioned 2-4× — e.g.
+C-FEL-425/430/437 merged, C-FEL-433 blocked) because *"nothing moves a done/blocked
+item out of the offered + bar-empty selector."* I confirmed the duplicate and the
+dedup gap above from source; I did **not** locate the offer selector's line, so that
+recirculation claim is carried as the architect's, its rung the same shape:
+**structural** — the selector must exclude terminal-state contracts
+(`verified`/`no-claims`/merged/`blocked`), not rely on manual disposition. Closing
+`423` (first-half-done + remainder-covered-by-`434`) and the selector fix are the
+**orchestrator's / reconcile's** calls, not the historian's — banked here so they are
+not re-derived a fifth time.
+
 ## Related
 
 - `checked-thing-is-not-the-changed-thing.md` — the recurrence (incident 1) and the exit-code-not-checked family
