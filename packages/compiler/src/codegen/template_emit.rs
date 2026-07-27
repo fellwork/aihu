@@ -1,8 +1,67 @@
+use std::cell::RefCell;
+
 use crate::codegen::signals::{SignalMap, StateNames};
 use crate::expr::ExprParserMode;
 use crate::types::{Attr, MacroValue, TemplateNode};
 use super::emit::decode_html_entities;
 use super::sidecar_ts::{extract_pattern_idents, push_alias_bindings};
+
+/// FEL-441 — ref/onMount ORDER context, threaded through the template emitter.
+///
+/// `$ref={sig}` writes the element node to `sig` from an `onMount`. That
+/// registration was emitted INLINE in the `return <tree>` expression — i.e.
+/// AFTER `macro_code`, where the author's `@state onMount` callbacks live. The
+/// runtime dispatches mount callbacks in registration order (`for (t of e.m)`),
+/// so a `@state onMount` that reads the ref ran BEFORE the setter and saw the
+/// unset (null) value. Founder ruling (GH #637, option a): register the
+/// ref-setting `onMount` BEFORE the `@state` callbacks.
+///
+/// To do that without the forbidden whole-body reorder (emit.rs Defect-A
+/// invariant; signals.rs "reactive-correctness risk — user decision"), an
+/// owner-scope `$ref` is HOISTED: its inline IIFE assigns the node descriptor
+/// to a setup-scoped holder (`__aihu_ref_N`) at tree-build time, and a matching
+/// `onMount` — collected in `sink` and spliced in BEFORE `macro_code` by
+/// emit.rs — reads `holder.el` at mount. Because it registers first, it runs
+/// first, so the ref is populated by the time any `@state onMount` runs.
+///
+/// `owner_scope` is true only where a hoisted `onMount` shares the component
+/// setup owner with the `@state` callbacks — i.e. NOT inside an `each`/`if`/
+/// `once`/`memo` factory or a block boundary (those re-run in their own owner,
+/// where the current inline try/catch registration is retained unchanged).
+#[derive(Clone, Copy)]
+pub(crate) struct RefHoist<'a> {
+    owner_scope: bool,
+    sink: Option<&'a RefCell<Vec<String>>>,
+}
+
+impl<'a> RefHoist<'a> {
+    /// The non-hoisting context — used everywhere a ref cannot share the
+    /// component setup owner (block bodies, factory item subtrees, SSR).
+    pub(crate) fn none() -> Self {
+        RefHoist { owner_scope: false, sink: None }
+    }
+
+    /// The top-level owner context, created once by emit.rs with the sink that
+    /// receives the hoisted registrations.
+    pub(crate) fn owner(sink: &'a RefCell<Vec<String>>) -> Self {
+        RefHoist { owner_scope: true, sink: Some(sink) }
+    }
+
+    /// Descend into a child subtree, staying in owner scope only while
+    /// `still_owner` holds (false at an `each`/`if`/`once`/`memo` boundary).
+    fn child(self, still_owner: bool) -> Self {
+        RefHoist { owner_scope: self.owner_scope && still_owner, sink: self.sink }
+    }
+}
+
+/// True when `attrs` carry a directive that wraps the element (and therefore
+/// its `$ref`/children) in a re-running factory or reconcile boundary, so a
+/// `$ref` on or under it does NOT share the component setup owner.
+fn attrs_open_factory(attrs: &[Attr]) -> bool {
+    attrs.iter().any(|a| {
+        matches!(a, Attr::Macro { name, .. } if matches!(name.as_str(), "if" | "each" | "once" | "memo"))
+    })
+}
 // ─── Template emission helpers ────────────────────────────────────────────────
 
 pub(crate) fn emit_nodes(
@@ -11,10 +70,11 @@ pub(crate) fn emit_nodes(
     state_names: &StateNames,
     child_indent: &str,
     mode: ExprParserMode,
+    rh: RefHoist,
 ) -> String {
     let non_empty: Vec<String> = nodes
         .iter()
-        .map(|n| emit_node(n, signal_map, state_names, child_indent, mode))
+        .map(|n| emit_node(n, signal_map, state_names, child_indent, mode, rh))
         .filter(|s| !s.is_empty())
         .collect();
 
@@ -131,6 +191,7 @@ pub(crate) fn emit_node(
     state_names: &StateNames,
     child_indent: &str,
     mode: ExprParserMode,
+    rh: RefHoist,
 ) -> String {
     match node {
         TemplateNode::Text(s) => match normalize_text_node(s) {
@@ -258,7 +319,7 @@ pub(crate) fn emit_node(
                     attrs, children, signal_map, state_names, child_indent, mode,
                 );
                 let effects =
-                    emit_macro_effects(attrs, "el", &base, child_indent, signal_map, mode);
+                    emit_macro_effects(attrs, "el", &base, child_indent, signal_map, mode, rh);
                 return if effects.is_empty() {
                     base
                 } else {
@@ -295,13 +356,18 @@ pub(crate) fn emit_node(
                 .iter()
                 .any(|c| matches!(c, TemplateNode::Element { .. }));
             let next_indent = format!("{}  ", child_indent);
+            // FEL-441: children of a plain element stay in owner scope; an
+            // element-level `each`/`if`/`once`/`memo` opens a factory boundary,
+            // so its subtree drops out of owner scope (the `$ref` there keeps
+            // the inline registration).
+            let child_rh = rh.child(!attrs_open_factory(attrs));
             let non_empty_children: Vec<String> = if is_raw {
                 // $raw: no child processing
                 Vec::new()
             } else {
                 children
                     .iter()
-                    .map(|c| emit_node(c, inner_signal_map, inner_state_names, &next_indent, mode))
+                    .map(|c| emit_node(c, inner_signal_map, inner_state_names, &next_indent, mode, child_rh))
                     .filter(|s| !s.is_empty())
                     .collect()
             };
@@ -344,7 +410,7 @@ pub(crate) fn emit_node(
             // Emit macro effects (wrapping/side-effect macros). Per-item
             // positions use the loop-scoped map; the each LIST uses the outer.
             let effects = emit_macro_effects_scoped(
-                attrs, "el", &base, child_indent, inner_signal_map, signal_map, mode,
+                attrs, "el", &base, child_indent, inner_signal_map, signal_map, mode, rh,
             );
             if effects.is_empty() {
                 base
@@ -367,7 +433,7 @@ pub(crate) fn emit_node(
             // above. Without this, directives on macro elements were silently
             // dropped (e.g. `each` left a dangling loop var).
             let effects = emit_macro_effects_scoped(
-                attrs, "el", &base, child_indent, inner_signal_map, signal_map, mode,
+                attrs, "el", &base, child_indent, inner_signal_map, signal_map, mode, rh,
             );
             if effects.is_empty() {
                 base
@@ -425,7 +491,7 @@ fn emit_if_block(
         let next_indent = format!("{}  ", child_indent);
         let parts: Vec<String> = body
             .iter()
-            .map(|c| emit_node(c, signal_map, state_names, &next_indent, mode))
+            .map(|c| emit_node(c, signal_map, state_names, &next_indent, mode, RefHoist::none()))
             .filter(|s| !s.is_empty())
             .collect();
         if parts.is_empty() {
@@ -608,7 +674,7 @@ pub(crate) fn emit_each_block(
     let next_indent = format!("{}  ", child_indent);
     let body_parts: Vec<String> = body
         .iter()
-        .map(|c| emit_node(c, body_signal_map, body_state_names, &next_indent, mode))
+        .map(|c| emit_node(c, body_signal_map, body_state_names, &next_indent, mode, RefHoist::none()))
         .filter(|s| !s.is_empty())
         .collect();
     let body_str = if body_parts.len() == 1 {
@@ -665,7 +731,7 @@ pub(crate) fn emit_each_block(
     if let Some(eb) = empty_body {
         let empty_parts: Vec<String> = eb
             .iter()
-            .map(|c| emit_node(c, signal_map, state_names, &next_indent, mode))
+            .map(|c| emit_node(c, signal_map, state_names, &next_indent, mode, RefHoist::none()))
             .filter(|s| !s.is_empty())
             .collect();
         let empty_str = if empty_parts.len() == 1 {
@@ -729,7 +795,7 @@ fn emit_macro_element(
             // emit_nodes already yields the leanest fragment shape: a single
             // child passes through; multiple children wrap in a fragment
             // branch; an empty group renders nothing.
-            emit_nodes(children, signal_map, state_names, &next_indent, mode)
+            emit_nodes(children, signal_map, state_names, &next_indent, mode, RefHoist::none())
         }
 
         // ── <slot> ───────────────────────────────────────────────────────────
@@ -750,7 +816,7 @@ fn emit_macro_element(
             let children_subtree = if children.is_empty() {
                 String::new()
             } else {
-                emit_nodes(children, signal_map, state_names, &next_indent, mode)
+                emit_nodes(children, signal_map, state_names, &next_indent, mode, RefHoist::none())
             };
 
             let child_fn = if children_subtree.is_empty() {
@@ -779,8 +845,8 @@ fn emit_macro_element(
 
             let (fallback_children, loaded_children) = split_slot_fallback(children);
 
-            let fallback_subtree = emit_nodes(&fallback_children, signal_map, state_names, &next_indent, mode);
-            let loaded_subtree = emit_nodes(&loaded_children, signal_map, state_names, &next_indent, mode);
+            let fallback_subtree = emit_nodes(&fallback_children, signal_map, state_names, &next_indent, mode, RefHoist::none());
+            let loaded_subtree = emit_nodes(&loaded_children, signal_map, state_names, &next_indent, mode, RefHoist::none());
 
             format!(
                 "createSuspenseBoundary({}, () => {{ return {} }}, () => {{ return {} }})",
@@ -792,8 +858,8 @@ fn emit_macro_element(
         "shield" => {
             let (fallback_children, main_children) = split_slot_fallback(children);
 
-            let main_subtree = emit_nodes(&main_children, signal_map, state_names, &next_indent, mode);
-            let fallback_subtree = emit_nodes(&fallback_children, signal_map, state_names, &next_indent, mode);
+            let main_subtree = emit_nodes(&main_children, signal_map, state_names, &next_indent, mode, RefHoist::none());
+            let fallback_subtree = emit_nodes(&fallback_children, signal_map, state_names, &next_indent, mode, RefHoist::none());
 
             format!(
                 "createShieldBoundary(() => {{ return {} }}, (shield) => {{ return {} }})",
@@ -825,7 +891,7 @@ fn emit_macro_element(
                     scope_name
                 );
 
-                let main_subtree = emit_nodes(children, signal_map, state_names, &next_indent, mode);
+                let main_subtree = emit_nodes(children, signal_map, state_names, &next_indent, mode, RefHoist::none());
                 // Lower to: when(getScopeSignal('scope'), () => branch(...children...))
                 // `getScopeSignal` is imported from `@aihu/auth` at consumer build time.
                 // The guard_boundary helper is not used for scope-form; when() is used directly.
@@ -840,8 +906,8 @@ fn emit_macro_element(
 
                 let (fallback_children, main_children) = split_slot_fallback(children);
 
-                let main_subtree = emit_nodes(&main_children, signal_map, state_names, &next_indent, mode);
-                let fallback_subtree = emit_nodes(&fallback_children, signal_map, state_names, &next_indent, mode);
+                let main_subtree = emit_nodes(&main_children, signal_map, state_names, &next_indent, mode, RefHoist::none());
+                let fallback_subtree = emit_nodes(&fallback_children, signal_map, state_names, &next_indent, mode, RefHoist::none());
 
                 format!(
                     "createGuardBoundary({}, () => {{ return {} }}, (guard) => {{ return {} }})",
@@ -858,7 +924,7 @@ fn emit_macro_element(
             let target_expr = find_static_or_binding_attr(attrs, "target")
                 .unwrap_or_else(|| "undefined".to_string());
 
-            let children_subtree = emit_nodes(children, signal_map, state_names, &next_indent, mode);
+            let children_subtree = emit_nodes(children, signal_map, state_names, &next_indent, mode, RefHoist::none());
             let child_fn = format!("() => {{ return {} }}", children_subtree);
 
             format!(
@@ -885,7 +951,7 @@ fn emit_macro_element(
                 .map(|v| v != "false")
                 .unwrap_or(true);
             let atomic_str = if atomic { "true" } else { "false" };
-            let children_subtree = emit_nodes(children, signal_map, state_names, &next_indent, mode);
+            let children_subtree = emit_nodes(children, signal_map, state_names, &next_indent, mode, RefHoist::none());
             // children_subtree is the wrapped branch; we want its children only. Easiest:
             // emit a branch wrapping the existing subtree as a single fragment child.
             format!(
@@ -897,7 +963,7 @@ fn emit_macro_element(
         // <$visuallyHidden> — RFC-A5-020. Pure CSS span; sr-only class injected
         // once at component mount via _ensureA11yStyles().
         "visuallyHidden" => {
-            let children_subtree = emit_nodes(children, signal_map, state_names, &next_indent, mode);
+            let children_subtree = emit_nodes(children, signal_map, state_names, &next_indent, mode, RefHoist::none());
             format!(
                 "branch('span', {{ class: 'aihu-sr-only' }}, [{}])",
                 children_subtree
@@ -908,7 +974,7 @@ fn emit_macro_element(
         // injected once at component mount.
         "skipLink" => {
             let target = find_static_attr(attrs, "target").unwrap_or("#main");
-            let children_subtree = emit_nodes(children, signal_map, state_names, &next_indent, mode);
+            let children_subtree = emit_nodes(children, signal_map, state_names, &next_indent, mode, RefHoist::none());
             format!(
                 "branch('a', {{ href: '{}', class: 'aihu-skip-link' }}, [{}])",
                 target, children_subtree
@@ -965,7 +1031,7 @@ fn emit_macro_element(
                 None => "null".to_string(),
             };
 
-            let children_subtree = emit_nodes(children, signal_map, state_names, &next_indent, mode);
+            let children_subtree = emit_nodes(children, signal_map, state_names, &next_indent, mode, RefHoist::none());
             format!(
                 "createFocusTrap({}, {}, {}, () => {{ return {} }})",
                 active_expr, return_focus, initial_focus, children_subtree
@@ -981,7 +1047,7 @@ fn emit_macro_element(
                 .unwrap_or_else(|| "__aihuRouter.createRouter((globalThis.__aihu_routes ?? []))".to_string());
             let vt_expr = find_static_or_binding_attr(attrs, "viewTransitions")
                 .unwrap_or_else(|| "false".to_string());
-            let children_subtree = emit_nodes(children, signal_map, state_names, &next_indent, mode);
+            let children_subtree = emit_nodes(children, signal_map, state_names, &next_indent, mode, RefHoist::none());
             format!(
                 "createRouterBoundary({}, {}, () => {{ return {} }})",
                 router_expr, vt_expr, children_subtree
@@ -1026,7 +1092,7 @@ fn emit_macro_element(
             let children_subtree = if children.is_empty() {
                 "[]".to_string()
             } else {
-                let inner = emit_nodes(children, signal_map, state_names, &next_indent, mode);
+                let inner = emit_nodes(children, signal_map, state_names, &next_indent, mode, RefHoist::none());
                 format!("[{}]", inner)
             };
             format!(
@@ -1051,7 +1117,7 @@ fn emit_macro_element(
 
         // ── Unknown macro element ─────────────────────────────────────────────
         _ => {
-            let children_subtree = emit_nodes(children, signal_map, state_names, &next_indent, mode);
+            let children_subtree = emit_nodes(children, signal_map, state_names, &next_indent, mode, RefHoist::none());
             format!(
                 "/* <${}> unknown macro element — passthrough */ {}",
                 name, children_subtree
@@ -1214,7 +1280,7 @@ fn emit_enhanced_anchor(
     let children_subtree = if children.is_empty() {
         "[]".to_string()
     } else {
-        let inner = emit_nodes(children, signal_map, state_names, &next_indent, mode);
+        let inner = emit_nodes(children, signal_map, state_names, &next_indent, mode, RefHoist::none());
         format!("[{}]", inner)
     };
     format!(
@@ -2388,6 +2454,11 @@ enum ElemEffect {
     Html(String),
     Class(String, String),
     Ref(String),
+    /// FEL-441: an owner-scope `$ref` whose `onMount` was hoisted ahead of the
+    /// `@state` callbacks. The IIFE only assigns the node descriptor to the
+    /// named setup-scoped holder (`__aihu_ref_N`); the registration lives in the
+    /// hoisted block emit.rs splices before `macro_code`.
+    RefHoisted(String),
 }
 
 impl ElemEffect {
@@ -2418,6 +2489,13 @@ impl ElemEffect {
             ElemEffect::Ref(setter_call) => format!(
                 "{}(() => {{ const _n = {}; try {{ onMount(() => {{ const _el = _n && _n.el; if (_el) {{ {} }}; return () => {{}}; }}); }} catch {{}} return _n; }})()",
                 indent, inner, setter_call
+            ),
+            // FEL-441: no onMount here — the descriptor is assigned to the
+            // hoisted holder synchronously at tree-build; the registration that
+            // reads `holder.el` runs before macro_code (emit.rs).
+            ElemEffect::RefHoisted(holder) => format!(
+                "{}(() => {{ const _n = {}; {} = _n; return _n; }})()",
+                indent, inner, holder
             ),
         }
     }
@@ -2499,8 +2577,9 @@ pub(crate) fn emit_macro_effects(
     indent: &str,
     signal_map: &SignalMap,
     mode: ExprParserMode,
+    rh: RefHoist,
 ) -> Vec<String> {
-    emit_macro_effects_scoped(attrs, _el_var, subtree, indent, signal_map, signal_map, mode)
+    emit_macro_effects_scoped(attrs, _el_var, subtree, indent, signal_map, signal_map, mode, rh)
 }
 
 /// `signal_map` scopes per-item positions (`if`/`key`/effects — loop binders
@@ -2514,7 +2593,13 @@ fn emit_macro_effects_scoped(
     signal_map: &SignalMap,
     list_signal_map: &SignalMap,
     mode: ExprParserMode,
+    rh: RefHoist,
 ) -> Vec<String> {
+    // FEL-441: a `$ref` on THIS element is hoisted only when it shares the
+    // component setup owner — i.e. the incoming scope is owner scope AND this
+    // element does not itself open an `each`/`if`/`once`/`memo` factory (whose
+    // boundary wraps the ref innermost, moving it into the factory's owner).
+    let hoist_ref = rh.owner_scope && !attrs_open_factory(attrs);
     let mut elem_effects: Vec<ElemEffect> = Vec::new();
     let mut once = false;
     let mut memo_deps: Option<String> = None;
@@ -2648,7 +2733,23 @@ fn emit_macro_effects_scoped(
                     // Plain identifier reassignment in scope.
                     format!("{} = _el", trimmed)
                 };
-                elem_effects.push(ElemEffect::Ref(setter_call));
+                // FEL-441: in owner scope, HOIST the ref-setter's onMount ahead
+                // of the `@state` callbacks. The inline IIFE assigns the node
+                // descriptor to a setup-scoped holder at tree-build time; the
+                // hoisted onMount (spliced before macro_code by emit.rs) reads
+                // `holder.el` at mount, so the ref is set before any `@state`
+                // onMount runs. Outside owner scope (each/if/once/memo factory,
+                // SSR), keep the inline try/catch registration unchanged.
+                match rh.sink {
+                    Some(sink) if hoist_ref => {
+                        let holder = format!("__aihu_ref_{}", sink.borrow().len());
+                        sink.borrow_mut().push(format!(
+                            "let {holder} = null; try {{ onMount(() => {{ const _el = {holder} && {holder}.el; if (_el) {{ {setter_call} }}; return () => {{}}; }}); }} catch {{}}"
+                        ));
+                        elem_effects.push(ElemEffect::RefHoisted(holder));
+                    }
+                    _ => elem_effects.push(ElemEffect::Ref(setter_call)),
+                }
             }
             // Risk-7 closure (spec-template-syntax-v2 §"Codegen hardening —
             // silent-drop fix"): the parser now rejects unreserved
