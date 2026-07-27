@@ -103,7 +103,11 @@ if (mode === 'ssr') {
   close()
   console.log(JSON.stringify(result, null, 2))
   const pass = result.connected === false && result.eventSourceConstructions === 0
-  console.log(pass ? 'MUST-FAIL PASS: no EventSource constructed under SSR, connected=false' : 'MUST-FAIL VIOLATION')
+  console.log(
+    pass
+      ? 'MUST-FAIL PASS: no EventSource constructed under SSR, connected=false'
+      : 'MUST-FAIL VIOLATION',
+  )
   process.exit(pass ? 0 : 1)
 } else {
   const { agents, connected, close } = useSwarm({ url: BUS_URL })
