@@ -1,0 +1,111 @@
+/* =============================================================================
+   swarm-console — Tailwind v4 theme. The style-lock's dark-column tokens
+   (`.tastemaker/style-lock.md`, itself sourced from
+   `packages/css-engine/src/packs.ts`'s `aihuDefault.dark` for the semantic
+   state trio) realized AS Tailwind `@theme` tokens — this file is now the
+   single source of truth for every color/type value the app uses. Utilities
+   like `bg-bg`, `text-ink`, `border-border`, `text-success` exist because
+   they're declared here; nothing in this app should ever write a raw hex.
+
+   This is a dark-only ops console (per the founder brief), same posture as
+   the tokens.css this file replaces: one column, no `:root`/`.dark` split,
+   no light-mode fallback.
+
+   Spacing: the lock's 4px grid IS Tailwind v4's default `--spacing: 0.25rem`
+   scale (`p-6` = 1.5rem = 24px = the lock's `--sp-5`, etc.) — no custom
+   spacing scale needed; every utility below just uses Tailwind's stock `p-*`
+   / `gap-*` / gap numbers against that shared 4px unit.
+   ============================================================================ */
+
+@import "tailwindcss";
+
+@theme {
+  /* ---- brand + neutral ramp (dark, verbatim from the lock) ---- */
+  --color-bg: #14161c; /* page canvas */
+  --color-surface: #1a1d24; /* cards / raised rows */
+  --color-ink: #ece9e2; /* primary text */
+  --color-border: #2b3038; /* hairlines */
+  --color-muted: #a39a92; /* de-emphasized text */
+  --color-graphite: #aab0bd; /* AI/governance axis neutral — unused for
+                                 identity here (no human/AI duality story in
+                                 this app); kept available per the lock */
+
+  /* ---- accent: terracotta, identity + liveness ONLY (rare, per the lock) ---- */
+  --color-accent: #e0674b;
+
+  /* ---- semantic state tones (daihui layer, packages/css-engine/src/packs.ts,
+     dark column) — placement-restricted to chips/flags, never decoration ---- */
+  --color-info: #8fadc8;
+  --color-success: #84b898;
+  --color-warning: #d8a848;
+  --color-neutral: #636a72;
+  --color-destructive: #f08070;
+
+  /* ---- type — Geist + Geist Mono, self-hosted (@font-face in base.css,
+     Tailwind can't author @font-face) ---- */
+  --font-sans: "Geist", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, "SF Mono", "Fira Code", monospace;
+
+  /* Founder-tuned type scale (overrides Tailwind's defaults so `text-sm`
+     etc. resolve to the exact lock/component values, not Tailwind's stock
+     0.875rem/1rem/etc.) */
+  --text-xs: 0.75rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.9375rem;
+  --text-md: 1rem;
+  --text-lg: 1.15rem;
+  --text-xl: 1.4rem;
+
+  --tracking-tight: -0.01em;
+
+  /* ---- radius — small, instrument-grade, not pill-everywhere ---- */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+}
+
+/* ---------------------------------------------------------------------------
+   What Tailwind utilities can't express: keyframe *definitions* (Tailwind has
+   no keyframe-authoring utility — `animate-[name_duration_easing_iteration]`
+   references a name, it doesn't define one). All three are driven entirely
+   by Tailwind's `motion-safe:` variant at the call site (which compiles to
+   the same `@media (prefers-reduced-motion: no-preference)` gate the
+   original hand-rolled CSS used) — only the keyframe bodies live here.
+   No color values in any of them (transform/opacity only).
+   --------------------------------------------------------------------------- */
+
+/* the live-status dot's pulse ring (swarm-header, agents-roster) */
+@keyframes sc-pulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.5;
+  }
+  70%,
+  100% {
+    transform: scale(3);
+    opacity: 0;
+  }
+}
+
+/* the "connecting…" skeleton text */
+@keyframes sc-skeleton-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+
+/* staggered per-zone entrance on first data frame (your-move / the
+   contracts+agents columns / activity) */
+@keyframes sc-row-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}

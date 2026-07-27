@@ -102,6 +102,14 @@
           }
         }
       }
+    },
+    {
+      "includes": ["apps/swarm-console/src/styles/**/*.css"],
+      "css": {
+        "parser": {
+          "tailwindDirectives": true
+        }
+      }
     }
   ]
 }

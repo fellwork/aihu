@@ -103,3 +103,65 @@ export function bool(value: unknown): boolean {
 export function arr(value: unknown): unknown[] {
   return Array.isArray(value) ? value : []
 }
+
+/* ---------------------------------------------------------------------------
+   Tailwind class helpers.
+
+   `@tailwindcss/vite` extracts utility classes by scanning project source
+   text for class-name-shaped literals — it does NOT evaluate JS, so a
+   class name assembled by string interpolation at runtime (e.g.
+   `` `text-${tone}` ``) is invisible to it: only the literal substrings that
+   already exist somewhere in a scanned source file get CSS generated.
+   Every branch below is therefore written out as a complete literal string
+   (never interpolated), so the exact classes Tailwind needs to see live
+   here in this plain, tsc-checked `.ts` file where the scanner will find
+   them regardless of which branch actually runs at runtime.
+   --------------------------------------------------------------------------- */
+
+const TONE_TEXT_CLASS: Record<Tone, string> = {
+  success: 'text-success',
+  warning: 'text-warning',
+  destructive: 'text-destructive',
+  neutral: 'text-muted',
+}
+
+/** The Tailwind text-color utility for a state tone (style-lock hue-band
+ * mapping: success/warning/destructive/neutral). Falls back to the neutral
+ * (muted) tone for any value not in the closed `Tone` set. */
+export function toneTextClass(tone: Tone): string {
+  return TONE_TEXT_CLASS[tone] ?? TONE_TEXT_CLASS.neutral
+}
+
+/** Chip = state-color text + 1px state-color border on surface (style-lock
+ * legal-pairing list — no alpha fills, no new pairings). `border-current`
+ * inherits the text color onto the border, so only the tone's text-color
+ * utility needs to vary; every other class is static. */
+const CHIP_BASE =
+  'inline-flex items-center font-mono text-xs tracking-[0.02em] px-2 py-[0.1rem] rounded-sm border border-current bg-surface leading-[1.6] motion-safe:transition-colors motion-safe:duration-150'
+
+export function chipClasses(tone: Tone): string {
+  return `${CHIP_BASE} ${toneTextClass(tone)}`
+}
+
+/** The lock's taxonomy calls the no-claims review case "neutral TEXT", not a
+ * chip (no border/background, just tone-colored mono text). */
+const NEUTRAL_TEXT_BASE = 'font-mono text-xs tracking-[0.02em]'
+
+export function neutralTextClasses(tone: Tone): string {
+  return `${NEUTRAL_TEXT_BASE} ${toneTextClass(tone)}`
+}
+
+/** The live-status dot (identity + liveness ONLY, per the style-lock
+ * placement rule) — shared by swarm-header's supervisor dot and
+ * agents-roster's per-agent dot. The live variant adds the reduced-motion-
+ * gated pulse ring via an `after:` pseudo-element; both branches are
+ * complete literal strings (see the module doc above) so Tailwind's scanner
+ * finds both regardless of which one is live at runtime. */
+const DOT_BASE = 'inline-block flex-none w-[7px] h-[7px] rounded-full relative'
+const DOT_LIVE =
+  'bg-accent after:content-[""] after:absolute after:inset-0 after:rounded-full after:bg-accent motion-safe:after:animate-[sc-pulse_2.4s_ease-out_infinite]'
+const DOT_IDLE = 'bg-muted'
+
+export function dotClasses(live: boolean): string {
+  return live ? `${DOT_BASE} ${DOT_LIVE}` : `${DOT_BASE} ${DOT_IDLE}`
+}

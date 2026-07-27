@@ -1,0 +1,39 @@
+// activity-log — the history list. The quietest zone (design brief:
+// "ACTIVITY quietest"). Reads the shared `swarm` singleton directly
+// (../lib/swarm-store.ts) rather than a prop from the root — see that
+// module's doc comment for why.
+
+@state {
+  import { swarm } from '../lib/swarm-store.ts'
+  import { arr, str } from '../lib/format.ts'
+
+  type Rec = Record<string, unknown>
+
+  const swarmState = swarm.state
+
+  const activityRows = derived(() =>
+    (arr(swarmState().activity) as Rec[]).map((e, i) => ({
+      key: `activity-${i}-${str(e.contract, '')}`,
+      ago: str(e.ago, ''),
+      from: str(e.from, ''),
+      to: str(e.to, ''),
+      kind: str(e.kind, ''),
+      contract: str(e.contract, ''),
+    })),
+  )
+}
+
+@template {
+  <section class="motion-safe:animate-[sc-row-in_260ms_ease_both] motion-safe:[animation-delay:120ms]">
+    <p class="font-mono text-xs font-medium tracking-[0.12em] uppercase text-muted mb-4 pb-2 border-b border-border">history</p>
+    <p class="text-muted text-sm py-2" if={activityRows.length === 0}>no activity yet</p>
+    <ul class="list-none text-xs" if={activityRows.length > 0}>
+      <li class="flex items-baseline gap-4 py-2 border-b border-border text-muted max-sm:flex-wrap" each={e of activityRows} key={e.key}>
+        <span class="font-mono tabular-nums flex-none w-[4.5rem]">{e.ago}</span>
+        <span class="font-mono tabular-nums flex-none min-w-[10rem]">{e.from} → {e.to}</span>
+        <span class="font-mono tabular-nums flex-none">{e.kind}</span>
+        <span class="font-mono tabular-nums text-muted">{e.contract}</span>
+      </li>
+    </ul>
+  </section>
+}

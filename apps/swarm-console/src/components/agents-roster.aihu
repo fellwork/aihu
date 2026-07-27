@@ -1,0 +1,49 @@
+// agents-roster — the agent list (role, city, held contract, last seen,
+// flags, live-status dot). A receding zone (design brief: "CONTRACTS/AGENTS
+// recede"). Reads the shared `swarm` singleton directly
+// (../lib/swarm-store.ts) rather than a prop from the root — see that
+// module's doc comment for why.
+
+@state {
+  import { swarm } from '../lib/swarm-store.ts'
+  import { arr, bool, dotClasses, str } from '../lib/format.ts'
+
+  type Rec = Record<string, unknown>
+
+  const swarmState = swarm.state
+
+  const agentRows = derived(() =>
+    (arr(swarmState().agents) as Rec[]).map((a, i) => {
+      const flags = Array.isArray(a.flags)
+        ? (a.flags as unknown[]).filter((f): f is string => typeof f === 'string')
+        : []
+      const liveActive = bool(a.live_active)
+      const dotCls = dotClasses(liveActive)
+      return {
+        key: `agent-${str(a.role, String(i))}`,
+        role: str(a.role, '—'),
+        city: str(a.city, ''),
+        held: str(a.held, ''),
+        last: str(a.last, ''),
+        dotCls,
+        flags: flags.join(', '),
+      }
+    }),
+  )
+}
+
+@template {
+  <div>
+    <p class="font-mono text-xs font-medium tracking-[0.12em] uppercase text-muted mb-4 pb-2 border-b border-border">agents</p>
+    <ul class="list-none">
+      <li class="flex items-center gap-3 py-3 border-b border-border flex-wrap" each={a of agentRows} key={a.key}>
+        <span class={a.dotCls}></span>
+        <span class="font-[550] text-ink">{a.role}</span>
+        <span class="text-muted text-xs">{a.city}</span>
+        <span class="font-mono tabular-nums text-ink text-xs" if={a.held}>{a.held}</span>
+        <span class="font-mono tabular-nums ml-auto text-muted text-xs">{a.last}</span>
+        <span class="basis-full text-warning text-xs" if={a.flags}>{a.flags}</span>
+      </li>
+    </ul>
+  </div>
+}
