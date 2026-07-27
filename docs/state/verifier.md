@@ -483,3 +483,19 @@ Two rules for any extract-and-run acceptance bar that EXECUTES documented comman
 bound workspace dir (here: the jerusalem checkout), NOT a `git worktree` — sending
 from `/tmp/verify-0727` gives `exit 5 IDENTITY MISMATCH`. Do git/build in the
 isolated worktree; run every bus `send` from the workspace.
+
+### Round 3 addendum 2 — #655 / FEL-GH478 (compiler <$slot> fallback) verified, both directions
+
+Independent reproduction of a builder-b PR (author-only-verified before this — the
+SPOF the orchestrator flagged). From a source-built compiler (`cargo build
+--release --bin aihu-compile` @ f7b5c7f5):
+- FIXED: `slot-fallback-drive.test.ts` 2/2 pass (exit 0); `cargo test --test codegen
+  slot_default_codegen slot_named_codegen` pass.
+- PRE-FIX (reverted ONLY emit.rs:667 to childless `slot(o?.name ?? undefined)`,
+  KEEPING the new tests, rebuilt): drive test 2/2 FAIL ("expected '' to contain
+  'fallback text'"); `slot_default_codegen` FAIL (no `branch('slot'`).
+The drive test honors `AIHU_COMPILE_BIN` and SKIPS (never the published napi addon)
+if no source binary exists — so the trap "a Rust fix is invisible against the addon"
+does not bite here, provided you build first. That is the reusable check: before
+trusting ANY compiler drive/e2e test as evidence, confirm it resolved a from-source
+binary and did not skip.
