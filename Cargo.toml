@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "packages/compiler",
     "packages/css-engine/crates/aihu-css-core",
+    "packages/swarm",
 ]
 # napi-rs native renderer for @aihu/server — built standalone, per-platform, in
 # release.yml (its own target dir). It is NOT part of this JS-toolchain

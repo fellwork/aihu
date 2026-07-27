@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=https://moonrepo.dev/schemas/project.json
+# Rust-only crate (bin `swarm-bus`); built with cargo, not the JS toolchain.
+# Without this file, moon's `packages/*` glob infers a project and hands it
+# the GLOBAL inherited `typecheck`/`build` tasks — an unscoped tsc sweep that
+# typechecks OTHER packages' files and fails CI for reasons unrelated to
+# this crate (observed on PR #642's first run).
+language: rust
+layer: tool
+
+workspace:
+  inheritedTasks:
+    exclude: ['build', 'typecheck']
