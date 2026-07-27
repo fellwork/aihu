@@ -1,7 +1,12 @@
 /* =============================================================================
-   swarm-console base layer — fonts + reset. Global (css.shadowMode: 'light'),
-   same split as apps/docs-next/src/styles/base.css; component @style blocks
-   are namespaced with `sc-` to share this cascade safely.
+   swarm-console base layer — fonts + global reset. Global
+   (css.shadowMode: 'light'), same split as apps/docs-next/src/styles/base.css.
+   Component styling itself now lives entirely in Tailwind utility classes in
+   each component's @template (see src/styles/theme.css for the token
+   realization); this file is only what Tailwind doesn't cover: @font-face
+   (Tailwind can't author it), and page-level defaults (focus ring, custom
+   scrollbar) that are global browser-chrome decisions, not per-component
+   utility choices.
    ============================================================================ */
 
 /* Geist + Geist Mono, self-hosted (no CDN, same-origin only). Same OFL woff2
@@ -23,13 +28,9 @@
   src: url("/fonts/GeistMono-Variable.woff2") format("woff2");
 }
 
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
+/* Tailwind's own preflight (pulled in by theme.css's `@import "tailwindcss"`)
+   already resets box-sizing/margin on every element — no separate universal
+   reset needed here. */
 
 html {
   color-scheme: dark;
@@ -37,10 +38,10 @@ html {
 
 body {
   font-family: var(--font-sans);
-  font-size: var(--fs-base);
+  font-size: var(--text-base);
   line-height: 1.5;
-  color: var(--fg);
-  background: var(--bg);
+  color: var(--color-ink);
+  background: var(--color-bg);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   font-feature-settings: "ss01";
@@ -50,21 +51,24 @@ a {
   color: inherit;
 }
 
+/* Global focus ring + custom scrollbar — page-chrome defaults, not a
+   per-component utility choice, so they stay here rather than becoming a
+   Tailwind utility repeated on every focusable/scrollable element. */
 :focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--color-accent);
   outline-offset: 2px;
   border-radius: 3px;
 }
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: var(--border) transparent;
+  scrollbar-color: var(--color-border) transparent;
 }
 *::-webkit-scrollbar {
   width: 9px;
   height: 9px;
 }
 *::-webkit-scrollbar-thumb {
-  background: var(--border);
+  background: var(--color-border);
   border-radius: 999px;
 }

@@ -1,0 +1,115 @@
+// your-move — decide cards + review rows + errors + empty state. The
+// dominant zone of the console (design brief: "YOUR MOVE dominant;
+// CONTRACTS/AGENTS recede; ACTIVITY quietest"). Reads the shared `swarm`
+// singleton directly (../lib/swarm-store.ts) rather than a prop from the
+// root — see that module's doc comment for why.
+
+@state {
+  import { swarm } from '../lib/swarm-store.ts'
+  import {
+    arr,
+    chipClasses,
+    firstLine,
+    neutralTextClasses,
+    prHref,
+    reviewTag,
+    str,
+  } from '../lib/format.ts'
+
+  type Rec = Record<string, unknown>
+
+  const swarmState = swarm.state
+
+  const decideRows = derived(() => {
+    const mapOne = (d: Rec, i: number, src: string) => ({
+      key: `${src}-${str(d.contract, String(i))}`,
+      from: str(d.from ?? d.owner, 'unknown'),
+      contract: str(d.contract, '—'),
+      age: str(d.ago ?? d.age, ''),
+      question: str(d.question ?? d.text, '(no question text)'),
+    })
+    const decide = (arr(swarmState().decide) as Rec[]).map((d, i) => mapOne(d, i, 'decide'))
+    const orphan = (arr(swarmState().orphan) as Rec[]).map((d, i) => mapOne(d, i, 'orphan'))
+    return [...decide, ...orphan]
+  })
+
+  // NOTE: written as a direct `computed(...)` call, not the `derived(...)`
+  // sugar used everywhere else in this file — inherited from the pre-split
+  // swarm-console.aihu's own known compiler quirk (packages/compiler's
+  // state_wrappers scanner left THIS PARTICULAR `derived(...)` call
+  // un-lowered in that file's context; `computed` is the exact primitive
+  // `derived(...)` lowers to, so this is behaviorally identical).
+  const reviewRows = computed(() =>
+    (arr(swarmState().reviews) as Rec[]).map((r, i) => {
+      const tag = reviewTag(r.status)
+      const pr = r.pr
+      // Locals, not inline object-literal values — the compiler's
+      // reactive-declaration scanner mis-reads an object property whose
+      // value is a bare comparison/ternary as an un-`let`'d state decl.
+      const isChip = tag.tone !== 'neutral'
+      const prLabel = typeof pr === 'string' ? pr : ''
+      const tagClasses = chipClasses(tag.tone)
+      const neutralClasses = neutralTextClasses(tag.tone)
+      return {
+        key: `review-${str(r.contract, String(i))}`,
+        contract: str(r.contract, '—'),
+        owner: str(r.owner, '—'),
+        tagLabel: tag.label,
+        isChip,
+        tagClasses,
+        neutralClasses,
+        prLabel,
+        prHref: prHref(pr),
+      }
+    }),
+  )
+
+  const errorRows = derived(() =>
+    (arr(swarmState().errors) as Rec[]).map((e, i) => ({
+      key: `error-${str(e.contract, String(i))}`,
+      contract: str(e.contract, ''),
+      message: firstLine(e),
+    })),
+  )
+
+  const yourMoveEmpty = derived(
+    () => decideRows().length === 0 && reviewRows().length === 0 && errorRows().length === 0,
+  )
+}
+
+@template {
+  <section class="mb-12 motion-safe:animate-[sc-row-in_260ms_ease_both]" aria-label="Your move">
+    <p class="font-mono text-xs font-medium tracking-[0.12em] uppercase text-muted mb-4 pb-2 border-b border-border">your move</p>
+
+    <p class="text-muted text-sm py-2" if={yourMoveEmpty}>nothing needs you</p>
+
+    <div class="grid gap-6" if={!yourMoveEmpty}>
+      <article class="border-l-2 border-warning p-6 bg-surface" each={d of decideRows} key={d.key}>
+        <div class="flex items-baseline gap-4 mb-2 text-xs text-muted max-sm:flex-wrap">
+          <span class="font-mono tabular-nums text-ink font-[550]">{d.from}</span>
+          <span class="font-mono tabular-nums">{d.contract}</span>
+          <span class="ml-auto">{d.age}</span>
+        </div>
+        <p class="text-base leading-relaxed text-ink">{d.question}</p>
+      </article>
+
+      <ul class="list-none grid" if={reviewRows.length > 0}>
+        <li class="flex items-center flex-wrap gap-3 py-3 border-b border-border" each={r of reviewRows} key={r.key}>
+          <code class="font-mono tabular-nums text-ink">{r.contract}</code>
+          <span class="text-muted text-sm">{r.owner}</span>
+          <span class={r.tagClasses} if={r.isChip}>{r.tagLabel}</span>
+          <span class={r.neutralClasses} if={!r.isChip}>{r.tagLabel}</span>
+          <a class="font-mono tabular-nums text-ink ml-auto hover:text-accent" if={r.prHref} href={r.prHref} target="_blank" rel="noopener noreferrer">{r.prLabel}</a>
+          <span class="text-muted text-xs ml-auto" if={!r.prHref}>verdict only — read it</span>
+        </li>
+      </ul>
+
+      <ul class="list-none grid" if={errorRows.length > 0}>
+        <li class="flex items-baseline gap-3 py-3 border-b border-border" each={e of errorRows} key={e.key}>
+          <code class="font-mono tabular-nums text-destructive flex-none" if={e.contract}>{e.contract}</code>
+          <span class="text-destructive text-sm">{e.message}</span>
+        </li>
+      </ul>
+    </div>
+  </section>
+}

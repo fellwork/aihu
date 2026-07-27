@@ -84,3 +84,79 @@ No new hex/hue introduced beyond the eleven listed above, all traceable to
   staggered reveal on first data without a recurring visual defect on a
   screen meant to be watched all day. See the code comment beside
   `.sc-yourmove, .sc-columns, .sc-activity` in `swarm-console.aihu`.
+
+## 2026-07-27 — swarm-console: Tailwind + componentized rebuild (status: pending-review)
+
+Prior console style pass (the entries above, "Datasheet for a living
+framework" applied to the ops surface) is **superseded** per direct founder
+feedback on the shipped result: "clean it up" / "component style with
+tailwind." This is a restyle + restructure, not a new design direction —
+the same style-lock tokens, taxonomy, and behavior, rebuilt as componentized
+`.aihu` + Tailwind v4 instead of one mega-SFC + hand-rolled utility CSS.
+**Status: pending-review** (branch `feat/console-tailwind`, not merged).
+
+- **Tailwind v4 via `@tailwindcss/vite`, theme = the lock verbatim.** Every
+  lock/packs token realized as a `--color-*` `@theme` entry in the new
+  `src/styles/theme.css` (`bg`, `surface`, `ink`, `border`, `muted`,
+  `graphite`, `accent`, `info`, `success`, `warning`, `neutral`,
+  `destructive` — same 12 hex values as the superseded `tokens.css`, byte
+  for byte). `bg-bg text-ink border-border text-success` etc. now exist as
+  real Tailwind utilities generated from that one file — the lock realized
+  AS the theme, not paralleled by it. Old hand-rolled `tokens.css` (design
+  tokens) and the giant `.aihu` `@style` block (the `sc-*` utility classes)
+  are both deleted; only what Tailwind can't author survives as raw CSS:
+  the `@font-face` block (unchanged, still `base.css`) and the three
+  reduced-motion-gated `@keyframes` (`sc-pulse`, `sc-skeleton-pulse`,
+  `sc-row-in` — moved into `theme.css`, driven entirely by Tailwind's
+  `motion-safe:` variant at each call site, which compiles to the same
+  `@media (prefers-reduced-motion: no-preference)` gate the old CSS used).
+  Founder-tuned type scale (`fs-xs`..`fs-xl`, not Tailwind's stock sizes)
+  and radius scale preserved by overriding `--text-*`/`--radius-*` in the
+  same `@theme` block. The 4px spacing grid needed no custom scale at all —
+  it IS Tailwind v4's default `--spacing: 0.25rem` unit (`p-6` = 24px = the
+  old `--sp-5`), so every padding/gap value maps to a stock Tailwind number.
+- **Dynamic-tone classes are precomputed literal strings, not
+  interpolated.** `@tailwindcss/vite` extracts classes by scanning source
+  TEXT for literal class-name substrings — it does not evaluate JS, so a
+  runtime-built name like `` `text-${tone}` `` is invisible to it (classic
+  Tailwind JIT footgun). `src/lib/format.ts` now exports `toneTextClass` /
+  `chipClasses` / `neutralTextClasses` / `dotClasses`, each a lookup whose
+  every branch is a complete literal string (`'text-success'`,
+  `'text-warning'`, …) — both branches always exist verbatim in scanned
+  source regardless of which one is live at runtime. Verified via the
+  acceptance grep: zero `bg-[#`-shaped arbitrary-color classes anywhere in
+  `apps/swarm-console/src`.
+- **Componentized — one mega-SFC split into 6 `.aihu` files**
+  (`swarm-header`, `your-move`, `contracts-ledger`, `agents-roster`,
+  `activity-log`, plus `swarm-console` as the root shell), composed the
+  same way `apps/docs-next` composes `<site-header>`/`<theme-toggle>`:
+  registered globally in `main.ts`, referenced by tag name in the parent's
+  `@template`. Each keeps its own `@state` slice (decide/review/error rows
+  in `your-move`, contract rows in `contracts-ledger`, etc.) — the same
+  logic the old file had inline, just scoped per file.
+- **Data: shared module-level singleton, not component props — a
+  deliberate, documented fallback, not an oversight.** The framework has a
+  real prop mechanism (`$prop`, plain-curly `<Comp prop={v}>` per
+  `docs/superpowers/specs/2026-05-02-spec-template-attribute-syntax.md`
+  §3.3/§10.2) that was the first choice. Not used: propagating one large,
+  multi-field reactive `SwarmState` object down through 6 new component
+  boundaries is untested reactivity-propagation surface on a compiler that
+  had ALREADY bitten this exact app once (a `derived()` left un-lowered, an
+  object-literal property with a bare ternary misread as a state decl —
+  both documented in the pre-split file and both trap patterns carried
+  forward as comments in the new files). `useSwarm()` also opens a real
+  `EventSource` per call, so naively calling it in all 6 components would
+  open 6 duplicate bus connections. New `src/lib/swarm-store.ts` calls
+  `useSwarm()`/`useNow()` once at module scope (ES modules evaluate their
+  top level exactly once regardless of import count); every component
+  imports that ONE shared instance and derives its own slice from it —
+  exactly the fallback this rebuild's brief itself sanctions ("root calls
+  once and children read a shared module-level instance, a documented
+  pattern choice").
+- **Bundle delta (measured, `bun run build`, gzip as reported by Vite):**
+  CSS 1.62 kB / gz 0.79 kB → 14.56 kB / gz 4.19 kB (+3.4 kB gz — Tailwind's
+  utility CSS for a 6-component app; well under the ~10 KB gz "purge/config
+  is wrong" ceiling, so no purge issue). JS 39.21 kB / gz 12.94 kB → 32.80
+  kB / gz 11.22 kB (net DECREASE — splitting into smaller focused
+  components removed more redundancy than the 5 extra module boundaries
+  added).
