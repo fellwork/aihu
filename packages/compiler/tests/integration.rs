@@ -548,9 +548,12 @@ action increment()
         js
     );
     // The registration is against the host element (per-instance key).
+    // FEL-440 — registration now references the REAL setup param (`_ctx` here;
+    // `ctx` when props/style/wiring are present) directly, emitted structurally
+    // by `emit_function_form`. The old `__aihu_ctx__` param-rename is gone.
     assert!(
-        js.contains("_registerAgentDispatcher(__aihu_ctx__?.element, {"),
-        "registration must key on the host element, got:\n{}",
+        js.contains("_registerAgentDispatcher(_ctx?.element, {"),
+        "registration must key on the host element via the real ctx param, got:\n{}",
         js
     );
     // The registration invoker body calls the REAL setup-local closure.
@@ -560,7 +563,7 @@ action increment()
         js
     );
     // The registration appears INSIDE setup — i.e. BEFORE the module-scope export.
-    let reg_idx = js.find("_registerAgentDispatcher(__aihu_ctx__").unwrap();
+    let reg_idx = js.find("_registerAgentDispatcher(_ctx").unwrap();
     let export_idx = js.find("export const __agentDispatcher").unwrap();
     assert!(
         reg_idx < export_idx,
@@ -698,5 +701,177 @@ fn plain_resource_imports_create_resource_from_runtime() {
         imported,
         "createResource must be imported from @aihu/runtime, got:\n{}",
         result.js
+    );
+}
+
+// ─── FEL-440 (GH #636) — lifecycle/ref/etc. must not silently drop agent
+// registration ──────────────────────────────────────────────────────────────
+//
+// The founder reported: a component using `onMount` or `ref` compiled to ZERO
+// `_registerAgentDispatcher` / `_registerAgentServerBinding` calls, because the
+// string-surgery injectors anchored on the EXACT literal
+// `import { defineComponent, defineElement } from '@aihu/runtime'` and returned
+// their input unchanged the moment any third symbol (`onMount`, and `ref` wires
+// through an injected `onMount`) joined that import. These tests compile the
+// trigger constructs and assert registration on BOTH targets. The suite
+// previously covered only the trigger-free happy path — which is exactly why
+// this survived.
+
+/// Compile `src` for one target and count the per-instance registration calls.
+fn agent_reg_count(src: &str, tag: &str, target: aihu_compiler::types::BuildTarget) -> (usize, String) {
+    let parsed = sfc::parse(src).unwrap();
+    let mut unit = compile_full(&parsed).unwrap();
+    unit.target = target;
+    let js = emit(&unit, tag).js;
+    let sym = match target {
+        aihu_compiler::types::BuildTarget::Client => "_registerAgentDispatcher(",
+        _ => "_registerAgentServerBinding(",
+    };
+    (js.matches(sym).count(), js)
+}
+
+/// Both targets must emit exactly one in-setup registration for `src`.
+fn assert_registers_on_both_targets(src: &str, tag: &str, label: &str) {
+    use aihu_compiler::types::BuildTarget;
+    let (client, cjs) = agent_reg_count(src, tag, BuildTarget::Client);
+    assert_eq!(
+        client, 1,
+        "[{label}] CLIENT build must emit exactly one _registerAgentDispatcher, got {client}:\n{cjs}"
+    );
+    let (server, sjs) = agent_reg_count(src, tag, BuildTarget::Server);
+    assert_eq!(
+        server, 1,
+        "[{label}] SERVER build must emit exactly one _registerAgentServerBinding, got {server}:\n{sjs}"
+    );
+    // And the runtime import must actually carry the symbol it calls (the crux:
+    // import-as-data means the call can never reference an un-imported name).
+    assert!(
+        cjs.lines().any(|l| l.contains("from '@aihu/runtime'") && l.contains("_registerAgentDispatcher")),
+        "[{label}] client must import _registerAgentDispatcher:\n{cjs}"
+    );
+    assert!(
+        sjs.lines().any(|l| l.contains("from '@aihu/runtime'") && l.contains("_registerAgentServerBinding")),
+        "[{label}] server must import _registerAgentServerBinding:\n{sjs}"
+    );
+}
+
+fn fel440_min() -> &'static str {
+    // Baseline: exposed action, NO lifecycle/ref — the only shape the pre-440
+    // suite covered. Emits the bare `defineComponent, defineElement` import.
+    r#"@state {
+  $action: {
+    go: { expose: { read: true }, handler: () => 1 },
+  }
+}
+@template { <div>x</div> }"#
+}
+
+#[test]
+fn fel440_min_registers_on_both_targets() {
+    // The founder's `min` row — the control that already worked.
+    assert_registers_on_both_targets(fel440_min(), "min-card", "min (no trigger)");
+}
+
+#[test]
+fn fel440_onmount_no_longer_drops_registration() {
+    // The founder's `min-mount` row — 0/0 before FEL-440. `$lifecycle.mount`
+    // adds `onMount` to the runtime import, which broke the exact-literal anchor.
+    let src = r#"@state {
+  $action: {
+    go: { expose: { read: true }, handler: () => 1 },
+  }
+  $lifecycle: {
+    mount: () => { console.log('m') },
+  }
+}
+@template { <div>x</div> }"#;
+    // Precondition: this really does pull onMount into the import (else the test
+    // would pass vacuously against the old bug).
+    let (_, js) = agent_reg_count(src, "min-mount", aihu_compiler::types::BuildTarget::Client);
+    assert!(
+        js.lines().any(|l| l.contains("from '@aihu/runtime'") && l.contains("onMount")),
+        "fixture must trigger the onMount import (the anchor-breaker):\n{js}"
+    );
+    assert_registers_on_both_targets(src, "min-mount", "min-mount (onMount)");
+}
+
+#[test]
+fn fel440_ref_no_longer_drops_registration() {
+    // The founder's `min-ref` row — 0/0 before FEL-440. `ref={}` wires through an
+    // injected `onMount`, so it breaks the anchor implicitly.
+    let src = r#"@state {
+  import { signal } from '@aihu/signals'
+  const [elRef, setElRef] = signal(null)
+  $action: {
+    go: { expose: { read: true }, handler: () => 1 },
+  }
+}
+@template { <div ref={setElRef}>x</div> }"#;
+    let (_, js) = agent_reg_count(src, "min-ref", aihu_compiler::types::BuildTarget::Client);
+    assert!(
+        js.lines().any(|l| l.contains("from '@aihu/runtime'") && l.contains("onMount")),
+        "ref must implicitly pull onMount (the anchor-breaker):\n{js}"
+    );
+    assert_registers_on_both_targets(src, "min-ref", "min-ref (ref → onMount)");
+}
+
+#[test]
+fn fel440_resource_no_longer_drops_registration() {
+    // `$resource` adds `createResource` to the runtime import — another anchor
+    // breaker from the confirmed trigger set (investigation §1).
+    let src = r#"@state {
+  import { signal } from '@aihu/signals'
+  $resource: {
+    data: () => fetch('/api/x').then((r) => r.json()),
+  }
+  $action: {
+    go: { expose: { read: true }, handler: () => 1 },
+  }
+}
+@template { <div>{data.loading}</div> }"#;
+    assert_registers_on_both_targets(src, "res-card", "resource");
+}
+
+#[test]
+fn fel440_user_runtime_import_no_longer_drops_registration() {
+    // A user-authored `import { X } from '@aihu/runtime'` merges into the runtime
+    // import line — the "import merging" trigger family (investigation §1). The
+    // merged line is not the bare literal, so the old anchor missed it.
+    let src = r#"@state {
+  import { onMount } from '@aihu/runtime'
+  onMount(() => { console.log('user hook') })
+  $action: {
+    go: { expose: { read: true }, handler: () => 1 },
+  }
+}
+@template { <div>x</div> }"#;
+    assert_registers_on_both_targets(src, "userimp-card", "user runtime import");
+}
+
+#[test]
+fn fel440_registration_symbol_rides_the_runtime_import_vec() {
+    // The structural guarantee: whatever else is in the runtime import, the
+    // registration symbol is in the SAME import statement — never a second,
+    // string-spliced import and never absent. Uses the onMount trigger.
+    use aihu_compiler::types::BuildTarget;
+    let src = r#"@state {
+  $action: { go: { expose: { read: true }, handler: () => 1 } }
+  $lifecycle: { mount: () => {} }
+}
+@template { <div>x</div> }"#;
+    let (_, js) = agent_reg_count(src, "ride-card", BuildTarget::Client);
+    let runtime_lines: Vec<&str> = js
+        .lines()
+        .filter(|l| l.contains("from '@aihu/runtime'"))
+        .collect();
+    assert_eq!(
+        runtime_lines.len(),
+        1,
+        "there must be exactly one @aihu/runtime import (import-as-data, not a spliced second line):\n{js}"
+    );
+    assert!(
+        runtime_lines[0].contains("onMount") && runtime_lines[0].contains("_registerAgentDispatcher"),
+        "the single runtime import must carry BOTH onMount and the registration symbol:\n{}",
+        runtime_lines[0]
     );
 }

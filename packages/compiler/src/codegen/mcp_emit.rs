@@ -421,34 +421,36 @@ pub(crate) fn emit_agent_client_dispatcher(tag_name: &str, raw_script: &str) -> 
     )
 }
 
-/// T6 (go-public demo) — inject a per-instance `_registerAgentDispatcher` call
-/// into the compiled setup body so the opaque-ID invokers are bound to a SPECIFIC
-/// mounted instance's signals (not the inert module-scope `__agentDispatcher`).
+/// T6 (go-public demo) — build the per-instance `_registerAgentDispatcher`
+/// STATEMENT that binds the opaque-ID invokers to a SPECIFIC mounted instance's
+/// signals (not the inert module-scope `__agentDispatcher`). We register against
+/// `<ctx>.element` (the host custom element) so the browser bridge can look up
+/// the instance dispatcher after mount.
 ///
-/// The invoker bodies are byte-identical to `emit_agent_client_dispatcher`'s
-/// (same opaque IDs, same `(args) => name(args)` / `() => name()` / `(v) => { name = v }`
-/// shapes) but emitted INSIDE setup where `name` resolves to the real closure.
-/// We register against `<ctx>.element` (the host custom element) so the browser
-/// bridge can look up the instance dispatcher after mount.
+/// FEL-440 — this is a PURE statement builder. It returns only the registration
+/// call (2-space body indent), for `emit_function_form` to splice in before the
+/// setup's `return`. It does NOT touch the `@aihu/runtime` import (that symbol is
+/// added structurally in `build_function_imports`) and does NOT rename the setup
+/// parameter (the caller passes the real `ctx_param`). There is therefore no
+/// import/`return`/param anchor to miss — the previous exact-literal anchor on
+/// `import { defineComponent, defineElement } …` silently dropped the whole
+/// registration whenever any third symbol (`onMount`, `ref`→`onMount`, …) joined
+/// the import (GH #636). The invoker bodies stay byte-identical to
+/// `emit_agent_client_dispatcher`'s (same opaque IDs, same shapes).
 ///
-/// This is a string transform over the compiled module:
-///  1. Add `_registerAgentDispatcher` to the `@aihu/runtime` import.
-///  2. Insert the registration statement immediately before the setup's final
-///     `  return <expr>` line.
-///
-/// Defensive: if the expected runtime-import or setup-`return` shape is not
-/// present (e.g. a future codegen change, or a component with no agent members),
-/// the input is returned UNCHANGED so the build never breaks — the module-scope
-/// export still ships for introspection.
-pub(crate) fn inject_dispatcher_registration(base_js: &str, tag_name: &str, raw_script: &str) -> String {
+/// Returns "" when the component exposes no agent members (nothing to register).
+pub(crate) fn build_dispatcher_registration_stmt(
+    tag_name: &str,
+    raw_script: &str,
+    ctx_param: &str,
+) -> String {
     let members = collect_agent_members(raw_script);
     if members.actions.is_empty() && members.reads.is_empty() && members.writes.is_empty() {
-        return base_js.to_string();
+        return String::new();
     }
 
-    // Build the same opaque-ID → invoker maps as the module-scope export, but as
-    // an inline object literal for the registration call (4-space indent inside
-    // setup body).
+    // The same opaque-ID → invoker maps as the module-scope export, as an inline
+    // object literal for the registration call (6-space entries inside setup).
     let action_entries: Vec<String> = members
         .actions
         .iter()
@@ -472,97 +474,46 @@ pub(crate) fn inject_dispatcher_registration(base_js: &str, tag_name: &str, raw_
         }
     };
 
-    // The registration statement. `_ctx`/`ctx` is the setup parameter; the
-    // compiled bare-arrow form names it `_ctx` (or `ctx` when @style/props are
-    // present). We reference `(_ctx ?? ctx)`-free by matching the actual param
-    // below; here we emit `__aihu_ctx__` and bind it via the param rename.
-    let registration = format!(
-        "  _registerAgentDispatcher(__aihu_ctx__?.element, {{\n    tag: '{}',\n    actions: {},\n    reads: {},\n    writes: {},\n  }})\n",
+    format!(
+        "  _registerAgentDispatcher({}?.element, {{\n    tag: '{}',\n    actions: {},\n    reads: {},\n    writes: {},\n  }})\n",
+        ctx_param,
         tag_name,
         fmt(&action_entries),
         fmt(&read_entries),
         fmt(&write_entries),
-    );
-
-    // ── 1. Add `_registerAgentDispatcher` to the @aihu/runtime import. ────────
-    let runtime_import_re = "import { defineComponent, defineElement } from '@aihu/runtime'";
-    if !base_js.contains(runtime_import_re) {
-        return base_js.to_string();
-    }
-    let with_import = base_js.replacen(
-        runtime_import_re,
-        "import { defineComponent, defineElement, _registerAgentDispatcher } from '@aihu/runtime'",
-        1,
-    );
-
-    // ── 2. Rename the setup parameter to a stable name we can reference. ──────
-    // Two shapes carry a setup closure whose body has the action/read closures:
-    //   • bare-arrow form: `defineComponent((_ctx) => {` / `((ctx) => {`
-    //   • options/props form: `  setup: (_ctx) => {` / `(ctx) => {`
-    // In both, alias the parameter to `__aihu_ctx__` so the injected
-    // registration can read `__aihu_ctx__?.element`, and keep `ctx` bound for any
-    // body references (props bindings use `ctx.props`, @style uses `ctx.host`).
-    let setup_shapes: [(&str, &str); 4] = [
-        ("defineComponent((_ctx) => {", "defineComponent((__aihu_ctx__) => {"),
-        (
-            "defineComponent((ctx) => {",
-            "defineComponent((__aihu_ctx__) => {\n  const ctx = __aihu_ctx__;",
-        ),
-        ("setup: (_ctx) => {", "setup: (__aihu_ctx__) => {"),
-        ("setup: (ctx) => {", "setup: (__aihu_ctx__) => {\n    const ctx = __aihu_ctx__;"),
-    ];
-    let mut with_param = with_import;
-    let mut renamed = false;
-    for (from, to) in setup_shapes {
-        if with_param.contains(from) {
-            with_param = with_param.replacen(from, to, 1);
-            renamed = true;
-            break;
-        }
-    }
-    if !renamed {
-        // Unrecognised setup shape (e.g. form-associated) — don't transform.
-        return base_js.to_string();
-    }
-
-    // ── 3. Insert the registration immediately before the setup's `return`. ──
-    // The setup body always ends with `  return <expr>\n}))` (bare-arrow form).
-    // Find the LAST `\n  return ` occurrence and splice the registration in.
-    if let Some(idx) = with_param.rfind("\n  return ") {
-        let (head, tail) = with_param.split_at(idx + 1); // keep the leading '\n'
-        format!("{}{}{}", head, registration, tail)
-    } else {
-        base_js.to_string()
-    }
+    )
 }
 
 /// fix(server-agent-macro-lowering) — SERVER analog of
-/// `inject_dispatcher_registration`. Injects a per-instance
-/// `_registerAgentServerBinding(ctx.element, { … })` call into the setup body so
-/// a server-mounted instance lands a `LiveBinding` in arbor's
+/// `build_dispatcher_registration_stmt`. Builds the per-instance
+/// `_registerAgentServerBinding(<ctx>.element, { … })` STATEMENT so a
+/// server-mounted instance lands a `LiveBinding` in arbor's
 /// `componentInstanceRegistry` (the headless `@aihu/agent-service` gate path).
 ///
-/// CONTRAST WITH the client dispatcher injection: this carries the FULL named
-/// binding (member NAMES → invokers, NOT opaque IDs) AND policy (`scope`,
-/// `rateLimit`) — exactly the `AgentBindingSpec` shape `mount()` consumes. It is
-/// emitted ONLY into SERVER builds (the caller gates on `!elide_agent`); client
-/// builds never see it, preserving the policy-server-only security model.
+/// CONTRAST WITH the client dispatcher: this carries the FULL named binding
+/// (member NAMES → invokers, NOT opaque IDs) AND policy (`scope`, `rateLimit`) —
+/// exactly the `AgentBindingSpec` shape `mount()` consumes. It is emitted ONLY
+/// into SERVER builds (the caller gates on `!elide_agent`); client builds never
+/// see it, preserving the policy-server-only security model.
 ///
-/// Defensive: if the runtime-import or setup-`return` shape is not present, the
-/// input is returned UNCHANGED so the build never breaks (the module-scope
-/// `__agentBinding` export still ships for introspection).
-pub(crate) fn inject_server_binding_registration(
-    base_js: &str,
+/// FEL-440 — a PURE statement builder (see `build_dispatcher_registration_stmt`
+/// for the full rationale): no runtime-import surgery, no setup-param rename, no
+/// `return`-splice, so there is no anchor to miss. `agent` is `None` for an
+/// exposed-members-only component (no `@agent` block) → unscoped, unthrottled.
+///
+/// Returns "" when the component exposes no agent members (nothing to register).
+pub(crate) fn build_server_binding_registration_stmt(
     tag_name: &str,
-    agent: &AgentBlock,
+    agent: Option<&AgentBlock>,
     raw_script: &str,
+    ctx_param: &str,
 ) -> String {
     let members = collect_agent_members(raw_script);
     if members.actions.is_empty() && members.reads.is_empty() && members.writes.is_empty() {
-        return base_js.to_string();
+        return String::new();
     }
 
-    // Named-member → invoker maps (4-space indent inside setup body), byte-aligned
+    // Named-member → invoker maps (6-space entries inside setup body), byte-aligned
     // with the module-scope `__agentBinding` export's bodies.
     let action_entries: Vec<String> = members
         .actions
@@ -588,13 +539,16 @@ pub(crate) fn inject_server_binding_registration(
     };
 
     // $scope / $rate-limit policy (server-only; same source as the export).
+    // Absent when there is no `@agent` block → undefined (unscoped, unthrottled).
     let mut scope_val: Option<String> = None;
     let mut rate_limit_val: Option<u32> = None;
-    for mac in &agent.agent_macros {
-        match mac {
-            AgentMacroDecl::Scope(s) => scope_val = Some(s.clone()),
-            AgentMacroDecl::RateLimit(n) => rate_limit_val = Some(*n),
-            AgentMacroDecl::Stream(_) => {}
+    if let Some(agent) = agent {
+        for mac in &agent.agent_macros {
+            match mac {
+                AgentMacroDecl::Scope(s) => scope_val = Some(s.clone()),
+                AgentMacroDecl::RateLimit(n) => rate_limit_val = Some(*n),
+                AgentMacroDecl::Stream(_) => {}
+            }
         }
     }
     let scope_str = match &scope_val {
@@ -606,57 +560,16 @@ pub(crate) fn inject_server_binding_registration(
         None => "undefined".to_string(),
     };
 
-    let registration = format!(
-        "  _registerAgentServerBinding(__aihu_ctx__?.element, {{\n    tag: '{}',\n    actions: {},\n    reads: {},\n    writes: {},\n    scope: {},\n    rateLimit: {},\n  }})\n",
+    format!(
+        "  _registerAgentServerBinding({}?.element, {{\n    tag: '{}',\n    actions: {},\n    reads: {},\n    writes: {},\n    scope: {},\n    rateLimit: {},\n  }})\n",
+        ctx_param,
         tag_name,
         fmt(&action_entries),
         fmt(&read_entries),
         fmt(&write_entries),
         scope_str,
         rate_limit_str,
-    );
-
-    // ── 1. Add `_registerAgentServerBinding` to the @aihu/runtime import. ──────
-    let runtime_import_re = "import { defineComponent, defineElement } from '@aihu/runtime'";
-    if !base_js.contains(runtime_import_re) {
-        return base_js.to_string();
-    }
-    let with_import = base_js.replacen(
-        runtime_import_re,
-        "import { defineComponent, defineElement, _registerAgentServerBinding } from '@aihu/runtime'",
-        1,
-    );
-
-    // ── 2. Rename the setup parameter to a stable name (same as client path). ─
-    let setup_shapes: [(&str, &str); 4] = [
-        ("defineComponent((_ctx) => {", "defineComponent((__aihu_ctx__) => {"),
-        (
-            "defineComponent((ctx) => {",
-            "defineComponent((__aihu_ctx__) => {\n  const ctx = __aihu_ctx__;",
-        ),
-        ("setup: (_ctx) => {", "setup: (__aihu_ctx__) => {"),
-        ("setup: (ctx) => {", "setup: (__aihu_ctx__) => {\n    const ctx = __aihu_ctx__;"),
-    ];
-    let mut with_param = with_import;
-    let mut renamed = false;
-    for (from, to) in setup_shapes {
-        if with_param.contains(from) {
-            with_param = with_param.replacen(from, to, 1);
-            renamed = true;
-            break;
-        }
-    }
-    if !renamed {
-        return base_js.to_string();
-    }
-
-    // ── 3. Insert the registration immediately before the setup's `return`. ──
-    if let Some(idx) = with_param.rfind("\n  return ") {
-        let (head, tail) = with_param.split_at(idx + 1);
-        format!("{}{}{}", head, registration, tail)
-    } else {
-        base_js.to_string()
-    }
+    )
 }
 
 pub(crate) fn emit_agent_bindings(agent: &AgentBlock) -> String {
