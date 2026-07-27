@@ -1,0 +1,71 @@
+# tastemaker decisions log
+
+Append-only. Each entry: date, surface, status, and what was applied /
+deviated from `.tastemaker/style-lock.md`. `status: pending-review` means
+the founder has not signed off yet — do not cite an entry here as design
+approval until its status is updated.
+
+---
+
+## 2026-07-27 — apps/swarm-console (the aihu swarm console)
+
+status: pending-review
+
+Applied "Datasheet for a living framework" (style-lock.md's approved
+direction) to a new ops-monitoring surface — the founder brief specifically
+asked for "instrument-grade, calm, hairline rules not boxes-everywhere,
+tabular-nums, Geist Mono for data/labels" on this screen, i.e. the same
+character as docs-next's approved direction, carried onto a live dashboard
+rather than documentation/marketing.
+
+Decisions:
+- **Dark-only.** The lock is light+dark first-class for docs-next; this is
+  an all-day monitoring tab (founder brief), so only the lock's dark column
+  is implemented — no `:root`/`.dark` split, no light fallback. Tokens are
+  copied verbatim from the lock's Color contract + Semantic state token
+  tables (dark column): `--bg #14161c`, `--surface #1a1d24`, `--fg #ece9e2`,
+  `--accent #e0674b`, `--graphite #aab0bd`, `--border #2b3038`,
+  `--muted #a39a92`, `--color-info #8fadc8`, `--color-success #84b898`,
+  `--color-warning #d8a848`, `--color-neutral #636a72`.
+- **`--color-destructive: #f08070`** is not spelled out in the lock's own
+  token table text (only a light-mode oklch comparison is given in the
+  amendment prose). Pulled from `packages/css-engine/src/packs.ts`
+  (`aihuDefault.dark['color-destructive']`) — the "daihui layer" the lock
+  itself cites as source of truth — rather than invented. No new hue: same
+  file, same shipped dark destructive token used elsewhere in the repo.
+- **Terracotta stays rare.** Used only for the logo dot, the header's live
+  pulse (`supervisor_up`), and the agent roster's live-activity pulse
+  (`live_active`) — the three sanctioned identity/liveness uses. No primary
+  action exists on this read-only console, so that fourth sanctioned use is
+  N/A here.
+- **State chips**: text color + 1px `currentColor` border on `--surface`
+  background, no alpha-tinted fills — the lock's verified "text-safe both
+  ways" pairing, unchanged. The REVIEW section's `no-claims` case renders as
+  plain neutral-toned TEXT (not a bordered chip), per the founder brief's
+  literal wording ("no-claims→neutral text 'claims-unchecked'") — the only
+  one of the four verification-tag cases NOT rendered as a chip.
+- **No decorative numbering/lettering.** Section labels (`your move`,
+  `contracts`, `agents`, `history`) are plain lower-case Geist Mono labels
+  on a hairline rule — no leading section numerals (unlike docs-next's
+  `.dn-sec-num` "01 —" convention, which the founder's hard constraint for
+  this surface explicitly rules out).
+- **Geist font files**: byte-for-byte copies of
+  `apps/docs-next/public/fonts/{Geist,GeistMono}-Variable.woff2` +
+  `GEIST-OFL-LICENSE.txt`, rather than a fresh `geist` npm install — that
+  package is not actually a dependency of docs-next either (it isn't in its
+  `package.json`/lockfile despite the comment referencing it); the woff2
+  binaries already vendored in this repo are the one real self-hosted
+  source. Both fonts are self-hosted, same-origin, no CDN. No fallback-stack
+  deviation to record.
+- **Logo**: the exact path/circle geometry from `brand/favicon.svg`
+  (`M 18 30 L 18 56 a 32 32 0 0 0 64 0 L 82 30`, stroke-width 14, dot
+  `cx=50 cy=16 r=9`) inlined with `stroke="currentColor"` /
+  `fill="var(--accent)"` — the same pattern `apps/docs-next`'s own
+  `site-header.aihu` already uses, and the only way the mark can flip its
+  `u`-stroke color for a dark surface per `brand/README.md`'s own
+  instruction ("For dark surfaces, swap the `u` stroke color… The dot stays
+  terracotta in both modes"). The static SVG files under `brand/` hardcode
+  light-mode colors and are not directly `<img>`-usable on a dark bg.
+
+No new hex/hue introduced beyond the eleven listed above, all traceable to
+`style-lock.md` or `packages/css-engine/src/packs.ts`.

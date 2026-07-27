@@ -1,0 +1,25 @@
+{
+  "name": "@aihu/swarm-console",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "description": "aihu swarm console — a real aihu app (dogfooded) monitoring the local swarm command-center bus via useSwarm(). Replaces the hand-rolled Python-served HTML dashboard.",
+  "scripts": {
+    "dev": "vite --port 5180",
+    "build": "vite build",
+    "preview": "vite preview --port 5181",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@aihu/agent": "workspace:*",
+    "@aihu/arbor": "workspace:*",
+    "@aihu/runtime": "workspace:*",
+    "@aihu/signals": "workspace:*",
+    "@aihu/use": "workspace:*"
+  },
+  "devDependencies": {
+    "@aihu/compiler": "workspace:*",
+    "typescript": "^5.9.0",
+    "vite": "^8.0.0"
+  }
+}

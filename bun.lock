@@ -115,6 +115,22 @@
         "vite": "^8.0.0",
       },
     },
+    "apps/swarm-console": {
+      "name": "@aihu/swarm-console",
+      "version": "0.0.1",
+      "dependencies": {
+        "@aihu/agent": "workspace:*",
+        "@aihu/arbor": "workspace:*",
+        "@aihu/runtime": "workspace:*",
+        "@aihu/signals": "workspace:*",
+        "@aihu/use": "workspace:*",
+      },
+      "devDependencies": {
+        "@aihu/compiler": "workspace:*",
+        "typescript": "^5.9.0",
+        "vite": "^8.0.0",
+      },
+    },
     "bench/arbor": {
       "name": "@aihu/bench-arbor",
       "version": "0.0.0",
@@ -1168,6 +1184,8 @@
     "@aihu/signals": ["@aihu/signals@workspace:packages/signals"],
 
     "@aihu/store": ["@aihu/store@workspace:packages/store"],
+
+    "@aihu/swarm-console": ["@aihu/swarm-console@workspace:apps/swarm-console"],
 
     "@aihu/templates-cf-team": ["@aihu/templates-cf-team@workspace:packages/templates/cf-team"],
 
