@@ -35,6 +35,7 @@
  * pre-split file derived each section's rows inline).
  */
 
+import { signal } from '@aihu/signals'
 import { useNow } from '@aihu/use/useNow'
 import { useSwarm } from '@aihu/use/useSwarm'
 
@@ -43,3 +44,87 @@ export const swarm = useSwarm()
 // A 1s tick, used only by swarm-header to re-evaluate "has it been >5s since
 // the last frame" — the freshness check needs a clock independent of the bus.
 export const clock = useNow({ interval: 1000 })
+
+/* ---------------------------------------------------------------------------
+   Tab routing — `location.hash`-based (founder brief: "sections as pages",
+   `#/contracts` etc., refresh/deep-link safe). A plain module-level signal,
+   NOT the `.aihu` `@state` block's `state()`/`derived()` sugar — that macro
+   only exists inside a compiled SFC's `@state` block (it is a compile-time
+   source transform, per the compiler's "state_wrappers scanner" this app's
+   other doc comments already describe); this file is ordinary TypeScript,
+   so it uses the real `@aihu/signals` primitives directly, same as
+   `useWindowSize`/`useTimestamp` do internally. Consumers import `activeTab`
+   (a plain `Read<TabId>` getter, exactly like `swarm.state`/`clock.now`
+   above) and read it as `activeTab()` — parens required, same convention as
+   every other external-getter import already used by this app's components.
+
+   SSR-guarded like everything else in this app: `tabFromHash`/the
+   `hashchange` listener only ever touch `location`/`window` behind a
+   `typeof` check, so this module has no effect under SSR beyond seeding the
+   default tab. --------------------------------------------------------- */
+
+export const TAB_IDS = ['your-move', 'contracts', 'agents', 'activity'] as const
+export type TabId = (typeof TAB_IDS)[number]
+
+const DEFAULT_TAB: TabId = 'your-move'
+
+function isTabId(value: string): value is TabId {
+  return (TAB_IDS as readonly string[]).includes(value)
+}
+
+/** Hash forms accepted: `#/contracts`, `#contracts` (defensive), empty ->
+ * default tab. Unrecognized fragments also fall back to the default rather
+ * than rendering a blank page. */
+function tabFromHash(): TabId {
+  if (typeof location === 'undefined') return DEFAULT_TAB
+  const raw = location.hash.replace(/^#\/?/, '')
+  return isTabId(raw) ? raw : DEFAULT_TAB
+}
+
+const [activeTab, setActiveTab] = signal<TabId>(tabFromHash())
+
+export { activeTab }
+
+/* ---------------------------------------------------------------------------
+   Pagination — one page-number signal per paginated list (founder addendum:
+   "pages must not grow long" — cap rows per page, paginate INSIDE the tab).
+   Each page signal resets to `1` on every tab switch (addendum: "resets on
+   tab switch"); sharing the ONE `hashchange` listener below for both tab
+   switching and page reset keeps them atomic — there is no frame where a
+   stale page number from a previously-viewed tab could render against the
+   newly-active tab's (unrelated) list.
+   --------------------------------------------------------------------------- */
+
+/** Founder-tuned: "~12-15 rows per page" for contracts; picked the lower
+ * end so a full page (header + rows + pager) comfortably fits a 1440x900
+ * viewport alongside the sticky header + tab bar. */
+export const CONTRACTS_PAGE_SIZE = 12
+/** Founder-tuned: "show the most recent ~15" for activity. */
+export const ACTIVITY_PAGE_SIZE = 15
+/** Founder-tuned: "usually short; cap at ~10" for your-move's review rows. */
+export const REVIEWS_PAGE_SIZE = 10
+
+const [contractsPage, setContractsPage] = signal(1)
+const [activityPage, setActivityPage] = signal(1)
+const [reviewsPage, setReviewsPage] = signal(1)
+
+export { activityPage, contractsPage, reviewsPage }
+
+export function goToContractsPage(page: number): void {
+  setContractsPage(page)
+}
+export function goToActivityPage(page: number): void {
+  setActivityPage(page)
+}
+export function goToReviewsPage(page: number): void {
+  setReviewsPage(page)
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('hashchange', () => {
+    setActiveTab(tabFromHash())
+    setContractsPage(1)
+    setActivityPage(1)
+    setReviewsPage(1)
+  })
+}

@@ -1,8 +1,16 @@
 // agents-roster — the agent list (role, city, held contract, last seen,
-// flags, live-status dot). A receding zone (design brief: "CONTRACTS/AGENTS
-// recede"). Reads the shared `swarm` singleton directly
-// (../lib/swarm-store.ts) rather than a prop from the root — see that
-// module's doc comment for why.
+// flags, live-status dot). Now its own tab/page (founder: "sections as
+// pages") rather than sharing a page with contracts-ledger. Reads the
+// shared `swarm` singleton directly (../lib/swarm-store.ts) rather than a
+// prop from the root — see that module's doc comment for why.
+//
+// A real fixed-column CSS grid (role / city / held contract / last active /
+// flags), one column template shared by the header row and every data row
+// (`role="table"`/`row`/`columnheader`/`cell` for a11y) — same alignment
+// mechanism as contracts-ledger and your-move's review rows (founder
+// feedback: rows need to line up vertically down the list). Not paginated —
+// the roster is bounded by the live agent count (typically a handful), not
+// an accumulating log, so the founder addendum's pagination list omits it.
 
 @state {
   import { swarm } from '../lib/swarm-store.ts'
@@ -30,20 +38,32 @@
       }
     }),
   )
+
+  const AGENT_COLS = 'grid grid-cols-[8rem_7rem_9rem_6rem_1fr] gap-x-6 items-center'
 }
 
 @template {
   <div>
     <p class="font-mono text-xs font-medium tracking-[0.12em] uppercase text-muted mb-4 pb-2 border-b border-border">agents</p>
-    <ul class="list-none">
-      <li class="flex items-center gap-3 py-3 border-b border-border flex-wrap" each={a of agentRows} key={a.key}>
-        <span class={a.dotCls}></span>
-        <span class="font-[550] text-ink">{a.role}</span>
-        <span class="text-muted text-xs">{a.city}</span>
-        <span class="font-mono tabular-nums text-ink text-xs" if={a.held}>{a.held}</span>
-        <span class="font-mono tabular-nums ml-auto text-muted text-xs">{a.last}</span>
-        <span class="basis-full text-warning text-xs" if={a.flags}>{a.flags}</span>
-      </li>
-    </ul>
+
+    <div role="table" aria-label="Agent roster">
+      <div class={AGENT_COLS} role="row">
+        <span role="columnheader" class="font-mono text-xs font-medium tracking-[0.04em] uppercase text-muted pb-2 border-b border-border">role</span>
+        <span role="columnheader" class="font-mono text-xs font-medium tracking-[0.04em] uppercase text-muted pb-2 border-b border-border">city</span>
+        <span role="columnheader" class="font-mono text-xs font-medium tracking-[0.04em] uppercase text-muted pb-2 border-b border-border">contract</span>
+        <span role="columnheader" class="font-mono text-xs font-medium tracking-[0.04em] uppercase text-muted pb-2 border-b border-border">last active</span>
+        <span role="columnheader" class="font-mono text-xs font-medium tracking-[0.04em] uppercase text-muted pb-2 border-b border-border">flags</span>
+      </div>
+      <div class={AGENT_COLS} role="row" each={a of agentRows} key={a.key}>
+        <span role="cell" class="inline-flex items-center gap-2 py-4 border-b border-border">
+          <span class={a.dotCls}></span>
+          <span class="font-[550] text-ink">{a.role}</span>
+        </span>
+        <span role="cell" class="py-4 border-b border-border text-muted text-xs">{a.city}</span>
+        <span role="cell" class="font-mono tabular-nums py-4 border-b border-border text-ink text-xs">{a.held}</span>
+        <span role="cell" class="font-mono tabular-nums py-4 border-b border-border text-muted text-xs">{a.last}</span>
+        <span role="cell" class="py-4 border-b border-border text-warning text-xs">{a.flags}</span>
+      </div>
+    </div>
   </div>
 }

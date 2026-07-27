@@ -1,17 +1,29 @@
-// contracts-ledger — the contracts table + backlog summary line. A
-// receding zone (design brief: "CONTRACTS/AGENTS recede"). Reads the shared
-// `swarm` singleton directly (../lib/swarm-store.ts) rather than a prop
-// from the root — see that module's doc comment for why.
+// contracts-ledger — the contracts table + backlog summary line. Now its
+// own tab/page (founder: "sections as pages") rather than sharing a page
+// with agents-roster. Reads the shared `swarm` singleton directly
+// (../lib/swarm-store.ts) rather than a prop from the root — see that
+// module's doc comment for why.
+//
+// A real fixed-column CSS grid (id / issue / owner / status / recon), not
+// the native `<table>` this used to be — one column template shared by the
+// header row and every data row (`role="table"`/`row`/`columnheader`/`cell`
+// preserve the table semantics a screen reader would otherwise lose).
+// Converted alongside your-move's review rows and agents-roster for one
+// consistent alignment mechanism across the app (founder feedback: rows
+// need to line up vertically down the list). Paginated at
+// CONTRACTS_PAGE_SIZE (../lib/swarm-store.ts) — founder addendum: "~12-15
+// rows per page", resets to page 1 on every tab switch (swarm-store's
+// shared hashchange listener).
 
 @state {
-  import { swarm } from '../lib/swarm-store.ts'
+  import { swarm, CONTRACTS_PAGE_SIZE, contractsPage, goToContractsPage } from '../lib/swarm-store.ts'
   import { arr, chipClasses, contractTag, str, truncate } from '../lib/format.ts'
 
   type Rec = Record<string, unknown>
 
   const swarmState = swarm.state
 
-  const contractRows = derived(() =>
+  const allContractRows = derived(() =>
     (arr(swarmState().contracts) as Rec[]).map((c, i) => {
       const tag = contractTag(c.status)
       const tagClasses = chipClasses(tag.tone)
@@ -21,11 +33,32 @@
         issue: str(c.issue, ''),
         owner: str(c.owner, '—'),
         tagLabel: tag.label,
+        tagTitle: tag.title,
         tagClasses,
         recon: truncate(c.recon),
       }
     }),
   )
+
+  const totalContracts = derived(() => allContractRows().length)
+  const totalContractPages = derived(() =>
+    Math.max(1, Math.ceil(totalContracts() / CONTRACTS_PAGE_SIZE)),
+  )
+  const contractPage = derived(() => Math.min(contractsPage(), totalContractPages()))
+  const contractPageStart = derived(() => (contractPage() - 1) * CONTRACTS_PAGE_SIZE)
+  const contractRows = derived(() =>
+    allContractRows().slice(contractPageStart(), contractPageStart() + CONTRACTS_PAGE_SIZE),
+  )
+  const contractRangeStart = derived(() => (totalContracts() === 0 ? 0 : contractPageStart() + 1))
+  const contractRangeEnd = derived(() =>
+    Math.min(contractPageStart() + CONTRACTS_PAGE_SIZE, totalContracts()),
+  )
+  const showContractPager = derived(() => totalContracts() > CONTRACTS_PAGE_SIZE)
+  const contractHasPrev = derived(() => contractPage() > 1)
+  const contractHasNext = derived(() => contractPage() < totalContractPages())
+  const prevContractPage = () => goToContractsPage(Math.max(1, contractPage() - 1))
+  const nextContractPage = () =>
+    goToContractsPage(Math.min(totalContractPages(), contractPage() + 1))
 
   const backlogLine = derived(() => {
     const b = swarmState().backlog
@@ -37,31 +70,37 @@
       ? `${count} open issues pulled from Linear/GitHub, unassigned — latest: ${latest}`
       : `${count} open issues pulled from Linear/GitHub, unassigned`
   })
+
+  const CONTRACT_COLS = 'grid grid-cols-[9rem_6rem_7rem_8rem_1fr] gap-x-6 items-center'
 }
 
 @template {
   <div>
     <p class="font-mono text-xs font-medium tracking-[0.12em] uppercase text-muted mb-4 pb-2 border-b border-border">contracts</p>
-    <table class="w-full border-collapse text-sm">
-      <thead>
-        <tr>
-          <th scope="col" class="text-left font-mono text-xs font-medium tracking-[0.04em] uppercase text-muted pr-3 pb-2 border-b border-border">id</th>
-          <th scope="col" class="text-left font-mono text-xs font-medium tracking-[0.04em] uppercase text-muted pr-3 pb-2 border-b border-border">issue</th>
-          <th scope="col" class="text-left font-mono text-xs font-medium tracking-[0.04em] uppercase text-muted pr-3 pb-2 border-b border-border">owner</th>
-          <th scope="col" class="text-left font-mono text-xs font-medium tracking-[0.04em] uppercase text-muted pr-3 pb-2 border-b border-border">status</th>
-          <th scope="col" class="text-left font-mono text-xs font-medium tracking-[0.04em] uppercase text-muted pr-3 pb-2 border-b border-border">recon</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr each={c of contractRows} key={c.key}>
-          <td class="font-mono tabular-nums py-2 pr-3 border-b border-border align-top text-ink">{c.id}</td>
-          <td class="font-mono tabular-nums py-2 pr-3 border-b border-border align-top text-muted">{c.issue}</td>
-          <td class="py-2 pr-3 border-b border-border align-top text-ink">{c.owner}</td>
-          <td class="py-2 pr-3 border-b border-border align-top"><span class={c.tagClasses}>{c.tagLabel}</span></td>
-          <td class="py-2 pr-3 border-b border-border align-top text-muted text-xs max-w-[22rem]">{c.recon}</td>
-        </tr>
-      </tbody>
-    </table>
+
+    <div role="table" aria-label="Contracts ledger">
+      <div class={CONTRACT_COLS} role="row">
+        <span role="columnheader" class="font-mono text-xs font-medium tracking-[0.04em] uppercase text-muted pb-2 border-b border-border">id</span>
+        <span role="columnheader" class="font-mono text-xs font-medium tracking-[0.04em] uppercase text-muted pb-2 border-b border-border">issue</span>
+        <span role="columnheader" class="font-mono text-xs font-medium tracking-[0.04em] uppercase text-muted pb-2 border-b border-border">owner</span>
+        <span role="columnheader" class="font-mono text-xs font-medium tracking-[0.04em] uppercase text-muted pb-2 border-b border-border">status</span>
+        <span role="columnheader" class="font-mono text-xs font-medium tracking-[0.04em] uppercase text-muted pb-2 border-b border-border">recon</span>
+      </div>
+      <div class={CONTRACT_COLS} role="row" each={c of contractRows} key={c.key}>
+        <span role="cell" class="font-mono tabular-nums py-4 border-b border-border text-ink">{c.id}</span>
+        <span role="cell" class="font-mono tabular-nums py-4 border-b border-border text-muted">{c.issue}</span>
+        <span role="cell" class="py-4 border-b border-border text-ink">{c.owner}</span>
+        <span role="cell" class="py-4 border-b border-border"><span class={c.tagClasses} title={c.tagTitle}>{c.tagLabel}</span></span>
+        <span role="cell" class="py-4 border-b border-border text-muted text-xs">{c.recon}</span>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-4 pt-3 font-mono text-xs text-muted" if={showContractPager}>
+      <span class="tabular-nums">{contractRangeStart}–{contractRangeEnd} of {totalContracts}</span>
+      <button type="button" class="hover:text-ink disabled:opacity-40 disabled:pointer-events-none motion-safe:transition-colors motion-safe:duration-150" on:click={prevContractPage} disabled={!contractHasPrev} aria-label="Previous page of contracts">‹</button>
+      <button type="button" class="hover:text-ink disabled:opacity-40 disabled:pointer-events-none motion-safe:transition-colors motion-safe:duration-150" on:click={nextContractPage} disabled={!contractHasNext} aria-label="Next page of contracts">›</button>
+    </div>
+
     <p class="mt-3 text-muted text-xs" if={backlogLine !== ''}>{backlogLine}</p>
   </div>
 }

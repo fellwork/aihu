@@ -3,9 +3,18 @@
 // CONTRACTS/AGENTS recede; ACTIVITY quietest"). Reads the shared `swarm`
 // singleton directly (../lib/swarm-store.ts) rather than a prop from the
 // root — see that module's doc comment for why.
+//
+// Review rows are a real fixed-column CSS grid (contract / owner / status /
+// pr), one column template shared by the header row and every data row, so
+// every value lines up down the list regardless of each row's own text
+// width (founder feedback: the old flex row let variable-width id+owner
+// text push the status column to a different x-position on every row).
+// Paginated at REVIEWS_PAGE_SIZE (../lib/swarm-store.ts) — founder
+// addendum: "usually short; cap at ~10 with pager if more", resets to page
+// 1 on every tab switch (swarm-store's shared hashchange listener).
 
 @state {
-  import { swarm } from '../lib/swarm-store.ts'
+  import { swarm, REVIEWS_PAGE_SIZE, goToReviewsPage, reviewsPage } from '../lib/swarm-store.ts'
   import {
     arr,
     chipClasses,
@@ -39,7 +48,7 @@
   // state_wrappers scanner left THIS PARTICULAR `derived(...)` call
   // un-lowered in that file's context; `computed` is the exact primitive
   // `derived(...)` lowers to, so this is behaviorally identical).
-  const reviewRows = computed(() =>
+  const allReviewRows = computed(() =>
     (arr(swarmState().reviews) as Rec[]).map((r, i) => {
       const tag = reviewTag(r.status)
       const pr = r.pr
@@ -55,6 +64,7 @@
         contract: str(r.contract, '—'),
         owner: str(r.owner, '—'),
         tagLabel: tag.label,
+        tagTitle: tag.title,
         isChip,
         tagClasses,
         neutralClasses,
@@ -63,6 +73,23 @@
       }
     }),
   )
+
+  const totalReviews = derived(() => allReviewRows().length)
+  const totalReviewPages = derived(() => Math.max(1, Math.ceil(totalReviews() / REVIEWS_PAGE_SIZE)))
+  const reviewPage = derived(() => Math.min(reviewsPage(), totalReviewPages()))
+  const reviewPageStart = derived(() => (reviewPage() - 1) * REVIEWS_PAGE_SIZE)
+  const reviewRows = derived(() =>
+    allReviewRows().slice(reviewPageStart(), reviewPageStart() + REVIEWS_PAGE_SIZE),
+  )
+  const reviewRangeStart = derived(() => (totalReviews() === 0 ? 0 : reviewPageStart() + 1))
+  const reviewRangeEnd = derived(() =>
+    Math.min(reviewPageStart() + REVIEWS_PAGE_SIZE, totalReviews()),
+  )
+  const showReviewPager = derived(() => totalReviews() > REVIEWS_PAGE_SIZE)
+  const reviewHasPrev = derived(() => reviewPage() > 1)
+  const reviewHasNext = derived(() => reviewPage() < totalReviewPages())
+  const prevReviewPage = () => goToReviewsPage(Math.max(1, reviewPage() - 1))
+  const nextReviewPage = () => goToReviewsPage(Math.min(totalReviewPages(), reviewPage() + 1))
 
   const errorRows = derived(() =>
     (arr(swarmState().errors) as Rec[]).map((e, i) => ({
@@ -73,12 +100,14 @@
   )
 
   const yourMoveEmpty = derived(
-    () => decideRows().length === 0 && reviewRows().length === 0 && errorRows().length === 0,
+    () => decideRows().length === 0 && allReviewRows().length === 0 && errorRows().length === 0,
   )
+
+  const REVIEW_COLS = 'grid grid-cols-[9rem_7rem_8rem_1fr] gap-x-6 items-center'
 }
 
 @template {
-  <section class="mb-12 motion-safe:animate-[sc-row-in_260ms_ease_both]" aria-label="Your move">
+  <section class="mb-12" aria-label="Your move">
     <p class="font-mono text-xs font-medium tracking-[0.12em] uppercase text-muted mb-4 pb-2 border-b border-border">your move</p>
 
     <p class="text-muted text-sm py-2" if={yourMoveEmpty}>nothing needs you</p>
@@ -93,16 +122,33 @@
         <p class="text-base leading-relaxed text-ink">{d.question}</p>
       </article>
 
-      <ul class="list-none grid" if={reviewRows.length > 0}>
-        <li class="flex items-center flex-wrap gap-3 py-3 border-b border-border" each={r of reviewRows} key={r.key}>
-          <code class="font-mono tabular-nums text-ink">{r.contract}</code>
-          <span class="text-muted text-sm">{r.owner}</span>
-          <span class={r.tagClasses} if={r.isChip}>{r.tagLabel}</span>
-          <span class={r.neutralClasses} if={!r.isChip}>{r.tagLabel}</span>
-          <a class="font-mono tabular-nums text-ink ml-auto hover:text-accent" if={r.prHref} href={r.prHref} target="_blank" rel="noopener noreferrer">{r.prLabel}</a>
-          <span class="text-muted text-xs ml-auto" if={!r.prHref}>verdict only — read it</span>
-        </li>
-      </ul>
+      <div if={totalReviews > 0}>
+        <div class={REVIEW_COLS} role="row">
+          <span role="columnheader" class="font-mono text-xs font-medium tracking-[0.04em] uppercase text-muted pb-2 border-b border-border">contract</span>
+          <span role="columnheader" class="font-mono text-xs font-medium tracking-[0.04em] uppercase text-muted pb-2 border-b border-border">owner</span>
+          <span role="columnheader" class="font-mono text-xs font-medium tracking-[0.04em] uppercase text-muted pb-2 border-b border-border">status</span>
+          <span role="columnheader" class="font-mono text-xs font-medium tracking-[0.04em] uppercase text-muted pb-2 border-b border-border text-right">pr</span>
+        </div>
+        <div role="table">
+          <div class={REVIEW_COLS} role="row" each={r of reviewRows} key={r.key}>
+            <code role="cell" class="font-mono tabular-nums text-ink py-4 border-b border-border">{r.contract}</code>
+            <span role="cell" class="text-muted text-sm py-4 border-b border-border">{r.owner}</span>
+            <span role="cell" class="py-4 border-b border-border">
+              <span class={r.tagClasses} if={r.isChip} title={r.tagTitle}>{r.tagLabel}</span>
+              <span class={r.neutralClasses} if={!r.isChip} title={r.tagTitle}>{r.tagLabel}</span>
+            </span>
+            <span role="cell" class="text-right py-4 border-b border-border">
+              <a class="font-mono tabular-nums text-ink hover:text-accent" if={r.prHref} href={r.prHref} target="_blank" rel="noopener noreferrer">{r.prLabel}</a>
+              <span class="text-muted text-xs" if={!r.prHref}>verdict only — read it</span>
+            </span>
+          </div>
+        </div>
+        <div class="flex items-center gap-4 pt-3 font-mono text-xs text-muted" if={showReviewPager}>
+          <span class="tabular-nums">{reviewRangeStart}–{reviewRangeEnd} of {totalReviews}</span>
+          <button type="button" class="hover:text-ink disabled:opacity-40 disabled:pointer-events-none motion-safe:transition-colors motion-safe:duration-150" on:click={prevReviewPage} disabled={!reviewHasPrev} aria-label="Previous page of reviews">‹</button>
+          <button type="button" class="hover:text-ink disabled:opacity-40 disabled:pointer-events-none motion-safe:transition-colors motion-safe:duration-150" on:click={nextReviewPage} disabled={!reviewHasNext} aria-label="Next page of reviews">›</button>
+        </div>
+      </div>
 
       <ul class="list-none grid" if={errorRows.length > 0}>
         <li class="flex items-baseline gap-3 py-3 border-b border-border" each={e of errorRows} key={e.key}>

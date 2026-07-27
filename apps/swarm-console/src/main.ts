@@ -16,6 +16,7 @@
 import './styles/theme.css'
 import './styles/base.css'
 import './components/swarm-header.aihu'
+import './components/tab-bar.aihu'
 import './components/your-move.aihu'
 import './components/contracts-ledger.aihu'
 import './components/agents-roster.aihu'
