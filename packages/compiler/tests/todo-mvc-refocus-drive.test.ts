@@ -70,7 +70,10 @@ function root(el: HTMLElement): ShadowRoot {
 
 beforeAll(() => {
   if (!HAVE_COMPILER) return
-  jsdom = new JSDOM('<!DOCTYPE html><body></body>', { pretendToBeVisual: true, url: 'http://localhost/' })
+  jsdom = new JSDOM('<!DOCTYPE html><body></body>', {
+    pretendToBeVisual: true,
+    url: 'http://localhost/',
+  })
   const g = globalThis as unknown as Record<string, unknown>
   g.window = jsdom.window as unknown
   g.document = jsdom.window.document
