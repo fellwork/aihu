@@ -214,3 +214,32 @@ describe('@aihu/use/useSwarm — SSR-static path (isClient no-op invariant)', ()
     close()
   })
 })
+
+describe('useSwarm no-op guard — the other two documented triggers', () => {
+  afterEach(() => {
+    MockEventSource.instances = []
+    vi.unstubAllGlobals()
+  })
+
+  it('an explicit `window: undefined` forces the no-op path even with a DOM present', () => {
+    // Review finding: the original destructuring default made this
+    // documented contract unimplementable — explicit undefined fell through
+    // to the real window. MUST-FAIL direction: with EventSource available
+    // and isClient true, only the explicit-undefined option stops the
+    // connection.
+    vi.stubGlobal('EventSource', MockEventSource)
+    const { state, connected, close } = useSwarm({ window: undefined })
+    expect(MockEventSource.instances).toHaveLength(0)
+    expect(state().t).toBe(0)
+    expect(connected()).toBe(false)
+    close()
+  })
+
+  it('a DOM without EventSource support takes the no-op path instead of throwing', () => {
+    // jsdom ships no EventSource; deliberately do NOT stub one.
+    const { state, connected, close } = useSwarm()
+    expect(state().t).toBe(0)
+    expect(connected()).toBe(false)
+    close()
+  })
+})

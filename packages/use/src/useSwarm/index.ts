@@ -41,6 +41,10 @@ export interface SwarmState {
   agents: SwarmRecord[]
   contracts: SwarmRecord[]
   activity: SwarmRecord[]
+  /** Pulled Linear/GitHub backlog, summarized server-side (count + a few
+   * newest contract ids), not streamed as full rows. Optional: older bus
+   * builds don't publish it. */
+  backlog?: { count?: number; sample?: unknown[] }
 }
 
 /** `decide`/`orphan`/`reviews`/`errors` grouped under one getter — the
@@ -109,7 +113,12 @@ function yourMoveOf(s: SwarmState): SwarmYourMove {
  * no-op path.
  */
 export function useSwarm(options: UseSwarmOptions = {}): UseSwarmReturn {
-  const { url = DEFAULT_URL, window: win = defaultWindow } = options
+  const { url = DEFAULT_URL } = options
+  // `in`-check, not a destructuring default: the documented contract is that
+  // an EXPLICIT `{ window: undefined }` forces the SSR no-op path, but a
+  // destructuring default fires for explicit undefined exactly as for an
+  // omitted key, silently substituting the real window (review finding).
+  const win = 'window' in options ? options.window : defaultWindow
 
   // SSR (or no window, or no EventSource support): static default, no
   // signal, no network connection — the isClient no-op invariant.
@@ -128,6 +137,7 @@ export function useSwarm(options: UseSwarmOptions = {}): UseSwarmReturn {
 
   const source = new EventSource(`${url}/stream`)
   let stopped = false
+  let lastRaw = ''
 
   source.onopen = () => {
     if (stopped) return
@@ -136,10 +146,19 @@ export function useSwarm(options: UseSwarmOptions = {}): UseSwarmReturn {
 
   source.onmessage = (event) => {
     if (stopped) return
+    setConnected(true)
+    // Skip byte-identical frames: a fresh parse of the same payload would
+    // still replace the state signal (Object.is sees a new object) and force
+    // every derived row array downstream to recompute. HONEST LIMIT: the
+    // current bus stamps `t` into every frame, so identical frames are rare
+    // today — this guards reconnect replays and a future content-keyed
+    // server. The full fix (per-section signals with content equality) is a
+    // deliberate follow-up, not smuggled into this diff.
+    if (event.data === lastRaw) return
     try {
       const parsed = JSON.parse(event.data) as SwarmState
+      lastRaw = event.data
       setState(() => parsed)
-      setConnected(true)
     } catch {
       // Malformed frame: keep the previous state rather than throwing out
       // of an EventSource callback — the next frame (~1s later) recovers.

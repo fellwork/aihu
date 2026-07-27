@@ -44,8 +44,12 @@ export function reviewTag(status: unknown): StatusTag {
  */
 export function contractTag(status: unknown): StatusTag {
   const s = typeof status === 'string' ? status.toLowerCase() : ''
+  // Destructive family FIRST: "unverified" contains the substring
+  // "verified", so a success-first check painted a disputed/unverified
+  // contract with a green chip — the operator panel showing the opposite
+  // of reality (pre-merge review finding, verified empirically).
+  if (/(unverified|blocked|error|disput|fail)/.test(s)) return { label: s, tone: 'destructive' }
   if (/(verified|done|merged|success)/.test(s)) return { label: s, tone: 'success' }
-  if (/(blocked|error|disput|fail)/.test(s)) return { label: s, tone: 'destructive' }
   if (/(claim|submit|reconcil|progress|pending|review|offer)/.test(s))
     return { label: s, tone: 'warning' }
   return { label: s || 'unknown', tone: 'neutral' }

@@ -159,13 +159,8 @@
     }),
   )
 
-  // `backlog` is published by the bus but is not part of useSwarm's
-  // declared `SwarmState` TS shape (an open field the composable's type
-  // hasn't caught up to yet) — read it defensively off the raw frame.
   const backlogLine = derived(() => {
-    const b = (swarmState() as Rec).backlog as
-      | { count?: unknown; sample?: unknown }
-      | undefined
+    const b = swarmState().backlog
     const count = typeof b?.count === 'number' ? b.count : 0
     if (count <= 0) return ''
     const sample = Array.isArray(b?.sample) ? (b?.sample as unknown[]) : []
