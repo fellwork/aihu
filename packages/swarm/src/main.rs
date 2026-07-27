@@ -12,7 +12,8 @@
 //!   0  = ok (including a successful non-empty `pull`/`watch`)
 //!   2  = broken input: missing/unknown role, missing required field, no
 //!        such contract, a verdict with no --contract, a blocked with no
-//!        --question
+//!        --question, a verdict reporting --status done with no (or
+//!        malformed) --claims, or an unknown --status value
 //!   3  = genuinely empty (a `pull`/`watch` with nothing new — NOT an error)
 //!   4  = conflict (claiming a contract someone else already owns)
 //!   5  = IDENTITY MISMATCH (bound_identity: role is registered to a
@@ -45,6 +46,30 @@
 //!     - `contract.needs` (new, nullable TEXT, comma-separated contract ids)
 //!       — the Graph/DAG edge. `ready --id C` reports whether every upstream
 //!       need has reached a satisfied status.
+//!     - `msg.vstatus` (new, nullable TEXT, one of `done`/`blocked`/
+//!       `could-not-check`) — set via `send --status <value>`, mirroring the
+//!       Verdict schema in the design doc. This is the FIELD, not prose,
+//!       that answers "does this verdict report completion?" — the
+//!       reconciler classifies a contract by checking a done-verdict's
+//!       --claims against the agent's transcript, so a verdict that reports
+//!       completion with nothing to check against is the same silent-failure
+//!       class as a verdict with no --contract:
+//!         - `--kind verdict --status done` (the default when `--status` is
+//!           omitted, so pre-existing done-verdicts are still caught)
+//!           REQUIRES a non-empty, well-formed `--claims` — rejected (exit 2)
+//!           if absent.
+//!         - `--kind verdict --status blocked` / `--status could-not-check`
+//!           does NOT require `--claims` — there is legitimately nothing to
+//!           claim.
+//!         - an unknown `--status` value is rejected (exit 2), listing the
+//!           three valid values.
+//!     - `msg.claims` is VALIDATED, not merely required non-empty: it is a
+//!       comma-separated list of `verb:target` pairs, where `verb` is one of
+//!       `filed`, `pushed`, `merged`, `committed`, `ran`, `opened`, `closed`.
+//!       An entry with no `:`, an unknown verb, or an empty target is
+//!       rejected (exit 2) naming the offending entry — an unparseable claim
+//!       is the same silent-failure class as no claim at all, so it is
+//!       caught at the boundary rather than stored and discovered later.
 //!
 //! ACCOUNTABILITY SYNC (docs/typed-bus-payloads.md, "Accountability" section,
 //! contract C-SWARM-SYNC) — binds the contract lifecycle to Linear + GitHub.
@@ -495,6 +520,9 @@ fn open_db() -> rusqlite::Result<Connection> {
     ensure_column(&conn, "contract", "needs", "TEXT")?;
     ensure_column(&conn, "msg", "pr", "INTEGER")?;
     ensure_column(&conn, "msg", "claims", "TEXT")?;
+    // A verdict's completion status (done/blocked/could-not-check), same
+    // idempotent-upgrade posture as every other typed-payload column above.
+    ensure_column(&conn, "msg", "vstatus", "TEXT")?;
     // Accountability sync fields (docs/typed-bus-payloads.md, C-SWARM-SYNC):
     // the contract's Linear/GitHub home, all nullable — absent until a
     // `sync --pull` or an explicit `offer`/`setstatus` sets them.
@@ -502,6 +530,83 @@ fn open_db() -> rusqlite::Result<Connection> {
     ensure_column(&conn, "contract", "github_issue", "INTEGER")?;
     ensure_column(&conn, "contract", "github_pr", "INTEGER")?;
     Ok(conn)
+}
+
+// ---------------------------------------------------------------------------
+// Verdict typed payload: a done-verdict must carry its evidence, enforced
+// HERE at the bus boundary (docs/typed-bus-payloads.md). `VerdictStatus` is
+// the closed 3-value enum behind `send --status`; `validate_claims` is the
+// pure, DB-free parser behind `send --claims` — both unit-tested directly
+// below, same posture as `decide_link`/`parse_pr_ref`/`is_merged_evidence`.
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum VerdictStatus {
+    Done,
+    Blocked,
+    CouldNotCheck,
+}
+
+impl VerdictStatus {
+    const ALL_NAMES: [&'static str; 3] = ["done", "blocked", "could-not-check"];
+
+    fn parse(s: &str) -> Option<Self> {
+        match s {
+            "done" => Some(Self::Done),
+            "blocked" => Some(Self::Blocked),
+            "could-not-check" => Some(Self::CouldNotCheck),
+            _ => None,
+        }
+    }
+
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Done => "done",
+            Self::Blocked => "blocked",
+            Self::CouldNotCheck => "could-not-check",
+        }
+    }
+}
+
+/// Claims are comma-separated `verb:target` pairs (e.g.
+/// `pushed:PR#640,ran:cargo test`) — the reconciler's evidence that a
+/// done-verdict is checkable, not a rubber stamp. Validated here, not just
+/// checked non-empty: an unparseable claim (no `:`, an unknown verb, or an
+/// empty target) is exit-2'd naming the offending entry, the same
+/// silent-failure class as no claim at all.
+const CLAIM_VERBS: &[&str] = &["filed", "pushed", "merged", "committed", "ran", "opened", "closed"];
+
+fn validate_claims(claims: &str) -> Result<(), String> {
+    for entry in claims.split(',') {
+        let entry = entry.trim();
+        if entry.is_empty() {
+            return Err(format!(
+                "claim '{claims}' has an empty entry — claims are comma-separated \
+                 verb:target pairs, e.g. 'pushed:PR#640,ran:cargo test'"
+            ));
+        }
+        let (verb, target) = match entry.split_once(':') {
+            Some((v, t)) => (v.trim(), t.trim()),
+            None => {
+                return Err(format!(
+                    "claim '{entry}' has no ':' — claims are verb:target pairs, \
+                     e.g. 'pushed:PR#640'"
+                ))
+            }
+        };
+        if !CLAIM_VERBS.contains(&verb) {
+            return Err(format!(
+                "claim '{entry}' has unknown verb '{verb}'. Valid verbs: {}",
+                CLAIM_VERBS.join(", ")
+            ));
+        }
+        if target.is_empty() {
+            return Err(format!(
+                "claim '{entry}' has an empty target — name what was {verb}"
+            ));
+        }
+    }
+    Ok(())
 }
 
 // ---------------------------------------------------------------------------
@@ -548,15 +653,79 @@ fn cmd_send(args: &Args) -> rusqlite::Result<()> {
     };
     let claims = args.get_str("claims");
 
+    // `--status` is a closed 3-value enum, validated whenever it is given —
+    // for any kind, not just `verdict` — so a typo is caught at the boundary
+    // rather than stored verbatim and silently ignored.
+    let status_arg = args.get_str("status");
+    let parsed_status: Option<VerdictStatus> = match status_arg {
+        Some(s) => match VerdictStatus::parse(s) {
+            Some(v) => Some(v),
+            None => die(
+                &format!(
+                    "unknown --status '{s}'. Valid: {}",
+                    VerdictStatus::ALL_NAMES.join(", ")
+                ),
+                2,
+            ),
+        },
+        None => None,
+    };
+
+    // A verdict declares completion via a FIELD, not prose the reconciler
+    // has to sniff out of `body`: omitting --status on a verdict defaults to
+    // `done` (so pre-existing done-verdicts with no --status are still
+    // caught), and `done` REQUIRES evidence. `blocked`/`could-not-check`
+    // legitimately have nothing to claim, so claims stay optional there —
+    // but if claims ARE given anyway, they are validated all the same.
+    let effective_status: Option<VerdictStatus> = if kind == "verdict" {
+        Some(parsed_status.unwrap_or(VerdictStatus::Done))
+    } else {
+        parsed_status
+    };
+
+    if kind == "verdict" && effective_status == Some(VerdictStatus::Done) {
+        match claims {
+            Some(c) if !c.is_empty() => {
+                if let Err(e) = validate_claims(c) {
+                    die(&e, 2);
+                }
+            }
+            _ => {
+                let defaulted = if status_arg.is_none() {
+                    " (--status was omitted, which defaults to 'done')"
+                } else {
+                    ""
+                };
+                die(
+                    &format!(
+                        "a verdict with --status done{defaulted} requires --claims — \
+                         comma-separated verb:target pairs, e.g. \
+                         'pushed:PR#640,ran:cargo test'. Pass --claims, or use \
+                         --status blocked / --status could-not-check if there is \
+                         genuinely nothing to claim."
+                    ),
+                    2,
+                );
+            }
+        }
+    } else if let Some(c) = claims {
+        if !c.is_empty() {
+            if let Err(e) = validate_claims(c) {
+                die(&e, 2);
+            }
+        }
+    }
+
     let conn = open_db()?;
     let mid = new_id();
     let ts = now_ts();
+    let vstatus = effective_status.map(VerdictStatus::as_str);
     // Column-explicit insert: a positional VALUES(...) breaks the moment a
     // column is added and the writer isn't updated.
     conn.execute(
-        "INSERT INTO msg (id, ts, sender, recipient, kind, body, contract, pr, claims) \
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
-        params![mid, ts, from, to, kind, body, contract, pr, claims],
+        "INSERT INTO msg (id, ts, sender, recipient, kind, body, contract, pr, claims, vstatus) \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+        params![mid, ts, from, to, kind, body, contract, pr, claims, vstatus],
     )?;
     // A verdict is the owner declaring done, not the supervisor reconciling
     // it: flip the contract to 'submitted', never 'verified'.
@@ -2761,5 +2930,76 @@ mod tests {
     #[test]
     fn is_merged_evidence_rejects_merged_with_null_merged_at() {
         assert!(!is_merged_evidence("MERGED", None));
+    }
+
+    // FEATURE 5 (done-verdict-requires-claims) — `VerdictStatus` is the
+    // closed 3-value enum behind `send --status`.
+
+    #[test]
+    fn verdict_status_parses_all_three_valid_values() {
+        assert_eq!(VerdictStatus::parse("done"), Some(VerdictStatus::Done));
+        assert_eq!(VerdictStatus::parse("blocked"), Some(VerdictStatus::Blocked));
+        assert_eq!(
+            VerdictStatus::parse("could-not-check"),
+            Some(VerdictStatus::CouldNotCheck)
+        );
+    }
+
+    #[test]
+    fn verdict_status_rejects_unknown_values() {
+        // Case variants and near-misses must NOT be silently accepted.
+        for s in ["Done", "DONE", "done ", " done", "complete", "", "could_not_check"] {
+            assert_eq!(VerdictStatus::parse(s), None, "'{s}' must not parse");
+        }
+    }
+
+    // `validate_claims` — the pure parser behind `send --claims`. Claims are
+    // comma-separated verb:target pairs; a malformed one is the same
+    // silent-failure class as no claim at all, so it must be rejected, not
+    // merely accepted because the string is non-empty.
+
+    #[test]
+    fn validate_claims_accepts_valid_multi_claim() {
+        assert!(validate_claims("pushed:PR#640,ran:cargo test").is_ok());
+    }
+
+    #[test]
+    fn validate_claims_accepts_every_valid_verb() {
+        for verb in CLAIM_VERBS {
+            let claim = format!("{verb}:target");
+            assert!(validate_claims(&claim).is_ok(), "'{claim}' should be valid");
+        }
+    }
+
+    #[test]
+    fn validate_claims_rejects_missing_colon() {
+        let err = validate_claims("PR640").unwrap_err();
+        assert!(err.contains("PR640"), "error should name the offending entry: {err}");
+    }
+
+    #[test]
+    fn validate_claims_rejects_unknown_verb() {
+        let err = validate_claims("invented:X").unwrap_err();
+        assert!(err.contains("invented"), "error should name the offender: {err}");
+    }
+
+    #[test]
+    fn validate_claims_rejects_empty_target() {
+        let err = validate_claims("pushed:").unwrap_err();
+        assert!(err.contains("pushed:"), "error should name the offender: {err}");
+    }
+
+    #[test]
+    fn validate_claims_rejects_empty_string() {
+        assert!(validate_claims("").is_err());
+    }
+
+    #[test]
+    fn validate_claims_rejects_one_bad_entry_among_good_ones() {
+        // A single malformed entry invalidates the whole claims string —
+        // partial acceptance would be exactly the silent gap this exists to
+        // close.
+        let err = validate_claims("pushed:PR#640,garbage,ran:tests").unwrap_err();
+        assert!(err.contains("garbage"), "error should name the offender: {err}");
     }
 }
