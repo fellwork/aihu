@@ -59,20 +59,23 @@ cities, so the directory name is never used as a role.
 ## Commands
 
 ```bash
-S="bun .claude/skills/swarm/swarm.ts"
+# `S` is a function, not `S="…"`: zsh does not word-split an unquoted `$S`, so
+# the string form runs a single command literally named "bun …" and fails with
+# "command not found". A function works in zsh and bash alike. FEL-461.
+S() { bun .claude/skills/swarm/swarm.ts "$@"; }
 
-$S whoami                       # role + health of both backends. RUN THIS FIRST.
+S whoami                       # role + health of both backends. RUN THIS FIRST.
 
-$S tasks --project aihu --state "In Progress"
-$S show  FEL-409                # description + all comments, oldest first
-$S claim FEL-409                # assigns the human owner, records YOU as acting agent
-$S note  FEL-409 "finding..."   # comment, attributed to your role
-$S move  FEL-409 "In Review"
+S tasks --project aihu --state "In Progress"
+S show  FEL-409                # description + all comments, oldest first
+S claim FEL-409                # assigns the human owner, records YOU as acting agent
+S note  FEL-409 "finding..."   # comment, attributed to your role
+S move  FEL-409 "In Review"
 
-$S recall "bench attribution"   # search the wiki
-$S wiki-read <page-id>
-$S wiki-write --title "T" --body "..."      # or pipe markdown on stdin
-$S wiki-write --append <page-id> --body "..."
+S recall "bench attribution"   # search the wiki
+S wiki-read <page-id>
+S wiki-write --title "T" --body "..."      # or pipe markdown on stdin
+S wiki-write --append <page-id> --body "..."
 ```
 
 ## Discipline
