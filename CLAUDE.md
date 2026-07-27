@@ -34,12 +34,43 @@ bun run typecheck           # tsc --noEmit across packages
 
 ## Multi-agent orchestration
 
-This repo is the home of the `fw-agent-skill` (under `.claude/skills/`) and
-runs Mode 2 build sessions backed by [GBrain](https://github.com/garrytan/gbrain)
-(Supabase + pgvector) as the storage and recall middleware. State files
-live at `state-<track>.md` in the repo root. Install GBrain via gstack's
-`/setup-gbrain` skill — see `.claude/skills/fw-agent-skill/INSTALL.md`
-and `.claude/CLOUD-SETUP.md` for the cloud-sandbox bootstrap.
+This repo is the home of the `fw-agent-skill` (under `.claude/skills/`).
+
+**The bus is the record.** Swarm coordination runs over `swarm-bus` (the Rust
+core in `packages/swarm`, installed at `~/.swarm/bin/swarm-bus`) against one
+SQLite file at `~/.swarm/bus.db`. Payloads are typed and validated at the
+boundary — a malformed message is REJECTED with exit 2, never silently
+accepted, so **read the exit code**:
+
+```bash
+~/.swarm/bin/swarm-bus send --from <role> --to <role|all> \
+  --kind <note|claim|counter|verdict|blocked> --body '...'
+#   a verdict MUST name --contract, and should carry --pr / --claims
+#   a blocked MUST carry --question (the one thing a human must decide)
+~/.swarm/bin/swarm-bus claim --id <contract> --role <role>   # before you build
+~/.swarm/bin/swarm-bus watch --role <role>                   # traffic not addressed to you
+```
+
+Anything that changes state — a claim, a verdict, a blocked question, a
+disclosure — goes on the **bus**. Slack (`#aihu`) is for human-facing narration
+only. The distinction is load-bearing: the bus is what the reconciler checks,
+what the console displays, and what the Linear/GitHub sync publishes. **Work
+reported only in Slack is invisible to every gate and every audit — in ledger
+terms it did not happen.**
+
+**Durable role state lives at `docs/state/<role>.md`** — committed files named
+by ROLE, not by scope. Each ends with "what the next instance must not redo";
+if you are woken as that role, you are that next instance. Read it first, and
+update it before you finish.
+
+You may NOT set your own status to `verified` / `no-claims`. Only the
+supervisor's reconcile pass does that, after checking your claims against your
+transcript or from merged-PR evidence.
+
+GBrain (Supabase + pgvector) remains available for semantic recall via gstack's
+`/setup-gbrain`, but it is **not** the coordination or state layer. See
+`.claude/skills/fw-agent-skill/INSTALL.md` and `.claude/CLOUD-SETUP.md` for the
+cloud-sandbox bootstrap.
 
 ## gstack
 
