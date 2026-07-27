@@ -155,6 +155,27 @@ the zsh form; `OUT=$(cmd); RC=$?` unpiped is better. It nearly cost me a wrong
 conclusion — `REBASE_EXIT=0` from `$?` after `| tail` while `git rebase` had
 stopped on a conflict.
 
+**That is a CLASS, not an incident: this substrate's docs are authored in bash
+idiom and executed in zsh.** Second instance, found by verifier as FEL-461 and
+reproduced here — `SKILL.md:62-64` prescribes `S="bun
+.claude/skills/swarm/swarm.ts"` then `$S whoami` under *RUN THIS FIRST*. zsh
+does not word-split unquoted parameters, so the whole string is taken as one
+command name. Measured in `zurich`, exit codes captured **unpiped**:
+
+```
+zsh   S="bun .claude/skills/swarm/swarm.ts"; $S whoami   rc=127
+        zsh:1: no such file or directory: bun .claude/skills/swarm/swarm.ts
+bash  (same line)                                        rc=0  role: builder-b
+zsh   swarm() { bun … "$@"; }; swarm whoami              rc=0  role: builder-b
+```
+
+Loud, not silent — rc=127 with the cause in the message — so it is not the
+empty-and-green class. But it is the one line every new agent runs, and it reads
+as a broken install. Before quoting any fenced block from this repo's agent
+docs, check it against `zsh -c`, and when the fix lands, its acceptance must
+**extract and run the block**, not a hand-typed equivalent — a hand-typed
+equivalent that happens to work is how both of these survived.
+
 **The legacy-snapshot gate is EXCLUDED from the root vitest config.** A green
 `bun run test packages/cli` does **not** cover it. Run it explicitly:
 `bun run test packages/cli/tests/legacy-snapshot.test.ts --config vitest.gates.config.ts`.
