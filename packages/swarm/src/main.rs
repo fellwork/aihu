@@ -9,15 +9,38 @@
 //!   contract: an empty result must never read like a broken query.
 //!
 //! EXIT CODES (matches the oracle)
-//!   0  = ok (including a successful non-empty `pull`)
+//!   0  = ok (including a successful non-empty `pull`/`watch`)
 //!   2  = broken input: missing/unknown role, missing required field, no
-//!        such contract
-//!   3  = genuinely empty (a `pull` with nothing new — NOT an error)
+//!        such contract, a verdict with no --contract, a blocked with no
+//!        --question
+//!   3  = genuinely empty (a `pull`/`watch` with nothing new — NOT an error)
 //!   4  = conflict (claiming a contract someone else already owns)
+//!   5  = IDENTITY MISMATCH (bound_identity: role is registered to a
+//!        different workspace than the one this process is running in)
 //!   64 = unknown command / no command given
 //!   1  = unexpected internal error (DB I/O etc.) — the oracle has no
 //!        distinct code for this either; an uncaught Python exception also
 //!        exits 1.
+//!
+//! FULL COMMAND SURFACE (parity with bus.py)
+//!   send offer claim ack attempt setstatus pull watch ready
+//!   (`status`, the oracle's pretty-printed contract table, is intentionally
+//!   not reproduced here — it's a human dashboard, not a coordination
+//!   primitive, and every field it prints is already reachable via `pull`/
+//!   direct DB read. Nothing in the brief asked for it.)
+//!
+//! TYPED PAYLOADS (docs/typed-bus-payloads.md, agent-swarm@design/typed-bus-payloads)
+//!   The actionable parts of a message are validated FIELDS, not prose to be
+//!   regexed downstream by a consumer. Concretely:
+//!     - `msg.contract` (already existed) — a `verdict` MUST set it; rejected
+//!       at the boundary (exit 2) if absent, never silently accepted.
+//!     - `msg.pr` (new, nullable INTEGER) / `msg.claims` (new, nullable TEXT,
+//!       "verb:target,verb:target") — optional structured fields on `send`.
+//!     - a `blocked` MUST set `--question` (exit 2 if absent) — the one
+//!       thing a human must decide, not buried in `body`.
+//!     - `contract.needs` (new, nullable TEXT, comma-separated contract ids)
+//!       — the Graph/DAG edge. `ready --id C` reports whether every upstream
+//!       need has reached a satisfied status.
 //!
 //! DIVERGENCES FROM THE ORACLE (deliberate, logged per the brief)
 //!   1. `offer` here does NOT require `--brief`. The oracle's cmd_offer
@@ -26,20 +49,25 @@
 //!      must-fail. `--brief` is accepted and folded into the dispatched
 //!      message body when present; omitted otherwise. Flagged explicitly —
 //!      do not read this as full oracle parity on `offer`.
-//!   2. `bound_identity()` (workspace-vs-role registry check against
-//!      `~/.swarm/agents.json`, oracle exit code 5) is NOT implemented. It
-//!      is a deployment-environment concern (checking cwd against a
-//!      supervisor-owned registry file) outside this crate's stated
-//!      surface (send/pull/offer/claim/ack/setstatus + exit codes 0/2/3/4/
-//!      64). No path in this binary emits exit code 5.
-//!   3. `watch`, `attempt`, and `status` (oracle commands) are not
-//!      implemented — out of scope per the brief. They fall through to the
-//!      "unknown command" handler (exit 64), which is honest: they really
-//!      are unknown to *this* binary.
-//!   4. `offer`'s `--to` is, exactly as in the oracle, only checked for
+//!   2. `offer`'s `--to` is, exactly as in the oracle, only checked for
 //!      *presence*, not validated against the known-role set (the oracle's
 //!      cmd_offer never calls need_role on `to`). Reproduced faithfully,
 //!      not accidentally.
+//!   3. A `blocked` message here is only required to carry `--question`
+//!      (per this crate's brief). The typed-payload design doc's `Blocked`
+//!      Zod schema also makes `contract` required on a blocked payload;
+//!      that extra constraint is NOT enforced here because it is outside
+//!      this crate's stated acceptance surface and would silently reject
+//!      pre-existing `--kind blocked` traffic that never set `--contract`.
+//!      Logged, not silently dropped.
+//!   4. `watch`'s timestamp column is formatted in UTC, not the oracle's
+//!      `time.localtime`. Reproducing local-timezone formatting would pull
+//!      in a chrono/time dependency for a cosmetic column; the ordering and
+//!      content of every row are otherwise identical. If wall-clock-local
+//!      display ever matters to a consumer, that's the moment to add the
+//!      dependency — not preemptively.
+//!   5. `status` (the oracle's pretty-printed contract table) is not
+//!      implemented — see FULL COMMAND SURFACE above.
 
 use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::{json, Map, Value};
@@ -160,10 +188,89 @@ fn new_id() -> String {
 }
 
 // ---------------------------------------------------------------------------
+// Identity: IDENTITY = (workspace, role). Matches bus.py's bound_identity()
+// exactly. The registry at `~/.swarm/agents.json` (HOME-relative, so
+// SWARM_DB-style overrides via a swapped HOME work for tests) maps
+// role -> cwd and is written by the SUPERVISOR, never by agents — so a
+// sender's claimed role is checked against where the process is actually
+// running, rather than trusted because it said so. This is checkable, NOT
+// cryptographic: an agent could `cd` before calling. Roles absent from the
+// registry (human-driven, e.g. orchestrator) pass through untouched — the
+// supervisor does not own them, so it cannot vouch for them.
+// ---------------------------------------------------------------------------
+
+fn agents_registry_path() -> PathBuf {
+    let home = env::var("HOME").unwrap_or_else(|_| ".".to_string());
+    PathBuf::from(home).join(".swarm").join("agents.json")
+}
+
+/// realpath-ish: canonicalize when the path exists (resolves symlinks,
+/// mirrors Python's os.path.realpath), else fall back to a plain absolute
+/// join so a not-yet-created directory still compares sanely instead of
+/// erroring.
+fn realpath_like(p: &str) -> String {
+    let path = PathBuf::from(p);
+    if let Ok(canon) = std::fs::canonicalize(&path) {
+        return canon.to_string_lossy().to_string();
+    }
+    if path.is_absolute() {
+        return path.to_string_lossy().to_string();
+    }
+    match env::current_dir() {
+        Ok(cwd) => cwd.join(path).to_string_lossy().to_string(),
+        Err(_) => path.to_string_lossy().to_string(),
+    }
+}
+
+fn bound_identity(role: &str) {
+    let reg_path = agents_registry_path();
+    if !reg_path.exists() {
+        return;
+    }
+    let content = match std::fs::read_to_string(&reg_path) {
+        Ok(c) => c,
+        Err(e) => die(
+            &format!("registry unreadable ({e}) — refusing to guess identity"),
+            2,
+        ),
+    };
+    let reg: Value = match serde_json::from_str(&content) {
+        Ok(v) => v,
+        Err(e) => die(
+            &format!("registry unreadable ({e}) — refusing to guess identity"),
+            2,
+        ),
+    };
+    let entry = match reg.get(role) {
+        Some(e) if e.is_object() => e,
+        _ => return, // human-driven role; not supervisor-owned
+    };
+    let want_raw = match entry.get("cwd").and_then(Value::as_str) {
+        Some(s) => s,
+        None => return, // malformed entry; nothing to bind against
+    };
+    let want = realpath_like(want_raw);
+    let here = realpath_like(
+        &env::current_dir()
+            .map(|p| p.to_string_lossy().to_string())
+            .unwrap_or_else(|_| ".".to_string()),
+    );
+    if here != want && !here.starts_with(&format!("{want}{}", std::path::MAIN_SEPARATOR)) {
+        die(
+            &format!(
+                "IDENTITY MISMATCH: role '{role}' is bound to {want}, but this \
+                 process is in {here}. A role is (workspace, role) — send from \
+                 your own workspace or use your own role."
+            ),
+            5,
+        );
+    }
+}
+
+// ---------------------------------------------------------------------------
 // DB: one SQLite file, schema created idempotently on every open (matches
-// the oracle's db() exactly, including the ALTER-if-missing `recon` column
-// so an existing pre-`recon` bus.db is upgraded in place rather than
-// rejected).
+// the oracle's db() exactly, including ALTER-if-missing columns so an
+// existing bus.db is upgraded in place rather than rejected).
 // ---------------------------------------------------------------------------
 
 fn db_path() -> PathBuf {
@@ -174,21 +281,21 @@ fn db_path() -> PathBuf {
     PathBuf::from(home).join(".swarm").join("bus.db")
 }
 
-fn ensure_recon_column(conn: &Connection) -> rusqlite::Result<()> {
-    let mut has_recon = false;
+fn ensure_column(conn: &Connection, table: &str, column: &str, coltype: &str) -> rusqlite::Result<()> {
+    let mut has_col = false;
     {
-        let mut stmt = conn.prepare("PRAGMA table_info(contract)")?;
+        let mut stmt = conn.prepare(&format!("PRAGMA table_info({table})"))?;
         let mut rows = stmt.query([])?;
         while let Some(row) = rows.next()? {
             let name: String = row.get(1)?;
-            if name == "recon" {
-                has_recon = true;
+            if name == column {
+                has_col = true;
                 break;
             }
         }
     }
-    if !has_recon {
-        conn.execute("ALTER TABLE contract ADD COLUMN recon TEXT", [])?;
+    if !has_col {
+        conn.execute(&format!("ALTER TABLE {table} ADD COLUMN {column} {coltype}"), [])?;
     }
     Ok(())
 }
@@ -211,7 +318,12 @@ fn open_db() -> rusqlite::Result<Connection> {
            id TEXT PRIMARY KEY, ts REAL, issue TEXT, owner TEXT, surface TEXT,
            must_pass TEXT, must_fail TEXT, status TEXT, note TEXT);",
     )?;
-    ensure_recon_column(&conn)?;
+    // Idempotent ALTERs — same posture as the oracle's `recon` upgrade path,
+    // extended for the typed-payload fields (docs/typed-bus-payloads.md).
+    ensure_column(&conn, "contract", "recon", "TEXT")?;
+    ensure_column(&conn, "contract", "needs", "TEXT")?;
+    ensure_column(&conn, "msg", "pr", "INTEGER")?;
+    ensure_column(&conn, "msg", "claims", "TEXT")?;
     Ok(conn)
 }
 
@@ -221,6 +333,7 @@ fn open_db() -> rusqlite::Result<Connection> {
 
 fn cmd_send(args: &Args) -> rusqlite::Result<()> {
     let from = need_role(args.get_str("from"), "--from");
+    bound_identity(&from);
     let to = need_role(args.get_str("to"), "--to");
     let body = match args.get_str("body") {
         Some(b) if !b.is_empty() => b,
@@ -229,12 +342,44 @@ fn cmd_send(args: &Args) -> rusqlite::Result<()> {
     let kind = args.get_str("kind").unwrap_or("note");
     let contract = args.get_str("contract");
 
+    // Typed-payload boundary checks (docs/typed-bus-payloads.md): the
+    // actionable parts of a verdict/blocked message are validated fields,
+    // never prose a consumer has to regex out downstream. Reject here, not
+    // silently accept and let a consumer discover the gap later.
+    if kind == "verdict" {
+        match contract {
+            Some(c) if !c.is_empty() => {}
+            _ => die("a verdict must name its contract", 2),
+        }
+    }
+    if kind == "blocked" {
+        match args.get_str("question") {
+            Some(q) if !q.is_empty() => {}
+            _ => die(
+                "a blocked message must carry --question — the one thing a human must decide",
+                2,
+            ),
+        }
+    }
+
+    let pr: Option<i64> = match args.get_str("pr") {
+        Some(p) => match p.parse::<i64>() {
+            Ok(v) => Some(v),
+            Err(_) => die(&format!("--pr must be an integer, got '{p}'"), 2),
+        },
+        None => None,
+    };
+    let claims = args.get_str("claims");
+
     let conn = open_db()?;
     let mid = new_id();
     let ts = now_ts();
+    // Column-explicit insert: a positional VALUES(...) breaks the moment a
+    // column is added and the writer isn't updated.
     conn.execute(
-        "INSERT INTO msg VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-        params![mid, ts, from, to, kind, body, contract],
+        "INSERT INTO msg (id, ts, sender, recipient, kind, body, contract, pr, claims) \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+        params![mid, ts, from, to, kind, body, contract, pr, claims],
     )?;
     // A verdict is the owner declaring done, not the supervisor reconciling
     // it: flip the contract to 'submitted', never 'verified'.
@@ -330,6 +475,10 @@ fn cmd_offer(args: &Args) -> rusqlite::Result<()> {
     let note = args.get_str("note").unwrap_or("");
     let brief = args.get_str("brief").unwrap_or("");
     let from = args.get_str("from").unwrap_or("orchestrator");
+    // The Graph/DAG edge (docs/typed-bus-payloads.md): comma-separated
+    // upstream contract ids this contract depends on. Optional — a contract
+    // with no needs is trivially ready.
+    let needs = args.get_str("needs");
     let cid = args
         .get_str("id")
         .map(|s| s.to_string())
@@ -338,12 +487,12 @@ fn cmd_offer(args: &Args) -> rusqlite::Result<()> {
     let conn = open_db()?;
     let ts = now_ts();
     // Column-explicit insert: a positional VALUES(...) breaks the moment a
-    // column is added (recon) and the writer isn't updated.
+    // column is added (recon, needs) and the writer isn't updated.
     conn.execute(
         "INSERT OR REPLACE INTO contract \
-         (id, ts, issue, owner, surface, must_pass, must_fail, status, note) \
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'offered', ?8)",
-        params![cid, ts, issue, to, surface, must_pass, must_fail, note],
+         (id, ts, issue, owner, surface, must_pass, must_fail, status, note, needs) \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'offered', ?8, ?9)",
+        params![cid, ts, issue, to, surface, must_pass, must_fail, note, needs],
     )?;
 
     // Dispatch the brief atomically: no contract without a work order.
@@ -359,7 +508,8 @@ fn cmd_offer(args: &Args) -> rusqlite::Result<()> {
          --contract {cid} --body '...'"
     );
     conn.execute(
-        "INSERT INTO msg VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        "INSERT INTO msg (id, ts, sender, recipient, kind, body, contract) \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
         params![mid, ts, from, to, "dispatch", body, cid],
     )?;
 
@@ -369,6 +519,7 @@ fn cmd_offer(args: &Args) -> rusqlite::Result<()> {
 
 fn cmd_claim(args: &Args) -> rusqlite::Result<()> {
     let who = need_role(args.get_str("role"), "--role");
+    bound_identity(&who);
     let cid = match args.get_str("id") {
         Some(v) if !v.is_empty() => v,
         _ => die("--id is required", 2),
@@ -432,6 +583,28 @@ fn cmd_ack(args: &Args) -> rusqlite::Result<()> {
     Ok(())
 }
 
+fn cmd_attempt(args: &Args) -> rusqlite::Result<()> {
+    // Record that delivery was ATTEMPTED (distinct from `ack`, which records
+    // success). At-least-once redelivery is made visible as a count instead
+    // of arriving as a fresh instruction the agent may already have obeyed.
+    let role = need_role(args.get_str("role"), "--role");
+    let ids_raw = args.get_str("ids").unwrap_or("");
+    let ids: Vec<&str> = ids_raw.split(',').filter(|s| !s.is_empty()).collect();
+    if ids.is_empty() {
+        die("--ids is required", 2);
+    }
+    let conn = open_db()?;
+    for id in &ids {
+        conn.execute(
+            "INSERT INTO attempt (role, msg, n) VALUES (?1, ?2, 1) \
+             ON CONFLICT(role, msg) DO UPDATE SET n = n + 1",
+            params![role, id],
+        )?;
+    }
+    println!("attempted {} for {role}", ids.len());
+    Ok(())
+}
+
 fn cmd_setstatus(args: &Args) -> rusqlite::Result<()> {
     let (cid, status) = match (args.get_str("id"), args.get_str("status")) {
         (Some(c), Some(s)) if !c.is_empty() && !s.is_empty() => (c, s),
@@ -459,13 +632,111 @@ fn cmd_setstatus(args: &Args) -> rusqlite::Result<()> {
     Ok(())
 }
 
+/// UTC HH:MM:SS from a unix-epoch-seconds float — no timezone crate; see
+/// module doc divergence #4.
+fn format_hms_utc(ts: f64) -> String {
+    let secs = ts as i64;
+    let secs_of_day = secs.rem_euclid(86400);
+    let h = secs_of_day / 3600;
+    let m = (secs_of_day % 3600) / 60;
+    let s = secs_of_day % 60;
+    format!("{h:02}:{m:02}:{s:02}")
+}
+
+fn cmd_watch(args: &Args) -> rusqlite::Result<()> {
+    // Every message, addressed or not — the cross-talk IS the value.
+    // --role is required (matches the oracle) even though watch shows
+    // everything regardless of who is watching.
+    let _role = need_role(args.get_str("role"), "--role");
+    let limit: i64 = args
+        .get_str("limit")
+        .and_then(|s| s.parse::<i64>().ok())
+        .unwrap_or(30);
+
+    let conn = open_db()?;
+    let mut stmt = conn.prepare(
+        "SELECT ts, sender, recipient, kind, body FROM msg ORDER BY ts DESC LIMIT ?1",
+    )?;
+    let rows: Vec<(f64, String, String, String, String)> = stmt
+        .query_map(params![limit], |r| {
+            Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?))
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+
+    for (ts, sender, recipient, kind, body) in rows.iter().rev() {
+        let trimmed: String = body.chars().take(160).collect();
+        println!(
+            "[{}] {sender} -> {recipient} ({kind}): {trimmed}",
+            format_hms_utc(*ts)
+        );
+    }
+    std::process::exit(if rows.is_empty() { 3 } else { 0 });
+}
+
+fn cmd_ready(args: &Args) -> rusqlite::Result<()> {
+    // The read half of the Graph/DAG edge: is every upstream `needs` id
+    // satisfied? A need is satisfied when its status is 'verified' or
+    // 'no-claims' (docs/typed-bus-payloads.md Contract.status enum) — any
+    // other existing status, or a needs-id that names no contract at all,
+    // is unmet and named in the output.
+    let cid = match args.get_str("id") {
+        Some(v) if !v.is_empty() => v,
+        _ => die("--id is required", 2),
+    };
+
+    let conn = open_db()?;
+    let needs_row: Option<Option<String>> = conn
+        .query_row(
+            "SELECT needs FROM contract WHERE id = ?1",
+            params![cid],
+            |r| r.get::<_, Option<String>>(0),
+        )
+        .optional()?;
+    let needs_str = match needs_row {
+        Some(v) => v,
+        None => die(&format!("no contract '{cid}'"), 2),
+    };
+    let needs: Vec<&str> = needs_str
+        .as_deref()
+        .unwrap_or("")
+        .split(',')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .collect();
+
+    if needs.is_empty() {
+        println!("{cid} ready (no needs declared)");
+        return Ok(());
+    }
+
+    let mut unmet: Vec<String> = Vec::new();
+    for n in &needs {
+        let status: Option<String> = conn
+            .query_row("SELECT status FROM contract WHERE id = ?1", params![n], |r| r.get(0))
+            .optional()?;
+        match status.as_deref() {
+            Some("verified") | Some("no-claims") => {}
+            Some(s) => unmet.push(format!("{n} ({s})")),
+            None => unmet.push(format!("{n} (no such contract)")),
+        }
+    }
+
+    if unmet.is_empty() {
+        println!("{cid} ready — needs satisfied: {}", needs.join(", "));
+        Ok(())
+    } else {
+        println!("{cid} NOT ready — unmet needs: {}", unmet.join(", "));
+        std::process::exit(1);
+    }
+}
+
 // ---------------------------------------------------------------------------
 
 fn main() {
     let raw_args: Vec<String> = env::args().collect();
     if raw_args.len() < 2 {
         die(
-            "usage: swarm-bus <send|pull|offer|claim|ack|setstatus> [--k v ...]",
+            "usage: swarm-bus <send|pull|offer|claim|ack|attempt|setstatus|watch|ready> [--k v ...]",
             64,
         );
     }
@@ -478,7 +749,10 @@ fn main() {
         "offer" => cmd_offer(&args),
         "claim" => cmd_claim(&args),
         "ack" => cmd_ack(&args),
+        "attempt" => cmd_attempt(&args),
         "setstatus" => cmd_setstatus(&args),
+        "watch" => cmd_watch(&args),
+        "ready" => cmd_ready(&args),
         other => die(&format!("unknown command '{other}'"), 64),
     };
 
