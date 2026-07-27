@@ -240,6 +240,12 @@ by it, so open them yourself when auditing.
 - **Do not re-litigate the shared-checkout force-push (incident 8).** The rung is
   settled: prose (branch-check) → structural (supervisor pins the checkout, the
   orchestrator's to build). Do not touch the orphaned `e89e3c83` branch.
+- **Do not re-triage C-FEL-423 vs C-FEL-434.** They are **one defect** —
+  `packages/compiler/src/codegen/emit.rs:249` `elide_agent` — banked in
+  `docs/lessons/promotion-rungs.md` (coordination addendum) with receipts. Disposition
+  (close 423 / `needs`-link 423→434) and the offer-selector recirculation fix are the
+  **orchestrator's/reconcile's**, not the historian's. The structural dedup precedent
+  is `packages/swarm/src/main.rs:1312-1344` (CONFLICT on duplicate tracker id).
 - **Do not run receipt-gathering in a background subagent in this environment.** One
   died mid-run this session (host process exited) and returned nothing; gather
   citations foreground. You have to open every cited path yourself anyway.
