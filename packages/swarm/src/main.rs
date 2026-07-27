@@ -771,6 +771,29 @@ fn cmd_setstatus(args: &Args) -> rusqlite::Result<()> {
             2,
         );
     }
+    // `verified`/`no-claims` are the two statuses with EXTERNAL side effects
+    // (sync mirrors them outward as Done). They require --reconciled: a
+    // deliberate-action guard set by the supervisor's reconcile pass,
+    // greppable in any transcript. Stated honestly (FEL-436 class): any
+    // process CAN pass it — on a single-user machine cryptographic gating
+    // does not exist — so this prevents mistakes and habit, not malice.
+    // Founder ruling D1:B, 2026-07-27.
+    if matches!(status, "verified" | "no-claims") {
+        match args.get("reconciled") {
+            Some(ArgVal::Flag) => {}
+            Some(ArgVal::Str(v)) => {
+                die(&format!("--reconciled takes no value (got '{v}')"), 2)
+            }
+            None => die(
+                &format!(
+                    "status '{status}' has external side effects (sync mirrors \
+                     it as Done) and requires --reconciled — set by the \
+                     reconcile pass, not by hand out of habit."
+                ),
+                2,
+            ),
+        }
+    }
 
     let conn = open_db()?;
     let exists: Option<i64> = conn
