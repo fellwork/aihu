@@ -1,8 +1,8 @@
 # State — builder-b
 
 **Role:** BUILDER-B · **Workspace:** `zurich`
-**Base:** `origin/main` @ `20e00fec`
-**Last updated:** 2026-07-26, stand-down. Four PRs merged, one open.
+**Base:** `origin/main` @ `2350f49c`
+**Last updated:** 2026-07-27. Six PRs merged, one open (#655, FEL-GH478).
 
 > Ownership: `docs/state/` is historian's. This file exists because the
 > orchestrator asked each role to write one before standing down.
@@ -18,7 +18,44 @@ surface, `docs/plans/**`, and the `ci-ok` job in `.github/workflows/plan-a.yml`
 | #621 `3452c896` | FEL-391 — E1 ratified, approval-by-merge closed |
 | #622 `ba752f91` | FEL-423 — the readiness floor assertion |
 | #627 `36021ea9` | FEL-437 — `ci-ok` refuses a draft that built nothing |
-| #632 open | FEL-431 defect 5 — `git-init` leaves a real commit |
+| #632 `…` | FEL-431 defect 5 — `git-init` leaves a real commit |
+| #641 `2e231e4c` | FEL-441 — `$ref` `onMount` hoisted ahead of `@state` callbacks |
+| #655 open | FEL-GH478 — `<$slot>` fallback children survive compilation |
+
+---
+
+## 2026-07-27 — FEL-GH478, and how the compiler lane is actually verified
+
+`createSlotBoundary = (o, b) => slot(o?.name ?? undefined)` dropped `b`, the
+authored fallback-children fn, so `<$slot>fallback</$slot>` compiled to a
+childless `<slot>` in every shadow mode. The fix emits the fallback **as the
+slot's children** — `branch('slot', {name}, [b()])` — which is what native
+Shadow DOM fallback *is*: a `<slot>` renders its own children when it has no
+assigned nodes, and assigned nodes override them. `slot()` builds a terminal
+leaf and structurally cannot carry children, so the helper had to change shape,
+not gain an argument.
+
+**The only acceptance that counts here is a from-source binary.** Measured, on
+the rebased head:
+
+```
+fixed binary     (target/release/aihu-compile, cargo build --release exit 0)
+  drive test     2 passed
+pre-fix binary   (one line reverted, full rebuild)
+  drive test     2 FAILED — AssertionError: expected '' to contain 'fallback text'
+restored         2 passed
+```
+
+Each direction costs a ~2m30s release rebuild. Budget for it; there is no
+shortcut, because `AIHU_COMPILE_BIN` unset means vitest exercises the
+**published** addon and a Rust fix is invisible to its own test.
+
+**And the drive-test harness skips rather than fails when no binary is found.**
+`it.skipIf(!HAVE_COMPILER)` — CI is safe (`plan-a.yml` builds and stages
+`packages/compiler/bin/aihu-compile` before vitest), but a local run with
+`AIHU_COMPILE_BIN` unset and no `target/` reports **green having compiled
+nothing**. Set the env var explicitly and read the test count, not the exit
+code.
 
 ---
 
@@ -144,6 +181,44 @@ the call sequence *by position*; `git-init` grew from one command to three, so
 have kept passing **while asserting something other than what it was written
 for**. Assert on shape, not position.
 
+**`git log -- <path>` reads your HEAD, not the remote — fetch FIRST.** I ran
+`git log -- CLAUDE.md`, saw the newest change was months old, and concluded
+CLAUDE.md was unchanged. It had been rewritten in the working tree (the
+bus-only / `docs/state/` protocol) and *staged by another actor* while I was
+mid-build. Same family as the stale-`origin/main` trap below, one level up: the
+question was scoped to a ref that predated the thing I was asking about.
+
+**This worktree changes under you between turns.** `CLAUDE.md` went from clean
+to `M ` (**staged**) at 16:07 while a `cargo build` of mine was running. Any
+`git commit -a` — or a bare `git commit` with something already in the index —
+sweeps another agent's work into your PR. Run `git status --short` and
+`git branch --show-current` **immediately before every commit**, and path-scope
+every commit (`git commit <paths>`), never `-a`.
+
+**A release PR can land between your commit and your push.** `chore(release):
+version packages` bumped `@aihu/compiler` 1.1.1 → 1.1.2 while my branch carried
+a hand-written FEL-414 lockstep bump of the platform packages — the two collide
+in `packages/compiler/package.json` and the generated README tables. Resolution
+that works: take **main's** `@aihu/compiler` version, keep **your** platform
+versions and `optionalDependencies` pins, then re-run
+`bun scripts/sync-readme.ts` and let it own every generated table. Confirm with
+`bun scripts/sync-readme.ts --check` and `BASE_REF=main bun run
+check:compiler-binary-bump` (both exit 0).
+
+**`gh api ".../check-runs?per_page=100"` MUST be quoted.** Unquoted, zsh globs
+the `?` and dies with `no matches found` — a *failed question* that looks
+nothing like an answer, but is easy to read past in a batch of output.
+
+**`state-model-sidecar-tsc.test.ts` times out at 5 s under parallel load.** It
+shells out to `tsc --strict`; a full `bun run test packages/compiler` right
+after a cargo build reports it failed. It passes 4/4 in isolation. Re-run the
+file alone before reporting a red.
+
+**A red `ci-ok` on a draft is FEL-437 working, not a defect** — my own fix. The
+draft-time run reports `ci-ok failure` with `check` skipped; mark the PR ready
+and the re-run supersedes it. Do not debug it, and do not report the draft run
+as the PR's verdict.
+
 **Gate currency is the needs-list, not the behind-count.** A PR can be 0 behind
 and still remove a required job from `ci-ok`'s `needs`. Diff the line directly,
 and assert both sides are non-empty first — two failed `git show` calls make
@@ -181,3 +256,15 @@ and assert both sides are non-empty first — two failed `git show` calls make
    `AGENTS.md` taught the *inverse* of its own rule to any agent that read it.
    Do not restore it looking for scaffold templates; they are in
    `src/index.ts`, `templates-full.ts`, `templates-agent.ts`, `templates-tooling.ts`.
+8. Do not report a compiler fix verified without naming the binary that
+   produced the numbers. Unset `AIHU_COMPILE_BIN` = the published addon.
+9. Do not re-derive the slot fallback shape. `slot()` is a terminal leaf;
+   fallback requires `branch('slot', …, [b()])`. Both directions are covered by
+   `packages/compiler/tests/slot-fallback-drive.test.ts`.
+10. **Do not post to Slack.** Founder ruling 2026-07-27: the bus
+   (`~/.swarm/bin/swarm-bus`) is the only channel the reconciler, console and
+   Linear/GitHub sync read. Slack-only work did not happen, in ledger terms.
+11. Do not set your own contract status to `verified` / `no-claims`. That is
+   the supervisor's reconcile pass. `no-claims` on a contract you own means
+   your claims were not extractable — send the verdict again with `--claims`
+   in `key:value` shorthand and `--pr`, do not argue about it in prose.
