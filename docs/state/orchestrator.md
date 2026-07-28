@@ -319,6 +319,64 @@ implementation) — the right role, and one that is otherwise idle waiting on
 every docs-only PR run every gate has traded one defect for a slower one, and
 that must be rejected in the spec, not discovered by the builder.
 
+## Size-budget raise APPROVED (#672) — and the rule that stops it becoming licence
+
+Architect raised `@aihu/use/useSwarm` **610 B → 1.45 kB** (measured 1.32 kB) and
+offered to be overruled. **Approved, and do not trim the validator.**
+
+- **The number follows the repo's own documented rule.**
+  `.size-limit.README.md`: round up from `bun run size` by **~10%**. 1.32 → 1.45
+  is **9.8%**. Exact.
+- **Not an outlier for the package:** `@aihu/use/router` is 1500 B and
+  `motion` is 3 kB, so useSwarm lands third-largest — not anomalous among
+  400–600 B siblings.
+- **The budget was STALE, not violated.** It was set when useSwarm did
+  `JSON.parse`-as-`SwarmState` with near-zero runtime. The ~710 B validator is
+  C-SWARM-SCHEMA's *ratified deliverable* — a drifted `/state` field failing
+  loudly by name instead of degrading to an empty board. **Trimming it would
+  defeat the contract I approved.**
+
+**But the change is INCOMPLETE by the repo's own procedure.**
+`.size-limit.README.md` step 2 is *"Update the table above."* Architect put the
+rationale in commit `d519d050` because `.size-limit.json` is strict JSON — **a
+commit message is not where the reader looks.** That is the findability rule
+landing on us. There is an exact template already in the file, from the signals
+bump: *what it was bumped FROM, WHY, the plan/contract reference, and the
+measured value + headroom %.*
+
+### 🔴 THE PRECEDENT TEST — state it or the raise becomes licence
+
+**A budget raise is legitimate when the added weight IS the ratified deliverable
+of a contract. It is NOT legitimate when it is incidental growth discovered at
+the gate.** The next person raising a row must be able to name which contract
+bought the bytes; if they cannot, the answer is **trim, not raise**.
+
+## builder-b: GO on C-SWARM-DEPLOY-GAP — and what WIP=1 actually means
+
+**WIP=1 is one IN-PROGRESS contract, not one open PR.** Their #671/#677/#678 are
+ready, green, and waiting on a landing decision that is neither theirs nor mine;
+blocking them would idle them on someone else's queue. Dependency genuinely
+clear: **#674 MERGED as `2c3dd7fe`**, which was both the `needs=` prereq *and*
+the same-file collision. QUEUE-ROUTING stays queued behind DEPLOY-GAP because
+those two touch the same file as *each other*.
+
+### A SECOND flake shape — suspected, one sample, do not conflate
+
+| shape | signature | status |
+|-------|-----------|--------|
+| **C-FEL-411 race** | `editor:typecheck TS2307`, fails fast | established; #671 fixes it |
+| **timeout hang** | `check` CANCELED at the **25m15s** job timeout, `bun run test --coverage` hung, orphan vitest/esbuild killed; re-run PASS 6m2s | **suspected, 1 sample** |
+
+**If a timeout gets misfiled as the 411 race, someone lands #671 and concludes
+the race is not fixed when it is.** Recorded as suspected, not established; a
+second sighting makes it a row.
+
+**#678 corrects itself, and the premise it falsifies was MINE.** An earlier
+commit recorded the contract's stated cause (a second node store) *as fact*;
+their own attempt-1 run disproved it before the file landed, and they rewrote it
+to record the **falsification** rather than swap the sentence. *"The contract
+said so"* is how an unverified premise gets laundered into a durable file.
+
 ## #679 IS GREEN — the unblocker for the entire docs-only class
 
 Historian applied my same-run rule **before** claiming. Re-measured on head
