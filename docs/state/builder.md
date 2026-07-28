@@ -1,7 +1,7 @@
 # State — builder
 
 **Role:** BUILDER · **Workspace:** `almaty` · **Branch:** `fix/check-ci-dangling-gate-ref`
-**Last updated:** 2026-07-28 — C-FEL-GATE-WIRING-RUNS built (#691, head `81d85e1e`,
+**Last updated:** 2026-07-28 — C-FEL-GATE-WIRING-RUNS built (#691, head `fcd7828b`,
 based on `origin/main` 1bb0dd7c). C-FEL-434b LANDED (#683 @ `e7a1b7c2`),
 C-FEL-CI-RECEIPT open (#685), C-FEL-EXTERNALS record recovered (#656, merged).
 
@@ -132,8 +132,23 @@ env: block dropped   0 err=0  ->  1 err=7
 pair list emptied    0 err=0  ->  1 err=1   <- only the count guard closes this
 ```
 
-`-ne 7`, not `-lt`: adding an 8th job without updating the count goes RED until
-someone reconciles needs: / loop / count. That friction is the feature.
+`-ne`, not `-lt`: adding an 8th job without updating the count goes RED until
+someone reconciles needs: / loop / count.
+
+**The literal is DERIVED, not hand-maintained** — `check-gate-wiring.ts` parses
+ci-ok's `[ "$checked" -ne N ]` and asserts N equals the loop's pair count. That
+was the orchestrator's objection to the guard ("if it comes back it should be
+DERIVED, not a magic number") and it is the right objection: architect's own
+diagnosis is that **a guard whose reference value sits in the file it guards is a
+CONSISTENCY check, not a CORRECTNESS one** — it catches only the person who
+edited one side. The two referents now live in different files.
+
+**Do not delete the guard as redundant with the parse.** The parse makes
+`check:gate-wiring` red, i.e. it makes the *gate-wiring job* red — but in the
+exact scenario it detects (a job dropped from the result loop) ci-ok no longer
+reads that job, so **ci-ok itself stays green**. Production receipt: run
+`30401968909`, gate-wiring failure + ci-ok SUCCESS. The parse DETECTS; only the
+runtime guard REJECTS. Neither subsumes the other.
 
 **A harness lesson I paid for in this same measurement.** My first truth table
 varied `GATE_WIRING_RESULT` and reported main as `fail=0` on *every* value,
@@ -142,6 +157,27 @@ including `failure` — which reads as "main never catches anything." False.
 could not move main. The harness ran perfectly and answered about a variable the
 subject never reads. **Vary something present in BOTH sides, or you are
 measuring your own diff against nothing.**
+
+### The full sabotage matrix — including the three nobody had a detector for
+
+```
+A  untouched                                         -> 0   no false red
+D  drop pair from loop, count left at 7              -> 1
+F  drop pair AND decrement count (2 self-consistent) -> 1
+F+ F AND drop from needs: (3 self-consistent)        -> 1   reported as "defeats
+                                                            all three" — measured
+                                                            against a head that
+                                                            predates the parse
+G  count guard deleted entirely                      -> 1
+H  count literal drifts, loop unchanged              -> 1
+I  loop entry mis-bound to another job's result      -> 1
+J  reintroduce the check:grammar-v typo              -> 1
+K  delete the gate-wiring run step                   -> 1   names ITSELF
+```
+
+The `NEEDS_NOT_GATED` exemption is **not** an allowlist you can append to: an
+entry is honoured only if ci-ok really reads `needs.<job>.outputs.*`. Flagged as
+a fail-open hazard by a role reading the pre-parse head; it was already closed.
 
 ### #689 is GUARDED by my fixture, not weakened
 
