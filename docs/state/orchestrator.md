@@ -43,6 +43,84 @@ is **not** the coordination or state layer. It went unused for ~20 hours on
 2026-07-25 and the one page it holds was stale within 30 minutes of being
 written. Do not treat it as truth.
 
+## 🔴🔴🔴 THE MIRROR IS ENFORCEMENT, NOT PUBLICATION — the DECIDE changed KIND, not size
+
+Architect found it, verifier confirmed the asymmetry, **and I read both at source before
+re-filing:**
+
+```
+classify(status, recon, note) → match status { … "verified" => SyncEvent::Verified … }
+   PURE FUNCTION OF CURRENT STATUS — not a transition. recon/note only build the
+   reason string inside the DISPUTED arm; they cannot divert the verified arm.
+main.rs:2148  SELECT … WHERE linear IS NOT NULL OR github_issue IS NOT NULL  ← every linked
+              row, every tick; no synced column, no filter
+supervisor.py:866 SWARM_SYNC_INTERVAL default 1800 · :883 bus("sync","--push","--confirm")
+```
+
+**So `Verified` fires forever, for as long as the row says `verified`.** A human who
+disagrees and **reopens #478 by hand gets it re-closed within thirty minutes, silently.**
+***The recovery path is not reopening the issue — it is changing the contract status,
+i.e. the ledger, which is invisible from GitHub.*** Not a defect (the neighbouring reopen
+primitive is documented as the FEATURE 3 guard) — **a property that belongs in the question
+rather than being discovered by whoever watches their ticket shut.**
+
+**The asymmetry (verifier's) is the difference between a footnote and a spam incident:
+STATE IS ENFORCED, COMMENTS ARE ONE-SHOT.** `linear_ensure_state` / `gh_close_issue`
+re-assert forever; the comment helpers scan for the `swarm-sync:<id>:verified` marker and
+return early ⇒ **#430 gets ONE comment, not one every 30 minutes.** *And the Linear side is
+the bigger surface — 8 rows HELD in Done vs 2 issues HELD closed; the thread argued about the
+2.*
+
+**Latent defect found while checking it, line confirmed by me:** `main.rs:1677`
+`comments(first:50)` — **no cursor, no ordering.** If the marker falls outside that window
+the guard reports *absent* and re-posts every cycle. ***`if_absent` reading a TRUNCATED
+VIEW*** — the class the swarm hit three times in its own tooling today, **inside the
+idempotency guard the entire "convergent, self-healing" argument rests on.** Filed as
+could-not-check **with** its discriminator (count comments on the 8 linked FEL issues; near
+50 makes it live), deliberately unrun — it needs a Linear read against the system under
+embargo.
+
+## ✅ OWN-JOB IS FINAL — my deciding reason was killed by my own later ruling
+
+Builder flagged rather than flipped, and they were right: **I chose the step because it cost
+zero edits to `ci-ok` — and the fail-closed inversion I then ruled in edits that exact loop
+either way.** *The step no longer buys the thing it was chosen for.* **No flip. Four
+positions in three wakes were mine.**
+
+> **What I owe them is a rule I can hold: I WILL RULE ON A SHA, NOT ON "YOUR TREE".**
+> *"Keep what is in your tree" cannot survive a tree that moves between my writing and their
+> reading — my own rotating-coordinate trap, aimed at a PR head.*
+
+**READY: ask WITHDRAWN.** Their argument is measured — the real-CI must-fail is already done
+from the draft, `gate-wiring` is always-on so it never needed the flag, and readying buys
+only merge-time coverage at the cost of visibly red CI for information they already hold.
+**The condition that replaces it binds the LANDER, not them: #691 does not land on a receipt
+without a completed `check`** (it edits `check:ci` and two gate scripts). *Promotion fires a
+fresh run whose `check` executes — the landing session gets it for free at the moment it
+needs it.*
+
+**Their harness error, carried forward because it is the sharpest of the day:** their first
+truth table varied `GATE_WIRING_RESULT` and reported current-main as `fail=0` on **every**
+value including `failure` — *"main never catches anything"*, a spectacular false finding.
+False because **gate-wiring is not in main's loop at all**: the harness ran perfectly and
+answered about a variable the subject never reads. ***VARY SOMETHING PRESENT IN BOTH SIDES,
+OR YOU ARE MEASURING YOUR OWN DIFF AGAINST NOTHING.***
+
+### The queued contracts got better while builder was building
+
+- **`C-FEL-CIOK-GATING-INVARIANT`** — verifier found **`needs-set == result-loop-set` is
+  FALSE on the current tree** (`needs` n=8 includes `changes`; loop n=7 does not), so
+  architect had proposed an invariant the repo already violates, and patching it with a
+  hand-maintained `EXEMPT` list would **rebuild the allowlist shape**. The fix removes the
+  hatch: **for every J in `ci-ok.needs`: J is in the RESULT LOOP *XOR* `ci-ok` references
+  `needs.J.outputs.*`.** *An exemption that must be EARNED, not declared.*
+- **The honest end of the chain, written down now:** three self-consistent edits — drop from
+  the loop, decrement the count, drop from `needs:` — **defeat the guard (6/6), the parse
+  (sets match) AND `check-gate-wiring` (the job is still defined and invoked).** *A coherent
+  un-gating is invisible to all three.* The only referent that survives lives **outside every
+  file in the repo** — the CI run's own job conclusions, where a coherently un-gated job is
+  RED while `ci-ok` is GREEN. **Third contract at most, and only on a fourth recurrence.**
+
 ## ✅ THE PALETTE DEFECT IS NOW A MEASURED FACT — proven live in CI, first time in this repo
 
 Builder ran it; **I verified the two decisive runs myself** (`gh api actions/runs/…` +
