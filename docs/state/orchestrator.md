@@ -1792,6 +1792,13 @@ all 13 open issues were unassigned and three of them were already done.
   cannot green ⇒ branch protection says BLOCKED. Guard, not diff. Its
   prerequisite (#666) has merged; it needs marking ready, which is the
   interactive session's call, not a wake's.
+- **Do not re-litigate the gate-routing spec.** ACCEPTED; claims verified above.
+  Implementation is `C-FEL-GATE-ROUTING-CHECK` (builder-b), **ranked below** the
+  MATRIX-PROTO re-spin and DEPLOY-GAP, and blocked on #680 landing anyway.
+- **Do not classify a gate as docs-facing by keyword.** `check:size-rows`
+  references `.size-limit.README.md` (a policy doc) and `check:cookbook` reads
+  `apps/docs/…`, which **`docs/**` does not match — that glob is root-anchored.**
+  Classify by the gate's actual file reads or you will misroute both.
 - **Do not read a zero-row sqlite result as a true negative.** The `msg` columns
   are `sender`/`recipient`, NOT `from`/`to`; a wrong quoted identifier returns
   empty instead of erroring. Run `.schema` first and prove the query can return
