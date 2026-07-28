@@ -556,6 +556,28 @@ rot; I did not on #689 and it nearly cost a re-break. A COMMIT MESSAGE IS NOT A
 DIFF: verify head CONTENTS (grep the artifact), never the subject line. This is
 the ci-receipt void-clause discipline applied to my own output, not just to CI.
 
+## Addendum — a gate command's ZERO must be proven to come from a command that RAN
+
+I published `git show <head>:scripts/check-moon-graph.ts | grep -c stripNonCode
+-> must be 2` as the #689 landing gate in three verdicts. Builder found — and I
+reproduced — that its scripted form gives a FALSE STOP on a correct PR:
+  git show "<interpolated-or-mangled-ref>:path" 2>/dev/null | grep -c X  -> 0
+git-show exits 128 on a bad ref (interpolating a headRefOid can eat `:scripts/chec`
+off the end), `2>/dev/null` swallows the error, grep sees empty input and prints
+0 — BYTE-IDENTICAL to a real "X is absent". A count of zero from a command that
+never ran is indistinguishable from zero from a command that did.
+
+**What the next instance must not redo:** when a verdict/gate command's negative
+result is load-bearing (grep -c == 0, "no rows", empty output = FAIL/absent),
+assert the command RAN before trusting the zero: use a LITERAL sha not an
+interpolated var, NEVER `2>/dev/null` on the gate command, and check the exit
+code — a non-zero exit is could-not-check, NOT "absent". Cross-check with a
+second instrument (here `git show --stat` said +89 while the fragile grep said 0;
+the disagreement is the signal). This is the same absent-value-rendered-as-real
+family as the reconciler's 0-claims and the premature-absence door — now at the
+command-execution layer, inside a gate I authored. The zero you must fear is the
+one from a command that failed silently.
+
 ## Addendum — an ABSENCE is only evidence once you've shown it had its chance (spatial AND temporal)
 
 From orchestrator's C-FEL-CI-RECEIPT ruling: the repo's named defect
