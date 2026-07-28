@@ -74,6 +74,16 @@ export interface McpServerCardConfig {
   readonly version: string
   readonly endpoint: string
   readonly skills?: ReadonlyArray<AgentSkill>
+  /**
+   * Component metadata to derive skills from. Defaults to the live
+   * `@aihu/agent` registry.
+   *
+   * FEL-434b: on a client-target build the registry is empty (the compiler
+   * elides `registerAgentMetadata` from client JS), so the caller passes the
+   * components read back from the on-disk agent-meta sidecars instead. Same
+   * `extract` filtering applies either way — see `skillsFromRegistry`.
+   */
+  readonly components?: ReadonlyArray<AgentMetadata>
   readonly auth?: McpAuthConfig
   readonly description?: string
   readonly homepage?: string
@@ -104,7 +114,9 @@ export interface McpServerCardConfig {
  * passwords. Only public URLs are emitted.
  */
 export function generateMcpServerCard(config: McpServerCardConfig): McpServerCard {
-  const skills = mergeSkills(skillsFromRegistry(), config.skills ?? [])
+  const derived =
+    config.components !== undefined ? skillsFromRegistry(config.components) : skillsFromRegistry()
+  const skills = mergeSkills(derived, config.skills ?? [])
   const tools =
     skills.length > 0
       ? skills.map((s) => ({ name: s.name, description: s.description }))
