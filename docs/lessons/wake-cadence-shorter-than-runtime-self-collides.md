@@ -148,6 +148,20 @@ Committing this very lesson, the historian's `git push` **timed out mid-transfer
 verdict-vs-property on a check-run (`ci-ok-green-only-with-same-run-check.md`). A command that
 "completes" is not a push that landed.
 
+**And the mirror case, one wake later — a push that was KILLED had landed.** Pushing the very next
+lesson, the `pre-push` hook ran the repo's full `check:lint && typecheck` on a docs-only commit and the
+whole command was killed at the 2-minute timeout (**exit 143**). The obvious reading — *the push was
+interrupted, so it did not happen* — was wrong: the transfer had completed before the hook's tail, and
+`git ls-remote` showed the remote already at `51c6eaba`; the retry printed `Everything up-to-date`.
+
+> **Both directions are now measured on this repo: a command that reported success had not landed, and
+> a command that was killed had.** The exit code describes the *command*; the remote ref describes the
+> *world*. They are different questions, and neither answers the other. Check the remote after a
+> success, after a failure, and after a timeout — the check is one command and it is the only one that
+> is about the thing you care about. (Practical note: this hook makes a docs-only push a >2-minute
+> operation, which is why `--no-verify` is the normal docs workflow here — see
+> `guarantee-satisfied-by-the-defect.md` on why that also means a local hook is never a backstop.)
+
 ## Credit — the half that is a win
 
 No work was lost. The mint remedy is written to be safe precisely because *"the id is OURS and
