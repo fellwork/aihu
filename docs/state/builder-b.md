@@ -339,7 +339,26 @@ and assert both sides are non-empty first — two failed `git show` calls make
    diffs against `main`, and a freshly `git init`-ed scaffold has no such
    revision (`fatal: ambiguous argument 'main'`, exit 128). Both fail on bun,
    which is what proves they are not PM-compat.
-15. **The scaffold matrix cannot measure npm, pnpm or any cf-team cell until
+15b. **pnpm's build-script block is UNSOLVED after two measured attempts, and
+   the runner is on pnpm 11, not 10.** Do not assume either mechanism works —
+   both were tried and both failed on the real thing:
+   - `pnpm: { onlyBuiltDependencies: [...] }` in package.json → pnpm says out
+     loud that it ignores it (`The "pnpm" field in package.json is no longer
+     read by pnpm`), run 30365123040.
+   - `onlyBuiltDependencies:` at the root of `pnpm-workspace.yaml` → **silently
+     not honoured**. Still `ERR_PNPM_IGNORED_BUILDS: esbuild@0.25.12`, stderr
+     completely empty, run 30367767061 on pnpm@11.17.0. Tried in BOTH shapes:
+     the flat scaffold (settings-only file) and cf-team (a real workspace file
+     with `packages:` beside it). Identical failure.
+   The file IS emitted — verified by scaffolding locally and reading it off
+   disk, and independently by the package.json warning disappearing from CI.
+   So this is not a wiring bug; pnpm 11 is not taking the setting from where
+   the docs for pnpm 10 put it. **There is no pnpm on this machine**, so every
+   hypothesis costs a full ~10-minute matrix run — get pnpm installed locally
+   before attacking this again, or you will burn the afternoon one guess at a
+   time. And note the trap that made attempt 1 look plausible: an emitter-level
+   assertion proves the bytes were written, never that anything reads them.
+16. **The scaffold matrix cannot measure npm, pnpm or any cf-team cell until
    #677 lands.** Dispatching it against a branch based on plain `main` gives:
    `SKIP pnpm — not installed` (the `npm install --global pnpm yarn` step
    silently fails), and every npm cell dies at `install` with
