@@ -336,13 +336,46 @@ other direction) **and** `swarm-bus export` (`VACUUM INTO`).
 
 **C-FEL-MATRIX-PROTO (#677).** Every cell of the Scaffold DX matrix died at
 `pm-install` with `proto::commands::run::fallback_loop`, before any aihu code
-ran (2/15 passing). Cause: **two node stores on PATH** —
-`actions/setup-node@v4` puts one in `/opt/hostedtoolcache`, and
-`moonrepo/setup-toolchain@v0` installs proto which *shims* node per
-`.prototools`; proto then finds a proto shim at the hostedtoolcache path and
-refuses to exec it rather than recurse. Fix: delete `setup-node`, let proto be
-the single source, and **move `setup-toolchain` above** the pnpm/yarn install
-(which needs proto's node+npm on PATH).
+ran (2/15 passing).
+
+**The contract's stated cause was wrong, and my own first attempt proved it.**
+The dispatch said the cause was `actions/setup-node@v4` adding a *second* node
+store alongside proto's. I built exactly that fix — delete `setup-node` — and
+its own run falsified it:
+
+| | run | node winning PATH | `fallback_loop` | SUMMARY |
+|---|---|---|---|---|
+| baseline | 30318406544 | `/opt/hostedtoolcache/…` (shim) | yes | 2/15, all at pm-install |
+| attempt 1: delete `setup-node` | 30321617019 | `/usr/local/bin/node` (shim) | yes ×8 | 2/15, npm still at install |
+| attempt 2: proto **then** `setup-node` | 30322552896 | real node v22.23.1 | **0** | **6/20** |
+
+Deleting `setup-node` **moved** the collision instead of removing it. So the
+cause is not "two stores" — it is that **the winning `node` on PATH is a proto
+shim at all**. proto refuses to exec a shim rather than recurse, and it bites
+every child a package manager spawns: esbuild's `sh -c node install.js`, `vite`,
+and yarn's own `#!/usr/bin/env node` launcher.
+
+Fix: `setup-toolchain` **first** (moon stays on PATH for the cf-team cell), then
+`setup-node` **last**, so a real node binary is prepended ahead of proto's shims.
+The ordering is counter-intuitive and is commented in the workflow with both run
+ids and both collision paths.
+
+> Attempt 1 was not wasted and I would build it again. It moved yarn from dying
+> at install to install+typecheck passing, and that movement is what isolated
+> the residual. **A wrong hypothesis that relocates a failure has told you
+> something; one that changes nothing has not.**
+
+**A step can pass while achieving nothing.** `npm install --global pnpm yarn`
+ran under *proto's* npm, printed `added 2 packages in 3s`, and left
+`pnpm --version` **empty** — the globals went to a prefix never exported onto
+PATH. So the pnpm row said SKIP for the whole life of the lane and the grid was
+15 cells wide instead of 20. Same absent-value shape as everything else here.
+
+**The lane now produces signal, and the residual failures are real defects**
+(out of scope for that contract — reported, not fixed): pnpm ×4
+`ERR_PNPM_IGNORED_BUILDS` (templates declare no `pnpm.onlyBuiltDependencies`);
+yarn ×4 `Cannot find package '@aihu/store' imported from @aihu/app/dist` — a
+genuine packaging defect, and likely the same class as the FEL-391 residual.
 
 ### Verified-from-source ≠ true of the live bus
 
@@ -710,3 +743,13 @@ accidental, a deployment gap made it moot.** Filed as C-SWARM-DEPLOY-GAP.
    unchanged `md5` of it as evidence of anything. Use `swarm-bus export`.
    Under a held reader, checkpointing physically cannot backfill the main file;
    `VACUUM INTO` can.
+16. **Do not "fix" the scaffold-matrix toolchain by deleting `actions/setup-node`.**
+   Measured and falsified: it moves the `fallback_loop` from
+   `/opt/hostedtoolcache/node/…` to `/usr/local/bin/node` and leaves the lane
+   dead. The order `setup-toolchain` → `setup-node` is deliberate — a REAL node
+   must win PATH ahead of proto's shims. Both run ids are in the workflow
+   comment.
+17. Do not read "the step exited 0" as "the step did something." `npm install
+   --global pnpm yarn` under proto's npm printed `added 2 packages` and left
+   `pnpm --version` empty for the entire life of the matrix lane. Assert the
+   post-condition (`pnpm --version` non-empty), not the exit code.
