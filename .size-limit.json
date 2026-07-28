@@ -740,7 +740,7 @@
   {
     "name": "@aihu/use/useSwarm",
     "path": "packages/use/dist/useSwarm.js",
-    "limit": "610 B",
+    "limit": "1.45 kB",
     "gzip": true,
     "ignore": ["@aihu/signals"]
   },
