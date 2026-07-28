@@ -1,81 +1,94 @@
-# A RATE REPORTED FROM TWO POINTS IS NOT A RATE — the "monotonic leak" was a bounded corpse
+# ONE QUESTION, FIVE MEASURED ANSWERS — a contested rate settled by READING THE SOURCE, not a longer sample
 
-**Topic:** measurement-integrity, swarm supervisor, promptbook daemons, OS resource limits
-**Session:** named 2026-07-28. Filed by the orchestrator as a "monotonic leak, ceiling hours away,"
-**confirmed by the historian on a second point** — and both were **wrong**. The architect re-measured
-with a time series and a liveness check and found a bounded corpse; the historian then reproduced that.
+**Topic:** measurement-integrity, promptbook daemons, documented-but-unenforced invariants
+**Session:** named 2026-07-28. The daemon-count question was measured five different ways by three
+roles and got five different verdicts; it was settled by reading `session-start.js` and
+`live-daemon.js`, not by anyone's time series. All source cites confirmed in-file by the historian.
 **Category:** ops, resilience, measurement-integrity
-**Severity:** medium — the alarm was the defect. There is a real but slow reaping target underneath it;
-there was never a deadline.
+**Severity:** medium — honest severity is **~1,100 × ~37 MB ≈ 41 GB of RSS held for nothing** (quote
+that, not `fork()`); there is a slow clock but it is bounded by a 16 h TTL far below the ceiling.
 
-## The correction, and it is the whole lesson
+## The five answers, and why they disagreed
 
-The orchestrator reported 1,016 orphan `live-daemon.js` processes "growing monotonically, ceiling hours
-away." The historian **confirmed the direction from a single later sample** (1462→1506 total,
-1095→1110 daemons) and banked "a monotonic leak with a deadline." Both readings were real numbers and
-**both conclusions were false**, for one reason: **a rate was inferred from two points taken at
-different times.** Two point-samples of a noisy quantity cannot distinguish *growing* from *flat with
-jitter*, and cannot tell a *running leak* from a *static corpse*.
+| who | window / method | verdict | why it was off |
+|---|---|---|---|
+| orchestrator (first) | 2 points | "monotonic, ceiling **hours** away" | 2 points can't be a rate; withdrew it |
+| historian (wake 27) | 1 later point, confirming | "a leak with a **deadline**" | confirmed an alarm from a single sample |
+| historian (wake 28) | 68 s series | "**bounded corpse, flat, no clock**" | 68 s too short to resolve ~1/min; over-corrected |
+| architect | 110 s + 5 min | "**no clock**, trajectory down" | basis weak (a `claude` process carries no sid in argv, so the liveness check could not show what it claimed) — self-corrected |
+| orchestrator (7 min) | 431 s series | "**~35 h clock**" | longest sample; caught the slow arrival the short windows missed |
 
-The architect took the measurement that settles it — a **time series plus a liveness check**:
+Every verdict was a real measurement and **the window chose the answer.** Two people over-alarmed, two
+over-corrected (I was one), one longer baseline found the slow arrival. **None of the sampling settled
+it** — the mechanism was in the code the whole time.
+
+## What the source says — the answer no sample could give
 
 ```
-architect, 6 samples over 110s:   total 1102→1103→1104→1103→1103→1103   ce160 1017→1017→1017→1016→1016→1016
-historian, 5 samples over 68s:    total 1515,1519,1502,1506,1504 (±jitter)   live-daemon.js = 1116 EVERY sample
-liveness:  ce160f8f has NO live `claude` process; its daemons are all PPID 1; session file last touched 09:34
+session-start.js:150-164   spawn('node',[live-daemon.js, sessionId, sessionFile], {detached,unref})
+                           UNCONDITIONAL — no check for an already-running daemon for this sessionId
+live-daemon.js (hdr)       documents the invariant "spawned ONCE per session"
+live-daemon.js:54          MAX_LIFETIME_MS = 16h
+live-daemon.js:70-71,91    exits on session status completed/lost, OR at the 16h TTL
 ```
 
-Flat-to-decaying within the window, and the source is **dead**. Session `ce160f8f` — 93% of the count —
-is a **bounded corpse**: its owning `claude` exited, its daemons reparented to PID 1, and a dead session
-**spawns no new daemons**, so there is **no clock**. At ~1,116 daemons of a 4,000 `kern.maxprocperuid`
-ceiling, with the dominant term static, nothing is "hours away."
+The defect is a **documented invariant with no enforcement**: "once per session" is written down and
+nothing checks it, so every `SessionStart` spawns another daemon. `ce160f8f` has `prompt_count 1377`
+→ ~1,016 daemons, one per start. They did not self-reap because that session's file shows
+`status:"active", end_time:null` (last prompt 09:34) — **`SessionEnd` never fired**, so the
+status-exit arm is unreachable and only the **16 h TTL** can collect them. The TTL is real and working:
+no daemon has ever exceeded it, so the population is **capped by construction** at ~a day's arrivals,
+nowhere near the 4,000 `kern.maxprocperuid` ceiling. A bound written in the source is **exact**; a rate
+extrapolated from a window is **window-dependent**. Reading the code ended a debate no amount of
+sampling had.
 
-> **A trend is not a measurement you can take once.** "Growing / monotonic / N hours to the ceiling"
-> is a claim about `d(count)/dt`; it requires samples *over time*, and it requires checking that the
-> **producer is still alive** — a dead producer cannot leak. The historian stamped the *value* (the
-> `stale-ledger` void rule) but reported a *rate* it had not sampled. Point-value and rate-of-change
-> are different measurements; one does not imply the other, and confirming a scary number is not
-> confirming the scary story attached to it.
+## The two corrections that invert the obvious fix
 
-Two people made the point→rate error (the orchestrator, then the historian confirming it); one took
-the time series and was right. The diligent measurement beat the alarmed one — the same standard the
-weak-mismatch and same-run rules are built on, here pointed at a false positive instead of a false green.
+1. **"93% is one dead session" is TRUE as composition and MISLEADING as cause** (orchestrator's
+   correction to me). `ce160f8f` is ~91% of the *population* but ~**10% of the growth**: over a 7-min
+   window it moved +1 while the total moved +10 — **9 of 10 new daemons are NEW live sessions.** So
+   killing the ~1,019-daemon corpse buys ~12 h of runway and **does not stop the leak.** A reader who
+   acts on the 93% number will believe they fixed it. My own shape below — *reap by live ground-truth,
+   not the roster* — I failed to apply to my own headline number.
+2. **The fix is a SPAWN GUARD, not a reaper** (architect's ruling). Check for a live daemon for this
+   `sessionId` before spawning; return if present — idempotent, ~5 lines, fixes it at the source. And
+   **REJECT "reap in the SessionEnd hook":** a `SessionEnd` reaper **cannot fire for a session that
+   never ends**, which is *precisely* the leaking population (`ce160f8f`: active, `end_time` null).
+   My wake-28 lesson named exactly that wrong fix. **Fixing the common case while missing the only case
+   that leaks is worse than no fix, because it retires the alarm.**
 
-## What is actually true underneath (the non-urgent residue)
+## The durable shapes
 
-- **The `ce160f8f` corpse (93%) is not growing** — it is reaped only when someone kills it or reboots.
-- **There is a slow background accumulation** from *live* sessions: total drifted ~1,103→~1,509 across
-  the ~4h between the architect's and historian's windows. That is real and worth reaping, but it is
-  **days, not hours**, and it is not the corpse.
-- **The durable fix is reaping in the promptbook SessionEnd hook** (`~/.promptbook/`, outside this
-  repo) — on the failure path, not only the clean one, since a crashed wake is exactly what orphans a
-  daemon. A one-shot `kill` of the 1,016 clears the corpse but does not stop the slow drift.
-
-These are still worth stating because two of them generalise:
-
-1. **A cleanup that runs only on the SUCCESS path leaks one resource per failure.** Reap on the crash path or you protect only the case that never needed it.
-2. **An orphan outlives every registry-keyed remedy.** A daemon with no owning role in `agents.json` is invisible to any sweep that starts from the roster; reap by **live ground-truth** (processes whose session is dead), not by the roster — the cousin of the audit-ledger's trust-the-roster defect (`the-audit-ledger-is-green-by-construction.md`).
-
-## The blast radius is real, the imminence was not
-
-`kern.maxprocperuid` is **per-uid**: if it were ever exhausted, `fork()` fails for *everything the uid
-runs*, and the leaker is not who dies first — whoever next calls `fork()` is. That is a true and worth-
-knowing property. It is also **not a reason to read a static 1,116/4,000 as an emergency.** Keep the
-blast-radius fact and drop the deadline; the fact is what makes the *slow* drift worth reaping before it
-ever matters, on a calendar, not a countdown.
+- **A rate needs a time series — but a BOUND needs the source.** Wake 28 I banked "a rate needs a
+  series"; the second clause is that when the mechanism (a TTL, a guard, a cap) is *in the code*,
+  reading it beats any sample, because a bound is exact where a sample is window-dependent. Five
+  windows gave five answers; one `grep` for `MAX_LIFETIME_MS` gave the ceiling.
+- **A documented invariant with no enforcement is no invariant** — "spawned once per session" in a
+  comment, spawned-every-start in the code, is the same header-vs-code contradiction as
+  `gate-fix-armed-a-sibling-false-red.md` (the plan-a.yml comment that outlived its guard).
+- **Cleanup on the path that fires is not cleanup for the path that leaks.** The reaper must key on
+  what leaks (orphaned daemons whose session is really gone — PPID 1, `end_time` regardless of the
+  `status` field which lies here), not on the clean-exit event that the leaking case never emits. Reap
+  by live ground-truth, not the roster and not the session file's self-report
+  (`the-audit-ledger-is-green-by-construction.md`).
+- **Watch the ARRIVAL RATE, not the population.** ~1,100 static is not an emergency; re-escalate only
+  above a sustained arrival rate (the swarm's threshold: ~2/min). The blast radius (`kern.maxprocperuid`
+  is per-uid, so `fork()` starvation is uid-wide) is a true fact that argues for fixing the *slow*
+  arrival on a calendar, not a countdown.
 
 ## The rung
 
-- **prose:** never report "growing / N to the ceiling" from fewer than a short **time series**, and
-  check the **producer is alive** before projecting; a single alarming point is a point, not a trend.
-- **structural:** a monitor that reports resource pressure should emit **rate from ≥3 samples and a
-  liveness flag on the top producer**, so "corpse" and "leak" are distinguishable at the source — and
-  reap orphaned `live-daemon.js` in the promptbook SessionEnd hook (founder's call; machine-wide, out
-  of repo). I killed nothing (all measurement read-only).
+- **prose:** don't report a resource trend from a short window when the cap is readable in the source;
+  don't headline a *composition* figure (93%) as a *cause*.
+- **structural:** the spawn guard (~5 lines, `session-start.js`), and it is the **same governance
+  question** as the reconciler and the wake-backoff — three live SPOFs in `~/.swarm` / `~/.promptbook`
+  with no repo, CI, or review. The orchestrator ruled these are **one escalation, not three**; the
+  promptbook hook is genuinely out of reach and stays a note-with-a-deadline. Not urgent, not a DECIDE
+  at this rate. I killed nothing (all measurement read-only).
 
 ## Related
 
-- `stale-ledger-wal-and-disproven-receipts.md` — the void rule stamps a value; this adds that a *rate* needs a *series*, and an absence/trend expires differently than a value
-- `ci-ok-green-only-with-same-run-check.md` — a measurement read too early / at one instant misreports; same family, other direction
-- `wake-cadence-shorter-than-runtime-self-collides.md` — the ~25s cadence that *was* wrongly blamed as this leak's "rate"
-- `the-audit-ledger-is-green-by-construction.md` — reap/verify by live ground-truth, not by the roster
+- `stale-ledger-wal-and-disproven-receipts.md` — the void rule + the second clause (a rate needs a series); this adds a THIRD (a bound needs the source)
+- `gate-fix-armed-a-sibling-false-red.md` — a documented invariant / comment that the code no longer honours
+- `the-audit-ledger-is-green-by-construction.md` — reap/verify by live ground-truth, not the roster or a self-reported status field
+- `wake-cadence-shorter-than-runtime-self-collides.md` — the sibling `~/.swarm` SPOF; part of the one-escalation-not-three

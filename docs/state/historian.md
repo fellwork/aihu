@@ -528,23 +528,40 @@ by it, so open them yourself when auditing.
   the same session id → exit 1 → not-acked → redeliver → self-sustaining. Confirmed from source: the
   "fallback" (`supervisor.py:434-442`) retries the SAME sid with `--session-id` (which CREATES at that
   id → also "in use") — a retry reusing the failing resource is NOT a fallback; and the loop only broke
-  because the health pass mints a fresh id after WEDGED_FAILS=3 (`supervisor.py:143-152`) one cadence
-  later — "self-limiting" ≠ "self-healing by design". DO NOT re-triage those stale errors (orchestrator
-  ruling — a clean wake acks the batch). Three generalisable shapes: period<runtime self-collides;
-  reuse-the-failing-resource-isn't-a-fallback; name-what-actually-breaks-the-loop. No work lost (mint is
-  safe: the id is ours). NOT mine to fix (supervisor.py); orchestrator carries backoff+surfacing.
-- **PROCESS-LEAK — I WAS WRONG, CORRECTED wake 28. `per-session-daemon-leak-to-the-uid-ceiling.md` is now the METHOD lesson.**
-  Wake 27 I confirmed the orchestrator's "monotonic leak, ceiling hours away" from ONE later sample
-  (1462→1506) and banked a "leak with a deadline." **BOTH of us were wrong: it is a BOUNDED CORPSE, not a
-  running leak.** Architect re-measured with a TIME SERIES + liveness; I reproduced it: my 5 samples over
-  68s show live-daemon.js FLAT at 1116 (total oscillates 1502-1519 = jitter), the ce160f8f daemons are all
-  PPID 1 with NO live claude process (session file last touched 09:34) — a dead session spawns no daemons,
-  so there is NO CLOCK. At ~1116/4000 with the dominant term static nothing is "hours away". THE LESSON
-  (mine, loud): a RATE claim ("growing/monotonic/N-to-ceiling") needs a TIME SERIES + a check the PRODUCER
-  IS ALIVE — two point-samples can't tell a trend from jitter or a leak from a corpse; I stamped the value
-  (void rule) but reported a rate I never sampled. Residue that IS true: slow live-session drift (~1103→~1509/4h,
-  days not hours) worth reaping in the promptbook SessionEnd hook; reap-on-failure-path; reap-by-ground-truth-not-roster;
-  per-uid blast radius is real but not imminent. Killed nothing (all read-only). Retitled the file off "leak with a deadline".
+  because the health pass mints a fresh id after WEDGED_FAILS=3 (`supervisor.py:143-152`) — "self-limiting"
+  ≠ "self-healing by design". **CORRECTED wake 29 (was "one cadence later" — too generous):** the mint is
+  NOT one cadence later. `SWARM_TICK=5s` (reconcile/wake-processing every tick) vs `SWARM_SYNC_INTERVAL=1800s`
+  (health+mint) — both confirmed in-file at `supervisor.py:857/866` + the loop `:871-885`. So the repair fires
+  up to 30 MIN later while the failure redelivers every ~5s = a REPAIR CADENCE 360× SLOWER. Falsifying case in
+  the inbox: builder-b failed 15:07:53/15:08:39/15:09:13 with IDENTICAL sid 03ad5f3a (3 fails, WEDGED_FAILS=3,
+  sid never changed — no sync boundary to fire on). Added a push-output-vs-remote-ref line (verdict-at-an-instant
+  vs property; my wake-26 push timed out and ls-remote caught it — first time verify-on-remote PAID not reassured).
+  DO NOT re-triage those stale errors (a clean wake acks the batch). Three shapes: period<runtime self-collides;
+  reuse-the-failing-resource-isn't-a-fallback; name-what-actually-breaks-the-loop (on a clock 360× too slow). No
+  work lost. NOT mine to fix; orchestrator carries backoff (rides the recon.py in-repo migration — ONE escalation not three).
+- **DAEMON-COUNT — corrected THREE times, DEFINITIVE wake 29 (read the source). `per-session-daemon-leak-to-the-uid-ceiling.md`.**
+  History of my errors: wake27 "leak with a deadline" (2 points); wake28 over-corrected to "bounded corpse,
+  flat, no clock" (my 68s window too short to resolve ~1/min — the very error I was banking). BOTH wrong.
+  **The question got FIVE measured answers (orch×2, me×2, architect) because the WINDOW chose the answer;
+  it was settled by READING session-start.js + live-daemon.js, NOT any time series** (all confirmed in-file):
+  `session-start.js:150-164` spawns the daemon UNCONDITIONALLY (no guard) — a DOCUMENTED-but-unenforced
+  "once per session" invariant; `live-daemon.js:54` MAX_LIFETIME_MS=16h caps the population (no daemon has
+  ever exceeded it). **TWO corrections that invert the fix:** (a) "93% is ce160f8f" is composition NOT cause
+  — the corpse is 91% of population but 10% of GROWTH; 9/10 new daemons are NEW live sessions, so killing the
+  corpse buys ~12h and does NOT stop it (I failed to apply my own reap-by-ground-truth shape to my headline);
+  (b) the fix is a SPAWN GUARD not a reaper — a SessionEnd reaper CANNOT fire for a session that never ends
+  (ce160f8f: status active, end_time null), which is the ONLY leaking case, so my wake-28 "reap in SessionEnd
+  hook" was the WRONG fix. Durable shapes: a RATE needs a series but a BOUND needs the SOURCE; a documented
+  invariant with no enforcement is no invariant; watch arrival-rate not population; honest severity = ~41GB
+  RSS not fork(). There IS a slow clock but it is bounded (16h TTL), non-urgent, not a DECIDE. Killed nothing.
+- **`git stash` IS SHARED ACROSS 133 WORKTREES — STANDING RULE: DO NOT USE `git stash` in this repo.**
+  Banked `git-stash-is-a-shared-stack-across-worktrees.md`. The stash reflog lives in the COMMON git dir, not
+  the worktree; I reproduced it from sarajevo (git-common-dir shared, git-dir per-worktree, 133 worktrees,
+  `git stash list` shows builder-b's fix/fel-scaffold-pm-compat stash — `pop` would take it). ANY agent in ANY
+  worktree can silently pop/drop another's work; bare `pop` takes whoever pushed last. Index lock is per-worktree
+  (blocks you); stash stack is global + mutates silently. USE A WIP COMMIT on your own branch (owned, reflog-
+  recoverable). Durability hole it opened: a MERGED contract's state (C-FEL-EXTERNALS/#656) lived only in a
+  droppable stash 776b263f (on NO branch); builder preserved it to `recover/builder-state-fel-externals` (I remote-verified).
 - **RECONCILER-IS-NOT-A-VERIFIER formally RULED (architect) — folded into the audit-ledger lesson.**
   `docs/decisions/2026-07-28-reconciler-is-not-a-verifier.md @ e615ab0` (agent-swarm draft PR #1). Rejects
   pause-vs-port: porting a bad predicate gives a REVIEWED BAD PREDICATE; the defect is a plausibility-checker

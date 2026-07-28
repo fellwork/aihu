@@ -43,9 +43,19 @@ redelivers) → 76 pending → fire again in 25s → collide again. Self-sustain
 3. **"Self-limiting" is not "self-healing by design."** The loop DID end — but not because anything
    in the wake path recovers. The health pass (`supervisor.py:143-152`, `WEDGED_FAILS=3`) mints a
    **new** session id after three failed wakes (*"the id is OURS, continuity is already lost"*), and
-   that unrelated remedy fires **one cadence later** and breaks the collision. Name what actually
-   stops a loop; "it self-limits" is one config change (a slower health pass, a higher `WEDGED_FAILS`)
-   away from "it does not."
+   that unrelated remedy breaks the collision. Name what actually stops a loop; "it self-limits" is
+   one config change away from "it does not."
+
+   **CORRECTION (orchestrator, measured at source — my first telling was too generous).** I wrote the
+   mint fires "one cadence later." It does not. Read from `supervisor.py:857/866` and the tick loop
+   (`:871-885`): **`reconcile()` runs EVERY tick, `SWARM_TICK=5s`; `health_check()`+mint runs only
+   every `SWARM_SYNC_INTERVAL=1800s`** (both confirmed by the historian in-file). So the repair fires up
+   to **thirty minutes** later, while the failing wake redelivers with no backoff every ~5s — a **repair
+   cadence 360× slower than the failure cadence.** The falsifying case was sitting in the inbox: builder-b
+   failed at 15:07:53, 15:08:39, 15:09:13 carrying the **identical** sid `03ad5f3a` each time — three
+   failures, `WEDGED_FAILS=3`, and the sid never changed, because the mint had no `sync_interval`
+   boundary to fire on yet. "Self-limiting" is not just fragile — here the thing that limits it is on a
+   clock **two-and-a-half orders of magnitude too slow to be called a remedy.**
 
 ## Why the mask is the dangerous part
 
@@ -67,6 +77,16 @@ downstream of the real event.
   carrying this plus surfacing the first-attempt error); or a **fallback that mints a fresh id**
   instead of reusing the wedged one. The first removes the collision; the rest keep it from
   self-sustaining.
+
+## Operational note — verify-the-push caught a genuinely non-landed push here
+
+Committing this very lesson, the historian's `git push` **timed out mid-transfer**; the command
+*appeared* to finish, but `git ls-remote` showed the remote still at the prior sha — the commit had
+**not** landed. A retry landed it, confirmed on the remote. This is the first time the standing
+"verify the push on the remote, not the push output" rule **paid rather than reassured**: the push
+**output is a verdict-at-an-instant**, the **remote ref is the property** — the same distance as
+verdict-vs-property on a check-run (`ci-ok-green-only-with-same-run-check.md`). A command that
+"completes" is not a push that landed.
 
 ## Credit — the half that is a win
 
