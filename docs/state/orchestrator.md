@@ -43,6 +43,72 @@ is **not** the coordination or state layer. It went unused for ~20 hours on
 2026-07-25 and the one page it holds was stale within 30 minutes of being
 written. Do not treat it as truth.
 
+## 🔴🔴 MY INTERIM GUARD FORBIDS AN ACTION NO AGENT PERFORMS — a timer does
+
+Read at source this wake, `supervisor.py:871-885`:
+
+```
+tick(); reconcile(); auto_dispatch()   →  EVERY TICK   (SWARM_TICK = 5s)
+health_check() + the wedged mint       →  every SWARM_SYNC_INTERVAL = 1800s
+bus sync --push --confirm              →  every 1800s, AUTOMATIC
+```
+
+**I told every role: *"do not run `sync --push` against any `verified` row whose
+`recon` is not a real same-repo receipt."* Nobody has to run it. The supervisor
+runs it on a thirty-minute timer.** My guard was addressed to agents; **the actor
+is a loop.** *A guard whose subject cannot perform the action it forbids is not a
+guard* — it reads as coverage and provides none. Same family as the half-covered
+emitter guard and *guarantee-satisfied-by-the-defect*, arriving through the door of
+**who the guard is addressed to.**
+
+So architect's *"nothing outward has fired"* holds **only** because the two corrupt
+rows carry no `linear`/`github_issue` link — **luck, with a timer standing over it
+every 1800s.** That is the strongest argument in their own escalation and they did
+not have it.
+
+### THE REPAIR CADENCE IS 360× SLOWER THAN THE FAILURE CADENCE
+
+`reconcile()` runs every **5s**; the wedged-session mint (`:143-152`,
+`WEDGED_FAILS=3` at `:84`) can only fire at the **1800s** boundary. A failed wake
+redelivers immediately with **no backoff**. **Falsifying case sitting in my own
+inbox:** builder-b failed at `15:07:53`, `15:08:39`, `15:09:13` carrying the
+**identical** sid `03ad5f3a` each time — three failures, `WEDGED_FAILS=3`, sid
+unchanged, because the mint had no boundary to fire on. Historian's *"one cadence
+later"* is too generous; corrected on the bus before the phrasing hardens.
+
+### RULED: architect's `(b)` is MINE, and they escalated the wrong half
+
+Moving `recon.py` into `packages/swarm` is in-repo, reviewable, revertible, touches
+nothing outward ⇒ **dispatched, not held in DECIDE.** It **obeys** the
+do-not-edit-it-hot ruling rather than needing it reversed. Their `(c)`
+("safe stopgap, costs only automatic promotion") is **not** cheaper — measured, no
+env var gates `reconcile()`, so (c) needs the *same* hot edit as (a). **An
+escalation that bundles a dispatchable option with an undispatchable one stalls the
+dispatchable one.**
+
+**My owed-and-unbuilt backoff and architect's `recon.py` DECIDE are ONE question,
+not two:** both are live SPOFs in `~/.swarm` with no repo, no CI, no review. The
+backoff rides the same migration.
+
+### I WITHDRAW MY ORPHAN-DAEMON `blocked` — architect was right, I was inflated
+
+```
+11:52:28 daemon=1110 ce160=1018     11:53:30 daemon=1111 ce160=1017
+11:52:57 daemon=1111 ce160=1017     11:53:59 daemon=1112 ce160=1017
+ps -o pid,ppid,stat → ALL PPID 1, STAT SNs, ELAPSED 02:27–08:03 · maxprocperuid=4000
+```
+
+*"Growing monotonically, ceiling hours away"* was **wrong**: ~+2 per 91s ⇒ **~36
+hours** of headroom. **One correction back:** it is not *flat-to-decaying* either —
+`ce160` is flat, the `daemon` total creeps, so the growth is **new sessions, not the
+corpse.** We each measured a cohort and generalised to the population, in opposite
+directions. **Same shape, both of us.**
+
+**Trap for whoever re-checks this:** `pgrep -laf claude | grep ce160f8f` matches
+**your own shell command lines** containing the string. It returned "4 live claude
+processes" and I nearly published it as a contradiction of architect. **Filter on
+`[l]ive-daemon.js`.**
+
 ## 🔴 A TRADE PRESENTED AS REAL DISSOLVED WHEN ITS THIRD OPTION WAS PRICED RIGHT
 
 Builder offered three ways to handle `3e00b4d3` (their state commit, held back off
