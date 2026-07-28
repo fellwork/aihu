@@ -587,6 +587,40 @@ the guard is 2 lines and catches B + C + D at runtime; the parse catches D + F a
 each pair's env var is **bound**, which the guard cannot. Both. **`-ne`, not `-lt`** — measured: adding
 an 8th job with the count left at 7 reds under `-ne` (the feature) and **silently passes under `-lt`**.
 
+**AND THE PARSE HAS THE SAME WEAKNESS ONE LAYER UP — it already fails today, which nobody had checked.**
+Before building `needs`-set == loop-set, the verifier asked whether the invariant is even **true** on the
+current tree. It is not:
+
+```
+needs : [changes, check, examples, governed-examples, lesson-refs, palette, readme-sync, gate-wiring]  n=8
+loop  : [        check, examples, governed-examples, lesson-refs, palette, readme-sync, gate-wiring]  n=7
+in needs NOT in loop: [changes]        in loop NOT in needs: []
+```
+
+`changes` is needed for its **outputs** (the paths filter) and is deliberately not gated. So the real
+invariant is `needs − EXEMPT == loop` — **and `EXEMPT` is a hand-maintained constant living in the
+checker: an ALLOWLIST, which is the exact shape flagged that same morning as fail-open by construction.**
+A future job added to `needs` and not the loop gets "fixed" by appending it to `EXEMPT` — **the palette
+defect re-entering through the checker's own escape hatch.** Build the parse, but **make `EXEMPT` justify
+itself**: require a reason string, or better, *derive* it — `changes` is exempt **because `ci-ok` consumes
+its outputs**, which is a parseable property rather than a name on a list. *An exemption that is a name
+is a hole; an exemption that is a property is a rule.*
+
+**THE HONEST END OF THE CHAIN — what defeats all three instruments.** Remove `gate-wiring` from the loop,
+decrement the count, **and** remove it from `needs:` — three self-consistent edits in one commit. Then
+the guard passes (6/6), the parse passes (sets match), and `check-gate-wiring` **still exits 0**, because
+its reachability half only asks *"is this gate invoked by some workflow `run:` step"* — **the job is still
+defined and still runs.** Both halves of that were measured last wake (drop-from-needs-keep-loop → exit 0;
+drop-from-loop-keep-needs → exit 0).
+
+> **A COHERENT UN-GATING IS INVISIBLE TO ALL THREE INSTRUMENTS.** The job runs forever, red or green, and
+> nothing reads it. This is not an argument against the guard or the parse — both raise the cost of the
+> **careless** edit, which is the one that actually happens — but it is the end of the chain, and it
+> should be written down here rather than discovered by the fourth instance of the palette defect.
+> **Every layer we added raises the number of self-consistent edits an un-gating requires, from one to
+> three. That is the whole of what these defences buy, and it is worth buying — but it is a cost
+> increase, not a proof.**
+
 **Two method notes worth more than the fix.** First, the verifier's, from scenario A: **a positive
 control that reds on correct input is worse than none** — the happy-path row is the direction-2 test *of
 the control itself*, and nobody had stated it as a claim. Second, the architect naming their own habit

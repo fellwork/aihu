@@ -250,7 +250,9 @@ main.rs:2289-2315  the next sync moves the Linear issue to Done AND CLOSES THE G
                    — and the supervisor runs that sync automatically every 1800s
 ```
 
-So `--confirm` would move **~9 Linear issues to Done and close 3 customer-visible GitHub issues, on a
+So `--confirm` would move ~~**~9 Linear issues to Done and close 3 customer-visible GitHub issues**~~
+**← WRONG TWICE OVER; corrected below to 8 Linear, TWO closures (#478, #503), and one COMMENT on #430.
+Left visible because the wrong number is what four roles carried. The original sentence read:** on a
 timer, with no human in the loop.** **A revert does not un-close a customer-visible issue.** And there is
 no narrow form today: the architect re-read `cmd_verify_merged` at source and found **`args.get("confirm")`
 and nothing else** — no `--only`, no `--skip-linked`. *All 19 or nothing.*
@@ -327,7 +329,32 @@ are merged and carry named regression tests on main."** **Making an escalation S
 ANSWERABLE is better** — a smaller question still has to be adjudicated on judgement, an answerable one
 comes with its own evidence.
 
-### THE MIRROR IS NON-ATOMIC AND ORDERED — partial publication is a reachable state
+### THE NUMBER MOVED A THIRD TIME — and the residue is a COMMENT, not a closure
+
+`gh_close_issue` is **guarded**, which nobody had checked before building on it. Read at source, literal
+sha, by me as well as by the verifier and the architect:
+
+```rust
+/// Close a GitHub issue unless it is already closed (idempotent).
+fn gh_close_issue(number: i64) -> Result<(), String> {
+    let data = gh_issue_view(number, "state")?;
+    if state.eq_ignore_ascii_case("closed") { return Ok(()); }     // ← EARLY RETURN
+    gh_run(&["issue", "close", &n, "--repo", GITHUB_REPO])?;
+}
+```
+
+**So `gh issue close` is never invoked on #430 at all.** But the arm above it is not guarded against the
+same thing in the same way: `gh_comment_if_absent(num, &marker, &body)` runs **first**, and #430 carries
+no swarm-sync marker. **Final outward set: two state changes (#478, #503) plus ONE COMMENT posted to a
+customer-visible issue that has been closed since 2026-07-20.** Small, public, on a resolved ticket, and
+it belongs in the human's question rather than being found afterwards.
+
+> **A number that has been corrected twice is not thereby correct.** This one moved three→two→two-plus-a-comment,
+> and each correction was made by someone who had read one more line of the function than the last. The
+> tell for "we are still guessing" is not disagreement — by this point everyone agreed — it is that
+> **nobody had opened the function.**
+
+### ~~THE MIRROR IS NON-ATOMIC AND ORDERED — partial publication is a reachable state~~ → non-atomic WITHIN a run, CONVERGENT across runs
 
 Measured at source by the architect, and it is the risk nobody had named:
 
@@ -338,10 +365,52 @@ SyncEvent::Verified:  let mut errs = Vec::new();
 ```
 
 **Linear publishes first, GitHub second, and errors are COLLECTED PER ARM rather than being fatal.** So a
-GitHub failure leaves the Linear move **already done, with no rollback.** And `C-FEL-434b` is precisely
-the row that exercises it — its issue is already closed, so its GitHub arm is the one most likely to
-error *after* its Linear arm has fired. **A two-system publication with per-arm error collection has no
-transaction; "it reported a failure" and "nothing happened" are different states.**
+GitHub failure leaves the Linear move **already done, with no rollback.** ~~And `C-FEL-434b` is precisely
+the row that exercises it — its GitHub arm is the one most likely to error.~~ **← FALSIFIED: that arm is
+the one *guaranteed not to run the close*, per the guard above. A hazard was built on an unread
+function.**
+
+**And the consequence implied — durable divergence — is WRONG.** `load_sync_contracts` is
+`SELECT … FROM contract WHERE linear IS NOT NULL OR github_issue IS NOT NULL ORDER BY id` — **no
+`synced`/`last_synced` column, no filter** (I read it myself at `1bb0dd7c`) — and all three writers are
+guarded (`linear_ensure_state`, `gh_comment_if_absent`, `gh_close_issue`). **A partial publication
+SELF-HEALS on the next 1800 s tick.** The correct statement is **non-atomic WITHIN a run, CONVERGENT
+ACROSS RUNS**: *"no rollback"* is true, *"divergent"* is not.
+
+### THE PROPERTY THAT MAKES IT SAFE IS THE PROPERTY THAT MAKES IT ENFORCE — it is not publication, it is enforcement
+
+Measured, not asserted: `classify` matches on **`status` alone** —
+
+```rust
+fn classify(status: &str, recon: &str, note: &str) -> SyncEvent {
+    match status { … "verified" => SyncEvent::Verified, … }
+}
+```
+
+**It is a pure function of the CURRENT STATUS. Not a transition, not an edge.** Combined with a
+re-select of every linked row every tick, **`SyncEvent::Verified` fires every 1800 s for every verified
+linked row, forever, for as long as the row says `verified`.**
+
+> **The idempotency that makes a partial publication self-heal is the same mechanism that re-asserts the
+> outcome against a human.** Reopen #478 by hand and `gh_close_issue` sees `state != closed` on the next
+> tick and **closes it again, within thirty minutes, silently.** This is *by design* — the neighbouring
+> function is documented as *"Reopen a GitHub issue unless it is already open (idempotent) — the FEATURE
+> 3 reopen guard's primitive"*, so bidirectional enforcement is intended. **A convergent reconciler has
+> no way to distinguish drift from disagreement.** Its safety property and its override property are one
+> property, and you cannot keep the first while declining the second.
+
+**So the human's question is one notch more honest than any of us first put it, and the recovery path is
+the part that is invisible from outside:**
+
+> **not** *"may #478 and #503 close, and 8 Linear issues move to Done?"*
+> **but** *"may #478 and #503 be **HELD** closed — re-asserted every 30 minutes for as long as their
+> contracts read `verified` — plus one comment posted to #430, closed since 2026-07-20?"*
+> **The recovery path is not "reopen the issue"; it is "change the contract status" — the ledger, not
+> GitHub.** Anyone who reopens the ticket and watches it shut will look for a GitHub cause and find none.
+
+**And it strengthens the flag on the argument that was always sound:** the 11 link-less rows **never
+enter the enforcement loop at all** — `load_sync_contracts` does not even SELECT them. 58 % of the work
+is not merely outward-effect-free today; it is **permanently outside the mirror.**
 
 ### A COULD-NOT-CHECK WHOSE DISCRIMINATOR IS DELIBERATELY NOT RUNNABLE — route around it, do not run it
 

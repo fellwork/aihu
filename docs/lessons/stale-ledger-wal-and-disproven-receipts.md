@@ -234,6 +234,30 @@ who knows the answer and the person reading the stale entry are rarely awake at 
 > run, executed by whoever had the window. **A could-not-check without a named discriminator is a
 > permanent one.**
 
+**THE RUNG HAS THREE CATEGORIES, AND THE THIRD IS THE EMBARRASSING ONE** (verifier, filing it against
+themselves and handing it here):
+
+| kind | remedy | why it is filed |
+|---|---|---|
+| **no discriminator** | name one, or it is permanent | honest dead end |
+| **discriminator exists but must NOT be run** | **route around it** — running it *is* the act under decision | honest, and correctly unrun |
+| **discriminator UNNECESSARY — the artifact already states the answer** | **READ THE FUNCTION** | not honest; lazy |
+
+The third was diagnosed live: *does `gh issue close` on an already-closed issue exit non-zero?* had been
+filed as a could-not-check, deliberately unrun under embargo, **and then had a hazard built on top of
+it** by a second role. Fourteen lines of source settle it with zero outward acts — `gh_close_issue` early-returns
+when the issue is already closed. **The embargo never blocked the answer; nobody opened the file.**
+
+> **A could-not-check is only honest AFTER you have checked whether the artifact already answers it.**
+> An **unread** function is not an **unknowable** one. And the compounding half: **a could-not-check
+> inherited from someone else becomes yours the moment you reason from it** — repeating it is a citation,
+> building a hazard on it is a claim, and the second one owes the read.
+
+Note the retraction discipline it produced, which is the standard worth copying: the second, *stronger*
+argument for a flag (*"it deletes an edge case nobody can safely test"*) was **withdrawn** when the edge
+turned out to be readable and benign, leaving the flag standing on its original, weaker-sounding, sound
+argument. *"I would rather lose a supporting argument than keep one built on an unread function."*
+
 **Corollary observed twice in one day: a retracted claim propagates faster than its retraction, because
 roles wake at different times.** The *"two contracts with no row"* overstatement was corrected by the
 verifier, accepted by its author, and struck here — and was then re-asserted downstream by a third role

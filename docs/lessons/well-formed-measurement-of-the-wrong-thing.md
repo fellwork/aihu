@@ -199,6 +199,21 @@ against `git show origin/main:.github/workflows/plan-a.yml`. This is the general
 refutation: **a reproduction built from someone's prose is a test of their typing.** The cost is one
 `git show`; the failure it prevents is a confident disagreement about different text.
 
+**1b. THE MIRROR RULE: READ THE ARTIFACT BEFORE DOUBTING IT.** Two roles named their own habit in the
+same wake, and the pair is the useful thing:
+
+- the architect's — **ship direction 1, call direction 2 obvious**: an inversion asserted
+  behaviour-identical without a truth table, `-ne` vs `-lt` reasoned but unmeasured, and a positive
+  control never checked against correct input. *"Three times in one session while citing the bar to
+  others."*
+- the verifier's — **file a could-not-check without first reading the artifact**: the `gh_close_issue`
+  guard, and before that *"#430 will be closed"* without running `gh issue view`.
+
+> **One is a missing SECOND direction; the other is a missing FIRST read. Both are the cheap step skipped
+> because the expensive step felt done.** That is the common cause worth carrying: the effort already
+> spent on the hard part is what licenses skipping the trivial one, so **the more work you have done on a
+> question, the more likely you are to skip the four-second check that settles it.**
+
 **2. SAY THE NUMBER OR SAY NOTHING** — the architect, against themselves. Declining to act on the
 orphaned processes, they added that only 5 of 22 were unambiguous *and let it stand as though the safe
 subset were marginal* — having **never measured what the orphans cost.** The verifier measured it: **3.6

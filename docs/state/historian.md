@@ -634,6 +634,61 @@ by it, so open them yourself when auditing.
   `settle-a-contested-claim…` — an INVARIANT beats a timed prediction (no clock, no reach-early bias); TTL now
   CONCLUSIVE (3 timed deaths 20:23:10/20:28:23/20:28:28, cohort cleared). DECIDEs not mine: who wires
   check:gate-wiring; the missing C-FEL-MOONGRAPH-LITERALS row. Board (my fetch): main 3891300a GREEN; #669 draft.
+- **WAKE 43 — THE VERIFIER'S FLAG WAS PARTLY RIGHT (one uncorrected sentence in MY file), and the
+  ledger question changed shape a third time: IT IS ENFORCEMENT, NOT PUBLICATION.**
+  (1) **MY FILE STILL OVERSTATED IT IN ONE PLACE.** I added the ⛔ correction section last wake but left
+  the ORIGINAL sentence *"close 3 customer-visible GitHub issues"* uncorrected further up. Verifier
+  caught it. **Both spots now struck in place.** *A correction section does not correct the sentence
+  above it — grep your own file for the wrong number, do not just append the right one.*
+  (2) **THE NUMBER MOVED A THIRD TIME AND I VERIFIED THE GUARD MYSELF** (`git show 1bb0dd7c:…main.rs`,
+  literal sha): `gh_close_issue` **early-returns if already closed** — so `gh issue close` is NEVER
+  invoked on #430. But `gh_comment_if_absent` runs **FIRST** and #430 has no marker. **FINAL OUTWARD SET:
+  2 state changes (#478, #503) + ONE COMMENT on a customer-visible issue closed since 2026-07-20.**
+  **A NUMBER CORRECTED TWICE IS NOT THEREBY CORRECT** — each correction came from someone who had read
+  one more line; the tell for "still guessing" was not disagreement (everyone agreed) but that **nobody
+  had opened the function.**
+  (3) **MY BANKED "PARTIAL PUBLICATION IS REACHABLE AND A REVERT DOES NOT UNDO IT" IS HALF WRONG.**
+  Confirmed at source myself: `load_sync_contracts` = `WHERE linear IS NOT NULL OR github_issue IS NOT
+  NULL` — **no synced/last_synced column, no filter**, every linked row re-processed every tick — and all
+  three writers are guarded. **CORRECT STATEMENT: NON-ATOMIC WITHIN A RUN, CONVERGENT ACROSS RUNS.**
+  "No rollback" true; "divergent" false.
+  (4) **THE BIGGEST NEW ONE, and I measured it: `classify` matches on `status` ALONE** — a **pure
+  function of current status, not a transition** — so `SyncEvent::Verified` fires **every 1800s for every
+  verified linked row, FOREVER.** **THE IDEMPOTENCY THAT MAKES A PARTIAL PUBLICATION SELF-HEAL IS THE
+  SAME MECHANISM THAT RE-ASSERTS THE OUTCOME AGAINST A HUMAN:** reopen #478 by hand → closed again within
+  30 min, silently. BY DESIGN (the neighbouring fn documents the reopen guard's primitive). **A
+  CONVERGENT RECONCILER CANNOT DISTINGUISH DRIFT FROM DISAGREEMENT; its safety property and its override
+  property are ONE property.** So the honest question: not *"may these close"* but ***"may they be HELD
+  closed, re-asserted every 30 min for as long as their contracts read `verified`, plus one comment on
+  #430"*** — and **the recovery path is "change the contract status", the LEDGER not GitHub**, which is
+  invisible from outside. Strengthens the flag: the 11 link-less rows **never enter the enforcement loop
+  at all** (not even SELECTed) — permanently outside the mirror, not just outward-effect-free today.
+  (5) **THE COULD-NOT-CHECK RUNG NOW HAS THREE CATEGORIES** (verifier handed me the third, against
+  themselves): no discriminator → name one; discriminator exists but MUST NOT be run → **route around**;
+  **discriminator UNNECESSARY, the artifact already states the answer → READ THE FUNCTION.** The third is
+  the lazy one. **A could-not-check is only honest AFTER checking whether the artifact answers it. An
+  UNREAD function is not an UNKNOWABLE one — and a could-not-check inherited from someone else becomes
+  YOURS the moment you reason from it** (repeating is a citation; building a hazard on it is a claim, and
+  the claim owes the read). Architect's "second, stronger" argument for `--skip-linked` is **RETIRED**;
+  the flag stands on its original argument. *"I would rather lose a supporting argument than keep one
+  built on an unread function."*
+  (6) **THE PARSE HAS THE SAME CO-LOCATION WEAKNESS ONE LAYER UP — AND IT ALREADY FAILS TODAY.** needs
+  n=8 vs loop n=7; `changes` is in needs, deliberately not gated (consumed for outputs). So the invariant
+  is `needs − EXEMPT == loop`, and **EXEMPT is a hand-maintained ALLOWLIST — fail-open by construction,
+  the shape flagged that same morning.** Remedy: **make EXEMPT justify itself / derive it** (`changes` is
+  exempt *because ci-ok consumes its outputs* — a parseable property). **An exemption that is a NAME is a
+  hole; an exemption that is a PROPERTY is a rule.**
+  (7) **THE HONEST END OF THE CHAIN, banked so it is not discovered by the 4th palette instance: A
+  COHERENT UN-GATING IS INVISIBLE TO ALL THREE INSTRUMENTS** (drop from loop + decrement count + drop from
+  needs = guard passes, parse passes, check-gate-wiring exits 0 because the job is still defined and still
+  runs). **Every layer raises the number of self-consistent edits an un-gating needs from one to three —
+  that is a COST INCREASE, not a proof**, and it is still worth buying because the careless edit is the
+  one that happens.
+  (8) **THE PAIRED HABIT, banked in `well-formed-…`:** architect's = missing SECOND direction; verifier's
+  = missing FIRST read. **Both are the cheap step skipped because the expensive step felt done** — the
+  more work you have done on a question, the likelier you are to skip the four-second check that settles
+  it. Gate exit 0. Killed no process, filed no DECIDE, set no status, ran no `--confirm`, edited no
+  workflow, merged nothing.
 - **WAKE 42 — I CLOBBERED A PEER'S HARNESS IN `/tmp`, AND I REPEATED A WRONG NUMBER THAT FOUR ROLES CARRIED.**
   (1) **THE `/tmp` CLOBBER WAS ME — OWNED, VERIFIED, CLEANED UP.** Verifier went to re-run their ci-ok
   harness at `/tmp/loop-current.sh` and found a SIX-pair loop with no gate-wiring; architect's diagnostic
