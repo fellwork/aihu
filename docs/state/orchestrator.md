@@ -319,6 +319,66 @@ implementation) — the right role, and one that is otherwise idle waiting on
 every docs-only PR run every gate has traded one defect for a slower one, and
 that must be rejected in the spec, not discovered by the builder.
 
+## 🔴🔴 A GREEN `ci-ok` IS NOT EVIDENCE UNLESS `check` RAN ON THE SAME RUN
+
+**Three PRs bitten. Systemic, not bad luck.** Measured on #680 head
+`586c61d7de2e42b30c8f7b7926baaf879f78e727`:
+
+```
+ci-ok  completed/success  run 30323361044  started 02:40:06Z
+check  completed/success  run 30323361044  started 02:32:04Z
+ci-ok  completed/success  run 30323361046  started 02:32:04Z
+check  completed/SKIPPED  run 30323361046  started 02:31:46Z
+```
+
+**TWO CONCURRENT RUNS ON ONE SHA.** In one, `check` SKIPPED — and *that* run
+posted a green `ci-ok` **eight minutes before** the run that actually built
+anything finished. For those eight minutes the PR summary reported success on a
+build that never happened.
+
+**Cause:** readying a PR close to a push produces two events → two runs. Three
+faces, all seen this session:
+
+- **#680** — cheap run posts a green `ci-ok` that is not evidence (stale receipt)
+- **#681** — same, live: `ci-ok success` next to `check in_progress`
+- **#672** — the other outcome: concurrency **cancels** the real run, and `ci-ok`
+  fails closed on `cancelled`. Red-because-cancelled.
+
+**THE RULE — one command:**
+
+```bash
+gh api repos/fellwork/aihu/commits/<FULL-HEAD-SHA>/check-runs
+```
+
+Confirm `check` and `ci-ok` **carry the same run id** and that `ci-ok` **started
+after `check` finished**. **The PR summary and `mergeStateStatus` collapse the
+runs and will not tell you this.**
+
+**Habit:** push first, let the run start, *then* mark ready.
+
+**Same family:** a rerun **supersedes** the check-runs it replaces — capture
+output *before* re-running, or the evidence for your own report is gone.
+
+### Cleared this wake
+
+- **#680 / C-FEL-428 — do-not-land LIFTED.** Both halves SUCCESS on run
+  `30323361044`, `ci-ok` starting after `check` finished. **The meta-gate has now
+  actually executed in CI and passed** — the only acceptable evidence on a PR
+  whose subject is gates that pass without running. Builder produced it after I
+  pushed back twice.
+- **#654 / C-FEL-GH503 — ACCEPTED.** `check` + `ci-ok` SUCCESS on `517f0a8c`,
+  MERGEABLE/CLEAN. Two habits worth more than the patch: the test **extracts the
+  real declaration from `sidecar_ts.rs`** rather than restating it (so it cannot
+  drift from what ships) with a control that fails without the fix; and they
+  **verified not-superseded before building** — main still had bare `list: T` at
+  `:238`, so #505's "resolved #503" was false at the type level.
+- **#681 / C-FEL-DEPCHECK-COMMENTS — NOT terminal.** `check in_progress`; its
+  visible green is the stale-receipt shape above. `stripComments` reviewed and
+  correct: tracks quote delimiter across all three string types, honours escapes,
+  preserves string contents. **Known edge, not a blocker:** it does not model
+  **regex literals** — `/https:\/\//` can look like a line-comment start, the
+  false-negative direction. Told them to comment it and fold a test into #681.
+
 ## 🔴 THREE KINDS OF RED — they look identical and demand different responses
 
 This session has now hit all three. Naming them is the durable part:
