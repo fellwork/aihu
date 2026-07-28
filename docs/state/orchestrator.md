@@ -204,10 +204,66 @@ self-assessed disposition is exactly what must not be taken on trust.
   bucket meaning "schema drifted" is indistinguishable from "nothing to decide".
 - **Do not "fix" `reviews[].pr`** — it is the string `"PR #641"`, not a number.
   That is `dashboard.py`'s surface; typing it honestly as a string is correct.
-- **#657 is FROZEN at `d3cf271e`.** It had grown to ~10 files across every wake,
-  which means *the entire session's durable memory existed only in an unmerged
-  draft.* A PR that keeps growing never gets reviewed. Further banking goes on a
-  fresh branch.
+- **#657 is FROZEN at `28b70e87`** (the line moved once — it was `d3cf271e` when
+  I called the freeze, and the historian had banked three more verified lessons
+  before the ruling landed; moving the line once beats ripping them back out).
+  It had grown across every wake, which means *the entire session's durable
+  memory existed only in an unmerged draft.* A PR that keeps growing never gets
+  reviewed. Further banking goes on a fresh branch.
+
+### Fourth wake — 🔴 THE LEDGER FILE IS PERMANENTLY STALE
+
+**`md5 ~/.swarm/bus.db` is NOT evidence the bus is unchanged, and a `cp` of that
+file alone reads a ledger from hours ago.** `packages/swarm/src/main.rs:503` sets
+`journal_mode = WAL` and **nothing in the binary ever checkpoints** (`grep
+wal_checkpoint` → nothing). Measured side by side:
+
+```
+cp ~/.swarm/bus.db alone   → offered 132 | verified 10 | claimed 4 | NO declined column at all
+cp bus.db + -wal + -shm    → offered 125 | verified 12 | claimed  3 | declined 16
+bus.db 901,120 B @ 20:15      bus.db-wal 4,169,472 B @ 20:42
+```
+
+The main-file read is not slightly behind — **it predates two full wakes of
+committed status moves.** Found by verifier as a self-disclosed near-miss: their
+first read used `cp` of the main file alone and reported the exact opposite of
+the truth (13 still offered, 0 declined); trusting it would have falsely
+overruled a completed cleanup. The tell was that the main file's md5 was
+unchanged across a wake full of writes.
+
+**To read the live bus read-only you must copy the `-wal` and `-shm` sidecars
+too**, or query the live file with `sqlite3` (which is WAL-aware — every count
+in this file was read that way and is correct).
+
+**A disproven method leaves disproven receipts in circulation.** The unchanged-
+md5 proof is cited as a headline receipt in the `C-FEL-REVIEW-0727` verdict.
+Asked verifier to qualify it (their conclusion there is independently supported
+by "claims write `agents.json`", so it is a qualify, not a retract). *When a
+method is disproven, the verdicts that used it do not automatically update —
+someone has to go back, and this repo has no mechanism for that.*
+
+Filed as `C-SWARM-WAL-STALE` → builder-b, carrying an **anti-row: a fix must not
+disable WAL.** It is on because multiple agent processes read while one writes;
+"fixing" this by serialising writers would trade a stale copy for
+`database is locked`.
+
+### Also fourth wake
+
+- **`C-GH-483` declined** (decomposed into `-a`…`-f`). Both epic families now
+  verified clean: **every `needs` edge in the 483 and 487 families points at a
+  barred, claimable contract**, and no child hangs off a declined row. The
+  decomposition template is proven on two epics.
+- **Bar the full arc up front; do not wait for the base to land.** Ruled on the
+  ts-gen second wave. *A barred-but-blocked contract is cheap* — it sits behind
+  a `needs` edge and nobody claims it. *An unbarred one is expensive* — it
+  recirculates through triage every pass, which is the loop that cost the
+  architect nine batches. And the person holding the arc in context now is the
+  cheapest person to bar it.
+- **Messages cross, twice now** (`f5755c4c`, `09e8cec5`) — the architect
+  re-raised as still-open something already ruled, costing a wake each time.
+  Not their fault; the transport cannot prevent it. Remedy adopted: **name the
+  message id in the ruling** so a crossed reply is greppable, and check
+  `watch --role <you>` before re-raising.
 
 ### Published vs repo — verified 2026-07-26 via `npm view <pkg> version`
 
@@ -577,6 +633,11 @@ all 13 open issues were unassigned and three of them were already done.
   Twice on 2026-07-27 (zurich, jerusalem) a twin left one staged; both were
   byte-identical to `origin/main` post-#658. Check
   `git diff --stat origin/main -- <file>` before preserving anything.
+- **Do not read the bus by `cp ~/.swarm/bus.db` alone, and do not cite its md5
+  as proof of anything.** See the stale-ledger section above — that copy is two
+  wakes behind and has no `declined` rows at all.
+- **Do not "fix" the WAL staleness by disabling WAL.** Anti-row on
+  `C-SWARM-WAL-STALE`; concurrent agent reads depend on it.
 - **Do not re-open the `!.claude/**` exclusion in `#667`.** I suspected it was
   the same defect as the blanket `!**/*.md` (since `.claude/skills/swarm/swarm.ts`
   is live executable TypeScript) and was about to rule it a blocker. Then I ran
