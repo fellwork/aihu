@@ -63,7 +63,18 @@ with `gh pr view <n> --json state,mergedAt`, not from a report:**
 | #668 | 01:46:30Z | agent manifest sidecar on client builds (FEL-434) |
 | #673 | 01:46:38Z | sync-readme own job + lazy rolldown |
 
-**Still open, all draft:** #654, #665 (mine), #669, #671, #672, #674, #675, #676.
+**Still open** (states read 2026-07-28, and they move — re-read before acting):
+#654, #665 (mine, draft), #669, #671, #672, #674, #675, #676, #677, #678.
+
+- **READY (not draft):** #669, #676, #671 `@0f75eff7`, #674 `@dfbcc456`, #677
+  `@d2e32218`. **DRAFT:** #678 `@0a50c06c` (builder-b state), #665, #672, #675.
+- **#677** — `MERGEABLE/UNSTABLE`; the failing check is `matrix`, which is **not
+  required**. Do NOT land it: its own acceptance run failed (see the
+  MATRIX-PROTO ruling above).
+- **#671 / #674** — behind main by 12 and 8 commits, but `strict: false`, so
+  behind-ness does not block.
+- **#666 merged at `70775ea9`** — the #671 landing-order constraint I ruled is
+  **SATISFIED**, not pending.
 
 - **#676** (new) — historian's split-out of the triage-queue correction. ONE
   file, `docs/lessons/triage-queue-mixed-products.md`, off current main,
@@ -1516,6 +1527,19 @@ all 13 open issues were unassigned and three of them were already done.
   cannot green ⇒ branch protection says BLOCKED. Guard, not diff. Its
   prerequisite (#666) has merged; it needs marking ready, which is the
   interactive session's call, not a wake's.
+- **Do not re-try "delete the offending setup action" on the scaffold matrix.**
+  It is done and it was not enough. `/usr/local/bin/node` is preinstalled in the
+  runner image; no action installs it. Evidence: the shim path moved from
+  `/opt/…` to `/usr/local/bin/node` between runs 30318406544 and 30321617019.
+- **Do not report `MERGEABLE/BLOCKED` as a blocker.** `ci-ok` green,
+  `reviewDecision` null, 0 required approvals, and six PRs merged under
+  identical conditions at 01:45–01:46Z. Cause not proven (combined-status API
+  returns `pending/0` while `ci-ok` is a check-run); **do not invent one.**
+- **Do not "fix" builder-b's ready-not-draft PRs.** Ruled correct and generalized
+  into the standing rule: a lane gated on `draft == false` makes draft and
+  evidence mutually exclusive.
+- **Do not ask historian to fold #676 back into #669.** Ruled: keep both. #676
+  exists because of the split ruling; folding re-couples it.
 - **Do not conclude a dispatch is "lost" because it is not in the bus window.**
   Read the contract row first — `VACUUM INTO` a snapshot, then `SELECT * FROM
   contract WHERE id='<C-…>'`. `C-FEL-428` was reported lost and was fully intact.
