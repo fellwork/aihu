@@ -3607,8 +3607,63 @@ grows monotonically, and what breaks at the ceiling is `fork()` for *every* role
 Left in DECIDE deliberately: 1,016 kills is machine-wide and the real fix is hook
 reaping outside this repo. **No contract is blocked on it today.**
 
+## The loop has a terminator, and it fired — twentieth wake, 2026-07-28
+
+Same shape as the nineteenth wake, one delivery-count higher: **17 identical
+`Session ID ... is already in use` errors at delivery attempt 56**, from all five
+peer roles. **`swarm-bus pull --role orchestrator` returned `[]` at exit 0** —
+the errors are runner telemetry, not bus traffic. Nothing was live.
+
+**The prescribed one-command check resolved the entire batch.** Every cited sid
+is stale; the supervisor had already minted replacements for all five:
+
+```
+historian   cited=4205b2a4  agents.json=a4c04b47-…   DIFFERENT
+verifier    cited=1adbd108  agents.json=8ab72a0b-…   DIFFERENT
+builder-b   cited=0cedb792  agents.json=8cd9bee0-…   DIFFERENT
+builder     cited=17efc774  agents.json=727aec0a-…   DIFFERENT
+architect   cited=0a3f4e43  agents.json=c620df8b-…   DIFFERENT
+```
+
+Note `builder-b=0cedb792` and `architect=0a3f4e43` were the *post-mint* values
+recorded last wake and are now themselves stale — **the mint is a rotation, so a
+sid being "current" in my own notes is worth nothing an hour later.** Re-read
+`agents.json`; never diff against a sid copied out of this file.
+
+**NEW — the loop terminates on its own, and I had it wrong.** The nineteenth-wake
+entry says *"only the mint, one health cadence later, actually breaks it."* There
+is a **second** terminator, and it is the one that fired here (`supervisor.log`,
+16:40:21–24): the health pass **quarantined all 17 as poison messages after 56
+failed deliveries**, then minted a new orchestrator sid. Quarantine has fired
+**266 times** in this log — an established mechanism, first seen at `:9313`
+(11:09:35, at 47–50 deliveries). **That is why attempt counts plateau in the
+47–59 band instead of climbing forever.** The band is the threshold, not the
+difficulty of the work.
+
+**The wedged role was me, again.** `grep -c "orchestrator: WAKE FAILED"` = **1,891**.
+`[16:39:57] orchestrator: --resume failed, creating session` → `[16:40:01] WAKE
+FAILED exit=1 after 25s — NOT acked, will redeliver`. My own failed wakes are
+deliberately not posted to the bus, so the only symptom visible to me is *other
+roles'* stale errors arriving again — exactly the trap already written below.
+
+**Daemon leak is worse and still unreaped** (the `blocked` at `ffba4878` stands):
+**1,324 `live-daemon.js` processes, up from 1,095** — +21% since the nineteenth
+wake, still monotonic, still dominated by orphan session `ce160f8f`, against a
+`kern.maxprocperuid` of 4,000. **Left in DECIDE deliberately**: the remedy is
+~1,300 machine-wide kills plus hook reaping outside this repo, which is not mine
+to do from a wake. No contract is blocked on it today, but the growth *rate* is
+now measured across two wakes and it is the number the founder needs.
+
 ## WHAT THE NEXT INSTANCE MUST NOT REDO
 
+- **Do not diff a cited sid against a sid written in this file.** The mint
+  rotates. Two sids recorded as "current" on the nineteenth wake were stale by
+  the twentieth. Read `~/.swarm/agents.json` live, every time.
+- **Do not describe the redelivery loop as unterminated.** It has two
+  terminators: the wedged-session mint, and poison-quarantine at ~47–59 failed
+  deliveries (`grep "quarantined poison" ~/.swarm/supervisor.log` — 266 firings).
+  A high attempt counter means the threshold has not been reached yet, not that
+  the work is hard or that anyone is stuck.
 - **Do not re-triage a `Session ID ... is already in use` inbox without first
   diffing the cited sid against `~/.swarm/agents.json`.** If they differ, the
   supervisor already minted a replacement and you are reading history. On
