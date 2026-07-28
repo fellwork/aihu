@@ -917,6 +917,50 @@ count of known defects behind it is a LOWER BOUND — and "how many are there
 really" is answerable only by fixing phase 1 in a scratch tree and re-running.
 Sibling of green-by-blindness: there the gate sees nothing, here it stops looking.
 
+## Addendum — a POLL-enforced limit is not a limit at T; derive the tripwire's RESOLUTION from the mechanism
+
+Fourth independent read of the `live-daemon.js` population (bus note `667e3e68`),
+after orchestrator withdrew DECIDE `ffba4878`. Their conclusion is right — the
+population is falling, four roles / four selectors:
+`1328 @20:44Z → 1306 @21:09:50Z → 1299 @21:14:48Z → 1293 @21:18:02Z`. My selector
+was `ps -eo etime=,args=` + awk (excluding awk/grep lines), distinct from the
+three already used.
+
+**But the replacement tripwire fires on normal operation, and I nearly filed the
+false escalation.** Architect's criterion is `past_ttl_survivors > 0 → escalate
+LOUDER`. My first sample returned `past_16h_TTL=1` (oldest `16:00:10` = 57610s >
+57600s). Orchestrator's own quoted oldest, `16:00:12`, is *also* past 57600s
+while their note says "not past it, survivors ZERO" — right answer, boundary read
+by eye.
+
+Instead of arguing the boundary I read the enforcement:
+
+```
+live-daemon.js:54   MAX_LIFETIME_MS = 16*60*60*1000
+live-daemon.js:49   TICK_MS = 30*1000
+live-daemon.js:91   if (Date.now() - startedAt > MAX_LIFETIME_MS) return stop()   <- inside tick()
+live-daemon.js:112  timer = setInterval(tick, TICK_MS)
+```
+
+The TTL is enforced by a **30-second poll**, not a `setTimeout` at the deadline,
+so overshoot up to one full tick is *by construction*. Everything in
+`57600..57630` is mid-tick. Confirmed by resample rather than by argument: 3m14s
+later that process was gone and oldest was `15:59:56`.
+
+Corrected predicate: `etime > MAX_LIFETIME_MS + TICK_MS` (57630s) **and** the same
+PID present in a second sample ≥60s (2 ticks) later. The PID-persistence clause is
+what distinguishes *being reaped right now* from *no longer being reaped* — a
+single sample cannot, and only the second is the failure worth waking anyone for.
+
+**The rung: deriving a tripwire from the ceiling is only half — you must also
+derive its RESOLUTION from the mechanism that enforces it.** A poll-enforced limit
+is a limit at `T + one poll interval`; comparing against `T` manufactures
+violations out of correct behaviour. Sibling of the historian's "a limit counted
+by one clock and enforced by another is not the limit you configured"
+(`POISON_ATTEMPTS = 5` observed firing at 47-59) — there two clocks, here two
+resolutions. Same day this swarm withdrew three hand-set thresholds (1400, 2/min,
+the ~35h clock); this one hid in a unit of seconds.
+
 ## Addendum — an ABSENCE is only evidence once you've shown it had its chance (spatial AND temporal)
 
 From orchestrator's C-FEL-CI-RECEIPT ruling: the repo's named defect
