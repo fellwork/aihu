@@ -1,149 +1,147 @@
-# THE LEDGER THAT AUDITS CI IS GREEN-BY-CONSTRUCTION — A TERMINAL STATUS WITH A RECON THAT IS NOT A RECON
+# THE CLAIM-CHECK EVERY ROLE WAS TOLD PROTECTS THEM HAS NEVER ONCE RUN
 
-**Topic:** swarm reconcile/ledger, contract `status`, outward side effects, `supervisor.py`
-**Session:** named 2026-07-28, escalated by the orchestrator as a founder DECIDE
-(C-FEL-SCAFFOLD-PM-COMPAT / C-SWARM-P0). Ledger receipt re-measured by the historian;
-provenance corrected once (see below — the first telling blamed trace SELECTION and was
-wrong in the direction that made the bug look smaller).
+**Topic:** swarm reconcile/ledger, contract `status`, producer/consumer format contract, `supervisor.py` + `recon.py`
+**Session:** named 2026-07-28 (C-FEL-SCAFFOLD-PM-COMPAT / C-SWARM-P0 / C-SWARM-RECON-AUTHORITY).
+**The mechanism here was diagnosed wrong three times before anyone read the two files; every
+read went one layer deeper.** Source and ledger receipts below re-measured by the historian.
 **Category:** measurement-integrity, process, green-by-construction
-**Severity:** high — a status wired to CLOSE customer-visible issues and UNBLOCK
-downstream work was assigned with **no merged-PR evidence and a recon field that is not a
-recon.** It harmed nothing this time only by luck.
+**Severity:** critical — the control CLAUDE.md cites to every role ("only the supervisor's
+reconcile sets `verified`/`no-claims`, after checking your claims against your transcript")
+has **never fired.** Its entire lifetime output is 27 vacuous passes and 2 false positives,
+and those statuses are terminal and unblock downstream work.
 
-## The incident
+## The headline, stated at full strength
 
-The reconcile pass promotes contracts to `verified`. Two contracts reached `verified`
-with **no merged-PR evidence and a recon field that is a raw `Bash` tool-call dump, not a
-recon.** Re-measured from a WAL-safe snapshot (`VACUUM INTO`, not `cp` — a `cp` of a WAL
-database reads stale, see `stale-ledger-wal-and-disproven-receipts.md`):
+The bus **mandates** a structured claim format — `--claims 'pushed:PR#N,ran:cargo test'` —
+and rejects a verdict without it. The reconcile that is supposed to CHECK those claims
+**never reads that column, and could not parse it if it did.** So every real claim is
+invisible to the checker; every contract with real claims extracts **zero**; and the check
+that was the entire justification for a human-unfalsifiable `verified`/`no-claims` status
+**has structurally never run.**
 
-```
-sqlite3 snap "SELECT id,status,github_pr,substr(recon,1,90) FROM contract WHERE status='verified'"
-13 rows. 11 carry a legitimate "merged: PR #NNN @ <sha>" receipt.
-TWO do not:
-  C-FEL-SCAFFOLD-PM-COMPAT  pr=NULL  recon = 'ok  wrote to  "I wrote to"  <- Bash {"command":"cd .../zurich  export AIHU_COMPILE_BIN=..."'
-  C-SWARM-P0                pr=NULL  recon = 'ok  filed FEL-435  "filed FEL-435" <- Bash {"command":"cd .../age..."'
-```
-
-C-FEL-SCAFFOLD-PM-COMPAT was promoted to `verified` **in the same hour its owner was
-reporting two of its four defects as could-not-check and deliberately holding PR #684 in
-draft.** The ledger ran ahead of the work — in the one direction looking at the ledger
-cannot catch.
-
-## The correction that makes it sharper: SELECTION was never the load-bearing step
-
-My first telling (and the orchestrator's first escalation) said the recon was "a raw
-transcript fragment from a DIFFERENT worktree," implying the reconciler scanned an
-UNRELATED trace. Architect supplied the true provenance for **C-SWARM-P0** and that clause
-was wrong: the trace was **architect's OWN work** in `agent-swarm/sydney` — real, `commit
-592e6e8`, `phase0/recon.py`, 229 lines plus README and fixtures. **The reconciler read the
-RIGHT trace and still produced a garbage recon and a premature terminal status.**
-
-That is worse, not smaller. If the failure were trace *selection*, picking the right trace
-would fix it — and it would not: even on the correct trace the pass wrote a tool-call dump
-into `recon` and set `status=verified`. **The defect is recon GENERATION + premature
-terminal, not trace selection.** (For C-FEL-SCAFFOLD-PM-COMPAT the fragment does appear to
-be from another worktree — `.../zurich` — so wrong-selection is one *symptom*, but it is
-not the common root, and a fix aimed only at selection would leave C-SWARM-P0 broken.)
-
-The claim that survives unchanged is the one that matters: **two contracts reached a
-terminal status with no merged-PR evidence and a `recon` that is not a recon.** For
-C-SWARM-P0 the only PR is `srmcguirt/agent-swarm#1`, verified OPEN / `mergedAt=null` —
-nothing landed.
-
-## DO NOT "fix" the missing link — a bare-integer PR id across repos manufactures a false receipt
-
-The helpful move on "no PR link" is to attach one; here that is the **most dangerous
-action available**, and it is measured, not hypothetical. `contract.github_pr` is a bare
-integer with **no repo**, and `gh_pr_view` at `packages/swarm/src/main.rs:1683-1694`
-resolves it with `--repo GITHUB_REPO` **hardcoded** to `fellwork/aihu`. So:
+## Read from source, both files (after three wrong guesses)
 
 ```
-gh pr view 1 --repo srmcguirt/agent-swarm  -> #1 OPEN    mergedAt=null   (the real C-SWARM-P0 work)
-gh pr view 1 --repo fellwork/aihu          -> #1 MERGED  2026-04-26      "Plan A Phase 1: workspace scaffolding"
+supervisor.py:687   row = SELECT body FROM msg WHERE contract=? AND kind='verdict' ...
+                    # selects `body` ONLY. The structured `claims` COLUMN is never read.
+supervisor.py:696   recon.py --transcript <owner's trace> --message-file <the body>
+recon.py:95-104     CLAIM_PATTERNS = six first-person ENGLISH PROSE regexes:
+                       \bI\s+(?:filed|opened|created)\s+([A-Z]{2,}-\d+)
+                       \bI\s+claimed ...   \bI\s+pushed\b   \bI\s+ran\s+`...`   \bI\s+wrote ...
 ```
 
-Writing `setstatus --id C-SWARM-P0 --github-pr 1` would make `verify-merged` resolve a
-**three-month-old, genuinely-merged aihu scaffolding PR**, find it merged, and promote
-C-SWARM-P0 to `verified` with a recon that reads `merged: PR #1 @ <sha>` — **a false
-receipt in the exact format the 11 legitimate rows use, indistinguishable by inspection.**
-The empty `github_pr` is the ONLY thing preventing it, and it prevents it **by accident.**
+The checker looks for the words **"I pushed"** in free prose. The bus requires
+**`pushed:PR#679@868ac101`** in a column. The format the bus *demands of the producer* is a
+format the consumer *neither reads nor can match* — `pushed:PR#679...` does not contain the
+literal "I pushed". **The producer and consumer of the same claim disagree on format, and no
+test ever exercised the pair end to end.**
 
-> A bare-integer cross-boundary id, resolved against a hardcoded namespace, cannot be
-> linked *correctly* in a multi-repo world — only linked WRONGLY or not at all. Architect
-> chose not-at-all, and **declined to mutate their own row** (correct posture, recorded as
-> the behaviour, not just the outcome — an agent may not set its own terminal status). The
-> orchestrator added a second requirement to the eventual fix: **`github_pr` must carry a
-> repo, or a cross-repo contract must be REFUSED a link rather than given a colliding one.**
+## The ledger receipts (VACUUM INTO snapshot, not cp — see `stale-ledger-wal-and-disproven-receipts.md`)
 
-## Why it is not a cosmetic label — confirmed in `packages/swarm/src/main.rs` on origin/main
+```
+27 rows at status='no-claims'.  Rows whose recon is NOT the vacuous form: 0.
+  Every one, from a 24-tool-call trace to a 236-tool-call trace, reads IDENTICALLY:
+  "N tool calls in trace; 0 claims; 0 flagged. (no completed-action claims extracted from the message)"
+52 verdict messages carry a NON-EMPTY structured `claims` column — none of them read.
+My own C-FEL-RETRO-0727 verdict, in the DB: claims = "verified:single run 30322783137, verified:check ended ...".
+  Real, structured, correct — and extracted as ZERO, so the row landed no-claims.
+```
 
-- `:1064` / `:1071` / `:1082` — `verified` and `no-claims` are "the two statuses with
-  EXTERNAL side effects"; `verified` "additionally mirrors outward as Done."
-- `:2438` — on sync a `verified` contract moves its Linear issue to **Done** and
-  **closes its GitHub issue** with a comment.
-- `:1201-1241` — a downstream contract's `needs` are treated as **satisfied** when its
-  upstream reads `verified`/`no-claims` — so a false `verified` also **unblocks work that
-  should still be waiting.**
+Identical output across a 10× range of trace sizes is the signature of a check that **never
+examined anything** — the input varied and the verdict did not.
 
-Nothing fired outward for the two bad rows ONLY because they happen to carry no `linear`
-or `github_issue` link. **That is luck, not a guard.**
+## Two defects, composed. The second is the load-bearing one.
 
-## The spine: the most powerful decision lives in the least-guarded file
+- **Selection by role** (`:681-687`): `entry = reg.get(owner); tr = _transcript(entry)` — the
+  transcript is the OWNER's current one, keyed by role, never by contract. Right only while
+  the role still sits on the contract. This produced the **two false `verified`** rows:
+  recon.py's prose regexes matched *incidental* prose ("I filed FEL-435", "I wrote to") in
+  whatever trace the owner was on, and a match → grounded → `verified`. C-SWARM-P0 read
+  architect's OWN work (`agent-swarm/sydney`, `592e6e8`) — right by luck, they had not moved on.
+- **Format blindness** (`:687` + `recon.py:95-104`): the mandated `claims` column is never
+  read and the prose extractor cannot match it. This produced **all 27 `no-claims`** — real
+  claims rendered as "nothing to check". This is the systemic defect; selection is the two
+  anomalies on top of it.
 
-The contrast is the whole lesson. The in-repo Rust `verify-merged` path is written with
-real discipline: **dry-run by default, refuses to read a failed query as "not merged,"
-reports could-not-check, and excludes `verified` from reselection for idempotency.** The
-transcript-scanning path that assigned these two statuses lives in `~/.swarm/supervisor.py`
-— which is **in no repo: no PR, no review, no CI, no durable record** — and has none of
-that discipline: **"0 flagged" in a trace scan became a terminal status.**
+The reconcile's *posture* is otherwise disciplined — `:690` `unverified` on no trace/verdict,
+exit-1 → `DISPUTED` + a filed `blocked`, exit-N → `unverified`, and it explicitly refuses to
+launder a vacuous pass into `verified` ("the panel overselling, the failure this project keeps
+catching"). Calling it (as earlier tellings did, mine included) a "guarantee-free heuristic"
+was **wrong and unfair to its author.** A disciplined checker that is fed the wrong trace and
+cannot read the claim format is not undisciplined — it is **checking nothing, correctly.**
 
-> Every guarantee this swarm runs on — review, CI, a durable diff — is ABSENT for the one
-> file that holds the terminal, outward-facing, hard-to-reverse power. The strongest
-> capability sits in the weakest-governed place.
+## The correction IS the lesson: three wrong diagnoses of two files nobody opened
 
-## Green-by-construction, one level up
+1. "certified from the wrong worktree" (historian, wake 19) — a selection story, wrong one.
+2. "selection was never load-bearing; the defect is recon generation" (historian, wake 20) — the opposite error, also wrong.
+3. two founder-facing characterisations from the orchestrator (guarantee-free heuristic; unrelated trace) — also wrong.
 
-This is the exact defect the swarm spent the session hunting in CI — a check that reports
-PASS without really checking (`ci-ok-green-only-with-same-run-check.md`,
-`gate-fix-armed-a-sibling-false-red.md`) — reproduced **in the ledger that audits CI.**
-A verifier that emits PASS while writing a tool-call dump where the evidence should be —
-even when handed the RIGHT trace — is green-by-construction: it passed by never actually
-turning the examined work into a checked receipt. The audit layer inherited the bug it
-exists to catch.
+Every one was reasoning about `supervisor.py`/`recon.py` instead of opening them. Each actual
+READ went a layer deeper — worktree → recon-generation → selection-by-role → **the column is
+never read** — and only reading ended it. The fractal the orchestrator named: *the shape of the
+error is the shape of the defect.* We filed confident conclusions about a mechanism that
+**certifies without observing, while ourselves not observing (reading) it.** Instrument over
+hand-reasoning (`promotion-rungs.md`) applies recursively — to your own diagnosis of the instrument.
 
-## The historian read its own row (the prose rung, exercised)
+## The quiet signal that found it (worth its own line)
 
-"Read your own row before trusting it" (orchestrator, to all roles). Done, from the same
-snapshot: **C-FEL-439fix** is legitimately `verified` (recon `merged: PR #639 @ e71f80c0`).
-**C-FEL-RETRO-0727** is `no-claims`, all outward links NULL, recon `"85 tool calls in
-trace; 0 claims; 0 flagged"` — a clean scan summary, NOT a wrong-worktree fragment like
-the two above, but `0 claims` does not reflect the `done` verdict filed under it for #679.
-Weaker than the two flagged (and luck-protected, links NULL), but flagged to reconcile,
-**not touched** — an agent may not set its own `verified`/`no-claims`.
+The two loud rows (raw-looking recon) were the two *anomalies*. The **systemic** defect
+surfaced from a WEAK signal: reading my own row, `C-FEL-RETRO-0727` = `no-claims` with a
+*clean* "0 claims" scan that did not match my filed verdict — reported as a mismatch I could
+not yet explain, **explicitly not inflated to "corruption."** A stronger instinct would have
+compared it to the loud rows, seen it didn't match, and stayed quiet. **Report the mismatch you
+cannot explain without inflating it** — the quiet one was the whole system.
 
-## The rung
+## Why it is not cosmetic — `packages/swarm/src/main.rs` on origin/main
 
-- **prose (today):** every role reads its own ledger row and reports a mismatch. It
-  caught this (builder-b's row, this one), but it is detection after the fact, not
-  prevention — and it relies on remembering to look.
-- **structural (dispatchable now, under review):** **move the promotion decision INTO the
-  Rust binary** — which is in-repo, tested, dry-run-by-default, and already has the correct
-  posture — and leave `supervisor.py` able only to **propose**, never to set a terminal
-  outward-facing status. A capability with external, hard-to-reverse effects must live
-  behind the same review+CI+diff every other change gets; the fix is to relocate the
-  decision to where those guarantees exist, not to add discipline to a file that has none.
-- **the broader remedy (pause the swarm ~15 min and fix `supervisor.py` against a stopped
-  supervisor, reviewed) is a founder DECIDE — pending, and NOT the historian's to make.**
-  It is a DECIDE precisely because the cost of the fix (coordination down, and the file is
-  the live SPOF waking six roles) trades against the cost of waiting (a ledger that can
-  close a customer-visible issue on a wrong-worktree trace scan).
+`:1064/1071/1082` `verified`/`no-claims` = the two EXTERNAL-side-effect statuses; `:2438` `verified`
+→ Linear Done + close GitHub issue; `:1201-1245` `cmd_ready` treats a `need` as satisfied on
+`verified` OR `no-claims`. So **27 rows unblocked downstream work on a check that could not run.**
+It closed no customer issue only because these rows carry no `linear`/`github_issue` link — luck.
+
+## DO NOT "fix" a missing link — a bare-integer PR id across repos manufactures a false receipt
+
+`contract.github_pr` is a bare integer; `gh_pr_view` (`main.rs:1683-1694`) hardcodes
+`--repo fellwork/aihu`. Measured: `gh pr view 1 --repo srmcguirt/agent-swarm` = OPEN (the real
+C-SWARM-P0 work) but `--repo fellwork/aihu` = a MERGED 2026-04-26 scaffolding PR. So
+`setstatus --github-pr 1` manufactures a perfect-looking `merged: PR #1` receipt. **A receipt in
+the wrong repo is worse than none — it looks legitimate.** The empty link is load-bearing; leaving
+it empty is the correct posture (architect declined to mutate their own row). Now a must-fail bar:
+`github_pr` carries a repo or a cross-repo contract is refused a link.
+
+## The rung — Option B is DISPATCHED (`C-SWARM-RECON-AUTHORITY`, architect)
+
+- **the producer/consumer fault line (the general lesson):** when a format is MANDATED at one
+  boundary, the consumer that must read it has to be tested against that exact format, end to
+  end. Here the bus rejects a verdict lacking `--claims`, and the reconcile can't read `--claims`
+  — same fault line as the claim-verb enum (`#662`→`#664`, "the SPEC is wrong"), one layer worse:
+  the consumer never reads the field at all. A format contract with no cross-side test is two
+  independent guesses wearing one name.
+- **must-fail row 3 (binding):** `no-claims` MUST NOT be reachable from an extraction that
+  returned zero while the latest verdict's `claims` column is non-empty. Prove **both** directions
+  — feed the historian's real C-FEL-RETRO-0727 verdict and assert it does NOT land `no-claims`;
+  feed a genuinely-empty-claims verdict and assert `no-claims` IS still reachable (the fix is not
+  "never emit no-claims"). **The adjudicator MUST consume the structured `claims` column;** prose
+  extraction may supplement, never be the only input.
+- **structural:** move promotion INTO the tested in-repo Rust binary; `supervisor.py` proposes
+  only. The Python posture is fine; what it lacks is review/CI/a durable diff — exactly why three
+  people mis-read it. Relocate the *decision* to where those guarantees live.
+- **sequencing (corrected):** Rust path lands **FIRST**, demotion **SECOND**. Demote-first is a
+  DAG stall, not fail-closed: `cmd_ready` satisfies needs only on `verified`/`no-claims`, and the
+  DB carries **27 `no-claims` + 13 `verified` = 40 terminal rows with 12 contracts declaring
+  needs** (measured) — kill auto-promotion first and every spec-only/docs-only/vacuous pass can
+  never satisfy a downstream need.
+- **interim guard, BINDING ON EVERYONE:** no `sync --push` against any `verified` row whose recon
+  is not a real same-repo receipt.
+- **heal (amended):** it is **27 unchecked + 2 false**, NOT 2 corrupt — do NOT mass-revert; most
+  of the 27 are genuinely completed work with merged PRs, so they are UNCHECKED, not WRONG.
+  `no-claims` currently means "we did not check," not "there was nothing to check." Make the
+  mechanism honest, re-run, re-derive; where evidence is unrecoverable land at could-not-check.
 
 ## Related
 
 - `ci-ok-green-only-with-same-run-check.md` — the same green-by-construction defect in CI; this is it in the ledger that audits CI
-- `absent-value-rendered-as-real.md` — "0 flagged" (nothing examined) rendered as a terminal PASS
-- `checked-thing-is-not-the-changed-thing.md` — the recon "verifies" without turning the examined trace into a checked receipt; a bare-integer PR id resolved against the wrong repo is the same class
-- `worktree-vs-clone-tmp-durability.md` — wrong-worktree selection is one symptom (C-FEL-SCAFFOLD), not the root
+- `a-contract-is-an-unverified-claim.md` — a terminal status reached by a check that never ran is the unverified claim in its purest costume
+- `promotion-rungs.md` — the hand-reasoning trap; it caught three diagnosticians reasoning about two files instead of reading them
+- `absent-value-rendered-as-real.md` — "0 claims" (nothing extracted) rendered as a terminal, downstream-unblocking status
 - `stale-ledger-wal-and-disproven-receipts.md` — why the receipt must be re-measured with `VACUUM INTO`, not `cp`
-- `a-contract-is-an-unverified-claim.md` — a terminal status with no real receipt is an unverified claim wearing the costume of a verified one

@@ -445,28 +445,41 @@ by it, so open them yourself when auditing.
   Also added a 4th, CROSS-ROLE instance to `documenting-a-checker-can-trip-the-checker.md`:
   builder #683 hit lesson-refs red citing a lesson that lands with my unmerged #669 — the
   gate catching a forward-reference is the gate working; it makes the trap a class, not my habit.
-- **THE AUDIT LEDGER IS GREEN-BY-CONSTRUCTION (wake 19, CORRECTED wake 20) — banked, NOT mine to fix.**
-  The reconcile pass promoted two contracts (C-FEL-SCAFFOLD-PM-COMPAT, C-SWARM-P0) to
-  `verified` with NO merged-PR evidence and a recon that is a raw `Bash` tool-call dump.
-  **CORRECTION (do not repeat my first telling):** it is NOT "read the wrong worktree" for
-  both. For C-SWARM-P0 the reconciler read the RIGHT trace (architect's OWN work,
-  `agent-swarm/sydney`, commit 592e6e8, phase0/recon.py) and STILL wrote garbage recon +
-  premature `verified` — so the defect is recon GENERATION + premature-terminal, NOT trace
-  selection (a selection-only fix leaves C-SWARM-P0 broken). `verified`/`no-claims` have
-  EXTERNAL side effects (confirmed on origin/main `main.rs:1064/1071/1082`, `:2438` Linear
-  Done + close GitHub issue, `:1201-1241` unblock downstream) — fired nothing only by LUCK
-  (no linear/github link). Banked+corrected `the-audit-ledger-is-green-by-construction.md`.
-  **DO NOT attach a PR link to C-SWARM-P0.** `contract.github_pr` is a bare integer and
-  `gh_pr_view` (`main.rs:1683-1694`) hardcodes `--repo fellwork/aihu`; I verified `gh pr view 1
-  --repo fellwork/aihu` = MERGED 2026-04-26 scaffolding PR vs `--repo srmcguirt/agent-swarm` = OPEN.
-  So `setstatus --github-pr 1` would manufacture a false `merged: PR #1` receipt indistinguishable
-  from the 11 real ones. The empty link is load-bearing BY ACCIDENT. Structural rung = move
-  promotion INTO the tested Rust binary (supervisor.py proposes only) + `github_pr` must carry a
-  repo or a cross-repo contract is REFUSED a link. Broader pause-and-fix is a founder DECIDE
-  (pending) — **I do NOT decide it, do NOT touch supervisor.py, do NOT set any status, do NOT attach the link.**
-  **Read-your-own-row (VACUUM INTO snapshot of `~/.swarm/bus.db`):** C-FEL-439fix legit-verified
-  (#639 receipt); C-FEL-RETRO-0727 is `no-claims`/links-NULL with recon "0 claims" that does NOT
-  reflect the #679 done verdict — flagged to reconcile, not touched.
+- **THE CLAIM-CHECK HAS NEVER FIRED (wake 21, diagnosed wrong 3× first). Banked, NOT mine to fix.**
+  Started as "2 verified rows with no merged-PR evidence"; my read-my-own-row WEAK signal
+  (C-FEL-RETRO-0727 = `no-claims` with a clean "0 claims" recon that ≠ my filed #679 verdict,
+  reported WITHOUT inflating to corruption) led the orchestrator to pull the population and find the
+  systemic defect. **DEFINITIVE mechanism, read in BOTH files + measured myself:** the reconcile
+  reads the verdict `body` ONLY (`supervisor.py:687`), never the structured `claims` column; and
+  `recon.py:95-104` matches six ENGLISH PROSE regexes (`\bI\s+pushed\b`, `\bI\s+filed X`), NOT the
+  bus-mandated `pushed:PR#N,ran:...` format. So the format the bus REQUIRES is one the reconcile
+  never reads and cannot parse. Receipts (VACUUM INTO snapshot): 27 `no-claims` rows, ALL identical
+  recon "N tool calls; 0 claims; 0 flagged" across 24→236-tool-call traces (0 exceptions); 52
+  verdicts carry a non-empty `claims` column, none read; my own C-FEL-RETRO-0727 verdict claims
+  exist as structured data, extracted as ZERO. **The control CLAUDE.md cites ("only reconcile sets
+  verified/no-claims after checking your claims") HAS NEVER RUN** — lifetime output = 27 vacuous
+  passes + 2 false verifieds. Secondary defect: selection-by-role (`:681-687`, owner's current
+  trace not the contract's) → the 2 false verifieds via incidental prose matches. The posture is
+  otherwise DISCIPLINED (refuses to launder vacuous→verified) — "guarantee-free heuristic" was my
+  unfair overstatement; correct it if you cite. **DO NOT repeat my wrong tellings** (wake19 "wrong
+  worktree"; wake20 "selection doesn't matter, recon-generation") — both wrong; each READ went a
+  layer deeper. The correction IS the lesson: reasoning about two files nobody opened; the shape of
+  the error = the shape of the defect (certify/report without observing). `no-claims` is terminal +
+  satisfies downstream needs (`main.rs:1201-1245`), so 27 rows unblocked downstream on a check that
+  could not run; fired nothing outward only by LUCK (links NULL; ext side effects `:1064/1071/1082`,
+  `:2438`). Banked (definitive) `the-audit-ledger-is-green-by-construction.md`.
+  **DO NOT attach a PR link to C-SWARM-P0** — bare-int `github_pr` + `gh_pr_view` (`main.rs:1683-1694`)
+  hardcodes `--repo fellwork/aihu`; `gh pr view 1` there = MERGED scaffolding PR vs OPEN in agent-swarm,
+  so `--github-pr 1` manufactures a false receipt. Empty link is the correct posture.
+  **FIX = `C-SWARM-RECON-AUTHORITY` (architect, dispatched):** promotion→Rust binary, supervisor.py
+  proposes only; row2 cross-repo bar; **row3 (binding): adjudicator MUST consume the structured
+  `claims` column** — prove both directions (my real verdict must NOT land no-claims; empty-claims
+  must still reach no-claims). Rust lands FIRST then demotion (demote-first = DAG stall: 27 no-claims
+  + 13 verified terminal, 12 declare needs). Heal = **27 UNCHECKED + 2 false, DO NOT MASS-REVERT**
+  (no-claims currently = "we did not check", not "nothing to check"); make honest, re-run, re-derive;
+  unrecoverable → could-not-check. Interim guard BINDING: no `sync --push` vs a verified row whose
+  recon is not a real same-repo receipt. **I do NOT decide the DECIDE, touch supervisor.py/recon.py,
+  set status, or attach a link.** Read-my-own-row: C-FEL-439fix legit-verified (#639).
 - **Board arc (2026-07-27):** main reached `41c37df6` (#670), the queue STOPPED at 01:12Z
   with ~13 green PRs sitting — then UN-STUCK: main is now `b667bdcd`, having landed
   #656/#659/#661/#663/#666/#667/#668/#673. So "the queue stopped at 01:12Z" was a
