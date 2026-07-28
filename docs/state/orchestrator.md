@@ -43,6 +43,80 @@ is **not** the coordination or state layer. It went unused for ~20 hours on
 2026-07-25 and the one page it holds was stale within 30 minutes of being
 written. Do not treat it as truth.
 
+## 🔴🔴🔴 WE OPTIMISED THE POPULATION WE COULD COUNT — 1252 daemons = 0.2% of a core
+
+Architect found it; **I measured it independently and it is starker than their read.** One
+`ps`, field-anchored, 21:39Z:
+
+```
+26 × bun server.ts    total CPU 956.9%  = 9.6 OF 10 CORES   RSS 3.6 GB   5 ORPHANED (ppid=1)
+1252 × live-daemon.js total CPU   0.20% = one fiftieth of one core       RSS ~36 GB
+loadavg 32.54 · hw.ncpu 10 · top spinners 94-96% EACH, ages 01-20:04 — ONE DAY TWENTY HOURS
+two of the five orphans are IN that top group (49686, 52288, ~95% each) ⇒ orphans alone ≈ 2 cores
+```
+
+**The population we counted 1252 times uses 0.2% of a core. The population nobody counted
+uses 9.6 cores.** *Reaping every daemon recovers ~2% of one core and fixes nothing — the
+remedy the daemon framing implies is the one remedy that cannot work.* Builder-b's
+observation was real (**at loadavg 72 a 5000ms timeout measures the box**; their triage
+command stands: print `vm.loadavg`, re-run with `--testTimeout=30000`); **their attribution
+was to the wrong population, and I nearly inherited it because it confirmed a severity I
+half-believed.**
+
+**FILED AS DECIDE, replacing the withdrawn `ffba4878`:** *may the 5 orphaned (ppid=1)
+plugin/MCP servers be killed, and should plugin servers carry a TTL like `live-daemon.js`
+does?* **21 of 26 have LIVE parents — killing those kills running agents' tooling
+mid-message**, so this is five named pids, not a population; R3 (do not mass-kill) stands.
+*The TTL is the proven pattern here and it is absent from the population that needs it.*
+
+## 🔴🔴 verify-merged IS CORRECT, HAS ZERO CALLERS, AND I DID NOT RUN IT
+
+```
+SWARM_DB=<copy> swarm-bus verify-merged → EXIT 0
+  "19 verified from merged PRs, 9 skipped (no PR), 0 could-not-check"
+architect: grep -n verify.merged supervisor.py recon.py → EXIT 1, NO MATCH
+```
+
+**The correct predicate shipped and nothing calls it, while the broken one — a prose regex
+over a possibly-truncated trace — runs every 5s with authority to write terminal statuses.**
+*The dead-gate class in the ledger, one layer above the CI gates we spent the day on, and
+self-demonstrating: it wrote `no-claims` onto `C-SWARM-RECON-AUTHORITY` from a 39-call
+fragment of a session that died mid-stream.*
+
+**WHY I STOPPED AT THE DRY RUN — the number nobody had measured: 15 candidate rows carry a
+Linear link and 3 carry a GitHub issue (`#430`, `#478`, `#503`).** `verified` mirrors
+outward (`main.rs:1064-1082`, `:2289-2315`) — Linear to Done **and the GitHub issue
+CLOSED** — on the supervisor's automatic 1800s sync. **`--confirm` is not a ledger repair,
+it is a publication.** And `cmd_verify_merged` takes **only** `--confirm` (`:2610`): no
+`--only`, no `--skip-linked`. **All 19 or nothing ⇒ founder's call, filed as DECIDE**, with
+the alternative I *can* dispatch: add `--skip-linked` so the ~10 link-less rows collect
+receipts today with zero outward effect.
+
+## ✅ I ENDED THE STEP-vs-JOB CHURN ON THE VERSION ALREADY BUILT — three positions, none builder's
+
+Last wake I reversed to own-job and architect withdrew their countermand — **after** builder
+had already reverted to a step. **Three positions in two wakes, all mine or architect's;
+they implemented each ruling as issued.** *Ruled: the STEP stands, do not flip it back.*
+
+**The measured reason:** at **merge time** the two are identical — a PR cannot land without
+becoming ready, and `check` runs the gate then. Own-job buys **earlier** feedback on drafts
+(verifier observed exactly that: `gate-wiring` SUCCESS at 21:24:19Z while `check` was
+SKIPPED). **Earlier is not safer.** The step costs **zero edits to `ci-ok`**, the highest
+blast-radius line in the repo. **Lower blast radius at equal merge-time safety wins**, and it
+*retires* the three-clause risk instead of managing it. **My added must-pass (assert
+needs-set == result-loop-set) is WITHDRAWN from their bar and queued as its own contract** —
+it still closes the palette/#649 class structurally.
+
+- **Their blocked question → OPTION B, baseline it.** Verifier checked all five hits line by
+  line: every one is text *about* code. **So must-pass #4 and #5 of my own contract are
+  unsatisfiable together — a defect in MY bar**, and refusing to choose between two of my
+  bars is exactly what `blocked` is for. Queued: `C-FEL-GRAMMAR-V2-LITERALS`, third instance
+  of the regex-over-source class.
+- **AUTHORISED: mark #691 ready and run the real-CI must-fail** — a receipt, not a merge.
+  Expect visibly red CI for a few minutes; I am on record authorising it. **Do not merge.**
+- **The title still names the row I declined.** Live row is `C-FEL-GATE-WIRING-RUNS`
+  (claimed); the PR says `…-REACHABLE`. **Three mint requests, two ids — the churn is mine.**
+
 ## 🔴🔴🔴 I WITHDRAW THE `/tmp` ALARM — A TWO-DOT RANGE ANSWERS A QUESTION ABOUT SHAS
 
 **`C-SWARM-RECON-AUTHORITY` had already shipped when I raised it.** Verified myself:
