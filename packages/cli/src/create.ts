@@ -612,13 +612,23 @@ function gitConfigResolves(dir: string, key: string): boolean {
  *
  *  1. **No exit status was read.** All three commands ran with `stdio:
  *     'ignore'` and their statuses discarded, then the wizard printed a green
- *     `✓ git init` unconditionally. `git commit` FAILS OUTRIGHT when no
- *     identity is resolvable — the normal state of CI runners and fresh
- *     containers — so the checkmark asserted a commit that did not exist. The
- *     result is an unborn HEAD, and `git rev-parse HEAD` then exits 128, which
- *     is exactly the FEL-431 defect 5 breakage: moon cannot answer a question
- *     about HEAD, so `dev`, `build` and `typecheck` all die — every command
- *     this wizard prints as the next step.
+ *     `✓ git init` unconditionally — so any failure produced an unborn HEAD
+ *     under a checkmark claiming otherwise. `git rev-parse HEAD` then exits
+ *     128, which is exactly the FEL-431 defect 5 breakage: moon cannot answer
+ *     a question about HEAD, so `dev`, `build` and `typecheck` all die — every
+ *     command this wizard prints as the next step. This half is independent of
+ *     identity: it is wrong to claim a success you did not check.
+ *
+ *     NOTE, corrected against #632's comment rather than inherited from it:
+ *     that comment says `git commit` "fails outright when no user.name/
+ *     user.email is resolvable, which is the normal state of CI runners". Only
+ *     half true, measured on git 2.50.1 — with an empty config and no identity
+ *     env `git commit` SUCCEEDS (rc=0), auto-deriving `username@hostname`. It
+ *     fails (rc=128) when that derivation is unavailable or forbidden
+ *     (`user.useConfigOnly`), which is the slim-container case, not merely the
+ *     unset-config case. The distinction is load-bearing for the test: one
+ *     written to the inherited wording passes whether or not the fallback
+ *     below exists.
  *  2. **Identity was taken from ambient config only.** Ambient is the RIGHT
  *     default here, unlike the pipeline path: a human running the wizard on
  *     their own machine should author their own first commit. But when nothing
