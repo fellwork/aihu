@@ -33,9 +33,18 @@ import { type AppTemplate, scaffoldApp } from '../src/index.ts'
  *
  * Table-driven over EVERY template because the previous round of this contract
  * was a guard that covered one of two emitters and read as coverage while two
- * templates still shipped the defect. `agent` was in exactly that hole here: it
- * is the one template whose file list never included `pnpm-workspace.yaml`, so
- * `create-aihu --template agent` + `pnpm install` failed outright.
+ * templates still shipped the defect.
+ *
+ * WHICH TREE THIS LIVED IN, stated because the first version of this comment got
+ * it wrong: `pnpm-workspace.yaml` is emitted by NO template on `main` — it is
+ * introduced by this branch. Measured on `45df25ba`: 22 files under
+ * `packages/cli/src`, 8475 lines read, ZERO matches for `pnpm-workspace`. So
+ * `agent` was never a pre-existing repo defect; it was the one of four file
+ * lists this branch initially missed while adding the file to the other three.
+ * The guard below is worth exactly as much either way — a file list is a fourth
+ * place the setting has to be repeated, and repetition is what this test covers
+ * — but "I found a bug" and "I missed one of my own four edits" are different
+ * claims, and only the second one is true.
  */
 
 const TEMPLATES: readonly AppTemplate[] = ['minimal', 'docs', 'full', 'agent']
