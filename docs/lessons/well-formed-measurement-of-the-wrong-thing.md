@@ -111,6 +111,63 @@ right now"* the lifetime average of a long-lived process understates a recent sp
 finished one. Cross-check with `top -l 2` and **use the second sample**; the first is itself a lifetime
 average. Two instruments agreeing is what turned that finding from an assertion into a result.
 
+## A TENTH INSTANCE, first-person, while committing this very lesson — the shell ate a word and exited 0
+
+Writing the commit for the `ci-ok` fail-open finding, I used a backticked word inside a `-m` string in
+zsh. **The backticks were command substitution.** The word was executed as a command, failed, and
+substituted **empty**:
+
+```
+git commit -m "… my banking that `verified` is not a label …"
+  stderr:  (eval):3: command not found: verified
+  commit:  created.   push: exit 0.   git ls-remote: sha matches.
+  message on disk:  "… was the transferable part.  is not a label, it is a publication …"
+                                                  ^^ the word is silently GONE
+```
+
+**Every durability check I run passed.** The commit exists, the push landed, the remote ref matches, the
+lesson-refs gate is green. The only signal was one stderr line among the output of a compound command —
+and the artifact it produced is a **valid, readable commit message with a word deleted from the middle of
+a sentence**, which is precisely the shape that survives review.
+
+This is the class arriving from a new direction and worth naming separately: not *"my instrument was
+aimed at the wrong thing"* but **"the shell mutated my data in transit and reported success."** The
+generalisation:
+
+> **An exit code of 0 certifies that the command ran, never that it ran on the input you wrote.** Any
+> unquoted-or-backticked shell metacharacter — `` ` ``, `$`, `!` under history expansion — is a silent
+> edit to your data with a successful exit. **When the payload is prose you intend to keep — a commit
+> message, a bus body, a PR description — the safe form is a heredoc (`<<'EOF'`, quoted delimiter) or a
+> file, not a `-m` string.** And **read back what you wrote**: `git log -1 --format=%B` is the positive
+> control for a commit message, and it is the same one-command remedy every other instance in this file
+> had available.
+
+Recorded first-person and prominently because I am the role that writes this directory: **I banked
+"reproduce against the source text, not the quote" in the same commit whose message the shell rewrote
+underneath me.** The lesson does not exempt its author.
+
+## Two method rules that came out of applying it
+
+**1. REPRODUCE AGAINST THE SOURCE TEXT, NEVER THE QUOTE OF IT.** Verifying the `ci-ok` fail-open, the
+verifier extracted the loop with `sed -n 509,517p .github/workflows/plan-a.yml` and piped *that* into a
+harness — explicitly *"so a transcription error in the report could not flip my verdict."* I did the same
+against `git show origin/main:.github/workflows/plan-a.yml`. This is the general form of the
+`IMPORT_RE` incident, where an inherited misquote (`` [`"] `` for `['"]`) would have manufactured a false
+refutation: **a reproduction built from someone's prose is a test of their typing.** The cost is one
+`git show`; the failure it prevents is a confident disagreement about different text.
+
+**2. SAY THE NUMBER OR SAY NOTHING** — the architect, against themselves. Declining to act on the
+orphaned processes, they added that only 5 of 22 were unambiguous *and let it stand as though the safe
+subset were marginal* — having **never measured what the orphans cost.** The verifier measured it: **3.6
+cores, 40 % of the class.** The ownership half of the ruling was right; the *"and it would not be worth
+much anyway"* was an **unmeasured aside riding along with a measured ruling**, which is how a soft claim
+smuggles itself in behind a hard one and inherits its credibility.
+
+**A small live instance of the rotating-coordinate clause, worth one line:** a cited
+`main.rs:2610` had already moved to `:2748` between the citing read and the checking read. The architect
+found the function by name rather than by line and got the right answer — *quote a coordinate with the
+fetch that produced it, or find the thing by a name that does not move.*
+
 ## The rung
 
 - **prose (today):** the one-sentence rule at the top, plus the five one-command checks above. Cheap,

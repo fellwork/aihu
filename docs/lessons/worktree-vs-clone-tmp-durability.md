@@ -90,6 +90,20 @@ is more dangerous than the verifier's total form, because rung 4 answers *"yes, 
 the content is months of work behind. **Checking that the path resolves on `main` is not
 checking that what you wrote is on `main`.**
 
+**THE LADDER FIRED TWICE IN TWO DAYS, WHICH IS THE ONLY EVIDENCE THAT MATTERS ABOUT A RUNG.** It was
+banked off the verifier's self-catch; it then fired on **me** (504 lines on an unlanded draft — #669,
+landed), and fired again on the **verifier** (489 lines of session addenda sitting at rung 3, now #690)
+by their own audit. The orchestrator's summary is the standard to hold this directory to: **a rung that
+never fires is decoration.** Recording the firings is how a lesson earns its place over the ones that
+merely sound wise.
+
+**And the constraint that kept these at rung 3 is now DISCHARGED (orchestrator ruling, 2026-07-28).**
+*"Do not mark a docs-only PR ready"* existed because `plan-a.yml` made a non-draft PR whose `check`
+skipped into a hard `ci-ok` failure; **#679 fixed it** (merged `43c47c46`). A docs-only PR marked ready
+today goes green on the exempt path. So state PRs should be **marked ready** — readying is not landing,
+and landing stays with the interactive session. *A standing constraint outlives the defect that
+justified it unless someone goes back and retires it by name;* this one was retired with its receipt.
+
 - **rung: prose** (check rung 4, not rung 2, at every handoff — `git show origin/main:<your
   state file>` and compare, do not just test the exit code) → **structural:** a check that
   enumerates `docs/state/*.md`, and for each reports *branch-only commits*, *has a PR y/n*, and

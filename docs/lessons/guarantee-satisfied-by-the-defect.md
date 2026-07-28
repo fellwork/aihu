@@ -479,6 +479,84 @@ introduced** — the clearest evidence yet that this rung transfers:
 > property working *across* gates rather than within one, and it is the first time in this directory
 > that the green-by-construction class has been caught by machinery instead of by a person noticing.
 
+## `ci-ok` CAN PASS HAVING READ NOTHING — the result loop is an ALLOWLIST OF BAD VALUES, and it is live on `main`
+
+Chasing the verifier's named gap one level down, the architect found a **real defect nobody had**: the
+`ci-ok` result loop **fails open on an empty result.** This is the sole required status context that
+branch protection depends on.
+
+```yaml
+for pair in "check:$CHECK_RESULT" … "readme-sync:$README_SYNC_RESULT"; do
+  result="${pair#*:}"
+  if [ "$result" = "failure" ] || [ "$result" = "cancelled" ]; then fail=1; fi
+done
+```
+
+**That is an allowlist of BAD values, not a denylist of GOOD ones.** Misspell a binding at either end —
+the `env:` name or the pair list — and the pair expands to `gate-wiring:` with an **empty** result. Empty
+is neither `failure` nor `cancelled`, so **it matches nothing and the loop passes it.**
+
+**Verified by execution, three times, and the third is mine against `origin/main`'s own loop text** —
+extracted with `git show origin/main:.github/workflows/plan-a.yml`, not retyped from anyone's quote:
+
+| `check` result | current | proposed (`!= success && != skipped`) |
+|---|---|---|
+| `success` | fail=0 | fail=0 |
+| `skipped` | fail=0 | fail=0 |
+| `failure` | fail=1 | fail=1 |
+| `cancelled` | fail=1 | fail=1 |
+| **EMPTY** | **fail=0** | **fail=1** ← the defect |
+| `neutral` | fail=0 | fail=1 ← the accepted tradeoff, measured |
+
+**Direction 2 is the half that licenses the fix**: on all four real GitHub values the two loops are
+**behaviourally identical**. The inversion changes exactly the empty/unknown rows and nothing else — *an
+inversion that also moved a real row would be a regression wearing a fix's clothes.*
+
+**AND THE SCOPE IS NOT ONE JOB — IT IS ALL OF THEM.** The verifier's worst case, which I reproduced on
+`main` (six bindings there; seven in #691):
+
+```
+env -u CHECK_RESULT -u EXAMPLES_RESULT … -u README_SYNC_RESULT  sh loop-current.sh
+   ->  RESULT fail=0,  AND ZERO OUTPUT LINES
+same, proposed  ->  6 x ::error::,  RESULT fail=1
+```
+
+> **Drop or rename the `env:` block and the sole required status passes having checked NOTHING —
+> silently, with no error line and nothing in the log to notice.** It is not *"gate-wiring is exposed"*;
+> it is **`ci-ok` can go green with zero jobs read.** The vacuous-pass class — a gate that is green while
+> measuring nothing — rebuilt inside the one status branch protection depends on.
+
+**This is the palette family, THIRD VARIANT, and each variant is one notch harder to see:** palette was
+*in `needs`, never read*; #649 the same; this one is **read, but the read silently yields empty.** It is
+invisible to the human eye (the echo prints `gate-wiring:` with a trailing blank — it reads as
+formatting) **and structurally invisible to `check-gate-wiring.ts`**, which reasons about `package.json`
+scripts and workflow `run:` steps, not shell string semantics inside a YAML scalar. **A third clause of
+the wiring bar that the wiring checker cannot see.**
+
+> **THE GENERALISATION (verifier's, and it travels far past this file): any `if bad then fail` over an
+> OPEN-ENDED value domain is FAIL-OPEN BY CONSTRUCTION.** An allowlist of bad values is the shell form of
+> *a well-formed measurement of the wrong thing* — the loop runs, reads a variable that exists, and
+> compares it against the wrong side of the alphabet. **Enumerate the GOOD values; everything else fails.**
+> The tradeoff, stated and accepted: a genuinely new GitHub result value would red `ci-ok` until someone
+> allowlists it. **A required status that errs toward red is recoverable in one commit; one that errs
+> toward green is the defect we have now shipped three times.**
+
+**Follow-on, upgrading the `needs`-set == result-loop-set parse named above: set equality alone would
+have passed this typo.** The check must ALSO assert that **every pair's env var is BOUND in the same
+step.**
+
+### R-E IS CLOSED — and the boundary is worth as much as the closure
+
+The architect set R-E (*"must-fail must be a REAL CI run; local cannot prove CI reachability"*) and
+closed it themselves on the verifier's measurement: `gate-wiring` completed/**SUCCESS** at 21:24:19Z on
+`d42f7270` **while `check` was SKIPPED** (draft) — the always-on property demonstrated *in production*.
+
+> **Naming the boundary so nobody re-opens a satisfied bar with an adjacent unmet one.** The verifier's
+> honest *"every RED is local"* gap is a **different question** — *does `ci-ok` reject on a gate-wiring
+> failure* — and was never R-E's subject. **A satisfied bar and an adjacent open question look alike in
+> a summary**, and letting the second silently revive the first is how a closed contract stays open
+> forever. Say which bar the new finding belongs to.
+
 **Why neither defect was ever caught, at source:** `check:ci` has **no automatic invoker at all.** Not
 CI (`grep -rn "check:ci" .github/workflows/` → exit 0 but both hits are *comment* text at
 `plan-a.yml:274-275`), and **not the pre-push hook** — `package.json:33` `check:pre-push` is

@@ -634,6 +634,63 @@ by it, so open them yourself when auditing.
   `settle-a-contested-claim…` — an INVARIANT beats a timed prediction (no clock, no reach-early bias); TTL now
   CONCLUSIVE (3 timed deaths 20:23:10/20:28:23/20:28:28, cohort cleared). DECIDEs not mine: who wires
   check:gate-wiring; the missing C-FEL-MOONGRAPH-LITERALS row. Board (my fetch): main 3891300a GREEN; #669 draft.
+- **WAKE 41 — `ci-ok` CAN PASS HAVING READ NOTHING (live on main, I reproduced it), and my
+  verify-merged banking is STRUCK by its own author.**
+  (1) **THE BIGGEST TECHNICAL FINDING OF THE DAY.** Architect found it chasing verifier's named gap one
+  level down; verifier confirmed by execution; **I reproduced it a third time against `origin/main`'s OWN
+  loop text** (`git show origin/main:.github/workflows/plan-a.yml`, never a quote). The `ci-ok` result
+  loop is **an ALLOWLIST OF BAD VALUES** (`if result = failure || cancelled`), so an **empty** result
+  matches nothing and **passes**. My truth table: success/skipped/failure/cancelled **behaviourally
+  IDENTICAL** under the proposed `!= success && != skipped`; only **EMPTY** and `neutral` change —
+  so the inversion is not over-strict (direction 2, which is the half that licenses it). **WORST CASE,
+  MEASURED ON MAIN'S SIX BINDINGS:** `env -u` all six → **`fail=0` and ZERO OUTPUT LINES**; proposed →
+  6 `::error::` + `fail=1`. **So dropping/renaming the `env:` block makes THE SOLE REQUIRED STATUS
+  CONTEXT pass having checked NOTHING, silently.** Not "gate-wiring is exposed" — **`ci-ok` can go green
+  with zero jobs read.** **THIS IS LIVE ON MAIN TODAY, not only in #691.** Palette family **THIRD
+  VARIANT**, each notch harder to see: palette/#649 = in `needs`, never read; this = **read, but the read
+  yields empty** — invisible to the eye (prints `gate-wiring:` + blank, reads as formatting) AND
+  **structurally invisible to `check-gate-wiring.ts`** (shell semantics inside a YAML scalar). **DURABLE
+  (verifier): ANY `if bad then fail` OVER AN OPEN-ENDED VALUE DOMAIN IS FAIL-OPEN BY CONSTRUCTION —
+  enumerate the GOOD values.** Tradeoff accepted: a new GitHub value would red ci-ok until allowlisted;
+  **erring toward red is recoverable in one commit, erring toward green is what we have shipped three
+  times.** Fix goes in **builder's rebase, SAME COMMIT** (architect will not edit plan-a.yml themselves —
+  shared hot file, builder mid-flight). Follow-on upgrade: the needs-set==loop-set parse **must also
+  assert each pair's env var is BOUND** — set equality alone passes this typo. **NOT MINE TO FIX.**
+  (2) **R-E IS CLOSED** — architect set the bar and closed it on verifier's production measurement
+  (gate-wiring SUCCESS 21:24:19Z while `check` SKIPPED on a draft). **Banked the boundary as its own
+  shape: do not let an adjacent UNMET question re-open a SATISFIED bar** — verifier's "every red is
+  local" is a different question (does ci-ok REJECT), never R-E's subject. Clause-3 gap is a **gap, not a
+  defect**, and does **not** block #691. #691's real blocker is administrative: **CONFLICT in
+  `docs/state/builder.md`**.
+  (3) **MY WAKE-39 BANKING IS STRUCK BY ITS AUTHOR.** I banked *"hand-editing repairs one row;
+  `verify-merged --confirm` repairs 19 and teaches receipts are collected"* and called it **the
+  transferable part**. Architect **retracted it**: `verified` is **not a label, it is a PUBLICATION** —
+  `main.rs:1064-1082` + `:2289-2315` move ~9 Linear issues to Done **and CLOSE GitHub issues #430/#478/
+  #503** on the supervisor's automatic 1800s sync. **A revert does not un-close a customer-visible
+  issue.** And no narrow form exists: `cmd_verify_merged` takes **`args.get("confirm")` and nothing
+  else** — all 19 or nothing. **DURABLE: CHEAPNESS IS NOT SAFETY WHEN THE EFFECT IS OUTWARD** — "no code
+  change" was used as the argument FOR it; *reversible in the repo says nothing about reversible in the
+  world.* Also Q1 verbatim (bundling ~10 zero-effect rows with 3 issue closures **stalls the dispatchable
+  half**). RULING: **build `--skip-linked`/`--only` FIRST** (faster path, not delay) → link-less rows
+  collect receipts today → the human question shrinks to *"may these 3 named issues close?"*.
+  **MAKING THE QUESTION SMALLER IS THE WHOLE JOB OF AN ESCALATION**, and: **ANY BULK COMMAND WITH
+  EXTERNAL SIDE EFFECTS MUST SUPPORT A SUBSET** — without it every use becomes a founder decision, and a
+  gate that always needs a human is a gate nobody runs. **DO NOT recommend `--confirm`. Two DECIDEs are
+  open and BOTH are the orchestrator's.**
+  (4) **METHOD RULES banked in `well-formed-…`:** **REPRODUCE AGAINST THE SOURCE TEXT, NEVER THE QUOTE**
+  (verifier `sed`'d the loop from the file so a transcription error could not flip their verdict; I did
+  the same — general form of the `IMPORT_RE` misquote: *a reproduction built from someone's prose is a
+  test of their typing*). And **SAY THE NUMBER OR SAY NOTHING** (architect vs themselves: their implied
+  "the safe subset isn't worth much" was an **unmeasured aside riding a measured ruling** — verifier
+  measured it at **3.6 cores / 40%**; *that is how a soft claim inherits a hard one's credibility*).
+  Small live instance: cited `main.rs:2610` had moved to `:2748` — find things by NAME, not by a line
+  that rotates.
+  (5) **THE LADDER FIRED TWICE — banked as the evidence that a rung is not decoration.** Me (504 lines,
+  #669 landed) then verifier (489 lines, #690) by their own audit. **AND THE "do not ready a docs-only
+  PR" CONSTRAINT IS DISCHARGED** (#679 merged `43c47c46`) — orchestrator ruled: MARK #690/#692/#693/#694
+  READY; readying is not landing. **I marked #692 ready this wake.** *A standing constraint outlives the
+  defect that justified it unless someone retires it by name.* Gate exit 0. Killed no process, filed no
+  DECIDE, set no status, ran no `--confirm`, merged nothing, edited no workflow.
 - **WAKE 40 — THE BIGGEST CORRECTION OF THE DAY, AND I AMPLIFIED THE ERROR INTO THE RECORD.**
   (1) **⛔ "WE OPTIMISED THE POPULATION WE COULD COUNT." THE DAEMON LEAK IS NOT WHAT DEGRADES THE TEST
   SIGNAL.** Last wake I banked builder-b's "the leak corrupts the test signal" and called it **better

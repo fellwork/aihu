@@ -229,11 +229,56 @@ mid-stream (historian confirmed the row directly against a WAL-safe copy: the ro
 the exact door the remedy closes.** An observed instance of R1's justification is worth more than the
 argument written for it.
 
-**The repair ruling, and the reasoning is the transferable part (architect).** Not *re-claim and
-rebuild* — the six commits are merged, so rebuilding is `C-FEL-436` on purpose. Not a hand-`INSERT`
-either, and now for a concrete reason rather than a principle: **hand-editing repairs one row and
-teaches that the ledger is editable; `verify-merged --confirm` repairs nineteen and teaches that
-receipts are collected.** The `--confirm` run is the **orchestrator's** — neither the architect, the
+**The repair ruling — HALF OF IT WAS RETRACTED BY ITS AUTHOR, and the retraction is the better lesson.**
+Not *re-claim and rebuild* — the six commits are merged, so rebuilding is `C-FEL-436` on purpose.
+Not a hand-`INSERT` either: **hand-editing repairs one row and teaches that the ledger is editable.**
+~~And `verify-merged --confirm` repairs nineteen and teaches that receipts are collected.~~ **← STRUCK.
+I banked that clause as "the transferable part" one wake after its author proposed it; they have since
+withdrawn it, and the withdrawal names a scope nobody had measured.**
+
+**`verified` IS NOT A LABEL — IT IS A PUBLICATION.** The orchestrator stopped at the dry run and
+measured the number nobody had:
+
+```
+SWARM_DB=/tmp/bus-vm.db swarm-bus verify-merged  -> EXIT 0, "19 verified from merged PRs, 9 skipped, 0 could-not-check"
+of those candidates: 15 carry a Linear link, 3 carry a GitHub issue
+  C-FEL-434b (FEL-462, gh 430) · C-FEL-GH478 (FEL-459, gh 478) · C-FEL-GH503 (FEL-460, gh 503)
+main.rs:1064-1082  `verified` is one of two statuses with EXTERNAL side effects
+main.rs:2289-2315  the next sync moves the Linear issue to Done AND CLOSES THE GITHUB ISSUE
+                   — and the supervisor runs that sync automatically every 1800s
+```
+
+So `--confirm` would move **~9 Linear issues to Done and close 3 customer-visible GitHub issues, on a
+timer, with no human in the loop.** **A revert does not un-close a customer-visible issue.** And there is
+no narrow form today: the architect re-read `cmd_verify_merged` at source and found **`args.get("confirm")`
+and nothing else** — no `--only`, no `--skip-linked`. *All 19 or nothing.*
+
+> **CHEAPNESS IS NOT SAFETY WHEN THE EFFECT IS OUTWARD.** The retracted recommendation used *"no code
+> change"* as an argument **for** running it. That is the whole defect: *the instrument is correct* was
+> the property in view, and *what does it touch* was the adjacent one nobody checked — the same
+> class-2 shape (`well-formed-measurement-of-the-wrong-thing.md`), committed by the author of the
+> decision doc naming it, hours later. **An action being reversible in the repo says nothing about
+> whether it is reversible in the world.**
+
+**And it was the escalation-splitting rule violated verbatim:** ~10 link-less rows are pure ledger repair
+with **zero** outward effect and need no human at all; welding them to 3 issue closures that do **stalls
+the dispatchable half behind the undispatchable one**. The ruling that replaces it:
+
+1. **Build the granularity first** — `--skip-linked` / `--only <ids>`: in-repo, reviewable, revertible,
+   testable, zero outward effect. *This is the faster path, not a delay.*
+2. The ~10 link-less rows collect their receipts **today**, unblocked, with no human.
+3. The human question **shrinks** from *"may 19 rows publish?"* — which nobody can answer in one line —
+   to *"may these 3 named GitHub issues close?"*, which they can.
+
+> **MAKING THE QUESTION SMALLER IS THE WHOLE JOB OF AN ESCALATION.** And the durable form, past this
+> tool: **any bulk command with external side effects MUST support a subset** — not because bulk is
+> wrong, but because without subsetting **every** use becomes a founder decision, and *a gate that
+> always needs a human is a gate nobody runs.* The conditional mirror (`verified` publishes only if
+> linked) is sound design; the defect is purely that the command cannot select rows.
+
+**Credit where the correction came from:** the orchestrator stopped at the dry run, measured the
+link counts, and read `cmd_verify_merged` at source **before** proposing the flag — the escalation was
+well-formed; the recommendation it corrected was not. The `--confirm` run is the **orchestrator's** — neither the architect, the
 verifier, nor the historian may set status, and none did. **Wiring `verify-merged` into the supervisor
 is the higher-value follow-on and is deliberately NOT bundled**: it is a hot edit to the live SPOF that
 is twice-ruled do-not-edit-hot, whereas `--confirm` needs no code change and clears 19 rows today.
