@@ -262,9 +262,54 @@ docs-facing gate must be an **always-on CI job** (`C-FEL-READMESYNC-JOB`), never
 hook offered as its backstop. Same disposition as Instance 1: do not lower the real gate
 and lean on a softer one — move the exerciser to where it actually runs.
 
+# INSTANCE 4 — THE ORPHAN-DETECTOR IS ITSELF AN ORPHAN, AND ITS MODEL IS UNSOUND (2026-07-28)
+
+The catalogued class shipped a **third time in one day** (after the moon-graph string-blindness and
+this), and this time it wore the gate built to prevent it. Found by builder while rebasing #689;
+verified on `origin/main` by the historian.
+
+- `#680`'s `c4724454` typed a gate out of existence: `package.json` `check:ci` calls
+  **`check:grammar-v`**, but the script is `check:grammar-v2` (confirmed: the `check:ci` chain string
+  on `main` contains `… && check:grammar-v && check:cookbook && … && check:gate-wiring`). `bun run
+  check:grammar-v` exits 1 ("script not found"), so `check:ci` **aborts at that step — before it ever
+  reaches `check:gate-wiring`**, the last item in the chain.
+- The same commit **orphaned `check:grammar-v2`** (no CI path invokes it), and `check:gate-wiring` —
+  the meta-check whose entire job is *"every gate must be CI-reachable"* — correctly reports that
+  orphan. But it never runs: `grep gate-wiring .github/workflows/plan-a.yml` → **0**; its only caller
+  is `check:ci`, and plan-a.yml's own comment says *"check:ci is invoked by no workflow in this repo."*
+  **The reachability gate is not reachable.** Both halves in one commit, **each hiding the other**: the
+  orphan is invisible because the detector never runs, and the detector's unreachability is invisible
+  because it never runs to report itself. CI is green throughout.
+
+**The disease is deeper than the symptom (architect R-C, confirmed at source).**
+`scripts/check-gate-wiring.ts:16` treats *"in the `check:ci` transitive chain"* as **proof of
+reachability** — but `check:ci` is invoked by no workflow (and is even in `EXCLUDE_CHAINS`, `:62`). So
+**every gate whose only caller is `check:ci` is green-by-construction, and `check:gate-wiring`
+certifies them all as reachable.** The detector's own unreachability is one symptom; the **false
+premise in its model** is the disease.
+
+> **Wiring the detector into CI without fixing the premise makes it RUN with a FALSE VERDICT — worse
+> than never running, because it manufactures a green where there was merely a silence.** A detector
+> that reports "all reachable" from an unsound premise converts an honest *absence of signal* into a
+> dishonest *presence of one.*
+
+**The rung — and the ruling refuses the fast fix twice:**
+- **do NOT wire only `check:gate-wiring`** (it runs, verdict still false) — R-C.
+- **measure the hole first** (R-D): run it with the `check:ci` arm disabled and COUNT the orphans.
+  Small → wire `check:ci` into a workflow so the model becomes *true* and every gate genuinely
+  reachable; large → the aggregate is fiction and this is a staged project, not a one-liner. **Do NOT
+  wire `check:ci` into CI blind** — if those gates have never executed in CI you trade a silent hole
+  for a *blocked repo* on plan-a.yml, the one file where a mistake stops everything.
+- **must-fail must be a REAL CI run** (R-E): a local run cannot prove CI reachability; break a gate on
+  a branch and OBSERVE CI go red. A reachability meta-check that lands unreachable a second time is
+  strictly worse than the first.
+- **the accepted tradeoff, and it is the day's whole direction:** *"a longer window of 'we know it is
+  broken' over a short path to 'it says it is fine.'* **Visible absence over manufactured presence."**
+
 ## Related
 
 - `absent-value-rendered-as-real.md` — where the value is fictitious; here it is real
+- `regex-over-source-cannot-tell-code-from-text.md` — Instance 4's sibling on the same day (the moon-graph gate)
 - `promotion-rungs.md` — Instance 3's first half: the PR that writes the rule it violates
 - `checked-thing-is-not-the-changed-thing.md` — where the subject is wrong; here
   the subject is right and it is the defect

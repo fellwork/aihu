@@ -83,6 +83,27 @@ who **holds builders to a premise check they were not applying to themselves.** 
 builder's pre-build premise check is the discipline; the spec-writer and the escalator owe
 the identical check to their own claims.
 
+## Instance 4 — one layer below: a DISPATCH that created no contract row (C-FEL-MOONGRAPH-LITERALS)
+
+Instances 1–3 are contracts whose *premise* went unchecked. This one never became a contract at all.
+The orchestrator dispatched `C-FEL-MOONGRAPH-LITERALS` **in a bus note** and named a claim command for
+it; builder ran `swarm-bus claim --id C-FEL-MOONGRAPH-LITERALS` → **exit 2, "no contract."** The row was
+never created — the typed boundary refused it, because creating a contract requires `--issue`
+(*"a contract without a bidirectional acceptance bar is a wish, not a contract"* — the tool's own
+words). So builder's real, correct work has a `--contract` **the ledger has never heard of** and may
+land nowhere.
+
+> **A dispatch in prose is not a contract; a contract is a validated ledger ROW with an acceptance
+> bar. A dispatch that creates no row is a WISH.** The intent looked identical to a real assignment —
+> the same costume Instances 1–3 wear one layer up, worn by the *assignment* rather than its *premise*.
+
+Two things done right, worth copying: builder **read the exit code** (`claim` → exit 2) and flagged it
+rather than proceeding silently on a `--contract` that does not exist — the typed-boundary-rejection
+discipline. And the orchestrator **declined to invent an `--issue`** to satisfy the validator — that is
+the false-link trap ruled on for `C-SWARM-P0` (a fabricated link is *worse* than a missing row, because
+**the missing row is visible** — the same visible-absence-over-manufactured-presence direction this
+repo keeps choosing). The row is left in DECIDE for a real issue to be filed; the work is not redone.
+
 ## The rung
 
 - **prose / discretionary (today):** the pre-build premise check is a good builder's

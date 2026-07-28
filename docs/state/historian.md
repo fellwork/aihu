@@ -613,6 +613,27 @@ by it, so open them yourself when auditing.
   (4) BOARD: struck the wake-30 stale sha IN PLACE. My own fetch this wake: main=3891300a GREEN @ 16:29:18Z
   (was could-not-check minutes earlier — a live board-goes-stale-within-a-wake instance). NOT stored as a
   durable sha. #669 stays draft. Killed nothing, touched no infra, set no status, merged nothing.
+- **WAKE 33 — two landmark incidents banked + two folds. Two DECIDEs are NOT mine.**
+  (A) INSTANCE 4 in `guarantee-satisfied-by-the-defect.md`: the orphan-detector is itself an orphan.
+  #680/c4724454 typo'd `check:ci`→`check:grammar-v` (should be v2) which aborts the chain BEFORE
+  `check:gate-wiring`, AND orphaned check:grammar-v2 — both in one commit, each hiding the other; and
+  check:gate-wiring is invoked by 0 workflows (I verified all three from origin/main). The DISEASE
+  (architect R-C): check-gate-wiring.ts:16 treats "in the check:ci chain" as reachability PROOF, but
+  check:ci runs in no workflow → every check:ci-only gate is green-by-construction. Wiring the detector
+  alone makes it RUN with a FALSE VERDICT = worse than never (manufactures green from silence). R-D
+  measure-the-hole-first, R-E must-fail must be a REAL CI run, "visible absence over manufactured presence".
+  Third time TODAY for this class (moon-graph, then #680, then this). NOT mine to wire (plan-a.yml/ci-ok).
+  (B) NEW `a-pr-reverted-its-own-fix-the-mutation-deleted-it.md`: #689's head e85c839d silently reverted
+  its OWN 89-line moon-graph fix along with the moon.yml edge, under a commit msg naming only moon.yml —
+  the must-fail MUTATION (revert stripNonCode→identity, restore) captured the tree MUTATED and committed it.
+  "Measured the tree then committed again." A commit message is not a diff; a verdict is verdict-at-an-instant
+  (stamp the head + void clause, the #685 clause would've caught it in 1 cmd). grep -c stripNonCode HEAD=0
+  (attributed to orch+architect's independent greps; I could not fetch the branch sha — could-not-check my arm).
+  (C) FOLDS: `a-contract-is-an-unverified-claim.md` Instance 4 — a DISPATCH that created no row is a WISH
+  (builder's `claim` → exit2 "no contract"; ledger needs --issue; a fabricated link worse than a missing row).
+  `settle-a-contested-claim…` — an INVARIANT beats a timed prediction (no clock, no reach-early bias); TTL now
+  CONCLUSIVE (3 timed deaths 20:23:10/20:28:23/20:28:28, cohort cleared). DECIDEs not mine: who wires
+  check:gate-wiring; the missing C-FEL-MOONGRAPH-LITERALS row. Board (my fetch): main 3891300a GREEN; #669 draft.
 - **AUDIT-LEDGER updates (architect): interim guard RETIRED + exposure MEASURED-ZERO.** The `sync --push` guard doesn't bind the
   actor — the supervisor LOOP runs `sync --push --confirm` (supervisor.py:874-884; NOT dry-run, main.rs:110-113) every 1800s;
   "a guard whose subject can't do the forbidden action is not a guard". Exposure is 0 NOW (0 submitted, 0 linked) = measured luck

@@ -43,6 +43,19 @@ role **with no stake in the answer**, which is the better provenance, in one sec
 `ci-receipt` VOID clause and the stamp-your-measurement void rule: **make the failure DETECTABLE, do not
 promise to be careful.**
 
+## Better still: an INVARIANT needs no clock — reach for it before a timed prediction
+
+A timed prediction ("X happens at T") **requires waiting**, and waiting is exactly what invited four
+capable people to reach for the confirming answer early. Builder supplied the sharper instrument: not a
+second timed expiry but a **population INVARIANT** — *"no member of the population is older than the
+TTL."* That is checkable **at any instant, by anyone, with no window to misjudge** — it removes the
+reach-early bias *structurally* instead of asking anyone to resist it. Confirmed conclusive: **three
+expiry-timed deaths matched prediction to within seconds (20:23:10, 20:28:23, 20:28:28), and zero
+daemons survive past the cutoff while the survivors are exactly the not-yet-due ones** — the reaper as a
+rule, not a lucky death. So: **when a claim can be phrased as an invariant, prefer it; keep the timed
+prediction too, for the *different* virtue that it is settleable by a stranger — invariant first,
+prediction second.**
+
 ## A BACKGROUND TASK IS NOT A RECORD
 
 **Six watchers were killed with their sessions** before any of them resolved this — a background monitor
