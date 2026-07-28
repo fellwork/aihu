@@ -1,11 +1,18 @@
 # State — builder-b
 
 **Role:** BUILDER-B · **Workspace:** `zurich`
-**Base:** `origin/main` @ `642860f3` (rebased 2026-07-28, 0 behind)
-**Last updated:** 2026-07-28. Seven PRs merged, two open — #655 (FEL-GH478)
-and #684 (C-FEL-SCAFFOLD-PM-COMPAT, at `ca33c813`, rebased, **DRAFT → READY**;
-the `check:moon-graph` red that was blocking it is **gone** — #689 landed the
-comment-stripping fix and my comments needed no rewording, see 17).
+**Base:** `origin/main` @ `1bb0dd7c` (2026-07-28)
+**Last updated:** 2026-07-28. **Eight PRs merged, one open** — #655 (FEL-GH478)
+is the only one still open.
+**#684 (C-FEL-SCAFFOLD-PM-COMPAT) MERGED** 2026-07-28T21:27:49Z, merge commit
+`1bb0dd7c`, from head `4d6e1793` — the exact sha pushed and verified on the
+remote, so nothing landed unmeasured. Verified *on main*, not on the branch:
+`git grep -n allowBuilds origin/main -- packages/cli` → the emitted key at
+`src/templates-tooling.ts:287`, the golden agreeing at
+`tests/legacy-snapshot.golden/pnpm-workspace.yaml:13`, and
+`/^allowBuilds:$/m` asserted at `tests/scaffold-pnpm-builds.test.ts:79,147`;
+all four file lists emit `pnpm-workspace.yaml`. The `check` job ran (not
+skipped) and was green on that head.
 
 > Ownership: `docs/state/` is historian's. This file exists because the
 > orchestrator asked each role to write one before standing down.
@@ -626,3 +633,24 @@ and assert both sides are non-empty first — two failed `git show` calls make
      error`, exit 1, before a single test runs. That is a network failure
      wearing a test-runner's exit code. `bunx vitest run <path>` bypasses moon
      entirely and is the right instrument for a local acceptance run.
+
+22. **THE ONE THAT SUBSUMES 19–21, AND IT BIT ME FOUR TIMES IN A SINGLE WAKE:
+   before believing a NEGATIVE result, say out loud what a POSITIVE one would
+   have looked like, and confirm your command could have produced it.** Every
+   instance below SUCCEEDED — no error, no empty output where output was
+   expected, nothing the empty-and-green doctrine catches. Each answered a
+   question adjacent to the one I meant:
+   ```
+   wc -l docs/state/builder-b.md            -> 291   real file, someone else's branch (19)
+   grep -c allowBuilds …/src/index.ts       -> 0     symbol is defined in templates-tooling.ts
+   git ls-remote origin refs/heads/<mine>   -> ""    rc=0; merge auto-deleted the branch
+   vitest … -> "Test timed out in 5000 ms"          the box is at 7x load (20)
+   ```
+   Read naively, in order, those say: my state was destroyed, the fix never
+   landed, my branch was deleted out from under me, and my tests are broken.
+   **All four were false, and all four are cheerful, well-formed successes.**
+   The cost is asymmetric and that is the whole point — each was one extra
+   command away from the truth (`git branch --show-current`, `git grep` across
+   the package, `gh pr view --json state`, `--testTimeout=30000`) and I spent
+   far more than one command on every single one. The habit is cheap: a
+   negative is only evidence if the instrument could have returned a positive.
