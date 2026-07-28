@@ -5,7 +5,7 @@
 committed artifacts, records corrections as loudly as wins, and keeps the receipt
 attached to every claim.
 **Seeded:** 2026-07-26.
-**Last verified:** 2026-07-26 against `origin/main` @ `8aa12dc1`
+**Last verified:** 2026-07-27 against `origin/main` @ `2350f49c` (retro C-FEL-RETRO-0727)
 
 ## Why this role exists
 
@@ -201,8 +201,88 @@ MERGEABLE.
 - **`docs/retros/` and `docs/lessons/` are not cross-linked from `docs/state/`.**
   The lesson index is discoverable only by `ls`.
 
+## 2026-07-27 — the first retro (C-FEL-RETRO-0727), and its own meta-finding
+
+The historian's **first retro ever run**, which is the finding: the `C-SWARM-RETRO`
+triggers are **spec only** (`~/.agent-swarm/docs/typed-bus-payloads.md:204`, table at
+`:214-220`), **zero implementation** — nothing auto-offers the historian work, so
+lessons were banked by hand in the orchestrator's head. Landed as **PR #657** (draft,
+docs-only, off `origin/main`), banking **eight** 2026-07-27 incidents, each with the
+three required fields (trigger / mechanism `file:line` / **promotion rung**):
+
+- The rung vocabulary now has a home: **`docs/lessons/promotion-rungs.md`** — the
+  ladder (`prose → injected-at-dispatch → structural gate`) plus the 8-incident audit
+  table. **This is the durable answer to "a lesson that only restates is rejected."**
+- New: `hyphenless-custom-element-tags.md` (5, open), `compiler-comment-apostrophe-codegen.md` (6, open),
+  `swarm-db-env-ignored.md` (2, #642), `launchd-path-and-throttle.md` (3).
+- Amended: `checked-thing-…` (1 + the exit-code **recurrence** + 8 shared-checkout),
+  `absent-value-…` (4, palette #649), `team-read-latest-ordering-bug.md` (7).
+
+**Incident 8 hit me while writing these lessons:** a shared worktree changed identity
+between turns and I force-pushed a lessons commit onto an already-merged branch
+(`e89e3c83`, orphaned on `2350f49c`; verified harmless — `#639` merged at `e71f80c0`
+first, orphan is not an ancestor of `origin/main`). **The orchestrator ruled:** it is
+a **supervisor defect, not a discipline failure**; my `git branch --show-current`
+before every commit rule is the **weakest rung** (depends on remembering); the durable
+fix — **the supervisor pinning each role's checkout per wake — is the orchestrator's,
+not mine.** The orphaned branch is the orchestrator's cleanup; **do not force-push it
+to "fix" it — that is the same error twice.**
+
+**Gate proof:** `bash scripts/check-lesson-refs.sh` → exit 0, 25 cited lessons all
+reachable. `check-lesson-refs` only validates `docs/lessons/*.md` citations — the
+`~/.swarm/*`, `packages/*`, `.github/*`, and launchd paths I cite are **not** checked
+by it, so open them yourself when auditing.
+
 ## WHAT THE NEXT INSTANCE MUST NOT REDO
 
+- **Do not re-derive the eight 2026-07-27 incidents.** They are banked with receipts
+  in `docs/lessons/` (index in `promotion-rungs.md`). Cite the rung, don't re-audit.
+- **Do not re-litigate the shared-checkout force-push (incident 8).** The rung is
+  settled: prose (branch-check) → structural (supervisor pins the checkout, the
+  orchestrator's to build, **still UNBUILT**). It recurred **four times on 2026-07-27**
+  across **three consequence classes**: lost-work risk (historian force-push, `aihu/zurich`
+  staged mid-build), silent branch swap (`aihu/jerusalem`), and **misattribution** (a
+  verifier TWIN's Slack post is indistinguishable from verifier's — orchestrator wrongly
+  accused them, corrected via bus receipt `d2a3d18f`). Tally in
+  `docs/lessons/promotion-rungs.md`. Do not touch the orphaned `e89e3c83`.
+- **Flapping required gate (#661 / C-FEL-411) — do not read `ci-ok` blind.** A required
+  `check` flaps red on a build-order race (`editor/moon.yml:4-5` `dependsOn:[signals]`
+  while `editor/tests` import `@aihu/compiler`): a red X may be a race, a green tick may
+  be luck. Check WHICH job failed and whether your diff could cause it. Banked in
+  `absent-value-rendered-as-real.md` ("the eighth").
+- **`docs/state/<your-own-role>.md` is ALWAYS in surface** — orchestrator ruling
+  2026-07-27, general and standing. Updating your own state file at handoff never needs
+  a contract to permit it and is never a scope violation, even when a contract's SURFACE
+  names something narrower. (My FEL-439 file-for-file scope delta and this state-file
+  flag were both ratified: flagging a delta beats silently doing or not doing it.)
+- **The HN unescaped-html XSS is RESOLVED on main — do not re-flag it as live.**
+  FEL-426 (#619, `7766286e`) removed all three `html={}` bindings; the `MUST_BE_LIVE`
+  `html` floor was KEPT (`check-coverage-manifest.ts:23`) and moved to authored content
+  (`examples/ssg-site/coverage.manifest.json:50`, `about.aihu`); `hacker-news/tests/smoke.test.ts:55`
+  asserts its absence. Correction banked in `guarantee-satisfied-by-the-defect.md`.
+  Verified by reading main 2026-07-27.
+- **Triage-queue product-mix: SCOPE declined, ROUTING still the founder's.** The 13
+  non-aihu contracts (exegesis/lexicon/commentary/Stripe) were **declined** by the
+  orchestrator (offered 133→118, non-destructive: decline = `NoOp` in Linear sync). The
+  SCOPE call an agent can make; the ROUTING (where they go) stays in DECIDE on
+  `C-FEL-433`. Do NOT bank a keyword skip-rule. `triage-queue-mixed-products.md` updated;
+  promote to a structural product-filter only once Shane rules the routing.
+- **The release is uncut and it is the ORCHESTRATOR's item, not mine.** Merged-but-
+  unpublished on main (incl. #639/#640/#641/#653/#658/#664, #655 pending); publishing is
+  outward-facing + irreversible, held for the founder. Tracked on
+  `docs/state/orchestrator.md` — pointer only; do not action it from the historian seat.
+- **Do not re-triage C-FEL-423 vs C-FEL-434.** They are **one defect** —
+  `packages/compiler/src/codegen/emit.rs:249` `elide_agent` — banked in
+  `docs/lessons/promotion-rungs.md` (coordination addendum) with receipts. Disposition
+  (close 423 / `needs`-link 423→434) and the offer-selector recirculation fix are the
+  **orchestrator's/reconcile's**, not the historian's. The structural dedup precedent
+  is `packages/swarm/src/main.rs:1312-1344` (CONFLICT on duplicate tracker id).
+- **Do not run receipt-gathering in a background subagent in this environment.** One
+  died mid-run this session (host process exited) and returned nothing; gather
+  citations foreground. You have to open every cited path yourself anyway.
+- **Report on the bus, never Slack** (founder ruling 2026-07-27). Slack is read by no
+  gate — not the reconciler, console, or Linear/GitHub sync — so a report there did
+  not happen in ledger terms. A human decision is `--kind blocked --question '…'`.
 - **Do not re-read the Slack channel from the API.** It is archived under
   `docs/state/transcripts/`, and the API copy will age out. Read the files.
 - **Do not re-verify the 24-PR merge table.** SHAs are above. If you need to check

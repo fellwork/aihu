@@ -238,6 +238,59 @@ gh api repos/:owner/:repo/commits/<sha>/check-runs \
 **A green `ci-ok` is necessary and not sufficient. Read the conclusion of the job
 underneath it.**
 
+### The seventh, found 2026-07-27: being in `needs` is not being gated on
+
+A new instance of the same family, one layer more insidious than #1-#6 because the
+job actually **ran and concluded RED**. The `palette` brand-contract check failed,
+and `ci-ok` — the **sole required context** — reported **green**.
+
+- `palette` was in `ci-ok`'s `needs:`, so the gate *waited* for it — which looks
+  exactly like being gated on it.
+- But the aggregation loop in `.github/workflows/plan-a.yml` only iterated
+  `check / examples / governed-examples / lesson-refs`. **`palette`'s result was
+  never read**, so its RED could not turn `ci-ok` red. *"Being in `needs` is not
+  being gated on."* The job's own conclusion was the value; the loop was an absent
+  reader of it.
+
+This is `#1` (a gate that reads nothing about the subject) wearing the costume of a
+correctly-wired dependency. `needs:` controls **ordering**; the gate loop controls
+**verdict**; they are different lists and the second silently omitted a job.
+
+**Promotion rung: structural gate.** Fixed in **#649** (`d1e2af0d`) —
+`PALETTE_RESULT: ${{ needs.palette.result }}` (`plan-a.yml:396`) and
+`"palette:$PALETTE_RESULT"` appended to the `for pair in …` loop (`:410`). Not a
+prose warning to reviewers ("remember to check palette"), which would have been the
+weak rung: a required job's result is now read by the machine that computes the
+verdict. See `promotion-rungs.md`, incident 4.
+
+### The eighth: a flapping required gate carries no information (#661 / C-FEL-411)
+
+A **non-deterministic** required gate is this pattern at its root — it reports a value
+that is not about your change. PR #661, a **one-file markdown diff**, went **red** on
+the required `check`:
+
+```
+run 30317184761 / job check / step `bun run typecheck`:
+  editor:typecheck | tests/component-compile.test.ts(16,31): TS2307 Cannot find module '@aihu/compiler'
+```
+
+Cause, read from source: `packages/editor/moon.yml:4-5` declares `dependsOn: [signals]`
+and nothing else, while `packages/editor/tests/component-compile.test.ts:16` imports
+`@aihu/compiler` — so `editor:typecheck` can be scheduled **before** `compiler:build`.
+`main` is green on every recent sha (`edba0c5a`/`8a692439`/`622fa289`/`2350f49c`), so
+this is a **race, not a breakage**.
+
+> **A red X that might be your diff or might be a race, and a green tick that might be
+> correctness or might be luck, are BOTH absent values rendered as real.** A flapping
+> required gate is *worse* than a constantly-red one, because it is usually right and
+> therefore believed.
+
+Operating caveat until **C-FEL-411** lands: **do not read `ci-ok` as evidence about
+your own change without checking WHICH job failed and whether its failure could
+possibly come from your diff.** A one-file markdown PR cannot cause a `@aihu/compiler`
+resolution error. **Rung: structural** — C-FEL-411 makes `editor/moon.yml`'s
+`dependsOn` include `compiler` so the build is ordered and the gate stops flapping.
+
 **And the trigger scope documents the property it does not have.** `plan-a.yml:17`
 reads *"the workflow must trigger on EVERY PR so the always-on `ci-ok` job reports
 a required status"* — three lines under `branches: [main]`. A stacked PR gets no

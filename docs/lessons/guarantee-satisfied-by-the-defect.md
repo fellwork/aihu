@@ -6,7 +6,8 @@
 **Severity:** high — the guarantee is *true*, and it is what makes the defect
 invisible
 **Status:** named; **two instances** (a coverage floor and a citation), no
-mechanical detection
+mechanical detection. **Instance 1 (the `html` coverage floor) is RESOLVED on main
+2026-07-27** — the ruling held; see "RESOLVED on main" below.
 
 ## The family: something TRUE is doing the concealing
 
@@ -102,6 +103,36 @@ The ruling taken instead, and the one to repeat:
 
 Net result is strictly better than before the bug was found: the repo ends up
 teaching the *safe* use of the primitive instead of demonstrating the unsafe one.
+
+## RESOLVED on main — the ruling held (verified 2026-07-27, by reading main)
+
+Recorded as loudly as the finding, because it is a win **and** because the
+discovery receipts above have since gone stale: `origin/main` no longer matches
+them, by design. **FEL-426 landed (#619, `7766286e`) and the ruling was followed
+exactly:**
+
+- **The floor was kept, not lowered.** `'html'` is still in `MUST_BE_LIVE`
+  (`scripts/check-coverage-manifest.ts:23`).
+- **The exerciser moved to authored, in-repo content.** The `html={}` floor is now
+  satisfied by `examples/ssg-site/` — `coverage.manifest.json:50`: *"the binding on
+  `about.aihu` renders an AUTHORED in-repo constant, which is the only safe input for
+  an intentionally-unsafe primitive. The row previously lived on hacker-news pointed
+  at the HN API, i.e. the coverage floor was satisfied by the vulnerability."* That is
+  the generalisation below, applied.
+- **The vulnerable bindings are gone.** All three HN `html={}` bindings were removed
+  (`examples/hacker-news/coverage.manifest.json:36`); remote content is now parsed to
+  structured data and rendered through escaped bindings, and
+  `examples/hacker-news/tests/smoke.test.ts:55` asserts *"no html={} binding anywhere
+  in the example source"* — an **absence** assertion, so the class cannot silently
+  return via a route no one thought to test.
+
+So the three-HN-bindings receipts above are the **2026-07-26 pre-fix snapshot**;
+re-run `git grep -c "html={" origin/main -- examples/hacker-news/` today and it
+returns **zero**. **Promotion rung: structural** — a kept coverage floor plus an
+absence-asserting smoke test are gates, not prose. This item had lived on the
+orchestrator's state file as its single most consequential *unactioned* entry; it is
+actioned, and banking the correction here stops the lesson from reading as a live
+threat when the threat is gone.
 
 ## The generalisation
 
