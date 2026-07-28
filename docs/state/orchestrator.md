@@ -43,9 +43,192 @@ is **not** the coordination or state layer. It went unused for ~20 hours on
 2026-07-25 and the one page it holds was stale within 30 minutes of being
 written. Do not treat it as truth.
 
+## 🔴🔴 THE LEDGER CAN SAY `verified` WITHOUT EVIDENCE — eighteenth wake, 2026-07-28
+
+**Read your own contract row before you trust it.** Measured from a WAL-safe
+snapshot (`VACUUM INTO`, never `cp`):
+
+```sql
+SELECT id,status,github_pr,substr(recon,1,110) FROM contract WHERE status='verified'
+```
+
+**13 rows. 11 carry a real receipt** (`merged: PR #641 @ 2e231e4c`). **TWO do
+not** — `C-FEL-SCAFFOLD-PM-COMPAT` and `C-SWARM-P0`, both `github_pr = NULL`,
+both with a `recon` that is **a raw transcript fragment from a different
+worktree** (`cd .../aihu/zurich`, `578 tool calls in trace; 1 claims; 0
+flagged`). PM-COMPAT was promoted to `verified` **in the same hour its owner was
+reporting two could-not-checks and deliberately holding #684 in draft.**
+
+**`verified` is not a neutral label.** In `packages/swarm/src/main.rs` on main:
+
+- `:1064-1082` — `verified`/`no-claims` are *"the two statuses with EXTERNAL
+  side effects"*; `verified` *"additionally mirrors outward as Done"*
+- `:2289-2315` — on sync it moves the Linear issue to **Done** and **closes the
+  GitHub issue**
+- `:1201-1241` — a downstream contract's `needs` count as **satisfied** when the
+  upstream reads `verified`, so a false one also **unblocks work that should be
+  waiting**
+
+Nothing outward fired for these two **only because they carry no
+`linear`/`github_issue` link. Luck, not a guard.**
+
+**The contrast is the finding.** The Rust `verify-merged` path is disciplined —
+dry-run by default, refuses to read a failed query as "not merged", reports
+could-not-check, excludes `verified` from reselection for idempotency. The
+transcript-scanning path in `~/.swarm/supervisor.py` has none of it: **"0
+flagged" in a trace scan became a terminal status.** This is
+green-by-construction — the exact defect the session spent itself hunting in CI —
+**one level up, in the ledger that audits CI.**
+
+**Escalated as `blocked`, deliberately, and the reasoning is NOT "I am unsure".**
+The fix lives in `supervisor.py`: not in any repo, no PR/review/CI, live SPOF
+waking six roles. My standing do-not-edit-it-hot ruling **stands**. What changed
+is the *cost of waiting* — it is no longer only wake reliability, it is a ledger
+that can **close a customer-visible issue** on a trace scan of the wrong
+worktree. Outward-facing and hard to reverse ⇒ DECIDE. I offered the founder a
+narrower alternative I can dispatch today: **move the promotion decision INTO the
+Rust binary** (in-repo, tested, already correct-postured) and leave
+`supervisor.py` able only to *propose*.
+
+**I did NOT hand-edit the status.** Only the supervisor may set it, and fixing a
+correctness defect by hand-patching the ledger it corrupted is how the next
+person learns the ledger is editable.
+
+## 🔴 A FOURTH FACE OF THE FAKE GREEN — and the workflow already documented it
+
+builder-b found it on #682; I re-measured on head `518b204d`:
+
+```
+run 30324508177 (draft-time)  changes SKIPPED  check SKIPPED  ci-ok completed/SUCCESS 02:56:27Z
+run 30324519103 (ready)       check success 02:56:40→03:02:26  ci-ok success  03:04:39Z
+```
+
+**Eight minutes of a green `ci-ok` certifying a pipeline in which even `changes`
+had skipped.** The four faces now:
+
+| face | PR | signature |
+|---|---|---|
+| stale-green | #680 | cheap run posts green before the real run finishes |
+| green-beside-in_progress | #681 | `ci-ok success` next to `check in_progress` |
+| red-because-cancelled | #672 | concurrency cancels `check`; ci-ok fails closed (**correct**) |
+| **draft-gated green** | #682 | a draft-time run posts green with the whole pipeline skipped |
+
+**THE CORRECTION, and it makes this worse rather than novel:** `plan-a.yml`
+**:358-377 already documents this by name** — *"on #622 and #624 the SAME commit
+carried two green `ci-ok` runs"*, *"a draft's green is indistinguishable from a
+real one in `gh pr checks`"*. That header still says **"Only the draft case is
+refused"**, which was true before #670 and is **false now** (`:472` warns and
+passes). **The workflow's policy comment contradicts its own code, and the hazard
+the comment exists to describe has been re-enabled underneath it.**
+
+**#670 is NOT reversed** — its reasoning is this session's own (red must mean
+broken). What #682 falsifies is only #670's claim that *"the stale-green window
+is closed by that trigger"*: **the window is eight minutes wide, and during it the
+PR is non-draft and reads green.**
+
+**RULING: do not touch `ci-ok`.** Sole required context on main; re-concluding it
+is the highest-stakes line in the repo, and a `skipped` required job is counted
+as **passing** by branch protection — so the obvious `if: !draft` "fix" opens the
+hole it looks like it closes. Fix it where it is safe: **`C-FEL-CI-RECEIPT`**
+(builder, claimed) — a **read-only** tool over the check-runs API applying the
+three predicates, with all four faces as ready-made fixtures. **Prose everyone
+must remember has now failed four times; promote the rung.** The stale header
+comment gets corrected in whatever PR next touches that block — *not its own PR*.
+
+## The ruling builder-b was blocked on: NEITHER wait NOR stack — measure on a scratch branch
+
+**Q:** *"#684 needs #677 landed. Wait, or stack #684 on #677?"*
+
+**Verified before ruling, not taken from the report:**
+
+```
+git diff --name-only a3cc4fc5 a5d713c9 -- packages/cli packages/templates   → EMPTY
+comm -12 <(files in #684) <(files in #677)                                  → EMPTY
+```
+
+So the measured tree still equals #684's head, **and the two PRs touch zero files
+in common** — a combined tree cannot confound attribution.
+
+**Ruled:** push a throwaway `measure/pm-compat-on-677`, `workflow_dispatch` the
+matrix at it (both prior runs were already `workflow_dispatch` against a non-PR
+branch, so this costs one push), report it as a **PRE-MERGE MEASUREMENT** naming
+both parent shas, delete the branch after.
+
+### 🔴 The distinction — they had the right instinct on the wrong noun
+
+They wrote *"I did not stack to get a green — that would have bought a number,
+not a fact."* Correct, and the reason is precise:
+
+- **Stacking to inherit a VERDICT is illegitimate** — `ci-ok` would certify a
+  tree that is not the merge candidate.
+- **Combining to obtain a MEASUREMENT that is otherwise unobtainable is
+  legitimate**, provided the combined tree is disclosed and the surface is proven
+  identical. A matrix run is an **instrument reading, not a gate verdict.**
+
+**Refusing to take a reading you can take is not rigour, it is less information.**
+The acceptance bar is unchanged: PM-COMPAT stays PARTIALLY VERIFIED and #684
+stays draft until a matrix run measures npm/pnpm/cf-team from a tree based on
+**landed** main.
+
+### The measured fact that inverts how the matrix grid reads
+
+**A green `bun` cell is nearly evidence-free; a green `yarn` cell is worth more
+than three green ones elsewhere.** npm7+/pnpm/bun all auto-install peers and bun
+blocks the same lifecycle scripts pnpm blocks but *silently* — so **the 4 yarn
+failures were the only honest signal in a 20-cell grid** and three package
+managers were papering over a real defect. Corollary handed to builder-b: when
+the scratch run returns, **a green npm/pnpm column does NOT confirm the peer
+fix** — those columns can only confirm the workspace-range and
+`onlyBuiltDependencies` fixes.
+
+**My `@aihu/store` correction was right but incomplete, twice over** — it is a
+**transitive peer closure** (`@aihu/app`, `@aihu/runtime`, `@aihu/arbor` all
+declare zero dependencies and express every edge as a peer), so fixing one list
+just relocates the error. And their first closure guard **covered one of two
+emitters and passed green while two templates shipped the identical defect** —
+*a guard covering half the emitters is worse than none, because it reads as
+coverage.*
+
+### Filed from their split-out, scope ruling UPHELD
+
+`C-FEL-SCAFFOLD-CFTEAM-TYPECHECK` (moon diffs against `main` in a fresh
+`git init` → exit 128) and `C-FEL-SCAFFOLD-DEV-PORT` (harness `--port` lands on
+`concurrently`, never reaches vite; fails on bun too, so not PM-compat). Both
+carry an **anti-vacuity must-fail** — a typecheck that exits 0 by not
+type-checking, or a dev cell that passes by not starting the app, is a FAIL.
+
+## Accepted this wake — receipts re-measured, not taken
+
+- **#677 `C-FEL-MATRIX-PROTO` — LANDABLE.** `check`+`ci-ok` both run
+  `30322552876`, ci-ok `02:49:23Z` after check ended `02:47:02Z`. Only red is
+  `matrix` on a **different run id** (`30322552896`), outside `ci-ok`, and it **is
+  the acceptance measurement** (6/20). **On the critical path for two contracts.**
+- **#682 `C-SWARM-DEPLOY-GAP` — ACCEPTED.** Verified `export` really is at
+  `main.rs:2776` on main (so the must-fail probe is a real gap), and the diff is
+  exactly the declared surface. **Copy the restraint:** it stays silent outside a
+  checkout, on a non-ancestor build sha, and for commits outside
+  `packages/swarm`. Confirmed from outside — `swarm-bus --version` here reports
+  `518b204d` and correctly says *nothing* about staleness, since that sha is not
+  an ancestor of this HEAD.
+- **#683 `C-FEL-434b` — ACCEPTED.** Receipt re-measured on `0c91917e` (run
+  `30334106229`, ci-ok `06:22:06Z` after check ended `06:19:56Z`). Per-tag
+  filenames are right **because the build enforces them by construction — the
+  filename IS the tag**, so must_fail row 2 cannot regress silently. Allowlist
+  over deny-list on policy containment: **a policy field added later cannot leak,
+  because it was never opted in.** Their row-1 correction was against their own
+  earlier read — `$scope` *derives* a hard tier, so the old fixture was wrong,
+  not the row.
+- **#681 `C-FEL-DEPCHECK-COMMENTS` — receipt confirmed** on `a18fe0b1` (run
+  `30324202213`, ci-ok `02:57:20Z` after check ended `02:55:22Z`).
+
+**The same-run rule went three-for-three today** — builder applied it to #681 and
+#683 *before* claiming, builder-b applied it to #682 and **found a face I had not
+named.** That is the rule working: agents catching it before I do.
+
 ## Where main actually is
 
 ```
+origin/main  2c3dd7fe   (fetched 2026-07-28, eighteenth wake — UNCHANGED since #674)
 origin/main  b667bdcd   (fetched 2026-07-28, fifteenth wake)
 ```
 
@@ -2410,6 +2593,23 @@ all 13 open issues were unassigned and three of them were already done.
   Read that agent's own bus traffic first. Twins share `(workspace, role)` and
   the Slack bot stamps `username=<role>` for anyone, so attribution by username
   is impossible. I got this wrong about verifier and corrected it publicly.
+- **Do not read a contract's `status=verified` as "the bar was met".** Two rows
+  reached it with no PR and a transcript from the wrong worktree — see the top of
+  this file. Check `github_pr` and `recon` before believing it, and **never
+  hand-edit the status to correct it.**
+- **Do not "fix" the draft fake-green by making `ci-ok` skip on drafts.** A
+  skipped required job is counted as **passing** by branch protection, so that
+  opens the hole it looks like it closes. And do not rename `ci-ok` for any
+  reason (`plan-a.yml:235`). The read-only receipt tool is the sanctioned fix.
+- **Do not re-argue #670.** It is right; only its *"the stale-green window is
+  closed by that trigger"* claim is falsified, and by eight minutes, not by the
+  principle.
+- **Do not stack a PR on another PR to obtain a green.** Combining trees to
+  obtain a *measurement* is fine when you disclose it and prove the surface is
+  byte-identical; inheriting a *verdict* is not. Scratch branch, not a retarget.
+- **Do not read a green `bun` or `npm` cell in the scaffold matrix as evidence
+  the peer fix worked.** Three package managers auto-install peers; only `yarn`
+  discriminates on this template family.
 - **Do not reuse a branch whose content already merged.** `docs/claude-md-bus-is-the-record`
   carries commits that are NOT ancestors of main even though its content landed as
   #658 (squash). Branch fresh off `origin/main` every time — this is retro
