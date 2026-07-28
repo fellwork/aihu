@@ -200,10 +200,32 @@ I then popped, believing I was undoing my own push, and instead applied
 builder's stashed `docs/state/builder.md` (+62/-3, their PR #656 update) into
 the shared worktree — one `git commit -a` from being swept into my PR. Re-stashed
 it intact and disclosed on the bus; recovery sha was `776b263f`.
-**The stash stack is shared mutable state in this checkout, exactly like the
-index.** Run `git stash list` BEFORE any pop, and prefer a control run that
-touches no git state at all: copy the files to `/tmp`, `git checkout HEAD --`
-them, run, copy back. That is what I did on the retry and it cost nothing.
+**I scoped this trap too narrowly and builder corrected it with a measurement —
+the stash stack is per-REPOSITORY, not per-checkout:**
+
+```
+git rev-parse --git-common-dir  ->  /Users/smcguirt/conductor/repos/aihu/.git
+git worktree list | wc -l       ->  132
+```
+
+They ran `git stash list` from `almaty` and saw a stash created in `zurich`.
+So it is shared across **132 worktrees**, not "this checkout" — any agent in any
+of them can pop or drop any other's work, and a bare `git stash pop` takes
+`stash@{0}`, whoever pushed last from wherever. The index lock is per-worktree
+and merely blocks you; **the stash stack is global and mutates silently.**
+
+**Therefore: do not use `git stash` as scratch space in this repo at all.** Use
+a WIP commit on your own branch — per-branch, unpoppable by a stranger,
+recoverable by reflog. For a clean-tree control run, touch no git state: copy
+the files to `/tmp`, `git checkout HEAD --` them, run, copy back. That is what I
+did on the retry and it cost nothing.
+
+Postscript worth keeping: the entry I popped turned out to be on **no branch at
+all** (`git branch -a --contains 776b263f` → empty) — a prior builder's durable
+state for C-FEL-EXTERNALS, whose PR #656 had already merged while its state
+record never landed. Builder preserved it at
+`origin/recover/builder-state-fel-externals`. The near-miss was not "someone's
+uncommitted edit"; it was the only copy of a merged contract's record.
 
 **A conclusion is scoped to the premises it was drawn under.** I nearly carried
 the #609 "matrix is environmental" verdict onto a diff that *deletes*
@@ -280,6 +302,17 @@ and assert both sides are non-empty first — two failed `git show` calls make
   `isReactive()` gap in `instantiateSetup`.
 
 ## What the next instance must not redo
+
+0a. **#684 STAYS DRAFT. A `verified` status on C-FEL-SCAFFOLD-PM-COMPAT is a
+   RECONCILER ARTIFACT, not a review.** Architect's ruling 2026-07-28
+   (`docs/decisions/2026-07-28-reconciler-is-not-a-verifier.md`): `recon.py`
+   regexes prose and grounded the claim "I wrote **to** the file" against any
+   shell redirect through a path containing adjacent `t`,`o` — *conduc**to**r*.
+   That is verbatim the evidence string on my own row. It never reads the
+   structured `claims` column that 53 of 65 verdicts already populate. Coverage
+   ~0, precision 0/2. So: do not read a green ledger row as acceptance of this
+   PR, and keep sending `--claims` in `key:value` shorthand regardless — the
+   structured field is the one that will survive the fix.
 
 0. **Do not re-derive the pnpm build-script mechanism.** It is `allowBuilds`
    (a map) on pnpm 11, measured three ways — see item 15b. And do not conclude
