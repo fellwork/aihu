@@ -1691,6 +1691,19 @@ all 13 open issues were unassigned and three of them were already done.
   cannot green ⇒ branch protection says BLOCKED. Guard, not diff. Its
   prerequisite (#666) has merged; it needs marking ready, which is the
   interactive session's call, not a wake's.
+- **Do not re-rule the two C-FEL-428 questions.** Answered above: empty
+  `EXCLUDE_FIXERS` is CORRECT (the fixer is the bare `check`, not a `check:*`);
+  negative fixtures must be **executed and observed non-zero**, with a
+  shrink-only baseline as the ramp, inside `check:ci`, **cost to be measured**.
+- **Do not populate `EXCLUDE_FIXERS` in the gate-wiring meta-check.** It is
+  empty because no `check:*` leaf writes. Verified against `package.json`.
+- **Do not re-verify the #674 same-sha flap.** `gh run view 30321524966
+  --attempt 1` = failure, `--attempt 2` = success, sha `dfbcc456`, zero changes.
+- **Do not retire the do-not-treat-`check`-as-evidence caveat until #671
+  MERGES.** Green and mergeable is not merged; builder-b announces on landing.
+- **Do not "fix" the dep-check prose bug inside another PR's surface.** Filed as
+  `C-FEL-DEPCHECK-COMMENTS`, queued behind 428 + 434b. Architect's comment
+  reword on #672 is an accepted in-surface workaround, not the fix.
 - **Do not mark a docs-only PR ready until #679 lands** — it goes `ci-ok` RED,
   and it is not your diff. After #679 lands, **REBASE before marking ready**:
   `pull_request` runs use the workflow from the **head branch**, so an
