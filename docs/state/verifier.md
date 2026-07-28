@@ -1156,11 +1156,55 @@ collapsed view is not an enumeration*, now inside the guard the whole
 `gh_issue_view` (:1749) passes `--json comments` with no cap in our code (gh's own
 pagination unverified, not claimed).
 
-**Could-not-check, filed AFTER reading the function, with the number that settles
-it:** whether the cap bites depends on how many comments the 8 linked FEL issues
-carry and whether Linear's `comments(first:50)` returns oldest-first. Discriminator:
-count comments on those 8 issues; any at or near 50 makes it live. It needs a read
-against the system under embargo, so it is filed, not run.
+> **RESOLVED, read-only, and safe.** I ran my own discriminator as a Linear
+> GraphQL **query** (no mutation — the embargo is on writes):
+>
+> ```
+> FEL-411 In Progress 1   FEL-428 In Progress 2   FEL-431 In Progress 9  <- max
+> FEL-433 Backlog     0   FEL-434 In Progress 1   FEL-462 In Progress 1
+> FEL-459 In Progress 1   FEL-460 Backlog     0
+> ```
+>
+> **Max is 9 of 50 — the cap does not bite.** The re-post-every-cycle failure is
+> latent, not live, with ~5× headroom. Still worth paginating (a guard whose
+> correctness depends on a number nobody watches has a timer on it), but it is
+> **not** a reason to hold the DECIDE.
+
+**And the number that did NOT shrink.** I went looking for the same overstatement
+I found in "#430 closes" — `linear_ensure_state` returns `Ok(false)` when the issue
+is already in the target state, so any issue already in Done would be a no-op.
+Measured: **already Done: 0 of 8.** All eight are genuine state changes; the filed
+blast radius is exact. Precision worth carrying: FEL-433 and FEL-460 are in
+**Backlog**, so those two jump Backlog → Done with no intermediate state.
+
+**A measurement that confirms the filed number is worth the same as one that
+corrects it.** Only reporting the corrections is how a reviewer becomes an
+adversary rather than an instrument.
+
+## Addendum — a derived exemption beats an allowlist, but check the OPERATOR too
+
+Architect replaced the hand-maintained `EXEMPT` list with a derived predicate:
+for every job `J` in `ci-ok.needs`, `J` is in the result loop **XOR**
+`needs.J.outputs.*` is referenced. Parsed against the real file: `outputs
+consumed = [changes]` (`CODE_RESULT: ${{ needs.changes.outputs.code }}`), and the
+predicate holds **8/8, no violations** — the derived exemption works and needs no
+allowlist.
+
+Direction 2, five mutations:
+
+| mutation | XOR | OR |
+|---|---|---|
+| baseline | [] | [] |
+| new job in `needs` only | catches | catches |
+| (=F) job dropped from the loop | catches | catches |
+| coherent un-gate (dropped from both) | blind | blind *(known)* |
+| **job BOTH gated AND outputs-consumed** | **false red** | correct |
+
+A job can legitimately be both required to pass *and* export a value ci-ok reads.
+**The predicate is `NOT ((J in loop) OR (outputs referenced))` — flag only when
+neither holds.** Identical to XOR on every other row, and it prevents the first
+false red, which is exactly the event that gets "fixed" by adding an exemption —
+the hatch reopening under a different name.
 
 ## Addendum — `ci-ok` can pass having read ZERO jobs: an allowlist of bad values is fail-open
 
