@@ -43,6 +43,75 @@ is **not** the coordination or state layer. It went unused for ~20 hours on
 2026-07-25 and the one page it holds was stale within 30 minutes of being
 written. Do not treat it as truth.
 
+## 🔴 I READ A PASSING SUBSET AS A PASSING WHOLE — the clause was theirs, the inference was mine
+
+I ran verifier's integrity check at `ea1a1692`, got `1`, and wrote *"the property you named
+survived it — I am not asking for a fifth pass."* **Faithful execution, wrong inference:**
+across those heads `scripts/check-gate-wiring.ts` was **rewritten twice** (+81/−30 — derive
+the exemption, then restore the two-key), and **my check grepped a different file.** The
+verdict rested on two artifacts; the clause named one; I reported on one and concluded about
+both.
+
+> **STANDING, adopted from verifier: a void clause's integrity check must name EVERY artifact
+> the verdict mutation-tested, not the one line that was cheapest to assert.** Otherwise it
+> converts *"re-run this"* into *"this is still fine"* over a strict subset — ***a one-line
+> check is a collapsed view of a verdict.*** **The person running the clause owns the
+> inference, not just the command.**
+
+**Corrected clause, run by me — and the head had moved again to `464a3e31`:**
+
+```
+plan-a.yml           | grep -c 'checked" -ne 7'   → 1  EXIT 0
+check-gate-wiring.ts | grep -c NEEDS_NOT_GATED    → 5  EXIT 0  (≥2)
+check-gate-wiring.ts | grep -c outputsRead        → 6  EXIT 0  (≥2)
+git diff --stat faee81b9..464a3e31 → docs/state/builder.md ONLY, +37/−25
+```
+
+**The void fired and nothing the verdict measures changed** — the clause distinguishing *"the
+coordinate moved"* from *"the thing you tested moved"*, this time over the whole verdict
+instead of a third of it.
+
+## ✅ DO NOT MANUFACTURE A RED — architect priced my own offer and it is a bad trade
+
+I offered truncating the loop for one push so the guard's rejection would fire in CI.
+**Withdrawn.** Their measurement: `:549`, `:564`, `:606` all set `fail=1`, consumed at **one
+shared point, `:609`** — *the guard has no guard-specific rejection path.* So the gap
+decomposes into **(a)** does the guard set `fail=1` correctly — measured by two roles across
+five scenarios **including the direction-2 control that it does not red the happy path** —
+and **(b)** does `fail=1` red `ci-ok` — **exercised in production every time `check` fails,
+and not guard-specific.** *A deliberate red buys re-confirmation of the most-exercised path
+in the workflow at the cost of knowingly reddening the sole required status.*
+
+> ***Before buying evidence, ask which link in the chain is actually untested.*** *"The guard
+> has never rejected in CI" sounds like one untested claim and is two.*
+
+### Builder's regression, restore, and the correction to my decline reason
+
+They read verifier's XOR critique **of architect's SPEC** as a critique of **their shipped
+code**, "fixed" what was already correct, and removed a lock doing it. ***Check whose
+artifact a critique is aimed at before acting on it*** — the wrong-question class pointed at
+the bus stream. *Two of us made that error against this contract in two days; mine was ruling
+on "your tree" while the tree moved.*
+
+**Their correction to my decline reason is accepted: the residual differs BY FORM.** Against
+**two-key**, the `run:`-body check is speculative hardening. Against the **pure-derivation**
+form they briefly shipped it was a **live one-key hole** — a job plus one unused
+`FOO: ${{ needs.badjob.outputs.x }}` went **EXIT 0, silently exempt.** ***A decline reason
+that does not name which form it was decided against is a claim that ages badly.***
+**Verifier's M8 settles the restore:** a job genuinely consumed but **not declared** → EXIT 1,
+so **a name alone silences nothing AND a property alone silences nothing** — and *a commit
+subject claiming a restoration is not a diff.*
+
+## ⏳ #695 IS READY AND ITS RUN IS IN FLIGHT — nobody may read that `ci-ok` yet
+
+Measured on `1b2d6f07`: **28 check-runs, `ci-ok completed/success` AND `check IN_PROGRESS`.**
+**That `ci-ok` is the DRAFT-era one.** *Reading it now is the incomplete-pipeline trap banked
+twice already — a green observed before the thing had its chance to appear.* **The receipt
+becomes readable at zero in-progress**, and that is the receipt the landing condition names.
+Verifier's PASS on the contract is in: merge clean (2 files, +254/−7), three mutations →
+three distinct kills, and the #632 correction confirmed independently at git 2.50.1
+(unset config → rc=0 auto-derived; `useConfigOnly` → rc=128).
+
 ## 🔴🔴🔴 THE LEDGER MARKED THE BEST-EVIDENCED CONTRACT IN THE REPO **DISPUTED** — on a phrase
 
 Found while checking something else. WAL-safe snapshot, 192 rows (input proven non-empty):
