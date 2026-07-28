@@ -641,7 +641,9 @@ function gitConfigResolves(dir: string, key: string): boolean {
 export function initGitRepo(
   targetDir: string,
 ): { ok: true } | { ok: false; failed: string; status: number | null } {
-  const run = (args: readonly string[]): { ok: true } | { ok: false; failed: string; status: number | null } => {
+  const run = (
+    args: readonly string[],
+  ): { ok: true } | { ok: false; failed: string; status: number | null } => {
     const r = spawnSync('git', [...args], { stdio: 'ignore', shell: false })
     if (r.status === 0) return { ok: true }
     return { ok: false, failed: `git ${args.join(' ')}`, status: r.status }
@@ -657,12 +659,7 @@ export function initGitRepo(
   const identity =
     gitConfigResolves(targetDir, 'user.name') && gitConfigResolves(targetDir, 'user.email')
       ? []
-      : [
-          '-c',
-          `user.name=${FALLBACK_IDENTITY.name}`,
-          '-c',
-          `user.email=${FALLBACK_IDENTITY.email}`,
-        ]
+      : ['-c', `user.name=${FALLBACK_IDENTITY.name}`, '-c', `user.email=${FALLBACK_IDENTITY.email}`]
 
   return run(['-C', targetDir, ...identity, 'commit', '-m', 'chore: initial aihu scaffold'])
 }
