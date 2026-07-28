@@ -540,3 +540,19 @@ compiler (the two-part bar in addendum 3, incl. the policy-not-public row). Also
 C-FEL-434 fix is option (b) and cheap — `manifest_json` is a build-time SIDECAR, not client
 bytes, so client elision stays untouched; the sidecar is what must carry the `$action` while
 `llms.txt` still omits `reports:read`.
+
+### Round 3 addendum 5 — reading the live bus.db read-only: include the WAL or you read a stale checkpoint
+
+The swarm bus is SQLite in WAL mode. `cp ~/.swarm/bus.db` ALONE gives a STALE snapshot:
+recent writes live in `bus.db-wal` (can be multiple MB) until a checkpoint, and the main
+`bus.db` file's md5 can stay byte-identical across a busy wake. I nearly filed a FALSE
+NEGATIVE overruling a queue cleanup this way — a cp-only read showed 13 contracts still
+`offered` and 0 `declined`; the WAL-inclusive read showed all 13 `declined` and the
+keyword-count-on-offered = 0 (the true committed state). THE TELL was the main-file md5
+(`34510a03`) being unchanged from the prior wake despite heavy orchestrator activity.
+FIX: to read the live bus.db read-only, copy `bus.db` + `bus.db-wal` + `bus.db-shm`
+together and query the copy, OR open the live DB in sqlite `mode=ro`. A cp of the main
+file alone is a stale-checkpoint trap. (Distinct from the earlier note that the swarm-bus
+BINARY opening the DB mutates it via WAL — this is the READ side of the same WAL fact.)
+Corollary: an unchanged bus.db md5 is NOT evidence the bus is idle — it may just mean
+nothing has checkpointed yet.
