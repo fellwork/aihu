@@ -274,15 +274,83 @@ shells out to `tsc --strict`; a full `bun run test packages/compiler` right
 after a cargo build reports it failed. It passes 4/4 in isolation. Re-run the
 file alone before reporting a red.
 
-**A red `ci-ok` on a draft is FEL-437 working, not a defect** — my own fix. The
-draft-time run reports `ci-ok failure` with `check` skipped; mark the PR ready
-and the re-run supersedes it. Do not debug it, and do not report the draft run
-as the PR's verdict.
+**~~A red `ci-ok` on a draft is FEL-437 working, not a defect~~ — SUPERSEDED
+2026-07-27 by #670 (`41c37df6`, merged 01:12Z).** A draft now emits a
+`::warning::` that says explicitly "NOT evidence of a pass"; it does **not**
+fail `ci-ok`. So on any run produced **after 01:12Z, a red `ci-ok` on a draft
+means something real** — triage it, do not wave it off as my old guard.
+Transition hazard: runs that PREDATE #670 still show the retired FAILURE, so a
+draft red is ambiguous for a while — name which run and its timestamp when you
+report one. This paragraph was left standing for several wakes after it became
+false; a durable file is exactly where a superseded rule does the most damage,
+because it arrives pre-trusted.
 
 **Gate currency is the needs-list, not the behind-count.** A PR can be 0 behind
 and still remove a required job from `ci-ok`'s `needs`. Diff the line directly,
 and assert both sides are non-empty first — two failed `git show` calls make
 `diff` succeed and report IDENTICAL.
+
+---
+
+## 2026-07-27 (later) — the moon graph, the WAL, and a dead lane
+
+Four contracts, one theme: **a gate that cannot fail, or that fails for reasons
+unrelated to your diff, carries no information.**
+
+**C-FEL-MOON-ROLLDOWN (#666, merged `70775ea9`).** moon runs a bare `command:`
+through bash **without `node_modules/.bin` on PATH**; `bun run` adds it. So
+`rolldown -c` died at exit 127 on a cold cache while the sibling `bunx tsc`
+tasks were fine — `bunx` resolves the local binary itself. Fix: prefix the bare
+`.bin` commands with `bunx`. **This fix is UNGATED**: nothing in CI runs
+`moon run <task>` on a cold cache, so nothing stops the next `moon.yml` from
+adding a bare command tomorrow. Instances closed, class open.
+
+**C-FEL-411 (#671).** `packages/editor/moon.yml` said `dependsOn: [signals]`
+while its tests import `@aihu/compiler`, so `editor:typecheck` could be
+scheduled before `compiler:build` — TS2307, intermittently. The guard
+(`scripts/check-moon-graph.ts`) **derives** required edges from what each
+package actually imports rather than comparing against a hand-list, because a
+hand-list drifts exactly the way the `node:` allowlists and the publish-all
+`PKGS` array did. Cycle-safe: an import that would close a cycle is reported
+INFORMATIONAL, never demanded — the three deliberate lazy-import cycle-breakers
+survive. 56 missing edges / 19 packages. **Landing order: #666 BEFORE #671**,
+because #671 alone converts an intermittently-red lane into a
+deterministically-red one (every newly-ordered cold `compiler:build` hits 127).
+#666 has since merged, so that constraint is satisfied.
+
+**C-SWARM-WAL-STALE (#674).** `~/.swarm/bus.db` is WAL-mode and swarm-bus never
+checkpointed, so a `cp` of the main file alone was hours stale. Shipped both:
+checkpoint-on-write (best-effort — it swallows `SQLITE_BUSY`, because the write
+already committed and failing the command afterwards would report a lie in the
+other direction) **and** `swarm-bus export` (`VACUUM INTO`).
+
+> **The discovery, measured not argued: under a HELD READER neither
+> `wal_checkpoint(PASSIVE)` nor `(TRUNCATE)` can backfill the main file — but
+> `VACUUM INTO` can.** `cp`=1 vs live=6; `export`=6=live. So `export` is the
+> *guarantee* and checkpoint is the *optimisation*. If you ever need a
+> trustworthy copy of the bus, use `export`, never `cp`.
+>
+> Corollary already biting elsewhere: **`md5 ~/.swarm/bus.db` unchanged is NOT
+> evidence the bus was untouched.** In WAL mode it proves only that nothing
+> checkpointed.
+
+**C-FEL-MATRIX-PROTO (#677).** Every cell of the Scaffold DX matrix died at
+`pm-install` with `proto::commands::run::fallback_loop`, before any aihu code
+ran (2/15 passing). Cause: **two node stores on PATH** —
+`actions/setup-node@v4` puts one in `/opt/hostedtoolcache`, and
+`moonrepo/setup-toolchain@v0` installs proto which *shims* node per
+`.prototools`; proto then finds a proto shim at the hostedtoolcache path and
+refuses to exec it rather than recurse. Fix: delete `setup-node`, let proto be
+the single source, and **move `setup-toolchain` above** the pnpm/yarn install
+(which needs proto's node+npm on PATH).
+
+### Verified-from-source ≠ true of the live bus
+
+The installed `~/.swarm/bin/swarm-bus` predates three merged `packages/swarm`
+PRs. Merging a `packages/swarm` PR changes nothing about the binary you
+actually run; nobody owns the rebuild+reinstall step. #662 shipped a closed
+verb enum that would have jammed the swarm and never did — **the protection was
+accidental, a deployment gap made it moot.** Filed as C-SWARM-DEPLOY-GAP.
 
 ---
 
@@ -369,14 +437,13 @@ and assert both sides are non-empty first — two failed `git show` calls make
    produced the numbers. Unset `AIHU_COMPILE_BIN` = the published addon.
 9. Do not re-derive the slot fallback shape. `slot()` is a terminal leaf;
    fallback requires `branch('slot', …, [b()])`. Both directions are covered by
-   `packages/compiler/tests/slot-fallback-drive.test.ts`.
 10. **Do not post to Slack.** Founder ruling 2026-07-27: the bus
    (`~/.swarm/bin/swarm-bus`) is the only channel the reconciler, console and
    Linear/GitHub sync read. Slack-only work did not happen, in ledger terms.
 11. Do not set your own contract status to `verified` / `no-claims`. That is
-   the supervisor's reconcile pass. `no-claims` on a contract you own means
-   your claims were not extractable — send the verdict again with `--claims`
-   in `key:value` shorthand and `--pr`, do not argue about it in prose.
+    the supervisor's reconcile pass. `no-claims` on a contract you own means
+    your claims were not extractable — send the verdict again with `--claims`
+    in `key:value` shorthand and `--pr`, do not argue about it in prose.
 12. **`@aihu/app` declares NO runtime `dependencies` — every import it makes is
    a `peerDependency`.** Verified at source 2026-07-28: `dependencies` is
    literally absent from `packages/app/package.json`; the peers are `arbor`,
@@ -626,3 +693,20 @@ and assert both sides are non-empty first — two failed `git show` calls make
      error`, exit 1, before a single test runs. That is a network failure
      wearing a test-runner's exit code. `bunx vitest run <path>` bypasses moon
      entirely and is the right instrument for a local acceptance run.
+22. **Do not quote item "a red `ci-ok` on a draft is FEL-437 working" back at
+   anyone.** #670 retired it on `41c37df6`. The paragraph above is struck, not
+   deleted, so the supersession is visible rather than silently vanished.
+23. **Do not open the Scaffold DX matrix PR as a DRAFT and expect evidence.**
+   The `matrix` job carries
+   `if: github.event_name != 'pull_request' || github.event.pull_request.draft == false`
+   — a draft **skips the lane entirely**. "Push a draft PR" and "get a matrix
+   result" are mutually exclusive on this one workflow. Mark it ready and say
+   in the body why.
+24. Do not re-derive the proto collision. It is **two node stores**, not a
+   proto bug: `actions/setup-node` + `moonrepo/setup-toolchain` on one job is
+   the whole cause, and the workflow now carries a comment saying so. Do not
+   "complete the toolchain setup" by re-adding `setup-node`.
+25. Do not use `cp ~/.swarm/bus.db` for a bus snapshot, and do not cite an
+   unchanged `md5` of it as evidence of anything. Use `swarm-bus export`.
+   Under a held reader, checkpointing physically cannot backfill the main file;
+   `VACUUM INTO` can.
