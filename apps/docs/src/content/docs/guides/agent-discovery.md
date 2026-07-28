@@ -66,7 +66,13 @@ A minimal server card looks like:
 
 When skills are present, they are emitted under a top-level `tools` array (each entry is `{ "name", "description" }`). There is no top-level `skills`, `mcp_endpoint`, or `schema_version` key in the emitted output — the MCP endpoint URL lives at `transport.url`.
 
-> **🚧 Partial — skills are not yet auto-aggregated at build time (tracked in #430 / DE4).** The generator derives its `tools` from the `@aihu/agent` runtime registry (`skillsFromRegistry()`), which is populated only when your compiled component modules are evaluated in the same process. The standard Vite build path does **not** import your components while emitting the card, and nothing yet reads the compiler's `agent-manifest.json` sidecar — so in practice you declare skills explicitly in config (they are hand-mirrored, e.g. in `vite.config.ts`). Build-time auto-population from `@agent` blocks is **planned, not shipped**.
+By default the generator derives its `tools` from the `@aihu/agent` runtime registry (`skillsFromRegistry()`), which is populated only when your compiled component modules are evaluated in the same process — so on a client-target build it is empty. Point the integration at the compiler's output directory to derive them from the on-disk `<tag>.agent-manifest.json` sidecars instead:
+
+```ts
+viteAgentReadinessIntegration(config, { agentManifestDir: 'dist/components' })
+```
+
+Policy declared on a component (`$scope`, `$rate-limit`, `$stream`) is **never** carried into the card or `llms.txt`: the sidecar is a build artifact and may contain it, but the mapping copies only `tag` / `describes` / `state` / `actions` / `extract`. You can still declare skills explicitly in config; they are merged with the derived ones.
 
 To configure the server card, pass `AgentReadinessConfig` to `createAgentReadinessRoutes`:
 
@@ -260,9 +266,9 @@ Add an `@agent` block and expose actions from `@state`:
 }
 ```
 
-**Step 2 — Compiler emits `agent-manifest.json`**
+**Step 2 — Compiler emits `<tag>.agent-manifest.json`**
 
-When the Rust SFC compiler processes this file with `BuildTarget.Server` or `BuildTarget.Universal`, it emits an `agent-manifest.json` sidecar (one per output directory) describing the exposed surface. The real shape is aihu's own — it is **not** an MCP `.mcp.json` document:
+For every agent component, the Rust SFC compiler emits a `<tag>.agent-manifest.json` sidecar beside that component's other outputs (`<tag>.ts`, `<tag>.route.json`, `<tag>.aihu.ts`) describing the exposed surface. One file per component, named for its tag — N components compiling into one output directory leave N sidecars. The real shape is aihu's own — it is **not** an MCP `.mcp.json` document:
 
 ```json
 {
@@ -280,9 +286,9 @@ When the Rust SFC compiler processes this file with `BuildTarget.Server` or `Bui
 }
 ```
 
-> **🚧 `agent-manifest.json` currently has no consumers.** The compiler emits this sidecar, but nothing in the runtime or the agent-readiness build path reads it yet. The live agent surface is wired instead through the `registerAgentMetadata(...)` call the compiler also emits (see [Authoring Agents](./authoring-agents.md) §3) and the `__agentBinding` server export. Giving this file a consumer — and using it to auto-populate the server card's skills — is planned (#430).
+`@aihu-plugin/agent-readiness` reads these sidecars: pass `agentManifestDir` to `viteAgentReadinessIntegration` (or call `readAgentManifestDir(dir)` yourself and pass the result as `readComponents`) and the `## Components` section of `llms.txt` plus the server card's skills are derived from them. The live agent surface is wired separately, through the `registerAgentMetadata(...)` call the compiler also emits (see [Authoring Agents](./authoring-agents.md) §3) and the `__agentBinding` server export.
 
-Note: with `BuildTarget.Client`, the `@agent` block is fully elided — no manifest JSON is emitted and no agent code reaches the browser bundle.
+Note: with `BuildTarget.Client`, the `@agent` block is elided from the emitted JS — no agent code and no policy reaches the browser bundle. The sidecar is still written, because it is a build artifact rather than bundled bytes; it is what lets a client-only build advertise its components at all.
 
 **Step 3 — `@aihu/agent-service` exposes tools over HTTP**
 
