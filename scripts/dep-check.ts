@@ -184,8 +184,77 @@ export function dirFamilyOf(
  * imports are NOT an escape hatch: Vite resolves them at build time same as
  * static imports (verified against vite 8.0.16 — see the design's Exp 2).
  */
+/**
+ * Remove `//` line and `/* *\/` block comments so import-like PROSE in a comment
+ * cannot be mis-read as a specifier. The `from '...'` pattern below matches the
+ * word "from" followed by a quoted string ANYWHERE, so a comment such as
+ * `indistinguishable from "nothing to decide"` was extracted as the bare
+ * specifier `nothing to decide` and reported as an undeclared external — a false
+ * positive that forced a correct comment to be reworded to get CI green
+ * (C-FEL-DEPCHECK-COMMENTS; architect hit it on #672).
+ *
+ * String and template literals are PRESERVED — their contents ARE the specifiers
+ * this extractor reads (`from './foo'`), so blanking them would erase real
+ * imports. The strip is string-aware so a `//` or `/*` INSIDE a string (e.g.
+ * `"http://…"`) is not mistaken for a comment start. Prose inside a STRING
+ * literal is out of scope for the same reason a real parser is (the module's own
+ * note): erasing string contents would erase the imports.
+ *
+ * KNOWN LIMITATION (the false-negative direction, deliberately unmodeled): the
+ * scanner does not model REGEX LITERALS. A regex containing a slash-slash outside
+ * a string — e.g. `/https:\/\//` — looks like a line-comment start, so the REST
+ * OF THAT LINE is stripped (and a regex opening with `/*` would read as a block
+ * comment, the rarer and worse variant). The `//` case is confined to the regex's
+ * own line — a line-comment strip stops at the newline — so an import on any LATER
+ * line still survives (asserted in the fixture). Left unmodeled because an import
+ * statement essentially never shares a line with a regex literal; distinguishing
+ * regex context from division needs the real parser this module deliberately
+ * forgoes (C-FEL-DEPCHECK-COMMENTS).
+ */
+function stripComments(src: string): string {
+  let out = ''
+  let quote: string | null = null // active string delimiter: ' " or `
+  for (let i = 0; i < src.length; ) {
+    const c = src[i]
+    const c2 = src[i + 1]
+    if (quote) {
+      out += c
+      if (c === '\\') {
+        out += c2 ?? ''
+        i += 2
+        continue
+      }
+      if (c === quote) quote = null
+      i += 1
+      continue
+    }
+    if (c === "'" || c === '"' || c === '`') {
+      quote = c
+      out += c
+      i += 1
+      continue
+    }
+    if (c === '/' && c2 === '/') {
+      while (i < src.length && src[i] !== '\n') i += 1
+      continue
+    }
+    if (c === '/' && c2 === '*') {
+      i += 2
+      while (i < src.length && !(src[i] === '*' && src[i + 1] === '/')) i += 1
+      i += 2
+      continue
+    }
+    out += c
+    i += 1
+  }
+  return out
+}
+
 export function extractSpecifiers(src: string): string[] {
   const specs: string[] = []
+  // Strip comments FIRST so import-like prose in a comment is never matched;
+  // real imports (in code, in string specifiers) survive untouched.
+  const code = stripComments(src)
   const patterns = [
     /\bfrom\s*['"]([^'"]+)['"]/g,
     /^\s*import\s*['"]([^'"]+)['"]/gm,
@@ -193,7 +262,7 @@ export function extractSpecifiers(src: string): string[] {
   ]
   for (const re of patterns) {
     let m: RegExpExecArray | null
-    while ((m = re.exec(src)) !== null) specs.push(m[1])
+    while ((m = re.exec(code)) !== null) specs.push(m[1])
   }
   return specs
 }

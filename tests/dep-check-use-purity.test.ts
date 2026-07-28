@@ -15,7 +15,7 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
-import { checkUseSubpathPurity } from '../scripts/dep-check.ts'
+import { checkUseSubpathPurity, extractSpecifiers } from '../scripts/dep-check.ts'
 
 let dir: string | undefined
 
@@ -216,5 +216,56 @@ describe('checkUseSubpathPurity', () => {
     expect(result.errors.some((e) => e.includes("'axios'") && e.includes('orphaned peer'))).toBe(
       true,
     )
+  })
+})
+
+describe('extractSpecifiers (comment-blindness)', () => {
+  // Regression for C-FEL-DEPCHECK-COMMENTS: the `from '...'` pattern matched the
+  // word "from" followed by a quoted string ANYWHERE, so prose in a comment was
+  // read as an import specifier and reported as an undeclared external. That
+  // false positive forced a correct comment to be reworded to get CI green
+  // (architect hit it on #672). The fix strips comments before matching.
+  //
+  // BOTH directions live in ONE fixture on purpose: a fix that simply stopped
+  // parsing would drop the real imports too and fail the second assertion.
+  it('ignores import-like prose in // and /* */ comments but still reads real imports', () => {
+    const src = [
+      '// this line is indistinguishable from "nothing to decide"',
+      '/* a block comment also mentioning from "phantom-in-block" here */',
+      'import { effect } from "@aihu/signals"',
+      "export { thing } from './local-module.ts'",
+      "const url = 'http://example.com/from-not-a-real-spec' // // not a comment start",
+    ].join('\n')
+    const specs = extractSpecifiers(src)
+    // Real imports/exports survive the comment strip.
+    expect(specs).toContain('@aihu/signals')
+    expect(specs).toContain('./local-module.ts')
+    // Comment prose is NOT read as a specifier — the exact bug string.
+    expect(specs).not.toContain('nothing to decide')
+    expect(specs).not.toContain('phantom-in-block')
+    // A `//` inside a string literal must not swallow the rest of the line, so
+    // the real import three lines up is still present (asserted above); the URL
+    // itself is a value, not a `from`/`import` specifier, so it is not extracted.
+    expect(specs).not.toContain('http://example.com/from-not-a-real-spec')
+  })
+
+  it('still catches a genuinely undeclared import (no false negative)', () => {
+    // The fix must not trade a false positive for a false negative: a real,
+    // undeclared import in live code is still surfaced to the purity check.
+    const src = "import axios from 'axios'\nconst from = 'shadowed'\n"
+    expect(extractSpecifiers(src)).toContain('axios')
+  })
+
+  it('an import on a later line survives a regex-with-slashes above it', () => {
+    // Documents the one known limitation: stripComments does not model regex
+    // literals, so a `//` inside a regex (e.g. /https:\/\//) reads as a line
+    // comment. The damage is CONFINED to that line — a line-comment strip stops
+    // at the newline — so imports on later lines are unaffected. This is the
+    // false-negative direction the contract warned about; it is nearly
+    // untriggerable because an import never shares a line with a regex literal.
+    const src = ['const urlRe = /https:\\/\\//g', "import { effect } from '@aihu/signals'"].join(
+      '\n',
+    )
+    expect(extractSpecifiers(src)).toContain('@aihu/signals')
   })
 })
