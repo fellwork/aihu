@@ -1063,10 +1063,40 @@ roles asserted three issue closures; one had been closed for a week. Verify the
 *size* of a risk, not only that the mechanism producing it is real — and re-check
 external state at the moment of the decision, because it moves without you.
 
-**Could-not-check, deliberately:** whether `gh issue close` on an already-closed
-issue exits non-zero (it would join `errs` *after* the Linear move at :2372).
-Testing it means performing the outward action under embargo, so it stays
-unmeasured rather than becoming a finding I created by acting.
+> **RESOLVED, and my could-not-check was lazy.** I filed "does `gh issue close`
+> on an already-closed issue exit non-zero?" as unmeasurable under embargo. **The
+> source answers it with zero outward acts** — `gh_close_issue` (main.rs:1822-1831)
+> reads the state first and `return Ok(())` if already closed. It never calls
+> `gh issue close` on #430. That also **falsifies** the hazard architect built on
+> it ("the row most likely to error on its github arm") — that arm is the one
+> guaranteed not to error.
+>
+> **But the outward effect on #430 is not zero:** `gh_comment_if_absent` runs
+> *before* the close, so `--confirm` posts a comment on a customer-visible issue
+> closed since 2026-07-20. Corrected outward set: **2 state changes (#478, #503)
+> + 1 comment on a closed issue.**
+>
+> **A third could-not-check category, and it is the embarrassing one:** not "no
+> discriminator", not "discriminator exists but must not be run", but
+> **discriminator unnecessary — the artifact already states the answer.** Before
+> filing a could-not-check on a runtime behaviour, read the function that
+> implements it. Reproduce-against-the-source-artifact, pointed at my own doubt
+> instead of someone else's claim.
+
+Three further source facts, measured this wake:
+
+- **The mirror is non-atomic and ordered** (architect, correct): Linear arm first,
+  GitHub second, `errs` pushed per arm, no early return, no rollback. Partial
+  publication is reachable within a run.
+- **…but there is no synced marker.** `load_sync_contracts` (:2145) is
+  `SELECT … WHERE linear IS NOT NULL OR github_issue IS NOT NULL` — no
+  `synced`/`last_synced` column, no filter, so every linked row is re-processed
+  every tick. All three writers are guarded (`linear_ensure_state` :1652,
+  `gh_comment_if_absent` :1808, `gh_close_issue` :1822). **"No rollback" is true;
+  "divergent" is not — a partial publication self-heals on the next tick.**
+  Convergence by idempotency is what makes the ordering survivable.
+- **Automatic publication confirmed:** `supervisor.py:883` runs
+  `bus("sync", "--push", "--confirm")` unattended on the sync boundary.
 
 ## Addendum — `ci-ok` can pass having read ZERO jobs: an allowlist of bad values is fail-open
 
