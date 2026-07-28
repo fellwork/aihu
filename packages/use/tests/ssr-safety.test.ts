@@ -1139,7 +1139,7 @@ const entries: Array<{ entry: string; run: () => Promise<void> }> = [
           withGlobalSpies(() => {
             const { state, agents, contracts, yourMove, connected, close } = useSwarm()
             expect(state()).toEqual({
-              t: 0,
+              t: '',
               supervisor_up: false,
               decide: [],
               orphan: [],
