@@ -1,12 +1,42 @@
 # State — builder
 
-**Role:** BUILDER · **Workspace:** `almaty` · **Branch:** `srmcguirt/builder-await-assignment`
-**Base:** rebased onto `origin/main` @ `bc1c4eac` (picked up #615, #616, #617)
-**Last updated:** 2026-07-26, FEL-426 complete (rebuilt twice), #619 ready for review.
+**Role:** BUILDER · **Workspace:** `almaty` · **Branch:** `fix/fel-434b-readiness-consumes-sidecar`
+**Base:** `origin/main` · **Last updated:** 2026-07-28, C-FEL-434b built (PR #683).
 
-> Ownership note: `historian` claimed `docs/state/` at 13:24. This file was
-> flagged to them and to team-lead (ts `1785087210.788909`); rename or delete on
-> request.
+> Ownership note: `historian` claimed `docs/state/` at 13:24 on 07-26. This file
+> was flagged to them and to team-lead (ts `1785087210.788909`); rename or delete
+> on request.
+
+## C-FEL-434b — BUILT, awaiting verdict (PR #683)
+
+agent-readiness now CONSUMES the compiler's agent-meta sidecars, so a
+**client-target** build lists its `@agent` components in `llms.txt`. Before this,
+`## Components` came only from the live `@aihu/agent` registry, which is empty on
+a client build because `registerAgentMetadata` is elided from client JS.
+
+**Two things future instances will otherwise re-derive the hard way:**
+
+1. **`$scope` on the `@agent` block derives `extract.read = { scope }`** — a hard
+   tier, so `deriveReadPolicy(...).agentDiscovery` is **false** and the component
+   is (correctly) filtered OUT of `llms.txt`. I lost a wake believing the row-1
+   fixture was unsatisfiable because of this. The authoring shape that gives a
+   publicly-discoverable component with a gated action is an EXPLICIT
+   `$extract: { read: 'agents', call: { scope: 'x' } }` — explicit read wins over
+   the derivation (`extract.rs` `resolve_explicit_read_wins_over_scope_derivation`),
+   and the compiler emits W480 acknowledging the deliberate re-opening.
+2. **The manifest→metadata mapping is an ALLOWLIST, on purpose.** The sidecar is
+   a build artifact and really does carry `scope` / `rateLimit` / `streamOutput`;
+   `llms.txt` is served anonymously. Copy only `tag`/`describes`/`state`/
+   `actions`/`extract`. Do **not** convert it to a deny-list — a policy field
+   added to the manifest later would then leak by default. `extract` MUST be
+   carried forward: it is the input to the fail-closed advertise filter, and
+   dropping it silently publishes everything.
+
+Addressing scheme chosen: **per-tag filenames** (`<tag>.agent-manifest.json`),
+matching the sibling `<tag>.ts` / `.route.json` / `.aihu.ts` sidecars. The old
+fixed name meant the second agent component in a directory clobbered the first.
+Rust change → FEL-414 two-family bump done (`0.1.41→0.1.42`, `0.1.6→0.1.7`);
+`BASE_REF=main bun scripts/check-compiler-binary-bump.ts` → ok (exit 0).
 
 ## FEL-426 — DONE (founder-ruled: "not use an unsafe component… check by CI")
 
@@ -151,14 +181,32 @@ list. Stating it rather than silently skipping.
   `aihu-css-core` binary (`cargo build --release -p aihu-css-core`). Four
   governed examples also fail locally on unbuilt `dist/`. **Not mine** — verified
   by running them on a clean tree.
+- Do **not** chase the 5 red files in a full-parallel `bunx vitest run`
+  (`arbor/tests/bench.test.ts`, `compiler/tests/state-model-sidecar-tsc.test.ts`).
+  They are timing/contention casualties — each spawns `tsc` or asserts a
+  wall-clock budget — and **all pass when the files are run in isolation**. Run
+  `cargo build --release` (ALL bins, not `--bin aihu-compile`) first, or
+  `css-engine/tests/resolve-binary.test.ts` reds on a missing
+  `target/release/aihu-css-compile` too.
+- Do **not** re-litigate the FEL-434b addressing scheme or re-read
+  `extract-read-policy.ts` to answer "why is my scoped component filtered out" —
+  both answers are recorded above.
 
-## Queue behind this (from orchestrator, 15:05)
+## Queue behind this
 
-1. `.tastemaker/check_contrast.py` — derive hexes from `packs.ts`; 8 of 30 values
-   have drifted, `accent`/`border` is 0.12 above the 3.0 floor while the tool
-   prints 0.62 of headroom. Third and last open instance of FEL-428.
-2. FEL-423 — `full`/`minimal`/`docs` adopt `createAgentReadinessRoutes()` via
-   `viteAihuPlugin()`'s existing `agentReadiness` option. Needs a floor assertion
-   that goes RED on zero tools.
+1. **C-FEL-GATE-FIXTURE-RAMP** — shrink `notYetProven` in batches.
+2. **C-FEL-CIOK-CANCELLED-MSG** — fold into the next PR that touches
+   `plan-a.yml`'s `ci-ok` block; do not open a PR just for it.
 
-`#609` and FEL-391 went to **builder-b**. Not mine.
+Older queue (`.tastemaker/check_contrast.py`, FEL-423) predates 07-28; confirm
+with the orchestrator before picking either up. `#609` and FEL-391 went to
+**builder-b**.
+
+## The gate rule that governs every "is it green" claim
+
+`docs/lessons/ci-ok-green-only-with-same-run-check.md` (banked by historian on
+#669 @ `3f709e05`). A green aggregate `ci-ok` can certify a build that never
+ran. One command: `gh api repos/fellwork/aihu/commits/<full-sha>/check-runs` —
+`check` and `ci-ok` must share a run id, `check` must be `success`, and `ci-ok`
+must have STARTED AFTER `check` FINISHED. Push, then mark ready. A rerun
+destroys its own check-runs, so capture the output before re-running.
