@@ -34,10 +34,10 @@ fail the PR.* `ci-ok` is the sole required status, and its own comment says
 "being in `needs` is NOT being gated on; only appearing in the loop below is."
 
 `check-gate-wiring.ts` now asserts the second: every `ci-ok` `needs:` entry must
-appear in the RESULT LOOP **bound to its own job's `.result`**. The one exemption
-(`changes`) must PROVE it is an outputs provider — `NEEDS_NOT_GATED` is only
-honoured if ci-ok really reads `needs.<job>.outputs.*`, so the hatch cannot be
-widened by editing that line alone.
+appear in the RESULT LOOP **bound to its own job's `.result`**, unless ci-ok
+consumes that job's `outputs`. The exemption is DERIVED from the file, not
+listed — see "The exemption is DERIVED" below for why the allowlist version was
+deleted.
 
 ### THE RECEIPT THAT MATTERS — the palette defect, reproduced in REAL CI
 
