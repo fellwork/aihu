@@ -306,6 +306,40 @@ premise in its model** is the disease.
 - **the accepted tradeoff, and it is the day's whole direction:** *"a longer window of 'we know it is
   broken' over a short path to 'it says it is fine.'* **Visible absence over manufactured presence."**
 
+### R-D was DONE — the hole is measured, and the answer is better than feared (builder, on `642860f3`)
+
+R-D said *measure the hole first*, and it was the right instruction to give: the measurement changes
+the plan. Builder ran it on clean `origin/main` and the result is **small and exact**:
+
+- **The false `check:ci`-chain route costs exactly ONE gate: the meta-gate itself.** The other 18 live
+  gates are workflow-reachable **by name or by path** independently; the 2 baseline orphans
+  (`check:hmr`, `check:hydration-adoption`) are unaffected by the route. So the unsound premise never
+  laundered a population — it laundered its own author. **The blast radius of a false premise is not
+  the size of the model, it is the count of things that depend on that clause and nothing else.**
+- **`main` is RED on this gate right now and nothing observes it.** `bun run check:gate-wiring` →
+  **exit 1**, `NEW ORPHAN(S): check:grammar-v2`. And `bun run check:grammar-v` → **exit 1,
+  `Script not found`** — so the local `check:ci` chain dies mid-chain and **`check:grammar-v2` has
+  never executed in CI, once.** A second: `check:moon-graph` (added by #671) trips
+  `GATE WITH NO NEGATIVE-FIXTURE PROOF and not grandfathered`, exit 1 — **a gate landed without a
+  proof, and the ramp guard that exists to say so could not, because it does not run.**
+- This is why R-D's *"do not wire it blind"* was load-bearing rather than cautious: wiring the detector
+  today turns `main` red on two real defects. **The detector was not hiding nothing.**
+
+**A dangling script reference truncates a chain silently, and orphans everything after it.**
+`check:ci` naming `check:grammar-v` when the script is `check:grammar-v2` is one character, and it
+both (a) aborts the chain before the last item and (b) removes the real script from the chain's
+membership — the two halves hide each other. `bun run` reports it honestly (`Script not found`, exit
+1); nothing in CI ever runs `bun run check:ci`, so the honest error is never read. **Dangling-reference
+detection belongs in the meta-gate** (builder's (c)) — a gate that reasons about a chain must first
+prove every link in the chain resolves.
+
+**And the wiring bar has THREE clauses, not one.** From `ci-ok`'s own comment, quoted by builder:
+*"being in `needs:` is NOT being gated on."* A gate is only gating when it is **(1)** invoked by a
+workflow that actually runs, **(2)** in `ci-ok`'s `needs:`, and **(3)** checked in `ci-ok`'s result
+loop. Miss (1) and it never runs; miss (2) and it runs after the verdict; miss (3) and it runs, fails,
+and `ci-ok` is green anyway. Each is individually invisible, and *"it's in `package.json`"* clears none
+of the three.
+
 ## Related
 
 - `absent-value-rendered-as-real.md` — where the value is fictitious; here it is real

@@ -104,6 +104,16 @@ the false-link trap ruled on for `C-SWARM-P0` (a fabricated link is *worse* than
 **the missing row is visible** — the same visible-absence-over-manufactured-presence direction this
 repo keeps choosing). The row is left in DECIDE for a real issue to be filed; the work is not redone.
 
+**RECURRED THE SAME DAY, same role, same exit code — so it is a class, not a slip.** Builder's next
+piece of work (`check:gate-wiring` runs in no workflow) produced
+`swarm-bus claim --id C-FEL-GATE-WIRING-RUNS` → **exit 2, "no contract"** — again building real,
+correct, measured work with **no ledger row behind it**, and again saying so on the bus instead of
+proceeding quietly. Two instances in one day means the gap is structural: **work is discovered by the
+role that finds the defect, and the ledger is written by a role that has to be asked.** Frequency is
+the argument here — one occurrence reads as an oversight, two reads as a missing step in the flow.
+Recording the second is the point; keeping only the first would understate it exactly the way the
+concurrent-instance tally would have (`promotion-rungs.md`, row 8).
+
 ## The rung
 
 - **prose / discretionary (today):** the pre-build premise check is a good builder's

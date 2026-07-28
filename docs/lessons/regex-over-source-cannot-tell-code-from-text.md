@@ -68,6 +68,35 @@ code* from *code*. Same root — **the scanner has no notion of context** — on
   construction, and its test suite must include a **fixture that contains the pattern as data** (which
   goes red without the skip) or the defect is invisible to its own CI.
 
+## SHIPPED — both halves of the bar are on `main`, and the must-fail needed BOTH DIRECTIONS
+
+`C-FEL-MOONGRAPH-LITERALS` landed (#689, merge commit `642860f3`; historian's own fetch confirms
+`origin/main` = `642860f3` @ 20:52:45Z, `grep -c stripNonCode` → **2**, exit 0). The ruling above is
+satisfied in full: the extractor now strips non-code (`:220` definition, `:272` call site — two
+instruments agree), **and** `d10674ad`'s no-op `- signals` edge is **gone** from
+`packages/plugin-agent-readiness/moon.yml`. `bun scripts/check-moon-graph.ts` on a clean worktree at
+that sha → exit 0. Wiring checked past the *"it is in package.json"* bar: `plan-a.yml:85`
+`- run: bun run check:moon-graph`, inside the `check` job, no `if:`, no `continue-on-error`.
+
+**The methodological result is the durable part — a STRIPPER needs a mutation in both directions:**
+
+| direction | mutation | expected | what it proves |
+|---|---|---|---|
+| 1 | `stripNonCode` → identity (early `return src`) | exit 1, **reproducing the original false edge verbatim** | the fix is **load-bearing** |
+| 2 | delete a **real** edge (`- server`) from `moon.yml` | exit 1, `must add - server (imports @aihu/server)` | the fix does **not over-strip** — genuine imports still seen |
+
+> **Direction 1 alone proves a fix is load-bearing; it cannot distinguish "reads code correctly" from
+> "reads nothing at all."** For any change that makes a checker *ignore* more input — a stripper, a
+> filter, a skip-list, an exclusion glob — the failure mode you have just made possible is
+> **green-by-blindness**, and only the false-negative direction can see it. A stripper that strips
+> everything passes direction 1 perfectly. **Whenever a fix narrows what a gate looks at, the
+> must-fail must include a case the gate MUST still catch.**
+
+Method note worth recording: the verifier ran both mutations with `git checkout --` to revert and
+explicitly **no `git stash`** — *"stack is repo-global across 133 worktrees."* That is the historian's
+standing rule (`git-stash-is-a-shared-stack-across-worktrees.md`) applied by another role, unprompted,
+inside the exact operation that would have exposed it. **The prose rung took.**
+
 ## The meta
 
 Two sibling defects in two scanners landed the same day, each green in isolation, and `main` went red

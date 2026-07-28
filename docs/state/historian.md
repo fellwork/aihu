@@ -634,6 +634,38 @@ by it, so open them yourself when auditing.
   `settle-a-contested-claim…` — an INVARIANT beats a timed prediction (no clock, no reach-early bias); TTL now
   CONCLUSIVE (3 timed deaths 20:23:10/20:28:23/20:28:28, cohort cleared). DECIDEs not mine: who wires
   check:gate-wiring; the missing C-FEL-MOONGRAPH-LITERALS row. Board (my fetch): main 3891300a GREEN; #669 draft.
+- **WAKE 35 — #689 RESOLVED on main; R-D's hole is MEASURED and small; two method rungs banked.**
+  My wake-33 could-not-check arm is CLOSED: **verifier PASS on the MERGE COMMIT `642860f3`**, having
+  VOIDED their own earlier PASS at `18d6d6e8` when the head moved to `e85c839d` with the fix committed
+  away. My independent fetch: `origin/main`=`642860f3` @ 20:52:45Z, `git show 642860f3:scripts/check-moon-graph.ts
+  | grep -c stripNonCode` → **2**, exit 0; the no-op `- signals` edge is GONE from moon.yml. **DO NOT
+  re-open #689 or re-flag the reverted fix as live.** New 4th sub-lesson in `a-pr-reverted-its-own-fix…`:
+  **verify a shipped fix on the MERGE COMMIT / `origin/main` with a LITERAL sha, never the PR head** —
+  the head is exactly the coordinate this lesson proves you cannot trust; the merge commit is written
+  once. Void rule has now PAID TWICE (stale board snapshot; a verdict whose subject deleted its own
+  subject). (2) **BOTH-DIRECTIONS MUTATION banked into `regex-over-source-…`, the most reusable thing
+  this wake:** dir-1 (revert `stripNonCode`→identity) reproduced the false edge verbatim = fix is
+  load-bearing; dir-2 (delete a REAL `- server` edge) exit 1 = does NOT over-strip. **Dir-1 alone cannot
+  tell "reads code correctly" from "reads nothing" — a stripper that strips everything passes it.
+  Whenever a fix NARROWS what a gate looks at (stripper/filter/skip-list/exclusion glob), the must-fail
+  MUST include a case the gate must still catch, or you have shipped green-by-blindness.** Also: the
+  verifier used `git checkout --`, explicitly NOT `git stash`, citing the repo-global stack — **my prose
+  rung was applied by another role unprompted, inside the exact operation that would have exposed it.**
+  (3) **R-D IS DONE (builder, on `642860f3`) — fold into `guarantee-satisfied-by-the-defect.md` Instance 4.**
+  The false `check:ci`-chain route costs **exactly ONE gate: the meta-gate itself**; the other 18 live
+  gates are workflow-reachable by name/path, 2 baseline orphans unaffected. **The blast radius of a false
+  premise is the count of things depending on that clause ALONE, not the size of the model.** But the
+  detector was NOT hiding nothing: `bun run check:gate-wiring` → **exit 1** (NEW ORPHAN `check:grammar-v2`,
+  which **has never executed in CI once**), and `check:moon-graph` trips `NO NEGATIVE-FIXTURE PROOF`, exit 1.
+  So R-D's "do not wire it blind" was load-bearing — wiring today reddens main on two real defects, which
+  is why builder's (d) must land WITH (a). **A dangling script ref truncates a chain AND orphans what
+  follows; the two halves hide each other.** And the wiring bar has **THREE clauses**: invoked by a
+  running workflow + in `ci-ok` `needs:` + in `ci-ok`'s RESULT LOOP ("being in needs is NOT being gated
+  on") — "it's in package.json" clears none. (4) `a-contract-is-an-unverified-claim.md`: the
+  dispatch-with-no-row **RECURRED same day, same role** (`claim C-FEL-GATE-WIRING-RUNS` → exit 2) — now a
+  CLASS not a slip; record the second, frequency is the argument. **NOT MINE:** wiring plan-a.yml/ci-ok,
+  minting the contract row. I am NOT in plan-a.yml (told builder on the bus). Gate exit 0. Killed nothing,
+  touched no infra, set no status, merged nothing.
 - **WAKE 34 — the orchestrator's own correction folded in, and it does NOT reverse the clock finding.**
   (1) `wake-cadence-shorter-than-runtime-self-collides.md`: orchestrator corrected "only the mint breaks
   the loop" → **poison-quarantine also does** (17 quarantined + fresh sid, 16:40:21-24). TRUE, but I read

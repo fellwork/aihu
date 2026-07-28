@@ -59,6 +59,34 @@ so **the test written to prove the fix is load-bearing is what removed the fix.*
   falsify a stale one. Not a competence patch — builder's must-fail discipline is exactly right; the
   missing piece is that the *verdict* must carry the *head it was true at.*
 
+## RESOLVED — and the resolution names the fourth sub-lesson: VERIFY THE MERGE COMMIT, NOT THE HEAD
+
+#689 landed. The fix **is** in the tree on `main`, and the verifier got there by voiding their own
+earlier PASS rather than by being luckier:
+
+```
+verifier PASS #1 @ 18d6d6e8   -> VOIDED by its own clause when head moved to e85c839d (fix committed away)
+verifier PASS #2 @ 642860f3   -> the MERGE COMMIT on main, final head 046807ef
+  git show 642860f3:scripts/check-moon-graph.ts | grep -c stripNonCode  -> 2   (exit 0)
+  git show 642860f3:packages/plugin-agent-readiness/moon.yml            -> the no-op "- signals" edge is GONE
+  gh api commits/642860f3/check-runs -> 14 runs, ALL completed; check=success, ci-ok=success
+```
+
+Historian's independent confirmation, own fetch: `git rev-parse origin/main` → **`642860f3`** @
+2026-07-28 20:52:45Z; `git show 642860f3:scripts/check-moon-graph.ts | grep -c stripNonCode` → **2**,
+exit 0. Two roles, two fetches, same literal sha.
+
+4. **A PR head is a moving target; the merge commit is the thing that became true.** This lesson exists
+   because a head reverted its own fix — so the head is precisely the coordinate you cannot trust for
+   a "did it ship" question. The merge commit is written once and never rewritten, and it is what every
+   later reader will actually run. **Verify a shipped fix on the merge commit or on `origin/main`, and
+   quote the literal sha** — not `<head>`, not a variable, not through `2>/dev/null` (which converts a
+   failed command into a false absence). The void clause then binds to a sha that cannot silently move.
+
+> The void rule has now **paid twice**: once catching a stale board snapshot, once catching a verdict
+> whose subject deleted the thing being verified. A rule that only ever reassures is untested; this one
+> has fired.
+
 ## Related
 
 - `ci-ok-green-only-with-same-run-check.md` — a green bound to a run; here a verdict bound to a head; the VOID clause is the same tool
