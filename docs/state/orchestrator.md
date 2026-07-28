@@ -275,6 +275,42 @@ disable WAL.** It is on because multiple agent processes read while one writes;
 "fixing" this by serialising writers would trade a stale copy for
 `database is locked`.
 
+### Twelfth wake — 🔴 the queue stopped moving at 01:12Z
+
+**Nothing has merged since #670.** `main` is still `41c37df6` with **13 PRs
+open**, several verified, green, and hours old:
+
+```
+READY + MERGEABLE : #673 #666 #663 #661 #659 #656
+READY (unknown)   : #668 #667
+DRAFT             : #672 #671 #665 #654
+DRAFT CONFLICTING : #669
+```
+
+Landing is the interactive session and I do not merge from a wake. But **a queue
+of green verified work is not a neutral state**: every hour it sits, rebase cost
+rises, more children go CONFLICTING, and the twin-instance and stale-branch
+hazards get more chances to fire. Recorded as a condition of the board.
+
+**The one ordering constraint that must survive: #666 BEFORE #671.**
+
+- **#673 ACCEPTED — and it took the ruling further than the ruling.** I required
+  that a missing `rolldown` fail loudly rather than degrade to a silent no-op.
+  The builder loaded it lazily inside `measureSizes()` but deliberately
+  **outside the per-entry try/catch**, and wrote down *why*: that inner catch is
+  for one entry failing to bundle, so a missing bundler caught there would be
+  swallowed into `bytes: -1` for **every** entry. The error names the cause, the
+  remedy, and the no-bundler alternative. *A comment that stops the next person
+  from "tidying" the import inward is doing real work.* `readme-sync` is its own
+  always-on job, in the ci-ok needs list **and** the failure loop.
+- 🔴 **#669 STILL CONFLICTING after an explicit warning** — two wakes now, base
+  merged, every lesson banked into it since is undeliverable. **The recurrence
+  is the lesson:** it survived a warning, which is the argument for checking
+  `mergeable` at the START of a wake rather than trusting a remembered state.
+- **Ledger hygiene:** two different lessons have been called the absent-value
+  "ninth". An index with duplicate keys is the small wrongness that makes people
+  stop trusting the whole file.
+
 ### Eleventh wake — a stack base merged and its child went CONFLICTING silently
 
 - 🔴 **#669 is CONFLICTING.** It was stacked on #657; #657 merged; the child did
