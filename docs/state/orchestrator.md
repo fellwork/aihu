@@ -275,6 +275,62 @@ disable WAL.** It is on because multiple agent processes read while one writes;
 "fixing" this by serialising writers would trade a stale copy for
 `database is locked`.
 
+### Thirteenth wake — a wrong lesson is LIVE ON MAIN, and its fix is stuck behind a conflicting branch
+
+🔴 **`docs/lessons/triage-queue-mixed-products.md` is on `origin/main` and every
+load-bearing sentence in it is false.** It landed with #657:
+
+```
+:62  "is a **founder business fact** neither..."
+:65  "Status: SCOPE-DECLINED, ROUTING STILL PENDING. Escalated to the human…"
+:77  "…is a founder business fact and stays in DECIDE."
+:88  "this one is stuck on prose pending a human routing call"
+```
+
+The routing question was a **lookup**, is **answered**, nothing is pending on the
+founder, and `C-SWARM-QUEUE-ROUTING` is retargeted with a full spec. **A lessons
+file about wrongly escalating is live, containing the wrong escalation** — and
+the correction is trapped in **#669, CONFLICTING for three wakes through two
+explicit warnings.**
+
+**RULING — split the correction out.** Fresh branch off `origin/main` carrying
+ONLY that fix; deal with #669 separately. **When a branch cannot land, the
+corrections on it must not inherit its paralysis.** A correction to something
+already public is urgent in a way new material is not: new lessons can wait for
+a rebase; a live falsehood cannot.
+
+**And the recurrence is the finding.** #669 survived *two* warnings. That is not
+a reminder problem — the prose rung was exercised twice and failed twice. *A rung
+that fails under test is evidence for the next rung up, not for repeating the
+same rung louder.* I stopped warning and changed the shape of the ask instead.
+
+🔴 **`docs/state/architect.md` was created IN THE WRONG REPO.**
+
+```
+git ls-remote origin refs/heads/srmcguirt/sydney          → EMPTY  (origin = fellwork/aihu)
+git ls-remote …/srmcguirt/agent-swarm refs/heads/…sydney  → 8eaf7ed
+git ls-tree origin/main docs/state/  → builder-b, builder, historian, orchestrator, verifier
+                                        …and NO architect.md
+```
+
+The next architect instance, woken in an aihu worktree and told to read
+`docs/state/architect.md` first, finds **nothing**. **This is lesson #20
+recurring in a new form** — the same silent right-content/wrong-location failure
+that made resume step 1 a no-op, except harder to notice, because every check run
+*inside agent-swarm* says the file is fine.
+
+**Partly my fault:** I scoped the agent-swarm override to "this contract only"
+to avoid overreaching, which left their default in place — then asked three
+times for the file without ever naming the path.
+**Ruling, unscoped: durable role state lives in the repo the role is woken in.**
+And verify with `git ls-tree origin/main docs/state/`, not `ls-remote` on your
+branch — the test is *"does it appear where the next instance will look"*, not
+*"did my push succeed."*
+
+The content itself is right, and recovered from the session trace and live bus
+rather than from memory — the instrument-over-hand-reasoning rule applied to
+one's own history, so what is written is what was actually decided.
+
 ### Twelfth wake — 🔴 the queue stopped moving at 01:12Z
 
 **Nothing has merged since #670.** `main` is still `41c37df6` with **13 PRs
@@ -1097,6 +1153,9 @@ all 13 open issues were unassigned and three of them were already done.
   Twice on 2026-07-27 (zurich, jerusalem) a twin left one staged; both were
   byte-identical to `origin/main` post-#658. Check
   `git diff --stat origin/main -- <file>` before preserving anything.
+- **Do not verify a state/docs file by `ls-remote` on your branch.** The test is
+  `git ls-tree origin/main <path>` — does it appear where the next instance will
+  LOOK. `architect.md` passed every check inside the wrong repo.
 - **Do not tell anyone a draft's red `ci-ok` is "the FEL-437 guard".** Superseded
   by #670 as of 01:12Z — see the top of this file. Check the run timestamp.
 - **Do not re-escalate the queue-routing question.** Answered by lookup:
