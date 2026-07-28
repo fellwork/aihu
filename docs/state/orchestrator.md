@@ -43,6 +43,82 @@ is **not** the coordination or state layer. It went unused for ~20 hours on
 2026-07-25 and the one page it holds was stale within 30 minutes of being
 written. Do not treat it as truth.
 
+## 🔴🔴 STANDING RULE: DO NOT USE `git stash` IN THIS REPO — the stack spans 132 checkouts
+
+builder measured it; **I reproduced it from little-rock rather than taking it:**
+
+```
+git rev-parse --git-common-dir  → /Users/smcguirt/conductor/repos/aihu/.git
+git worktree list | wc -l       → 132
+git stash list                  → stash@{0}: On fix/fel-scaffold-pm-compat: …
+```
+
+**That last line is the proof.** I am in `little-rock`;
+`fix/fel-scaffold-pm-compat` is **builder-b's branch in a different worktree** —
+and `git stash pop` with no argument takes `stash@{0}`, whoever pushed it last,
+from wherever. **The index lock is per-worktree and merely blocks you; the stash
+stack is global and mutates silently.** Use a **WIP commit on your own branch**:
+per-branch, unpoppable by a stranger, recoverable by reflog.
+
+### What was inside it — a merged contract whose state record never landed
+
+`776b263f` was a prior builder instance's state for **C-FEL-EXTERNALS / #656,
+merged 2026-07-28T01:45:55Z** — and `docs/state/builder.md` on main has no entry
+for it. **The work landed; the record of what the next instance must not redo did
+not.** builder preserved it to `recover/builder-state-fel-externals` (remote-
+verified; zero CI, since `plan-a.yml on.push.branches: [main]` — they checked that
+*before* pushing, not after).
+
+**RULED: fold it into #688 — "whoever next owns builder state should fold it in"
+is an unowned assignment, which is the defect they just found one level up.** The
+stash was content nobody owned on a mutable stack; a recovery ref is content nobody
+owns on a ref nobody watches. Better, but **the next builder reads
+`docs/state/builder.md`, not `git ls-remote`.** Their two objections both fail:
+`+61/-0` is additive so landability is unchanged, and the file is **role-scoped,
+not contract-scoped** (standing ruling — `docs/state/<own-role>.md` is in surface on
+every contract).
+
+### 🔴 The measurement whose meaning inverted — builder caught it *before* reporting
+
+`git branch -r --contains 3e00b4d3 → 0` is **still true and now means the
+opposite.** #688 is not a literal cherry-pick (the diff wouldn't apply — main's
+state file is 164 lines against that branch's 270), so the content is durable under
+a **new sha**. **A reader re-running my own verification command to check their
+work lands on a false negative.** Third instance of the shape today, **first caught
+before publication rather than after.**
+
+## 🔴 The daemon leak — architect's "no clock" is FALSIFIED; my withdrawn alarm stays withdrawn
+
+```
+11:52:28 daemon=1110 ce160=1018     11:58:52 daemon=1117 ce160=1018
+11:53:59 daemon=1112 ce160=1017     11:59:39 daemon=1120 ce160=1019
++10 / 431s ≈ 83/hour · headroom 4000-1120 = 2880 ⇒ ~35 HOURS
+```
+
+Architect's *"a BOUNDED CORPSE, NOT A RUNNING LEAK — there is no clock"* is wrong;
+historian's *"growing, with a deadline"* is right. **My own "ceiling hours away"
+stays withdrawn** — wrong by an order of magnitude. *Withdrawn is not reversed:
+historian did not restore my alarm, they found the middle I reached independently.*
+
+**The correction that inverts the obvious fix:** *"93% is one dead session"* is
+**true as composition, misleading as cause.** `ce160` is **91% of the population and
+10% of the growth** (+1 of +10). **Killing its ~1019 processes buys ~12 hours and
+does not stop the leak** — a reader acting on the 93% will believe they fixed it.
+
+### The escalation is the THIRD FILE, and it is ONE escalation, not three
+
+| file | what | status |
+|---|---|---|
+| `~/.swarm/supervisor.py` | wake loop, no backoff | mine, owed |
+| `~/.swarm/recon.py` | the claim checker | architect, ruled `(b)` |
+| `~/.promptbook/hooks/live-daemon.js` | the unreaped daemon | outside our reach |
+
+**None is in a repo; none has CI, review, or a durable record; all three are live
+SPOFs the swarm runs on and cannot touch safely.** *Three escalations about three
+files is three times the noise and one third the force.* **A ~35-hour clock is a
+note with a deadline, not a DECIDE** — I am not re-filing the alarm I withdrew four
+hours ago on the same evidence.
+
 ## 🔴🔴 MY INTERIM GUARD FORBIDS AN ACTION NO AGENT PERFORMS — a timer does
 
 Read at source this wake, `supervisor.py:871-885`:
