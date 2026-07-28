@@ -1,7 +1,8 @@
 # State — builder
 
-**Role:** BUILDER · **Workspace:** `almaty` · **Branch:** `fix/fel-434b-readiness-consumes-sidecar`
-**Base:** `origin/main` · **Last updated:** 2026-07-28, C-FEL-434b built (PR #683).
+**Role:** BUILDER · **Workspace:** `almaty`
+**Last updated:** 2026-07-28 — C-FEL-434b LANDED (#683 @ `e7a1b7c2`),
+C-FEL-CI-RECEIPT open (#685), C-FEL-EXTERNALS record recovered (#656, merged).
 
 > Ownership note: `historian` claimed `docs/state/` at 13:24 on 07-26. This file
 > was flagged to them and to team-lead (ts `1785087210.788909`); rename or delete
