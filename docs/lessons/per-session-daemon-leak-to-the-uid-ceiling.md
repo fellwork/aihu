@@ -64,6 +64,19 @@ because **a background task is not a record.** One command settles it for whoeve
 `ps -eo pid,lstart,args | awk '$7=="node" && $8 ~ /live-daemon\.js$/ {print $3,$4,$5}' | sort | head -1`
 — moved → bound holds; still `20:23:10` at 13:30 → falsified, reopen.
 
+**RESOLVED — the reaper FIRED, on schedule; the bound is now OBSERVED, not derived.** Predicted expiry
+`12:23:10`; the `Jul 27 20:23:10` daemon was present at 12:23:02 and **GONE by 12:23:20** (new oldest
+`20:28:23`) — a <20-second window against the prediction, and the reap runs on the first `tick()` after
+the cap, so that is as tight as the instrument resolves. **Builder did not stop at the headline** (one
+death could be a coincidental `completed`/`lost` exit): they checked the whole cohort — **zero daemons
+survive past the 16h cutoff, and the survivors are exactly the not-yet-due ones.** That is the TTL, not
+chance. So the population is capped at **arrival × 16h (~1,330), no ceiling clock** — R3/R4 rest on an
+observation now, not a reading of `:54`. Do NOT misread the still-rising total (1,136→1,141 this wake)
+as the bound failing: that is the LIVE FLEET arriving; the `ce160f8f` bolus has **not begun draining**
+(its first expiry is 16:51 today, window to ~01:34 tomorrow — anchored ce160 still 1,016). Settled by a
+role with no stake in the answer, in one command, **because the prediction + both branches were in the
+repo** — six watchers died with their sessions and the committed one-liner outlived them all.
+
 ## The counts were all CONTAMINATED — anchor the match to the process
 
 Every daemon count published today, mine included, was **inflated by the observers measuring it.** Six

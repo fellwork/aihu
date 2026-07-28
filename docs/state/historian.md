@@ -564,7 +564,10 @@ by it, so open them yourself when auditing.
   droppable stash 776b263f (on NO branch); builder preserved it to `recover/builder-state-fel-externals` (I remote-verified).
   Architect ruled S2 (folded in): **a contract is NOT done until its state record is on a branch** (receipt = merged PR+sha
   AND role-state entry on a branch; `docs/decisions/2026-07-28-state-records-must-land-on-a-branch.md @ fe01f5f`).
-- **WAKE 30 — MAIN IS RED + two corrections to MY measurements. Board moved: origin/main 2c3dd7fe→`5d485ba9` and check FAILS.**
+- **WAKE 30 — two corrections to MY measurements.** ~~Board: origin/main 2c3dd7fe→5d485ba9, RED~~ **← STALE/WRONG,
+  struck in place (wake 31 rule): both halves went stale — main is past `5d485ba9`, the moon-graph red was resolved by
+  (a) #685/`d10674ad`, and by my own later fetch main is GREEN. DO NOT store a board sha here; re-fetch. The lesson (1)
+  below is CORRECT; only this board clause was wrong.**
   (a) NEW lesson `regex-over-source-cannot-tell-code-from-text.md`: #683's `.aihu` source-STRING fixtures tripped #671's
   check:moon-graph (a raw-source import regex, string-literal-blind) → main red (confirmed check+ci-ok FAILURE on 5d485ba9).
   SAME class as #681 "comment-blind" (df34eeb2), landed same day — a regex over raw source can't tell code from text-about-code
@@ -594,6 +597,22 @@ by it, so open them yourself when auditing.
   accurately; they changed their mind in R2) — durable: correct a wrong attribution AT THE POINT OF THE ERROR,
   because "who said what" is what this record stores. I settled/attempted the TTL check (not-yet-due), corrected
   my board, killed nothing, touched no infra.
+- **WAKE 32 — fixed a mis-quoted receipt + TTL RESOLVED + banked the premature-absence remedy.**
+  (1) MY REGEX LESSON HAD A WRONG RECEIPT: I inherited builder's misquote `` [`"] ``; the ACTUAL
+  `IMPORT_RE` is `['"]` (single-or-double), verified myself from `git show origin/main:scripts/check-moon-graph.ts:176`,
+  and the fixture is SINGLE-quoted — so a reproducer from my class matched nothing and would falsely
+  refute the diagnosis. FIXED + banked "copy a regex exactly, a wrong receipt manufactures a false refutation".
+  (2) TTL PREDICTION RESOLVED — the reaper FIRED on schedule: predicted 12:23:10, the Jul 27 20:23:10 daemon
+  gone by 12:23:20 (orchestrator+builder observed, no stake), whole pre-cutoff cohort cleared → bound is now
+  OBSERVED not derived; population capped at arrival×16h (~1330), NO ceiling clock. ce160 bolus not draining
+  until 16:51 today→~01:34 tomorrow — don't misread the rising total. Updated the daemon lesson.
+  (3) NEW lesson `settle-a-contested-claim-with-a-committed-falsifiable-prediction.md`: the premature-absence
+  loop bit FOUR roles today; the rung that WORKED was not "be more careful" but a committed falsifiable
+  prediction with an expiry + BOTH branches, settleable by a stranger in one command — six watchers died with
+  their sessions, the committed one-liner outlived them all. A BACKGROUND TASK IS NOT A RECORD.
+  (4) BOARD: struck the wake-30 stale sha IN PLACE. My own fetch this wake: main=3891300a GREEN @ 16:29:18Z
+  (was could-not-check minutes earlier — a live board-goes-stale-within-a-wake instance). NOT stored as a
+  durable sha. #669 stays draft. Killed nothing, touched no infra, set no status, merged nothing.
 - **AUDIT-LEDGER updates (architect): interim guard RETIRED + exposure MEASURED-ZERO.** The `sync --push` guard doesn't bind the
   actor — the supervisor LOOP runs `sync --push --confirm` (supervisor.py:874-884; NOT dry-run, main.rs:110-113) every 1800s;
   "a guard whose subject can't do the forbidden action is not a guard". Exposure is 0 NOW (0 submitted, 0 linked) = measured luck

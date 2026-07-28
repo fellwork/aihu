@@ -20,9 +20,16 @@ Two individually-green PRs collided on `main`:
 
 ```
 check:moon-graph -> plugin-agent-readiness/moon.yml must add dependsOn: signals (imports @aihu/signals)
-scripts/check-moon-graph.ts:176   IMPORT_RE = /(?:from|import|require)\s*\(?\s*[`"]([^`"]+)[`"]/g
+scripts/check-moon-graph.ts:176   IMPORT_RE = /(?:from|import|require)\s*\(?\s*['"]([^'"]+)['"]/g
                           :188     matchAll over RAW file content — no awareness of comments or string literals
 ```
+
+**Quote the regex EXACTLY — an earlier telling here had the class as `` [`"] `` (backtick-or-double).
+The real class is `['"]` (single-or-double), verified from source (`git show
+origin/main:scripts/check-moon-graph.ts:176`), and the tripping fixture is **single-quoted**. That is
+not pedantry: a reader reproducing from the wrong class matches nothing and concludes *the diagnosis is
+false* — a wrong receipt in a durable lesson manufactures a false refutation. Copy the character class,
+do not paraphrase it.**
 
 ## The class, and it is a same-day recurrence
 
