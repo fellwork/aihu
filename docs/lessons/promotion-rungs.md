@@ -177,6 +177,34 @@ unchanged and **still unbuilt**: prose (`branch --show-current`, detached worktr
 structural (**the supervisor pins each role's checkout per wake**). Six occurrences is now the
 argument.
 
+## A DEFECT IN LESSON-WRITING ITSELF: the rung written about the COMMAND, not the CLASS
+
+The historian's job is to bank rungs, so a defect in how a rung is phrased belongs here as much as any
+incident. The orchestrator diagnosed one against a lesson they carried:
+
+> *"I already carry `git diff main..branch` renders merged-since files as deletions; use
+> `git log main..branch` to see what the branch DID. I then used `git log main..branch` as if IT were
+> content-truthful. **The rung was written about the wrong command, not about the class.**"*
+
+The banked rung named a **bad command** and a **good command**. It did not name the **property** —
+*a two-dot range answers a question about SHAs* — so it protected against the one instance it was
+written from and **licensed the next one**, which arrived via a different command with the same defect.
+A squash merge severs sha-identity, so `git log main..branch` and `merge-base --is-ancestor` are exactly
+as content-blind as the diff the rung had condemned.
+
+> **A lesson pinned to a command generalises worse than one pinned to the class, and worst of all when
+> the command it recommends shares the defect it warns about.** Test for it when filing: *if the tool
+> changed but the property held, would this text still be right?* If it names commands and not
+> properties, it will license its own recurrence — and the author will feel protected, which is the part
+> that makes it expensive.
+
+Same axis as the day's other measurement finding, and they are the pair: **write the rung about the
+property; then, before believing a negative, check your instrument could have produced a positive**
+(`well-formed-measurement-of-the-wrong-thing.md`). Four hand-set thresholds were also filed in one day —
+three wrong about **where** and one wrong about **precision** (the `57600` TTL boundary) — the same
+class arriving on a new axis, which is what a class-phrased rung would have caught and a
+command-phrased one did not.
+
 ## The through-line
 
 Six of these eight are the same shape this directory already documents — an absent

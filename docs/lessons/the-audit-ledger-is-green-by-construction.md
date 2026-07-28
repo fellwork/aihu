@@ -198,6 +198,48 @@ change — but R2/R3 land in `recon.py`, out of repo, which is the architect's r
   `no-claims` currently means "we did not check," not "there was nothing to check." Make the
   mechanism honest, re-run, re-derive; where evidence is unrecoverable land at could-not-check.
 
+## THE REMEDY SHIPPED AND HAS ZERO CALLERS — the broken predicate runs every 5 s, the correct one runs never
+
+`C-SWARM-RECON-AUTHORITY` **merged** (#686, squash `5d485ba9`, 15:57:42Z). R1 — `verify-merged`, the
+merged-receipt collector, dry-run by default — is **live on `main` and invoked by nothing.**
+
+```
+verifier:  SWARM_DB=/tmp/bus-verify.db swarm-bus verify-merged
+             -> EXIT 0, "19 verified from merged PRs, 9 skipped (no PR), 0 could-not-check"
+architect: grep -rln verify-merged ~/.swarm --include=*.py,*.rs,*.sh,*.js,*.md -> ONE file: STATUS.md (a DOC)
+             files searched (code only) = 8      <- input proven non-empty; the singleton is real
+historian: grep -n "verify.merged\|verify_merged" ~/.swarm/supervisor.py ~/.swarm/recon.py -> EXIT 1, NO MATCH
+```
+
+Three roles, three commands, one conclusion — **and note the architect proved the input non-empty before
+trusting a singleton**, which is `well-formed-measurement-of-the-wrong-thing.md` applied preemptively
+rather than after the fact.
+
+> **So the architecture today is: the BROKEN predicate — prose regexes over a possibly-truncated trace —
+> runs every 5 seconds (`supervisor.py:696` inside `reconcile()`) with authority to write TERMINAL
+> statuses and mirror them outward. The CORRECT predicate — merged-PR receipts, dry-run by default, 19
+> rows ready, 0 could-not-check — runs NEVER.** The `reconciler-is-not-a-verifier` ruling is
+> **implemented and unreached**: the dead-gate class, in the ledger itself, one layer above the CI gates
+> that consumed the same day.
+
+**And it is self-demonstrating — it ate its own remedy's contract.** `C-SWARM-RECON-AUTHORITY` →
+`status = no-claims`, recon `"39 tool calls in trace; 0 claims; 0 flagged"`, from a session that died
+mid-stream (historian confirmed the row directly against a WAL-safe copy: the row exists; the query for
+`C-FEL-MOONGRAPH-LITERALS` returns nothing). **The ledger erased the record of its own remedy, through
+the exact door the remedy closes.** An observed instance of R1's justification is worth more than the
+argument written for it.
+
+**The repair ruling, and the reasoning is the transferable part (architect).** Not *re-claim and
+rebuild* — the six commits are merged, so rebuilding is `C-FEL-436` on purpose. Not a hand-`INSERT`
+either, and now for a concrete reason rather than a principle: **hand-editing repairs one row and
+teaches that the ledger is editable; `verify-merged --confirm` repairs nineteen and teaches that
+receipts are collected.** The `--confirm` run is the **orchestrator's** — neither the architect, the
+verifier, nor the historian may set status, and none did. **Wiring `verify-merged` into the supervisor
+is the higher-value follow-on and is deliberately NOT bundled**: it is a hot edit to the live SPOF that
+is twice-ruled do-not-edit-hot, whereas `--confirm` needs no code change and clears 19 rows today.
+*Sequencing a cheap correct action ahead of a risky better one is a decision worth recording, not a
+compromise.*
+
 ## Related
 
 - `ci-ok-green-only-with-same-run-check.md` — the same green-by-construction defect in CI; this is it in the ledger that audits CI

@@ -142,6 +142,23 @@ roles bypassing one gate on a shared unverified belief is how a real failure wal
 bypass**, and this is the only local gate we have. *Restating someone else's finding is not a second
 measurement; a citation and a reproduction look identical in prose and are not the same evidence.*
 
+**SETTLED — the unrun experiment was run, and it resolved the question.** I banked *"the clean
+discriminator nobody has run: the same tree, warm cache vs cold"* as could-not-check. The orchestrator
+ran precisely that arm — the one the architect had timed out on at 120 s and correctly refused to score:
+
+```
+bunx moon run jsb-keyed-aihu:typecheck --force  ->  EXIT 0, 2m40s, "Tasks: 5 completed" (NO cache line)
+                                                    arbor:build 32s and runtime:build 26s really ran
+```
+
+**Main is not broken.** The missing `rolldown.config.ts` is a hash-input warning; the task passes from
+cold; CI runs the same script green. The verifier's observed failure was **real but environmental** —
+build contention, not `main` and not anyone's diff. Note what closed it: **a named, cheap, falsifiable
+experiment written into the record outlived four rounds of argument** — the same rung as
+`settle-a-contested-claim-with-a-committed-falsifiable-prediction.md`. Nobody had to be persuaded; the
+cold run just settled it. **Naming the discriminator you cannot run is worth more than another opinion,
+because the next role with a spare two minutes can end the dispute.**
+
 The `rolldown.config.ts` absence is still a real inconsistency (a moon task declares an input that does
 not exist on `main` — I reproduced the `ls-tree` myself), but it is **adjacent, not causal**: a missing
 **input** is skipped by design; a missing **command** would fail. Unowned; **rung: prose** (name the

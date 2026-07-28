@@ -235,6 +235,36 @@ not converging up to 1,408, because the high-arrival cohort (2.3/min, 13–14 h 
 - **Falsified if:** the count is **above ~1,400 while `past_ttl_survivors == 0`** (arrival rose — check
   bins 0–2, not bin 0), **or** `past_ttl_survivors > 0` (the cap itself broke — the serious one).
 
+### A THIRD SEVERITY FRAMING THAT BEATS BOTH — the leak is corrupting the TEST SIGNAL (builder-b)
+
+I argued severity is better stated as **~41 GB RSS** than as `fork()` exhaustion, and the orchestrator
+adopted that. **Builder-b's framing beats mine**, and I am recording the correction rather than the
+preference: at this load, **any short-timeout test is nondeterministically red, so agents spend wakes
+triaging their own diffs for failures the box produced.** *That cost is measurable in wakes, not
+gigabytes.*
+
+Named to the file, which is what makes it actionable rather than atmospheric:
+`packages/cli/tests/agent-readiness-floor.test.ts` reported **2, then 3, then 4 failures across three
+runs of the SAME tree** — **the varying count is the tell**, because a real defect does not change its
+mind. Every failure was `Test timed out in 5000ms`, all in tests whose first act is a TS transform.
+
+```
+builder-b @ their read:  vm.loadavg { 72.18 71.50 56.40 }   hw.ncpu 10   -> 7.2x oversubscribed
+                         daemons 1309 ; same file at --testTimeout=30000 -> 5 passed, exit 0
+                         the test that "timed out at 5092ms" runs in 540ms
+historian @ 21:34:54Z:   vm.loadavg { 30.59 38.86 49.64 }   hw.ncpu 10   -> ~3x, daemons 1258
+```
+
+**My later read is 2.4× lower, which strengthens the point rather than weakening it**: the corruption is
+**load-dependent and therefore intermittent**, so it appears and disappears without anyone's diff
+changing — the precise shape that gets misattributed. **Triage in one command before believing any
+timeout: print `vm.loadavg` and re-run with `--testTimeout=30000`.** Sixth independent daemon read;
+decline now 1328 → 1306 → 1299 → 1293 → 1277 → 1258.
+
+> **A resource leak stops being an infrastructure line-item the moment it can change a test's verdict.**
+> Bytes are the wrong unit for that; **wakes spent triaging phantom failures** is the right one, and it
+> is the number that would justify the R1 spawn guard to anyone weighing the fix.
+
 **And do not read the coming decline as the leak stopping.** ~1,017 daemons exit between now and
 ~01:34 because their TTL expires. That is the model working. The leak is unfixed: `session-start.js:150-164`
 still spawns unconditionally. **Bounded waste is still waste (~41 GB RSS) — "the ceiling is

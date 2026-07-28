@@ -634,6 +634,67 @@ by it, so open them yourself when auditing.
   `settle-a-contested-claim…` — an INVARIANT beats a timed prediction (no clock, no reach-early bias); TTL now
   CONCLUSIVE (3 timed deaths 20:23:10/20:28:23/20:28:28, cohort cleared). DECIDEs not mine: who wires
   check:gate-wiring; the missing C-FEL-MOONGRAPH-LITERALS row. Board (my fetch): main 3891300a GREEN; #669 draft.
+- **WAKE 39 — NEW LESSON `well-formed-measurement-of-the-wrong-thing.md` (builder-b handed it to me).
+  Plus: the typecheck dispute SETTLED, a countermand WITHDRAWN, and a severity framing better than mine.**
+  (1) **THE NEW FILE IS THE WAKE'S REAL OUTPUT.** builder-b found it (4 instances in ONE wake) and
+  explicitly offered it to docs/lessons rather than filing it. Rule: **before believing a NEGATIVE
+  result, state what a POSITIVE one would have looked like and confirm your command could have produced
+  it.** **CRITICAL DISTINCTION — this is NOT the empty-and-green class:** existing doctrine catches
+  instruments that DID NOT RUN (empty/silent/skipped); this catches instruments that **ran perfectly and
+  were pointed one inch off target**. No error, no missing file, no non-zero exit — **it survives every
+  check we currently teach.** Nine instances tabled from five roles in one day (wrong branch, wrong
+  file, deleted-branch-reads-as-lost, load-induced timeout, squash/two-dot ×3, cached green, `| head`
+  exit code). Remedy is **one command** in every case — the asymmetry IS the argument. Rung: prose →
+  **injected-at-dispatch (belongs next to "evidence over assertion" — it is that instruction one level
+  deeper: evidence over assertion, then INSTRUMENT over evidence)** → structural = **a POSITIVE CONTROL**
+  (builder's `NEGATIVE_FIXTURES.green`; verifier's prose-claim control that turned "0 claims" into
+  *format mismatch* rather than *no claims*). **A negative result without a positive control is an
+  opinion about your instrument.**
+  (2) **MY COULD-NOT-CHECK RESOLVED — AND THE WAY IT RESOLVED IS THE LESSON.** I banked "the clean
+  discriminator nobody has run: warm vs cold". Orchestrator RAN IT: `bunx moon run
+  jsb-keyed-aihu:typecheck --force` → **EXIT 0, 2m40s, no cache line**, real builds. **MAIN IS NOT
+  BROKEN; the verifier's failure was environmental contention.** `dead-gate-…` updated from
+  could-not-check to SETTLED. **Naming a cheap falsifiable discriminator you cannot run beats another
+  opinion — the next role with two spare minutes ends the dispute.** DO NOT re-open this.
+  (3) **CORRECTION TO MY WAKE-36 BANKING: the architect's countermand of builder's own-job route is
+  WITHDRAWN.** Builder shipped all three clauses; architect verified on the PR head (`:460` needs,
+  `:488` RESULT, `:510` in the loop). **A ruling whose premise is measured away should die**; the risk
+  was retired by EXECUTION AND PROOF, not argument. I marked the block superseded rather than deleting
+  it (the reasoning was sound on the evidence available). **REMAINING GAP = exactly the recidivist
+  clause: CLAUSE 3 HAS NO NEGATIVE FIXTURE** — delete the result-loop line while leaving `needs:` and
+  nothing detects it (the palette/#649 defect, documented in `plan-a.yml:471-477`'s own comment as
+  having happened twice). **Durable: `check-gate-wiring.ts` answers REACHABILITY, not GATING; a parse
+  asserting `needs`-set == result-loop-set closes it structurally. A COMMENT THAT RECORDS A RECURRENCE
+  IS A CANDIDATE ASSERTION.** NOT mine to build.
+  (4) **BUILDER-B'S SEVERITY FRAMING BEATS MINE AND I RECORDED IT AS A CORRECTION.** I argued ~41GB RSS
+  over fork(); they showed the leak **corrupts the TEST SIGNAL** — `packages/cli/tests/agent-readiness-floor.test.ts`
+  gave **2 then 3 then 4 failures on the SAME tree** (**the varying count is the tell**), loadavg 72 on
+  10 cores, all `timed out in 5000ms`, and `--testTimeout=30000` → 5 passed. **Cost is measurable in
+  WAKES, not gigabytes.** My own read 21:34:54Z: loadavg 30.59, daemons **1258** — 2.4× lower, which
+  STRENGTHENS it: the corruption is load-dependent and therefore **intermittent**, the exact shape that
+  gets misattributed to a diff. Triage in one command: `vm.loadavg` + `--testTimeout=30000`.
+  (5) **A DEFECT IN LESSON-WRITING ITSELF, banked in `promotion-rungs.md` — this one is about MY craft.**
+  Orchestrator: *"the rung was written about the wrong COMMAND, not about the CLASS."* The old rung named
+  a bad command (`git diff main..branch`) and a good one (`git log main..branch`) but not the PROPERTY
+  (**a two-dot range answers a question about SHAs**) — so it protected against one instance and
+  **licensed the next**. Filing test adopted: **if the tool changed but the property held, would this
+  text still be right?** Also folded: architect ratified the poll-resolution predicate and **replaced
+  their own generalisation with the verifier's**; that is the **4th hand-set threshold in a day** — three
+  wrong about WHERE, one about PRECISION.
+  (6) **LEDGER — I CONFIRMED THE COUNT MYSELF AND THE ORCHESTRATOR'S MESSAGE IS STALE.** WAL-safe copy,
+  `select id,status from contract where id in (…)`: `C-SWARM-RECON-AUTHORITY` **HAS a row** (`no-claims`,
+  "39 tool calls; 0 claims"); `C-FEL-MOONGRAPH-LITERALS` returns **NOTHING**. **It is ONE contract, not
+  two** — verifier measured it, architect accepted it against themselves; the orchestrator re-asserted
+  "two in one day is a pattern" in the same wake, crossed. **Do not re-inflate the count.** The real
+  finding is bigger and is banked in `the-audit-ledger-…`: **the BROKEN predicate runs every 5s
+  (`supervisor.py:696` in `reconcile()`) with authority to write TERMINAL statuses; the CORRECT one
+  (`verify-merged`, 19 rows, 0 could-not-check) runs NEVER** — three roles confirmed zero callers, mine
+  being `grep … supervisor.py recon.py` → **EXIT 1**. **Self-demonstrating: it ate its own remedy's
+  contract.** Repair ruling: **`verify-merged --confirm`, NOT a hand-INSERT** — *hand-editing repairs
+  one row and teaches the ledger is editable; verify-merged repairs 19 and teaches receipts are
+  collected.* **That run is the ORCHESTRATOR's; I set no status and ran no --confirm.**
+  **#669 MERGED mid-wake 38 (21:24:52Z, `8482cb8c`); this work is on FRESH branch
+  `srmcguirt/retro-followup-0728` → draft PR #692.** Gate exit 0. Killed nothing, touched no infra.
 - **WAKE 38 — THREE OF MY OWN BANKINGS CORRECTED. This was a correction wake, not a banking wake.**
   (1) **I STRUCK MY OWN "INVERSE DEAD GATE" HEADLINE.** I banked "pre-push is red LOCALLY for everyone
   on a tree CI calls green" with causation hedged — but the FRAMING was not established and is now

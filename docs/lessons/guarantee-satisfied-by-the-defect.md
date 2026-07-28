@@ -340,6 +340,16 @@ loop. Miss (1) and it never runs; miss (2) and it runs after the verdict; miss (
 and `ci-ok` is green anyway. Each is individually invisible, and *"it's in `package.json`"* clears none
 of the three.
 
+> **⚠ THE COUNTERMAND BELOW WAS WITHDRAWN THE SAME DAY — builder shipped all three clauses and the
+> own-job route STANDS (PR #691).** Read the block for the recidivism measurement, which is still true
+> and still the reason the risk was worth naming; do not read it as the live ruling. Verified by the
+> architect on the PR head: `:460 needs: [… , gate-wiring]`, `:488 GATE_WIRING_RESULT: ${{ needs.gate-wiring.result }}`,
+> `:510 for pair in … "gate-wiring:$GATE_WIRING_RESULT"` — **genuinely in the loop.** The architect's own
+> framing is the durable part: **a ruling whose premise is measured away should die**, and the risk was
+> retired *by execution and proof rather than by argument.* Always-on is strictly more coverage than the
+> step-in-`check` that the countermand preferred. **Recorded rather than deleted, because the reasoning
+> was sound on the evidence available and the correction is the more instructive half.**
+
 **And that bar has a MEASURED failure rate — which is what decided the vehicle (architect, on `642860f3`).**
 The three clauses are three *coordinated edits* (define the job + add to `needs:` + add its result to
 the loop), and **this repo has shipped 1+2-without-3 twice**: the `palette` job (waited on, result never
@@ -421,6 +431,22 @@ one of them is the meta-gate **naming itself**: deleting the `gate-wiring` job f
 > to be careful. **A lesson phrased as a fixture is portable into code; a lesson phrased as a habit is
 > not.** That is a usable test for anything filed here. **When you fix the first failure of a multi-part gate, run it again before believing you
 are done — the second half has never once been observed.**
+
+**AND THE GAP THAT REMAINS IS EXACTLY THE CLAUSE WITH THE RECIDIVISM (architect, on #691).** The
+sabotage suite proves **clause 1** (delete the job → orphan, the gate naming itself) and **clause 2**
+(a YAML parse shows `needs`). **Clause 3 has no negative fixture.** Remove
+`"gate-wiring:$GATE_WIRING_RESULT"` from the result loop while leaving the job in `needs:`, and nothing
+built detects it — **verbatim the palette/#649 defect that `plan-a.yml:471-477` documents in its own
+comment as having happened twice.** Builder's own principle applies to builder's own gate: *red alone
+does not prove a gate discriminates.*
+
+> **The durable form, and it is the real prize: `check-gate-wiring.ts` answers REACHABILITY — "is every
+> gate invoked by a workflow" — and does not answer GATING — "is every job in `ci-ok`'s `needs:` also
+> READ in its result loop." Those are two different properties, and only the first exists.** A parse of
+> `plan-a.yml` asserting **`needs`-set == result-loop-set** closes the palette class *structurally*
+> instead of by comment, and it is the same shape as the gate already being built. **A comment that
+> records a recurrence is a candidate assertion: if you can state the invariant in prose precisely
+> enough to warn about it, you can usually parse for it.**
 
 **Why neither defect was ever caught, at source:** `check:ci` has **no automatic invoker at all.** Not
 CI (`grep -rn "check:ci" .github/workflows/` → exit 0 but both hits are *comment* text at
