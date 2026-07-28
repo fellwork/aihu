@@ -94,6 +94,56 @@ Rust binary** (in-repo, tested, already correct-postured) and leave
 correctness defect by hand-patching the ledger it corrupted is how the next
 person learns the ledger is editable.
 
+## 🔴🔴 A NEGATIVE MEASUREMENT EXPIRES ON ITS OWN — the "fifth shape" was FALSIFIED
+
+Builder reported a fifth fake-green shape: *"check SUCCEEDED and ci-ok NEVER
+POSTED"* on `50c0dbd6`, destroyed by their own push 12s later. **I verified it and
+it is not true.**
+
+```
+check   run=30367626817  completed/success  14:17:44Z -> 14:23:48Z
+ci-ok   run=30367626817  completed/success  14:25:48Z -> 14:25:52Z
+```
+
+Same run id; `ci-ok` started **after** `check` finished. **A fully trustworthy
+receipt.** And the mechanism claim fails too: `ci-ok` completed at 14:25:52,
+**nearly two minutes AFTER the 14:24:00 push** that supposedly superseded it — a
+push did *not* kill the in-flight run's remaining jobs.
+
+**What happened: they looked into the ~2-minute gap between `check` finishing and
+`ci-ok` posting.** The gap is the norm, confirmed on two later shas mid-flight.
+
+### The yield — my own expiry rule needed a second clause
+
+| kind | stability | correct expiry |
+|---|---|---|
+| **positive** — "check succeeded on sha S" | **stable**; stays true forever, only its *relevance* lapses | *void if the head moves* |
+| **negative** — "ci-ok is absent on sha S" | **NOT stable**; flips with the **passage of time alone**, nothing changing | ***void until the pipeline is known complete*** |
+
+**They stamped the sha (right) and attached the wrong expiry — because the thing
+that expired was THE ABSENCE, not the sha.** An absence is only evidence once you
+can show the thing had its chance to appear.
+
+This is `absent-value-rendered-as-real` through a door nobody had guarded: not a
+zero-row SQL result, not a skipped cell, but **an observation taken too early.**
+Three doors now.
+
+**Their tool is not wrong** — *"REFUSED: no ci-ok check-run"* is a correct
+**verdict at that moment**, and refusing to promote a green `check` into a receipt
+is the floor working. **The tool never claimed permanence; the report did.**
+*Verdict-at-an-instant vs property-of-a-sha* is the whole distance here.
+
+**Partly disagreed with their "luck rather than foresight":** the branch covers
+this because the floor is written in terms of **what must be PRESENT** (a `ci-ok`
+row must exist) rather than as a list of known-bad absences. **A floor at that
+granularity covers cases its author never enumerated.** Credit for the floor's
+*form*, not for anticipating the case.
+
+**Taxonomy stays at four fake-green faces + four kinds of red. Nothing added.**
+Reporting it was still right — a real anomaly on the evidence they had, reported
+without inflation. **Disproving it produced a better rule than confirming it
+would have.**
+
 ## 🔴 PUBLISH EVERY MEASUREMENT WITH ITS EXPIRY CONDITION — the queue format changed
 
 Builder and I crossed **three times on one PR**. Their diagnosis is better than an
@@ -3008,6 +3058,12 @@ all 13 open issues were unassigned and three of them were already done.
   Read that agent's own bus traffic first. Twins share `(workspace, role)` and
   the Slack bot stamps `username=<role>` for anyone, so attribution by username
   is impossible. I got this wrong about verifier and corrected it publicly.
+- **Do not bank a "fifth fake-green shape".** It was falsified: `ci-ok` posted on
+  `50c0dbd6` at 14:25:48Z, two minutes after `check` ended and after the push that
+  allegedly killed it. The taxonomy stays at four.
+- **Do not read an absent `ci-ok` as a finding while `check` is in_progress.**
+  There is a ~2-minute gap between `check` finishing and `ci-ok` posting; the
+  absence is expected, not diagnostic.
 - **Do not publish a queue row without the head sha it was measured at.** A
   stamped row fails detectably; an unstamped one fails silently. Three crossings
   on one PR is the evidence.
