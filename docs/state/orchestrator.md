@@ -221,6 +221,81 @@ coordination can be down) that I do not have. Left in DECIDE deliberately —
 **not** because the technical question is unresolved. It is resolved; only the
 window is not mine to pick.
 
+## 🔴 THE CONTRACT ROW IS THE DURABLE DISPATCH — a spec that is only a message is one window from gone
+
+Builder reported `C-FEL-428` as **"ready to build, but the dispatch is LOST"** —
+not in the bus window, not in their inbox, aged out during the resume storm.
+
+**It was never lost. The contract ROW had the full surface and both bars the
+whole time.** Only the *message* aged out. I recovered it verbatim:
+
+```bash
+sqlite3 'file:~/.swarm/bus.db?mode=ro' "VACUUM INTO '/tmp/snap.db'"   # WAL-safe
+sqlite3 -line /tmp/snap.db "SELECT * FROM contract WHERE id='C-FEL-428'"
+```
+
+**Stop treating the dispatch message as the artifact.** The row is the record;
+the message is a notification about the row. Every spec I have written into a
+message body and not into `--surface/--must-pass/--must-fail` is one delivery
+window from unrecoverable.
+
+**Tooling gap:** `swarm-bus` has no `show --id <contract>` — the usage line is
+`send|pull|offer|claim|ack|attempt|setstatus|watch|ready|sync|link|verify-merged`.
+`ready --id` only answers ready/not-ready. **Every agent needing its own spec
+back must drop to raw SQLite** (and hit the WAL trap on the way). That is why
+builder concluded it was gone. Worth a row.
+
+### Builder's recollection was wrong — the harmful kind, and they caught it
+
+They recalled 428 as *"assert each docs-facing gate is its OWN always-on job,
+not a step inside path-filtered `check`."* The real 428 is the **`check:ci`
+chain + negative fixtures**: enumerate every `check:*` gate, assert each is
+actually invoked **and** ships a fixture it genuinely rejects.
+
+Different builds. Theirs was the **C-FEL-433/readme-sync family — the work they
+had just finished** — which had colonised the slot. Plausible, adjacent, wrong.
+On *this* contract that is maximally dangerous: a meta-gate that certifies the
+wrong property converts UNAUDITED into AUDITED-AND-FINE. **They named that risk
+and refused to build from memory.** Reward this; it is the behaviour that keeps
+a swarm from generating confident wrong work at speed.
+
+### The amendment their instinct forced
+
+Stored `must_pass` said reachability = "invoked by `check:ci`", full stop. **That
+is now wrong.** Post-#673 the repo *deliberately* runs cheap always-on gates as
+their own workflow job (`lesson-refs`, `readme-sync`). A `check:ci`-only
+assertion flags correctly-wired gates and pressures someone into undoing #673.
+**Amended: either route counts** — the `check:ci` chain OR a job in any
+`.github/workflows/*.yml`. Their fuzzy version was *right about the world and
+wrong about which contract it belonged to*.
+
+### Measured gate wiring at `b667bdcd` (handed to builder as a starting point)
+
+- `check:ci` covers **9 of 20** gates.
+- **Reachable by NEITHER route — green-by-construction, live on main:**
+  `check:hmr` and `check:hydration-adoption`. The `must_fail` row **reproduces
+  on real data**; no synthetic fixture needed.
+- `check:thesis` is a **dead chain** — invoked by no workflow, which is why
+  `hydration-adoption` has no route at all.
+
+**MY OWN CORRECTION, caught before dispatch:** I first had **three** orphans and
+was about to hand `check:stories` over as one. It is not — `storybook.yml` runs
+it. I had grepped only `plan-a.yml`. **Checking all nine workflow files turned a
+false finding into a true one**, and it is the identical mistake the meta-check
+must not make: reachability is repo-wide, not `plan-a.yml`-wide. I told builder
+not to trust my number either.
+
+### Scope held: the always-on property is its own row
+
+428 asserts **reachability + negative fixture only**. It does NOT assert
+always-on-vs-path-filtered. Folding that in would force gate rewiring the
+surface explicitly forbids *and* land the meta-gate red on day one. Filed as
+**`C-FEL-GATE-ALWAYSON`**, dispatched to **architect to SPEC** (spec-only, no
+implementation) — the right role, and one that is otherwise idle waiting on
+#675. Its `must_fail` requires naming the **CI-minutes cost**: a rule that makes
+every docs-only PR run every gate has traded one defect for a slower one, and
+that must be rejected in the spec, not discovered by the builder.
+
 ## Rulings issued 2026-07-27 (orchestrator wake) — do not re-litigate
 
 Every one of these was verified against `origin/main` before it was made; a
