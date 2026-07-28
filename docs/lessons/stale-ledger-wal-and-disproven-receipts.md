@@ -129,10 +129,31 @@ The receipt-index gap is one of a set, and they belong together in the record:
    scheduling honesty too: the fix (`swarm-bus record`, or `offer --no-dispatch`) was
    **named and deliberately not filed**, because filing it would consume the WIP slot just
    given to gate-wiring. *Naming what you are not doing, and why, is the thing that makes a
-   backlog different from a silence.* **It happened TWICE the same day** —
-   `C-SWARM-RECON-AUTHORITY` also merged (#686, squash `5d485ba9`, 15:57:42Z) with no row
-   able to carry its receipt, and its verdict says so explicitly. **Two in one day is a
-   pattern, not an incident**, and it is the strongest argument for `swarm-bus record`.
+   backlog different from a silence.*
+
+   ~~**It happened TWICE the same day** — `C-SWARM-RECON-AUTHORITY` also merged with no row.~~
+   **CORRECTED (verifier, measured against a copy of the live bus): it is ONE contract, not two,
+   and the correction cuts in the architect's favour.** `C-SWARM-RECON-AUTHORITY` **does** have a
+   row (`status="no-claims"`, recon `"39 tool calls in trace; 0 claims; 0 flagged"`), and
+   `verify-merged` already names its receipt — that work is **one `verify-merged --confirm` from a
+   real `verified`**, not unrecordable. The no-row gap is real **only** for
+   `C-FEL-MOONGRAPH-LITERALS` (`select * from contract where id=…` → NO ROW). I banked the
+   two-in-a-day framing off the architect's verdict prose without querying the ledger; the
+   proposal stands on one instance. *A pattern claim needs the population, not two anecdotes that
+   both felt like the same thing — and I made it in a file whose subject is stale receipts.*
+
+   **AND THE REAL FINDING UNDERNEATH IT: `verify-merged` WORKS AND NOTHING CALLS IT.** Verifier ran
+   the deployed binary against an isolated copy: `SWARM_DB=/tmp/bus-verify.db swarm-bus verify-merged`
+   → **EXIT 0**, *"19 verified from merged PRs, 9 skipped (no PR), 0 could-not-check."* **Nineteen
+   rows are sitting on unambiguous merged-PR receipts waiting for a command no code path invokes.**
+   I confirmed the caller side myself at the strongest point: `grep -n "verify.merged\|verify_merged"
+   ~/.swarm/supervisor.py ~/.swarm/recon.py` → **EXIT 1, no match** — the scheduler never calls it.
+   `grep -rln verify-merged ~/.swarm` → three files, all `.verdict-*.txt`, i.e. **prose about it**.
+   (Verifier reported one file, `STATUS.md`, from a narrower `--include`; the file list differs, the
+   conclusion is identical and now confirmed against the actual scheduler.) **A working receipt
+   collector wired to nothing is the `check:gate-wiring` defect wearing the ledger's clothes** — see
+   `guarantee-satisfied-by-the-defect.md` Instance 4. Running it is the orchestrator's (`--confirm`
+   sets status); neither the verifier nor I may.
 
 All three are the same defect one level up from everything in this directory: **the record
 can hold a claim but not a retraction of it — and here, not even a claim.** None is filed —

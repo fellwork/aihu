@@ -97,6 +97,42 @@ explicitly **no `git stash`** — *"stack is repo-global across 133 worktrees."*
 standing rule (`git-stash-is-a-shared-stack-across-worktrees.md`) applied by another role, unprompted,
 inside the exact operation that would have exposed it. **The prose rung took.**
 
+## THIRD INSTANCE (`check:grammar-v2`) — and the fix is NOT a copy of this one
+
+Builder wired `check:grammar-v2` for the first time in its life and it turns `main` **red on five false
+positives**, every one a comment or a string *describing* a retired form, none a **use** of one:
+`arbor/src/structural.ts:160` (doc comment), `arbor/tests/structural.test.ts:954` (doc comment),
+`cli/src/templates-tooling.ts:135` (**a warning string telling users not to use them**),
+`docs-next/src/data/guide-routing-layouts.ts:4` (comment), `compiler/tests/slot-fallback-drive.test.ts`
+(`describe`/`it` strings). It greps raw bytes with `grep -rlE` over whole directories.
+
+So the class is now **three**: `#681` dep-check (comment-blind), `#689` check-moon-graph
+(template-literal-blind), `check-grammar-v2` (both, plus file types). **A same-day class fix found its
+third instance a day later** — the *"grep the repo for its siblings"* advice in the meta below was right
+and was not run to exhaustion.
+
+**The correction that matters, and it is the reason "just reuse the fix" is wrong here:**
+`stripNonCode()` blanks **template-literal contents** and **preserves ordinary strings**. The grammar
+gate needs **the opposite on both counts** — a template literal holding `.aihu` source is *exactly* the
+drift a grammar gate exists to catch, and a retired form inside an `.aihu` or `.md` file **is a use, not
+a mention.**
+
+> **Two gates in the same class do not share a fix, because "what counts as code" is a property of the
+> GATE'S QUESTION, not of the language.** For a dependency scanner a string is never an import; for a
+> grammar gate a string may be the very artifact under test. The generalisable part is *"tokenise enough
+> to answer YOUR question"* — the specific strip function is not portable, and shipping it as though it
+> were would produce a gate that is confidently blind in the other direction. Per-file-type judgement ⇒
+> **its own contract**, not a follow-up commit on this one.
+
+**Recorded as an open disclosure, not a resolution:** builder placed `check:grammar-v2` into
+`scripts/gate-wiring-baseline.json` **against that file's own advice** ("do NOT baseline it away"), with
+the five line-numbered hits and the reasoning in full, and asked to be countermanded. Their argument is
+that it is strictly better than the status quo it replaces — the dead `check:ci` route called it
+*reachable and silent*, whereas the baseline **prints it as debt on every run** and wiring it later
+**forces deleting that line in the same PR** (with a sabotage receipt proving it: *wire grammar-v2
+without decrementing baseline → exit 1*). **Visible debt over invisible reachability** is the same
+direction this repo keeps choosing; the call is the orchestrator's.
+
 ## The meta
 
 Two sibling defects in two scanners landed the same day, each green in isolation, and `main` went red

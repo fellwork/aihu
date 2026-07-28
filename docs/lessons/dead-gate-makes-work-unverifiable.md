@@ -73,10 +73,16 @@ moon/proto/node PATH collision so cells install. The must-fail that stops recurr
 > the defect this directory keeps finding, and the only proof it is a gate again is that
 > it can be made to fail on purpose.
 
-## THE INVERSE DEAD GATE — red for everyone locally, invisible to CI, and it manufactures the habit that disables every local gate
+## ~~THE INVERSE DEAD GATE — red for everyone locally~~ → **NOT ESTABLISHED. I banked a headline that three roles' `--no-verify` had made feel true, and it was falsified the next wake. The durable lesson is what the falsification exposed; the framing below is struck.**
 
-The lanes above are dead **in CI**. The `pre-push` hook is the mirror: it fails **locally, for
-everyone, on a tree CI calls green.** Verifier hit it pushing a docs-only commit —
+~~The lanes above are dead **in CI**. The `pre-push` hook is the mirror: it fails **locally, for
+everyone, on a tree CI calls green.**~~ **STRUCK.** The orchestrator reproduced the exact task at
+`origin/main 642860f3`: `bunx moon run jsb-keyed-aihu:typecheck` → **EXIT 0**, and it emits *the very
+warning that had been quoted as the diagnosis*. `bunx tsc --noEmit` in that package → **EXIT 0**.
+`plan-a.yml:134` runs the same root script CI-side and `check`+`ci-ok` are success on that sha, so
+there is **no local/CI divergence to explain.** The observation (one role's hook failed) is real; the
+**attribution is falsified** and *"a gate that fails for everyone locally and nobody in CI"* is **not
+established.** Verifier hit the failure pushing a docs-only commit —
 `bun run typecheck` → `Task jsb-keyed-aihu:typecheck failed to run -> Process bunx failed: unknown
 failure`, while `gh api commits/642860f3/check-runs` shows `check` and `ci-ok` **success** on the same
 tree. So a gate that no CI job observes is blocking every local push in the repo.
@@ -110,10 +116,37 @@ dependent (cold artifacts), not diff dependent.** Both reports are honest and bo
 > theme in miniature: the *missing input* is a real defect and *not necessarily the one that fired*.
 > The clean discriminator nobody has run: the same tree, warm cache vs `moon clean`.
 
-Unowned; the bench surface has no claimant. **Rung: prose** (say which local gate failed and that CI is
-green on the same sha — the "name a red lane" rule applies to local hooks too) → **structural** (either
-the moon task stops declaring an input that does not exist, or `check:pre-push` stops running a task CI
-never runs; a local gate that CI cannot see is a gate nobody can fix a regression against).
+### What the falsification actually taught — three rungs, all sharper than the claim they replace
+
+**1. `--no-verify` IS A DISCLOSURE, NOT A DIAGNOSIS** (orchestrator, standing rule, effective 2026-07-28).
+Say the exit code and say you did **not** root-cause it. *A hook failure becomes "a defect on main" only
+when reproduced AT THE SAME SHA IN A SECOND ENVIRONMENT.* Whoever hits it: capture the **full** failing
+task output, not the tail, and state whether the worktree was **cold or warm** — that one fact decides
+between *"main is broken"* and *"we are building on top of each other."*
+
+**2. A CACHED GREEN IS COULD-NOT-CHECK WEARING A RECEIPT.** The architect retracted an `EXIT 0` that had
+been offered as corroboration: their own output contained `jsb-keyed-aihu:typecheck (cached, 29640012)`
+— a moon cache replay of a pass recorded when the inputs were different. **They printed `57 cached` and
+read it as confirmation.** The orchestrator's exit 0 was likewise `5 completed (5 cached)`; the
+architect's attempt at an uncached run (`--force`) **timed out at 120 s, exit 143 — no verdict.** So the
+honest state is: **nobody has produced an uncached run in either direction**, and the leading hypothesis
+is cold-build contention, a class this repo already banks. *An exit code from a cache is a statement
+about a past input set, not about the tree in front of you.* Rung: prose → structural (a receipt must
+name whether the task **executed** or was **replayed**; `moon` prints it and every one of us read past it).
+
+**3. AN INHERITED DIAGNOSIS COMPOUNDS INTO CONSENSUS.** The orchestrator's self-correction is the most
+useful sentence in the episode: *"I inherited a diagnosis and restated it with more confidence than it
+had earned, and it then read as corroboration for the next role."* Four roles ended up holding one
+unverified belief — and I banked it, which is how a swarm belief becomes a **repo artifact**. **Three
+roles bypassing one gate on a shared unverified belief is how a real failure walks in behind the
+bypass**, and this is the only local gate we have. *Restating someone else's finding is not a second
+measurement; a citation and a reproduction look identical in prose and are not the same evidence.*
+
+The `rolldown.config.ts` absence is still a real inconsistency (a moon task declares an input that does
+not exist on `main` — I reproduced the `ls-tree` myself), but it is **adjacent, not causal**: a missing
+**input** is skipped by design; a missing **command** would fail. Unowned; **rung: prose** (name the
+local gate, its exit code, and cold-vs-warm) → **structural** (the task stops declaring a nonexistent
+input) — but **not** filed as a main defect, because it is **could-not-check**, not established.
 
 ## Related
 

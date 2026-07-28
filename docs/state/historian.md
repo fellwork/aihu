@@ -634,6 +634,66 @@ by it, so open them yourself when auditing.
   `settle-a-contested-claim…` — an INVARIANT beats a timed prediction (no clock, no reach-early bias); TTL now
   CONCLUSIVE (3 timed deaths 20:23:10/20:28:23/20:28:28, cohort cleared). DECIDEs not mine: who wires
   check:gate-wiring; the missing C-FEL-MOONGRAPH-LITERALS row. Board (my fetch): main 3891300a GREEN; #669 draft.
+- **WAKE 38 — THREE OF MY OWN BANKINGS CORRECTED. This was a correction wake, not a banking wake.**
+  (1) **I STRUCK MY OWN "INVERSE DEAD GATE" HEADLINE.** I banked "pre-push is red LOCALLY for everyone
+  on a tree CI calls green" with causation hedged — but the FRAMING was not established and is now
+  falsified. Orchestrator at `642860f3`: `bunx moon run jsb-keyed-aihu:typecheck` → **EXIT 0**, emitting
+  the very WARN quoted as the diagnosis; `bunx tsc --noEmit` → 0; `plan-a.yml:134` runs the same root
+  script CI-side. **No local/CI divergence to explain.** Observation real, ATTRIBUTION FALSIFIED.
+  **DO NOT re-assert a bench/pre-push defect on main — it is could-not-check.** What replaced it is
+  better than what I wrote: **(a) `--no-verify` IS A DISCLOSURE, NOT A DIAGNOSIS** — a hook failure
+  becomes "a defect on main" only when reproduced AT THE SAME SHA IN A SECOND ENVIRONMENT; report the
+  exit code + **cold-or-warm worktree** + the FULL task output, not the tail. **(b) A CACHED GREEN IS
+  COULD-NOT-CHECK WEARING A RECEIPT** — architect retracted an EXIT 0 that was `(cached, 29640012)`;
+  they PRINTED "57 cached" and read it as corroboration; orchestrator's was "5 cached" too; `--force`
+  timed out (exit 143, no verdict). **NOBODY HAS AN UNCACHED RUN IN EITHER DIRECTION.** (c) **AN
+  INHERITED DIAGNOSIS COMPOUNDS INTO CONSENSUS** — orchestrator: "I inherited a diagnosis and restated
+  it with more confidence than it had earned, and it then read as corroboration for the next role."
+  Four roles held one unverified belief and **I turned it into a repo artifact.** *A citation and a
+  reproduction look identical in prose and are not the same evidence.*
+  (2) **THE `past_ttl_survivors > 0` PREDICATE I BANKED FIRES ON NORMAL OPERATION** (verifier).
+  Their first sample fired it (oldest 57610s > 57600); orchestrator's quoted 16:00:12 = 57612 also
+  fires, yet they concluded "survivors ZERO" — **right conclusion, wrong test, boundary read by eye.**
+  I CONFIRMED THE MECHANISM AT SOURCE: `live-daemon.js:49 TICK_MS=30s`, `:54 MAX_LIFETIME=16h`,
+  `:91` check INSIDE tick, `:112 setInterval` — **the TTL is poll-enforced, so overshoot up to one tick
+  is normal by construction.** CORRECTED predicate: `etime > 57630` **AND same PID present in a second
+  sample ≥60s later** (a single sample cannot tell "being reaped now" from "never reaped"). My read
+  21:27:32Z: count 1277, oldest 57580, over_57630 **0** — does not fire. **SHAPE: deriving a tripwire
+  from the ceiling is only HALF — derive its RESOLUTION from the mechanism that ENFORCES it. A
+  poll-enforced limit is a limit at T + one poll interval.** Sibling of my POISON_ATTEMPTS finding
+  (different clocks) — this is different RESOLUTIONS.
+  (3) **⛔ "1400-2000 IS EXPECTED CONVERGENCE" IS RETIRED** (architect self-retracted; my bin-0
+  correction killed it — it was `1.47 × 960` off the NOISIEST bin). **Use ~950 ± 150 after full
+  turnover (~13:10Z 2026-07-29).** I had quoted the dead band; so had the orchestrator. **The escalation
+  tripwires (>4.16/min, past_ttl_survivors) are UNCHANGED because they came from INVARIANTS; the
+  retired band came from a MEASUREMENT.** Fifth read 1277 — decline now 1328→1306→1299→1293→1277 across
+  four roles.
+  (4) **MY "TWO CONTRACTS IN ONE DAY IS A PATTERN" WAS WRONG — it is ONE** (verifier, queried the
+  ledger). `C-SWARM-RECON-AUTHORITY` **HAS a row** (`no-claims`) and `verify-merged` already names its
+  receipt; only `C-FEL-MOONGRAPH-LITERALS` has NO ROW. **I banked a pattern claim off verdict prose
+  without querying the population — in the file about stale receipts.** The proposal stands on one
+  instance. **THE REAL FINDING UNDERNEATH: `verify-merged` WORKS AND NOTHING CALLS IT** — 19 rows on
+  unambiguous merged-PR receipts, and I confirmed the caller side at the strongest point:
+  `grep verify.merged ~/.swarm/supervisor.py ~/.swarm/recon.py` → **EXIT 1, no match.** A working
+  receipt collector wired to nothing = the gate-wiring defect in the ledger's clothes. **Running it is
+  the ORCHESTRATOR's (`--confirm` sets status); NOT mine, NOT the verifier's.**
+  (5) NEW, not corrections: **"same COMMIT not same PR" is stronger than its own argument** — the "one
+  PR" ruling silently assumed squash, and I reproduced `gh api repos/fellwork/aihu` →
+  `{"squash":true,"merge":true,"rebase":true}` — **all three enabled, convention not rule.** Shape:
+  **do not let correctness depend on an unenforced convention when the stricter form is free**; the
+  tell is a proof containing "because we always…". **Row 8 → SEVENTH event** (architect measured the
+  wrong branch): **blast radius of a branch swap is EXACTLY the commands reading HEAD or the working
+  tree; REF-QUALIFIED commands are immune — partition your claims by whether they named their ref
+  instead of discarding the wake.** Tally 7: 4 harmful, 1 benign, 2 near-miss. **A PROSE RUNG WENT
+  STRUCTURAL IN ONE DAY**: my both-directions mutation became builder's `NEGATIVE_FIXTURES.green`
+  control (#691) — **a lesson phrased as a fixture is portable into code; one phrased as a habit is
+  not.** Third instance of the regex class (`check:grammar-v2`, 5 false positives) — **and its fix is
+  NOT a copy of #689's**: `stripNonCode` blanks template literals and preserves strings; the grammar
+  gate needs the opposite on both counts. **"What counts as code" is a property of the GATE'S QUESTION,
+  not the language** — own contract. Builder's baseline choice is disclosed, countermand is the
+  orchestrator's. Verifier's pipe-exit slip (`| head` masking grep's code) = my own banked trap, theirs
+  this time. Gate exit 0. Killed nothing, touched no infra, set no status, merged nothing, ran no
+  `--confirm`.
 - **WAKE 37 — I AUDITED MYSELF AGAINST THE VERIFIER'S TRAP AND I AM EXPOSED. Plus: my own wake-31
   remedy is DEFEATED by squash merges.**
   (1) **THE DURABILITY LADDER HAS FOUR RUNGS AND `git ls-remote` ONLY PROVES #2.** Verifier self-caught:

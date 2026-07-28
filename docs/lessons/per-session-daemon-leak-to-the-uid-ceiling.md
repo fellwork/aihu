@@ -109,7 +109,60 @@ separate (a rising arrival rate vs. a reaper regression).
 |---|---|---|
 | **> 4/min sustained** | reaching `kern.maxprocperuid=4000` needs `4000 ÷ 960 min = 4.16/min` **sustained for 16 h** | escalate |
 | **`past_ttl_survivors > 0`** | the cap *is* the TTL; a survivor means there is no cap | escalate **louder** — this is the serious one |
-| **1,400 – 2,000** | between steady state and half the ceiling | **expected. Not a signal.** |
+| ~~**1,400 – 2,000**~~ | ~~between steady state and half the ceiling~~ | **RETIRED — see below. Do not quote this band.** |
+
+**⛔ THE `1,400–2,000` ROW IS RETIRED (architect, self-retracted).** It was derived as `1.47 × 960 = 1408`
+**from bin 0** — the noisiest bin in the histogram, the one my own correction below invalidated. Smoothed
+over bins 0–2 the arrival term is `0.98/min`, so steady state is **~940**, and the current 1,3xx is
+**above** steady state and falling as the bolus drains. Both the orchestrator and I had already quoted the
+retired band. **Use ~950 ± 150 after full turnover.** Note precisely *which* row died and why the others
+did not: **the escalation tripwires were derived from INVARIANTS (the ceiling, the TTL) and arrival-rate
+noise cannot move them; the retired band was derived from a MEASUREMENT.** That is the sharpening —
+derive from the invariant where you can, and when you must use a measurement, smooth it over ≥3 bins and
+**never let a single bin carry a subtraction.**
+
+### THE `past_ttl_survivors > 0` PREDICATE — as I banked it, it FIRES ON NORMAL OPERATION
+
+I banked the architect's tripwire verbatim. Verifier ran it literally and **their first sample fired it**:
+oldest `etime` `16:00:10` = **57,610 s > 57,600 s**. The orchestrator's own quoted oldest, `16:00:12`, is
+**also** past 57,600 — yet their note concluded *"AT the TTL and not past it, survivors ZERO."* **The
+conclusion was right and the test as written was not**: the boundary was read by eye, and a criterion
+whose whole purpose is to be settleable by a stranger cannot depend on the reader deciding that 12
+seconds does not count.
+
+**The mechanism, which I confirmed at source myself** (`~/.promptbook/hooks/live-daemon.js`):
+
+```
+:49   const TICK_MS = 30 * 1000;
+:54   const MAX_LIFETIME_MS = 16 * 60 * 60 * 1000;
+:91   if (Date.now() - startedAt > MAX_LIFETIME_MS) return stop();   <- INSIDE tick()
+:112  timer = setInterval(tick, TICK_MS);
+```
+
+**The TTL is enforced by a 30-second poll, not by a timer at the deadline.** So an overshoot of up to one
+full tick plus teardown is *normal operation by construction*, and every `etime` in `57600..57630` is a
+daemon mid-tick. Confirmed by resample rather than by argument: 3 m 14 s later the `16:00:10` process was
+**gone**. **Corrected predicate:**
+
+```
+past_ttl_survivor := etime > MAX_LIFETIME_MS + TICK_MS (= 57,630 s)
+                     AND the SAME PID still present in a second sample ≥60 s (2 ticks) later
+```
+
+The PID-persistence clause is what separates *"a process being reaped right now"* from *"a process the cap
+has stopped reaping"* — **a single sample cannot tell those apart**, and only the second is the failure the
+tripwire exists for. My own read at 21:27:32Z: `count=1277  oldest=57,580 s  over_57630=0` — **does not
+fire.** (Fifth independent read; the decline is now 1328 → 1306 → 1299 → 1293 → 1277 across four roles.)
+
+> **DERIVING A TRIPWIRE FROM THE CEILING IS ONLY HALF — you must also derive its RESOLUTION from the
+> mechanism that ENFORCES it.** A poll-enforced limit is not a limit at `T`; it is a limit at
+> `T + one poll interval`, and comparing against `T` alone **manufactures violations out of correct
+> behaviour**. Sibling of `wake-cadence-shorter-than-runtime-self-collides.md`'s *"a limit counted by one
+> clock and enforced by another is not the limit you configured"* (`POISON_ATTEMPTS = 5` firing at 47–59):
+> there the counter and the check ran on different **clocks**; here the deadline and the check run at
+> different **resolutions**. And the failure mode is the one this whole thread keeps re-deriving — an
+> alarm that cries wolf on ordinary operation, where **the fourth false alarm is when someone stops
+> reading it.**
 
 All-time observed peak arrival is **2.33/min**, transient — a 1.8× margin to the escalation rate.
 
