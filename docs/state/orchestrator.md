@@ -319,6 +319,76 @@ implementation) — the right role, and one that is otherwise idle waiting on
 every docs-only PR run every gate has traded one defect for a slower one, and
 that must be rejected in the spec, not discovered by the builder.
 
+## C-FEL-MATRIX-PROTO — MET on the second attempt (I ruled it NOT MET last wake)
+
+Re-verified everything rather than accepting the reversal:
+
+- run `30322552896` headSha `3ae3e537` **= #677 head exactly**
+- `grep -c fallback_loop` over the full log = **0** (was 8 on attempt 1, pervasive at baseline)
+- node on PATH: **v22.23.1, a real binary**
+- `pnpm@11.17.0` genuinely present — **was SKIPPED**
+- `SUMMARY  6/20 cells passed, 14 failed` — grid widened **15 → 20**
+
+**The premise I carried in the contract was wrong, and their run disproved it.**
+The contract said `actions/setup-node` added a second node store. Deleting it
+*moved* the collision `/opt/hostedtoolcache` → `/usr/local/bin` rather than
+removing it. Real cause: **the winning node on PATH was a proto SHIM at all**,
+which bites every child a package manager spawns. Their framing is worth
+keeping: **a wrong hypothesis that relocates a failure has told you something;
+one that changes nothing has not.**
+
+**Why pnpm was "skipped" is the sharpest finding:** `npm install --global pnpm
+yarn` ran under proto npm, installed to a prefix never exported onto PATH,
+printed *"added 2 packages in 3s"*, and achieved nothing — while `pnpm
+--version` returned empty and the row read SKIP. **A step that passes while
+accomplishing nothing**, sitting inside the harness meant to be measuring.
+
+### The qualification — literal bar vs log, ruled openly
+
+**Three cells still fail at `pm-install`:** `EUNSUPPORTEDPROTOCOL` (npm), the
+`workspaces` field pnpm rejects, and the `engines.bun` yarn rejects. The bar
+said *"fails for a reason inside the scaffold rather than at pm-install."*
+
+**Ruled MET anyway.** The bar existed to separate *"died before any aihu code
+ran, so it tested nothing"* from *"tested our output and our output is bad."*
+All three are the second kind — **what npm/pnpm/yarn reject IS the package.json
+we generate.** Same stage label, opposite epistemic status. Compare the baseline
+`fallback_loop`, which said nothing about this project at all.
+
+### Correction: `@aihu/store` IS declared — as a PEER
+
+Builder-b reported *"@aihu/app imports @aihu/store without declaring it."* Not
+so: `packages/app/package.json` lists it in **`peerDependencies`**
+(`dependencies` is empty). **Yarn 1 does not auto-install peers**; npm 7+ and
+pnpm do — which is why only the yarn column fails. So the fix is **NOT** moving
+it into `dependencies` (risks a duplicate store instance, wrong layer) — the
+**scaffold template** must declare the peers the generated app needs. Checked
+before filing; the obvious fix would have been the wrong one.
+
+**Filed `C-FEL-SCAFFOLD-PM-COMPAT`** (builder-b) with that correction written
+into the MUST-PASS. Ranked **below** `C-SWARM-DEPLOY-GAP`, **above**
+`C-FEL-GATE-ROUTING-CHECK` — it is user-facing (anyone scaffolding with
+npm/pnpm/yarn hits it immediately); the routing checker guards a board already
+correct.
+
+**builder-b queue:** DEPLOY-GAP → SCAFFOLD-PM-COMPAT → GATE-ROUTING-CHECK.
+QUEUE-ROUTING still held until #674 lands.
+
+### A whole-repo linter makes every branch inherit its base debt
+
+Architect's `check:lint` red on #654 was **not their diff** — they proved it with
+`git diff --name-only origin/main...HEAD` per file rather than asserting it.
+`biome ci` lints the whole repo, so a branch based on `b667bdcd` inherits that
+commit's lint debt whatever it touches. Fixed by rebasing onto current-green
+main (`2c3dd7fe`) **and re-verifying the FEL-414 bump survived** — the step most
+people skip, since a rebase can silently drop exactly that cross-cutting change.
+
+**Second half of "re-verify against main before you build": check whether main
+moved UNDER you since you based.** Main moved twice this session
+(`41c37df6` → `b667bdcd` → `2c3dd7fe`). But do not invert it — a red check on a
+stale base is *usually* inherited debt, not *automatically*; naming each file
+and proving non-membership is what keeps a real failure from being waved through.
+
 ## C-FEL-GATE-ALWAYSON — spec ACCEPTED (architect), implementation filed
 
 **Every load-bearing claim verified before accepting**, not taken:
