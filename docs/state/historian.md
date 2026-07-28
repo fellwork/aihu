@@ -634,6 +634,66 @@ by it, so open them yourself when auditing.
   `settle-a-contested-claim…` — an INVARIANT beats a timed prediction (no clock, no reach-early bias); TTL now
   CONCLUSIVE (3 timed deaths 20:23:10/20:28:23/20:28:28, cohort cleared). DECIDEs not mine: who wires
   check:gate-wiring; the missing C-FEL-MOONGRAPH-LITERALS row. Board (my fetch): main 3891300a GREEN; #669 draft.
+- **WAKE 42 — I CLOBBERED A PEER'S HARNESS IN `/tmp`, AND I REPEATED A WRONG NUMBER THAT FOUR ROLES CARRIED.**
+  (1) **THE `/tmp` CLOBBER WAS ME — OWNED, VERIFIED, CLEANED UP.** Verifier went to re-run their ci-ok
+  harness at `/tmp/loop-current.sh` and found a SIX-pair loop with no gate-wiring; architect's diagnostic
+  (*"six pairs = the loop as it exists ON MAIN, not the #691 merge tree"*) identified the author without
+  accusing. `ls -l` → **17:48, six pairs, compressed body = MINE**, written last wake straight to a
+  guessable shared path. **Nothing lost** (their table was run against their own extraction and stands;
+  they re-extracted on noticing). **I deleted my two stale files after disclosing.** **STANDING RULE
+  ADOPTED (verifier's): A SCRATCH ARTIFACT NEEDS A PRIVATE PATH (`/tmp/<role>-<thing>-$$`)** — the
+  natural name is the one every role independently chooses. **`/tmp` IS AS SHARED AS `zurich`, and worse
+  in one way: a worktree has a branch name you can print; a `/tmp` path has NO IDENTITY AT ALL.**
+  (2) **⛔ I REPEATED "#430, #478, #503" — IT IS TWO, NOT THREE. #430 HAS BEEN CLOSED SINCE 2026-07-20.**
+  My own `gh issue view`: 430 CLOSED/COMPLETED (8 days), 478 OPEN, 503 OPEN. Asserted by orchestrator,
+  repeated in architect's retraction, **banked by me into the lesson AND re-sent on the bus**. **One
+  third of the stated blast radius did not exist** because four roles CITED instead of running a
+  four-second command. Corrected split (verifier, VACUUM INTO snapshot, 19/19 matched): **11 NO LINK
+  (zero outward effect, 58% of the work) + 8 linear + 3 github (all 3 also linear ⇒ OUTWARD SET IS 8
+  ROWS)**. "15 Linear" was the WIDER candidate set incl. the 9 skipped-no-PR rows. **`say the number or
+  say nothing` claimed its own author — the wrong count was introduced INSIDE the message that coined the
+  rule, and a wrong number in a RETRACTION inherits the retraction's credibility.**
+  (3) **THE REFRAME IS THE BEST THING IN THE THREAD AND IT IS THE VERIFIER'S:** everyone (me included)
+  framed it *"may these close?"*; the question a human needs is **"are they FIXED, and is closing them
+  correct?"** — #478→PR #655 `8a6b2362`, #503→PR #654 `a8b63362`, **both regression tests ON MAIN**
+  (`slot-fallback-drive.test.ts`, `gh503-each-noniterable-sidecar-tsc.test.ts`). **MAKING AN ESCALATION
+  SMALLER IS GOOD; MAKING IT ANSWERABLE IS BETTER** — a smaller question still needs judgement; an
+  answerable one carries its own evidence.
+  (4) **NON-ATOMIC ORDERED MIRROR** (architect, at source): Linear publishes FIRST, GitHub SECOND, errors
+  **collected per arm, not fatal** ⇒ **PARTIAL PUBLICATION IS REACHABLE** and a revert does not undo it.
+  C-FEL-434b is the row that exercises it. **A two-system publication with per-arm error collection has
+  no transaction; "it reported a failure" ≠ "nothing happened".**
+  (5) **NEW SUB-RUNG, requested by the architect: A COULD-NOT-CHECK WHOSE DISCRIMINATOR MUST NOT BE
+  RUN.** My banked rung says file it WITH the discriminator, converting a dead end into an invitation.
+  Second kind: the discriminator exists, is known, and **running it is the very act under decision**
+  (does `gh issue close` on an already-closed issue exit non-zero?). **Remedy is not "run it" — it is
+  "ROUTE AROUND IT":** under `--skip-linked`, C-FEL-434b is skipped and the path never fires. **A
+  granularity flag does not only shrink the human question — it DELETES an edge case nobody can safely
+  test.**
+  (6) **THE SHARPEST GENERAL LESSON OF THE DAY, banked in `guarantee-satisfied-…`: AN INVARIANT IS ONLY
+  AS STRONG AS THE DISTANCE BETWEEN ITS TWO REFERENTS.** Full 5×3 table banked (A normal / B empty values
+  / C empty pair LIST / D job dropped count left / F job dropped AND count decremented). Inversion closes
+  B, blind to C. Count guard (`checked`, `-ne 7`) closes B+C **and D — the recidivist palette/#649 defect
+  — at RUNTIME for 2 lines** (verifier's find; architect revised in the stronger direction). **But F
+  passes silently: the guard's expected value is CO-LOCATED with the thing it guards, edited by the same
+  hand in the same commit ⇒ it is a CONSISTENCY check, not a CORRECTNESS check.** The static
+  `needs`-set==loop-set parse survives F because **`needs:` is an INDEPENDENT DECLARATION**. **NEITHER
+  SUBSUMES THE OTHER — build both.** `-ne` not `-lt` (measured: `-lt` silently passes an 8th job). And
+  `checked=0` makes C **rule 0 wearing shell** — `fail=0` is an ABSENCE REPORT, indistinguishable from
+  "no job examined".
+  (7) **TWO METHOD LINES:** verifier's **a positive control that reds on correct input is worse than
+  none** (scenario A is the direction-2 test *of the control*); and the architect naming their own habit
+  — direction-1 shipped and direction-2 called obvious **three times in one session while citing the bar
+  to others**. **A standing bar you apply to others' work and not your own is not a bar, it is a
+  preference**; the only reliable detector is a second role who RUNS what you asserted.
+  (8) **A RANKED OR COLLAPSED VIEW IS NOT AN ENUMERATION — three tooling instances in one day**:
+  `gh statusCheckRollup` (omits a job that ran), top-N process listing (orphans read as ~2 cores vs
+  measured 3.6 — the orchestrator counted what a top-6 SHOWED rather than selecting on `ppid=1`), and my
+  `/tmp` collision. **Select on the PREDICATE, never off what the display chose to show.**
+  (9) My **12× daemon-CPU discrepancy stays DECLARED, not resolved** — architect: do not let anyone
+  settle it by picking whichever number they saw first; named candidate cause is `ps` lifetime-average
+  vs `top` instantaneous (ps averages a 44-hour process differently than a 3-minute one). Gate exit 0.
+  Killed no process, filed no DECIDE, set no status, ran no `--confirm`, edited no workflow, merged nothing.
 - **WAKE 41 — `ci-ok` CAN PASS HAVING READ NOTHING (live on main, I reproduced it), and my
   verify-merged banking is STRUCK by its own author.**
   (1) **THE BIGGEST TECHNICAL FINDING OF THE DAY.** Architect found it chasing verifier's named gap one

@@ -545,6 +545,57 @@ the wiring bar that the wiring checker cannot see.**
 have passed this typo.** The check must ALSO assert that **every pair's env var is BOUND in the same
 step.**
 
+### AN INVARIANT IS ONLY AS STRONG AS THE DISTANCE BETWEEN ITS TWO REFERENTS
+
+The fix above (invert to fail-closed) is **necessary and not sufficient** — the architect found its
+residual **by running it**, and then the verifier and the architect between them mapped the whole space.
+Two lines were proposed: **(1)** the inversion, **(2)** a **positive control** — count the iterations and
+fail unless `checked -ne 7`. Five scenarios, three loop variants, measured on both sides:
+
+| # | scenario | current | inverted | + count guard |
+|---|---|---|---|---|
+| A | normal, 7 × success (must NOT red) | fail=0 | fail=0 | **fail=0, checked=7** |
+| B | `env:` block dropped → 7 empty values | **fail=0** | fail=1 | fail=1, checked=7 |
+| C | the **pair list itself** empty | fail=0 | **fail=0** ← inversion blind | fail=1, **checked=0** |
+| D | one job silently dropped from the loop, count left at 7 | fail=0 | **fail=0** | **fail=1, checked=6** |
+| F | job dropped **AND count decremented to 6** | fail=0 | fail=0 | **fail=0** ← still blind |
+
+**C is the architect's residual**: the inversion closes bad and empty *values* and is blind to a vacuous
+*list*. **D is the verifier's find and it is the recidivist palette/#649 defect itself** — the exact
+mutation that no gate detects — caught by the count guard **at runtime, in CI, for two lines**. The
+architect had positioned the guard as covering only C and revised in the *stronger* direction on being
+shown D.
+
+**And `checked=0` is the tell, which makes C rule 0 wearing shell:** `fail=0` **is an absence report** —
+*"no failing job found"* — and it is indistinguishable from *"no job examined."* Identical shape to
+`grep -c` over empty input printing `0`. **An absence report must first prove its input was non-empty**,
+and that is what the counter does.
+
+**Then F, which the architect tested and neither had run — and it draws the real boundary.** Drop the
+job from the loop *and* decrement `7` to `6` **in the same commit**: two self-consistent lines, guard
+installed and satisfied, `ci-ok` green having never read that job.
+
+> **THE GUARD'S EXPECTED VALUE LIVES IN THE SAME FILE IT GUARDS, EDITED BY THE SAME HAND IN THE SAME
+> COMMIT. A guard whose reference value is CO-LOCATED with the thing it guards is a CONSISTENCY check,
+> not a CORRECTNESS check — it can only catch someone who edited one side.** The static
+> `needs`-set == loop-set parse survives F precisely because **`needs:` is an INDEPENDENT DECLARATION**:
+> it still lists 7 while the loop reads 6, and no amount of self-consistent editing *inside the loop*
+> reconciles that. **An invariant is only as strong as the distance between its two referents.**
+
+**So neither subsumes the other, and now that is measured on both sides rather than asserted on one:**
+the guard is 2 lines and catches B + C + D at runtime; the parse catches D + F at PR time and can assert
+each pair's env var is **bound**, which the guard cannot. Both. **`-ne`, not `-lt`** — measured: adding
+an 8th job with the count left at 7 reds under `-ne` (the feature) and **silently passes under `-lt`**.
+
+**Two method notes worth more than the fix.** First, the verifier's, from scenario A: **a positive
+control that reds on correct input is worse than none** — the happy-path row is the direction-2 test *of
+the control itself*, and nobody had stated it as a claim. Second, the architect naming their own habit
+rather than accepting thanks a third time: they shipped direction-1 and called direction-2 obvious on
+**(i)** the inversion being behaviour-identical, **(ii)** `-ne` vs `-lt`, and **(iii)** scenario A —
+*"three times in one session while citing the bar to others. That is not a slip, it is my habit."*
+**A standing bar you apply to others' work and not your own is not a bar, it is a preference**, and the
+only reliable detector is a second role who runs what you asserted.
+
 ### R-E IS CLOSED — and the boundary is worth as much as the closure
 
 The architect set R-E (*"must-fail must be a REAL CI run; local cannot prove CI reachability"*) and

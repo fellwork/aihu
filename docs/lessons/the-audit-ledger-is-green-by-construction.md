@@ -243,6 +243,8 @@ measured the number nobody had:
 SWARM_DB=/tmp/bus-vm.db swarm-bus verify-merged  -> EXIT 0, "19 verified from merged PRs, 9 skipped, 0 could-not-check"
 of those candidates: 15 carry a Linear link, 3 carry a GitHub issue
   C-FEL-434b (FEL-462, gh 430) · C-FEL-GH478 (FEL-459, gh 478) · C-FEL-GH503 (FEL-460, gh 503)
+  ^ SUPERSEDED — see the corrected split below. "15 Linear" is the WIDER candidate set including the
+    9 skipped-no-PR rows; among the 19 that would actually verify it is 8. And #430 was ALREADY CLOSED.
 main.rs:1064-1082  `verified` is one of two statuses with EXTERNAL side effects
 main.rs:2289-2315  the next sync moves the Linear issue to Done AND CLOSES THE GITHUB ISSUE
                    — and the supervisor runs that sync automatically every 1800s
@@ -278,7 +280,84 @@ the dispatchable half behind the undispatchable one**. The ruling that replaces 
 
 **Credit where the correction came from:** the orchestrator stopped at the dry run, measured the
 link counts, and read `cmd_verify_merged` at source **before** proposing the flag — the escalation was
-well-formed; the recommendation it corrected was not. The `--confirm` run is the **orchestrator's** — neither the architect, the
+well-formed; the recommendation it corrected was not.
+
+### ⛔ THE BLAST RADIUS WAS ONE THIRD LARGER THAN REALITY, AND FOUR ROLES REPEATED IT — INCLUDING ME
+
+*"Closes GitHub issues #430, #478 and #503"* was asserted by the orchestrator, repeated in the
+architect's retraction, banked by me into this file, and re-sent on the bus. **#430 has been closed since
+2026-07-20** — eight days — which I confirmed with my own `gh issue view` rather than a fourth citation:
+
+```
+430 -> CLOSED  COMPLETED  2026-07-20T21:09:17Z      <- cannot go open->closed; it is already closed
+478 -> OPEN
+503 -> OPEN
+```
+
+**The sync can produce exactly TWO new customer-visible closures, not three.** And the corrected split
+(verifier, 19 would-verify ids joined against a `VACUUM INTO` snapshot — never `cp`, never the live file;
+19 of 19 matched):
+
+```
+NO EXTERNAL LINK : 11   <- pure ledger repair, ZERO outward effect  (58% of the work)
+WITH linear link :  8   <- "~9 Linear issues to Done" is 8
+WITH github issue:  3   <- all 3 also carry linear, so the OUTWARD SET IS 8 ROWS
+```
+
+> **This is *say the number or say nothing* claiming its own author** — the architect introduced the
+> wrong count **inside the message that coined the rule**, while correcting someone else's scope error.
+> It travelled through four roles because each of us **cited it instead of running `gh issue view`,
+> which takes four seconds.** A citation and a reproduction look identical in prose; a wrong number in a
+> *retraction* inherits the retraction's credibility, which is the strongest carrier there is.
+
+**THE REFRAME IS THE MOST VALUABLE THING IN THE THREAD, and it is the verifier's.** Everyone — me
+included — framed the decision as *"may these close?"* The question a human actually needs is **"are they
+fixed, and is closing them correct?"**, and that is measurable:
+
+```
+#478 -> C-FEL-GH478 -> PR #655 MERGED @ 8a6b2362 (slot fallback content)
+#503 -> C-FEL-GH503 -> PR #654 MERGED @ a8b63362 (__aihu_each non-iterable)
+regression tests ON MAIN (git ls-tree origin/main), not merely in the PRs:
+  packages/compiler/tests/slot-fallback-drive.test.ts
+  packages/compiler/tests/gh503-each-noniterable-sidecar-tsc.test.ts
+```
+
+So it is not *"auto-close issues that might not be fixed"*; it is **"auto-close two issues whose fixes
+are merged and carry named regression tests on main."** **Making an escalation SMALLER is good; making it
+ANSWERABLE is better** — a smaller question still has to be adjudicated on judgement, an answerable one
+comes with its own evidence.
+
+### THE MIRROR IS NON-ATOMIC AND ORDERED — partial publication is a reachable state
+
+Measured at source by the architect, and it is the risk nobody had named:
+
+```
+SyncEvent::Verified:  let mut errs = Vec::new();
+  THEN  if let Some(identifier) = &c.linear { linear_ensure_state(identifier, "Done") … errs.push(…) }
+  THEN  if let Some(num) = c.github_issue  { gh_comment_if_absent(num, …); gh_close_issue(num) … errs.push(…) }
+```
+
+**Linear publishes first, GitHub second, and errors are COLLECTED PER ARM rather than being fatal.** So a
+GitHub failure leaves the Linear move **already done, with no rollback.** And `C-FEL-434b` is precisely
+the row that exercises it — its issue is already closed, so its GitHub arm is the one most likely to
+error *after* its Linear arm has fired. **A two-system publication with per-arm error collection has no
+transaction; "it reported a failure" and "nothing happened" are different states.**
+
+### A COULD-NOT-CHECK WHOSE DISCRIMINATOR IS DELIBERATELY NOT RUNNABLE — route around it, do not run it
+
+Does `gh issue close` on an **already-closed** issue exit non-zero? If it does, `C-FEL-434b`'s sync
+reports failure *after* the Linear move succeeded. The verifier declined to test it, and the architect
+declined to override: **answering it requires performing the outward action currently under embargo —
+the test would manufacture the finding.**
+
+> **This refines the could-not-check rung banked in `stale-ledger-wal-and-disproven-receipts.md`.** That
+> rung says: file a could-not-check **with the discriminator that would settle it**, converting a dead
+> end into an invitation. **There is a second kind — one whose discriminator exists, is known, and must
+> NOT be run**, because running it is the very act under decision. For those the remedy is not *"run
+> it"*, it is **"route around it"**: under `--skip-linked`, `C-FEL-434b` is skipped and the
+> already-closed path never fires. **A granularity flag does not just shrink the human question — it
+> DELETES an edge case nobody can safely test**, which is a second and stronger argument for building it
+> first. The `--confirm` run is the **orchestrator's** — neither the architect, the
 verifier, nor the historian may set status, and none did. **Wiring `verify-merged` into the supervisor
 is the higher-value follow-on and is deliberately NOT bundled**: it is a hot edit to the live SPOF that
 is twice-ruled do-not-edit-hot, whereas `--confirm` needs no code change and clears 19 rows today.

@@ -146,6 +146,49 @@ Recorded first-person and prominently because I am the role that writes this dir
 "reproduce against the source text, not the quote" in the same commit whose message the shell rewrote
 underneath me.** The lesson does not exempt its author.
 
+## ELEVENTH INSTANCE — I CLOBBERED A PEER'S HARNESS IN `/tmp`, AND `/tmp` IS AS SHARED AS THE WORKTREES
+
+The verifier went to re-run their `ci-ok` truth-table harness at `/tmp/loop-current.sh` and found **a
+six-pair loop with no `gate-wiring` and a compressed one-line body** — not what they wrote (`sed -n
+509,517p`, **seven** pairs, multi-line). The architect's diagnostic identified the author without
+accusing anyone: *"the clobbering file is a six-pair loop with no gate-wiring — that is the loop as it
+exists ON MAIN, not on the #691 merge tree, so whoever wrote it extracted from main."*
+
+**That was me.** Verified rather than inferred: `ls -l /tmp/loop-current.sh` → **17:48**, six pairs,
+compressed body — my harness from the previous wake, written straight to a guessable shared path while
+reproducing the fail-open against `origin/main`.
+
+Nothing was lost: the verifier's earlier truth table was run against **their own** extraction at the time
+and stands, and they re-extracted to a private path on noticing. But **anyone re-running that path today
+measures my file while believing it is theirs** — a well-formed harness, a plausible result, no error,
+no clue.
+
+> **`/tmp` is as shared as `zurich`.** Every hazard already banked for shared worktrees applies to shared
+> scratch space, and scratch space is worse in one respect: a worktree has a branch name you can print,
+> while a `/tmp` path has **no identity at all** — the only tell is remembering what your own file
+> looked like. **Standing rule, the verifier's and now mine: a scratch artifact needs a PRIVATE path**
+> (`/tmp/<role>-<thing>-$$`), because the natural name is the one every role will independently choose.
+
+I deleted my two stale files after disclosing them; leaving a misleading artifact at a name others will
+guess is the hazard itself. **This is the third tooling instance of the class in one day** — see the
+enumeration rule below — and the one committed by the role that maintains this file.
+
+## A RANKED OR COLLAPSED VIEW IS NOT AN ENUMERATION (three instances, one day, all in tooling)
+
+The verifier's generalisation, and it is the sharpest single statement of the class in a tool-shaped
+form:
+
+| view | omitted | consequence |
+|---|---|---|
+| `gh pr view --json statusCheckRollup` | a job that **ran and passed** | one step from filing *"the always-on job never ran in CI"* |
+| `top` / a top-N process listing | orphans outside the top 6 | the safe subset read as **~2 cores** instead of the measured **3.6** |
+| a shared `/tmp` path | that it is someone else's file | a peer's harness silently replaced by mine |
+
+> **Reading a population off a truncated, ranked, or shared view is the same defect as reading absence
+> off a mispointed grep.** Select on the **predicate** (`ppid=1`, the check-runs API, a private path),
+> never off whatever the display chose to show you. The orchestrator's under-count was not arithmetic —
+> it was counting the orphans *visible in a top-6* rather than selecting on `ppid=1`.
+
 ## Two method rules that came out of applying it
 
 **1. REPRODUCE AGAINST THE SOURCE TEXT, NEVER THE QUOTE OF IT.** Verifying the `ci-ok` fail-open, the
