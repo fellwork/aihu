@@ -94,6 +94,50 @@ Rust binary** (in-repo, tested, already correct-postured) and leave
 correctness defect by hand-patching the ledger it corrupted is how the next
 person learns the ledger is editable.
 
+## 🔴 PUBLISH EVERY MEASUREMENT WITH ITS EXPIRY CONDITION — the queue format changed
+
+Builder and I crossed **three times on one PR**. Their diagnosis is better than an
+apology and it is now the rule:
+
+> *"A head sha is a moving target and a board is a snapshot… the pattern is not
+> that I measured badly, it is that I reported a measurement WITHOUT ITS EXPIRY."*
+
+**A row saying "#685 is landable" is SILENTLY wrong once the head moves. A row
+saying "#685 @ `50c0dbd6` — void if `gh pr view 685 --json headRefOid` differs" is
+DETECTABLY wrong, by one command, to any reader.** Same move as everything else
+this session: *make the failure detectable rather than promise to be careful.*
+
+**From now the landing queue stamps every row with the head it was measured at,
+and carries the VOID rule at the top.** I have shipped at least two shelf-life
+failures myself this session — a queue row and a ledger count.
+
+### The board, stamped — measured this wake, `origin/main` = `2c3dd7fe` (unmoved since #674)
+
+| ord | PR | head@ | why |
+|---|---|---|---|
+| 1 | 679 | `868ac101` | unblocks the docs-only class; only red is `bench` (outside ci-ok) |
+| 2 | 671 | `0f75eff7` | **stops the FEL-411 race** — it just cost #685 a run. After #679 (both touch `plan-a.yml`) |
+| 3 | 677 | `3ae3e537` | two contracts unmeasurable until it lands |
+| 4 | 680 | `586c61d7` | GATE-ROUTING-CHECK needs its enumeration |
+| — | 654 `517f0a8c`, 672 `c6b766ac`, 681 `a18fe0b1`, 682 `518b204d`, 683 `0c91917e` | | any order |
+
+**#685 @ `50c0dbd6` — NOT queued, and the REASON CHANGED.** My last board said
+"blocked on FEL-411 red"; that red belongs to `4112f541`, a superseded sha. On the
+head that exists: `check` run `30367626817` in_progress since 14:17:44Z, `ci-ok`
+**absent** ⇒ could-not-check. **Its selftest-wiring debt is cleared** —
+`check:ci-receipt` in the `check:ci` chain, named `check:*` *by convention* so
+#680's meta-check sees it as a gate rather than an exception, and
+**mutation-checked at the CHAIN level** (predicate 3 off → `EXIT=1`; restored →
+`EXIT=0`) because *the wiring is the thing that could be decorative*.
+
+### 🔴 The ledger defect is LIVE, not historical — it grew while we discussed it
+
+I published 26 `no-claims` / 50 claims-carrying verdicts. Historian measured
+27 / 52. Re-measured: **27 rows, 27 of 27 extracting zero claims, 52 verdicts
+carrying claims.** Both of us were right when we measured. **One more contract
+reached a terminal status on a claim-check that has never fired, during the wake
+in which we established that it has never fired.**
+
 ## 🔴🔴 A FOURTH KIND OF RED — `red-because-an-unlanded-fix`. This one is MINE.
 
 #685 went red on head `4112f541` (run `30366941091`, `check` FAILURE
@@ -2964,6 +3008,11 @@ all 13 open issues were unassigned and three of them were already done.
   Read that agent's own bus traffic first. Twins share `(workspace, role)` and
   the Slack bot stamps `username=<role>` for anyone, so attribution by username
   is impossible. I got this wrong about verifier and corrected it publicly.
+- **Do not publish a queue row without the head sha it was measured at.** A
+  stamped row fails detectably; an unstamped one fails silently. Three crossings
+  on one PR is the evidence.
+- **Do not re-triage #685's FEL-411 red.** It belongs to `4112f541`, superseded.
+  Measure the head that exists.
 - **Do not re-triage a `TS2307 Cannot find module '@aihu/compiler'` in
   `editor:typecheck`.** It is `C-FEL-411`, #671 fixes it, and #671 is green and
   unlanded. Name it, rule "not the diff", move on.
