@@ -18,9 +18,25 @@
  * machine resolves `user.name`/`user.email` and hides the whole defect. `git`
  * reads identity from the system config, the global config, and the
  * `GIT_AUTHOR_*`/`GIT_COMMITTER_*` environment — all four are neutralised
- * below. `GIT_CONFIG_SYSTEM`/`GIT_CONFIG_GLOBAL` pointing at an empty file is
- * git's own supported way to do this and does not touch the developer's real
- * config.
+ * below. `GIT_CONFIG_SYSTEM`/`GIT_CONFIG_GLOBAL` pointing at a controlled file
+ * is git's own supported way to do this and does not touch the developer's
+ * real config.
+ *
+ * AND EMPTYING THE CONFIG IS NOT ENOUGH — measured, because the first version
+ * of this file got it wrong and the mutation run caught it. With an empty
+ * config and no identity env, `git commit` SUCCEEDS:
+ *
+ *   empty global+system config, identity env unset  -> rc=0,
+ *                                                      author=user@hostname
+ *   [user] useConfigOnly = true                     -> rc=128
+ *   (git 2.50.1)
+ *
+ * Git auto-derives `username@hostname` and only refuses when it cannot, or
+ * when `useConfigOnly` forbids guessing. So "no identity configured" does NOT
+ * by itself reproduce the failure; a test that merely empties the config
+ * passes whether or not the fallback exists — green for the wrong reason.
+ * `useConfigOnly = true` is what actually reproduces the container/CI case
+ * where auto-derivation is unavailable, so it is what these tests use.
  */
 
 import { spawnSync } from 'node:child_process'
@@ -40,11 +56,21 @@ const IDENTITY_ENV = [
 let sandbox: string
 let saved: Record<string, string | undefined>
 
-/** Point git at empty system+global config and drop the identity env vars. */
-function stripAmbientIdentity(emptyConfig: string): void {
-  process.env.GIT_CONFIG_SYSTEM = emptyConfig
-  process.env.GIT_CONFIG_GLOBAL = emptyConfig
+/** Point git at a controlled system+global config and drop the identity env
+ * vars, so nothing on the developer's machine leaks in. */
+function useOnlyThisConfig(configPath: string): void {
+  process.env.GIT_CONFIG_SYSTEM = configPath
+  process.env.GIT_CONFIG_GLOBAL = configPath
   for (const k of IDENTITY_ENV) delete process.env[k]
+}
+
+/** A config under which `git commit` genuinely cannot resolve an identity —
+ * `useConfigOnly` is what stops git falling back to `username@hostname`. This
+ * is the container/CI condition; an empty config is NOT (see the file header). */
+function noResolvableIdentity(): void {
+  const cfg = join(sandbox, 'strict.gitconfig')
+  writeFileSync(cfg, '[user]\n\tuseConfigOnly = true\n')
+  useOnlyThisConfig(cfg)
 }
 
 function git(dir: string, ...args: string[]): { status: number | null; out: string } {
@@ -84,9 +110,7 @@ afterEach(() => {
 
 describe('initGitRepo — the scaffold ends with a real commit, not an unborn HEAD', () => {
   it('commits even when NO git identity is resolvable (CI runners, fresh containers)', () => {
-    const empty = join(sandbox, 'empty.gitconfig')
-    writeFileSync(empty, '')
-    stripAmbientIdentity(empty)
+    noResolvableIdentity()
 
     const target = scaffoldedDir('proj')
     const result = initGitRepo(target)
@@ -98,9 +122,7 @@ describe('initGitRepo — the scaffold ends with a real commit, not an unborn HE
   })
 
   it('uses the fallback identity only when ambient resolves nothing', () => {
-    const empty = join(sandbox, 'empty.gitconfig')
-    writeFileSync(empty, '')
-    stripAmbientIdentity(empty)
+    noResolvableIdentity()
 
     const target = scaffoldedDir('proj')
     expect(initGitRepo(target)).toEqual({ ok: true })
@@ -114,7 +136,7 @@ describe('initGitRepo — the scaffold ends with a real commit, not an unborn HE
     // which always passes the fallback explicitly.
     const configured = join(sandbox, 'configured.gitconfig')
     writeFileSync(configured, '[user]\n\tname = Real Dev\n\temail = dev@example.com\n')
-    stripAmbientIdentity(configured)
+    useOnlyThisConfig(configured)
 
     const target = scaffoldedDir('proj')
     expect(initGitRepo(target)).toEqual({ ok: true })
@@ -126,6 +148,7 @@ describe('initGitRepo — the scaffold ends with a real commit, not an unborn HE
     // A target whose parent does not exist cannot be init-ed. The property is
     // that the failure is surfaced with the command named — the old code
     // discarded every status and printed a green checkmark regardless.
+    noResolvableIdentity()
     const target = join(sandbox, 'no-such-parent', 'proj')
     // `git init` creates leading directories, so make the path un-creatable by
     // putting a FILE where the parent directory would go.
