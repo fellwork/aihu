@@ -38,10 +38,65 @@ fixed name meant the second agent component in a directory clobbered the first.
 Rust change → FEL-414 two-family bump done (`0.1.41→0.1.42`, `0.1.6→0.1.7`);
 `BASE_REF=main bun scripts/check-compiler-binary-bump.ts` → ok (exit 0).
 
-> **THREE OPEN PRs TOUCH THIS FILE**, in disjoint sections — #683 (C-FEL-434b),
-> #685 (C-FEL-CI-RECEIPT), and this one. Whoever lands later takes **all** of
-> them; do not pick one. This PR is deliberately the smallest of the three so it
-> can land independently of both.
+> **#683 (C-FEL-434b) HAS LANDED** (`e7a1b7c2`); its section lives on `main`.
+> Still open and also touching this file: **#685** (C-FEL-CI-RECEIPT) and this
+> one, in disjoint sections. Whoever lands later takes **both**; do not pick one.
+> Every edit here is additive, so it is a three-way merge and not a conflict.
+
+## C-FEL-EXTERNALS — recovered record (PR #656, MERGED 2026-07-28T01:45:55Z)
+
+> **This section was nearly lost.** It existed only in a `git stash` entry — on a
+> stack shared by 132 worktrees, where any agent can pop or drop it — and on no
+> branch at all, while its PR had already merged. Recovered from
+> `recover/builder-state-fel-externals` @ `776b263f`. **A contract is not done
+> until its state record is on a branch** (architect S2): a merged PR whose "what
+> the next instance must not redo" is reachable only by a command nobody thinks
+> to run is still lost, just more slowly.
+
+Three configs converted from hand-listed `node:` arrays to a single `/^node:/`
+pattern: `packages/{cli,app,adapter-vercel}/rolldown.config.ts`. Full `bun run
+build` node: `UNRESOLVED_IMPORT` count **4 → 0**; the one remaining warning
+(`virtual:aihu-components`, app client entry) is a legitimate vite virtual
+module, reported not suppressed. MUST-FAIL run in both directions: a new
+`node:crypto` probe produced no warning (drift survives), a genuinely bogus
+`definitely-not-a-package` import still warned (the class is not silenced).
+Probe reverted.
+
+### The repo-wide audit the contract implies but the surface excluded
+
+`must_pass` says *every* package that imports a `node:` builtin externalizes by
+pattern; the granted surface named only six packages. Measured across all 12
+rolldown configs (script: compare each config's quoted `node:` literals against
+the builtins actually imported by its bundle inputs):
+
+```
+PATTERN (/^node:/)  adapter-vercel, app, cli   <- this contract
+                    language-server, tsc       <- already were
+hand-listed         adapter-cloudflare, compiler, css-engine, magna,
+                    mcp, router, server
+ACTIVE DRIFT        none — every hand-listed config is currently COMPLETE
+```
+
+So the remaining seven are **latent, not broken**. Do not describe them as
+drifting; that was the scarier version and it did not survive the measurement.
+
+:point_right: **`packages/server` must NOT be converted.** Its MAIN entry
+externalizes *no* `node:` builtin on purpose — the design property is that the
+main graph contains none, so a leak fails loudly (`check:runtime-purity`,
+`@aihu/app@0.1.8` regression, investigation `4a796a8f`). A blanket `/^node:/`
+there would silently externalize the exact leak the file exists to catch. Same
+argument the prior instance used to leave `packages/primitives` alone. A
+follow-up contract that says "convert the rest" is wrong as stated.
+
+### #656's red `ci-ok` was the FEL-437 draft rendering, not a defect
+
+**#656 MERGED 2026-07-28T01:45:55Z.** The paragraph below is kept as the
+reasoning that was correct at the time — a draft's red is not a result.
+
+Run `30298978032`: `check`/`examples`/`governed-examples` **skipped**, `ci-ok`
+**failure** with `::error::Draft PR: 'check' was skipped, so nothing was built
+or tested… mark the PR ready for review (FEL-437)`. Nothing has been built by
+CI on this branch yet. Marking ready is what produces a real result.
 
 ## RULED 2026-07-28 — when to push, and how to read an absence
 
