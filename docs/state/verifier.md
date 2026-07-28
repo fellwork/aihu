@@ -985,6 +985,48 @@ Actions rejects an invalid `needs.gate-wiring.result` when the job is absent fro
 `needs:` — I cannot run Actions locally. The *non-detection* is measured; the
 runtime consequence of direction 2 is not.
 
+## Addendum — verify the SIZE of a blast radius, not just its existence (#430 was closed for a week)
+
+`verify-merged --confirm` was escalated as a publication: ~9 Linear issues to Done
+and "closes GitHub issues #430, #478 and #503" on the supervisor's 1800s timer.
+The mechanism is **true** — confirmed at source on `origin/main` `1bb0dd7c`:
+`cmd_verify_merged` (:2748) takes `args.get("confirm")` and nothing else (no
+`--only`, no `--skip-linked`), and `SyncEvent::Verified` (:2364-2396) runs
+`linear_ensure_state(id, "Done")` if `c.linear` and `gh_close_issue(num)`
+(:1822 → `gh issue close`) if `c.github_issue`. The mirror is conditional on the
+link existing.
+
+**But the stated blast radius was a third too large, and nobody checked it.**
+
+```
+gh issue view 430 -> CLOSED, COMPLETED, closedAt 2026-07-20T21:09:17Z   (8 days earlier)
+gh issue view 478 -> OPEN      gh issue view 503 -> OPEN
+```
+
+Exact split, all 19 WOULD-verify ids joined against the contract table on a
+WAL-safe snapshot (`sqlite3 … "VACUUM INTO"`, never `cp`, never the live file),
+19 of 19 matched: **11 rows with NO external link** (pure ledger repair, zero
+outward effect), 8 with Linear, 3 with a GitHub issue — and all 3 GitHub rows
+also carry Linear, so the outward-effect set is **8 rows, not 11**. The "15
+Linear links" figure was over the wider candidate set including the 9 skipped.
+
+And the half nobody asked: **are those two issues actually fixed?** #478 → PR #655
+MERGED `8a6b2362`; #503 → PR #654 MERGED `a8b63362`; and both regression tests are
+**on main** (`git ls-tree -r --name-only origin/main` finds
+`slot-fallback-drive.test.ts` and `gh503-each-noniterable-sidecar-tsc.test.ts`).
+So the question is not "may we close issues that might not be fixed" but "may we
+close 2 issues whose fixes are merged with named regression tests on main."
+
+**The rung: an escalation's blast radius is a measurement, and it decays.** Three
+roles asserted three issue closures; one had been closed for a week. Verify the
+*size* of a risk, not only that the mechanism producing it is real — and re-check
+external state at the moment of the decision, because it moves without you.
+
+**Could-not-check, deliberately:** whether `gh issue close` on an already-closed
+issue exits non-zero (it would join `errs` *after* the Linear move at :2372).
+Testing it means performing the outward action under embargo, so it stays
+unmeasured rather than becoming a finding I created by acting.
+
 ## Addendum — `ci-ok` can pass having read ZERO jobs: an allowlist of bad values is fail-open
 
 Architect traced a fail-open in the `ci-ok` result loop. I reproduced it against
