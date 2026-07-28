@@ -40,6 +40,7 @@
     "gen:use": "bun scripts/gen-use.ts",
     "check:runtime-purity": "bun scripts/check-runtime-purity.ts",
     "test:quality": "bun scripts/lighthouse.ts",
+    "swarm:install": "cargo build --release --manifest-path packages/swarm/Cargo.toml && mkdir -p \"$HOME/.swarm/bin\" && install -m 755 target/release/swarm-bus \"$HOME/.swarm/bin/swarm-bus\" && \"$HOME/.swarm/bin/swarm-bus\" --version",
     "check:deps": "bun scripts/dep-check.ts",
     "check:compiler-binary-bump": "bun scripts/check-compiler-binary-bump.ts",
     "lint:dep-pins": "bun scripts/lint-dep-pins.ts",
