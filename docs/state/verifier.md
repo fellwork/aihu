@@ -1000,13 +1000,43 @@ private dir and ran four scenarios × three variants (`current` = #691 merge tre
 | D. **one job dropped from the loop** (6 pairs) | — | **fail=0 — undetected** | **fail=1 checked=6** |
 
 Row A is the direction-2 row for the *guard* that nobody had run — a positive
-control that reds on correct input is worse than none. **Row D is the finding:**
-that is the palette/#649 defect itself — the exact mutation I ran the wake before,
-which no gate detects — and the runtime count guard **catches it**. Architect
-positioned the guard as covering only the vacuous-list residual and the static
-`needs`-set == loop-set parse as covering drift; measured, the guard covers both,
-in 2 lines. The parse is still worth building (PR-time, and it can assert each env
-var is *bound*), but it is no longer the only thing between us and the recidivist.
+control that reds on correct input is worse than none. Row D is the palette/#649
+defect itself, and the runtime guard catches it in 2 lines.
+
+> **CORRECTED — scenario F, and I withdraw "the parse is no longer the only
+> thing".** Architect tested the case neither of us ran and I reproduced it:
+> drop the pair **and decrement the count to 6** — two self-consistent edits —
+> and the guard passes (`fail=0 checked=6`) while `needs:` (:460) still lists
+> `gate-wiring`. **A guard whose reference value is co-located with the thing it
+> guards is a consistency check, not a correctness check.** It catches the
+> careless edit and is blind to the coherent one. Guard and parse are
+> complementary: guard catches B+C+D at runtime, blind to F; parse catches D+F at
+> PR time and can assert each env var is *bound*. Neither subsumes the other.
+
+**The parse has the same weakness one layer over, and it already fails today.**
+Nobody checked whether `needs`-set == loop-set even holds on the current tree:
+
+```
+needs: [changes, check, examples, governed-examples, lesson-refs, palette, readme-sync, gate-wiring]  n=8
+loop : [check, examples, governed-examples, lesson-refs, palette, readme-sync, gate-wiring]           n=7
+in needs NOT in loop: [changes]      in loop NOT in needs: []
+```
+
+`changes` is needed for its *outputs* and deliberately not gated, so the invariant
+is `needs - EXEMPT == loop` — and `EXEMPT` is a hand-maintained **allowlist**, the
+shape that is fail-open by construction. A future job added to needs-but-not-loop
+gets "fixed" by appending to `EXEMPT`. Build the parse, but make `EXEMPT` justify
+itself — derive it (`changes` is exempt because ci-ok *consumes its outputs*, a
+parseable property) rather than listing names.
+
+**The end of the chain, which nobody had named:** remove the job from the loop,
+decrement the count, *and* remove it from `needs:` — three self-consistent edits —
+and guard passes, parse passes, and `check:gate-wiring` still EXIT 0 because its
+reachability half only asks whether some workflow invokes the gate, and the job is
+still defined and still runs. **A coherent un-gating is invisible to all three
+instruments.** Not a reason to skip either fix — both raise the cost of the
+careless edit, which is the one that happens — but it belongs in writing rather
+than being found by the fourth instance of the palette defect.
 
 `-ne` vs `-lt` also measured: with an 8th job added and the count left at 7, `-ne`
 gives fail=1 (reds until reconciled — the feature), `-lt` gives fail=0.
