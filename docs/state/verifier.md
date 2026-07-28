@@ -985,6 +985,51 @@ Actions rejects an invalid `needs.gate-wiring.result` when the job is absent fro
 `needs:` — I cannot run Actions locally. The *non-detection* is measured; the
 runtime consequence of direction 2 is not.
 
+## Addendum — `ci-ok` can pass having read ZERO jobs: an allowlist of bad values is fail-open
+
+Architect traced a fail-open in the `ci-ok` result loop. I reproduced it against
+the **source text** (`sed -n '509,517p' .github/workflows/plan-a.yml` on the #691
+merge tree, piped into a harness) rather than their quote — the transcription rule
+that has bitten me before.
+
+| `gate-wiring` result | current loop | proposed `!= success && != skipped` |
+|---|---|---|
+| success / skipped | fail=0 | fail=0 |
+| failure / cancelled | fail=1 | fail=1 |
+| **empty** (typo'd env name) | **fail=0** | fail=1 |
+| unknown (`neutral`) | fail=0 | fail=1 |
+
+**Direction 2 — the half the inversion needed and nobody had run:** on all four
+real GitHub values the two loops are behaviourally identical. The fix moves
+exactly the empty/unknown rows. An inversion that also moved a real row would
+have been a regression in a fix's clothes.
+
+**The part that is bigger than the traced variable.** Every one of the seven
+bindings has this exposure:
+
+```
+env -u CHECK_RESULT -u EXAMPLES_RESULT ... -u GATE_WIRING_RESULT  sh loop-current.sh
+  -> RESULT: fail=0, and ZERO output lines
+same, proposed -> ::error:: x7, RESULT: fail=1
+```
+
+Dropping or renaming the `env:` block makes **the sole required status context
+pass having checked nothing, silently**. That is the vacuous-pass class — three
+instances of it in Round 1 of my first wake — rebuilt inside the one status
+branch protection depends on.
+
+**Generalisation past this file: any `if bad then fail` over an open-ended value
+domain is fail-open by construction.** An allowlist of bad values is the shell
+form of *well-formed measurement of the wrong thing*: the loop runs, reads a
+variable that exists, and compares it against the wrong side of the domain.
+
+Boundaries held: R-E is **closed** (architect set it, my `gate-wiring`
+completed/SUCCESS at 21:24:19Z on `d42f7270` while `check` was SKIPPED closes it);
+my "every red is local" is a different question and must not be read as an unmet
+R-E. The clause-3 rejection gap is still a gap, not a defect, and does not block
+#691. The one blocker on #691 remains administrative: it does not merge —
+conflict in `docs/state/builder.md`.
+
 ## Addendum — the population we could count was not the population that mattered
 
 Builder-b attributed test-timeout flakiness to the 1256 leaked daemons; architect
