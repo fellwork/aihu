@@ -412,7 +412,7 @@ jobs:
     # resolves every needed job to a terminal state (success/failure/
     # cancelled/skipped) before evaluating this job's `if: always()`, which
     # then runs regardless of what that state was.
-    needs: [check, examples, governed-examples, lesson-refs, palette, readme-sync]
+    needs: [changes, check, examples, governed-examples, lesson-refs, palette, readme-sync]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -441,6 +441,12 @@ jobs:
           # evaluates to `false` — so the draft rule below can never fire on a
           # branch build.
           IS_DRAFT: ${{ github.event.pull_request.draft == true }}
+          # `changes.code` — 'false' means this PR is docs-only, so `check` skipped
+          # BY DESIGN and ci-ok must still be green (the `on:`/`changes` header
+          # promises exactly that). On a draft PR the `changes` job is skipped, so
+          # this is '' — but the draft branch below never reads it. Empty on a
+          # NON-draft (a broken `changes` job) must fail closed, not green.
+          CODE_RESULT: ${{ needs.changes.outputs.code }}
         run: |
           echo "check:              $CHECK_RESULT"
           echo "examples:           $EXAMPLES_RESULT"
@@ -478,11 +484,28 @@ jobs:
           if [ "$IS_DRAFT" = "true" ] && [ "$CHECK_RESULT" = "skipped" ]; then
             echo "::warning::Draft PR: 'check' was skipped, so nothing was built or tested. NOT evidence of a pass — mark ready for review to get a real result. Not failed, because a draft is unfinished, not broken. (FEL-437)"
           fi
-          # A NON-draft whose `check` skipped is a genuine anomaly: the gate would
-          # be reporting on a build that never ran, with nothing blocking a merge.
+          # A NON-draft whose `check` skipped is an anomaly ONLY when code changed.
+          # A docs-only PR (changes.code == 'false') skips `check` BY DESIGN, and
+          # the header above promises such a PR still gets ci-ok green so it is
+          # mergeable without an admin override. This branch is the #670 x #667
+          # INTERACTION, not a #670 overcorrection: #670 (01:12Z) made "non-draft +
+          # check skipped" a hard failure, a CORRECT assumption when written because
+          # the `changes.code` filter was still inert (leading ** under
+          # predicate-quantifier: some killed every negation), so `code` was always
+          # true and `check` always ran — this branch was unreachable. #667 (01:46Z)
+          # made the filter actually discriminate, so a docs-only PR now correctly
+          # skips `check`, which ARMED this latent branch. Proof it is the interaction:
+          # #659 is docs-only, merged 01:46:01Z AFTER #670, and passed with
+          # CHECK_RESULT=success because #667 had not landed yet. So exempt the
+          # legitimate docs-only skip, and fail everything else that skipped without
+          # being docs-only — including a broken `changes` (code=''), which fails closed.
           if [ "$IS_DRAFT" != "true" ] && [ "$CHECK_RESULT" = "skipped" ]; then
-            echo "::error::'check' was skipped on a non-draft PR — ci-ok would be reporting on a build that never ran. Investigate the changes/paths filter before merging."
-            fail=1
+            if [ "$CODE_RESULT" = "false" ]; then
+              echo "docs-only PR (changes.code=false): 'check' skipped by design — ci-ok green per policy."
+            else
+              echo "::error::'check' was skipped on a non-draft PR with code changes (changes.code='$CODE_RESULT') — ci-ok would be reporting on a build that never ran. Investigate the changes/paths filter before merging."
+              fail=1
+            fi
           fi
           if [ "$fail" = "1" ]; then
             exit 1
