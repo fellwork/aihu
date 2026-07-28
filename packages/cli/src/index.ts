@@ -114,7 +114,26 @@ export function appPackageJson(
         ...(withCssEngine ? { '@aihu/css-engine': 'latest' } : {}),
         '@aihu/router': 'latest',
         '@aihu/runtime': 'latest',
+        // `@aihu/server` and `@aihu/store` are peers of `@aihu/app` that its
+        // CLIENT entry imports eagerly — `hydrateStores` from `@aihu/store` and
+        // `routeHeadToSsrHead` from `@aihu/server/head-lowering`. `@aihu/app`
+        // declares NO runtime `dependencies` at all; every one of its imports is
+        // a peer, so a consumer must list them or nothing installs them.
+        //
+        // npm 7+, pnpm and bun auto-install peers, which hid this: the scaffold
+        // worked on three of four package managers. YARN 1 DOES NOT, so it was
+        // the only one to fail — `yarn run build` died at config load with
+        // ERR_MODULE_NOT_FOUND "Cannot find package '@aihu/store' imported from
+        // node_modules/@aihu/app/dist/index.js" (run 30322552896, 4 cells).
+        //
+        // The fix belongs HERE and not in `@aihu/app`'s dependencies: promoting
+        // a peer to a dependency lets the app install its own copy alongside the
+        // consumer's, and two `@aihu/store` instances mean two module-level
+        // store registries — hydration writes to one and reads from the other.
+        // Same reasoning as `@aihu-plugin/agent-readiness` below.
+        '@aihu/server': 'latest',
         '@aihu/signals': 'latest',
+        '@aihu/store': 'latest',
       },
       devDependencies: {
         // `@aihu-plugin/agent-readiness` powers the `agentReadiness` pass in
@@ -136,6 +155,18 @@ export function appPackageJson(
       // the published tarball stays in place and `bun run build` dies with
       // ENOEXEC ("Unknown system error -8"). See FIX 1 (cli release readiness).
       trustedDependencies: ['@aihu/compiler'],
+      // pnpm's equivalent of `trustedDependencies`, and it is not optional:
+      // pnpm >=10 blocks ALL lifecycle scripts by default and — unlike bun,
+      // which blocks them silently — exits NON-ZERO with ERR_PNPM_IGNORED_BUILDS.
+      // So `pnpm install` on a fresh scaffold fails outright before the user can
+      // reach a build (run 30322552896: 4 of 4 pnpm cells died here, "Ignored
+      // build scripts: esbuild@0.25.12").
+      //
+      // Both entries are load-bearing for the same reason their bun counterpart
+      // is: `@aihu/compiler` postinstalls the correct-arch native binary, and
+      // vite's `esbuild` postinstalls its own. A blocked script leaves a
+      // wrong-arch binary in place, which surfaces much later as ENOEXEC.
+      pnpm: { onlyBuiltDependencies: ['@aihu/compiler', 'esbuild'] },
       ...(packageManager ? { packageManager } : {}),
     },
     null,

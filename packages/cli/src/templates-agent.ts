@@ -77,6 +77,11 @@ export function agentPackageJson(name: string, pm = 'bun'): string {
       // @aihu/compiler ships its native binary via an arch-validating postinstall
       // that bun blocks unless the package is trusted.
       trustedDependencies: ['@aihu/compiler'],
+      // The pnpm-side equivalent. pnpm >=10 blocks lifecycle scripts by default
+      // and exits NON-ZERO doing it (ERR_PNPM_IGNORED_BUILDS), so without this
+      // `pnpm install` fails on a fresh scaffold before the user reaches a build.
+      // Kept in step with `trustedDependencies` above and with appPackageJson().
+      pnpm: { onlyBuiltDependencies: ['@aihu/compiler', 'esbuild'] },
       ...(packageManager ? { packageManager } : {}),
     },
     null,
