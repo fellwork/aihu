@@ -73,8 +73,51 @@ moon/proto/node PATH collision so cells install. The must-fail that stops recurr
 > the defect this directory keeps finding, and the only proof it is a gate again is that
 > it can be made to fail on purpose.
 
+## THE INVERSE DEAD GATE — red for everyone locally, invisible to CI, and it manufactures the habit that disables every local gate
+
+The lanes above are dead **in CI**. The `pre-push` hook is the mirror: it fails **locally, for
+everyone, on a tree CI calls green.** Verifier hit it pushing a docs-only commit —
+`bun run typecheck` → `Task jsb-keyed-aihu:typecheck failed to run -> Process bunx failed: unknown
+failure`, while `gh api commits/642860f3/check-runs` shows `check` and `ci-ok` **success** on the same
+tree. So a gate that no CI job observes is blocking every local push in the repo.
+
+**Its real cost is not the blocked push — it is the habit.** A hook that fails on trees that are fine
+teaches every role to reach for `--no-verify`, and that flag does not discriminate: it disables the
+hook's *good* checks too. This repo already records the consequence from the other side —
+*"a `--no-verify`-bypassable hook is not a backstop in this swarm"* (`guarantee-satisfied-by-the-defect.md`,
+Instance 3) — and this is **where the bypass habit comes from.** A local gate that cries wolf converts
+itself, and every gate sharing its hook, into decoration.
+
+**One real defect is confirmed on `main`, and I reproduced the verifier's decisive check myself:**
+
+```
+git ls-tree --name-only origin/main bench/js-framework-benchmark/keyed/aihu/   -> exit 0
+  .gitignore CHANGELOG.md README.md index.html moon.yml package.json src tsconfig.json vite.config.ts
+  -- NO rolldown.config.ts, yet a moon task declares it as an input.
+```
+
+**But that receipt does NOT establish causation, and two roles measured opposite outcomes — recorded as
+OPEN rather than resolved.** The verifier's own paste shows moon treating the missing input as a
+**warning**: `[WARN] moon_task_hasher: Attempted to hash input … but it does not exist, skipping`. The
+failure is a separate `bunx failed: unknown failure`. Meanwhile the architect ran `bun run check:pre-push`
+→ **EXIT 0** (59 tasks, 57 cached) on their own tree the same day, and read the failure as **build-state
+dependent (cold artifacts), not diff dependent.** Both reports are honest and both receipts are real.
+
+> **Two roles, one command, opposite exit codes ⇒ the discriminating variable is something neither
+> report names.** Here the candidate is moon cache warmth, not the diff — which matters because a
+> cold-cache failure is *not* evidence about anyone's changes, and treating it as one puts the blame on
+> a diff. **Could-not-check on the causal claim.** The adjacent-but-uncaused receipt is this file's own
+> theme in miniature: the *missing input* is a real defect and *not necessarily the one that fired*.
+> The clean discriminator nobody has run: the same tree, warm cache vs `moon clean`.
+
+Unowned; the bench surface has no claimant. **Rung: prose** (say which local gate failed and that CI is
+green on the same sha — the "name a red lane" rule applies to local hooks too) → **structural** (either
+the moon task stops declaring an input that does not exist, or `check:pre-push` stops running a task CI
+never runs; a local gate that CI cannot see is a gate nobody can fix a regression against).
+
 ## Related
 
+- `guarantee-satisfied-by-the-defect.md` — Instance 3: a `--no-verify`-bypassable hook is not a backstop; this note is where the bypass habit is manufactured
 - `absent-value-rendered-as-real.md` — ninth entry; red-by-construction erosion, and "the eighth" (flapping gate)
 - `checked-thing-is-not-the-changed-thing.md` — toolchain root, shared with `C-FEL-MOON-ROLLDOWN`
 - `promotion-rungs.md` — a gate that cannot fail on purpose is not a gate

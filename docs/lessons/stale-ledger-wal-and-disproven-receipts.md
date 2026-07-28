@@ -129,7 +129,10 @@ The receipt-index gap is one of a set, and they belong together in the record:
    scheduling honesty too: the fix (`swarm-bus record`, or `offer --no-dispatch`) was
    **named and deliberately not filed**, because filing it would consume the WIP slot just
    given to gate-wiring. *Naming what you are not doing, and why, is the thing that makes a
-   backlog different from a silence.*
+   backlog different from a silence.* **It happened TWICE the same day** —
+   `C-SWARM-RECON-AUTHORITY` also merged (#686, squash `5d485ba9`, 15:57:42Z) with no row
+   able to carry its receipt, and its verdict says so explicitly. **Two in one day is a
+   pattern, not an incident**, and it is the strongest argument for `swarm-bus record`.
 
 All three are the same defect one level up from everything in this directory: **the record
 can hold a claim but not a retraction of it — and here, not even a claim.** None is filed —

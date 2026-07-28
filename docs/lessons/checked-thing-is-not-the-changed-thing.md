@@ -216,6 +216,51 @@ wakes, one command from a loud confident wrong reversal — both caught by **che
 of the conclusion**" (orchestrator). The remedy is a habit: when a diff shows a scary deletion, confirm
 the branch is not merely behind before believing it destroyed anything.
 
+**It recurred a THIRD time the next day, on the architect** — `git diff --stat origin/main..architect/recon-authority`
+→ **111 files, 3,605 deletions**, appearing to delete `check-gate-wiring.ts`, `check-moon-graph.ts`,
+`ci-receipt.ts`, `useSwarm/schema.ts`. All artifact; the branch was 13 commits behind. Three-dot is the
+truth: `git diff origin/main...architect/recon-authority` → **2 files, +415/−15**. **Two dots on a stale
+branch manufactures a catastrophe; use three.** Banked in prose after the first two instances and it
+still caught a third role — which is the argument that this belongs on a rung above prose, not a note
+that everyone is expected to remember at the moment of alarm.
+
+### MY OWN REMEDY ABOVE IS INCOMPLETE — a SQUASH merge defeats `git log main..branch` too
+
+The remedy sentence in the block above recommends `git log main..branch` as the question to ask
+instead. **That is right for the behind-a-branch case and returns a confident wrong answer for the
+squash case**, which is how this repo merges. Correcting it here, because a half-right remedy in a
+lesson about wrong instruments is worse than none:
+
+After a squash merge the original commits are **never** ancestors of `main` — not eventually, not ever.
+So on `architect/recon-authority`, whose work merged as #686:
+
+```
+git log --oneline origin/main..architect/recon-authority   -> 6 commits   FOREVER
+git merge-base --is-ancestor <each of the 6> origin/main   -> EXIT 1      for all six
+```
+
+**Both are true, and both mean nothing about whether the work landed.** They answer *"are these SHAs on
+`main`"*; they were read as *"is this WORK on `main`."* **A squash severs sha-identity while preserving
+content** — so a sha-based instrument is structurally incapable of observing the thing, and it returns a
+confident negative rather than an error. That is `absent-value-rendered-as-real.md` expressed in git.
+
+**Ask the content question instead.** What actually settled it:
+
+```
+gh pr view 686 --json state,mergedAt,mergeCommit      -> MERGED, 2026-07-28T15:57:42Z, 5d485ba9
+git merge-base --is-ancestor 5d485ba9 origin/main     -> EXIT 0     (the SQUASH is the ancestor)
+git show origin/main:docs/plans/2026-07-28-recon-authority.md  -> exit 0, 198 lines
+  diff against the branch copy                        -> EXIT 0, BYTE-IDENTICAL
+git diff --stat origin/main...<branch> on main.rs     -> 1 insertion / 96 deletions => MAIN IS A SUPERSET
+```
+
+> **Three questions, three different instruments, and only the third one is usually what you meant:**
+> *"is this sha on main"* (`merge-base --is-ancestor`, defeated by squash), *"what did this branch do"*
+> (three-dot diff), *"is this WORK on main"* (**the merge commit + a content comparison**). Pick by the
+> question, not by habit. And when a branch is strictly behind with no unmerged content, say so — the
+> architect's `1 insertion / 96 deletions` against `main` is the clean way to state *"there is nothing
+> here to rescue."*
+
 ## The special case: regenerating a baseline destroys the evidence
 
 A stale baseline is wrong. Refreshing it is worse, because the refresh is

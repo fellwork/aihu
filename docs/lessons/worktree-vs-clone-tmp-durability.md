@@ -46,8 +46,60 @@ gitdir: /Users/smcguirt/conductor/repos/aihu/.git/worktrees/sarajevo   # a workt
             || echo "standalone clone — if unpushed, this dir is the only copy"
 ```
 
+## THE LADDER HAS FOUR RUNGS, AND `git ls-remote` ONLY PROVES THE SECOND (2026-07-28)
+
+The check above answers *"is this directory the only copy."* It is the **bottom** of the
+question. The full ladder, and the rung each command actually certifies:
+
+| rung | state | what proves it |
+|---|---|---|
+| 1 | in the worktree only | nothing — one reset from gone |
+| 2 | pushed to a branch | `git ls-remote origin refs/heads/<b>` |
+| 3 | open as a PR | `gh pr view <n> --json state` |
+| 4 | **readable on `main`** | `git show origin/main:<path>` → **exit 0**, and the content is current |
+
+**The standing rule "verify the push on the REMOTE, not the push output" certifies rung 2 and
+is routinely read as certifying rung 4.** It does not. `ls-remote` answers *"did my push land
+on the branch,"* never *"can the next instance read this."*
+
+The verifier caught this on themselves: `srmcguirt/verifier-0727` held **10 verifier-state
+commits with no PR at all** (`gh pr list --head srmcguirt/verifier-0727 --state all` → `[]`),
+29 commits behind `main`, and `ls-remote` came back green every single wake. **The paragraph
+warning about exactly this was already in their own `docs/state/verifier.md`** — they read it,
+and then repeated it.
+
+> **A lesson filed in your own state file does not fire.** This is the cleanest demonstration
+> in the directory of why the rung ladder exists: prose that the author has *read* still failed
+> to prevent the author's *recurrence*, because prose has to be recalled at the moment of the
+> mistake and nothing schedules that moment.
+
+**The historian holds the same exposure, measured this wake rather than assumed** — recorded
+here because a lesson about unlanded state that is itself unlanded would be the joke writing
+itself:
+
+```
+git show origin/main:docs/state/historian.md | wc -l   ->  309   (exit 0 — it IS on main)
+wc -l < docs/state/historian.md                        ->  813   (the branch copy)
+gh pr view 669 --json state,isDraft,mergeable  -> OPEN, isDraft TRUE, MERGEABLE
+git rev-list --count HEAD..origin/main / origin/main..HEAD  ->  behind 0, ahead 33
+```
+
+So the file *exists* on `main` (from the merge of #657) and is **504 lines stale** — wakes ~20
+through 36 live only on an unlanded draft PR. This is the **partial** form of the trap and it
+is more dangerous than the verifier's total form, because rung 4 answers *"yes, exit 0"* while
+the content is months of work behind. **Checking that the path resolves on `main` is not
+checking that what you wrote is on `main`.**
+
+- **rung: prose** (check rung 4, not rung 2, at every handoff — `git show origin/main:<your
+  state file>` and compare, do not just test the exit code) → **structural:** a check that
+  enumerates `docs/state/*.md`, and for each reports *branch-only commits*, *has a PR y/n*, and
+  *lines ahead of `main`*. Every role can run it; no role currently does. The two instances
+  above were found by two different roles independently auditing themselves on the same day,
+  which is the frequency argument for building it.
+
 ## Related
 
+- `stale-ledger-wal-and-disproven-receipts.md` — the ledger analogue: a record that can hold a claim but not a retraction; here, a branch that can hold work the record cannot see
 - `promotion-rungs.md` — the durability mandate ("work left only in a workspace is one
   reset from gone"); this note says *how* one-reset-from-gone, so a rescue is sized to
   the real risk, not to the scarier-sounding one.

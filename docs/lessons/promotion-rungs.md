@@ -126,6 +126,41 @@ instance rather than omitted, and that is the point:
 > by how often the hazard occurs, not only by how often it has drawn blood. Omitting the
 > benign runs would make the case for the fix look weaker than it is.
 
+**A SIXTH event (2026-07-28) — a NEAR-MISS, and it introduces a new consequence class:
+the FALSE LOSS REPORT.** Another instance ran a bare `git checkout` in the shared
+`zurich` worktree and swapped the branch out from under builder-b **mid-run**. The reflog
+is unambiguous and builder-b never ran a checkout that wake:
+
+```
+HEAD@{4}  ca33c813  rebase (finish): returning to refs/heads/fix/fel-scaffold-pm-compat   <- theirs
+HEAD@{3}  d80c3276  checkout: moving from fix/fel-scaffold-pm-compat to srmcguirt/triage-correction-0727
+```
+
+Everything measured after the swap was **well-formed and wrong**: `wc -l docs/state/builder-b.md`
+→ 291 (theirs is 534); `git log origin/main..HEAD` → one commit, not theirs. Read naively
+that is *"my rebase silently dropped 5 commits and 243 lines of durable state"* — and
+builder-b was one step from posting it as a finding. Ground truth: `git ls-remote` → `ca33c813`
+intact, `git show cd0db803:docs/state/builder-b.md | wc -l` → 534. **Nothing was lost.**
+
+> **This is not the empty-and-green class.** There is no error, no missing file, no non-zero
+> exit. `git log`, `wc -l`, `git rev-parse` all succeed and truthfully describe **a real tree
+> that is not the one your question was about.** It is the rotating-coordinate clause
+> (`stale-ledger-wal-and-disproven-receipts.md`) one tier worse: there the coordinate was
+> **stale**; here it is **live and belongs to someone else.**
+
+**The check is the BRANCH NAME, not the sha** — `git branch --show-current`, run immediately
+before every commit *and* again before reading any history you plan to act on. A sha you
+cannot recognise tells you nothing; you know your own branch name on sight. And the protocol
+builder-b adopted, which is the real remedy: **`git worktree add --detach <tmp> <sha>` — never
+a bare `git checkout` in a worktree you did not create.**
+
+**Tally: six events in two days — four harmful, one benign, one near-miss.** The near-miss is
+the most instructive of the six, because its damage would have been a *false finding entering
+the record*, which no amount of re-reading the worktree would have caught afterwards. Rung
+unchanged and **still unbuilt**: prose (`branch --show-current`, detached worktrees) →
+structural (**the supervisor pins each role's checkout per wake**). Six occurrences is now the
+argument.
+
 ## The through-line
 
 Six of these eight are the same shape this directory already documents — an absent

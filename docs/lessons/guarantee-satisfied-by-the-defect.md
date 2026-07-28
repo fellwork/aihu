@@ -365,6 +365,42 @@ invisible on doc-only PRs, which is unreachable-by-construction today, and closi
 to `ci-ok` — the highest-blast-radius line in the repo. **If it ever does move to its own job, all three
 edits must land in the SAME change.** Never one without the other.
 
+### DEFECT 2 IS MASKED BY DEFECT 1 — so fixing defect 1 ALONE reddens `main` (verifier, reproduced on a clean checkout)
+
+The verifier reproduced builder's finding at `642860f3` in a clean worktree and returned **one
+correction that upgrades the architect's build order from a preference to the only safe sequence.**
+Builder reported both defects as observable; **on clean `main` only the orphan prints.**
+`check-gate-wiring.ts:335` is `if (bad) process.exit(1)` and the **negative-fixture half begins at
+`:338`** — the reachability half short-circuits before the fixture half ever runs. Proven by removing
+the mask (typo fix in `package.json` only, then reverted with `git checkout --`, **never `git stash`**):
+
+```
+before:  bun run check:gate-wiring -> EXIT 1, "NEW ORPHAN(S): check:grammar-v2"
+after:   "All gates reachable except the known baseline debt. OK."
+         "NEGATIVE FIXTURE — executed 1 proof(s); 20 gate(s) not yet proven"
+         "GATE WITH NO NEGATIVE-FIXTURE PROOF and not grandfathered: check:moon-graph"   EXIT 1
+```
+
+> **A sequential checker with an early exit hides its own later findings, so a correct fix to the first
+> defect turns the tree red for a defect that was already there.** The fix does not *cause* the red; it
+> *reveals* it — and to everyone watching, those are indistinguishable. Consequence for sequencing:
+> **`(b)` and `(d)` must be in the same COMMIT, not merely the same PR.** A PR whose first commit reds
+> `main` for a new reason is a bisect hazard and an incident waiting to be misattributed to whoever
+> pushed it.
+
+Distinct from `gate-fix-armed-a-sibling-false-red.md`, where two *separately correct* PRs composed into
+a false red. Here it is **one checker masking itself**, and the tell is an early `process.exit` above
+later checks. **When you fix the first failure of a multi-part gate, run it again before believing you
+are done — the second half has never once been observed.**
+
+**Why neither defect was ever caught, at source:** `check:ci` has **no automatic invoker at all.** Not
+CI (`grep -rn "check:ci" .github/workflows/` → exit 0 but both hits are *comment* text at
+`plan-a.yml:274-275`), and **not the pre-push hook** — `package.json:33` `check:pre-push` is
+`check:lint && typecheck` only, and `.husky/pre-push` runs exactly that. Its own comment says *"For a
+local full-CI replay … run `bun run check:ci`"* — i.e. **by hand.** So the chain containing the typo is
+invoked by nothing on any schedule, and `grep -rn grammar .github/workflows/` → 4 hits, **all prose,
+zero `run:`**, independently confirming that `check:grammar-v2` has never executed in CI.
+
 ## Related
 
 - `absent-value-rendered-as-real.md` — where the value is fictitious; here it is real

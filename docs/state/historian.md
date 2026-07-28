@@ -634,6 +634,66 @@ by it, so open them yourself when auditing.
   `settle-a-contested-claim…` — an INVARIANT beats a timed prediction (no clock, no reach-early bias); TTL now
   CONCLUSIVE (3 timed deaths 20:23:10/20:28:23/20:28:28, cohort cleared). DECIDEs not mine: who wires
   check:gate-wiring; the missing C-FEL-MOONGRAPH-LITERALS row. Board (my fetch): main 3891300a GREEN; #669 draft.
+- **WAKE 37 — I AUDITED MYSELF AGAINST THE VERIFIER'S TRAP AND I AM EXPOSED. Plus: my own wake-31
+  remedy is DEFEATED by squash merges.**
+  (1) **THE DURABILITY LADDER HAS FOUR RUNGS AND `git ls-remote` ONLY PROVES #2.** Verifier self-caught:
+  `srmcguirt/verifier-0727` had **10 state commits and NO PR AT ALL** (`gh pr list --head … --state all`
+  → `[]`), 29 behind main, ls-remote green every wake. **The warning was already in their own
+  `docs/state/verifier.md` — they read it and repeated it.** That is the cleanest proof in the
+  directory that **a lesson filed in your own state file does not fire.** Ladder banked in
+  `worktree-vs-clone-tmp-durability.md`: worktree → branch (`ls-remote`) → PR (`gh pr view`) →
+  **readable on main (`git show origin/main:<path>`)**. **MY OWN EXPOSURE, MEASURED NOT ASSUMED:**
+  `git show origin/main:docs/state/historian.md | wc -l` → **309, exit 0**; my branch copy → **813**.
+  **504 lines — wakes ~20-36 — exist only on unlanded draft #669** (OPEN, draft, MERGEABLE, ahead 33 /
+  behind 0). This is the PARTIAL form and it is WORSE than the verifier's total form: rung 4 answers
+  "yes, exit 0" while the content is a whole day behind. **CHECKING THE PATH RESOLVES ON MAIN IS NOT
+  CHECKING WHAT YOU WROTE IS ON MAIN.** Next instance: run the rung-4 check on YOUR file at every
+  handoff, and if #669 is still draft, say so loudly again — landing is the interactive session's.
+  (2) **CORRECTION TO MY OWN WAKE-31 BANKING.** I banked "two-dot diff shows main's additions as the
+  branch's deletions → use `git log main..branch`". The remedy is **incomplete**: after a SQUASH merge
+  the originals are NEVER ancestors, so `git log origin/main..branch` → 6 commits FOREVER and
+  `merge-base --is-ancestor` → exit 1 for all six. **Both true, both meaningless about whether the work
+  landed** — a sha instrument structurally cannot see content-identity, and returns a confident NEGATIVE
+  (absent-value, in git). Ask by question: *is this sha on main* (`--is-ancestor`, squash-defeated) /
+  *what did this branch do* (**three-dot**) / *is this WORK on main* (**merge commit + content compare**:
+  `gh pr view --json mergeCommit`, `--is-ancestor <mergeCommit>`, `git show origin/main:<path>` diff).
+  Also: the two-dot trap **recurred a THIRD time** (architect: 111 files / 3605 deletions vs three-dot
+  2 files / +415-15) — banked in prose after two instances and it still bit a third role, which IS the
+  above-prose argument. **Nothing was at risk in /tmp; that branch is strictly behind (1 insertion / 96
+  deletions vs main = main is a SUPERSET).**
+  (3) **MASKING (verifier, reproduced clean): defect 2 is INVISIBLE on main because defect 1 hides it.**
+  `check-gate-wiring.ts:335 if (bad) process.exit(1)`, negative-fixture half starts `:338`. Fixing the
+  typo ALONE would red main for a NEW reason. **So (b)+(d) must be in the same COMMIT, not merely the
+  same PR** — the architect's ORDER is now measured, not asserted. Shape: **a sequential checker with an
+  early exit hides its own later findings; the fix REVEALS the red rather than causing it, and those are
+  indistinguishable to observers. Re-run a multi-part gate after fixing its first failure.** Root: `check:ci`
+  has **NO automatic invoker** — not CI (both `check:ci` hits are comment text `plan-a.yml:274-275`) and
+  NOT the pre-push hook (`check:pre-push` = lint+typecheck only).
+  (4) **THE INVERSE DEAD GATE** (`dead-gate-makes-work-unverifiable.md`): pre-push fails LOCALLY for
+  everyone on a tree CI calls GREEN. **Its real cost is the HABIT** — a hook that cries wolf teaches
+  `--no-verify`, which disables its good checks too; this is where Instance 3's bypass habit is
+  manufactured. I reproduced the verifier's decisive check (`git ls-tree origin/main bench/…/aihu/` →
+  no `rolldown.config.ts`, exit 0) — real defect. **BUT causation is OPEN and I recorded it as such:**
+  their own paste shows moon treating the missing input as a WARN "skipping", and the architect measured
+  `check:pre-push` → **EXIT 0** (57 cached) the same day, calling it build-state (cold artifact)
+  dependent. **Two roles, one command, opposite exit codes ⇒ the discriminator is something neither
+  report names (cache warmth). COULD-NOT-CHECK on causation — do not blame a diff for it.** Unowned.
+  (5) `promotion-rungs.md` row 8 → **SIXTH concurrent-instance event, new consequence class: the FALSE
+  LOSS REPORT** (builder-b, near-miss). A bare `git checkout` in shared `zurich` swapped their branch
+  mid-run — and swapped in **MY `srmcguirt/triage-correction-0727`**; I am in sarajevo and ran no
+  checkout there. Every post-swap answer was **WELL-FORMED AND WRONG** (`wc -l`→291 vs 534,
+  `git log`→1 foreign commit); nothing was lost. **Not the empty-and-green class — no error, no
+  non-zero exit, a real tree that is not yours.** My rotating-coordinate clause one tier worse: stale →
+  **live and someone else's**. Check = **`git branch --show-current` (the NAME, not a sha you cannot
+  recognise)**, before every commit AND before reading history you will act on; protocol =
+  `git worktree add --detach <tmp> <sha>`, never a bare checkout in a worktree you did not create.
+  Tally **6 events: 4 harmful, 1 benign, 1 near-miss**; supervisor checkout-pinning STILL UNBUILT.
+  (6) Ledger gap 3 is now **TWICE in one day** (C-FEL-MOONGRAPH-LITERALS + C-SWARM-RECON-AUTHORITY
+  #686/`5d485ba9`) = a pattern, not an incident. Orchestrator WITHDREW ffba4878 (my point 5 accepted:
+  severity = ~41GB RSS; the row asked for two things already ruled against) and adopted my
+  rotating-coordinate clause verbatim + accepted my one-SPOF-counted-twice correction. **Three roles have
+  now hand-set a threshold** (my 1400, architect's 2/min, orchestrator's ~35h clock) — the class holds.
+  Gate exit 0. Killed nothing, touched no infra, set no status, merged nothing.
 - **WAKE 36 — MY FALSIFIER WAS WRONG AND THE ARCHITECT CAUGHT IT. Struck in place; do not reuse ~1400.**
   (1) **THE CORRECTION, recorded loudly because it is mine.** I set the daemon tripwire at "anchored
   >~1400 sustained" — the architect derived that steady state at the then-current rate is
