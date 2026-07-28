@@ -138,9 +138,9 @@ $beforeNavigate((to, from, next) => { next() })
 - `packages/router/src/index.ts` — public API exports
 - `packages/router/src/runtime.ts` — `useRoute()`, `navigate()`, `createRouteSignal()`, `RouteContext`
 - `packages/router/src/router.ts` — `createRouter()`, `RouteDefinition`, pattern matching
-- `packages/router/components/Link.aihu` — `<a>` implementation
-- `packages/router/components/Router.aihu` — `<router>` implementation
-- `packages/router/components/Outlet.aihu` — `<outlet>` implementation
+- `packages/compiler/src/codegen/emit.rs` — `createRouterBoundary` / `createOutletBoundary` /
+  `createNavigateBoundary`: `<router>`, `<outlet>` and `<navigate>` are compiler-lowered
+  framework elements, NOT SFCs. (`<a href>` is a plain anchor; there is no `<link>` component.)
 - `examples/blog-router/src/pages/index.aihu` — basic routing with `$each` list
 - `examples/blog-router/src/pages/posts/[slug].aihu` — dynamic route param access
 - `examples/hacker-news/src/pages/index.aihu` — SSR route with loader data

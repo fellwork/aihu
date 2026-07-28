@@ -17,7 +17,9 @@ fn fixtures() -> Vec<(&'static str, &'static str, &'static str)> {
     vec![
         (
             "counter-each-if-click",
-            "counter",
+            // Registerable by construction: this tag is emitted into a
+            // `defineElement(...)` call, so C450 requires the hyphen.
+            "aihu-counter",
             r#"
 @state {
   let items = state(['alpha', 'beta'])
@@ -287,7 +289,10 @@ fn envelope_compile_error_propagates() {
     let err = compile_envelope(
         src,
         &EnvelopeOptions {
-            tag: Some("host".to_string()),
+            // Hyphenated on purpose: the define-name must be VALID so this
+            // test isolates the component-REFERENCE rule (`<Comment />`)
+            // rather than tripping the define-site rule first.
+            tag: Some("aihu-host".to_string()),
             ..Default::default()
         },
     )

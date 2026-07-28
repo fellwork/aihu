@@ -156,18 +156,17 @@ fn render_human_error(e: &aihu_compiler::CompileError, file_label: &str, source:
 /// O1a (tag naming): normalize the resolved define-name (`@meta name` →
 /// `@route name` → file stem) to its kebab custom-element form, so the
 /// registered element matches emitted `branch(...)` references and the
-/// manifest (`UserCard.aihu` → `user-card`). This is an INFALLIBLE transform:
-/// a single-word define-name (`Comment`, `timer`) that can't carry a hyphen
-/// keeps the historical emit-time hyphen WARNING rather than erroring — only
-/// component *references* in a template are a hard C450 (see
-/// `validate_component_tags` in lib.rs). Lowercase non-component names pass
-/// through unchanged.
+/// manifest (`UserCard.aihu` → `user-card`). Lowercase non-component names
+/// pass through unchanged.
+///
+/// INFALLIBLE, and deliberately so — it backs `--ast-json` and `--route-json`,
+/// whose `tag` is metadata rather than a registration and may hold a
+/// provisional stem (a layout SFC reaches those modes as `site`, never as the
+/// `aihu-layout-site` the Vite plugin registers it under). The registration
+/// rule is C450 via `envelope::validate_define_tag`, applied on the JS-emit
+/// path only — see the call site below the `--sidecar-stdout` early exit.
 fn normalize_define_tag(raw: &str) -> String {
-    if aihu_compiler::tags::is_component_tag(raw) {
-        aihu_compiler::tags::kebab_component_tag(raw)
-    } else {
-        raw.to_string()
-    }
+    aihu_compiler::tags::normalize_define_tag(raw)
 }
 
 fn main() {
@@ -494,8 +493,8 @@ fn main() {
 
     // O1a (tag naming): normalize the define-name (PascalCase→kebab) so the
     // registered custom element matches emitted `branch(...)` references and
-    // the manifest. A single-word define-name keeps the emit-time hyphen
-    // WARNING; only component *references* are a hard C450 (see lib.rs).
+    // the manifest. Validation of this name is C450 and happens below, once
+    // the JS is known to be the artifact we are producing.
     let tag_name = normalize_define_tag(&tag_name);
 
     // #486 step 4 — `--strict-templates` switches the sidecar's attribute/
@@ -527,6 +526,29 @@ fn main() {
         }
         process::exit(0);
     }
+
+    // ── C450 (define site) ──────────────────────────────────────────────────
+    // Everything below this line writes or prints the emitted JS, and that JS
+    // is the ONE artifact carrying `defineElement('<tag>', …)` — the string
+    // handed to `customElements.define`. A name with no hyphen throws
+    // SyntaxError in every browser, so the component never upgrades: it
+    // renders as an inert unknown element and the page is silently blank.
+    //
+    // Placed HERE, after the `--ast-json`, `--route-json`, and
+    // `--sidecar-stdout` short-circuits, precisely so the rule fires only for
+    // tags that actually reach a registration. Those three modes resolve a
+    // provisional stem (a layout SFC arrives as `site`, never as the
+    // `aihu-layout-site` the Vite plugin registers it under) and must not be
+    // rejected over a name they never define.
+    let tag_name = aihu_compiler::envelope::validate_define_tag(&tag_name).unwrap_or_else(|e| {
+        if machine_errors {
+            emit_machine_error(&e);
+            eprintln!("{}:{}: {}", file_label, e.line, e.message);
+        } else {
+            render_human_error(&e, &file_label, &source);
+        }
+        process::exit(1);
+    });
 
     if let Some(ref path) = sidecar_out {
         if let Some(ref ts) = result.sidecar_ts {

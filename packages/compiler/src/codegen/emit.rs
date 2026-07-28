@@ -202,14 +202,17 @@ pub fn emit(unit: &CompileUnit, tag_name: &str) -> EmitResult {
 /// generated type-check surface (`sidecar_ts`); the emitted JS, manifest, and
 /// route sidecar are identical either way. Default-off keeps the sidecar
 /// byte-identical to the pre-#486 output.
+///
+/// `tag_name` is assumed to be a REGISTERABLE custom-element name. It used to
+/// be merely warned about here — an advisory `eprintln!` that fired ~30 times
+/// per build while the build stayed green, so components that could never
+/// register shipped for months. That rule is now a hard C450 error raised
+/// where the define-name is resolved, before this function is reached:
+/// `envelope::validate_define_tag`, called from the CLI (`src/bin/main.rs`),
+/// the wasm binding, and `compile_envelope` (the napi addon path). A gate that
+/// cannot fail the build is not a gate; see
+/// `docs/lessons/hyphenless-custom-element-tags.md`.
 pub fn emit_with_options(unit: &CompileUnit, tag_name: &str, strict_templates: bool) -> EmitResult {
-    if !tag_name.contains('-') {
-        eprintln!(
-            "warning: tag '{}' does not contain a hyphen; custom element names must include '-'",
-            tag_name
-        );
-    }
-
     let target = unit.target;
 
     // GX Phase 1 (#437-GX) — resolve the ONE effective extract policy

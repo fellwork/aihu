@@ -24,7 +24,7 @@ export function quote() {
 
 #[test]
 fn counter_no_agent_block_regression() {
-    let source = include_str!("../fixtures/vite-counter/counter.aihu");
+    let source = include_str!("../fixtures/vite-counter/aihu-counter.aihu");
     let parsed = sfc::parse(source).unwrap();
     let unit = compile_full(&parsed).unwrap();
     let result = emit(&unit, "aihu-counter");
@@ -107,7 +107,7 @@ input x: uuid = 5
 
 #[test]
 fn no_agent_block_manifest_empty_integration() {
-    let source = include_str!("../fixtures/vite-counter/counter.aihu");
+    let source = include_str!("../fixtures/vite-counter/aihu-counter.aihu");
     let parsed = sfc::parse(source).unwrap();
     let unit = compile_full(&parsed).unwrap();
     let result = emit(&unit, "aihu-counter");

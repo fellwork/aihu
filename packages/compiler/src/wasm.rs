@@ -63,14 +63,11 @@ fn compile_impl(source: &str, expr_parser: crate::ExprParserMode) -> Result<JsVa
 
     // O1a (tag naming): mirror the native CLI (`src/bin/main.rs`) — normalize
     // the resolved define-name (PascalCase→kebab) so it matches emitted
-    // references and the manifest. Infallible: a single-word define-name keeps
-    // the emit-time hyphen WARNING; only component *references* are a hard
-    // C450 (see `validate_component_tags` in lib.rs).
-    let tag_name = if crate::tags::is_component_tag(&tag_name) {
-        crate::tags::kebab_component_tag(&tag_name)
-    } else {
-        tag_name
-    };
+    // references and the manifest, then enforce C450. This entry point always
+    // emits JS (the playground compiles to a runnable module), so the define
+    // name always reaches `customElements.define` and the rule always applies.
+    let tag_name = crate::envelope::validate_define_tag(&tag_name)
+        .map_err(|e| JsValue::from_str(&crate::envelope::format_compile_error(&e)))?;
 
     // Phase 4: emit JS + manifest + optional route sidecar
     let result = crate::emit(&unit, &tag_name);

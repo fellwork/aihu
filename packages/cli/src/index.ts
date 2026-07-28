@@ -840,11 +840,26 @@ export function scaffoldPage(routePath: string, outDir?: string): ScaffoldResult
 /**
  * Scaffold a component file under `src/components/`.
  *
- * Usage: `aihu component Card` -> `src/components/card.aihu`
+ * Usage: `aihu component UserCard` -> `src/components/user-card.aihu`
+ *
+ * The filename stem IS the registered custom-element tag, and custom-element
+ * names require a hyphen. A single-word name (`aihu component Card`) would
+ * produce `card.aihu` -> `customElements.define('card', …)`, which throws
+ * SyntaxError in every browser: the component never upgrades and renders
+ * blank. Rather than scaffold something that cannot run — or silently rename
+ * what the author typed — this refuses, and says what to type instead.
  */
 export function scaffoldComponent(name: string, outDir?: string): ScaffoldResult {
   const root = resolve(outDir ?? '.')
   const kebab = toKebab(name)
+  if (!kebab.includes('-')) {
+    throw new Error(
+      `aihu component: '${name}' produces the tag '${kebab}', which cannot register as a ` +
+        'custom element (custom-element names require a hyphen), so the component would ' +
+        `never upgrade. Use a multi-word name (e.g. '${name}Panel') or a hyphenated one ` +
+        `(e.g. 'aihu-${kebab}').`,
+    )
+  }
   return writeFiles(root, [[`src/components/${kebab}.aihu`, componentAihu(name)]])
 }
 

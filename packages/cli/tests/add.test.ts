@@ -161,18 +161,25 @@ describe('aihu add — happy path', () => {
     return { fs, io, resolve }
   }
 
-  it('writes button.aihu into ui.target', async () => {
+  // The destination stem IS the registered custom-element tag, so it must
+  // carry the prefix: a copy landing at `button.aihu` compiles to
+  // `customElements.define('button', …)`, which throws SyntaxError (no hyphen)
+  // and collides with the built-in <button>. Default prefix is `aihu`.
+  it('writes aihu-button.aihu into ui.target (prefixed: the stem is the tag)', async () => {
     const { fs, io, resolve } = setup()
     await add(['button'], { cwd: '/proj', fs, io, resolve, exit: makeExit() })
-    const dest = '/proj/src/components/ui/button.aihu'
+    const dest = '/proj/src/components/ui/aihu-button.aihu'
     expect(Object.hasOwn(fs.files, dest)).toBe(true)
+    // The unregisterable bare name must NOT be written.
+    expect(Object.hasOwn(fs.files, '/proj/src/components/ui/button.aihu')).toBe(false)
     expect(io.out).toContain('added 1 file(s).')
   })
 
   it('--prefix acme rewrites the tag AND the customElements.define call', async () => {
     const { fs, io, resolve } = setup()
     await add(['button', '--prefix', 'acme'], { cwd: '/proj', fs, io, resolve, exit: makeExit() })
-    const written = fs.files['/proj/src/components/ui/button.aihu'] as string
+    // Filename and contents agree — one name, one place.
+    const written = fs.files['/proj/src/components/ui/acme-button.aihu'] as string
     expect(written).toContain("customElements.define('acme-button'")
     expect(written).toContain('class="acme-button"')
     expect(written).toContain('.acme-button {')
@@ -182,39 +189,39 @@ describe('aihu add — happy path', () => {
   it('--dry-run writes nothing but prints the plan', async () => {
     const { fs, io, resolve } = setup()
     await add(['button', '--dry-run'], { cwd: '/proj', fs, io, resolve, exit: makeExit() })
-    expect(Object.hasOwn(fs.files, '/proj/src/components/ui/button.aihu')).toBe(false)
+    expect(Object.hasOwn(fs.files, '/proj/src/components/ui/aihu-button.aihu')).toBe(false)
     expect(io.out).toContain('Plan (1 file(s)')
     expect(io.out).toContain('write')
   })
 
   it('--diff shows a diff against an existing target file', async () => {
     const { fs, io, resolve } = setup()
-    // Seed an existing (differing) target.
-    fs.files['/proj/src/components/ui/button.aihu'] = '@template { <button>old</button> }\n'
+    // Seed an existing (differing) target at the PREFIXED destination.
+    fs.files['/proj/src/components/ui/aihu-button.aihu'] = '@template { <button>old</button> }\n'
     await add(['button', '--diff'], { cwd: '/proj', fs, io, resolve, exit: makeExit() })
-    expect(io.out).toContain('--- button.aihu (existing)')
-    expect(io.out).toContain('+++ button.aihu (incoming)')
+    expect(io.out).toContain('--- aihu-button.aihu (existing)')
+    expect(io.out).toContain('+++ aihu-button.aihu (incoming)')
     // Nothing written by --diff.
-    expect(fs.files['/proj/src/components/ui/button.aihu']).toBe(
+    expect(fs.files['/proj/src/components/ui/aihu-button.aihu']).toBe(
       '@template { <button>old</button> }\n',
     )
   })
 
   it('collision aborts without --force and writes nothing', async () => {
     const { fs, io, resolve } = setup()
-    fs.files['/proj/src/components/ui/button.aihu'] = 'OLD'
+    fs.files['/proj/src/components/ui/aihu-button.aihu'] = 'OLD'
     await expect(
       add(['button'], { cwd: '/proj', fs, io, resolve, exit: makeExit() }),
     ).rejects.toThrow('__exit__:1')
     expect(io.err).toContain('already exist')
-    expect(fs.files['/proj/src/components/ui/button.aihu']).toBe('OLD')
+    expect(fs.files['/proj/src/components/ui/aihu-button.aihu']).toBe('OLD')
   })
 
   it('--force overwrites on collision', async () => {
     const { fs, io, resolve } = setup()
-    fs.files['/proj/src/components/ui/button.aihu'] = 'OLD'
+    fs.files['/proj/src/components/ui/aihu-button.aihu'] = 'OLD'
     await add(['button', '--force'], { cwd: '/proj', fs, io, resolve, exit: makeExit() })
-    expect(fs.files['/proj/src/components/ui/button.aihu']).not.toBe('OLD')
+    expect(fs.files['/proj/src/components/ui/aihu-button.aihu']).not.toBe('OLD')
     expect(io.out).toContain('added 1 file(s).')
   })
 
@@ -398,7 +405,12 @@ describe('aihu add — disk acceptance (§12.4)', () => {
       },
     })
 
-    const written = readFileSync(join(targetDir, 'button.aihu'), 'utf8')
+    // Destination stem carries the prefix, so the compiled recipe registers
+    // <acme-button> — the same tag its own source defines. A file at
+    // `button.aihu` would instead emit `defineElement('button', …)`: a
+    // SyntaxError, and a clash with the built-in <button>.
+    const written = readFileSync(join(targetDir, 'acme-button.aihu'), 'utf8')
+    expect(existsSync(join(targetDir, 'button.aihu'))).toBe(false)
     expect(written).toContain("customElements.define('acme-button'")
     expect(written).toContain('class="acme-button"')
     expect(written).toContain('.acme-button {')
