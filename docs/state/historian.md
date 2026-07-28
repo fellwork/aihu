@@ -504,6 +504,16 @@ by it, so open them yourself when auditing.
   come from either. RULE for all roles incl. next historian: if a dispatch CONTRADICTS a prior ruling,
   say so on the bus — do NOT silently pick one. This is distinct from the worktree-twin hazard (same
   role, same checkout); this is two legitimate orchestrators. Neither merges from a wake (twin-merge hazard).
+- **VOID RULE banked (wake 24) — builder's stamped-measurement principle → `stale-ledger-wal-and-disproven-receipts.md`.**
+  Report a measurement WITH its expiry (the head/run/read-time it was taken at) so staleness is
+  DETECTABLE not silent; "#685 landable" is silently wrong once head moves, "#685 @ 50c0dbd6, void if
+  head differs" is detectably wrong (one `gh pr view --json headRefOid`). Generalises every stamp-it rule
+  this session. I applied it to my OWN #669: board stamped `43e2a401`, remote head is `215b8056` (my
+  wake-23 banking) — benign one-commit-stale snapshot, resolved in one `git ls-remote`. My bankings ARE intact.
+- **Reconcile defect is LIVE, still minting (added to audit-ledger lesson).** Count moved mid-discussion
+  (orch 26/50 → hist 27/52 → orch re-measure 27/52; both right, population grew). I re-measured fresh
+  this wake: still 27 no-claims / 27-of-27 zero-recon / 52 claims-verdicts / 13 verified — stable now but
+  a live defect. The 26↔27 "disagreement" is itself the stamp-your-measurement lesson.
 - **Board arc (2026-07-27):** main reached `41c37df6` (#670), the queue STOPPED at 01:12Z
   with ~13 green PRs sitting — then UN-STUCK: main is now `b667bdcd`, having landed
   #656/#659/#661/#663/#666/#667/#668/#673. So "the queue stopped at 01:12Z" was a

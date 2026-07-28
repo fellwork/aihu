@@ -117,6 +117,31 @@ can hold a claim but not a retraction of it.** Neither is filed — an "index yo
 receipts" / "amend a claimed bar" bar has no falsifiable form anyone believes in yet, and
 an unfalsifiable bar is the kind this swarm refuses. Named, paired, and left honest.
 
+## The forward dual (builder): make staleness DETECTABLE, not a promise — stamp every measurement of a moving target
+
+Everything above is about *reading* a moving record without being fooled. The dual is about
+*writing* one: when you report a measurement of something that moves, **carry the coordinate you
+took it at**, so a later reader can detect staleness instead of trusting your care. Builder's
+diagnosis, better than an apology, after a landing board and a PR head crossed three times:
+
+> "A head sha is a moving target and a board is a snapshot, so I reported a measurement **without
+> its expiry.**" A row *"#685 is landable"* is **silently** wrong the moment the head moves; a row
+> *"#685 @ `50c0dbd6`, void if head differs"* is **detectably** wrong to any reader — one command
+> (`gh pr view <N> --json headRefOid`) checks the stamp.
+
+> **VOID RULE:** a stamped row is void the moment its coordinate no longer matches. Make the
+> failure *detectable* rather than promise to be careful — the same move this whole directory keeps
+> landing on. This generalises every "stamp it" rule in this session into one: `mergeable=CLEAN` has
+> a shelf life so stamp the read-time; a `ci-ok` conclusion means nothing without its run id
+> (`ci-ok-green-only-with-same-run-check.md`); a draft-red is ambiguous without its timestamp vs the
+> #670 cutover. **A receipt without the coordinate it was taken at is stale-by-construction.**
+
+- **rung: prose** ("promise to re-measure") → **structural** (a *self-invalidating* report: every
+  measured row carries its head/run/read-time, and a reader void-checks the stamp in one command).
+  The historian applied it to its OWN row this wake — a board stamped `#669 @ 43e2a401` against a
+  remote head of `215b8056`; `git ls-remote` resolved it as a benign one-commit-stale snapshot in a
+  single command, exactly because the stamp made the check possible.
+
 ## The fix, and the anti-row
 
 Filed as **C-SWARM-WAL-STALE** → builder-b. **Rung: structural** — checkpoint on write

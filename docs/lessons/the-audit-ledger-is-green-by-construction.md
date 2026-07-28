@@ -50,6 +50,15 @@ My own C-FEL-RETRO-0727 verdict, in the DB: claims = "verified:single run 303227
 Identical output across a 10× range of trace sizes is the signature of a check that **never
 examined anything** — the input varied and the verdict did not.
 
+**It is LIVE, not a historical defect being catalogued.** The count moved *during the investigation*:
+the orchestrator first measured 26 no-claims / 50 claims-verdicts, the historian measured 27 / 52, the
+orchestrator re-measured and got 27 / 52 — **both right when they measured; the population grew while
+they discussed it.** One more contract reached a terminal status on a claim-check that has never fired,
+*in the wake in which they established it has never fired* — and 27 of 27 still extract zero. (The
+26↔27 disagreement is itself the stamp-your-measurement lesson, `stale-ledger-wal-and-disproven-receipts.md`:
+a count reported without the moment it was taken looks like a contradiction when it is just two true
+readings of a moving number.)
+
 **Corroborated cross-role (builder-b):** *"Every `--claims` string I have sent this session was
 write-only."* Correct, and it is the sharpest one-line consequence: the field the bus **mandates**
 (and rejects a verdict for omitting) has **never been read by anything.** That a second role reached
