@@ -94,6 +94,41 @@ Rust binary** (in-repo, tested, already correct-postured) and leave
 correctness defect by hand-patching the ledger it corrupted is how the next
 person learns the ledger is editable.
 
+### 🔴🔴 I WAS WRONG ABOUT `supervisor.py` TWICE — because I never opened it
+
+**Read the file before characterising it to the founder.** I sent two escalation
+messages describing `supervisor.py`'s reconcile as a guarantee-free heuristic. I
+finally read it this wake:
+
+- **It already has could-not-check posture.** `:690` no transcript or verdict →
+  `unverified`, *"not calling it done"*. `:716` a claim with no backing tool call
+  → `DISPUTED`. `:731` `recon.py` non-zero → `unverified`. `:707` deliberately
+  splits exit-0-vacuous (`no-claims`) from exit-0-grounded (`verified`), with a
+  comment that collapsing them would be *"the panel overselling"*.
+- **The real defect is TRANSCRIPT SELECTION BY ROLE** (`:681-687`):
+  ```python
+  subs  = SELECT id,owner FROM contract WHERE status='submitted'
+  entry = reg.get(owner)      # the ROLE registry
+  tr    = _transcript(entry)  # the ROLE's CURRENT session
+  ```
+  The trace is chosen by **who owns** the contract, never by **which contract**.
+  Correct exactly while that role is still sitting on it; wrong the moment they
+  move on. **This explains both corrupt rows:** builder-b had moved on (picked up
+  an `aihu/zurich` compiler session); architect had not (picked up their own
+  agent-swarm work).
+- `:695` `detail = (r.stdout or r.stderr)...[:300]` — the `recon` field is a raw
+  300-char truncation of `recon.py`'s stdout. **The "corrupt recon" is `recon.py`
+  being chatty, not a corruption event.**
+
+**This also corrects architect's correction of me.** They reported the reconciler
+read the *right* trace and concluded *"selection was never the load-bearing
+step."* True as an observation — the mechanism shows it was **luck**. **Selection
+IS load-bearing.** Neither of us had it until the file was read.
+
+**The shape of my error is the shape of the defect I was reporting:** I certified
+a characterisation I had not observed, on an escalation about a mechanism
+certifying things it had not observed.
+
 ### 🔴 CORRECTION to that escalation — and a cross-repo trap my own escalation baits
 
 Architect supplied the true provenance for `C-SWARM-P0` and **one clause of what
@@ -134,6 +169,50 @@ while this swarm demonstrably runs contracts in more than one repository. **A
 cross-repo contract cannot be linked correctly today — only wrongly or not at
 all.** Architect chose not-at-all, which was right, and declined to mutate their
 own row. Added as a second requirement on the reconcile fix.
+
+### RULED: Option B — `C-SWARM-RECON-AUTHORITY` dispatched to architect
+
+**The escalation narrows; it does not resolve.** Architect sent a well-reasoned
+*"ARCHITECT RULING: Option B"* on an escalation sitting in DECIDE. Architect does
+not rule an escalation — **but I made that easy** by escalating a question that
+was half mine already. B was always my call; I said so in the escalation itself.
+**Only A — pausing the swarm — needs the founder.** Clean statement: *their
+analysis decided it, my authority dispatched it.* The remaining founder question
+is the `supervisor.py` hot edit **alone**, and since that is step two, **nothing
+is idle waiting for it.**
+
+#### 🔴 Their fail-closed sequencing is WRONG — and I measured it rather than arguing
+
+They recommended the demotion land *"first-or-with"* the Rust path: if nothing
+auto-promotes, contracts hold at submitted/building — *"fail-closed, strictly
+better."* Measured:
+
+| fact | source |
+|---|---|
+| a need is satisfied ONLY by `verified` or `no-claims` | `main.rs:1199-1245` |
+| `st = "no-claims" if vacuous else "verified"` — the **only** writer of `no-claims` | `supervisor.py:707` |
+| 26 `no-claims` + 13 `verified` = 39 terminal rows | `bus.db` |
+| `verify-merged` writes only `verified`, only from a merged fellwork/aihu PR | `main.rs` |
+| **9 contracts currently declare `needs`** | `bus.db` |
+
+**Demote first and every contract whose work legitimately produces no merged PR —
+spec-only, docs-only, every vacuous pass — can never satisfy a downstream need.
+That is not fail-closed, it is a DAG stall.** Their instinct about the
+*direction* of the error was right; the blast radius was invisible without the
+`no-claims` count. **RULED: the Rust path lands FIRST, the demotion follows.**
+Their capability-removal-is-the-safest-edit argument stands — it applies to step
+two.
+
+**Amendment to their heal bar:** if the true evidence is no longer recoverable
+(and for a role-scoped transcript that has since rolled, it may not be), the
+honest landing place is **could-not-check/unverified, not a reconstructed true
+status.** A heal that invents a status to look complete is the same defect one
+level up.
+
+**INTERIM GUARD, adopted from architect and binding on everyone:** do **not** run
+`sync --push` against any `verified` row whose `recon` is not a real same-repo
+receipt. Trip wire: if any `verified` contract *gains* an external link before
+the fix lands, treat it as urgent.
 
 ## 🔴 A FOURTH FACE OF THE FAKE GREEN — and the workflow already documented it
 
@@ -2682,6 +2761,17 @@ all 13 open issues were unassigned and three of them were already done.
   Read that agent's own bus traffic first. Twins share `(workspace, role)` and
   the Slack bot stamps `username=<role>` for anyone, so attribution by username
   is impossible. I got this wrong about verifier and corrected it publicly.
+- **Do not characterise `~/.swarm/supervisor.py` without opening it.** I told the
+  founder twice it was a guarantee-free heuristic. It has could-not-check posture
+  at `:690`, `:716`, `:731`. The defect is role-scoped transcript selection at
+  `:681-687`, nothing else.
+- **Do not demote `supervisor.py` before the Rust promotion path exists.** It is
+  the only writer of `no-claims` (26 rows), and `cmd_ready` satisfies a need only
+  on `verified`/`no-claims` — demoting first stalls the DAG, it does not fail
+  closed.
+- **Do not run `sync --push` against a `verified` row whose `recon` is not a real
+  same-repo receipt.** Standing interim guard until `C-SWARM-RECON-AUTHORITY`
+  lands.
 - **Do not attach a `--github-pr` to a cross-repo contract.** `gh_pr_view`
   hardcodes `--repo fellwork/aihu`, so `C-SWARM-P0`'s real PR
   (`srmcguirt/agent-swarm#1`, OPEN) resolves to `fellwork/aihu#1` — **merged
