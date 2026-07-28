@@ -40,7 +40,7 @@
  * Exit 0 = graph covers every acyclic derived edge. Exit 1 = missing edges.
  */
 
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 const root = join(import.meta.dirname, '..')
@@ -112,7 +112,29 @@ function parseDependsOn(moonYml: string): Set<string> {
   return out
 }
 
-/** Recursively collect source files that participate in typecheck/build. */
+/**
+ * A project consumes dependency `dist/*.d.ts` — and therefore needs
+ * build-order edges — only if it runs a REAL `tsc` typecheck (or a build). A
+ * project that pins `language: 'unknown'` / a `noop` typecheck (e.g. `templates`,
+ * whose real work is its `cf-team` subproject and whose own files are inert
+ * scaffold payload) never typechecks against upstream dts, so its imports are
+ * not build-order edges. Skip it.
+ */
+function consumesDts(moonYml: string): boolean {
+  if (/^language:\s*['"]?unknown['"]?/m.test(moonYml)) return false
+  // An explicit `typecheck:` whose only command is `noop` opts out of tsc.
+  const tc = moonYml.match(/^\s{2}typecheck:\s*\n(?:\s{4}.*\n)*/m)?.[0]
+  if (tc && /command:\s*['"]?noop['"]?/.test(tc) && !/command:\s*['"]?[^'"n]/.test(tc)) return false
+  return true
+}
+
+/**
+ * Recursively collect source files that participate in THIS project's
+ * typecheck/build. A subdirectory carrying its own `package.json` is a nested
+ * project or vendored scaffold payload (e.g. `templates/cf-team`,
+ * `.../template/apps/web`) — a separate compilation unit, so its example imports
+ * are not this project's build-order deps. Do not descend into it.
+ */
 function sourceFiles(dir: string): string[] {
   const SKIP_DIRS = new Set([
     'node_modules',
@@ -125,18 +147,19 @@ function sourceFiles(dir: string): string[] {
     'npm-native',
   ])
   const out: string[] = []
-  const walk = (d: string) => {
+  const walk = (d: string, isRoot: boolean) => {
+    if (!isRoot && existsSync(join(d, 'package.json'))) return // nested project
     for (const ent of readdirSync(d, { withFileTypes: true })) {
       if (ent.isDirectory()) {
         if (SKIP_DIRS.has(ent.name) || ent.name.startsWith('.tmp')) continue
-        walk(join(d, ent.name))
+        walk(join(d, ent.name), false)
       } else if (/\.(ts|tsx|mts|cts)$/.test(ent.name) && !ent.name.endsWith('.d.ts')) {
         out.push(join(d, ent.name))
       }
     }
   }
   try {
-    walk(dir)
+    walk(dir, true)
   } catch {
     // unreadable — nothing to scan
   }
@@ -197,6 +220,7 @@ for (const dir of dirs) {
 type Edge = { project: string; needs: string; via: string }
 const candidates: Edge[] = []
 for (const dir of dirs) {
+  if (!consumesDts(readFileSync(join(packagesDir, dir, 'moon.yml'), 'utf-8'))) continue
   for (const importedName of importedPackages(join(packagesDir, dir), nameToProject)) {
     const target = nameToProject.get(importedName)!
     if (target === dir) continue // self-import
@@ -231,6 +255,54 @@ if (lazy.length > 0) {
   console.error('')
 }
 
+const byProject = new Map<string, Edge[]>()
+for (const m of missing) {
+  const list = byProject.get(m.project) ?? []
+  list.push(m)
+  byProject.set(m.project, list)
+}
+
+/**
+ * Rewrite a moon.yml's top-level `dependsOn:` to the merged, sorted, quoted set
+ * of existing + new project ids. Appends to an existing block or inserts a new
+ * one after the `layer:`/`language:` header. Block form only (what the repo uses).
+ */
+function applyEdges(project: string, needs: string[]): void {
+  const path = join(packagesDir, project, 'moon.yml')
+  const src = readFileSync(path, 'utf-8')
+  const merged = [...new Set([...parseDependsOn(src), ...needs])].sort()
+  const block = `dependsOn:\n${merged.map((n) => `  - '${n}'`).join('\n')}`
+  const lines = src.split('\n')
+
+  const startIdx = lines.findIndex((l) => /^dependsOn:/.test(l))
+  if (startIdx !== -1) {
+    // Replace the existing block: the `dependsOn:` line plus its `-` items.
+    let endIdx = startIdx + 1
+    while (endIdx < lines.length && /^\s+-\s/.test(lines[endIdx])) endIdx++
+    lines.splice(startIdx, endIdx - startIdx, block)
+  } else {
+    // Insert after the last of the leading `language:`/`layer:` header keys.
+    let insertAt = 0
+    for (let i = 0; i < lines.length; i++) {
+      if (/^(language|layer):/.test(lines[i])) insertAt = i + 1
+    }
+    lines.splice(insertAt, 0, '', block)
+  }
+  writeFileSync(path, lines.join('\n'))
+}
+
+if (process.argv.includes('--fix')) {
+  for (const [project, list] of [...byProject].sort()) {
+    applyEdges(
+      project,
+      list.map((e) => e.needs),
+    )
+    console.log(`fixed packages/${project}/moon.yml (+${list.length} edge(s))`)
+  }
+  console.log(`\ncheck:moon-graph --fix: added ${missing.length} edge(s) to ${byProject.size} file(s).`)
+  process.exit(0)
+}
+
 if (missing.length === 0) {
   console.log('check:moon-graph — OK: every acyclic imported package has a dependsOn edge.')
   process.exit(0)
@@ -240,14 +312,9 @@ console.error('check:moon-graph — FAIL: Moon graph is missing build-ordering e
 console.error(
   'Each package below imports a workspace package its moon.yml does NOT list in\n' +
     "`dependsOn`, so Moon's `^:build` cannot order the dependency's dist/*.d.ts before\n" +
-    'this package typechecks — a TS2307 race (FEL-411). Add the edge (derived, not guessed):\n',
+    'this package typechecks — a TS2307 race (FEL-411). Add the edge (derived, not guessed),\n' +
+    'or run `bun scripts/check-moon-graph.ts --fix`:\n',
 )
-const byProject = new Map<string, Edge[]>()
-for (const m of missing) {
-  const list = byProject.get(m.project) ?? []
-  list.push(m)
-  byProject.set(m.project, list)
-}
 for (const [project, list] of [...byProject].sort()) {
   console.error(`  packages/${project}/moon.yml  must add dependsOn:`)
   for (const m of [...list].sort((a, b) => a.needs.localeCompare(b.needs))) {

@@ -2,4 +2,5 @@
 language: typescript
 layer: library
 dependsOn:
-  - signals
+  - 'compiler'
+  - 'signals'

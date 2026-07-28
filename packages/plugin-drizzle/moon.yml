@@ -2,5 +2,6 @@
 language: typescript
 layer: library
 dependsOn:
-  - server
-  - plugin
+  - 'plugin'
+  - 'plugin-data'
+  - 'server'
