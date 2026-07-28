@@ -16,14 +16,19 @@ packages:
   - 'apps/*'
   - 'packages/*'
 
-# pnpm >=10 blocks every lifecycle script by default and — unlike bun, which
-# blocks them silently — exits NON-ZERO doing it, so without this the very
-# first `pnpm install` dies with ERR_PNPM_IGNORED_BUILDS before any file is
+# pnpm blocks every lifecycle script by default and — unlike bun, which blocks
+# them silently — exits NON-ZERO doing it, so without this the very first
+# `pnpm install` dies with ERR_PNPM_IGNORED_BUILDS before any file is
 # typechecked. This is the pnpm counterpart of package.json's
-# `trustedDependencies`, and it lives HERE because current pnpm no longer reads
-# settings from package.json at all — it warns that it is ignoring them.
+# `trustedDependencies`, and it lives HERE because pnpm no longer reads settings
+# from package.json at all — it says so on every install.
 # Both entries postinstall an arch-specific native binary; a blocked script
 # leaves the wrong one in place to resurface later as ENOEXEC.
-onlyBuiltDependencies:
-  - '@aihu/compiler'
-  - esbuild
+#
+# pnpm v11 renamed this: it was `onlyBuiltDependencies` (a list) through v10 and
+# is now `allowBuilds` (a map). The old key is ignored SILENTLY — no warning —
+# which is what made the previous spelling look correct while doing nothing.
+# Anything not listed here is denied by default.
+allowBuilds:
+  '@aihu/compiler': true
+  esbuild: true
