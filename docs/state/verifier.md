@@ -510,6 +510,29 @@ suspected cause (the two fixture lines) and re-run — gate went green (exit 0),
 proving single causation, which a "read the code and reason about it" pass would
 not have established.
 
+## Addendum — verify a fix on the MERGE OUTCOME, not the PR's own (possibly stale) base
+
+C-FEL-MOONGRAPH-LITERALS / #689 fixed check-moon-graph.ts to skip string
+literals + comments. On its OWN head (18d6d6e8, based on 5d485ba9) the gate ran
+green and all three mutation cases passed — it would have read as a clean PASS.
+But #689 was 2 commits behind main, and the orchestrator's amended bar required
+it to ALSO revert the `- 'signals'` edge #685 had since landed on main
+(moon.yml:21). #689's diff touched only the script, so **merging it onto current
+main LEAVES that edge in place** — the very no-op-that-lies the amendment exists
+to remove. I only caught this by overlaying #689's diff onto current origin/main
+(3891300a) and running the gate there, and by testing edge-present vs
+edge-removed on that merged tree.
+
+**What the next instance must not redo:** a PR that is green on its own base is
+NOT necessarily what lands. When the PR is behind main, or the acceptance bar
+names a change to MAIN (revert X, remove Y), reproduce on the MERGE RESULT:
+`git checkout <current-main>` then `git checkout <pr-head> -- <changed-files>`
+(or a real merge) and run the gate THERE. A fix based on pre-change main can
+satisfy its own tree while silently not performing a required edit to main.
+Sibling of the squash-merge `--is-ancestor` trap (content-on-main is the
+authority, not commit ancestry) and reproduce-from-source: the thing under test
+is what reaches main, not the branch in isolation.
+
 ## Addendum — an ABSENCE is only evidence once you've shown it had its chance (spatial AND temporal)
 
 From orchestrator's C-FEL-CI-RECEIPT ruling: the repo's named defect
