@@ -372,11 +372,13 @@ by it, so open them yourself when auditing.
   (not yet on main) is NOT a tracked citation form — the gate greps only the absolute
   `docs/lessons/`-prefixed path form and the relative markdown-link form, NOT a filename in
   plain backticks — so a fresh-off-main split passes without dragging in the #669-only
-  sibling files. Landing is the session's. (Meta-trap, banked: an EARLIER draft of THIS
-  bullet spelled the two grep patterns out with example filenames — those examples matched
-  form-1/form-2 and the gate then failed on the non-existent example file. Describing a
-  citation-checker in prose can itself emit citations. Name the forms; never illustrate
-  them with a literal path.)
+  sibling files. Landing is the session's. (Meta-trap, now PROMOTED to its own lesson
+  `documenting-a-checker-can-trip-the-checker.md` at the orchestrator's request — cite it
+  by name the next time anyone documents a grep-based gate: an EARLIER draft of THIS bullet
+  spelled the two grep patterns out with example filenames; the examples matched the
+  citation form and the gate failed on the non-existent example file. Describing a
+  citation-checker in prose can itself emit citations. It recurred three times this
+  session, all mine — the argument for the structural rung, recorded in that file.)
 - **#669 was REBASED A SECOND TIME — main moved again under it.** After the first rebase,
   `origin/main` advanced `41c37df6`→`b667bdcd` (8 more PRs landed: #656/#659/#661/#663/#666/#667/#668/#673
   — the queue un-stuck). #669 went behind; I rebased onto current main (clean, 8 commits),
