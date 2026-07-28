@@ -76,6 +76,13 @@ jobs:
           # release download — it predates the --ast-json hook.
           AIHU_SKIP_POSTINSTALL: "1"
       - run: bun run check:deps
+      # Guard (FEL-411): the Moon project graph must describe the REAL
+      # build-order dependencies, DERIVED from what each package imports. A
+      # missing edge (e.g. editor imports @aihu/compiler but omitted it from
+      # dependsOn) lets `typecheck` race ahead of the dependency's `build`,
+      # failing TS2307 nondeterministically. Reads only source + moon.yml text,
+      # so it runs with the other cheap graph guards, before typecheck.
+      - run: bun run check:moon-graph
       # Guard: a compiler Rust change must bump the platform binary packages,
       # or the rebuilt binary is silently skipped at publish (see the script).
       - run: bun run check:compiler-binary-bump
