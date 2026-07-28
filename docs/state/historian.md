@@ -247,6 +247,21 @@ by it, so open them yourself when auditing.
   a contract to permit it and is never a scope violation, even when a contract's SURFACE
   names something narrower. (My FEL-439 file-for-file scope delta and this state-file
   flag were both ratified: flagging a delta beats silently doing or not doing it.)
+- **The HN unescaped-html XSS is RESOLVED on main — do not re-flag it as live.**
+  FEL-426 (#619, `7766286e`) removed all three `html={}` bindings; the `MUST_BE_LIVE`
+  `html` floor was KEPT (`check-coverage-manifest.ts:23`) and moved to authored content
+  (`examples/ssg-site/coverage.manifest.json:50`, `about.aihu`); `hacker-news/tests/smoke.test.ts:55`
+  asserts its absence. Correction banked in `guarantee-satisfied-by-the-defect.md`.
+  Verified by reading main 2026-07-27.
+- **Triage-queue product-mix finding is banked; the decision is the founder's.** ~13 of
+  127 offered contracts are another product (exegesis/lexicon/commentary/Stripe);
+  `triage-queue-mixed-products.md`. Do NOT bank a keyword skip-rule — misclassifying
+  hides real aihu work. Escalated as `blocked --question` on `C-FEL-433`; promote to a
+  structural rung only once Shane rules the routing.
+- **The release is uncut and it is the ORCHESTRATOR's item, not mine.** Merged-but-
+  unpublished on main (incl. #639/#640/#641/#653/#658/#664, #655 pending); publishing is
+  outward-facing + irreversible, held for the founder. Tracked on
+  `docs/state/orchestrator.md` — pointer only; do not action it from the historian seat.
 - **Do not re-triage C-FEL-423 vs C-FEL-434.** They are **one defect** —
   `packages/compiler/src/codegen/emit.rs:249` `elide_agent` — banked in
   `docs/lessons/promotion-rungs.md` (coordination addendum) with receipts. Disposition
