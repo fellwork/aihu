@@ -94,6 +94,47 @@ Rust binary** (in-repo, tested, already correct-postured) and leave
 correctness defect by hand-patching the ledger it corrupted is how the next
 person learns the ledger is editable.
 
+### 🔴 CORRECTION to that escalation — and a cross-repo trap my own escalation baits
+
+Architect supplied the true provenance for `C-SWARM-P0` and **one clause of what
+I sent the founder was wrong.** I said the recon was *"a transcript fragment from
+a DIFFERENT worktree"*, implying the reconciler scanned an **unrelated** trace.
+For C-SWARM-P0 it did not: the trace was **architect's own work** in
+`agent-swarm/sydney` (commit `592e6e8`, `phase0/recon.py`, 229 lines). **The
+reconciler read the RIGHT trace and still produced garbage recon + a premature
+terminal status.**
+
+**That is worse, not smaller.** If the failure were trace *selection*, picking the
+right trace would fix it. It is not — selection was never the load-bearing step.
+The surviving claim is unchanged and is the one that matters: **two contracts
+reached a terminal status with no merged-PR evidence and a `recon` that is not a
+recon.**
+
+#### DO NOT "FIX" THE MISSING LINK ON `C-SWARM-P0` — measured, not hypothetical
+
+Reading *"no PR link"*, the helpful move is to attach one. Architect published the
+correct provenance as *"agent-swarm #1"*. Write that as a bare integer and:
+
+```
+gh pr view 1 --repo srmcguirt/agent-swarm  → #1 state=OPEN   mergedAt=null
+gh pr view 1 --repo fellwork/aihu          → #1 state=MERGED mergedAt=2026-04-26T22:18:56Z
+                                             "Plan A Phase 1: workspace scaffolding"
+```
+
+`gh_pr_view` (`packages/swarm/src/main.rs:1683-1694`) hardcodes
+`--repo GITHUB_REPO`. So `--github-pr 1` would make `verify-merged` read a
+three-month-old merged scaffolding PR, find it genuinely merged, and promote
+C-SWARM-P0 to `verified` with a recon **in exactly the format the 11 legitimate
+rows use** — a false receipt indistinguishable from a real one by inspection.
+**The empty `github_pr` is the only thing preventing it, and it prevents it by
+accident.**
+
+**The underlying defect:** `contract.github_pr` is a bare integer with no repo,
+while this swarm demonstrably runs contracts in more than one repository. **A
+cross-repo contract cannot be linked correctly today — only wrongly or not at
+all.** Architect chose not-at-all, which was right, and declined to mutate their
+own row. Added as a second requirement on the reconcile fix.
+
 ## 🔴 A FOURTH FACE OF THE FAKE GREEN — and the workflow already documented it
 
 builder-b found it on #682; I re-measured on head `518b204d`:
@@ -224,6 +265,54 @@ type-checking, or a dev cell that passes by not starting the app, is a FAIL.
 **The same-run rule went three-for-three today** — builder applied it to #681 and
 #683 *before* claiming, builder-b applied it to #682 and **found a face I had not
 named.** That is the rule working: agents catching it before I do.
+
+## 🔴 NINE PRs ARE LANDABLE AND NOTHING IS LANDING — the queue, with receipts
+
+`origin/main` is `2c3dd7fe`, **unchanged since #674**, re-fetched at the top of
+this wake (I have reported a stalled queue that had already moved; do not repeat
+a number, re-measure it). Every row measured with
+`gh api repos/fellwork/aihu/commits/<FULL-SHA>/check-runs` — **not** `gh pr
+checks`, which collapses concurrent runs and would have reported three of these
+wrongly.
+
+| PR | head | check+ci-ok run | ci-ok after check ends | remaining red |
+|----|------|-----------------|------------------------|---------------|
+| 654 | `517f0a8c` | 30323441407 | 02:41:32Z after 02:39:28Z | none |
+| 671 | `0f75eff7` | 30321535839 | 02:01:45Z after 01:59:26Z | bench, matrix — outside ci-ok |
+| 672 | `c6b766ac` | 30324550909 | 03:05:43Z after 03:03:25Z | none |
+| 677 | `3ae3e537` | 30322552876 | 02:49:23Z after 02:47:02Z | matrix — **is** its own measurement |
+| 679 | `868ac101` | 30322783137 | 02:27:57Z after 02:25:46Z | bench — red by construction |
+| 680 | `586c61d7` | 30323361044 | 02:40:06Z after 02:37:53Z | none |
+| 681 | `a18fe0b1` | 30324202213 | 02:57:20Z after 02:55:22Z | none |
+| 682 | `518b204d` | 30324519103 | 03:04:39Z after 03:02:26Z | none |
+| 683 | `0c91917e` | 30334106229 | 06:22:06Z after 06:19:56Z | none |
+
+**Not one is red-because-broken.** Every remaining red is a lane outside `ci-ok`.
+
+**Order — the first three are dependency, not preference:**
+
+1. **#679** — unblocks the whole docs-only class (#669, #676, #675, #678, #665),
+   all of which must **rebase** after it lands (`pull_request` runs take the
+   workflow from the HEAD branch).
+2. **#677** — two contracts cannot be measured at all until it lands.
+3. **#680** — `C-FEL-GATE-ROUTING-CHECK` must reuse its gate enumeration.
+4. then #654, #671, #672, #681, #682, #683, any order.
+
+**One collision, measured:** only #671 and #679 touch `plan-a.yml`. The other
+seven do not touch it at all. The #666-before-#671 prerequisite is **satisfied**.
+
+### #671 is the #670 transition hazard made live
+
+Its sha carries **two** `ci-ok` results:
+
+```
+run 30319401438  (01:08Z, BEFORE #670 merged 01:12Z)  check SKIPPED  ci-ok FAILURE
+run 30321535839  (01:53Z, after)                      check success  ci-ok SUCCESS
+```
+
+Both on `0f75eff7`; a reader can pick either. The red is the **retired**
+pre-#670 draft behaviour. This is why the rule is *name the run and its
+timestamp*.
 
 ## Where main actually is
 
@@ -2593,6 +2682,14 @@ all 13 open issues were unassigned and three of them were already done.
   Read that agent's own bus traffic first. Twins share `(workspace, role)` and
   the Slack bot stamps `username=<role>` for anyone, so attribution by username
   is impossible. I got this wrong about verifier and corrected it publicly.
+- **Do not attach a `--github-pr` to a cross-repo contract.** `gh_pr_view`
+  hardcodes `--repo fellwork/aihu`, so `C-SWARM-P0`'s real PR
+  (`srmcguirt/agent-swarm#1`, OPEN) resolves to `fellwork/aihu#1` — **merged
+  2026-04-26** — and manufactures a false receipt in the exact format the real
+  ones use. Leave it unlinked until `github_pr` carries a repo.
+- **Do not repeat "the reconciler scanned an unrelated trace".** Corrected: for
+  `C-SWARM-P0` it read the *right* trace and still wrote garbage. Selection was
+  never the load-bearing step.
 - **Do not read a contract's `status=verified` as "the bar was met".** Two rows
   reached it with no PR and a transcript from the wrong worktree — see the top of
   this file. Check `github_pr` and `recon` before believing it, and **never
