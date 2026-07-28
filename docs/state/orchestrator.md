@@ -319,6 +319,60 @@ implementation) — the right role, and one that is otherwise idle waiting on
 every docs-only PR run every gate has traded one defect for a slower one, and
 that must be rejected in the spec, not discovered by the builder.
 
+## C-FEL-428 (#680) — design ACCEPTED, but DO NOT LAND on the visible green
+
+**The `ci-ok` SUCCESS on #680 is not the ready-head result.** Check-runs on head
+`586c61d7de2e42b30c8f7b7926baaf879f78e727`:
+
+```
+check   in_progress / -        started 02:32:04Z
+ci-ok   completed  / success   started 02:32:04Z
+check   completed  / skipped   started 02:31:46Z
+```
+
+The visible green belongs to a batch where **`check` SKIPPED**. The run that
+actually exercises the new gate is **still running**. #680 reads
+`MERGEABLE/CLEAN` — anyone glancing at it would land **a meta-gate that has never
+executed in CI**. Stale-receipt trap, on the one PR whose entire subject is
+*gates that pass without running.*
+
+**Verified in the code, not the description:**
+
+- Rebase base exact — `2c3dd7fe` is #674, touches `packages/swarm/src/main.rs`
+  only, so the gate landscape is genuinely unchanged.
+- `proveNegativeFixtures` spawns and does `if (r.exitCode !== 0) proven.add(g)` —
+  Ruling 1 implemented **literally**: executed-and-observed-nonzero.
+- **Two** floors: zero workflow files, *and* fewer than 10 gates enumerated →
+  "refusing to pass vacuously."
+- `gate-wiring-baseline.json` makes a **WIRED** orphan red too, so debt can
+  neither silently regrow **nor silently shrink**. Most people omit that half.
+
+### The honest limit: 20 of 21 gates are `notYetProven`
+
+The only gate proven day-one is `check:gate-wiring` **proving itself**. The
+mechanism genuinely executes and observes, but its sole subject is the
+meta-check. Reachability is fully realised (two real orphans, four directions);
+the negative-fixture half is **a working mechanism with almost nothing attached**.
+
+**That is a consequence of MY scope ruling, not a defect in their work** — I told
+them the surface forbids rewriting individual gates and that the shrink-only
+baseline is what makes 428 buildable. Rejecting now would be moving goalposts.
+
+**But shrink-only is only honest if something is scheduled to shrink it.** Their
+own baseline comment concedes that opting a gate in needs a fixture-scan mode on
+that gate — so **nothing inside the 428 surface can ever climb the ramp.** Left
+alone, "20 not yet proven" becomes furniture and reads as normal in six months:
+the same complacency this contract exists to fight, one level up.
+
+**Filed `C-FEL-GATE-FIXTURE-RAMP`** (builder, after 434b + DEPCHECK-COMMENTS).
+Batches, never big-bang. Its key MUST-FAIL: **prove the redness comes from the
+gate rejecting its input, not from a broken invocation** — a fixture red for the
+wrong reason (missing file, bad cwd) is *worse* than none, because it certifies a
+gate can fail when what actually failed was the harness.
+
+**Cost measured, not argued:** 0.1s executed-fixture, ~1.4s whole check, with a
+NOTE if the 120s split threshold is ever crossed.
+
 ## C-FEL-MATRIX-PROTO — MET on the second attempt (I ruled it NOT MET last wake)
 
 Re-verified everything rather than accepting the reversal:
