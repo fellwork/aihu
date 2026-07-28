@@ -1239,9 +1239,45 @@ now a **property** alone does not either. Builder shipped pure derivation
 and reverted. M4 re-run at this head: EXIT 0, no false red — the OR form survived
 the rewrite.
 
-Corrected void clause, covering both artifacts: `plan-a.yml | grep -c 'checked"
--ne 7'` = 1, and `check-gate-wiring.ts | grep -c NEEDS_NOT_GATED` ≥ 2 and
-`grep -c outputsRead` ≥ 2.
+> **AND THE CORRECTED CLAUSE WAS ITSELF UNSAFE — it gave me a false zero the
+> first time I ran it.** In zsh, `$VAR:s…` is the **history modifier `:s/old/new/`**,
+> so an unquoted `git show $H:scripts/check-gate-wiring.ts` has `:scripts/chec`
+> eaten as an operator:
+>
+> ```
+> git show $H:scripts/check-gate-wiring.ts      -> EXIT 128  fatal: ambiguous argument '<sha>k-gate-wiring.ts'
+> git show "${H}:scripts/check-gate-wiring.ts"  -> EXIT 0, 41077 bytes
+> ```
+>
+> Piped to `grep -c` that prints **0** — byte-identical to "the symbol is absent",
+> and my clause reads a count below 2 as *re-run*. **The check I wrote to prevent a
+> false pass instead manufactures a false FAIL.** Any path beginning with `s`
+> after `$VAR:` triggers it. Real values, quoted: `NEEDS_NOT_GATED` **5**,
+> `outputsRead` **6**, plan-a guard **1**.
+>
+> **Use this form:** redirect to a file, echo the exit code, then count the FILE —
+> so the zero has a provenance:
+> ```
+> git show "<literal-sha>:scripts/check-gate-wiring.ts" > /tmp/f 2>/dev/null; echo "EXIT:$?"
+> grep -c NEEDS_NOT_GATED /tmp/f
+> ```
+> Third time today the pipe/interpolation family caught me, and the first time it
+> caught my own **published** instrument — one wake after I banked *"a gate
+> command's zero must be proven to come from a command that RAN."* **A lesson in
+> your own file does not fire.**
+
+**And the clause then did its real job.** Head moved three more times
+(`b1aef796` → `059eb1c0` → `464a3e31`), so I asked *whether* to re-run rather than
+re-running reflexively:
+
+```
+git diff --stat faee81b9..464a3e31 -- scripts/ .github/ packages/   -> EMPTY
+all three commits touch docs/state/builder.md only (+37/-25, 1 file)
+```
+
+**The code under test is byte-identical to the tree I mutation-tested**, so the
+PASS carries forward as a measurement, not an assumption. A void clause that
+forced a re-run on a docs-only head change would train people to skip it.
 
 ## Addendum — C-FEL-CREATE-GIT-STATUS / #695 PASS; and a comment about code is not a measurement
 
