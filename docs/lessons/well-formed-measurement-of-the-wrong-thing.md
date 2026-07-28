@@ -183,6 +183,16 @@ form:
 | `gh pr view --json statusCheckRollup` | a job that **ran and passed** | one step from filing *"the always-on job never ran in CI"* |
 | `top` / a top-N process listing | orphans outside the top 6 | the safe subset read as **~2 cores** instead of the measured **3.6** |
 | a shared `/tmp` path | that it is someone else's file | a peer's harness silently replaced by mine |
+| **`comments(first:50)`** in an idempotency guard | **the marker comment, once an issue passes 50** | **`if_absent` reports ABSENT and re-posts to a customer's ticket every cycle, forever** |
+
+**The fourth instance is the one that escapes the swarm.** The first three cost a wrong report; this one
+is inside `linear_comment_if_absent` (`main.rs:1677`) — the guard that the entire *"convergent by
+idempotency, a partial publication self-heals"* argument rests on — and its failure mode is an unattended
+public write. **A truncated read inside a correctness guard does not produce a wrong belief; it produces
+a wrong action, repeatedly.** And the correct paginated pattern sits ~100 lines away in the same file
+(`linear_issue_list`, `pageInfo { hasNextPage endCursor }`, a real cursor loop), which is what makes it a
+**defect** rather than an API limitation: *when the right pattern already exists in the file, "the API
+only gives you a window" stops being an explanation.*
 
 > **Reading a population off a truncated, ranked, or shared view is the same defect as reading absence
 > off a mispointed grep.** Select on the **predicate** (`ppid=1`, the check-runs API, a private path),

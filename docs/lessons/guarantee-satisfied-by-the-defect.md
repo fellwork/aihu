@@ -621,6 +621,57 @@ drop-from-loop-keep-needs → exit 0).
 > three. That is the whole of what these defences buy, and it is worth buying — but it is a cost
 > increase, not a proof.**
 
+### THE EXEMPTION IS DERIVABLE — so the parse needs no allowlist at all
+
+The architect confirmed their own proposed invariant is **false on the current tree** — *"I proposed an
+invariant the repo already violates, as the thing that closes the recidivist defect."* The fix is not an
+`EXEMPT` constant. `ci-ok` **consumes** `changes`' outputs (`CODE_RESULT: ${{ needs.changes.outputs.code }}`),
+so the exemption is a **parseable property**:
+
+```
+for every job J in ci-ok.needs:
+    J appears in the result loop   XOR   ci-ok references needs.J.outputs.*
+```
+
+Add a job to `needs:` and neither gate on it nor consume its outputs → **flagged**. The only way to
+silence it is to *actually consume its outputs* — a real property the file must exhibit.
+
+> **AN EXEMPTION THAT MUST BE EARNED vs ONE THAT CAN BE DECLARED.** A hand-maintained `EXEMPT` list is an
+> escape hatch where *"add the job to EXEMPT"* silences the very defect the parse exists to catch — the
+> palette bug re-entering through the checker's own door. Deriving it removes the hatch entirely. Same
+> principle as *enumerate the GOOD values*, applied to job membership instead of result strings.
+
+### THE FOURTH REFERENT — and the inversion that corrects the rule above
+
+A coherently un-gated job **still runs**, so it can be **RED while `ci-ok` is GREEN**, and that signature
+is visible in `gh api repos/.../commits/<sha>/check-runs` — **the one referent that lives outside every
+file in the repo**, produced by GitHub rather than by the diff, which is exactly why it survives an edit
+that is coherent *across* files. Ranked by distance from the hand that edits:
+
+| defence | referent | survives |
+|---|---|---|
+| count guard | same file, same line | a careless one-sided edit |
+| `needs`/loop parse | same file, **independent declaration** | scenario F (self-consistent inside the loop) |
+| check-runs | **outside the repo entirely** | a coherent multi-file un-gating |
+
+**Honestly complicated, and the architect refused to spec it as a gate for exactly this reason:** *"any
+red job while `ci-ok` is green"* is **wrong as stated** — `bench`, `bench-arbor`, `bench-lsp` and
+`chromatic` are deliberately advisory and red-tolerant, so the naive form false-reds constantly, and
+scoping it with a list of advisory jobs **reintroduces the allowlist.** The non-hatch version scopes it
+to the 22 gates `check-gate-wiring` **already enumerates** — a set it derives rather than a set someone
+types. *A direction, not a spec; a third contract, not a #691 blocker.*
+
+> **⚠ AND THE RULE ABOVE — "an invariant is only as strong as the DISTANCE between its two referents" —
+> IS NOT UNIVERSAL. The architect inverted it instructively against their own formulation, and the
+> inversion is the better rule.** For **state** ("hold this closed"), distance from the editing hand is a
+> **virtue**: a remote referent survives local edits, which is precisely why enforcement is robust. For a
+> **one-shot** action ("say this once"), a distant referent is *worse* — the remote's first-50 window is
+> distant **and truncatable**, and the only complete referent is the **local row**.
+>
+> **DISTANCE IS NOT ALWAYS THE VIRTUE. COMPLETENESS IS THE PROPERTY, AND DISTANCE ONLY BUYS IT
+> SOMETIMES.** Ask what the invariant needs — *independence* from the editing hand, or *completeness* of
+> the record — and pick the referent for that, not for how far away it sits.
+
 **Two method notes worth more than the fix.** First, the verifier's, from scenario A: **a positive
 control that reds on correct input is worse than none** — the happy-path row is the direction-2 test *of
 the control itself*, and nobody had stated it as a claim. Second, the architect naming their own habit

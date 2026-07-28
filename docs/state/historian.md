@@ -634,6 +634,59 @@ by it, so open them yourself when auditing.
   `settle-a-contested-claim…` — an INVARIANT beats a timed prediction (no clock, no reach-early bias); TTL now
   CONCLUSIVE (3 timed deaths 20:23:10/20:28:23/20:28:28, cohort cleared). DECIDEs not mine: who wires
   check:gate-wiring; the missing C-FEL-MOONGRAPH-LITERALS row. Board (my fetch): main 3891300a GREEN; #669 draft.
+- **WAKE 44 — MY "CONVERGENT BY IDEMPOTENCY" WAS CONDITIONAL, AND MY INVARIANT-DISTANCE RULE IS NOT
+  UNIVERSAL. Two of my own bankings corrected, both by reading source I had not opened.**
+  (1) **⛔ THE IDEMPOTENCY GUARD IS CAPPED AT 50 — I banked "non-atomic within a run, CONVERGENT across
+  runs" as the settled statement; it is CONDITIONAL.** Verified myself at `1bb0dd7c`:
+  `linear_comment_if_absent` (`:1677`) = `comments(first:50)` — **no cursor, no pageInfo, no ordering** —
+  while `linear_issue_list` (`:1562`) ~100 lines away has **full pagination** (`pageInfo { hasNextPage
+  endCursor }`, `let mut after`, `after = cursor`). If the marker falls outside the first 50, `if_absent`
+  reports ABSENT → **posts again EVERY sync cycle, forever, unattended, on a customer-visible ticket.**
+  **THAT IS MY OWN "A RANKED OR COLLAPSED VIEW IS NOT AN ENUMERATION" CLASS — FOURTH INSTANCE, AND THE
+  FIRST ONE THAT ESCAPES THE SWARM.** The first three cost a wrong report; **a truncated read inside a
+  CORRECTNESS GUARD produces a wrong ACTION, repeatedly.** And the correct pattern being in the same file
+  makes it a **DEFECT, not a limitation** — *when the right pattern already exists in the file, "the API
+  only gives you a window" stops being an explanation.* CORRECTED STATEMENT: **state is enforced
+  UNCONDITIONALLY; comments are one-shot CONDITIONAL ON A NUMBER NOBODY IS WATCHING.** Could-not-check
+  filed WITH its discriminator and correctly not run (needs a Linear read under embargo): **count
+  comments on the 8 linked FEL issues; any at/near 50 makes it live.** Filed AFTER reading the function —
+  the third-category distinction holding.
+  (2) **⚠ MY INVARIANT-DISTANCE RULE IS NOT UNIVERSAL — the architect inverted it against their own
+  formulation and the inversion is better.** For **STATE** ("hold this closed"), distance from the
+  editing hand is a **VIRTUE** — a remote referent survives local edits, which is why enforcement is
+  robust. For a **ONE-SHOT** action ("say this once"), a distant referent is **WORSE**: the remote's
+  first-50 window is distant AND truncatable, and the only complete referent is the **LOCAL ROW**.
+  **DISTANCE IS NOT ALWAYS THE VIRTUE; COMPLETENESS IS THE PROPERTY, AND DISTANCE ONLY BUYS IT
+  SOMETIMES.** Ask what the invariant needs — INDEPENDENCE from the editing hand, or COMPLETENESS of the
+  record — and pick the referent for that.
+  (3) **THE DESIGN RULING: two arms, OPPOSITE semantics, SAME mechanism.** state→enforce forever,
+  referent = remote, **CORRECT** (for state the remote IS the truth); comment→at most once, referent =
+  remote through a truncated window, **WRONG MECHANISM**. **"HAVE I ALREADY DONE THIS ONCE" IS A FACT
+  ABOUT OUR OWN HISTORY, NOT THE REMOTE'S CURRENT CONTENTS — and we have a database.** **DO NOT ADD A
+  BLANKET `synced` COLUMN** — its absence is exactly why state enforcement works; **record the
+  COMMENT-POSTED fact specifically.** One column for the one-shot arm; leave the state arm re-asserting.
+  (4) **STATE ENFORCED / COMMENTS ONE-SHOT, and the surface is LOPSIDED:** #430 gets **ONE comment
+  total**, not one per cycle (footnote vs spam incident, now proven not assumed) — but **8 Linear rows
+  HELD in Done vs 2 GitHub issues HELD closed. The thread argued about the 2; the enforcement property
+  applies FOUR TIMES MORE OFTEN on Linear.** Two precisions: `classify`'s `recon`/`note` **never
+  influence which arm is taken** (a human cannot stop the mirror by annotating; only `status` is a
+  lever), and **1800s is a DEFAULT, not a constant** (`SWARM_SYNC_INTERVAL`) — say *"at least every 30
+  minutes, configurable."*
+  (5) **THE PARSE NEEDS NO ALLOWLIST — DERIVE THE EXEMPTION.** Architect confirmed their own
+  `needs-set == loop-set` is FALSE on the current tree ("I proposed an invariant the repo already
+  violates, as the thing that closes the recidivist defect"). Fix, no hatch anywhere: **for every job J
+  in ci-ok.needs: J is in the result loop XOR ci-ok references `needs.J.outputs.*`** (`changes` is exempt
+  *because* ci-ok consumes `needs.changes.outputs.code`). **AN EXEMPTION THAT MUST BE EARNED vs ONE THAT
+  CAN BE DECLARED.**
+  (6) **THE FOURTH REFERENT: check-runs, outside the repo entirely.** A coherently un-gated job STILL
+  RUNS, so it can be RED while ci-ok is GREEN — visible via the check-runs enumeration. Ranking banked:
+  guard = same file/same line; parse = same file, INDEPENDENT DECLARATION (survives F); check-runs =
+  outside the repo (survives a coherent multi-file edit). **Honest complication recorded rather than
+  hand-waved:** "any red job while ci-ok is green" is WRONG as stated (bench/chromatic are advisory), and
+  scoping with a list of advisory jobs **REINTRODUCES THE ALLOWLIST**; the non-hatch version scopes to
+  the 22 gates check-gate-wiring already DERIVES. A direction, not a spec; third contract, NOT a #691
+  blocker. Gate exit 0. Killed no process, filed no DECIDE, set no status, ran no `--confirm`, edited no
+  workflow or source, merged nothing.
 - **WAKE 43 — THE VERIFIER'S FLAG WAS PARTLY RIGHT (one uncorrected sentence in MY file), and the
   ledger question changed shape a third time: IT IS ENFORCEMENT, NOT PUBLICATION.**
   (1) **MY FILE STILL OVERSTATED IT IN ONE PLACE.** I added the ⛔ correction section last wake but left

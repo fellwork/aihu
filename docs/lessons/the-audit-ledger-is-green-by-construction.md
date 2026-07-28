@@ -412,6 +412,82 @@ the part that is invisible from outside:**
 enter the enforcement loop at all** — `load_sync_contracts` does not even SELECT them. 58 % of the work
 is not merely outward-effect-free today; it is **permanently outside the mirror.**
 
+**Two precisions on the above, both from the verifier reading the arms individually.** `classify`'s
+`recon` and `note` parameters **never influence which arm is taken** — they only build the reason string
+inside the `DISPUTED` arm, so **a human cannot stop the mirror by annotating a row**; only the `status`
+column is a lever. And the cadence is a **default, not a constant**: `supervisor.py:866`
+`sync_interval = float(os.environ.get("SWARM_SYNC_INTERVAL", "1800"))`. State it to a human as **"at
+least every 30 minutes, configurable"**, never as a fixed number.
+
+### STATE IS ENFORCED, COMMENTS ARE ONE-SHOT — and the Linear side is FOUR TIMES the surface being argued about
+
+The outward profile is **not uniform**, which nobody had drawn:
+
+| arm | function | semantics |
+|---|---|---|
+| Linear state | `linear_ensure_state` :1652 | looks up current state, mutates unless already target → **re-asserts Done forever** |
+| GitHub state | `gh_close_issue` :1822 | same shape → **re-closes forever** |
+| comments | `gh_comment_if_absent` :1808 / `linear_comment_if_absent` :1673 | scan for `<!-- swarm-sync:<id>:verified -->`, return early if present → **one comment per issue, ever** |
+
+So #430 receives **one comment total, not one every 30 minutes** — the difference between a footnote and
+a spam incident, and now proven rather than assumed. **And the surface is lopsided: 8 Linear rows HELD in
+Done against 2 GitHub issues HELD closed.** The whole thread argued about the two closures; **the
+enforcement property applies four times more often on Linear.**
+
+### ⛔ THE IDEMPOTENCY GUARD IS CAPPED AT 50 — my "convergent by idempotency" was CONDITIONAL, and I banked it as unconditional
+
+I banked *"non-atomic within a run, convergent across runs"* as the corrected, settled statement. **It is
+conditional.** Verified at source myself, `git show 1bb0dd7c:packages/swarm/src/main.rs`:
+
+```rust
+:1677  linear_comment_if_absent
+       "query($id:String!){ issue(id:$id){ comments(first:50){ nodes { body } } } }"
+       // no cursor, no pageInfo, no ordering clause
+
+:1562  linear_issue_list                                  // ~100 LINES AWAY, IN THE SAME FILE
+       "... pageInfo { hasNextPage endCursor } ..."
+       let mut after: Option<String> = None;  …  after = cursor;    // a real pagination loop
+```
+
+If the marker comment falls **outside the first 50**, the guard reports **absent**, posts again — and
+does so **every sync cycle, forever, unattended, on a customer-visible ticket.** That is the worst
+outward failure mode in the system, and it lands on the **Linear** side, the larger surface.
+
+> **`if_absent` returned "absent" because it read a TRUNCATED VIEW.** This is *a ranked or collapsed view
+> is not an enumeration* — the class this swarm hit three times in its own tooling the same day (the `gh`
+> rollup omitting a job that ran, a top-N listing turning 3.6 cores into "~2", my own `/tmp` collision) —
+> **now found inside the idempotency guard that the entire convergent-and-self-healing argument rests
+> on.** The fourth instance is the one that could write to a customer's ticket.
+
+**And the correct pattern being 100 lines away in the same file is what makes this a DEFECT rather than a
+limitation.** Pagination is not a missing capability here; it is implemented, correct, and simply not
+used by this guard. *When the right pattern already exists in the file, "the API only gives you a window"
+stops being an explanation.*
+
+**Corrected statement, replacing mine:** **state is enforced UNCONDITIONALLY; comments are one-shot
+CONDITIONAL ON A NUMBER NOBODY IS WATCHING.** Filed as a could-not-check **with its discriminator and
+deliberately not run** (it needs a Linear read against the system under embargo): **count the comments on
+the 8 linked FEL issues; any at or near 50 makes the risk live rather than latent.** Note this one was
+filed *after* reading the function, with the exact number that settles it — the distinction the third
+could-not-check category exists to draw.
+
+### THE DESIGN RULING — the two arms have OPPOSITE semantics and are using the SAME mechanism
+
+| | intended semantics | referent | verdict |
+|---|---|---|---|
+| **state** — *"hold this Done/closed"* | enforce forever | the **remote** | **correct** — for state the remote *is* the truth, and re-asserting is the feature |
+| **comment** — *"say this exactly once"* | at most once | the **remote**, through a truncated window | **wrong mechanism** |
+
+> **"Have I already done this once" is a fact about OUR OWN HISTORY, not about the remote's current
+> contents — and we have a database.** A guard for a **one-shot** action must consult a referent that is
+> **complete and monotonic**; a remote's first-50 window is neither.
+
+**And the missing `synced` column has a good face and a bad one, so the fix must be surgical:** its
+absence is exactly *why* state enforcement works (every linked row re-processed every tick) **and** why
+the comment guard is forced to re-derive from the remote. **Do NOT add a blanket `synced` column — that
+would break the enforcement, which is deliberate and desirable. Record the COMMENT-POSTED fact
+specifically: one column for the one-shot arm, leaving the state arm re-asserting.**
+
 ### A COULD-NOT-CHECK WHOSE DISCRIMINATOR IS DELIBERATELY NOT RUNNABLE — route around it, do not run it
 
 Does `gh issue close` on an **already-closed** issue exit non-zero? If it does, `C-FEL-434b`'s sync
