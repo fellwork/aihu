@@ -43,7 +43,68 @@ is **not** the coordination or state layer. It went unused for ~20 hours on
 2026-07-25 and the one page it holds was stale within 30 minutes of being
 written. Do not treat it as truth.
 
-## 🔴🔴🔴 MAIN IS RED — and my STALE BOARD is why it sat unnamed
+## 🔴🔴🔴 MAIN MOVED TWICE INSIDE ONE WAKE — a board can go stale between two commands
+
+```
+fetch #1: origin/main = 5d485ba9   check FAILURE · ci-ok FAILURE   ← the red I broadcast
+fetch #2 (minutes later): origin/main = 3891300a
+landed between: c4724454 (#680 gate-wiring), 3891300a (#685 ci-receipt)
+main @ 3891300a: check run 30377446642 IN_PROGRESS since 16:16:42Z — NO VERDICT
+```
+
+**Main is not green and not red — it is COULD-NOT-CHECK.** My prior lesson
+(*"re-fetch before you quote a board"*) **was too weak. The real rule: quote a sha
+with the fetch that produced it, or do not quote it.** Historian's lessons file
+carries *"origin/main still 2c3dd7fe"* — **my stale number, propagated from my
+broadcast into a durable repo artifact.** That is how one bad measurement becomes
+permanent.
+
+### The red was resolved by (a) — the option I ruled against
+
+**#685 landed carrying `d10674ad "fix(build): plugin-agent-readiness depends on
+signals"`.** The direct edge is on main. Landing is the interactive session's call
+and I do not second-guess unblocking a red main fast.
+
+**(b) IS NOT MOOT.** `check-moon-graph.ts` is still string-literal-blind; the next
+`.aihu` fixture in any package re-breaks main identically. **(a) greened one
+package's symptom; the class is untouched.**
+
+### RULING AMENDED — (b) must also REVERT the (a) edge
+
+verifier ran the test builder did not: **strip only the two fixture import lines →
+`check:moon-graph` exit 0.** The fixture text is the sole cause. And their graph
+trace, **which I confirmed at source:**
+
+```
+plugin-agent-readiness  dependsOn: [agent, agent-service, server, signals]
+packages/server         dependsOn: [agent, agent-service, arbor, context, plugin, signals, store]
+```
+
+**`plugin-agent-readiness → server → signals` ALREADY ordered signals before the
+typecheck.** The transitive need `moon.yml:5-16` documents was already satisfied
+before `d10674ad`. **This upgrades my rejection of (a): I called it misleading; it
+is worse — a NO-OP THAT ALSO LIES.** Added to the contract: the PR reverts the
+`- 'signals'` line, and the must-fail is that `check:moon-graph` passes **without**
+it once literals are skipped. Fixture at `:61`/`:82` stays byte-identical.
+
+### 🔴 I was one command from a SECOND false alarm — `git diff main branch` lies about deletions
+
+`git diff origin/main <685>` showed **460 deletions** — `check-gate-wiring.ts` and
+three baselines gone. I was composing *"#685's rebase CLOBBERED #680's landed
+work"* when I checked the premise. **Artifact: main gained those files AFTER the
+branch point, so a branch-vs-main diff renders them as deletions.** *A branch that
+is merely behind is indistinguishable from a destructive rebase in a raw
+`git diff main branch`.* **Use `git log main..branch` to see what the branch
+actually did.** Twice in two wakes now, one command from a loud confident reversal;
+both caught by checking the premise instead of the conclusion.
+
+**verifier's regex correction is the operationally important one:** builder's
+`[backtick-or-double]` misquote **produces a FALSE REFUTATION** — the single-quoted
+fixture does not match it, and verifier hit exactly that on their first pass. The
+real class is `['"]`. A misquote that sends a reproducer away believing the
+diagnosis was wrong.
+
+## 🔴🔴🔴 MAIN WAS RED @ 5d485ba9 — and my STALE BOARD is why it sat unnamed
 
 ```
 origin/main = 5d485ba96101df5705eedacd65db8f5a1b55ae7f
