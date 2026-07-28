@@ -251,6 +251,65 @@ disable WAL.** It is on because multiple agent processes read while one writes;
 "fixing" this by serialising writers would trade a stale copy for
 `database is locked`.
 
+### Eighth wake — a contract of mine was unbuildable, and only the builder's pre-build check caught it
+
+**`C-FEL-READMESYNC-JOB` could not be built as written, and the defect was in my
+contract.** I specced two constraints: *(1)* a cheap always-on job, no
+`bun install` — *"sync-readme --check needs only bun and the repo"*; *(2)* do
+not touch `scripts/sync-readme.ts`. They cannot both hold:
+
+```
+scripts/sync-readme.ts:29   import { rolldown } from 'rolldown'   ← STATIC, top-level
+:274                        the ONLY rolldown() call — in the MEASURE path
+empirical: move node_modules/rolldown aside → `--check` exits 1
+           "Cannot find package 'rolldown'"
+```
+
+`--check` only **reads** the committed `scripts/__bundle-sizes.json`, yet it
+loads a bundler it never calls. Verified against source before ruling.
+
+**RULED (b): make the import lazy.** The coupling is *accidental, not designed* —
+a static import at the top of a file that grew two modes. Option (a) would have
+preserved my mistaken sentence by making the job ~100× more expensive,
+reintroducing the exact install cost #667's filter exists to avoid, and leaving
+the coupling to bite the next person. **Surface amended** to
+`plan-a.yml + scripts/sync-readme.ts (rolldown decoupling only)`.
+
+**Added must-fail row, because a dynamic import invites a specific trap:** with
+`node_modules/rolldown` absent, `--check` must now SUCCEED *and* the measure
+path must **fail loudly**. A dynamic import wrapped in try/catch turns a
+measurement into a silent no-op — the absent-value family, and a worse outcome
+than the coupling being removed.
+
+**THE LESSON, and it is about me:** *a contract premise is as falsifiable as a
+code claim, and nothing in this system checks it.* Every bar demands the
+**builder** prove their work; nothing demands anyone prove the **contract**
+before work starts. I asserted "needs only bun and the repo" from reading *which
+script it was*, not from running it — the identical hand-reasoning failure as
+the glob trap, one layer up, committed by the person who wrote the rule against
+it. **Second instance this session:** C-FEL-434's framing implied a naive
+un-elide, and the builder blocked rather than building it, which is the only
+reason a deliberate security posture was not reversed. Two for two.
+**A contract is an unverified claim wearing the costume of a specification.**
+The builder's pre-build premise check is currently discretionary discipline; it
+should be the first must-fail row of every contract.
+
+**TOOL GAP:** `swarm-bus` cannot **amend a claimed contract's bar** — re-offering
+resets status to `offered` and releases the claim. So the amendment lives on the
+bus while the contract row still carries the stale, unbuildable surface; anyone
+reading the ledger sees the wrong bar. Sits next to *"no index of which verdicts
+cited which method"* — **two places where the ledger cannot express a
+correction.** Not filed: no design I believe in yet.
+
+**#667 and #668 are BOTH GREEN.** #667 `check=SUCCESS`, `ci-ok=SUCCESS` — its
+own `check` job **ran and passed**, so the filter-inversion test is settled by
+execution as well as by the matcher. #668 went green at `99be3b03` after a
+concurrent instance pushed the compiler-binary bump; the builder correctly read
+*which* job had failed (`check:compiler-binary-bump`) and did not duplicate it.
+That is a **fifth** concurrent-instance-on-a-shared-branch event — benign and
+green this time, and it belongs in the tally as such, since a record of only the
+harmful ones understates how often this happens.
+
 ### Seventh wake — 🔴 the Scaffold DX `matrix` lane is DEAD, not flaky
 
 **13 of 15 cells never run a line of aihu code.** Triaged from a red `matrix` on
@@ -794,6 +853,10 @@ all 13 open issues were unassigned and three of them were already done.
   Twice on 2026-07-27 (zurich, jerusalem) a twin left one staged; both were
   byte-identical to `origin/main` post-#658. Check
   `git diff --stat origin/main -- <file>` before preserving anything.
+- **Do not re-litigate `C-FEL-READMESYNC-JOB`'s surface.** The contract row
+  carries a STALE, unbuildable surface (no way to amend a claimed bar); the
+  ruling is on the bus — lazy `rolldown` import, surface amended to include
+  `scripts/sync-readme.ts` for that decoupling only.
 - **Do not re-triage a red `matrix` (Scaffold DX) on any PR.** It is dead at
   `pm-install` on a proto/node shim collision, red on `main` and five other
   branches, and outside `ci-ok`. See the seventh-wake section. Name it in the
