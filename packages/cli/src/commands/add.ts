@@ -30,7 +30,7 @@
  */
 
 import { mkdirSync, writeFileSync } from 'node:fs'
-import { dirname } from 'node:path'
+import { basename, dirname } from 'node:path'
 import {
   preflight,
   type RegistryFs,
@@ -211,16 +211,28 @@ export default async function add(rest: ReadonlyArray<string>, deps: AddDeps = {
   }
 
   const prefix = flags.prefix ?? resolved.ui.prefix
-  const { entries, hasCollision } = preflight(items, resolved.targetDir, resolved.registryRoot, fs)
+  // `prefix` drives the destination FILENAME as well as the in-source rewrite:
+  // the stem is the registered custom-element tag, so the two must agree or
+  // the copied recipe registers under a name its own code never mentions.
+  const { entries, hasCollision } = preflight(
+    items,
+    resolved.targetDir,
+    resolved.registryRoot,
+    fs,
+    prefix,
+  )
 
   // --diff: print diffs against any existing target file; write nothing.
+  // Labelled with the DESTINATION basename, which is what the author will see
+  // on disk (and what carries the prefix), not the registry-side source name.
   if (flags.diff) {
     for (const e of entries) {
       const transformed = substitutePrefix(e.file.source, 'aihu', prefix)
+      const label = basename(e.dest)
       if (e.collides) {
-        io.stdout(unifiedDiff(fs.read(e.dest), transformed, e.file.basename))
+        io.stdout(unifiedDiff(fs.read(e.dest), transformed, label))
       } else {
-        io.stdout(`  (new file) ${e.file.basename}\n`)
+        io.stdout(`  (new file) ${label}\n`)
       }
     }
     return

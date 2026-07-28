@@ -45,7 +45,9 @@ const hasAddon = existsSync(ADDON)
 
 const FIXTURES: Array<{ id: string; source: string }> = [
   {
-    id: '/app/src/components/counter.aihu',
+    // Hyphenated stem: the stem IS the define-name for a non-page component,
+    // and a hyphen-less one is C450 (it could never register).
+    id: '/app/src/components/aihu-counter.aihu',
     source: `
 @state {
   let items = state(['alpha', 'beta'])

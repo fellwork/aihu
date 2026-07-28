@@ -21,6 +21,7 @@ import {
   type RegistryFs,
   RegistryResolveError,
   type ResolveRegistryDeps,
+  destBasename,
   realRegistryFs,
   resolveRegistry,
 } from '../registry-resolve.ts'
@@ -106,8 +107,17 @@ export default async function list(
     // Scan ui.target for copied recipes; print name + recorded version (D-4).
     const present = new Set(io.listDir(resolved.targetDir))
     const versions = readPrimitives(resolved.projectRoot)
+    // `aihu add` writes `<prefix>-<stem>.aihu` (the stem is the registered
+    // custom-element tag, which needs the hyphen), so match on the SAME
+    // derivation — `destBasename` — or `list --installed` would never
+    // recognise anything `add` just wrote. The bare registry basename is
+    // still accepted so a target dir populated before this change still reads.
+    const prefix = resolved.ui.prefix
     const installed = resolved.registry.items.filter((item) =>
-      item.files.some((f) => present.has(f.path.slice(f.path.lastIndexOf('/') + 1))),
+      item.files.some((f) => {
+        const base = f.path.slice(f.path.lastIndexOf('/') + 1)
+        return present.has(destBasename(base, prefix)) || present.has(base)
+      }),
     )
 
     if (installed.length === 0) {

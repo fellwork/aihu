@@ -118,12 +118,40 @@ pub const ENVELOPE_VERSION: u32 = 1;
 /// the registered element matches emitted `branch(...)` references and the
 /// manifest. Infallible; shared by the CLI (`src/bin/main.rs`), the wasm
 /// binding, and the envelope so the three cannot drift.
+///
+/// Infallible ON PURPOSE. This also resolves the `tag` field for `--ast-json`
+/// and `--route-json`, which is METADATA, not a registration. Those callers
+/// derive a provisional stem from the filename and never see the Vite plugin's
+/// layout override, so a layout SFC arrives here as `site`, not as the
+/// `aihu-layout-site` it actually registers under. Erroring here would reject
+/// every layout over a name it never defines. The registration rule lives in
+/// [`validate_define_tag`] and is applied ONLY on the JS-emit path.
 pub fn resolve_define_tag(raw: &str) -> String {
-    if crate::tags::is_component_tag(raw) {
-        crate::tags::kebab_component_tag(raw)
-    } else {
-        raw.to_string()
-    }
+    crate::tags::normalize_define_tag(raw)
+}
+
+/// C450 at the define site — the gate for the one artifact that reaches
+/// `customElements.define`. Wraps [`crate::tags::validate_define_tag`] in a
+/// `CompileError` so it rides the ordinary diagnostic channels: the human
+/// codeframe renderer AND the `--machine-errors` JSON stream, which serializes
+/// `code` / `hint` / `fix` straight off this struct.
+pub fn validate_define_tag(raw: &str) -> Result<String, CompileError> {
+    crate::tags::validate_define_tag(raw).map_err(|message| {
+        let norm = crate::tags::normalize_define_tag(raw);
+        CompileError {
+            message,
+            line: 0,
+            col: 0,
+            code: Some("C450".to_string()),
+            hint: Some(format!(
+                "custom-element names require a hyphen; the single word '{norm}' can never satisfy that, so the component never upgrades and renders as an inert unknown element"
+            )),
+            fix: Some(format!(
+                "rename the component to a hyphenated tag such as 'aihu-{norm}' (rename the `.aihu` file, or set a hyphenated `@route {{ name }}` on a page), then update every template, index.html, and import that referenced it"
+            )),
+            ..Default::default()
+        }
+    })
 }
 
 /// Render a `CompileError` into a single displayable string (message + code +
@@ -240,7 +268,16 @@ pub fn compile_envelope(source: &str, opts: &EnvelopeOptions) -> Result<Envelope
         .clone()
         .or_else(|| unit.source.route.as_ref().and_then(|r| r.name.clone()))
         .unwrap_or_else(|| stem.clone());
-    let tag_name = resolve_define_tag(&tag_name);
+    // C450 at the define site. Gated on `js` SPECIFICALLY: that is the only
+    // emit whose output contains a `defineElement(...)` call, so it is the
+    // only one where an unregisterable name is a defect. `ast` and `route`
+    // carry the tag as metadata and may legitimately hold a provisional stem
+    // (see `resolve_define_tag`), so they stay on the infallible path.
+    let tag_name = if want("js") {
+        validate_define_tag(&tag_name)?
+    } else {
+        resolve_define_tag(&tag_name)
+    };
 
     // ── Emit per target ─────────────────────────────────────────────────────
     let mut envelope = Envelope {

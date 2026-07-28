@@ -348,6 +348,30 @@ export interface WritePlan {
 }
 
 /**
+ * The destination filename for a copied recipe.
+ *
+ * The `.aihu` filename stem IS the registered custom-element tag, so the
+ * destination name — not the registry's source name — decides what the recipe
+ * registers as. The registry stores recipes under bare stems (`button.aihu`),
+ * which is why every recipe carries the `aihu-` prefix INSIDE its source
+ * (`customElements.define('aihu-button', …)`, `.aihu-button { … }`) and why
+ * Storybook copies them out as `aihu-<stem>.aihu`
+ * (`apps/storybook/scripts/sync-recipes.ts`).
+ *
+ * Copying `button.aihu` through verbatim produced `customElements.define(
+ * 'button', …)` in the consumer build — a SyntaxError, and a collision with
+ * the built-in `<button>` besides. Prefixing here makes the destination stem
+ * agree with the `aihu-` → `<prefix>-` rewrite `substitutePrefix` already
+ * applies to the file's contents, so `--prefix acme` yields `acme-button.aihu`
+ * registering `<acme-button>` — one name, one place.
+ *
+ * Idempotent: a registry file already named `<prefix>-…` is left alone.
+ */
+export function destBasename(basename: string, prefix: string): string {
+  return basename.startsWith(`${prefix}-`) ? basename : `${prefix}-${basename}`
+}
+
+/**
  * Build the write plan: one entry per (item, file), flagging collisions against
  * the existing target dir. Does NOT write — the command decides based on
  * `--dry-run` / `--diff` / `--force`.
@@ -357,12 +381,13 @@ export function preflight(
   targetDir: string,
   registryRoot: string,
   fs: RegistryFs = realRegistryFs,
+  prefix: string = UI_DEFAULTS.prefix,
 ): WritePlan {
   const entries: WritePlanEntry[] = []
   let hasCollision = false
   for (const item of items) {
     for (const file of readRecipeSource(item, registryRoot, fs)) {
-      const dest = join(targetDir, file.basename)
+      const dest = join(targetDir, destBasename(file.basename, prefix))
       const collides = fs.exists(dest)
       if (collides) hasCollision = true
       entries.push({ item, file, dest, collides })

@@ -943,7 +943,7 @@ const [n, setN] = signal(0)
 
 #[test]
 fn no_agent_block_manifest_empty() {
-    let source = include_str!("../fixtures/vite-counter/counter.aihu");
+    let source = include_str!("../fixtures/vite-counter/aihu-counter.aihu");
     let parsed = sfc::parse(source).unwrap();
     let unit = compile_full(&parsed).unwrap();
     let result = emit(&unit, "aihu-counter");

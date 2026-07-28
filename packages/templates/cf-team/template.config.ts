@@ -11,7 +11,7 @@
  * `apps/web/src/auth/` and one `.env.example.<provider>`.
  *
  * §13 Q3 lock: `agentSurface` defaults to `'minimal'`; `.mcp.json` and
- * `apps/web/src/agent/expose.aihu` are emitted unless the user explicitly
+ * `apps/web/src/agent/aihu-expose.aihu` are emitted unless the user explicitly
  * opts out with `agentSurface: 'none'`.
  */
 
@@ -47,7 +47,7 @@ export const config = {
   conditionalFiles: [
     { path: 'apps/web/src/components/live-counter.aihu', when: 'starter === "live-counter"' },
     { path: '.mcp.json', when: 'agentSurface !== "none"' },
-    { path: 'apps/web/src/agent/expose.aihu', when: 'agentSurface !== "none"' },
+    { path: 'apps/web/src/agent/aihu-expose.aihu', when: 'agentSurface !== "none"' },
     // Per-auth-provider conditional file sets (§13 Q3 propagation):
     { path: 'apps/web/src/auth/better-auth.ts', when: 'auth === "better-auth"' },
     { path: 'apps/web/src/auth/kinde.ts', when: 'auth === "kinde"' },
