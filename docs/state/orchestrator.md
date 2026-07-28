@@ -2005,6 +2005,13 @@ all 13 open issues were unassigned and three of them were already done.
   cannot green ⇒ branch protection says BLOCKED. Guard, not diff. Its
   prerequisite (#666) has merged; it needs marking ready, which is the
   interactive session's call, not a wake's.
+- **Do not make `cancelled` green in ci-ok.** It fails closed on purpose
+  (`plan-a.yml:449`, documented `:354`). A cancelled job reached no verdict, so
+  ci-ok cannot certify it. Only the *message* is worth improving
+  (`C-FEL-CIOK-CANCELLED-MSG`, LOW, fold into a passing PR).
+- **Do not re-run a workflow before capturing its check-runs.** The rerun
+  supersedes the artifacts and erases the evidence for whatever you are
+  reporting. Cost me the ability to re-verify #672's cancelled pair.
 - **Do not attribute a whole-repo lint red by file alone.** Split ERRORS from
   WARNINGS first — only the errors drive the exit code, and on this repo the
   warnings are main's debt by construction. Cost architect one wrong "not my
