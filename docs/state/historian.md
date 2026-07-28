@@ -272,6 +272,15 @@ by it, so open them yourself when auditing.
 - **The plan-a.yml/biome glob trap has now burned THREE readers** (architect ×2,
   orchestrator ×1) — always run the real matcher (`picomatch`/`biome check`), never
   reason about globs. The picomatch-on-extracted-patterns method is ratified.
+- **A rule stated in prose does not audit its own file** (`promotion-rungs.md`). #667
+  added a comment that docs-facing gates must be their own always-on job, while
+  `plan-a.yml:123` already has `sync-readme --check` as a STEP — so #667's filter fix
+  stops README-only PRs being checked for README drift. Prose can't ask "what else is
+  already like this?" Rung → a check that enumerates docs-facing gates. `C-FEL-READMESYNC-JOB`.
+- **A `--no-verify`-bypassable hook is not a backstop in this swarm** (`guarantee-satisfied-by-the-defect.md`
+  Instance 3). The `sync-readme` gap's mitigation was ".husky/pre-commit:9 runs it" — but
+  `--no-verify` is our normal docs workflow (I use it on every commit; verifier on #659).
+  Only a CI job is non-bypassable. Don't offer a local hook as a guarantee's backstop.
 - **Flapping required gate (#661 / C-FEL-411) — do not read `ci-ok` blind.** A required
   `check` flaps red on a build-order race (`editor/moon.yml:4-5` `dependsOn:[signals]`
   while `editor/tests` import `@aihu/compiler`): a red X may be a race, a green tick may

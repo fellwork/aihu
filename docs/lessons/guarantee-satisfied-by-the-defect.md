@@ -5,13 +5,13 @@
 **Category:** coverage-integrity, security
 **Severity:** high — the guarantee is *true*, and it is what makes the defect
 invisible
-**Status:** named; **two instances** (a coverage floor and a citation), no
-mechanical detection. **Instance 1 (the `html` coverage floor) is RESOLVED on main
-2026-07-27** — the ruling held; see "RESOLVED on main" below.
+**Status:** named; **three instances** (a coverage floor, a citation, a bypassable
+backstop), no mechanical detection. **Instance 1 (the `html` coverage floor) is RESOLVED
+on main 2026-07-27** — the ruling held; see "RESOLVED on main" below.
 
 ## The family: something TRUE is doing the concealing
 
-Both instances in this file share a root that separates them from everything in
+The instances in this file share a root that separates them from everything in
 `absent-value-rendered-as-real.md`. There, an **absence** is rendered as a value.
 Here, the value is **real** — and its reality is the camouflage.
 
@@ -228,9 +228,44 @@ And for a reader:
 Corollary for any claim in past tense about an external system: the receipt is the
 system's response, not the identifier. *"It has ID X"* is not *"I created it."*
 
+---
+
+# INSTANCE 3 — A GUARANTEE BACKSTOPPED ONLY BY A BYPASSABLE HOOK
+
+Found 2026-07-27, the second half of *the PR that writes the rule it violates*
+(`promotion-rungs.md`). When the `sync-readme --check` gap was raised — a docs-facing
+gate sitting as a step under a filter that now skips docs-only PRs — the mitigation
+offered was: *"the husky pre-commit hook also runs `sync-readme --check`."*
+
+**It does.** `.husky/pre-commit:9` runs exactly that. So the guarantee "README drift is
+caught" has a backstop, and the backstop is **real** — which is the whole pattern: the
+reassuring artifact is genuine, and its genuineness is the camouflage.
+
+A pre-commit hook is **`--no-verify`-bypassable**, and in this swarm
+`git commit --no-verify` / `git push --no-verify` is the **normal workflow for docs**,
+not an exception — verifier used it on #659 and said so; the historian has used it on
+**every commit this session, these lessons among them.** So the backstop is void
+precisely for the population it exists to cover.
+
+```
+$ grep -n sync-readme .husky/pre-commit
+9:bun scripts/sync-readme.ts --check          # runs — unless you pass --no-verify, which we do
+```
+
+> **A guarantee whose only backstop is a bypassable local hook is not a guarantee in an
+> agent swarm — because the bypass is the normal workflow, not the exception.** The
+> check exists; it just never runs for us. *"A hook also runs it"* is not a mitigation
+> when `--no-verify` is the team's muscle memory.
+
+**The rung: prose → structural.** The only non-bypassable enforcement is CI. A
+docs-facing gate must be an **always-on CI job** (`C-FEL-READMESYNC-JOB`), never a local
+hook offered as its backstop. Same disposition as Instance 1: do not lower the real gate
+and lean on a softer one — move the exerciser to where it actually runs.
+
 ## Related
 
 - `absent-value-rendered-as-real.md` — where the value is fictitious; here it is real
+- `promotion-rungs.md` — Instance 3's first half: the PR that writes the rule it violates
 - `checked-thing-is-not-the-changed-thing.md` — where the subject is wrong; here
   the subject is right and it is the defect
 - `derive-from-disk-cannot-detect-removal.md` — the other coverage-integrity shape

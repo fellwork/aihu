@@ -226,6 +226,35 @@ edited file**, and that method is now **ratified** as the acceptance for filter 
 The promotion completes: the structural bar (run the matcher) now has an implementation
 (picomatch on extracted patterns), not just a prohibition.
 
+## The PR that writes the rule it violates (2026-07-27)
+
+The sharpest instance of *prose does not execute* on record. **#667** — the fix that
+makes `plan-a.yml`'s paths-filter finally discriminate — added this comment:
+
+> *"A docs-facing gate therefore must NOT be a step here, or it would silently skip on
+> the doc-only PRs it most needs to run on; it goes in its own always-on job instead."*
+
+**One screen above it, at `plan-a.yml:123`, sits `- run: bun scripts/sync-readme.ts
+--check`** — a docs-facing gate, as a step, inside the `check` job. So the moment #667
+makes the filter discriminate, **README-only PRs stop being checked for README drift**:
+`check` is gated on `changes.code`, a README-only PR is `code=false`, `check` skips, and
+the `sync-readme --check` step skips with it. The PR states the correct rule in prose
+and ships a live violation of it in the same file. Verifier found it while verifying
+#667 and reported it as a resolved could-not-check rather than burying it.
+
+> **A rule stated in prose does not audit its own file.** The author wrote the correct
+> rule and did not sweep for existing violations — not carelessness, just that **prose
+> has no way to ask "what else is already like this?"** A comment cannot enumerate.
+> **Rung: prose rule → structural** — a check that enumerates every docs-facing gate and
+> asserts each is its own always-on job, not a step under a discriminating filter. Filed
+> as `C-FEL-READMESYNC-JOB` for the instance; **the sweep is the class.**
+
+Same family as `checked-thing-is-not-the-changed-thing.md` instance #20 (a comment
+describing behaviour the file does not have) — sharper, because here the comment
+describes the behaviour the file *should* have and the file contradicts it **in the same
+diff.** The second half — that the offered backstop is a bypassable hook — is in
+`guarantee-satisfied-by-the-defect.md`.
+
 ## Related
 
 - `checked-thing-is-not-the-changed-thing.md` — the recurrence (incident 1) and the exit-code-not-checked family
