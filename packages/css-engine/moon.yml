@@ -16,7 +16,7 @@ dependsOn:
 
 tasks:
   build:
-    command: "rolldown -c"
+    command: "bunx rolldown -c"
     inputs:
       - "src/**/*.ts"
       - "rolldown.config.ts"
@@ -33,7 +33,7 @@ tasks:
   # @aihu/compiler (Plan 2), so typecheck never races the upstream build.
 
   test:
-    command: "vitest run"
+    command: "bunx vitest run"
     inputs:
       - "src/**/*.ts"
       - "tests/**/*"
