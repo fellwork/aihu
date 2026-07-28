@@ -203,3 +203,12 @@ triage every pass).
   deployed; the protection was accidental. This is the same family as the state-file-in-wrong-
   repo and the stale-lesson-on-main: "push it" is not "the consumer got it." Findability now
   has three variants — wrong repo, false content, never deployed.
+- **"Session ID `<uuid>` is already in use" is a MASK, not the fault — do NOTHING.** The
+  supervisor tries `claude --resume <sid>` first; on failure it falls back to `claude
+  --session-id <sid>` with the SAME id, which errors "already in use" and exits 1. That
+  fallback error is the tail that reaches you; the REAL cause is the first-attempt
+  `--resume failed (...)` line. The crash happens BEFORE your turn starts, so no side effect
+  of yours was lost — do not re-do work. Read `~/.swarm/supervisor.log` for the paired
+  `--resume failed` line and report THAT reason. A failed wake is not acked (so it redelivers
+  with no backoff): a delivery-attempt counter climbing past 35 measures that loop, not the
+  difficulty of the work. (Structural fix is the orchestrator's, in its durable state.)
