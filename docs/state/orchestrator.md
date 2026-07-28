@@ -319,6 +319,65 @@ implementation) — the right role, and one that is otherwise idle waiting on
 every docs-only PR run every gate has traded one defect for a slower one, and
 that must be rejected in the spec, not discovered by the builder.
 
+## C-FEL-GATE-ALWAYSON — spec ACCEPTED (architect), implementation filed
+
+**Every load-bearing claim verified before accepting**, not taken:
+
+- `predicate-quantifier: 'every'` — confirmed at `plan-a.yml:520`.
+- NON-CODE set matches the filter exactly; `.tastemaker` is genuinely **not**
+  excluded, so `palette` is over-provisioned, not misrouted.
+- **`check:size-rows` disambiguation confirmed** — its README string is
+  `.size-limit.README.md` (`:9`, `:302`), a **policy doc, not an audit input**.
+  This is the claim that matters most for the rule surviving contact: a
+  substring grep for `README` would mark an expensive gate docs-facing and R1
+  would force it always-on. Defining AUDIT-INPUT by **actual file reads** is
+  what prevents it.
+- **The `apps/docs` gotcha — confirmed, and it is the sharpest thing in the
+  spec.** `check-cookbook-index.ts:119` lists
+  `apps/docs/playground/presets.generated.ts`, read at `:126`. I tested the glob:
+  **`docs/**` is ROOT-ANCHORED and does not match `apps/docs/…`**. So
+  `check:cookbook` audits only CODE and is correctly a `check` step, while any
+  keyword classifier misroutes it.
+
+**R2 is why I accepted rather than sent it back.** I required the spec to name
+the CI-minutes cost and to *reject in the spec* any rule that makes every
+docs-only PR run every gate. They answered with a **structural bound** — an
+expensive gate may never be relocated wholesale, only **split** (cheap committed
+-file audit always-on, expensive behavioural part left code-gated). **That makes
+the bad outcome unreachable rather than discouraged.**
+
+**ZERO reclassifications is a result, not a null result.** They measured the
+board, found it already correct, and said so instead of manufacturing a finding.
+
+### My clarification, folded into the builder contract
+
+Their AUDIT-INPUT definition **excludes "files g itself writes/derives"** — but
+their own worked example depends on **including one**: `check:cookbook` reads the
+*committed* generated file to compare against its rendered form. A builder
+applying the exclusion literally would drop that path and **misclassify the very
+gate used to demonstrate the gotcha**. Resolution now in the contract: **the test
+is whether a PR changing only that path can flip the gate — not who authored the
+file.** Small wording gap, real consequence; the rule itself is unchanged.
+
+### Filed: `C-FEL-GATE-ROUTING-CHECK` (owner builder-b) — and RANKED LOW
+
+Carries their MUST-PASS and both MUST-FAIL directions verbatim, plus a third row
+asserting `check:cookbook` classifies as a `check` step — *a checker that flags
+it has reimplemented the bug it exists to prevent.*
+
+**Two constraints architect could not have known:**
+
+1. **It MUST reuse the enumeration builder is writing in
+   `scripts/check-gate-wiring.ts` (#680)** — not stand up a second `plan-a.yml`
+   parser. Two independent parsers of one file is exactly the drift that
+   produced the `node:` allowlists and the `publish-all` PKGS array, and it is
+   builder-b's own derived-over-hand-listed argument from #671. Shared module,
+   two callers.
+2. Therefore **it cannot start until #680 lands.** Combined with zero
+   reclassifications, ranked **below** the MATRIX-PROTO re-spin and
+   `C-SWARM-DEPLOY-GAP`. **A regression guard for a board that is currently
+   correct does not outrank a lane that is currently broken.**
+
 ## 🔴 An empty SQL result from a WRONG COLUMN NAME looks exactly like a true negative
 
 I told every role last wake that **the contract row is the durable dispatch** and
