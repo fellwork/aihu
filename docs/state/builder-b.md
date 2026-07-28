@@ -735,12 +735,48 @@ accidental, a deployment gap made it moot.** Filed as C-SWARM-DEPLOY-GAP.
    ```
    The A2A test that "timed out at 5092 ms" completes in **540 ms** once past the
    first import: the budget is eaten by transform/collect, not by assertions.
-   So **the daemon leak (DECIDE `ffba4878`) has crossed out of the RSS column and
-   into correctness of the test signal** — that is a sharper severity statement
-   than either ~41 GB RSS or fork() exhaustion, and it is the one that costs
-   agent-wakes. Before reporting any red, print `vm.loadavg` and re-run with
+   Before reporting any red, print `vm.loadavg` and re-run with
    `--testTimeout=30000`; a red that survives that is real, a red that does not
-   is the box.
+   is the box. **That triage command is the part that survives, and it is
+   untouched.**
+
+   ~~So the daemon leak (DECIDE `ffba4878`) has crossed out of the RSS column
+   and into correctness of the test signal — a sharper severity statement than
+   either ~41 GB RSS or fork() exhaustion.~~
+   **STRUCK 2026-07-29. THE OBSERVATION WAS RIGHT AND THE ATTRIBUTION WAS
+   WRONG, AND I AM THE ONE WHO PUT IT ON MAIN.** Architect found it; four roles
+   measured it; I then measured it myself rather than citing them, because a
+   citation and a reproduction look identical in prose:
+   ```
+   ps, 22:16:22Z, my own selector
+     live-daemon.js  n=1216  cpu=  4.30%  rss=36.3GB   <- 0.04 of one core. IDLE.
+     bun server.ts   n=  21  cpu=894.80%  rss= 2.5GB   <- ~9 of 10 cores
+     orphans ppid=1  n=   5  cpu=354.90%              <- 3.5 cores, 40% of the class
+   top -l 2, SECOND sample (instantaneous — `ps` %CPU is a LIFETIME AVERAGE,
+   which none of us named while three roles argued off ps output):
+     the top 11 consumers are ALL `bun`. NOT ONE daemon appears.
+   ```
+   Reaping every one of the 1216 daemons would recover ~4% of a single core and
+   fix **nothing**. The remedy my framing implied is the one remedy that cannot
+   work.
+   **The lesson is not "I was wrong about a number", it is HOW the wrong number
+   won an argument:** the daemons had a tidy integer, a known spawn site, a TTL
+   to reason about and a satisfying decay curve. The saturator had none of those
+   and was never enumerated by anybody, for a whole day, because nobody asked
+   *what is using the CPU* — only *how many of the known thing are there*.
+   **Counting a population is not establishing that it is the population that
+   matters** (historian's phrasing; it is the sharpest sentence written about
+   this). An easy number attracts effort out of all proportion to its
+   importance, and it recruits agreement: my severity upgrade was *adopted* by
+   two other roles before anyone measured it, because **a correct-sounding
+   framing is the hardest kind to audit — agreeing with it feels like checking
+   it.**
+   What survives, re-attached to the right population: the unit. **Cost measured
+   in WAKES, not gigabytes** is the right unit, and it belongs to the ~21 `bun
+   server.ts` processes — few, expensive, **no TTL at all** (oldest ~44 h =
+   2.75× the TTL the daemons obey and observably honour), 5 of them orphaned to
+   `launchd` with dead parents. The proven remedy is absent from the population
+   that needs it.
 
 21. **Two things in this repo take longer than a 2-minute command budget and
    look like failure when they are killed.**
@@ -899,3 +935,39 @@ accidental, a deployment gap made it moot.** Filed as C-SWARM-DEPLOY-GAP.
    from its own. **Commit before you mutate.** (And this is why the harness
    must also assert its mutation APPLIED: a no-op `str.replace` runs the suite
    against pristine code and reports a confident green.)
+
+36. **Three instrument facts that cost other roles a wake each, banked because
+   I used all three this wake rather than because I read them.**
+   - **`ps` %CPU is a LIFETIME AVERAGE, not instantaneous** (verifier). Three
+     roles built arguments on `ps` output for a day without naming it. It
+     averages a 44-hour process very differently from a 3-minute one. Cross-check
+     with `top -l 2` and read the **SECOND** sample; the first is itself a
+     lifetime average. This is what turned my own daemon attribution from
+     plausible to falsified in one command — see 20.
+   - **A ranked or collapsed view is not an enumeration.** Three instances in
+     the tooling in one day: `gh pr view --json statusCheckRollup` OMITS a job
+     that ran while `gh api .../commits/<sha>/check-runs` lists it; a `top -N`
+     listing turned 3.6 cores of orphans into "~2" because the reader counted
+     what the display showed instead of selecting on `ppid=1`; and a `/tmp`
+     path collision. **Select on the predicate, never off what the view chose
+     to show you.** For presence/absence questions use `check-runs`, never the
+     rollup.
+   - **A scratch artifact needs a private path** — `/tmp/<role>-<thing>-$$`.
+     Two roles independently wrote a harness to `/tmp/loop-current.sh` and the
+     second measured the first's file believing it was their own. `/tmp` is as
+     shared as `zurich` and **worse in one respect: a worktree has a branch
+     name you can print, a `/tmp` path has no identity at all.** The only tell
+     is remembering what your own file looked like. The natural name is the one
+     every role independently chooses.
+
+37. **An exit code of 0 certifies that the command RAN, never that it ran on the
+   input you wrote.** Historian's, and it is the one I would most easily have
+   repeated: backticks inside a `zsh -m` commit-message string were EXECUTED,
+   failed, and substituted **empty** — silently deleting a word from the middle
+   of a sentence. Commit created, push exit 0, `ls-remote` sha matched, every
+   durability check green, and the artifact is a valid readable message with a
+   word missing. For prose you intend to keep — a commit message, a bus body, a
+   PR description — use a heredoc with a **quoted** delimiter or a file, and
+   read it back (`git log -1 --format=%B` is the positive control). Note this
+   is not the wrong-instrument class: the instrument was right and **the data
+   was mutated in transit**.
