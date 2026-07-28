@@ -1,6 +1,7 @@
+import { spawnSync } from 'node:child_process'
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { dirname, join } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { type AppTemplate, scaffoldApp } from '../src/index.ts'
@@ -81,6 +82,46 @@ describe('every scaffold unblocks pnpm lifecycle scripts', () => {
       ).not.toMatch(/onlyBuiltDependencies:/)
     })
   }
+
+  it('`aihu app --pm pnpm` does not stamp the project as bun', () => {
+    // Spawns the real CLI rather than calling scaffoldApp() directly, because
+    // the defect was in bin.ts's ARGUMENT HANDLING and not in the scaffold:
+    // `--pm` was parsed for the template-package path and nowhere at all for
+    // the built-in one, so the flag was silently dropped and every built-in
+    // scaffold got the `pm` default. A test that calls scaffoldApp({pm}) passes
+    // either way — it never touches the code that was broken.
+    //
+    // The consequence is not cosmetic. pnpm reads `packageManager` and REFUSES:
+    //   ERROR: This project is configured to use bun
+    // so `aihu app x --template agent --pm pnpm && pnpm install` died before
+    // resolving a single dependency. Measured end-to-end against pnpm 11.17.0:
+    // rc=1 before this fix, rc=0 after (with esbuild's postinstall running,
+    // which is what the allowBuilds above buys).
+    const cliBin = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'bin.ts')
+
+    const run = (pm: string) => {
+      const r = spawnSync('bun', [cliBin, 'app', 'pm-probe', '--pm', pm], {
+        cwd: tmpDir,
+        encoding: 'utf8',
+        env: process.env,
+      })
+      expect(r.status, `scaffold --pm ${pm} failed: ${r.stdout}${r.stderr}`).toBe(0)
+      const pkg = JSON.parse(readFileSync(join(tmpDir, 'pm-probe', 'package.json'), 'utf8'))
+      rmSync(join(tmpDir, 'pm-probe'), { recursive: true, force: true })
+      return pkg as { packageManager?: string }
+    }
+
+    expect(
+      run('pnpm').packageManager,
+      '`--pm pnpm` emitted a bun packageManager — pnpm refuses to install such a project outright',
+    ).toBeUndefined()
+    expect(run('yarn').packageManager).toBeUndefined()
+    expect(run('npm').packageManager).toBeUndefined()
+
+    // The bun default is unchanged — `packageManager` is how a bun project
+    // pins its own toolchain, and the legacy-snapshot golden freezes it.
+    expect(run('bun').packageManager).toMatch(/^bun@/)
+  })
 
   it('the cf-team workspace template carries the same spelling', () => {
     // A checked-in file rather than a generator, so it drifts independently of
