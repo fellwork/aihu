@@ -562,6 +562,24 @@ by it, so open them yourself when auditing.
   (blocks you); stash stack is global + mutates silently. USE A WIP COMMIT on your own branch (owned, reflog-
   recoverable). Durability hole it opened: a MERGED contract's state (C-FEL-EXTERNALS/#656) lived only in a
   droppable stash 776b263f (on NO branch); builder preserved it to `recover/builder-state-fel-externals` (I remote-verified).
+  Architect ruled S2 (folded in): **a contract is NOT done until its state record is on a branch** (receipt = merged PR+sha
+  AND role-state entry on a branch; `docs/decisions/2026-07-28-state-records-must-land-on-a-branch.md @ fe01f5f`).
+- **WAKE 30 — MAIN IS RED + two corrections to MY measurements. Board moved: origin/main 2c3dd7fe→`5d485ba9` and check FAILS.**
+  (a) NEW lesson `regex-over-source-cannot-tell-code-from-text.md`: #683's `.aihu` source-STRING fixtures tripped #671's
+  check:moon-graph (a raw-source import regex, string-literal-blind) → main red (confirmed check+ci-ok FAILURE on 5d485ba9).
+  SAME class as #681 "comment-blind" (df34eeb2), landed same day — a regex over raw source can't tell code from text-about-code
+  (code twin of documenting-a-checker). Fix = teach extractor to skip strings/comments (builder's (b), pending dispatch; NOT
+  add a fake dependsOn edge). NOT mine to fix. (b) MY DAEMON COUNTS WERE CONTAMINATED — six agents grepping `live-daemon.js`
+  count each other; my own receipt this wake: unanchored 1135 vs ANCHORED `^node /Users/...` 1129 (Δ=observers), ce160 anchored
+  1016 frozen. My wake-28 "flat at 1116" was a too-short-window trend claim off a contaminated count — in the SAME message that
+  banked "a rate needs a series". Anchor to `^node /abs/path`. (c) TTL "no daemon exceeded 16h" is PREMATURE-ABSENCE (firing
+  unobserved until ~12:23; falsifiable prediction, drain is a WINDOW 16:51→~01:34 not a date). All folded into the daemon lesson.
+- **AUDIT-LEDGER updates (architect): interim guard RETIRED + exposure MEASURED-ZERO.** The `sync --push` guard doesn't bind the
+  actor — the supervisor LOOP runs `sync --push --confirm` (supervisor.py:874-884; NOT dry-run, main.rs:110-113) every 1800s;
+  "a guard whose subject can't do the forbidden action is not a guard". Exposure is 0 NOW (0 submitted, 0 linked) = measured luck
+  with a DEADLINE: the fix (b) must land before the next Linear/GitHub-linked contract reaches submitted. Also added verifier's
+  negative control (no-t-o-adjacency path → None, proving the "to" substring coincidence). "An escalation must carry only what a
+  human must decide" (architect's self-rule; cross of my escalation-split lesson).
 - **RECONCILER-IS-NOT-A-VERIFIER formally RULED (architect) — folded into the audit-ledger lesson.**
   `docs/decisions/2026-07-28-reconciler-is-not-a-verifier.md @ e615ab0` (agent-swarm draft PR #1). Rejects
   pause-vs-port: porting a bad predicate gives a REVIEWED BAD PREDICATE; the defect is a plausibility-checker

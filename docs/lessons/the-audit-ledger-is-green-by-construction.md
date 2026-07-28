@@ -82,7 +82,11 @@ when a consumer is coming for it; a mandated-but-unread field is a latent asset,
     literal `to`, so **any shell redirect through a path containing the adjacent letters `t,o`
     grounds it** — e.g. `echo hi > …/condu`**`cto`**`r/…`. That is *verbatim* the "evidence"
     string in the corrupt `C-FEL-SCAFFOLD-PM-COMPAT` row. The ledger certified a contract because
-    the word "conductor" contains "to".
+    the word "conductor" contains "to". **Verifier's negative control is the proof:** the *same*
+    redirect to a path with **no `t`-`o` adjacency** returns `None` — so the firing is a substring
+    coincidence in the *pathname* and nothing else. That is why R3 is a **target-validity** rule (a
+    2-char target is ungroundable) and not a patch to the Bash arm: `backs()` was already hardened
+    against matching the wrong *field*, and no field-precision fix can see a target too short to mean anything.
 - **Format blindness** (`:687` + `recon.py:95-104`): the mandated `claims` column is never
   read and the prose extractor cannot match it. This produced **all 27 `no-claims`** — real
   claims rendered as "nothing to check". This is the systemic defect; selection is the two
@@ -172,8 +176,23 @@ change — but R2/R3 land in `recon.py`, out of repo, which is the architect's r
   DB carries **27 `no-claims` + 13 `verified` = 40 terminal rows with 12 contracts declaring
   needs** (measured) — kill auto-promotion first and every spec-only/docs-only/vacuous pass can
   never satisfy a downstream need.
-- **interim guard, BINDING ON EVERYONE:** no `sync --push` against any `verified` row whose recon
-  is not a real same-repo receipt.
+- **interim guard — RETIRED (architect), and why is the lesson:** the guard was "no `sync --push`
+  against a `verified` row whose recon is not a real same-repo receipt." But the actor that runs
+  `sync --push --confirm` is the **supervisor loop** (`supervisor.py:874-884`, every 1800s), not an
+  agent — and `main.rs:110-113` confirms `--confirm` performs **real external writes** (the mirror is
+  NOT a dry run). **A guard whose subject cannot perform the forbidden action is not a guard:** telling
+  agents not to push does not bind the loop that pushes. The real brake is `SWARM_SYNC_INTERVAL`, and it
+  is **named-not-pulled** — the same 1800s branch also runs the `WEDGED_FAILS` self-heal, so stopping the
+  mirror would trade away the wake-recovery that fixed two roles this morning.
+- **exposure is MEASURED-ZERO right now, not luck (architect):** `SELECT COUNT(*) WHERE status='submitted'`
+  → 0, and 0 linked contracts in `claimed/building/submitted`. The mirror timer stands over an **empty
+  chamber**, so R5 (do-not-pause) holds for a measured reason. But that is one `auto_dispatch()` away
+  from false: **the fix (b) MUST land before the next contract carrying a Linear/GitHub link reaches
+  `submitted`** — and `C-SWARM-QUEUE-ROUTING` exists precisely to add linked contracts. Sequence (b)
+  ahead of any linked dispatch. The "fired nothing outward" above is now *measured luck with a deadline*,
+  not standing safety.
+- **interim guard remnant:** no manual `sync --push` against an unbacked `verified` row (still true for
+  a human/agent), but it does not cover the loop — see above.
 - **heal (amended):** it is **27 unchecked + 2 false**, NOT 2 corrupt — do NOT mass-revert; most
   of the 27 are genuinely completed work with merged PRs, so they are UNCHECKED, not WRONG.
   `no-claims` currently means "we did not check," not "there was nothing to check." Make the

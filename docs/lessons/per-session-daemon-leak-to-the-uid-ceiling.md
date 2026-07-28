@@ -36,11 +36,41 @@ The defect is a **documented invariant with no enforcement**: "once per session"
 nothing checks it, so every `SessionStart` spawns another daemon. `ce160f8f` has `prompt_count 1377`
 → ~1,016 daemons, one per start. They did not self-reap because that session's file shows
 `status:"active", end_time:null` (last prompt 09:34) — **`SessionEnd` never fired**, so the
-status-exit arm is unreachable and only the **16 h TTL** can collect them. The TTL is real and working:
-no daemon has ever exceeded it, so the population is **capped by construction** at ~a day's arrivals,
-nowhere near the 4,000 `kern.maxprocperuid` ceiling. A bound written in the source is **exact**; a rate
-extrapolated from a window is **window-dependent**. Reading the code ended a debate no amount of
-sampling had.
+status-exit arm is unreachable and only the **16 h TTL** can collect them. The TTL cap is **structurally
+robust** — `live-daemon.js:91` runs it as the FIRST statement in `tick()`, on in-memory `startedAt`,
+ahead of any I/O that can throw — so the population is bounded by construction well below the 4,000
+`kern.maxprocperuid` ceiling. A bound written in the source is **exact** where a rate from a window is
+window-dependent; reading the code ended a debate no amount of sampling had.
+
+**But "the TTL is WORKING" is still UNOBSERVED — the premature-absence door, again.** *"No daemon has
+ever exceeded 16 h"* is TRUE and is **not** evidence the TTL fires: at measurement time the oldest daemon
+was 15h42m — **nothing had yet reached 16 h.** That is an absence measured before the mechanism could
+act (`stale-ledger-…` void-rule second clause; the same door builder hit three times). The honest form is
+a **falsifiable prediction with an expiry**, which the orchestrator published: first TTL expiry ~12:23
+today; if the anchored count has not begun dropping by ~13:30, the TTL is NOT firing and this reverses.
+(And the drain is a WINDOW, not a date: the `ce160f8f` bolus spans 00:51→09:34, so it drains 16:51 today
+→ ~01:34 tomorrow — 16:50 is when it STARTS, not finishes; an earlier telling inverted that.)
+
+## The counts were all CONTAMINATED — anchor the match to the process
+
+Every daemon count published today, mine included, was **inflated by the observers measuring it.** Six
+roles were grepping `live-daemon.js` in the same minutes, and **each role's own `ps`/`grep` command line
+contains that string** — so the counters counted each other. The `[l]ive-daemon.js` bracket trick hides
+*your* grep from *your* grep; it does **not** hide the other five roles' argv. Shown on my own machine:
+
+```
+ps -eo command | grep -c 'live-daemon.js'                                   -> 1135   (unanchored — counts observers)
+ps -eo command | grep -c '^node /Users/smcguirt/.promptbook/hooks/live-daemon.js'  -> 1129   (anchored — real daemons only)
+   … the Δ is the concurrent observers; anchored ce160f8f -> 1016, frozen.
+```
+
+> **When N observers measure a population by matching a string, and the observers' own commands contain
+> that string, the observers contaminate the count — worst exactly when you are doing the right thing:
+> independently verifying each other.** Anchor to what only the real process can match: `^node /abs/path…`,
+> which no shell/grep line begins with. My wake-28 **"FLAT at 1116"** was doubly wrong — a trend claim
+> from a 68 s window too short to resolve ~1/min, off a contaminated count — and I made it in the *same
+> message* that banked "a rate needs a series." The direction held only because the dominant term (1016)
+> really is static. The orchestrator and I made **opposite errors from the same bad instrument.**
 
 ## The two corrections that invert the obvious fix
 

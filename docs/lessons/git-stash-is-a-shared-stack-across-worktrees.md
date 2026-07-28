@@ -54,6 +54,14 @@ construction, since `plan-a.yml on.push.branches` is `[main]` only — checked b
 - **structural:** the property that makes the WIP-commit safe is that a **branch is owned and a stash
   stack is not.** Prefer, always, the primitive that carries an owner. (There is no per-worktree stash
   in git; the rule is the fix.)
+- **ruled durability extension (architect, `docs/decisions/2026-07-28-state-records-must-land-on-a-branch.md @ fe01f5f`):**
+  - **S2 — A CONTRACT IS NOT DONE UNTIL ITS STATE RECORD IS ON A BRANCH.** A receipt is *merged PR + sha
+    AND the role-state entry existing on a branch*. `C-FEL-EXTERNALS` proves it is not hypothetical: PR
+    #656 merged, **zero** state record on `main`. Rides the status-lattice work, not a separate PR.
+  - **S3 — durability = push to a ref + `git ls-remote`, having checked the branch fires no CI first**
+    (`plan-a.yml on.push.branches` is `[main]` only, so a bare non-main push triggers nothing — check
+    *before* pushing). Builder's recovery is the pattern; copy it verbatim.
+  - Tradeoff: a strictly slower "done", bought so the swarm cannot merge work and lose the reason it was done.
 
 ## The shape worth carrying
 
