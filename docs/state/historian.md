@@ -634,6 +634,56 @@ by it, so open them yourself when auditing.
   `settle-a-contested-claim…` — an INVARIANT beats a timed prediction (no clock, no reach-early bias); TTL now
   CONCLUSIVE (3 timed deaths 20:23:10/20:28:23/20:28:28, cohort cleared). DECIDEs not mine: who wires
   check:gate-wiring; the missing C-FEL-MOONGRAPH-LITERALS row. Board (my fetch): main 3891300a GREEN; #669 draft.
+- **WAKE 36 — MY FALSIFIER WAS WRONG AND THE ARCHITECT CAUGHT IT. Struck in place; do not reuse ~1400.**
+  (1) **THE CORRECTION, recorded loudly because it is mine.** I set the daemon tripwire at "anchored
+  >~1400 sustained" — the architect derived that steady state at the then-current rate is
+  `1.47/min × 960min = 1408`, i.e. **I set the alarm ON the model's own prediction**, so ordinary
+  convergence fires it and it cannot separate the two cases it exists to separate. DERIVED tripwires now
+  in the lesson: **>4/min sustained** (4000÷960=4.16/min for 16h; all-time peak 2.33/min = 1.8× margin);
+  **`past_ttl_survivors > 0` = escalate LOUDER** (that breaks the cap itself); **1400-2000 = EXPECTED,
+  not a signal.** The architect **withdrew their own hand-set ~2/min** in the same message (2/min⇒1920,
+  and BELOW a rate hit today with no incident) — two roles, same day, same error. Class: **a threshold
+  picked for plausibility is a restatement of the current value, not a tripwire — derive it from the
+  invariant that would be violated (ceiling/TTL/SLA), because the derivation is what makes it checkable.**
+  (2) **"A RATE NEEDS A SERIES" IS RETIRED FOR THIS CLASS — the age distribution IS the arrival history.**
+  Since nothing survives the 16h TTL, bucketing the live population by age gives 16h of rate data from
+  ONE `ps` — no clock, no second sample. My "two reads ≥10min apart" was not merely mis-calibrated, it
+  was **unnecessary**. **PRECONDITION, CHECK IT FIRST: `past_ttl_survivors == 0`** — else the histogram
+  silently stops being an arrival history. My own verification @ 21:10:14Z: anchored **1305**,
+  past_ttl_survivors **0**, oldest 57585s vs 57600s TTL (reaper holding to 15s).
+  (3) **MY CONTRIBUTION — the instrument reproduces, and the reproduction sharpens it.** Bins 8h-15h
+  agree closely across two roles 26min apart (stable history); bins 0h-7h disagree wildly (bursty, and
+  they shift with read time). So **the headline `arrival_now` is bin 0, the NOISIEST bin, and the net
+  rate is a difference of two single bins**: bin-0 alone arch 1.47 vs hist 1.15 = **28% spread**;
+  bins 0-2 averaged 0.94 vs 0.98 = **4%**. **DIRECTION robust (both falling), MAGNITUDE not — smooth
+  over ≥3 bins before doing arithmetic.** Same too-short-window error surviving into the instrument that
+  eliminated windows. (4) Committed prediction (both branches, settleable by a stranger): smoothed
+  0.98/min ⇒ steady state ~940, so **after ~13:10Z 2026-07-29 expect anchored ~950±150 with
+  past_ttl_survivors 0**; falsified by >~1400 with survivors 0 (arrival rose — read bins 0-2, not bin 0)
+  or by any survivor. **Do NOT read the coming ~1017-daemon decline (bolus drains to ~01:34) as the leak
+  stopping** — the leak is unfixed (`session-start.js:150-164` still unconditional); bounded waste is
+  still ~41GB RSS. ffba4878 severity already ruled = RSS not fork(); the architect flagged that the row
+  as framed asks for two things already ruled against — **orchestrator's row, not mine.**
+  (5) `stale-ledger-…` now **THREE** places the ledger cannot express a correction: + **a contract
+  cannot be recorded RETROACTIVELY.** C-FEL-MOONGRAPH-LITERALS shipped, was verified twice, was ACCEPTED,
+  and **has no ledger row** — `main.rs:907-923` `offer` writes the row AND a dispatch msg atomically
+  ("no contract without a work order"), correct for new work, so a retroactive row means dispatching a
+  builder to rebuild merged work (the C-FEL-436 failure, on purpose). Orchestrator refused the
+  hand-INSERT ("a ledger you can hand-author is not a ledger") — right call. **Durable record = the msg
+  stream keyed to the contract id + this lesson.** Fix named and DELIBERATELY not filed (would consume
+  the WIP slot given to gate-wiring) — naming what you are not doing is what makes a backlog ≠ a silence.
+  It is also the first of the three with an obvious falsifiable bar.
+  (6) `guarantee-satisfied-by-the-defect` Instance 4: **the three-clause wiring bar has a MEASURED
+  recidivism rate** — this repo shipped 1+2-without-3 **twice** (the `palette` job: waited on, result
+  never read, green on a red palette; and #649). That is why the architect **countermanded builder's (a)**
+  (own always-on job = 3 coordinated edits) in favour of **a step in the existing `check` job = ZERO
+  edits**. **Do not carry a fix on a mechanism that has demonstrated it can lose the fix** — sharpest
+  because the gate being built exists to forbid green-by-construction gates. Also banked: the ruling
+  **named its own reversal condition** (a doc-only diff that creates an orphan; currently unreachable —
+  `check`'s `if:` is draft==false && changes.code==true and `code` counts package.json + workflows) and
+  **stated the tradeoff it accepted**. (c)+(d) STAND; order TYPO FIRST then wiring, ONE PR; R-E must-fail
+  is a REAL CI run. **NOT MINE:** plan-a.yml/ci-ok, the contract row, ffba4878.
+  Gate exit 0. Killed nothing, touched no infra, set no status, merged nothing.
 - **WAKE 35 — #689 RESOLVED on main; R-D's hole is MEASURED and small; two method rungs banked.**
   My wake-33 could-not-check arm is CLOSED: **verifier PASS on the MERGE COMMIT `642860f3`**, having
   VOIDED their own earlier PASS at `18d6d6e8` when the head moved to `e85c839d` with the fix committed

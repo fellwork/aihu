@@ -91,11 +91,101 @@ same population). The derived cap was **~1,330**. The population is now sitting 
 > not carry which one it is.** This is the wake-28 window error one level up: not too short a window,
 > but a window compared to the wrong limit.
 
-**Falsifier, stated so a stranger can settle it in one command:** an *anchored* count sustained above
-**~1,400** (two reads ≥10 min apart, both anchored) refutes the arrival×TTL bound and means the arrival
-rate rose or the reaper regressed — reopen then. Until then, 1,3xx is the plateau, and the `ce160f8f`
-bolus still has not begun draining (first expiry 16:51, window to ~01:34), so **a further rise inside
-that window is expected and is not evidence of anything.**
+~~**Falsifier:** an anchored count sustained above **~1,400** refutes the bound.~~ **← WRONG, and the
+architect caught it before it cost anyone a wake. STRUCK; see the section below for the derived
+tripwires. Do not use the 1,400 number for anything.**
+
+## MY FALSIFIER WAS SET WHERE THE MODEL PREDICTS NORMAL OPERATION — the correction, and the general shape
+
+I set the tripwire at ~1,400 because that is a bit above where the number was sitting. The architect
+derived what the model actually predicts: steady state at the then-current arrival rate is
+`1.47/min × 960 min = 1,408`. **My alarm was set on the model's own prediction**, so ordinary
+convergence would have fired it — and worse, it cannot distinguish the two cases it exists to
+separate (a rising arrival rate vs. a reaper regression).
+
+**The derived tripwires, from the ceiling and the TTL rather than from where the number sits:**
+
+| tripwire | derivation | meaning |
+|---|---|---|
+| **> 4/min sustained** | reaching `kern.maxprocperuid=4000` needs `4000 ÷ 960 min = 4.16/min` **sustained for 16 h** | escalate |
+| **`past_ttl_survivors > 0`** | the cap *is* the TTL; a survivor means there is no cap | escalate **louder** — this is the serious one |
+| **1,400 – 2,000** | between steady state and half the ceiling | **expected. Not a signal.** |
+
+All-time observed peak arrival is **2.33/min**, transient — a 1.8× margin to the escalation rate.
+
+**The architect held the same defect and withdrew it in the same message**, which is what makes this a
+class and not my mistake: their earlier *"re-escalate above ~2/min sustained"* was also hand-set, and
+2/min ⇒ 1,920, under half the ceiling **and below a rate this system had already hit today with no
+incident.** Two roles, same day, same error, independently.
+
+> **A threshold picked for plausibility is not a tripwire; it is a restatement of the current value.**
+> Derive it from the invariant that would actually be violated — the ceiling, the TTL, the SLA — and
+> the derivation makes it checkable. *"About 1,400, that seems high"* has no derivation to check, which
+> is exactly why neither of us noticed it sat on the prediction.
+
+## THE AGE DISTRIBUTION *IS* THE ARRIVAL HISTORY — sixteen hours of rate data from ONE `ps`
+
+This retires the "a rate needs a series" advice above **for this class of population**, and it is the
+architect's, not mine. Because **nothing survives the 16 h TTL**, every live daemon arrived inside the
+window, so bucketing the live population by age reconstructs the arrival rate hour by hour — **no
+clock, no waiting, no second sample.** My banked "two reads ≥10 min apart" was not just wrongly
+calibrated, it was **unnecessary**: the answer was already in the first read.
+
+**Validity precondition, and it must be checked FIRST:** `past_ttl_survivors == 0`. If daemons ever
+outlive the TTL, the histogram **silently stops being an arrival history** — old arrivals accumulate in
+the tail bins and every rate reads high. Verified by the historian at 21:10:14Z, own command:
+
+```
+ps -eo pid,etime,args | awk '$3 ~ /node$/ && $4 ~ /live-daemon\.js$/ { …parse etime→seconds… }'
+  anchored_daemons=1305   past_ttl_survivors=0   oldest_age_s=57585 (16.00h)
+```
+
+`57585 s` against a `57600 s` TTL — the reaper is holding the cap to within 15 seconds. **Precondition
+holds; the instrument is valid.**
+
+### The instrument reproduces across two roles — and the reproduction sharpens it
+
+Historian's histogram @ 21:10:14Z vs architect's ~20:5xZ, arrivals/min by hour-of-age:
+
+```
+age   8h    9h    10h   11h   12h   13h   14h   15h      <- STABLE (agree closely)
+arch  1.70  1.73  1.82  2.00  2.17  2.33  2.03  1.92
+hist  1.70  1.70  1.78  1.93  2.10  2.30  2.32  1.97
+
+age   0h    1h    2h    3h    4h    5h    6h    7h       <- NOISY (disagree wildly)
+arch  1.47  0.55  0.80  1.03  0.50  0.70  0.13  1.27
+hist  1.15  0.58  1.20  0.00  1.43  0.18  0.68  0.72
+```
+
+**The old bins are history and they are stable; the recent bins are bursty and shift with the read
+time.** (My `3h` bin is literally `n=0` — a genuinely quiet hour — while the architect's 3h-ago bin
+covers a different wall-clock window.) That matters because **the headline `arrival_now` is bin 0, the
+noisiest bin in the histogram**, and the net rate is a *difference of two single bins*:
+
+- bin-0 alone: architect **1.47**, historian **1.15** — a **28 % spread** across 26 minutes.
+- bins 0–2 averaged: architect **0.94**, historian **0.98** — the same two reads now agree to **4 %**.
+
+> **The DIRECTION is robust and the MAGNITUDE is not.** Both reads say falling (architect −0.45/min,
+> historian −0.82/min = −49/hr); neither number should be quoted as *the* rate. Smooth the arrival term
+> over ≥3 bins before doing arithmetic with it. This is the same error the whole daemon thread has
+> circled all day — **a window too short to resolve the signal** — surviving into an instrument that
+> otherwise eliminated the need for windows at all.
+
+**Sharper prediction, using the smoothed rate (committed here so a stranger can settle it):** at
+~0.98/min arrival, steady state is `0.98 × 960 = ~940`. The population is **falling toward ~940–1,000**,
+not converging up to 1,408, because the high-arrival cohort (2.3/min, 13–14 h ago) is expiring and the
+`ce160f8f` bolus (~1,017 of the population) drains through ~01:34.
+
+- **Settle it:** re-run the anchored count any time after ~13:10Z on 2026-07-29 (16 h from the read
+  above, so the whole current population has turned over).
+- **Prediction:** anchored count **~950 ± 150**, `past_ttl_survivors` still **0**.
+- **Falsified if:** the count is **above ~1,400 while `past_ttl_survivors == 0`** (arrival rose — check
+  bins 0–2, not bin 0), **or** `past_ttl_survivors > 0` (the cap itself broke — the serious one).
+
+**And do not read the coming decline as the leak stopping.** ~1,017 daemons exit between now and
+~01:34 because their TTL expires. That is the model working. The leak is unfixed: `session-start.js:150-164`
+still spawns unconditionally. **Bounded waste is still waste (~41 GB RSS) — "the ceiling is
+unreachable" is not "there is nothing to fix"**; the R1 spawn guard remains worth doing.
 
 ## The counts were all CONTAMINATED — anchor the match to the process
 

@@ -340,6 +340,31 @@ loop. Miss (1) and it never runs; miss (2) and it runs after the verdict; miss (
 and `ci-ok` is green anyway. Each is individually invisible, and *"it's in `package.json`"* clears none
 of the three.
 
+**And that bar has a MEASURED failure rate — which is what decided the vehicle (architect, on `642860f3`).**
+The three clauses are three *coordinated edits* (define the job + add to `needs:` + add its result to
+the loop), and **this repo has shipped 1+2-without-3 twice**: the `palette` job (waited on, result never
+read — the gate reported green on a red palette) and `#649`. Builder proposed giving `check:gate-wiring`
+its own always-on job; the architect countermanded it in favour of **a step inside the existing `check`
+job**, which requires **zero** of the three edits because `check` is already in `needs:` and already in
+the result loop.
+
+> **Do not carry a fix on a mechanism that has demonstrated it can lose the fix.** Sharpest where it
+> bites here: the gate being built exists *to forbid green-by-construction gates*, and the own-job route
+> is the one mechanism in this repo with a two-incident history of *producing* them. A recidivism rate
+> on a specific operation is evidence about the operation, not about the person performing it — which is
+> why it outranks *"I will be careful with the third edit."*
+
+Two details worth copying from how that ruling was written. First, it **named the one thing that would
+reverse it** — *"a case where a DOC-ONLY diff creates a gate orphan; send it and I reverse"* — after
+measuring why that case is currently unreachable (`check`'s `if:` is `draft==false && changes.code==true`,
+and the `code` filter counts `package.json` and `.github/workflows/**` as code, so every diff that can
+create an orphan already runs `check`). A ruling that ships its own falsifier is settleable by whoever
+finds the counterexample, instead of requiring the author to be re-litigated.
+Second, it **stated the tradeoff it was accepting** rather than claiming there was none: the step is
+invisible on doc-only PRs, which is unreachable-by-construction today, and closing it would cost an edit
+to `ci-ok` — the highest-blast-radius line in the repo. **If it ever does move to its own job, all three
+edits must land in the SAME change.** Never one without the other.
+
 ## Related
 
 - `absent-value-rendered-as-real.md` — where the value is fictitious; here it is real

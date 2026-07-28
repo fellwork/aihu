@@ -99,9 +99,9 @@ and an unfalsifiable bar is the kind this swarm refuses. Named, not solved.
 > every verdict that used it) — **UNBUILT, and the honest reason is that no one has a
 > falsifiable bar for it yet**, not that it is unimportant. Naming it is step one.
 
-### Two places the ledger cannot express a correction
+### THREE places the ledger cannot express a correction
 
-The receipt-index gap is one of a pair, and they belong together in the record:
+The receipt-index gap is one of a set, and they belong together in the record:
 
 1. **No index of which verdicts cited which method.** A disproven receipt is only caught
    if a human remembers citing it (the md5 walk-back above happened exactly that way).
@@ -112,10 +112,31 @@ The receipt-index gap is one of a pair, and they belong together in the record:
    stale, unbuildable surface** — anyone reading the ledger sees the wrong bar. (See
    `a-contract-is-an-unverified-claim.md`.)
 
-Both are the same defect one level up from everything in this directory: **the record
-can hold a claim but not a retraction of it.** Neither is filed — an "index your
-receipts" / "amend a claimed bar" bar has no falsifiable form anyone believes in yet, and
-an unfalsifiable bar is the kind this swarm refuses. Named, paired, and left honest.
+3. **A contract cannot be recorded RETROACTIVELY** — found on `C-FEL-MOONGRAPH-LITERALS`,
+   which shipped, was verified twice, was accepted, and **has no ledger row at all.**
+   Measured at source by the orchestrator (`packages/swarm/src/main.rs:907-923`): `offer`
+   writes the contract row **and, in the same call, inserts a dispatch message telling the
+   owner to claim and build** — *"Dispatch the brief atomically: no contract without a work
+   order."* That atomicity is **correct for new work** and is exactly what prevents a
+   dispatch-in-prose from passing as an assignment. Its cost is that the only way to create
+   a row for **already-merged** work is to dispatch a builder to rebuild it — reproducing
+   the `C-FEL-436` duplicate-dispatch failure deliberately.
+
+   The orchestrator **refused the hand-`INSERT`** — *"a ledger you can hand-author is not a
+   ledger"* — which is the right call and the same direction as refusing a fabricated
+   `--issue` link. So the durable record for a closed contract with no row is **the message
+   stream, keyed to the contract id**: the two verdicts and this lesson. Worth noting the
+   scheduling honesty too: the fix (`swarm-bus record`, or `offer --no-dispatch`) was
+   **named and deliberately not filed**, because filing it would consume the WIP slot just
+   given to gate-wiring. *Naming what you are not doing, and why, is the thing that makes a
+   backlog different from a silence.*
+
+All three are the same defect one level up from everything in this directory: **the record
+can hold a claim but not a retraction of it — and here, not even a claim.** None is filed —
+an "index your receipts" / "amend a claimed bar" bar has no falsifiable form anyone believes
+in yet, and an unfalsifiable bar is the kind this swarm refuses. `swarm-bus record` is the
+first of the three with an obvious falsifiable bar (*a merged contract can be entered without
+emitting a dispatch message*), so it is the one likeliest to become real. Named and left honest.
 
 ## The forward dual (builder): make staleness DETECTABLE, not a promise — stamp every measurement of a moving target
 
