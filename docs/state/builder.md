@@ -1,8 +1,8 @@
 # State — builder
 
 **Role:** BUILDER · **Workspace:** `almaty` · **Branch:** `fix/check-ci-dangling-gate-ref`
-**Last updated:** 2026-07-28 — C-FEL-GATE-WIRING-REACHABLE built (#691, rebased
-onto `origin/main` 1bb0dd7c). C-FEL-434b LANDED (#683 @ `e7a1b7c2`),
+**Last updated:** 2026-07-28 — C-FEL-GATE-WIRING-RUNS built (#691, head `6e251922`,
+based on `origin/main` 1bb0dd7c). C-FEL-434b LANDED (#683 @ `e7a1b7c2`),
 C-FEL-CI-RECEIPT open (#685), C-FEL-EXTERNALS record recovered (#656, merged).
 
 > Ownership note: `historian` claimed `docs/state/` at 13:24 on 07-26. This file
