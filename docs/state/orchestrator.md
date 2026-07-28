@@ -251,6 +251,80 @@ disable WAL.** It is on because multiple agent processes read while one writes;
 "fixing" this by serialising writers would trade a stale copy for
 `database is locked`.
 
+### Tenth wake — I escalated a lookup, and it cost two wakes
+
+**`C-SWARM-QUEUE-ROUTING` was never a founder decision.** I sent it to DECIDE as
+*"a business fact I do not have."* It was a **lookup**, answerable with one
+GraphQL query:
+
+```
+Linear team FEL projects:  aihu [started] | data [started] | web [started]
+FEL-433 → aihu   FEL-434 → aihu   FEL-411 → aihu     (contracts we are building)
+FEL-300 → data   FEL-332 → data   FEL-335 → data
+FEL-311 → web    FEL-262 → web                       (5 of the 13 I declined)
+```
+
+**The attribute is `project`; the value is `aihu`.** The workspace was already
+organised the way the question asked about.
+
+**MY ERROR:** *"escalate what depends on business facts you do not have"* has a
+precondition I skipped — **first establish that the fact is not available to
+you.** Escalating a lookup is not caution, it is a stall. Same shape as the glob
+trap: a conclusion reached by reasoning about my own position rather than
+running the query. **Second time this session my own unverified premise cost
+someone a wake** (C-FEL-READMESYNC-JOB was the first).
+
+🔴 **AND THE RESIDUAL IS THE REAL FINDING:**
+
+```
+144 open FEL issues:  aihu 90 | NO PROJECT 24 | data 17 | web 13
+```
+
+The 24 with **no project** include **FEL-459/449/443/442/424/423/421/420/419 —
+every one an aihu contract in our own queue right now.** A naive
+include-iff-`project==aihu` filter would have **silently dropped nine active
+contracts** — the front-door absent-value failure the bar forbids, and it would
+have shipped to anyone who took "the attribute is `project=aihu`" as the whole
+answer. The architect's **loud-exclusion** design is load-bearing, not a nicety.
+
+Ruling: filter on `project`, never the title; `sync --pull` emits KEEP/EXCLUDE +
+reason for every open FEL issue; **"no project set" is a DISTINCT reason from
+"project=data/web"** — one is definitely-not-ours, the other is unclassified and
+a ten-second human fix. Must-fail: the dry-run's no-project bucket must contain
+those nine ids. Retargeted to a Rust builder; semantics fixed, value known.
+
+### Also tenth wake
+
+- 🟢 **`C-FEL-411` is FIXED — PR #671.** The guard **derives** required edges
+  from actual imports (static/type/dynamic/require, any subpath) rather than
+  hand-listing; cycle-safe (would-be-cycle imports reported informational, so
+  the three deliberate lazy-import cycle-breakers survive); bounded soundly
+  (skips no-real-tsc projects, does not descend into nested scaffold projects).
+  Found **56 missing edges across 19 packages**, naming
+  `packages/editor/moon.yml must add dependsOn: - compiler`. Ordering proven
+  three ways, including `moon query projects` exit 0 to show the 56 edges added
+  no cycle — the check most people skip.
+- **LANDING ORDER: #666 MUST LAND BEFORE #671**, not merely "both must land."
+  #666 alone = monotonic improvement. **#671 alone would take an
+  intermittently-red lane and make it deterministically red** (every
+  newly-ordered cold `compiler:build` hits `rolldown: command not found`), which
+  is how a correct guard gets reverted by someone who did not read the caveat.
+  The dependency must be stated **in #671's PR body**, not only on the bus.
+- **Retire the flapping-gate caveat once #671 lands.** Six wakes of rulings
+  carry *"do not treat `check` as evidence until C-FEL-411 lands"*; that tax
+  should end the moment it is untrue.
+- **`C-SWARM-SCHEMA` closed out — PR #672**, body intact (which is why I did not
+  open it for them). The architect independently applied the *same* loud-failure
+  principle in two contracts: `state()` keeps the last good frame rather than
+  blanking, and `sync --pull` says KEEP/EXCLUDE rather than trusting a filter.
+  **Prevent the silent-wrong outcome by making the machine SAY what it did** —
+  ratified as house style.
+- **The architect has NO durable state and it shows.** `docs/state/architect.md`
+  does not exist; they have re-derived the same evidence repeatedly and had two
+  messages cross rulings they would have found in their own file. Told them to
+  create it — the widened-surface ruling already permits it, so no permission is
+  needed.
+
 ### Ninth wake — `.git` as a FILE vs a DIRECTORY decides whether /tmp is fatal
 
 **The architect's `C-SWARM-SCHEMA` work was committed but unpushed, in
@@ -660,7 +734,13 @@ than none.
 
 ## Blocked on the founder
 
-1. **Route the non-aihu backlog.** At least **13** offered contracts
+1. ~~**Route the non-aihu backlog.**~~ **RESOLVED tenth wake — it was a lookup,
+   not a decision.** The attribute is Linear `project`, the value is `aihu`, and
+   it already existed. See the tenth-wake section, including the 24 no-project
+   issues that make loud exclusion mandatory. **Nothing owed by the founder.**
+   Original framing kept below as the record of what was wrongly escalated.
+
+   **Route the non-aihu backlog.** At least **13** offered contracts
    (`C-FEL-262/264/265/279/280/282/291/298/300/311/315/332/335` — lexicon,
    pericopes, exegesis verdicts, Sefaria commentary, the Stripe `usr.profiles`
    entitlement bridge) are fellwork's exegesis/Bible product, not aihu. Options
@@ -915,6 +995,11 @@ all 13 open issues were unassigned and three of them were already done.
   Twice on 2026-07-27 (zurich, jerusalem) a twin left one staged; both were
   byte-identical to `origin/main` post-#658. Check
   `git diff --stat origin/main -- <file>` before preserving anything.
+- **Do not re-escalate the queue-routing question.** Answered by lookup:
+  `project == "aihu"` on Linear team FEL. And **before escalating anything as
+  "a business fact I do not have", check whether it is a fact you can look up.**
+- **Do not land `#671` before `#666`.** #671 alone makes an intermittently-red
+  lane deterministically red; see the tenth-wake landing-order ruling.
 - **Do not re-triage `#667`'s red `bench`.** Ruled: the workflow diff trips the
   bench FILTER, not the numbers; `bench` is outside `ci-ok`; the re-baselining
   STOP stands. The 12.7%/18.4% deltas remain an OPEN could-not-check for
