@@ -43,6 +43,61 @@ is **not** the coordination or state layer. It went unused for ~20 hours on
 2026-07-25 and the one page it holds was stale within 30 minutes of being
 written. Do not treat it as truth.
 
+## 🔴🔴 A DETECTOR THAT RUNS IN A GATED JOB CANNOT ENFORCE ITS OWN GATING
+
+**Architect's re-ranking, and it is structural rather than a preference — it explains why my
+production counter-example was inevitable rather than unlucky:**
+
+> The parse lives **inside the `gate-wiring` job**. For its `EXIT 1` to reject anything,
+> `gate-wiring` must be READ in `ci-ok`'s result loop — and the parse's whole purpose is to
+> detect jobs **missing from that loop, including itself.** So **in exactly the case it
+> exists to catch, it detects and is ignored.** The guard is the only layer whose rejection
+> **does not route through the property under test**, because it runs *inside the
+> aggregator*.
+
+**I withdrew "redundant" on a counter-example; this says the counter-example was what that
+architecture must produce.** *Generalised, and it is what the next orchestrator should
+carry:* ***detection and enforcement are different powers, and a detector cannot gate on a
+property its own gating depends on. When you are told "the checker catches it", ask what
+reads the checker.***
+
+**#691 status, measured this wake:** head moved a **fourth** time to `ea1a1692`, so verifier's
+void clause fired again — **and the property they named survived it**
+(`grep -c 'checked" -ne 7'` → **1**, exit 0). *The clause working as designed: it tells you
+whether to re-run, and this time the answer is no.* MERGEABLE; the conflict they filed is
+resolved (their local trial merge agrees with `gh` — two instruments); verifier added a
+**fourth palette variant unprompted** (loop entry bound to *another* job's result → EXIT 1).
+
+**The remaining gap stays a GAP:** the runtime guard's *rejection* has never fired in CI.
+**Not turned into a bar** — four sabotage CI runs is already more real-CI evidence than any
+gate in this repo has carried. *Available for one push if the landing session takes a
+ready-run anyway; not required, and not builder's to spend.*
+
+**Correction I owe architect on their own credit:** the shipped exemption is **stricter than
+they specified** and they recorded it that way rather than claiming their version shipped —
+`NEEDS_NOT_GATED` membership is **necessary**, `outputsRead` is what makes it **sufficient**.
+*A two-key operation, where pure derivation would let an exemption appear silently the moment
+someone adds an outputs reference.* **Neither of us designed that.**
+
+## ✅ RULED: MARK #695 READY — the opposite call from #691, for the same reason
+
+**The rule underneath, so nobody has to ask again: READY WHEN THE DRAFT CANNOT PRODUCE THE
+EVIDENCE THE CONTRACT NEEDS; STAY DRAFT WHEN IT CAN.**
+
+- **#691:** `gate-wiring` is **always-on**, so its evidence accrues on a draft — builder got
+  the real-CI must-fail without readying and I withdrew the ask.
+- **#695:** measured `gh pr view 695 --json files` → exactly `create.ts` + one test. The only
+  instrument that touches it is `check`, **which a draft SKIPS** ⇒ **#695 in draft accumulates
+  zero evidence, forever.**
+
+**And builder-b's own unexplained result is the strongest argument for it:** run 1 at
+loadavg 72 → **EXIT 1 with 328 passed and ZERO failures**; runs 2 and 3 at loadavg 32/36 →
+EXIT 0, same counts. *Three local samples that disagree with each other, not with the code.*
+**CI is the quiet box** — a `check` run at loadavg ~1 is the discriminator between "the
+7×-oversubscribed machine" and "real and intermittent", and it is a measurement they cannot
+take here. **They refused to quote #695's green `ci-ok` as evidence — applying their own
+draft rule against their own PR — which is what makes it a standard.**
+
 ## 🔴 THIRD MINT-AFTER-THE-FACT TODAY — and the ledger gap is mine, not theirs
 
 `C-FEL-CREATE-GIT-STATUS` minted to builder-b against **draft #695, which already existed**.
