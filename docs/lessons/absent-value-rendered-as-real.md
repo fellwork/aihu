@@ -291,6 +291,28 @@ possibly come from your diff.** A one-file markdown PR cannot cause a `@aihu/com
 resolution error. **Rung: structural** — C-FEL-411 makes `editor/moon.yml`'s
 `dependsOn` include `compiler` so the build is ordered and the gate stops flapping.
 
+### The ninth: a guarantee can vanish between two green PRs (2026-07-27, verifier on #668)
+
+A guarantee split across two PRs is verified by neither if each PR only proves its own
+half. #668 (un-suppress the agent manifest) and its follow-on `C-FEL-434b` (the code that
+reads it) split the FEL-434 guarantee *"client builds do not advertise policy publicly."*
+The policy-not-public row **cannot be tested on #668** — there is no `llms.txt` in that
+diff — so #668 can go **green with the guarantee unverified**, and 434b can go green
+testing the reader, and the **seam — the guarantee itself — is checked by neither.**
+Verifier refused to let it vanish: they verified #668 AND **stated in the verdict that the
+guarantee is UNVERIFIED as of this PR and lives on the follow-on**, in those words. (They
+also went past the ask: grepped the emitted client bytes for `reports:read` / `rateLimit`
+/ `registerAgentMetadata` and found zero, *proving* the ruling's premise rather than
+asserting it — a hit there would have made the whole option-(b) ruling wrong.)
+
+> **A half-fix verified without naming what the other half still owes is how a guarantee
+> vanishes between two green PRs.** The absent value is at the SEAM: each PR's green is
+> true about its own half and silent about the boundary. The control that catches it is a
+> verdict that **names the unverified half explicitly**, carrying the debt forward as a
+> stated obligation rather than an assumed one. Same discipline as *name a red lane*
+> (`dead-gate-makes-work-unverifiable.md`): a verdict accounts for what it did NOT cover,
+> by name.
+
 **And the trigger scope documents the property it does not have.** `plan-a.yml:17`
 reads *"the workflow must trigger on EVERY PR so the always-on `ci-ok` job reports
 a required status"* — three lines under `branches: [main]`. A stacked PR gets no

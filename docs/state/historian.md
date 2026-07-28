@@ -308,6 +308,19 @@ by it, so open them yourself when auditing.
   index of which verdicts cited which method; and `swarm-bus` cannot amend a claimed
   contract's bar (re-offer resets/releases it), so a corrected bar lives on the bus while
   the row shows the stale one. Neither filed — no falsifiable bar yet.
+- **"Red-by-construction" answers whether a lane BLOCKS you, not whether its NUMBERS mean
+  something** (`checked-thing-…` bench section). #667's bench actually ran (workflow diff
+  trips the `bench:` filter, not the numbers) and reported cellx +12.7% / wide-fanout
+  +18.4% vs the frozen 2026-05-25 baseline → could-not-check, not dismissed. Never
+  re-baseline to make it green.
+- **`.git` FILE vs DIRECTORY decides whether `/tmp` is the only copy** (`worktree-vs-clone-tmp-durability.md`).
+  File = worktree, objects in the parent clone (a `/tmp` wipe costs the checkout, not the
+  commit — confirmed on THIS checkout). Directory = standalone clone, and if unpushed
+  `/tmp` IS the only copy. Check `[ -f .git ]` before you panic or relax; push either way.
+- **A guarantee can vanish between two green PRs** (`absent-value-…` ninth). If a guarantee
+  splits across two PRs and each proves only its half, the seam is verified by neither.
+  The control: a verdict that NAMES the unverified half (verifier did on #668/434b). Same
+  as "name a red lane."
 - **Flapping required gate (#661 / C-FEL-411) — do not read `ci-ok` blind.** A required
   `check` flaps red on a build-order race (`editor/moon.yml:4-5` `dependsOn:[signals]`
   while `editor/tests` import `@aihu/compiler`): a red X may be a race, a green tick may

@@ -141,6 +141,26 @@ An app/cli-only PR touching no `signals`, `arbor` or `runtime` source gets told
 failure mode is worse: a permanently-red gate trains everyone to wave red past,
 which is exactly what lets a real regression through.**
 
+### Red-by-construction answers "does it block me?" — not "do the numbers mean something?" (2026-07-27)
+
+The refinement that keeps the section honest, because the *correct* triage of the first
+question quietly closes the second. On #667, `bench` actually **RAN** — it is normally
+skipped, but the `bench:` filter includes `.github/workflows/plan-a.yml`, so a workflow
+diff **trips the filter, not the numbers.** It does not block (bench is outside `ci-ok`,
+#667 is a workflow-only diff). But it reported **cellx 807→910 ns (+12.7%)** and
+**wide-fanout-100 5363→6351 ns (+18.4%)** against the frozen 2026-05-25 baseline
+(`plan-a.yml:549` diffs against `git show origin/main:bench/signals/RESULTS.md`; gate at
+`:570`). That is either two months of real `@aihu/signals` drift or the high-variance
+flakiness C-FEL-409 targets, and **one sample cannot tell.** Recorded as
+**could-not-check** — not dismissed.
+
+> **"Red-by-construction" answers whether a lane BLOCKS your PR. It does not answer
+> whether the numbers MEAN something.** Do not let a correct triage of the first question
+> quietly close the second. A lane that is usually noise can still surface a real signal
+> the one time it runs, and *"it's red by construction"* is the sentence that buries it.
+> **Nobody re-baselines to make it green** — the STOP under "regenerating a baseline
+> destroys the evidence" stands.
+
 | 25 | A mapping between two tokens | **Only its LIGHT mode** — the one condition where they happen to coincide | `--graphite` (`style-lock.md:23`) is `#363c47` light / `#aab0bd` dark. `--color-neutral` (`:70`) is `#363c47` light / `#636a72` dark. **Identical in light, divergent in dark.** A drift census paired them and reported the dark values as the largest drift in the repo; in fact `color-neutral` matches its lock row *exactly* in both modes and `#aab0bd` appears nowhere in `css-engine`. **Any spot-check done in light alone confirms a pairing that is false half the time.** Flagged by the historian as an open question on a row they did not own, before the fix was written; confirmed independently by the orchestrator. Census 11 → **10** |
 
 | 26 | The filtered query | **An unfiltered one** — because zsh does not word-split an unquoted variable | Builder, mid-FEL-430, measured *"my change broke filtering"*: pristine returned empty, theirs returned everything. It was **the test**. `for combo in "--project web --state Canceled"` passes the whole string as **one argv element** in zsh, so no filter parsed and the tool correctly returned everything — compared against a pristine run typed with separate words. **Two different invocations, one conclusion carried between them.** Caught only because "I broke the filter" did not fit code they could see was correct. Third member of the zsh-is-not-bash cluster, with `${PIPESTATUS[0]}` and `$pipestatus` |
