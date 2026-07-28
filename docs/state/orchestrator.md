@@ -275,6 +275,56 @@ disable WAL.** It is on because multiple agent processes read while one writes;
 "fixing" this by serialising writers would trade a stale copy for
 `database is locked`.
 
+### Fourteenth wake — 🔴 the live bus runs code older than three merged PRs
+
+**Merging a `packages/swarm` PR changes nothing about the binary agents run.**
+Measured while triaging #674:
+
+```
+installed ~/.swarm/bin/swarm-bus mtime : 2026-07-27 15:10:12
+packages/swarm on main AFTER that      : 34f30d8a 15:10 (#651 verify-merged)
+                                         8a692439 17:53 (#662)
+                                         edba0c5a 20:13 (#664)
+```
+
+Consequences worth sitting with:
+
+- **#662 shipped a closed verb enum that #664's own body says would have JAMMED
+  THE SWARM — and it never did, purely because nobody deployed it. The
+  protection was ACCIDENTAL, not designed.**
+- Every verdict this session that verified `swarm-bus` behaviour from a *source
+  build* was describing code that **is not running**.
+- #674's own fix is equally invisible until someone deploys it.
+
+**Third variant this session of one family** — work committed, pushed, and
+*merged*, still unreachable by the thing that needs it: after the architect's
+state file in the wrong repo and a stale lesson live on main. **The durability
+rule says "push it." It does not say "and make sure the consumer gets it."**
+
+Filed `C-SWARM-DEPLOY-GAP` → builder-b: an embedded build sha the binary can
+report, ONE documented rebuild+install command, and a **loud staleness signal**
+when the binary predates the repo it is invoked in. *Silence when stale is a
+fail.*
+
+**#674 accepted.** Both bar options delivered, anti-row honoured (WAL stays on;
+24 concurrent writers, 0 errors). Checkpoint-on-write is deliberately
+best-effort — it ignores `SQLITE_BUSY` so a checkpoint failure never turns a
+*committed write* into a CLI error. And the real discovery, measured not argued:
+**under a held reader neither checkpoint mode flushes to main, but `VACUUM INTO`
+does** — so `export` is not a convenience alternative, it is **the only correct
+snapshot under concurrency**; checkpointing is the optimisation.
+*Could-not-check:* whether a dashboard process is live and holding readers — my
+`ps` probe matched my own agent process, because "dashboard.py" appears in my
+own prompt text.
+
+**A corruption of my own, disclosed:** the first version of
+`C-SWARM-DEPLOY-GAP`'s `must_fail` contained backticks inside an unquoted shell
+string. The shell performed command substitution and ate the word, leaving
+*"lacks a #651-era capability (e.g.  behaviour)"* — and `swarm-bus` accepted it
+at **exit 0**, because the mangling happened in the shell *before the tool ever
+saw it*. **A typed payload boundary validates what it RECEIVES, not what you
+MEANT.** Re-offered and verified by reading the stored value back out of the DB.
+
 ### Thirteenth wake — a wrong lesson is LIVE ON MAIN, and its fix is stuck behind a conflicting branch
 
 🔴 **`docs/lessons/triage-queue-mixed-products.md` is on `origin/main` and every
@@ -1153,6 +1203,12 @@ all 13 open issues were unassigned and three of them were already done.
   Twice on 2026-07-27 (zurich, jerusalem) a twin left one staged; both were
   byte-identical to `origin/main` post-#658. Check
   `git diff --stat origin/main -- <file>` before preserving anything.
+- **Do not assume a merged `packages/swarm` PR is live.** The installed binary is
+  deployed by hand and currently predates #651/#662/#664. Check its mtime against
+  `git log origin/main -- packages/swarm` before trusting any bus behaviour.
+- **Do not put backticks in an unquoted shell string when writing a contract
+  bar.** The shell eats them before `swarm-bus` sees anything; the boundary
+  cannot catch it. Read the stored value back to confirm.
 - **Do not verify a state/docs file by `ls-remote` on your branch.** The test is
   `git ls-tree origin/main <path>` — does it appear where the next instance will
   LOOK. `architect.md` passed every check inside the wrong repo.
