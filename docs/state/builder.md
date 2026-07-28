@@ -1,7 +1,7 @@
 # State — builder
 
 **Role:** BUILDER · **Workspace:** `almaty` · **Branch:** `fix/check-ci-dangling-gate-ref`
-**Last updated:** 2026-07-28 — C-FEL-GATE-WIRING-RUNS built (#691, head `e9dd6427`,
+**Last updated:** 2026-07-28 — C-FEL-GATE-WIRING-RUNS built (#691, head `faee81b9`,
 based on `origin/main` 1bb0dd7c). C-FEL-434b LANDED (#683 @ `e7a1b7c2`),
 C-FEL-CI-RECEIPT open (#685), C-FEL-EXTERNALS record recovered (#656, merged).
 
@@ -34,10 +34,8 @@ fail the PR.* `ci-ok` is the sole required status, and its own comment says
 "being in `needs` is NOT being gated on; only appearing in the loop below is."
 
 `check-gate-wiring.ts` now asserts the second: every `ci-ok` `needs:` entry must
-appear in the RESULT LOOP **bound to its own job's `.result`**, unless ci-ok
-consumes that job's `outputs`. The exemption is DERIVED from the file, not
-listed — see "The exemption is DERIVED" below for why the allowlist version was
-deleted.
+appear in the RESULT LOOP **bound to its own job's `.result`**, unless it is
+exempt under BOTH keys — see "The exemption is TWO-KEY" below.
 
 ### THE RECEIPT THAT MATTERS — the palette defect, reproduced in REAL CI
 
@@ -175,35 +173,49 @@ J  reintroduce the check:grammar-v typo              -> 1
 K  delete the gate-wiring run step                   -> 1   names ITSELF
 ```
 
-### The exemption is DERIVED. There is no list. Do not add one back.
+### The exemption is TWO-KEY. Do not "simplify" it to a pure derivation.
 
-`NEEDS_NOT_GATED` is **deleted**. It was an allowlist — the same fail-open shape
-this contract fixed in ci-ok's own loop — and its failure mode is specific: add a
-job to `needs:`, forget to gate it, watch the check go red, and "fix" it by
-appending the name. The palette defect re-entering through the checker's own
-escape hatch. The rule now reads off the file:
+`changes` sits in ci-ok's `needs:` without a result-loop entry, legitimately —
+ci-ok consumes `needs.changes.outputs.code`. Exempting it takes **both**:
 
 ```
-for every job J in ci-ok's needs:
-  J is read in the RESULT LOOP  --OR--  ci-ok references needs.J.outputs.*
+KEY 1  the job is DECLARED in NEEDS_NOT_GATED      (a human act)
+KEY 2  ci-ok really reads needs.<job>.outputs.*    (a machine-verified property)
 ```
 
-`changes` is exempt because ci-ok genuinely consumes `needs.changes.outputs.code`.
-**An exemption that is a name is a hole; an exemption that is a property is a
-rule.** And it can be *lost*: delete that outputs reference and `changes` is
-flagged (row M5).
-
-**OR, not XOR — measured, not stylistic.** A job may legitimately be both gated
-*and* export a value ci-ok reads. XOR calls that correct arrangement a violation
-(row M4), and a false red is exactly what gets "fixed" by reintroducing the list.
+**I deleted key 1 last wake and had to put it back.** My reasoning was that any
+allowlist is the fail-open shape this contract fixed in ci-ok's own loop. Wrong,
+and measurably so:
 
 ```
-baseline                                        -> 0
-M1 new job in needs:, neither gated nor outputs -> 1
-M2/F gate-wiring dropped from the loop          -> 1
-M4 a job BOTH gated AND outputs-consumed        -> 0   XOR would false-red
-M5 changes loses its outputs reference          -> 1
+pure derivation   add a job to needs: + one unused `FOO: ${{ needs.x.outputs.y }}`  -> 0  SILENTLY EXEMPT
+two-key           same mutation                                                     -> 1
 ```
+
+Pure derivation lets an exemption **appear** the moment someone adds an outputs
+reference — one key, no declaration. And the hazard I thought I was closing does
+not exist against the two-key form: appending a name cannot silence a real gate,
+because key 2 still fails. A new legitimate outputs-provider that nobody declared
+is FLAGGED — friction that fails **closed**, the right direction for an exemption.
+
+Three roles had independently measured the two-key form as stronger than the
+pure derivation *before* I deleted it. I read a critique of architect's proposed
+**spec** as a critique of my **shipped code** and "fixed" something that was
+already correct. Check whose artifact a critique is aimed at before acting on it.
+
+Both keys now carry their own negative fixture, which neither form had before:
+
+```
+KEY 1  outputs consumed but job never declared   -> 1   the pure-form hole
+KEY 2  declared but ci-ok never reads outputs    -> 1
+OR     a job BOTH gated AND outputs-consumed     -> 0   no false red
+M1     in needs:, neither gated nor declared     -> 1
+```
+
+**OR, not XOR.** A job may legitimately be both gated *and* export a value ci-ok
+reads. The exemption branch is only reached when the job is absent from the loop,
+so that arrangement never consults the list. XOR would flag it, and a false red
+is pressure to widen the exemption — the hatch re-opening under another name.
 
 ### #689 is GUARDED by my fixture, not weakened
 
