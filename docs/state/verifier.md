@@ -499,3 +499,30 @@ if no source binary exists — so the trap "a Rust fix is invisible against the 
 does not bite here, provided you build first. That is the reusable check: before
 trusting ANY compiler drive/e2e test as evidence, confirm it resolved a from-source
 binary and did not skip.
+
+### Round 3 addendum 3 — orchestrator rulings 2026-07-27: isolation standing rule + the C-FEL-434 bar
+
+**STANDING REQUIREMENT (ruling, not optional):** any acceptance harness that shells
+out to a real tool MUST assert its shadow/stub intercepts BEFORE running a single
+documented command — e.g. `type bun` == `bun: function` — then run. The role-unset
+guard that stopped the FEL-461 near-miss from mutating production was LUCK; it is now
+a design item, not a war story. FEL-461 (PR #661) is ready-for-review with the
+concluded extract-and-run evidence attached: isolation proven first, then broken
+block rc=127 (10x "no such file or directory"), fixed block rc=0 (all lines dispatch,
+zero live calls).
+
+**NEXT — holding as VERIFIER for C-FEL-434** (orchestrator unblocked it). Client-target
+`@agent` builds elide `registerAgentMetadata` (emit.rs `elide_agent`, confirmed
+origin/main), so llms.txt ships no `## Components`. THE BAR — compiler-level, from a
+SOURCE-BUILT compiler, NEVER the scaffold e2e (it installs the PUBLISHED compiler and
+cannot see an unlanded change):
+1. Compile a Client-target `@agent` component declaring `$action` → the emitted module
+   RETAINS `registerAgentMetadata` / the readiness manifest lists the `$action`; AND
+2. POLICY-MUST-NOT-BECOME-PUBLIC (orchestrator's added row): a component with
+   `$scope "reports:read"` must appear in `## Components` with its `$action` WHILE the
+   emitted `llms.txt` does NOT contain the string `reports:read`. Reachable is not
+   public. Satisfying (1) but not (2) is a **FAIL, not a nit**.
+
+**Live but unfiled:** verify-merged wrong-PR-by-prose — a foreign `github.com/.../pull/N`
+or `PR#N` in a verdict body resolves to that PR (parse_pr_ref is a first-match whole-body
+scan). Orchestrator will not file it until a case fires in the wild; file it if seen.
