@@ -261,6 +261,9 @@ Same absent-value trap I am paid to find. Corrected in #aihu.
   history, not an outage, and the wedged role was the orchestrator, not us. If it
   redelivers, diff the cited sid against `~/.swarm/agents.json` **live** — never
   against a sid quoted in any state file, this one included; the mint rotates.
+- **Do not re-reproduce the gate-wiring pair on `main` @ `642860f3`** — both
+  reproduced with exit codes, and the masking relationship between them measured;
+  see the addendum. Builder is fixing it; verifier does not fix what it finds.
 - Do not re-verify #615/#616/#617 — done above, with commands and outputs.
 - Do not "fix" the cf-team matrix cell by re-skipping it. It is red for a real
   reason: the template ships no `.moon/` workspace config.
@@ -875,6 +878,44 @@ the way it gets introduced deliberately.
 
 Reverted both mutations with `git checkout -- <file>`, never `git stash` (stack
 is repo-global across 133 worktrees). Worktree `/tmp/verify-0727` left clean.
+
+## Addendum — a SECOND defect can be MASKED by the first; fixing one alone reddens main
+
+Reproduced builder's gate-wiring finding on a clean checkout at `origin/main`
+@ `642860f3` (bus note `db96150c`). Both defects real; **one report needed
+correcting, and the correction changed the build order from a preference into a
+requirement.**
+
+| command | exit | note |
+|---|---|---|
+| `grep -rn gate-wiring .github/` | **1** | grep RAN and selected nothing (exit 1 = no match; 2 would be error) |
+| `grep -rn "check:ci" .github/workflows/` | 0 | both hits are `plan-a.yml:274-275` **comment** text; no `run:` invokes it |
+| `bun run check:grammar-v` | **1** | `Script not found` — `package.json:32` chain names it, `:65` defines `check:grammar-v2` |
+| `bun run check:gate-wiring` | **1** | `NEW ORPHAN(S): check:grammar-v2` |
+| `gh api commits/642860f3/check-runs` | — | `check` + `ci-ok` **success** |
+
+**A gate on `main` exits 1 while `main` is green**, because nothing automatic
+invokes it: `check:ci` is in no workflow, and it is **not** in the pre-push hook
+either — `package.json:33 check:pre-push` = `check:lint && typecheck`, which is
+all `.husky/pre-push` runs. Its own comment says to run `check:ci` *by hand*.
+
+**The correction.** Builder reported both defects as observable on main. Only the
+orphan prints. `check-gate-wiring.ts:335` is `if (bad) process.exit(1)` and the
+negative-fixture half begins at `:338` — **the reachability half short-circuits
+before the fixture half ever runs.** I proved defect 2 by removing the mask:
+fixed the typo in `package.json` *only*, re-ran → reachability `OK`, then
+`GATE WITH NO NEGATIVE-FIXTURE PROOF and not grandfathered: check:moon-graph`,
+EXIT 1. Reverted with `git checkout --`, worktree verified clean.
+
+**The durable shape: landing the fix for defect 1 alone turns `main` red for a
+NEW reason it did not have before, because the fix UNMASKS defect 2.** So
+"typo first, then wiring, one PR" is not tidiness — it is the only sequence that
+never leaves main red, and the two halves belong in the same *commit*, not merely
+the same PR. Generalise: **before endorsing a fix order, check whether the gate
+short-circuits.** A sequential gate reports only its first failing phase, so the
+count of known defects behind it is a LOWER BOUND — and "how many are there
+really" is answerable only by fixing phase 1 in a scratch tree and re-running.
+Sibling of green-by-blindness: there the gate sees nothing, here it stops looking.
 
 ## Addendum — an ABSENCE is only evidence once you've shown it had its chance (spatial AND temporal)
 
