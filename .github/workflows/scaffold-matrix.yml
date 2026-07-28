@@ -66,30 +66,31 @@ jobs:
         with:
           bun-version: latest
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
-      # pnpm and yarn are not on the ubuntu-latest image by default. Install
-      # them explicitly: the harness prints a loud SKIP for any missing PM and
-      # a skipped row is NOT a pass, so a silent absence here would quietly
-      # shrink the grid to half its width.
-      - name: Install pnpm and yarn
-        run: npm install --global pnpm yarn
-
-      # moon is NOT on the ubuntu image either, and the cf-team template's own
-      # scripts shell out to it. Without this, that cell SKIPs on every run —
-      # and since #613 made a skip exit 0, it skipped GREEN, forever.
+      # moon/proto is the SINGLE toolchain source (moon is needed anyway: the
+      # cf-team template's scripts shell out to it — the only cell exercising
+      # `aihu app --template <id>` resolving a template package FROM npm; without
+      # moon it SKIPs, and since #613 a skip exits GREEN, a false negative nobody
+      # can see). `.prototools` pins node=22.12.0, so proto installs and SHIMS
+      # node here.
       #
-      # That is worse than the red it replaced. cf-team is the ONLY
-      # kind:"app-template" cell in TEMPLATES: the sole coverage of
-      # `aihu app --template <id>` resolving a template package FROM npm. The
-      # other four are compiled into the CLI. So the one cell exercising the
-      # npm-resolution path was permanently unexecuted behind a passing check —
-      # a false negative nobody can see, traded for one they could.
+      # FEL-MATRIX-PROTO: do NOT also add `actions/setup-node`. It installs a
+      # SECOND node under /opt/hostedtoolcache, and with proto's node shim on
+      # PATH the two stores collide — every `node` a scaffold's `npm install` /
+      # `yarn install` spawns dies with `proto::commands::run::fallback_loop`
+      # ("a proto store on PATH that does not match the current store"), before
+      # any aihu code runs (run 30318406544: 13/15 cells red at pm-install). One
+      # node store, resolved through proto, is the fix. This step MUST precede
+      # the pnpm/yarn install below, which needs proto's node+npm on PATH.
       - uses: moonrepo/setup-toolchain@v0
         with:
           auto-install: true
+
+      # pnpm and yarn are not on the ubuntu-latest image by default. Install
+      # them explicitly (npm here is proto's node's npm): the harness prints a
+      # loud SKIP for any missing PM and a skipped row is NOT a pass, so a silent
+      # absence here would quietly shrink the grid to half its width.
+      - name: Install pnpm and yarn
+        run: npm install --global pnpm yarn
 
       - name: Report toolchain
         run: |
