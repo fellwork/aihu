@@ -37,8 +37,10 @@ function compilerBinary(): string {
     bin,
     `no source-built aihu-compile found (tried ${candidates.join(', ')}) — run \`cargo build --release\``,
   ).toBeDefined()
-  expect(bin as string, 'the compiler under test must be a source build, not the published addon')
-    .not.toContain('node_modules')
+  expect(
+    bin as string,
+    'the compiler under test must be a source build, not the published addon',
+  ).not.toContain('node_modules')
   return bin as string
 }
 
