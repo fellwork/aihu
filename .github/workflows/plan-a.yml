@@ -83,6 +83,37 @@ jobs:
       # failing TS2307 nondeterministically. Reads only source + moon.yml text,
       # so it runs with the other cheap graph guards, before typecheck.
       - run: bun run check:moon-graph
+      # FEL-428 meta-gate: every check:* gate must be invoked by some CI path,
+      # and its red path must have been EXECUTED and observed to exit non-zero.
+      #
+      # THIS STEP IS THE POINT (C-FEL-GATE-WIRING-REACHABLE). #680 shipped the
+      # meta-check into `check:ci` only, and `check:ci` is invoked by no workflow
+      # in this repo — the lesson-refs comment below already said so. So
+      # `grep -rn gate-wiring .github/` returned nothing and the gate that exists
+      # to forbid green-by-construction gates was one. It scored ITSELF reachable
+      # because its rule counted check:ci-chain membership: a fact about
+      # package.json, not about CI. That rule is now conditional on a workflow
+      # actually invoking check:ci, so THIS STEP is what makes it honest — delete
+      # this line and the meta-check reports itself an orphan.
+      #
+      # A STEP HERE, NOT ITS OWN JOB, and that was ruled against my first draft
+      # for a measured reason. An own-job route needs THREE coordinated edits
+      # (define the job, add it to ci-ok `needs:`, add its RESULT to ci-ok's
+      # loop) and this repo has shipped 1+2-without-3 TWICE — the palette job
+      # (waited on, result never read, green on a red palette) and #649. Building
+      # the gate that forbids green-by-construction on the one mechanism with a
+      # two-incident history of PRODUCING green-by-construction is the wrong
+      # vehicle. `check` is already in `needs:` and already in the loop, so a
+      # step costs zero of those three edits.
+      #
+      # The always-on tier (lesson-refs/readme-sync/palette) does not apply: those
+      # are always-on because their SUBJECT MATTER IS DOCS. This gate's inputs are
+      # package.json and .github/workflows/**, and `changes.code` counts both as
+      # code, so every diff that can create an orphan already runs `check`.
+      # ACCEPTED TRADEOFF: invisible on doc-only PRs — unreachable by
+      # construction today. If it ever moves to its own job, all three edits land
+      # in the SAME change.
+      - run: bun run check:gate-wiring
       # Guard: a compiler Rust change must bump the platform binary packages,
       # or the rebuilt binary is silently skipped at publish (see the script).
       - run: bun run check:compiler-binary-bump
@@ -233,6 +264,17 @@ jobs:
       # @aihu/server/native boundary). Blocks the @aihu/app@0.1.8-class leak
       # before publish. See investigation 4a796a8f-0f2b-4865-a498-73cf11b6f04c.
       - run: bun run check:runtime-purity
+      # check:grammar-v2 is deliberately NOT a step here yet, and the reason is
+      # recorded in scripts/gate-wiring-baseline.json rather than left to be
+      # rediscovered. Short version: it had never run in CI (its only route was
+      # `check:ci`, which no workflow invokes), and the moment you run it, it is
+      # RED on five FALSE positives — comments and strings that DESCRIBE the
+      # retired forms, including one warning string that tells users not to use
+      # them. Third instance of the #681/#689 class: a regex over raw source
+      # cannot tell code from text about code. Fixing that needs per-file-type
+      # judgement (a retired form in an .aihu file IS a use), so it is its own
+      # contract. Listed as KNOWN-ORPHAN DEBT until then — which at least prints
+      # on every run, unlike the dead chain that was hiding it.
 
   # ---------------------------------------------------------------------
   # DO NOT add a `name:` to this job.

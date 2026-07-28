@@ -1,0 +1,5 @@
+language: 'typescript'
+layer: 'library'
+
+dependsOn:
+  - 'beta'

@@ -19,6 +19,27 @@
  * rather than inside check:ci; a check:ci-ONLY test would flag those
  * correctly-wired gates and pressure someone to undo #673.
  *
+ * ...BUT THE CHAIN ROUTE IS CONDITIONAL, and this is the correction that this
+ * meta-check most needed (C-FEL-GATE-WIRING-RUNS). Membership in `check:ci`
+ * only means "CI invokes this gate" IF SOME WORKFLOW INVOKES `check:ci`. On
+ * main it did not — plan-a.yml says so in its own words ("`check:ci` is invoked
+ * by no workflow in this repo") — so the chain route was asserting a fact that
+ * was false, and it was covering for exactly ONE gate: check:gate-wiring
+ * ITSELF, which appeared in no `run:` step anywhere in .github/. The meta-check
+ * that exists to forbid green-by-construction gates was one. So the chain route
+ * is now GATED on `ciChainIsWired` below, derived from the same `run:` bodies as
+ * everything else. Self-correcting in both directions: wire `check:ci` into a
+ * workflow and the chain route becomes valid again automatically; unwire it and
+ * every chain-only gate is reported. Nothing here hardcodes today's answer.
+ *
+ * DANGLING CHAIN REFERENCE (same contract): `bun run check:grammar-v` sat in the
+ * check:ci chain naming a script that does not exist — the script is
+ * check:grammar-v2. `bun run` on an undefined name exits 1, so local check:ci
+ * died mid-chain, and check:grammar-v2 fell out of the chain and became a NEW
+ * ORPHAN. Both facts were true on main and neither was visible, because of the
+ * paragraph above. A name that resolves to no script is now RED in its own
+ * right: it is a gate invocation that cannot invoke a gate.
+ *
  * A workflow "invokes" a gate if a run: body names it by `check:<name>` OR by
  * the SCRIPT PATH its command runs. storybook.yml runs check:stories by PATH
  * (`bun scripts/check-required-stories.ts`), not by name — matching only the
@@ -90,12 +111,49 @@ const REACH_BASELINE = process.env.GATE_WIRING_BASELINE ?? 'scripts/gate-wiring-
  * fixture-invocation entry here — future work, since THIS contract's surface
  * forbids rewriting the individual gates to expose a fixture-scan mode.
  */
-const NEGATIVE_FIXTURES: Record<string, { cmd: string[]; env?: Record<string, string> }> = {
+interface Fixture {
+  /** Red input: MUST exit non-zero, or the gate cannot go red. */
+  cmd: string[]
+  env?: Record<string, string>
+  /**
+   * Optional GREEN control on a near-identical input: MUST exit 0.
+   *
+   * Why (C-FEL-GATE-WIRING-RUNS): "exited non-zero" alone does not prove the
+   * gate DISCRIMINATES. A fixture that is red because the gate crashed, or
+   * because the fixture tree is malformed in some way unrelated to the property
+   * under test, satisfies the red half perfectly and proves nothing — a gate
+   * that says "no" to everything is as useless as one that says "yes" to
+   * everything. Pair the red input with a control differing in EXACTLY the
+   * property being asserted. For check:moon-graph the two trees are identical
+   * but for one `dependsOn: ['beta']` line.
+   *
+   * Optional so this does not invalidate the day-one proof below, whose control
+   * is structural: the same command runs against the REAL baseline on every
+   * other invocation of this file and is required to exit 0 for it to proceed.
+   */
+  green?: { cmd: string[]; env?: Record<string, string> }
+}
+
+const NEGATIVE_FIXTURES: Record<string, Fixture> = {
   'check:gate-wiring': {
     cmd: ['bun', 'scripts/check-gate-wiring.ts'],
     env: {
       GATE_WIRING_NO_FIXTURES: '1',
       GATE_WIRING_BASELINE: 'scripts/fixtures/gate-wiring/empty-baseline.json',
+    },
+  },
+  // First gate to leave the shrink-only ramp — it was never ON it. #671 added
+  // check:moon-graph with no proof and no ramp entry, which check:gate-wiring
+  // reports as `GATE WITH NO NEGATIVE-FIXTURE PROOF and not grandfathered`. That
+  // went unseen for the whole life of the gate because check:gate-wiring ran in
+  // no workflow. `MOON_GRAPH_ROOT` (added with this entry) repoints its scan at
+  // a fixture tree; it changes WHERE the gate reads and nothing else.
+  'check:moon-graph': {
+    cmd: ['bun', 'scripts/check-moon-graph.ts'],
+    env: { MOON_GRAPH_ROOT: 'scripts/fixtures/moon-graph/should-flag' },
+    green: {
+      cmd: ['bun', 'scripts/check-moon-graph.ts'],
+      env: { MOON_GRAPH_ROOT: 'scripts/fixtures/moon-graph/should-not-flag' },
     },
   },
 }
@@ -133,6 +191,49 @@ function chainReachable(scripts: Record<string, string>): Set<string> {
   }
   visit('check:ci')
   return seen
+}
+
+/**
+ * Does any workflow `run:` body actually invoke `check:ci`? The chain route is
+ * only meaningful if one does. Negative lookahead so `check:ci-something` (a
+ * DIFFERENT script) cannot be mistaken for it — `\b` would not do, because the
+ * `-` that follows is a non-word char and would satisfy the boundary.
+ */
+function ciChainIsWired(workflowRunText: string): boolean {
+  return /check:ci(?![\w:-])/.test(workflowRunText)
+}
+
+/**
+ * Every `bun run <name>` in package.json whose <name> is not a defined script.
+ * `bun run` exits 1 on an undefined name, so such a reference silently truncates
+ * whatever chain contains it AND drops the gate it was meant to name.
+ *
+ * TWO REAL SHAPES this must not misread, both present in this package.json and
+ * both of which turn a true finding into a false one:
+ *   1. `bun run --cwd apps/storybook storybook` — the name is resolved against
+ *      apps/storybook/package.json, NOT root's. There is nothing here to check
+ *      it against, so a --cwd invocation is SKIPPED, not reported. Reading
+ *      `--cwd` (or `apps/storybook`) as the script name yields three dangling
+ *      refs that do not exist, and a meta-check that cries wolf gets muted —
+ *      the same end state as not running at all.
+ *   2. `bun run test packages/app/tests/x.test.ts` — trailing ARGUMENTS follow
+ *      the script name. Only the first non-flag token is a script name.
+ */
+function danglingRunRefs(scripts: Record<string, string>): { from: string; name: string }[] {
+  const out: { from: string; name: string }[] = []
+  for (const [from, cmd] of Object.entries(scripts)) {
+    // One shell segment per `bun run`; `&&`/`;`/`|` end an invocation's args.
+    for (const seg of cmd.split(/&&|\|\||;|\|/)) {
+      const tokens = seg.trim().split(/\s+/)
+      const at = tokens.findIndex((t, i) => t === 'run' && tokens[i - 1] === 'bun')
+      if (at === -1) continue
+      const rest = tokens.slice(at + 1)
+      if (rest.includes('--cwd')) continue // resolved against another manifest
+      const name = rest.find((t) => !t.startsWith('-'))
+      if (name && !(name in scripts)) out.push({ from, name })
+    }
+  }
+  return out
 }
 
 /** Strip a shell `#` comment so a commented mention is not read as a command. */
@@ -242,12 +343,43 @@ function selfTest(): void {
   // a real run: block-scalar IS captured
   const realRun = runBodiesOf('    - run: |\n        bun scripts/ghost.ts\n        echo done\n')
   if (!realRun.includes('scripts/ghost.ts')) fail('block-scalar run body missed')
+
+  // ── chain route is conditional (C-FEL-GATE-WIRING-RUNS) ────────────────────
+  if (ciChainIsWired('bun run check:lint')) fail('chain route active with no check:ci invocation')
+  if (ciChainIsWired('bun run check:cico')) fail('check:cico misread as check:ci')
+  if (!ciChainIsWired('- run: bun run check:ci')) fail('a real check:ci invocation not detected')
+  if (!ciChainIsWired('bun run check:ci\n')) fail('check:ci at end-of-line not detected')
+
+  // ── dangling `bun run` reference ───────────────────────────────────────────
+  const d = (s: Record<string, string>) => danglingRunRefs(s).map((x) => x.name)
+  // should-flag: the real main defect — check:grammar-v vs check:grammar-v2
+  if (
+    !d({ 'check:ci': 'bun run check:grammar-v', 'check:grammar-v2': 'bun x.ts' }).includes(
+      'check:grammar-v',
+    )
+  ) {
+    fail('dangling reference not flagged')
+  }
+  // should-not-flag: a defined name
+  if (d({ 'check:ci': 'bun run check:real', 'check:real': 'bun x.ts' }).length) {
+    fail('defined script flagged as dangling')
+  }
+  // should-not-flag: --cwd resolves against another manifest (trap 1)
+  if (d({ storybook: 'bun run --cwd apps/storybook storybook' }).length) {
+    fail('--cwd invocation flagged (other manifest)')
+  }
+  // should-not-flag: trailing args are not script names (trap 2)
+  if (d({ test: 'vitest', t: 'bun run test packages/app/tests/x.test.ts --config y.ts' }).length) {
+    fail('trailing argument read as a script name')
+  }
 }
 
 interface NegResult {
   proven: Set<string>
   /** fixture ran but the gate did NOT reject it (exit 0) — a gate that cannot go red. */
   passed: string[]
+  /** green control ran but the gate rejected it too — the gate does not discriminate. */
+  indiscriminate: string[]
   ms: number
 }
 
@@ -261,20 +393,31 @@ interface NegResult {
 function proveNegativeFixtures(gates: string[]): NegResult {
   const proven = new Set<string>()
   const passed: string[] = []
+  const indiscriminate: string[] = []
   const start = performance.now()
+  const run = (cmd: string[], env?: Record<string, string>) =>
+    Bun.spawnSync(cmd, {
+      cwd: REPO_ROOT,
+      env: { ...process.env, ...(env ?? {}) },
+      stdout: 'ignore',
+      stderr: 'ignore',
+    }).exitCode
   for (const g of gates) {
     const entry = NEGATIVE_FIXTURES[g]
     if (!entry) continue
-    const r = Bun.spawnSync(entry.cmd, {
-      cwd: REPO_ROOT,
-      env: { ...process.env, ...(entry.env ?? {}) },
-      stdout: 'ignore',
-      stderr: 'ignore',
-    })
-    if (r.exitCode !== 0) proven.add(g)
-    else passed.push(g)
+    if (run(entry.cmd, entry.env) === 0) {
+      passed.push(g)
+      continue
+    }
+    // Red observed. If a green control is declared, the gate must ACCEPT it —
+    // otherwise the red proves only that the gate says no to everything.
+    if (entry.green && run(entry.green.cmd, entry.green.env) !== 0) {
+      indiscriminate.push(g)
+      continue
+    }
+    proven.add(g)
   }
-  return { proven, passed, ms: performance.now() - start }
+  return { proven, passed, indiscriminate, ms: performance.now() - start }
 }
 
 function main(): void {
@@ -290,8 +433,10 @@ function main(): void {
     process.exit(1)
   }
 
-  const chain = chainReachable(scripts)
   const workflowRunText = allWorkflowRunText()
+  // The chain route counts ONLY if a workflow actually invokes check:ci.
+  const ciWired = ciChainIsWired(workflowRunText)
+  const chain = ciWired ? chainReachable(scripts) : new Set<string>()
 
   const orphans = gates.filter((g) => !isReachable(g, scripts[g], chain, workflowRunText)).sort()
 
@@ -303,10 +448,22 @@ function main(): void {
   console.log(
     `check:gate-wiring — ${gates.length} gates, ${orphans.length} orphaned (baseline ${baseline.orphans.length}).`,
   )
+  console.log(
+    `  check:ci chain route: ${ciWired ? 'ACTIVE (a workflow run: step invokes check:ci)' : 'INERT (no workflow invokes check:ci — chain membership proves nothing)'}`,
+  )
   console.log('  KNOWN-ORPHAN DEBT (reachable by neither check:ci nor any workflow run: step):')
   for (const g of baseline.orphans) console.log(`    - ${g}`)
 
   let bad = false
+  const dangling = danglingRunRefs(scripts)
+  if (dangling.length) {
+    bad = true
+    console.error('\n  DANGLING `bun run` REFERENCE — names a script that does not exist:')
+    for (const d of dangling) console.error(`    - ${d.from}  ->  bun run ${d.name}`)
+    console.error(
+      '  `bun run <undefined>` exits 1, so this truncates its chain and drops whatever gate it meant to name.',
+    )
+  }
   if (newOrphans.length) {
     bad = true
     console.error('\n  NEW ORPHAN(S) — a gate that no CI path invokes protects nothing:')
@@ -336,7 +493,7 @@ function main(): void {
   console.log('  All gates reachable except the known baseline debt. OK.')
 
   // ── NEGATIVE-FIXTURE HALF (executed and observed, ruling 1) ────────────────
-  const { proven, passed, ms } = proveNegativeFixtures(gates)
+  const { proven, passed, indiscriminate, ms } = proveNegativeFixtures(gates)
   const notYetProven: string[] = JSON.parse(
     readFileSync(join(REPO_ROOT, 'scripts/gate-fixture-baseline.json'), 'utf8'),
   ).notYetProven
@@ -369,6 +526,13 @@ function main(): void {
       '\n  NEGATIVE FIXTURE PASSED — the gate did NOT reject its own red input (it cannot go red):',
     )
     for (const g of passed) console.error(`    - ${g}`)
+  }
+  if (indiscriminate.length) {
+    badFix = true
+    console.error(
+      '\n  FIXTURE RED **AND** GREEN CONTROL RED — the gate rejects everything, so its red proves nothing:',
+    )
+    for (const g of indiscriminate) console.error(`    - ${g}`)
   }
   if (unaccounted.length) {
     badFix = true
