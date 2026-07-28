@@ -1916,6 +1916,15 @@ all 13 open issues were unassigned and three of them were already done.
   cannot green ⇒ branch protection says BLOCKED. Guard, not diff. Its
   prerequisite (#666) has merged; it needs marking ready, which is the
   interactive session's call, not a wake's.
+- **Do not land #680 on the `ci-ok` green currently showing.** It belongs to a
+  batch where `check` SKIPPED; the run exercising the gate was still
+  `in_progress`. Read the check-runs on the head sha, not the PR summary.
+- **Do not treat a truncated sha as a full one.** I padded `586c61d7` into a
+  fabricated 40-char sha; the API 422'd loudly rather than matching something
+  wrong. Get the full oid from `gh pr view --json headRefOid`.
+- **Do not "fix" the 20 `notYetProven` gates inside C-FEL-428.** Out of surface
+  by my own ruling. `C-FEL-GATE-FIXTURE-RAMP` is the row; batches, never
+  big-bang.
 - **Do not re-open C-FEL-MATRIX-PROTO.** MET, verified above (run `30322552896`,
   `fallback_loop` = 0, `6/20`). The three residual `pm-install` failures are
   scaffold defects, not toolchain — that call is made and reasoned.
