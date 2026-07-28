@@ -25,35 +25,45 @@
 import { signal } from '@aihu/signals'
 import { defaultWindow, isClient, tryOnScopeDispose } from '../shared/index.ts'
 
-/** One entry of `decide`/`orphan`/`reviews`/`errors`/`agents`/`contracts`/
- * `activity` — the bus does not publish a fixed per-array shape, so entries
- * are kept as open records rather than guessing field names. */
-export type SwarmRecord = Record<string, unknown>
+// The typed `/state` view-models and the boundary validator live in
+// ./schema.ts (C-SWARM-SCHEMA). `/state` is the one swarm shape that crosses
+// into TypeScript, so validating it here IS the work — the bus PAYLOADS
+// (Verdict/Blocked/Claim) are already enforced in Rust by swarm-bus and no TS
+// code sends them, so a Zod payload mirror is deferred, not dropped.
+import {
+  type AgentEntry,
+  type ContractEntry,
+  type DecideEntry,
+  type ErrorEntry,
+  type OrphanEntry,
+  parseSwarmState,
+  type ReviewEntry,
+  type SwarmParseError,
+  type SwarmState,
+} from './schema.ts'
 
-/** The JSON shape served by both `GET /state` and each `/stream` frame. */
-export interface SwarmState {
-  t: number
-  supervisor_up: boolean
-  decide: SwarmRecord[]
-  orphan: SwarmRecord[]
-  reviews: SwarmRecord[]
-  errors: SwarmRecord[]
-  agents: SwarmRecord[]
-  contracts: SwarmRecord[]
-  activity: SwarmRecord[]
-  /** Pulled Linear/GitHub backlog, summarized server-side (count + a few
-   * newest contract ids), not streamed as full rows. Optional: older bus
-   * builds don't publish it. */
-  backlog?: { count?: number; sample?: unknown[] }
-}
+export type {
+  AgentEntry,
+  ContractEntry,
+  DecideEntry,
+  ErrorEntry,
+  OrphanEntry,
+  ReviewEntry,
+  SwarmParseError,
+  SwarmState,
+} from './schema.ts'
+
+/** @deprecated The `/state` arrays are now typed per {@link SwarmState}; this
+ * loose alias remains only for callers written against the pre-schema shape. */
+export type SwarmRecord = Record<string, unknown>
 
 /** `decide`/`orphan`/`reviews`/`errors` grouped under one getter — the
  * "what needs a human/agent decision right now" slice of {@link SwarmState}. */
 export interface SwarmYourMove {
-  decide: SwarmRecord[]
-  orphan: SwarmRecord[]
-  reviews: SwarmRecord[]
-  errors: SwarmRecord[]
+  decide: DecideEntry[]
+  orphan: OrphanEntry[]
+  reviews: ReviewEntry[]
+  errors: ErrorEntry[]
 }
 
 export interface UseSwarmOptions {
@@ -73,15 +83,23 @@ export interface UseSwarmReturn {
    * SSR / before the first frame arrives. */
   readonly state: () => SwarmState
   /** Reactive getter — `state().agents`. */
-  readonly agents: () => SwarmRecord[]
+  readonly agents: () => AgentEntry[]
   /** Reactive getter — `state().contracts`. */
-  readonly contracts: () => SwarmRecord[]
+  readonly contracts: () => ContractEntry[]
   /** Reactive getter — the `decide`/`orphan`/`reviews`/`errors` slice of
    * `state()`, grouped for a "what needs a move" view. */
   readonly yourMove: () => SwarmYourMove
   /** Reactive getter — whether the `/stream` connection is currently open.
    * Always `false` under SSR. */
   readonly connected: () => boolean
+  /** Reactive getter — the LOUD drift signal. `null` when the latest `/state`
+   * frame validated; a {@link SwarmParseError} naming the failed field(s) when
+   * it did not. The UI MUST render this: `/state` is produced by out-of-tree
+   * `dashboard.py`, so a renamed Python field is caught only here, and a
+   * silent empty panel ("nothing to decide") would be indistinguishable from
+   * drift ("schema broke"). A validation failure NEVER blanks the data —
+   * `state()` keeps the last good frame and `error()` explains the drift. */
+  readonly error: () => SwarmParseError | null
   /** Tear down the underlying `EventSource`. Idempotent; a no-op under
    * SSR. */
   close: () => void
@@ -91,7 +109,7 @@ const DEFAULT_URL = 'http://127.0.0.1:8791'
 
 function emptyState(): SwarmState {
   return {
-    t: 0,
+    t: '',
     supervisor_up: false,
     decide: [],
     orphan: [],
@@ -124,16 +142,20 @@ export function useSwarm(options: UseSwarmOptions = {}): UseSwarmReturn {
   // signal, no network connection — the isClient no-op invariant.
   if (!isClient || win === undefined || typeof EventSource === 'undefined') {
     const state = (): SwarmState => emptyState()
-    const agents = (): SwarmRecord[] => []
-    const contracts = (): SwarmRecord[] => []
+    const agents = (): AgentEntry[] => []
+    const contracts = (): ContractEntry[] => []
     const yourMove = (): SwarmYourMove => ({ decide: [], orphan: [], reviews: [], errors: [] })
     const connected = (): boolean => false
+    const error = (): SwarmParseError | null => null
     const close = (): void => {}
-    return { state, agents, contracts, yourMove, connected, close }
+    return { state, agents, contracts, yourMove, connected, error, close }
   }
 
   const [state, setState] = signal(emptyState())
   const [connected, setConnected] = signal(false)
+  // The LOUD drift surface: null while frames validate, a field-naming error
+  // when one does not. A failure never blanks `state()` — see onmessage.
+  const [error, setError] = signal<SwarmParseError | null>(null)
 
   const source = new EventSource(`${url}/stream`)
   let stopped = false
@@ -155,13 +177,28 @@ export function useSwarm(options: UseSwarmOptions = {}): UseSwarmReturn {
     // server. The full fix (per-section signals with content equality) is a
     // deliberate follow-up, not smuggled into this diff.
     if (event.data === lastRaw) return
+    lastRaw = event.data
+    // Two failure modes, both made LOUD, never silent. (1) Malformed JSON —
+    // do not throw out of an EventSource callback, but do NOT swallow it
+    // either: surface it. (2) Well-formed JSON that fails the /state schema —
+    // the cross-language drift this contract exists to catch. In BOTH cases we
+    // keep the last good frame (never blank the board) AND set `error` naming
+    // what broke; a good frame later clears it.
+    let raw: unknown
     try {
-      const parsed = JSON.parse(event.data) as SwarmState
-      lastRaw = event.data
-      setState(() => parsed)
+      raw = JSON.parse(event.data)
     } catch {
-      // Malformed frame: keep the previous state rather than throwing out
-      // of an EventSource callback — the next frame (~1s later) recovers.
+      setError(() => ({ message: 'swarm /state frame was not valid JSON', fields: ['<json>'] }))
+      return
+    }
+    const result = parseSwarmState(raw)
+    if (result.ok) {
+      setState(() => result.value)
+      setError(() => null)
+    } else {
+      // Drift: dashboard.py (out-of-tree) changed a field. Keep the last good
+      // state; make the failure visible instead of degrading to empty.
+      setError(() => result.error)
     }
   }
 
@@ -181,9 +218,9 @@ export function useSwarm(options: UseSwarmOptions = {}): UseSwarmReturn {
   // whose contract is the returned close().
   tryOnScopeDispose(close)
 
-  const agents = (): SwarmRecord[] => state().agents
-  const contracts = (): SwarmRecord[] => state().contracts
+  const agents = (): AgentEntry[] => state().agents
+  const contracts = (): ContractEntry[] => state().contracts
   const yourMove = (): SwarmYourMove => yourMoveOf(state())
 
-  return { state, agents, contracts, yourMove, connected, close }
+  return { state, agents, contracts, yourMove, connected, error, close }
 }
