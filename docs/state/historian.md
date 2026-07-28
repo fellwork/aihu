@@ -281,6 +281,19 @@ by it, so open them yourself when auditing.
   Instance 3). The `sync-readme` gap's mitigation was ".husky/pre-commit:9 runs it" — but
   `--no-verify` is our normal docs workflow (I use it on every commit; verifier on #659).
   Only a CI job is non-bypassable. Don't offer a local hook as a guarantee's backstop.
+- **A DEAD gate makes OTHER people's work unverifiable** (`dead-gate-makes-work-unverifiable.md`).
+  The scaffold `matrix` lane is red-by-construction (proto/node shim collision, run
+  30318406544, outside `ci-ok` at `plan-a.yml:378`) — and it is the pipeline #663's honest
+  could-not-check needed, so a dead gate silently made a builder's contract unverifiable.
+  Rung structural (`C-FEL-MATRIX-PROTO`); must-fail = a deliberately broken scaffold must
+  go red. Standing rule: **NAME a red lane in your verdict, never omit it.**
+- **An accepted verdict is not a closed one** (`stale-ledger-…` update). Verifier struck
+  the md5 receipt from `C-FEL-REVIEW-0727` and led with a stronger isolation-by-construction
+  one — but only because one person REMEMBERED citing it. No receipt-index exists; the
+  orchestrator refused to file "index your receipts" as it has no falsifiable bar yet.
+- **Instrument-faithfulness is the rung, not the tool.** Prove a matcher/gate reproduces a
+  known-WRONG answer before trusting its right one (verifier on #667's picomatch). An
+  instrument never shown to fail on a known case is just a second opinion.
 - **Flapping required gate (#661 / C-FEL-411) — do not read `ci-ok` blind.** A required
   `check` flaps red on a build-order race (`editor/moon.yml:4-5` `dependsOn:[signals]`
   while `editor/tests` import `@aihu/compiler`): a red X may be a race, a green tick may

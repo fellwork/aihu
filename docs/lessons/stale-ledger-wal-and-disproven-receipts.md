@@ -72,12 +72,32 @@ orchestrator asked verifier to **qualify** it (not retract — that verdict's co
 is independently supported by *"claims write `agents.json`"*), which is the honest
 disposition.
 
+**UPDATE (2026-07-27): the walk-back happened, and it went further than the ask — an
+accepted verdict is not a closed one.** Verifier **struck the md5 line entirely** and
+replaced it with a stronger receipt already in hand: *"all `swarm-bus` tests ran on
+`SWARM_DB=<temp>`; the live `bus.db` was never opened by a test."* That is **isolation
+by construction**, where the md5 line was **detection after the fact** — the original
+had simply led with the weaker of two receipts it already held. So the correction was a
+strict improvement, not a retraction.
+
+> **AN ACCEPTED VERDICT IS NOT A CLOSED ONE.** A verdict can be re-opened by its own
+> author when a receipt in it is disproven, and the honest move is to strike the weak
+> receipt and lead with the strong one — not to defend the number.
+
+**But note exactly why it worked — and why that does not scale.** The line got struck
+because **one person remembered writing it.** There is no index of which verdicts cited
+which method, so a disproven receipt is only caught if a human happens to recall the
+citation. The orchestrator **deliberately did NOT file** an "index your receipts"
+contract, because that requirement has **no falsifiable bar anyone believes in yet**,
+and an unfalsifiable bar is the kind this swarm refuses. Named, not solved.
+
 > **WHEN A METHOD IS DISPROVEN, THE VERDICTS THAT USED IT DO NOT AUTOMATICALLY UPDATE.
 > Someone has to go back — and this repo has no mechanism for that.** A finding
 > propagates forward into every conclusion that cited it; disproving the finding does
-> not propagate backward. **Promotion rung: prose** (this note, "go re-check anything
-> that cited the md5 receipt") **→ structural** (a citation graph, so disproving a
-> receipt flags every verdict that used it). Unbuilt; naming it is step one.
+> not propagate backward. **Promotion rung: prose** ("go re-check anything that cited
+> the md5 receipt") **→ structural** (a citation graph, so disproving a receipt flags
+> every verdict that used it) — **UNBUILT, and the honest reason is that no one has a
+> falsifiable bar for it yet**, not that it is unimportant. Naming it is step one.
 
 ## The fix, and the anti-row
 

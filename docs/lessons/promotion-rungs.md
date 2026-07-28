@@ -226,6 +226,17 @@ edited file**, and that method is now **ratified** as the acceptance for filter 
 The promotion completes: the structural bar (run the matcher) now has an implementation
 (picomatch on extracted patterns), not just a prohibition.
 
+**And the validation step is the rung, more than the tool choice.** On #667 the verifier
+did not merely run a real `picomatch 4.0.5` on patterns parsed from the PR head — they
+**proved the matcher faithful first, by reproducing the known pre-fix *inert* bug**
+before trusting it on the new patterns. **An instrument nobody has shown to reproduce a
+known-WRONG answer is just a second opinion.** Three readers had gotten this filter wrong
+by hand; the verdict that settled it rests on no one reading a glob correctly — only on a
+matcher demonstrated to reproduce the wrong answer and then the right one. That
+demonstrate-it-can-fail step is the same shape as the anti-recurrence must-fail rows
+elsewhere in this file: an instrument, like a gate, is not trusted until it has been made
+to fail on a case you already know the answer to.
+
 ## The PR that writes the rule it violates (2026-07-27)
 
 The sharpest instance of *prose does not execute* on record. **#667** — the fix that
