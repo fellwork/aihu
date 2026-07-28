@@ -63,6 +63,7 @@ origin/main  edba0c5a  fix(swarm): claim verbs are open, the format is what is v
 | **655** | READY, MERGEABLE, **ci-ok green** | FEL-GH478 `<$slot>` fallback. Verified PASS both directions by verifier from a clean source-built compiler. Ready to land. |
 | **654** | DRAFT | GH-503 `__aihu_each` non-iterables. Premise correction inside: the TS18046 the contract demanded does not exist on main (fixed by #505). |
 | **666** | DRAFT | FEL-MOON-ROLLDOWN — `bunx` prefix on every bare `.bin` command across 6 `moon.yml`. **Accepted**; mark ready. Cold-cache proof + `dist` sha256 byte-identical to `bun run build`. |
+| **668** | DRAFT | **FEL-434 compiler half** (closes FEL-423). Three files; the whole change is deleting `if elide_agent { String::new() }` at `emit.rs:398`. Accepted; mark ready. |
 | **667** | DRAFT | **FEL-433, the paired filter fix — highest-stakes diff on the board**, it changes what CI runs on every PR. `code` split to its own step with `predicate-quantifier: every`; blanket `!**/*.md` → targeted doc-md exclusions so `skills/aihu/**.md` stays code. Mark ready; verifier dispatched. |
 
 **Every draft above shows `check=SKIPPED` + `ci-ok=FAILURE`.** That is the
@@ -246,6 +247,55 @@ Filed as `C-SWARM-WAL-STALE` → builder-b, carrying an **anti-row: a fix must n
 disable WAL.** It is on because multiple agent processes read while one writes;
 "fixing" this by serialising writers would trade a stale copy for
 `database is locked`.
+
+### Fifth wake — C-FEL-434 split and shipped, and a sidecar that overwrites itself
+
+- **The C-FEL-434 ruling landed at the size it should.** PR #668 is three files,
+  and the entire compiler change is deleting one branch of one conditional —
+  the `if elide_agent { String::new() }` at `emit.rs:398`. `bin/main.rs:559`
+  already wrote the sidecar whenever non-empty, so nothing had to be added. The
+  fix for "client builds advertise no components" was **un-suppressing a file**,
+  not shipping policy to browsers. Client JS elision, T1-b, and the size rows
+  are all untouched.
+- **Renaming a test that encoded the bug beats deleting it.**
+  `build_target_client_suppresses_manifest` was renamed with the reasoning
+  inline. A deleted test leaves no trace that the old behaviour was deliberate
+  and wrong. (Same shape as `slot_default_codegen` on #655.)
+- 🔴 **`agent-manifest.json` OVERWRITES ITSELF, and the follow-on is the half
+  that reads it.**
+  ```
+  bin/main.rs:559   format!("{}/agent-manifest.json", dir)   ← FIXED name
+  bin/main.rs:550   format!("{}/{}.ts", dir, tag_name)       ← per-tag, right beside it
+  ```
+  Multiple tags can share one `dir` — that is *why* `out_file` is per-tag. So N
+  agent components compiled into one output directory leave **one** manifest.
+  The docs contradict themselves about it: `agent-discovery.md:265` says "one
+  per output directory"; `authoring-agents.md:374` says it is emitted "for every
+  SFC that has exposed state or actions."
+  **Pre-existing (server builds always had it), not #668's doing — but #668
+  widens it to client builds and `C-FEL-434b` is the code that will read these.**
+  A naive reader lists one component where five exist, which is the *same defect
+  class FEL-434 exists to close, one level down and quieter*: "## Components
+  lists 1 of 5" reads as a populated section, not an empty one. `must_fail` row
+  2 on `C-FEL-434b` requires two components in one dir to both appear; the
+  addressing scheme is the builder's to choose.
+- **`C-FEL-434b` = GitHub #430**, "give `agent-manifest.json` a consumer". Four
+  doc blocks currently assert the gap and go stale the moment it lands:
+  `agent-discovery.md:69`, `:283`, `authoring-agents.md:20`, `:376`. Updating
+  them is in the contract — otherwise it ships the FEL-439 defect class by hand.
+- **A guarantee can go missing between two green PRs.** The policy-not-public
+  row (a `$scope` component listed in `## Components` while `llms.txt` does not
+  contain the scope string) *cannot be tested on #668* — there is no `llms.txt`
+  in it. Verifier was told to verify #668 **and say in the verdict that the
+  guarantee is unverified as of this PR and lives on the follow-on.** Half a fix
+  verified without naming what the other half still owes is how the whole thing
+  quietly never gets checked.
+- **Could-not-check, stated rather than implied:** I did not trace whether the
+  compiler's output `dir` is ever copied wholesale into *served* output. The
+  manifest joins the same tier as `.route.json`, an established build
+  intermediate, so the precedent is good — but precedent is not evidence. If
+  that tier turns out to be served, the policy guard stops being about `llms.txt`
+  rendering and becomes about the file itself.
 
 ### Also fourth wake
 
