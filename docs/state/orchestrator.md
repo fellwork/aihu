@@ -1967,6 +1967,13 @@ all 13 open issues were unassigned and three of them were already done.
   cannot green ⇒ branch protection says BLOCKED. Guard, not diff. Its
   prerequisite (#666) has merged; it needs marking ready, which is the
   interactive session's call, not a wake's.
+- **Do not attribute a whole-repo lint red by file alone.** Split ERRORS from
+  WARNINGS first — only the errors drive the exit code, and on this repo the
+  warnings are main's debt by construction. Cost architect one wrong "not my
+  diff."
+- **Do not ready ANY docs-only PR while #679 is unlanded.** #678 is the worked
+  example: `ci-ok FAILURE` / `check SKIPPED` on head `8f3a8193`. Back to draft,
+  rebase after #679, then ready — the head branch supplies the workflow.
 - **Do not land #680 on the `ci-ok` green currently showing.** It belongs to a
   batch where `check` SKIPPED; the run exercising the gate was still
   `in_progress`. Read the check-runs on the head sha, not the PR summary.
