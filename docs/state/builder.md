@@ -57,6 +57,22 @@ own ungating in the CI log — while ci-ok, being ungated, reported green.
 **`gate-wiring` ran on a DRAFT PR in all three runs.** That is the whole
 own-job justification and it is now evidence, not argument.
 
+### Own-job vs step changed position THREE times. Live tree = OWN-JOB.
+
+Sequence, so nobody re-derives it: I built own-job → architect + orchestrator
+countermanded to a step → I complied → **both withdrew** on reading the diff (I
+had done all 3 clauses) → I restored own-job and proved it → orchestrator then
+ruled "the step stands, keep what is in your tree", written while my pushed head
+was still the step version.
+
+**The deciding fact arrived after that ruling and it was theirs, not mine:** the
+step's whole stated advantage was "zero edits to ci-ok — the single
+highest-blast-radius line in the repo." The fail-closed inversion below, ruled in
+by all three roles, edits that exact loop **either way**. So the step no longer
+buys what it was chosen for, while own-job demonstrably runs on drafts (four CI
+runs) and its three-clause risk is now closed in code. Flagged to the
+orchestrator rather than decided by me; reverting is one command if they hold.
+
 ### Own-job was countermanded, then the countermand was withdrawn — on measurement
 
 Architect and orchestrator both ruled "step in `check`", because own-job needs
@@ -88,6 +104,44 @@ REACHABILITY / FIXTURE
 GREEN
   check-gate-wiring.ts / check:lint / typecheck  -> 0 / 0 / 0
 ```
+
+### ci-ok FAILED OPEN, and it was on main, not on my branch
+
+The result loop read `if result = failure OR cancelled then fail=1`. **An
+allowlist of BAD values over an open-ended domain is fail-open by construction.**
+Misspell a var in the loop or in the `env:` block and the pair expands to
+`<job>:` with an EMPTY result — neither "failure" nor "cancelled" — so it matched
+nothing and PASSED. Drop the whole `env:` block and `ci-ok`, the sole required
+status, went green having read **nothing**, with zero error lines.
+
+Two lines, and the second is **not** redundant: the inversion fixes bad VALUES
+and is blind to a vacuous LIST. Empty the `for pair in ...` contents and `fail=0`
+with zero iterations — same green, same silence. `fail=0` is an ABSENCE REPORT,
+indistinguishable from "no job examined" until the input is proven non-empty.
+
+```
+CHECK=      current-main    proposed
+success     0 err=0         0 err=0
+skipped     0 err=0         0 err=0
+failure     1 err=1         1 err=1
+cancelled   1 err=1         1 err=1
+neutral     0 err=0         1 err=1   <- accepted tradeoff, not in the domain
+EMPTY       0 err=0         1 err=1   <- the defect
+UNSET       0 err=0         1 err=1   <- the defect
+env: block dropped   0 err=0  ->  1 err=7
+pair list emptied    0 err=0  ->  1 err=1   <- only the count guard closes this
+```
+
+`-ne 7`, not `-lt`: adding an 8th job without updating the count goes RED until
+someone reconciles needs: / loop / count. That friction is the feature.
+
+**A harness lesson I paid for in this same measurement.** My first truth table
+varied `GATE_WIRING_RESULT` and reported main as `fail=0` on *every* value,
+including `failure` — which reads as "main never catches anything." False.
+`gate-wiring` is not in main's loop at all (it is my addition), so varying it
+could not move main. The harness ran perfectly and answered about a variable the
+subject never reads. **Vary something present in BOTH sides, or you are
+measuring your own diff against nothing.**
 
 ### #689 is GUARDED by my fixture, not weakened
 
@@ -420,9 +474,13 @@ list. Stating it rather than silently skipping.
   40 files of other people's work staged for deletion, looking exactly like my
   own change set. The command succeeds and the output is well-formed. Reset
   against the **literal fork-point sha**; `origin/main` is a moving coordinate.
-- Do **not** re-litigate own-job vs step for `gate-wiring`, and do not add a
-  fourth id for this work. Both are recorded above with the measurements that
-  settled them.
+- Do **not** re-litigate own-job vs step for `gate-wiring` from first
+  principles — the position changed three times and every change was the
+  orchestrator's or architect's, never mine. The live tree is **own-job**, and
+  the deciding fact is recorded below. Do not add a fourth id for this work.
+- Do **not** "simplify" ci-ok's loop back to `if failure or cancelled`. That is
+  the fail-open form, measured. And do not delete the `checked -ne 7` guard as
+  redundant — the inversion does not cover a truncated pair list.
 
 ## Queue behind this
 
