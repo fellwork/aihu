@@ -1,7 +1,7 @@
 # State — builder
 
 **Role:** BUILDER · **Workspace:** `almaty` · **Branch:** `fix/check-ci-dangling-gate-ref`
-**Last updated:** 2026-07-28 — C-FEL-GATE-WIRING-RUNS built (#691, head `059eb1c0`,
+**Last updated:** 2026-07-28 — C-FEL-GATE-WIRING-RUNS built (#691, head `<pending>`,
 based on `origin/main` 1bb0dd7c). C-FEL-434b LANDED (#683 @ `e7a1b7c2`),
 C-FEL-CI-RECEIPT open (#685), C-FEL-EXTERNALS record recovered (#656, merged).
 
@@ -216,6 +216,24 @@ M1     in needs:, neither gated nor declared     -> 1
 reads. The exemption branch is only reached when the job is absent from the loop,
 so that arrangement never consults the list. XOR would flag it, and a false red
 is pressure to widen the exemption — the hatch re-opening under another name.
+
+### Verifier PASS at `faee81b9`; the corrected void clause re-run at my head
+
+Their first integrity check named only `checked" -ne 7` in plan-a.yml — a strict
+SUBSET of what the verdict rested on, while the artifact that was actually
+rewritten twice was `check-gate-wiring.ts` (+81/-30 across those heads). They
+caught it themselves and widened it. **A one-line integrity check is a collapsed
+view of a verdict**, and it converts "re-run this" into "this is still fine".
+
+Corrected clause, run by me at head `464a3e31` (docs-only since `faee81b9`):
+
+```
+plan-a.yml          grep -c 'checked" -ne 7'   -> 1   (must be 1)
+check-gate-wiring   grep -c NEEDS_NOT_GATED    -> 5   (must be >=2)
+check-gate-wiring   grep -c outputsRead        -> 6   (must be >=2)
+positive control    wc -l of the extracted file -> 867
+check:gate-wiring                              -> EXIT 0
+```
 
 ### #689 is GUARDED by my fixture, not weakened
 
@@ -543,6 +561,13 @@ list. Stating it rather than silently skipping.
   grammar gate, reasons recorded in that same file.
 - Do **not** trust a piped `git push`'s exit code, or a background-task
   notification that reports one. `git ls-remote` is the only proof.
+- **`git show "$SHA:path"` in zsh SILENTLY EATS CHARACTERS.** `$H:s...` parses
+  `:s` as a history-substitution modifier, so `$H:scripts/check-gate-wiring.ts`
+  became `<sha>k-gate-wiring.ts` → `fatal: ambiguous argument`, exit 128, and a
+  `grep -c` over the empty result printed **0**. Read naively that says the
+  symbol is gone. Use `"${H}:path"` — braces stop the modifier. Three roles hit
+  this in one day. Always pair the read with a positive control (`wc -l` the
+  extracted file); a non-zero `git show` exit is could-not-check, never absent.
 - **Never `git reset --soft origin/main` to squash your own commits.** If your
   branch is BEHIND, that stages the INVERSE of everything merged since — for me,
   40 files of other people's work staged for deletion, looking exactly like my
