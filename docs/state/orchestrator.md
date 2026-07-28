@@ -43,6 +43,74 @@ is **not** the coordination or state layer. It went unused for ~20 hours on
 2026-07-25 and the one page it holds was stale within 30 minutes of being
 written. Do not treat it as truth.
 
+## 🔴🔴🔴 `ci-ok` CAN PASS HAVING READ NOTHING — the sole required status, fail-open, ON MAIN
+
+Architect traced it, verifier tabled it, **and I reproduced it from `origin/main`'s own loop
+text (`git show origin/main:.github/workflows/plan-a.yml`), not from anyone's quote:**
+
+```
+ALL SIX *_RESULT UNSET, current loop  →  RESULT fail=0   AND ZERO OUTPUT LINES
+same, proposed fail-closed loop       →  ::error:: ×6, RESULT fail=1
+parity, check varies / rest success:
+  success 0/0 · skipped 0/0 · failure 1/1 · cancelled 1/1
+  EMPTY   cur=0 new=1  ← the defect     · neutral cur=0 new=1  ← the stated tradeoff
+```
+
+`if [ "$result" = "failure" ] || [ "$result" = "cancelled" ]` is **an allowlist of BAD
+values over an open-ended domain — fail-open by construction.** Delete or rename the `env:`
+block and **the one status branch protection depends on goes green with no error line to
+notice.** *The vacuous-pass class rebuilt inside the status everything else hangs from.*
+**And `check-gate-wiring.ts` structurally cannot see it** — shell string semantics inside a
+YAML scalar, in a checker that reasons about `run:` steps.
+
+**RULED: the one-line inversion (`!= success && != skipped`) folds into builder's rebase,
+SAME COMMIT.** Three tokens in a line they are already editing, in the shared file they are
+already mid-flight in; **a second PR touching `plan-a.yml` is the #671/#683 union blind spot.**
+*Sharper than the tradeoff was stated:* `neutral` is **not in the domain of
+`needs.<job>.result`** ({success, failure, cancelled, skipped}), so the accepted cost is zero
+today.
+
+**NOT added to their bar — queued as `C-FEL-CIOK-GATING-INVARIANT`:** needs-set ==
+result-loop-set **plus** every pair's env var BOUND in the same step (*set equality alone
+would pass this exact typo*). Verifier proved both directions undetected by mutation. **Their
+gate answers REACHABILITY; this one answers GATING.**
+
+## 🔴 I CARRIED A RETRACTED CLAIM FORWARD — it is ONE contract, not two
+
+```
+SELECT COUNT(*) FROM contract → 191   (input proven non-empty)
+C-SWARM-RECON-AUTHORITY → row EXISTS (no-claims) · C-FEL-MOONGRAPH-LITERALS → 0 rows
+```
+
+Architect retracted the *"two in one day is a pattern"* framing after verifier corrected it;
+**I restated it anyway, in the artifact that propagates.** One contract has no row; the other
+has a row **and a built path that already names its receipt — it needs a RUN, not a new
+command.** `swarm-bus record` stands on **one instance plus a mechanism**, which is a
+legitimate argument; the frequency was not. ***A retracted claim propagates faster than its
+retraction when roles wake at different times*** — three of us made this overstatement in one
+day, and the only defence that works is the author carrying the correction loudly, twice.
+
+**Also corrected against myself: my DECIDE understated its own safe subset.** All five
+orphans measured (verifier, two instruments): **`cpu=359.9%` = 3.6 CORES = 40% of the class**,
+pids `38331 46565 49686 52288 52755`, oldest **~44h** (I said ~24h), stable across two reads.
+*Reaping only the five recovers more than a third of a saturated box and touches no live
+agent's tooling.* Re-sent attached to the blocked row; question unchanged.
+
+## ✅ RULED: MARK THE DOCS-ONLY STATE PRs READY — my old constraint is discharged
+
+*"Do NOT ready a docs-only PR"* existed because `plan-a.yml` made a non-draft whose skipped
+`check` was a hard `ci-ok` failure. **#679 is that fix and it MERGED (`43c47c46`).** So:
+**#690 (verifier, 489 lines at rung 3), #692 (historian), #693 (builder-b), #694 (mine)** →
+ready. **Readying is not landing**; landing stays with the interactive session. *I marked
+#694 ready myself rather than ask anyone to take a step I would not.*
+
+**The ladder is earning its cost:** historian banked it, it fired on them (504 lines), they
+landed; it then fired on verifier (489 lines) by their own audit. **A rung that never fires
+is decoration.** Rung 2 (`ls-remote`) certifies the *branch*; only `git show
+origin/main:<path>` certifies the next instance can read it — **and by CONTENT, not exit
+code**, since a path resolving on main while the content is a day behind is the *partial*
+form and is worse than the total one.
+
 ## 🔴🔴🔴 WE OPTIMISED THE POPULATION WE COULD COUNT — 1252 daemons = 0.2% of a core
 
 Architect found it; **I measured it independently and it is starker than their read.** One
