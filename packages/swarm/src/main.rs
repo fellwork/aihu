@@ -529,6 +529,21 @@ fn open_db() -> rusqlite::Result<Connection> {
     ensure_column(&conn, "contract", "linear", "TEXT")?;
     ensure_column(&conn, "contract", "github_issue", "INTEGER")?;
     ensure_column(&conn, "contract", "github_pr", "INTEGER")?;
+    // R2 (C-SWARM-RECON-AUTHORITY): `github_pr` is a bare integer, but the swarm
+    // runs contracts in more than one repo. Resolving a bare number against a
+    // hardcoded GITHUB_REPO mints a FALSE receipt — `agent-swarm#1` is OPEN
+    // while `fellwork/aihu#1` is MERGED, so a cross-repo link would verify
+    // against the wrong PR. The link must carry its repo. Backfill the
+    // KNOWN-correct existing links to fellwork/aihu EXPLICITLY: an explicit
+    // backfill of known rows is not the same as an implicit fallback for
+    // unknown ones — a future link with no repo is REFUSED for auto-verify
+    // (see `resolve_pr`), never defaulted, because defaulting IS the collision.
+    ensure_column(&conn, "contract", "github_repo", "TEXT")?;
+    conn.execute(
+        "UPDATE contract SET github_repo = ?1 \
+         WHERE github_pr IS NOT NULL AND github_repo IS NULL",
+        params![GITHUB_REPO],
+    )?;
     Ok(conn)
 }
 
@@ -1680,14 +1695,17 @@ fn gh_issue_view(number: i64, fields: &str) -> Result<Value, String> {
 /// `gh pr view` — used by `verify-merged` to ask GitHub, authoritatively,
 /// whether a resolved PR number is merged. Read-only: this is safe to call
 /// even in a `verify-merged` dry run.
-fn gh_pr_view(number: i64) -> Result<Value, String> {
+fn gh_pr_view(repo: &str, number: i64) -> Result<Value, String> {
     let n = number.to_string();
+    // `repo` is the LINK's own repo (from `resolve_pr`), never a hardcoded
+    // default — R2, C-SWARM-RECON-AUTHORITY. Resolving #1 against `fellwork/aihu`
+    // when the work is `agent-swarm#1` is exactly the false-receipt collision.
     let out = gh_run(&[
         "pr",
         "view",
         &n,
         "--repo",
-        GITHUB_REPO,
+        repo,
         "--json",
         "state,mergedAt,mergeCommit",
     ])?;
@@ -2570,10 +2588,36 @@ fn is_merged_evidence(state: &str, merged_at: Option<&str>) -> bool {
 /// (c) a STRICT prose parse (`parse_pr_ref`) of that contract's most recent
 /// verdict body. Returns `None` — never a guess — when nothing in that
 /// chain resolves.
-fn resolve_pr(conn: &Connection, cid: &str, contract_pr: Option<i64>) -> rusqlite::Result<Option<i64>> {
+fn resolve_pr(
+    conn: &Connection,
+    cid: &str,
+    contract_pr: Option<i64>,
+) -> Result<Option<(String, i64)>, String> {
+    // The `contract.github_pr` link (caller-provided or on the row) can name ANY
+    // repo, so it MUST carry `github_repo`. A bare number with no repo is REFUSED
+    // for auto-verify (Err → could-not-check by every caller), never defaulted to
+    // GITHUB_REPO — defaulting IS the collision (R2, C-SWARM-RECON-AUTHORITY).
     if let Some(pr) = contract_pr {
-        return Ok(Some(pr));
+        let github_repo: Option<String> = conn
+            .query_row(
+                "SELECT github_repo FROM contract WHERE id = ?1",
+                params![cid],
+                |r| r.get::<_, Option<String>>(0),
+            )
+            .optional()
+            .map_err(|e| e.to_string())?
+            .flatten();
+        return match github_repo {
+            Some(repo) => Ok(Some((repo, pr))),
+            None => Err(format!(
+                "contract has github_pr #{pr} but no github_repo — a cross-repo link \
+                 must name its repo (set --github-repo); refusing to resolve #{pr} \
+                 against {GITHUB_REPO}, which is how a false receipt is minted"
+            )),
+        };
     }
+    // Fallbacks resolve the swarm's OWN verdict-message PR references, which are
+    // fellwork/aihu by construction — a KNOWN repo, not an unknown default.
     let from_column: Option<i64> = conn
         .query_row(
             "SELECT pr FROM msg WHERE contract = ?1 AND kind = 'verdict' AND pr IS NOT NULL \
@@ -2581,9 +2625,10 @@ fn resolve_pr(conn: &Connection, cid: &str, contract_pr: Option<i64>) -> rusqlit
             params![cid],
             |r| r.get(0),
         )
-        .optional()?;
-    if from_column.is_some() {
-        return Ok(from_column);
+        .optional()
+        .map_err(|e| e.to_string())?;
+    if let Some(pr) = from_column {
+        return Ok(Some((GITHUB_REPO.to_string(), pr)));
     }
     let latest_verdict_body: Option<String> = conn
         .query_row(
@@ -2592,8 +2637,12 @@ fn resolve_pr(conn: &Connection, cid: &str, contract_pr: Option<i64>) -> rusqlit
             params![cid],
             |r| r.get(0),
         )
-        .optional()?;
-    Ok(latest_verdict_body.as_deref().and_then(parse_pr_ref))
+        .optional()
+        .map_err(|e| e.to_string())?;
+    Ok(latest_verdict_body
+        .as_deref()
+        .and_then(parse_pr_ref)
+        .map(|pr| (GITHUB_REPO.to_string(), pr)))
 }
 
 /// `verify-merged`: for every contract not already `verified` and sitting
@@ -2656,8 +2705,8 @@ fn cmd_verify_merged(args: &Args) -> rusqlite::Result<()> {
     let mut could_not_check = 0i64;
 
     for (cid, contract_pr) in &candidates {
-        let pr = match resolve_pr(&conn, cid, *contract_pr) {
-            Ok(Some(p)) => p,
+        let (repo, pr) = match resolve_pr(&conn, cid, *contract_pr) {
+            Ok(Some(rp)) => rp,
             Ok(None) => {
                 println!("  {cid}: no PR reference — skipped");
                 skipped_no_pr += 1;
@@ -2670,12 +2719,12 @@ fn cmd_verify_merged(args: &Args) -> rusqlite::Result<()> {
             }
         };
 
-        let data = match gh_pr_view(pr) {
+        let data = match gh_pr_view(&repo, pr) {
             Ok(d) => d,
             Err(e) => {
                 // A failed query is NEVER "not merged" — it's unknown, and
                 // reported as such.
-                println!("  could-not-check: {cid} PR #{pr}: {e}");
+                println!("  could-not-check: {cid} PR #{pr} ({repo}): {e}");
                 could_not_check += 1;
                 continue;
             }
