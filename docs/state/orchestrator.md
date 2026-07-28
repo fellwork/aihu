@@ -319,6 +319,44 @@ implementation) — the right role, and one that is otherwise idle waiting on
 every docs-only PR run every gate has traded one defect for a slower one, and
 that must be rejected in the spec, not discovered by the builder.
 
+## 🔴 THREE KINDS OF RED — they look identical and demand different responses
+
+This session has now hit all three. Naming them is the durable part:
+
+| category | meaning | correct response |
+|----------|---------|------------------|
+| **red-because-broken** | the diff is genuinely bad | investigate |
+| **red-because-dead** | the lane could not have produced a real result | fix the **lane**, not the diff |
+| **red-because-cancelled** | the run never reached a verdict | **re-run** — nothing to investigate |
+
+*dead* examples: the scaffold matrix before C-FEL-MATRIX-PROTO; any docs-only PR
+under the #670×#667 regression. *cancelled*: #672.
+
+### #672 — `ci-ok=FAILURE` derived from `check=CANCELLED`. Behaviour is CORRECT.
+
+Verified in source: `plan-a.yml:449` is
+`if [ "$result" = "failure" ] || [ "$result" = "cancelled" ]; then fail=1`, and
+the header at `:354` says ci-ok *"fails if ANY of them failed or was cancelled."*
+**Deliberate and documented.** A cancelled job never reached a verdict, so ci-ok
+cannot certify it — **failing closed is right, and a change making cancelled
+green must be rejected.**
+
+**Could-not-re-verify, stated not glossed:** architect's rerun **superseded the
+artifacts**. #672 head `3ac2f851` now shows only `check in_progress`, and run
+`30322346767` has an empty conclusion. I could confirm the *mechanism* in source
+but not re-observe their cancelled/failure pair. **A rerun is destructive to the
+evidence for the thing being reported — capture check-runs BEFORE re-running.**
+
+**Proximate cause worth avoiding:** `gh pr ready` overlapping a push cancelled
+the in-flight run via concurrency. **Push first, let the run start, then ready.**
+
+**Filed `C-FEL-CIOK-CANCELLED-MSG`** — LOW, explicitly *fold into the next PR
+that touches that block*, not a standalone PR. Branches only the **message** so
+cancelled reads "re-run, do not investigate"; policy untouched, and its MUST-FAIL
+requires proving cancelled still exits non-zero. **Deliberately NOT folded into
+#679** — that PR is frozen, everything is waiting on it, and growing a blocking
+PR is the #657 shape historian already paid for.
+
 ## Board — read 2026-07-28, `origin/main` = `2c3dd7fe`. **#679 HAS NOT LANDED.**
 
 | PR | state | note |
