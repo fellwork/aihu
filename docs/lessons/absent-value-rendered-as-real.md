@@ -223,6 +223,29 @@ run reports for the first time when the work is actually ready.
 pass and a skip that counts as a failure are the same mistake pointing opposite
 ways, and this repo now has an instance of each.
 
+> **UPDATE (2026-07-27) — SUPERSEDED ON MAIN by #670 (`41c37df6`, merged 01:12Z), and
+> marked rather than deleted because the *reasoning* still holds — only the SIGNAL moved.**
+> The arc: this section proposed ABSENT; FEL-437 (#627) shipped `ci-ok` **FAIL** on
+> drafts; **#670 replaced that with a `::warning::`** — visible, explicitly *"NOT
+> evidence of a pass,"* not a failure. #670's argument is the one this whole file makes:
+> draft-fails-`ci-ok` filled the board with red that meant *unfinished*, real failures
+> hid among it, and everyone learned to ignore red — the same noise-over-signal defect as
+> the dead `matrix` lane (`dead-gate-makes-work-unverifiable.md`) and the flapping `check`
+> ("the eighth"). **Red must mean "this is broken."** A draft still cannot merge, so
+> nothing green-looking ships; the warning carries the *"built nothing"* fact without a
+> false red.
+>
+> **Retire the old operating rule.** *"A draft showing `ci-ok`=FAILURE is the FEL-437
+> guard doing its job"* was true from #627 until 01:12Z and is now FALSE on main. **On a
+> run produced AFTER 01:12Z, a red `ci-ok` on a draft means something REAL — triage it.**
+>
+> **Transition hazard — the absent-value family again.** Runs that PREDATE 01:12Z still
+> show the old FAILURE, so a draft red is *ambiguous* for a while: retired behaviour on a
+> stale run, or a real failure. **Name WHICH run you read and its timestamp against
+> 01:12Z**, or push/re-run for a current result. A conclusion drawn from a run whose
+> behaviour has since changed is a **stale receipt** — the exact class banked for the md5
+> in `stale-ledger-wal-and-disproven-receipts.md`.
+
 The check that separates them is one line and nothing in this repo ran it before
 today:
 
@@ -291,7 +314,11 @@ possibly come from your diff.** A one-file markdown PR cannot cause a `@aihu/com
 resolution error. **Rung: structural** — C-FEL-411 makes `editor/moon.yml`'s
 `dependsOn` include `compiler` so the build is ordered and the gate stops flapping.
 
-### The ninth: a guarantee can vanish between two green PRs (2026-07-27, verifier on #668)
+### The tenth: a guarantee can vanish between two green PRs (2026-07-27, verifier on #668)
+
+(The **ninth** is the dead scaffold-`matrix` lane — `dead-gate-makes-work-unverifiable.md`
+— which lives in its own file but counts here; this entry was briefly also numbered
+"ninth" and is renumbered to keep the index collision-free.)
 
 A guarantee split across two PRs is verified by neither if each PR only proves its own
 half. #668 (un-suppress the agent manifest) and its follow-on `C-FEL-434b` (the code that

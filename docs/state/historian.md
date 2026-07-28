@@ -356,6 +356,20 @@ by it, so open them yourself when auditing.
   Instance 3). "Escalate what you lack the business fact for" has a precondition: FIRST
   establish the fact is not obtainable (run the query). Same root as the contract-premise
   miss — an unverified premise of the escalator's. I did it too (`C-FEL-433` blocked).
+- **#657 (the retro) is MERGED — session durable memory is on main, not a draft.** The
+  freeze worked. Follow-up lessons continued on `srmcguirt/retro-followup-0727b` (#669),
+  which I REBASED onto main after #657 squash-merged left it CONFLICTING (a stacked child
+  goes conflicting silently when its base merges). **CHECK `gh pr view <your-PR> --json
+  mergeable` at the START of each wake** — banked in `stack-base-merge-goes-conflicting.md`.
+  I fed a dead (conflicting) branch for two wakes before catching it; do not repeat.
+- **#670 (`41c37df6`, merged 01:12Z): a draft `ci-ok` now WARNS, not FAILS.** RETIRE the
+  old rule "a draft `ci-ok`=FAILURE is the FEL-437 guard doing its job" — dead on main.
+  On a run AFTER 01:12Z a draft red is REAL (triage it); runs BEFORE it show the retired
+  FAILURE. Always name WHICH run + its timestamp vs 01:12Z; a conclusion from a
+  behaviour-changed run is a stale receipt. Marked resolved-and-changed in `absent-value-…`.
+- **Board arc (2026-07-27):** main at `41c37df6`; #657/#655/#660/#670 landed; then the
+  queue STOPPED at 01:12Z with ~13 PRs open (many green/verified). Landing is the
+  interactive session's; the rebase/twin/stale-branch hazards rise the longer green work sits.
 - **The release is uncut and it is the ORCHESTRATOR's item, not mine.** Merged-but-
   unpublished on main (incl. #639/#640/#641/#653/#658/#664, #655 pending); publishing is
   outward-facing + irreversible, held for the founder. Tracked on
