@@ -664,7 +664,15 @@ fn emit_boundary_helpers(h: &NeededHelpers) -> String {
         lines.push("const createEachBoundary = (items, key, itemFn) => each(items, key, itemFn);");
     }
     if h.slot_boundary {
-        lines.push("const createSlotBoundary = (o, b) => slot(o?.name ?? undefined);");
+        // FEL-GH478: `b` is the authored fallback-content fn. A `<slot>` renders
+        // its own children as fallback when it has no assigned nodes, and the
+        // assigned nodes override them otherwise — so emit the fallback AS the
+        // slot's children rather than a childless `slot()` leaf (which discarded
+        // it). `branch('slot', …)` is the same element `slot()` builds, but can
+        // carry children; `branch` is always imported. `b()` returns a fragment
+        // (`branch(null, …, [])`) when no fallback was authored — an empty child
+        // list, so a bare `<$slot>` still emits a plain childless `<slot>`.
+        lines.push("const createSlotBoundary = (o, b) => branch('slot', o?.name != null ? { name: o.name } : undefined, typeof b === 'function' ? [b()] : []);");
     }
     if h.suspense_boundary {
         lines.push("const createSuspenseBoundary = (src, b, fb) => b();");

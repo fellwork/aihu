@@ -311,9 +311,15 @@ fn slot_default_codegen() {
         "deprecated <slot> must emit createSlotBoundary: {}",
         output.js
     );
+    // FEL-GH478: `createSlotBoundary` now builds the `<slot>` via `branch('slot',
+    // …, [b()])` so authored fallback content survives as the slot's children
+    // (a native `<slot>` renders its children when nothing is assigned). The
+    // original Plan 1.4 design emitted a childless `slot()` leaf, which discarded
+    // the fallback — see slot-fallback-drive.test.ts.
     assert!(
-        !output.js.contains("branch('slot'"),
-        "slot must not be emitted as branch"
+        output.js.contains("branch('slot'"),
+        "slot boundary must build a <slot> that can carry fallback children: {}",
+        output.js
     );
     insta::assert_snapshot!(output.js);
 }
