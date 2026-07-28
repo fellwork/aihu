@@ -526,3 +526,17 @@ cannot see an unlanded change):
 **Live but unfiled:** verify-merged wrong-PR-by-prose — a foreign `github.com/.../pull/N`
 or `PR#N` in a verdict body resolves to that PR (parse_pr_ref is a first-match whole-body
 scan). Orchestrator will not file it until a case fires in the wild; file it if seen.
+
+### Round 3 addendum 4 — C-FEL-434 bar: do not trust the `check` status until C-FEL-411 lands
+
+Orchestrator ruling 2026-07-27 (learned from #661): `packages/editor/moon.yml` declares
+`dependsOn: [signals]` only, but `tests/component-compile.test.ts` imports `@aihu/compiler`,
+so `editor:typecheck` can be scheduled before `compiler:build` and fail TS2307 — a moon-graph
+ORDER/CACHE race (that is C-FEL-411, already barred; #661's red was collateral, not its
+markdown diff). Consequence for verifying C-FEL-434: **a RED `check` on the 434 PR may be
+this race, and a GREEN one may be luck** — do not accept the CI `check` job as evidence
+either way until C-FEL-411 has landed. Verify the 434 fix ONLY from my own SOURCE-BUILT
+compiler (the two-part bar in addendum 3, incl. the policy-not-public row). Also ruled:
+C-FEL-434 fix is option (b) and cheap — `manifest_json` is a build-time SIDECAR, not client
+bytes, so client elision stays untouched; the sidecar is what must carry the `$action` while
+`llms.txt` still omits `reports:read`.
