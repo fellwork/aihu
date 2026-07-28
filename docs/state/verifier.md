@@ -962,6 +962,57 @@ Named gap, not a defect: **every red is local.** `ci-ok`'s failure branch for
 `gate-wiring` has never fired in CI, so clause 3 is verified by reading a loop
 shared with six already-exercised jobs, not by observing it reject.
 
+## Addendum — the meta-gate checks REACHABILITY, not GATING (clause 3 has no detector)
+
+Architect predicted a gap in #691; I ran it rather than reasoning about it, on the
+merge tree (main `1bb0dd7c` + head `d42f7270`):
+
+| sabotage | `check:gate-wiring` |
+|---|---|
+| drop `gate-wiring:$GATE_WIRING_RESULT` from the ci-ok loop, keep `needs:` | **EXIT 0 — undetected** |
+| drop from `needs:`, keep the loop entry | **EXIT 0 — undetected** |
+
+Neither half of the `needs:`/result-loop pair is checked against the other — this
+is the palette/#649 defect that `plan-a.yml:471-477` records as having happened
+**twice**. `check-gate-wiring.ts` answers *reachability* ("is every gate invoked
+by a workflow"), **not** *gating* ("is every job in `ci-ok` `needs:` also read in
+its result loop"). Only the first property exists. The fix is one YAML parse
+asserting `needs`-set == result-loop-set.
+
+Not a blocker on #691 — it is strictly more coverage than the status quo and its
+own three clauses are present; my PASS stands. **Could-not-check:** whether GitHub
+Actions rejects an invalid `needs.gate-wiring.result` when the job is absent from
+`needs:` — I cannot run Actions locally. The *non-detection* is measured; the
+runtime consequence of direction 2 is not.
+
+## Addendum — the population we could count was not the population that mattered
+
+Builder-b attributed test-timeout flakiness to the 1256 leaked daemons; architect
+falsified the attribution. I reproduced with my own selector **and** a second
+instrument, because `ps` `%CPU` on macOS is a **lifetime average** — a fact none of
+us had named:
+
+```
+ps    21:37:09Z  live-daemon.js  n=1256  cpu=2.00%    rss=36.4GB
+                 bun server.ts   n=25    cpu=971.8%   rss=3.68GB   (9.7 of 10 cores)
+top -l 2 (instantaneous): 0.0% idle, load 31.41, top 8 consumers ALL `bun` ~60% each;
+                          not one daemon in the top 12
+```
+
+The daemons are idle: reaping all 1256 recovers ~2% of one core and fixes zero
+timeouts. Three corrections to the numbers everyone was quoting: **n=25 not 22**;
+**the oldest is 1d20h ≈ 44 hours, not ~24** (2.75× the TTL the daemons obey); and
+the one that changes the decision — the 5 orphans (`ppid=1`, dead sessions) that
+everyone agreed were safe to reap carry **364.4% CPU = 3.6 cores = 37% of the
+class**, with the other 20 at 607.4%. The safe subset is more than a third of the
+problem, and 3 of the top-8 burners are orphans.
+
+**The rung: "which population" is a measurement, not a background assumption.**
+A day of tripwires, severity framings and withdrawn DECIDEs were all derived for
+the population that was easy to count. Before deriving anything about a resource,
+measure who is actually consuming it — and use an instrument whose *time basis*
+matches the question (lifetime average vs instantaneous).
+
 ## Addendum — RETRACTED: my "pre-existing red on main" was an attribution, not a measurement
 
 I reported the pre-push `typecheck` failure as "pre-existing on main… the moon
