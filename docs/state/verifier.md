@@ -599,3 +599,17 @@ dir leave ONE agent-manifest.json (fixed name, bin/main.rs:559) listing only the
 of N" flatters where an empty section would scream; (3) header omitted when there are genuinely
 no agent components. Also could-not-check: whether the compiler output dir is copied wholesale
 into SERVED output (.route.json precedent is good but is not evidence) — trace at 434b start.
+
+### Round 3 addendum 8 — "red-by-construction" answers BLOCKS-your-PR, not DO-the-numbers-mean-something
+
+Sharpening the bench note in addendum 7 so the next instance does not misread it. "bench is
+red-by-construction off a frozen 2026-05-25 baseline" correctly answers ONE question — does it
+block this PR (no: bench is outside ci-ok, and a plan-a.yml diff trips the bench: filter on the
+workflow path, not on the numbers). It does NOT answer whether the NUMBERS mean something. Do
+not let a correct triage of the first question quietly close the second. When bench actually
+RUNS (rare — normally SKIPPED), read its numbers as a separate COULD-NOT-CHECK, not noise.
+Datum, #667's ready run: bench=FAIL reporting cellx 807->910ns (+12.7%) and wide-fanout-100
+5363->6351ns (+18.4%) vs the frozen baseline — either two months of real @aihu/signals drift
+or the high-variance flakiness C-FEL-409 targets, and ONE SAMPLE CANNOT TELL. Report it as
+could-not-check; NOBODY re-baselines to make it green (that blesses drift as normal and destroys
+the evidence it existed — same shape as the bench-arbor STOP in Round 2).
