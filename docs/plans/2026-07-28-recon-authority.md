@@ -74,15 +74,16 @@ FALSE receipt in the exact costume of a true one.
   Defaulting-to-fellwork is exactly the collision, so the default is "unknown →
   refuse", not "unknown → fellwork".
 
-### R3 — `no-claims` stays REACHABLE, but gated by R5 (MUST-PASS "must write no-claims")
-`no-claims` is the genuinely-nothing-to-check case; it does NOT mirror outward
-(:1082-1083), only satisfies downstream needs, and has no PR (R1's merged rule
-cannot apply). It must remain reachable — 26 rows + 9 need-declaring contracts
-depend on it, and demoting its only writer without a replacement STALLS THE DAG
-(see Sequencing). But it is NOT "unchanged": R5 gates it on a genuinely-empty
-structured `claims` column, so the 26-vacuous-passes defect cannot recur. The
-role-selected-transcript residual is addressed by the propose-only boundary
-below (contract-anchored transcript ref) — sequenced after, out of surface.
+### R3 — `no-claims` is LEFT ALONE in #686 (for the DAG reason, not "internal-only")
+Correction to my earlier framing: `no-claims` is NOT merely "internal". It
+satisfies a downstream need EXACTLY as `verified` does (`cmd_ready` :1199-1245) —
+it has no outward mirror (:1082-1083) but it still unblocks work. So the correct
+reason to leave it untouched in #686 is NOT that it is harmless; it is that
+tightening it HERE, before the STEP 2 extractor exists, would push the 50
+claims-carrying verdicts to `unverified` and STALL THE DAG. R1 tightens the
+`verified` branch only; the `no-claims --reconciled` branch is untouched in #686.
+Its dishonesty (26 vacuous passes) is real and is fixed by R5, sequenced after —
+not dropped, not met here.
 
 ### R4 — needs-satisfaction follows for free (MUST-FAIL: downstream needs)
 `:1201-1241` treats a need satisfied when the upstream is `verified`/`no-claims`.
@@ -90,7 +91,17 @@ Once R1 makes a false `verified` impossible (it becomes `unverified`), a
 downstream can no longer read a fabricated `verified` as satisfied. No separate
 change; it is a consequence of R1.
 
-### R5 — the adjudicator MUST consume the STRUCTURED `claims` column (binding MUST-FAIL, added by amendment)
+### R5 — consume the STRUCTURED `claims` column — RE-SEQUENCED OUT OF #686 (STEP 2/3, ruled)
+> **NOT in #686.** #686 is R1 + R2 ONLY (pure fail-closed). Row 3 (this) is
+> re-sequenced, NOT met by #686 — recorded so nobody later reads #686 as having
+> satisfied it. WHY it cannot land in #686: a guard that refuses `no-claims`
+> wherever the verdict carries claims would, with 50 claims-carrying verdicts on
+> the bus and NO extractor yet consuming them, push those contracts to
+> `unverified` — which does NOT satisfy needs (`cmd_ready` :1199-1245). That is a
+> **DAG stall**, the exact trade refused when demotion-first was reversed. So this
+> lands with/after STEP 2. The mechanism below is the BEFORE evidence (verifier
+> reproduced it from source, both directions) the eventual row-3 test must flip.
+
 The deepest defect, measured across the whole population: **the trace reconcile
 has never once checked a claim.** All 26 `no-claims` rows carry the identical
 recon `"N tool calls in trace; 0 claims; 0 flagged"`, across traces of 24–558
@@ -105,13 +116,14 @@ column. Mechanism:
   never matches "I pushed". So the claim-checking control CLAUDE.md promises has
   structurally never fired: 26 vacuous passes + 2 false positives.
 
-The fix: the adjudicator's evidence input is the contract's latest verdict
-**`claims` column** (`msg.claims`), parsed as the `verb:target` machine format,
-not prose. Each `verb:target` is checked against real evidence (a `pushed:PR#N`
-claim resolves like R1; `ran:`/`verified:` against the trace). Prose extraction
-MAY remain a supplement; it may NOT be the sole input.
-- `no-claims` is reachable ONLY when the verdict's `claims` column is genuinely
-  EMPTY. A zero-extraction while `claims` is NON-EMPTY must NOT reach `no-claims`
+The eventual fix (STEP 2 extractor + STEP 3 guard, both after #686): the
+adjudicator's evidence input is the contract's latest verdict **`claims` column**
+(`msg.claims`), parsed as the `verb:target` machine format, not prose. Each
+`verb:target` is checked against real evidence (a `pushed:PR#N` claim resolves
+like R1; `ran:`/`verified:` against the trace). Prose extraction MAY remain a
+supplement; it may NOT be the sole input.
+- STEP 3 guard: `no-claims` reachable ONLY when the verdict's `claims` column is
+  genuinely EMPTY. A zero-extraction while `claims` is NON-EMPTY must NOT reach `no-claims`
   — that is the exact miss (a machine-format claims column the prose regex could
   not see). MUST-FAIL, both directions:
   (a) feed historian's real C-FEL-RETRO-0727 verdict
@@ -134,20 +146,23 @@ supervisor.py, once demoted, emits a PROPOSAL rather than calling
 Rust exposes a `propose` verb consuming this; `setstatus --reconciled` for
 verified is retained only as the R1-guarded path until supervisor.py cuts over.
 
-## Sequencing — Rust FIRST, demotion AFTER (ruled; corrects my earlier note)
-My first recommendation said the demotion should land "first-or-with" the Rust
-path on a fail-closed argument. That was WRONG, and the blast radius is only
-visible with the no-claims count: `no-claims` is the ONLY writer for every
-contract whose legitimate work produces no merged PR (spec-only, docs-only, every
-vacuous pass), and `cmd_ready` (:1199-1245) satisfies a need on `verified` OR
-`no-claims`. Demote the only `no-claims` writer first and every such upstream can
-never satisfy a downstream need — that is not fail-closed, it is a **DAG stall**
-(9 contracts currently declare needs). So: the Rust adjudicator lands FIRST; the
-supervisor.py demotion to propose-only follows. My "capability-removal is the
-safest edit" argument stands — it applies to step TWO, not step one. Once the
-Rust side is in, a trace-scan `verified` proposal with no merged PR resolves to
-could-not-check, so the outward-firing hazard is closed at step one without
-touching the DAG.
+## Sequencing — three steps, ruled (this corrects my earlier notes twice over)
+- **STEP 1 — NOW, #686, mine: R1 + R2 only.** Tightening `verified` costs nothing
+  honest — the 11 good rows carry real merged-PR receipts and keep resolving;
+  a trace-scan `verified` with no merged PR resolves to could-not-check. Pure
+  fail-closed, and it closes the outward-firing hazard (the false Linear-Done /
+  GitHub-close) without touching the DAG.
+- **STEP 2 — after, outside my surface: the extractor** actually consuming the
+  STRUCTURED `msg.claims` column (recon.py + the supervisor.py propose-only
+  boundary + contract-anchored transcript selection, fixing the by-role defect).
+- **STEP 3 — with or after STEP 2, never before: the `no-claims` guard** (R5).
+Why the order is forced: a `no-claims` guard WITHOUT the STEP-2 extractor would
+push the 50 claims-carrying verdicts to `unverified`, which does NOT satisfy
+needs (`cmd_ready` :1199-1245) — a **DAG stall** (9 contracts declare needs).
+This also corrects my FIRST note (demote-first): the demotion / capability-removal
+is STEP 2, never step one. `no-claims` is the ONLY writer for legitimate
+no-merged-PR work (spec-only, docs-only, vacuous passes), so removing it before
+its replacement freezes the graph.
 
 ## Healing — 26 unchecked + 2 false, NOT a mass-revert
 Not by hand-edit (a terminal status is machine-set; hand-editing the ledger to
@@ -164,15 +179,20 @@ the same defect one level up. (C-SWARM-P0 → agent-swarm #1 OPEN cross-repo, no
 same-repo receipt → unverified; C-FEL-SCAFFOLD-PM-COMPAT → #684 draft, two
 could-not-checks → unverified.)
 
-## Bars (from the contract + binding amendments)
-- MUST-PASS: same posture as verify-merged (no promotion on failed/ambiguous
-  query → could-not-check, idempotent, dry-run); `verified` requires the
-  `merged: PR #N @ sha` receipt; `no-claims` still reachable; the adjudicator
-  consumes the STRUCTURED `msg.claims` column, not prose extraction.
-- MUST-FAIL: (1) corrupt input (verified, transcript-fragment recon, github_pr
-  NULL) → could-not-check, not verified. (2) `setstatus --github-pr 1` on a
-  cross-repo contract → refused / resolved in its own repo, never a false
-  fellwork/aihu #1 receipt. (3) downstream needs unsatisfied until upstream
-  carries a real receipt. (4, amendment) a verdict whose `claims` column is
-  NON-EMPTY (e.g. historian's `pushed:PR#679@868ac101,…`) must NOT land
-  `no-claims`; a genuinely-empty `claims` column MUST still be able to.
+## Bars — #686 SCOPE IS R1 + R2 ONLY
+- MUST-PASS (#686): same posture as verify-merged (no promotion on failed/
+  ambiguous query → could-not-check, idempotent, dry-run); `verified` requires
+  the `merged: PR #N @ sha` machine-generated receipt; `no-claims` LEFT
+  REACHABLE and untouched (the STEP-2/3 DAG reason, not "internal-only").
+- MUST-FAIL met by #686: (1) corrupt input (verified, transcript-fragment recon,
+  github_pr NULL) → could-not-check, not verified. (2) `setstatus --github-pr 1`
+  on a cross-repo contract → refused / resolved in its own repo, never a false
+  fellwork/aihu #1 receipt. (needs) downstream needs unsatisfied until upstream
+  carries a real receipt — follows for free from (1), no separate change.
+- RE-SEQUENCED OUT OF #686 (row 3, the structured-`claims`/`no-claims`-honesty
+  bar): a NON-EMPTY `claims` verdict (e.g. historian's
+  `pushed:PR#679@868ac101,…`) must NOT land `no-claims`; a genuinely-empty one
+  still must. This is NOT met by #686 and #686 must not be read as meeting it —
+  it lands in STEP 2 (extractor) + STEP 3 (guard), outside this surface, because
+  a guard without the extractor stalls the DAG. Verifier has reproduced its
+  BEFORE state from source (their PR #683 verdict is the ready-made fixture).
