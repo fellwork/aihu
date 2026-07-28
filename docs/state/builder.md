@@ -1,7 +1,7 @@
 # State — builder
 
 **Role:** BUILDER · **Workspace:** `almaty` · **Branch:** `fix/check-ci-dangling-gate-ref`
-**Last updated:** 2026-07-28 — C-FEL-GATE-WIRING-RUNS built (#691, head `fcd7828b`,
+**Last updated:** 2026-07-28 — C-FEL-GATE-WIRING-RUNS built (#691, head `e9dd6427`,
 based on `origin/main` 1bb0dd7c). C-FEL-434b LANDED (#683 @ `e7a1b7c2`),
 C-FEL-CI-RECEIPT open (#685), C-FEL-EXTERNALS record recovered (#656, merged).
 
@@ -175,9 +175,35 @@ J  reintroduce the check:grammar-v typo              -> 1
 K  delete the gate-wiring run step                   -> 1   names ITSELF
 ```
 
-The `NEEDS_NOT_GATED` exemption is **not** an allowlist you can append to: an
-entry is honoured only if ci-ok really reads `needs.<job>.outputs.*`. Flagged as
-a fail-open hazard by a role reading the pre-parse head; it was already closed.
+### The exemption is DERIVED. There is no list. Do not add one back.
+
+`NEEDS_NOT_GATED` is **deleted**. It was an allowlist — the same fail-open shape
+this contract fixed in ci-ok's own loop — and its failure mode is specific: add a
+job to `needs:`, forget to gate it, watch the check go red, and "fix" it by
+appending the name. The palette defect re-entering through the checker's own
+escape hatch. The rule now reads off the file:
+
+```
+for every job J in ci-ok's needs:
+  J is read in the RESULT LOOP  --OR--  ci-ok references needs.J.outputs.*
+```
+
+`changes` is exempt because ci-ok genuinely consumes `needs.changes.outputs.code`.
+**An exemption that is a name is a hole; an exemption that is a property is a
+rule.** And it can be *lost*: delete that outputs reference and `changes` is
+flagged (row M5).
+
+**OR, not XOR — measured, not stylistic.** A job may legitimately be both gated
+*and* export a value ci-ok reads. XOR calls that correct arrangement a violation
+(row M4), and a false red is exactly what gets "fixed" by reintroducing the list.
+
+```
+baseline                                        -> 0
+M1 new job in needs:, neither gated nor outputs -> 1
+M2/F gate-wiring dropped from the loop          -> 1
+M4 a job BOTH gated AND outputs-consumed        -> 0   XOR would false-red
+M5 changes loses its outputs reference          -> 1
+```
 
 ### #689 is GUARDED by my fixture, not weakened
 
@@ -527,11 +553,23 @@ list. Stating it rather than silently skipping.
    is right, and doing so **forces** deleting `check:grammar-v2` from
    `scripts/gate-wiring-baseline.json` in the same PR — the gate goes red
    otherwise (proven, receipt in #691).
-2. **C-FEL-GATE-FIXTURE-RAMP** — shrink `notYetProven` in batches. Now cheaper
+2. **C-FEL-CIOK-GATING-INVARIANT** — queued by the orchestrator, **but check
+   whether it still has content before dispatching anyone.** Its spec was "parse
+   ci-ok, assert every `needs:` job is read in the result loop, with the
+   exemption derived rather than listed, and each pair's env var BOUND." All
+   three clauses shipped in #691 and are proven by the matrix above. What may
+   remain is the third referent: a *coherent* un-gating (drop from loop +
+   decrement count + drop from `needs:`) is invisible to the guard, the parse and
+   the reachability half, because the job is still defined and still runs. The
+   only referent that survives it lives outside every file in the repo — the CI
+   run's own job conclusions, where a coherently un-gated job is RED while ci-ok
+   is GREEN. Scope it to the 22 gates this script already DERIVES; a hand-typed
+   list of advisory jobs (bench/chromatic are red-tolerant) rebuilds the hatch.
+3. **C-FEL-GATE-FIXTURE-RAMP** — shrink `notYetProven` in batches. Now cheaper
    than it was: `NEGATIVE_FIXTURES` takes an optional `green` control, and
    `MOON_GRAPH_ROOT` is the worked example of giving a gate a fixture-scan mode
    without changing what it asserts.
-3. **C-FEL-CIOK-CANCELLED-MSG** — fold into the next PR that touches
+4. **C-FEL-CIOK-CANCELLED-MSG** — fold into the next PR that touches
    `plan-a.yml`'s `ci-ok` block; do not open a PR just for it. #691 touches that
    block but is already carrying a disclosure of its own; do not stack it there.
 
