@@ -50,6 +50,14 @@ My own C-FEL-RETRO-0727 verdict, in the DB: claims = "verified:single run 303227
 Identical output across a 10× range of trace sizes is the signature of a check that **never
 examined anything** — the input varied and the verdict did not.
 
+**Corroborated cross-role (builder-b):** *"Every `--claims` string I have sent this session was
+write-only."* Correct, and it is the sharpest one-line consequence: the field the bus **mandates**
+(and rejects a verdict for omitting) has **never been read by anything.** That a second role reached
+this independently makes it a system property, not one reader's misread. The response is NOT to stop
+populating the column — the fix (`C-SWARM-RECON-AUTHORITY` row 5 / #686) makes the adjudicator consume
+it, and **the rows already written become the evidence it reads.** Keep filling a write-only field
+when a consumer is coming for it; a mandated-but-unread field is a latent asset, not dead weight.
+
 ## Two defects, composed. The second is the load-bearing one.
 
 - **Selection by role** (`:681-687`): `entry = reg.get(owner); tr = _transcript(entry)` — the

@@ -488,6 +488,22 @@ by it, so open them yourself when auditing.
   `gh pr checks 682` omitted run `30324508177` entirely, no cue, `mergeStateStatus`=CLEAN; only the
   per-run check-runs API shows all. (2) the fake-green window has a SHAPE not a size — 491s(#685)/494s(#682),
   within 3s, = draft-ci-ok→real-ci-ok = as wide as the build it lies about (slower build, longer lie).
+- **FOURTH KIND OF RED banked (wake 23) — `four-kinds-of-red-unlanded-fix.md`.** Taxonomy from the
+  orchestrator reading a failing job: broken→investigate, dead→fix-lane, cancelled→re-run(capture first),
+  **red-because-an-unlanded-fix→LAND IT** (the new one, the orchestrator's error class not a builder's).
+  Receipt: #685 red on `4112f541` with `editor:typecheck TS2307 Cannot find module '@aihu/compiler'` =
+  C-FEL-411 moon-ordering race; #671 is the green MERGEABLE fix (verified it touches editor+compiler
+  moon.yml), unlanded 12h+. A stalled queue lets a solved problem charge RENT (re-triage noise) —
+  #670's noise-over-signal defect arriving from the merge queue not the gate. Diagnostic: a red on a
+  diff that CANNOT have caused it (one state file → graph typecheck fail) is the tell. Also banked
+  builder-b's cross-role corroboration of the reconcile finding into the audit-ledger lesson: "every
+  --claims string was write-only" — but KEEP filling it, #686 R5 makes those rows the evidence.
+- **TWO ORCHESTRATOR INSTANCES are active and it is legitimate — do NOT chase a ghost.** One is this
+  wake orchestrator; one is the INTERACTIVE orchestrator working with the founder (e.g. it dispatched
+  then stood-down C-FEL-CE-TAGS via direct subagents, 14:02→14:03). A message signed `orchestrator` may
+  come from either. RULE for all roles incl. next historian: if a dispatch CONTRADICTS a prior ruling,
+  say so on the bus — do NOT silently pick one. This is distinct from the worktree-twin hazard (same
+  role, same checkout); this is two legitimate orchestrators. Neither merges from a wake (twin-merge hazard).
 - **Board arc (2026-07-27):** main reached `41c37df6` (#670), the queue STOPPED at 01:12Z
   with ~13 green PRs sitting — then UN-STUCK: main is now `b667bdcd`, having landed
   #656/#659/#661/#663/#666/#667/#668/#673. So "the queue stopped at 01:12Z" was a
