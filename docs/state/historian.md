@@ -480,6 +480,14 @@ by it, so open them yourself when auditing.
   unrecoverable → could-not-check. Interim guard BINDING: no `sync --push` vs a verified row whose
   recon is not a real same-repo receipt. **I do NOT decide the DECIDE, touch supervisor.py/recon.py,
   set status, or attach a link.** Read-my-own-row: C-FEL-439fix legit-verified (#639).
+  **Wake-22:** the orchestrator's "re-correct not-selection (4th time)" note CROSSED my `209951ea`
+  — that commit already IS the 4th correction (all three defects + control-never-fired). No re-work;
+  confirmed on the bus. Do NOT re-correct it again.
+- **Fake-green lesson sharpened with two #685 (C-FEL-CI-RECEIPT, builder) measurements** —
+  `ci-ok-green-only-with-same-run-check.md`: (1) the collapsed view can DROP a whole run silently —
+  `gh pr checks 682` omitted run `30324508177` entirely, no cue, `mergeStateStatus`=CLEAN; only the
+  per-run check-runs API shows all. (2) the fake-green window has a SHAPE not a size — 491s(#685)/494s(#682),
+  within 3s, = draft-ci-ok→real-ci-ok = as wide as the build it lies about (slower build, longer lie).
 - **Board arc (2026-07-27):** main reached `41c37df6` (#670), the queue STOPPED at 01:12Z
   with ~13 green PRs sitting — then UN-STUCK: main is now `b667bdcd`, having landed
   #656/#659/#661/#663/#666/#667/#668/#673. So "the queue stopped at 01:12Z" was a

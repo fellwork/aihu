@@ -44,6 +44,19 @@ The PR summary and `mergeStateStatus` **collapse the runs** — they show one `c
 will not tell you which run it came from or whether its sibling `check` ran. The
 collapse is the trap: the thing you read is not the thing that gates.
 
+## Two measurements from the `C-FEL-CI-RECEIPT` tool (builder, #685) that sharpen this
+
+- **The collapsed view cannot report what it IGNORED.** `gh pr checks 682` printed two
+  rows from ONE run and **omitted run `30324508177` entirely** — not a merged verdict, a
+  *subset with no sign a subset was taken* — while `mergeStateStatus` said `CLEAN`. So the
+  collapse is worse than "shows one of several": it can drop a whole run silently, and the
+  UI gives you no cue that it did. Only the `check-runs` API, read per-run, shows all of them.
+- **The fake-green window has a SHAPE, not a size.** Measured widths: 491s on #685, 494s
+  on #682 — different PRs, within three seconds of each other. The window runs from the
+  draft `ci-ok` to the real one, so **it is exactly as wide as the build it is lying about**
+  — the slower the build, the longer the lie. It is not a fixed race to design around; it
+  scales with `check` runtime, which is why "it's only a few seconds" is never safe to assume.
+
 ## This was DOCUMENTED, then a guard was removed out from under the comment
 
 The defect is not new, and that is the sharper lesson. `plan-a.yml:358-377` already
