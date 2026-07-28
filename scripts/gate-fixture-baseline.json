@@ -1,0 +1,39 @@
+{
+  "$comment": [
+    "Not-yet-proven negative-fixture debt for check:gate-wiring (C-FEL-428).",
+    "",
+    "A gate listed here has NO executed-and-observed negative-fixture proof yet.",
+    "Ruling 1: a gate is PROVEN only if its red command ran in that run and exited",
+    "non-zero \u2014 declared/registered is not enough. This list is SHRINK-ONLY: a gate",
+    "leaves it by adding a fixture-invocation entry to NEGATIVE_FIXTURES in",
+    "scripts/check-gate-wiring.ts, and it can never be ADDED to (a NEW gate must",
+    "ship a proof or the meta-check goes red). Opting a gate in requires exposing a",
+    "fixture-scan mode on that gate; the surface of THIS contract forbids rewriting",
+    "the individual gates, so that is follow-up work.",
+    "",
+    "The one gate proven day-one is check:gate-wiring itself: the meta-gate is not",
+    "exempt from its own rule. Measured 2026-07-28 at origin/main b667bdcd."
+  ],
+  "notYetProven": [
+    "check:attributed",
+    "check:compiler-binary-bump",
+    "check:cookbook",
+    "check:coverage-manifest",
+    "check:deps",
+    "check:derived",
+    "check:dual-audience",
+    "check:emit-parses",
+    "check:governed",
+    "check:grammar-v2",
+    "check:hmr",
+    "check:hydration-adoption",
+    "check:lesson-refs",
+    "check:lint",
+    "check:publish-manifest",
+    "check:runtime-purity",
+    "check:size-rows",
+    "check:skill-samples",
+    "check:stories",
+    "check:use-registry-parity"
+  ]
+}

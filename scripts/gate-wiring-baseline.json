@@ -1,0 +1,25 @@
+{
+  "$comment": [
+    "Committed KNOWN-ORPHAN debt for check:gate-wiring (C-FEL-428).",
+    "",
+    "A gate here is a check:* leaf that is reachable by NEITHER the check:ci",
+    "transitive chain NOR an actual run: step in any .github/workflows/*.yml —",
+    "so it never runs in CI and can never make a PR red. That is the",
+    "FEL-438/FEL-430 green-by-construction shape.",
+    "",
+    "MEASURED, never predicted. check:gate-wiring exits 0 iff the current orphan",
+    "set EQUALS this list. A NEW orphan is red and named; a listed orphan that",
+    "gets WIRED is ALSO red, forcing the decrement into the same PR as the fix so",
+    "the debt cannot silently regrow OR silently shrink. The contract SURFACE",
+    "forbids rewiring these gates here — that is separate follow-up work.",
+    "",
+    "Measured 2026-07-28 at origin/main b667bdcd:",
+    "  - check:hmr (scripts/hmr-check.ts): in no workflow run: step, not in check:ci.",
+    "  - check:hydration-adoption (scripts/check-hydration-adoption.ts): in no",
+    "    workflow; its only chain is check:thesis, which is itself invoked by no",
+    "    workflow — a dead chain."
+  ],
+  "measuredAt": "2026-07-28",
+  "measuredOn": "origin/main b667bdcd",
+  "orphans": ["check:hmr", "check:hydration-adoption"]
+}
