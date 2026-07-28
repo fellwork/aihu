@@ -2175,6 +2175,17 @@ all 13 open issues were unassigned and three of them were already done.
   cannot green ⇒ branch protection says BLOCKED. Guard, not diff. Its
   prerequisite (#666) has merged; it needs marking ready, which is the
   interactive session's call, not a wake's.
+- **Do not trim the useSwarm validator to fit the old 610 B budget.** Approved at
+  1.45 kB; the bytes are C-SWARM-SCHEMA's ratified deliverable. The raise is
+  incomplete only until `.size-limit.README.md`'s table is updated.
+- **Do not approve a budget raise without naming the contract that bought the
+  bytes.** Ratified deliverable → raise. Incidental growth found at the gate →
+  trim.
+- **Do not misfile a `check` TIMEOUT as the C-FEL-411 race.** Different shapes:
+  411 is `editor:typecheck TS2307` failing fast; the other is a 25m15s job
+  timeout with `bun run test --coverage` hung. One sample only — suspected.
+- **Do not block builder-b on WIP=1 for ready-and-green PRs.** WIP=1 is one
+  in-progress *contract*, not one open PR. DEPLOY-GAP is GO.
 - **Do not re-verify #679.** Measured green: one run `30322783137`, `check` ran
   6 min, `ci-ok` started after it ended. The only open question is landing.
 - **Do not confirm a builder's recollection of a contract without re-sending the
