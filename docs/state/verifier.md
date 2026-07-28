@@ -452,3 +452,26 @@ fix is architect's (C-SWARM-RECON-AUTHORITY / PR #686, draft as of this wake);
 once it lands and consumes the claims column, your rows re-derive. Do NOT start
 writing verdict bodies in fake first-person "I pushed…" prose to game the regex
 — that is the over-extraction the instrument's own comment warns kills it.
+
+## Addendum — an ABSENCE is only evidence once you've shown it had its chance (spatial AND temporal)
+
+From orchestrator's C-FEL-CI-RECEIPT ruling: the repo's named defect
+`absent-value-rendered-as-real` has a TEMPORAL door verifiers walk through.
+- POSITIVE measurement is STABLE: "check succeeded on sha S" stays true forever;
+  only its RELEVANCE expires (void if the head moves). That is the right expiry.
+- NEGATIVE measurement is NOT STABLE: "ci-ok is absent on sha S" can flip with
+  the PASSAGE OF TIME ALONE — nothing changing, no head moving. A check-run set
+  has a ~2-minute gap between `check` finishing and `ci-ok` posting; an absence
+  read inside that gap is premature, not a finding. Its expiry is not "void if
+  head moves" — it is **VOID UNTIL THE PIPELINE IS KNOWN COMPLETE**.
+
+**What the next instance must not redo:** before you report ANY absence as a
+finding or could-not-check, prove it had its chance to appear — (1) SPATIALLY:
+assert the positive precondition is present so the absence isn't vacuous (I did
+this in #683: asserted the sidecar CONTAINS `reports:read` before asserting
+llms.txt does NOT); and (2) TEMPORALLY: confirm the producing process is
+COMPLETE (pipeline finished, run concluded, query over settled state), not
+observed mid-flight. Same family as the [[project_aihu_measurement_traps]] WAL
+stale-snapshot and the empty-`${PIPESTATUS}` traps: the read was taken before the
+state settled. An absence taken too early is the fifth thing this pattern has
+bitten this session.
