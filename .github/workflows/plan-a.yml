@@ -523,14 +523,46 @@ jobs:
           echo "gate-wiring:        $GATE_WIRING_RESULT"
           echo "draft PR:           $IS_DRAFT"
           fail=0
+          # FAIL-CLOSED, and the inversion is the whole point. This loop used to
+          # read `if result = failure OR cancelled then fail=1` — an ALLOWLIST OF
+          # BAD VALUES over an open-ended domain, which is fail-open by
+          # construction. Misspell a var here or in the `env:` block above and
+          # the pair expands to `<job>:` with an EMPTY result; empty is neither
+          # "failure" nor "cancelled", so it matched nothing and PASSED. Drop the
+          # whole `env:` block and ci-ok — the SOLE required status — went green
+          # having read NOTHING, with zero error lines to notice. Measured on
+          # main, not theorised: 7 vars unset -> fail=0, 0 output lines.
+          #
+          # `needs.<job>.result` yields exactly {success, failure, cancelled,
+          # skipped}, so the two forms are behaviour-identical on every real
+          # value (truth table run, all four). Only empty/unknown moves, and it
+          # now moves to RED. A required status that errs toward red is one
+          # commit from fixed; one that errs toward green is the defect this
+          # repo has now shipped three times (palette, #649, this).
+          checked=0
           for pair in "check:$CHECK_RESULT" "examples:$EXAMPLES_RESULT" "governed-examples:$GOVERNED_EXAMPLES_RESULT" "lesson-refs:$LESSON_REFS_RESULT" "palette:$PALETTE_RESULT" "readme-sync:$README_SYNC_RESULT" "gate-wiring:$GATE_WIRING_RESULT"; do
             name="${pair%%:*}"
             result="${pair#*:}"
-            if [ "$result" = "failure" ] || [ "$result" = "cancelled" ]; then
+            checked=$((checked + 1))
+            if [ "$result" != "success" ] && [ "$result" != "skipped" ]; then
               echo "::error::Required job '$name' did not pass (result=$result)."
               fail=1
             fi
           done
+          # POSITIVE CONTROL. The inversion above fixes bad VALUES and is blind to
+          # a vacuous LIST: empty the `for pair in ...` contents and fail=0 with
+          # zero iterations — the same green, the same silence. `fail=0` is an
+          # ABSENCE REPORT ("no failing job found") and is indistinguishable from
+          # "no job examined" unless the input is proven non-empty.
+          #
+          # `-ne`, not `-lt`, deliberately: adding an 8th job without updating
+          # this count goes RED until someone reconciles needs: / the loop / this
+          # number. That friction is the feature — it makes the triple explicit
+          # instead of conventional.
+          if [ "$checked" -ne 7 ]; then
+            echo "::error::ci-ok examined $checked jobs, expected 7 — the result loop is truncated or a job was added without updating this count."
+            fail=1
+          fi
           # FEL-437 — a draft skipped the build, so "skipped is allowed" must not
           # silently read as a pass. Announced as a WARNING, not a failure.
           #
