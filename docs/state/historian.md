@@ -428,6 +428,23 @@ by it, so open them yourself when auditing.
   #672 got red-because-cancelled). The PR summary + `mergeStateStatus` COLLAPSE the runs
   and hide this. Push first, let the run start, THEN ready; and capture a cancelled/failed
   run's output BEFORE re-running, because a rerun supersedes (destroys) its evidence.
+- **CORRECTION to that lesson (wake 18) — it is a RE-ENABLED DOCUMENTED hazard, not new, and it has a FOURTH face.**
+  I framed the fake-green as freshly found; it was not. `plan-a.yml:358-377` already
+  documented it by name — the #622/#624 double-green ("same commit carried two green
+  ci-ok runs, one draft-skipped, one real"). It was held closed by ONE guard (draft +
+  check-skipped → `ci-ok` FAIL); **#670 retired that guard** (draft now warns+passes) for
+  good reasons, which REOPENED the window **while leaving the comment saying "Only the
+  draft case is refused"** — a stale comment that now contradicts the code at `:472`.
+  Fourth face (builder-b, #682 head `518b204d`): the draft run had even `changes` SKIPPED,
+  yet `ci-ok`=SUCCESS for 8 min. Verified the provenance myself (`git show
+  origin/main:.github/workflows/plan-a.yml` :358-377). Updated `ci-ok-green-only-with-same-run-check.md`
+  to 4 faces + the guard-removal story; the STRUCTURAL rung is now FILED as
+  **C-FEL-CI-RECEIPT** (builder, claimed) — a read-only check-runs tool applying the three
+  predicates with all four faces as fixtures. Do NOT touch `ci-ok` (sole required context;
+  highest-stakes line); the stale comment gets fixed in whatever PR next touches that block.
+  Also added a 4th, CROSS-ROLE instance to `documenting-a-checker-can-trip-the-checker.md`:
+  builder #683 hit lesson-refs red citing a lesson that lands with my unmerged #669 — the
+  gate catching a forward-reference is the gate working; it makes the trap a class, not my habit.
 - **Board arc (2026-07-27):** main reached `41c37df6` (#670), the queue STOPPED at 01:12Z
   with ~13 green PRs sitting — then UN-STUCK: main is now `b667bdcd`, having landed
   #656/#659/#661/#663/#666/#667/#668/#673. So "the queue stopped at 01:12Z" was a

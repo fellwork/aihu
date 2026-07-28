@@ -1,7 +1,9 @@
 # A GREEN AGGREGATE STATUS CAN CERTIFY A BUILD THAT NEVER RAN
 
 **Topic:** CI aggregate checks (`ci-ok`), GitHub concurrent runs, status collapsing
-**Session:** named 2026-07-28, broadcast by the orchestrator after it bit three PRs
+**Session:** named 2026-07-28; **this is a RE-ENABLED documented hazard, not a new
+find** — `plan-a.yml:358-377` already named it (the #622/#624 double-green). Four faces
+now confirmed across #680/#681/#672/#682.
 **Category:** measurement-integrity, ops, absent-value
 **Severity:** high — a required "everything passed" status reported SUCCESS for eight
 minutes while the only run that built anything was still running (or had skipped). The
@@ -24,7 +26,7 @@ The cheap run (whose `check` skipped) posted a **green `ci-ok` first**. For eigh
 minutes the PR summary showed `ci-ok SUCCESS` while nothing had been built. The green
 was a **stale receipt** — true of a run that did no work, presented as the verdict.
 
-## Three faces of one cause, all seen this session
+## Four faces of one cause, all seen this session
 
 - **#680 — stale green:** the cheap run's `ci-ok` posts SUCCESS before the real run's
   `check` finishes.
@@ -32,10 +34,36 @@ was a **stale receipt** — true of a run that did no work, presented as the ver
   `in_progress` on the other run, same instant.
 - **#672 — red-because-cancelled:** concurrency CANCELS the in-flight run and `ci-ok`
   fails **closed** on the cancelled result. Red, but not red-because-broken.
+- **#682 — the worst one (builder-b found it, orchestrator re-measured on head
+  `518b204d`):** the draft-time run had even `changes` SKIPPED — not just `check` —
+  and `ci-ok` still reported SUCCESS (02:56:27Z), eight minutes before the ready run's
+  real `check` finished (`check` success 02:56:40→03:02:26, `ci-ok` 03:04:39). A green
+  certifying a pipeline in which the paths-filter itself never ran.
 
 The PR summary and `mergeStateStatus` **collapse the runs** — they show one `ci-ok` and
 will not tell you which run it came from or whether its sibling `check` ran. The
 collapse is the trap: the thing you read is not the thing that gates.
+
+## This was DOCUMENTED, then a guard was removed out from under the comment
+
+The defect is not new, and that is the sharper lesson. `plan-a.yml:358-377` already
+described it by name, including the receipt: *"on #622 and #624 the SAME commit carried
+two green `ci-ok` runs, one from the draft pass where `check` was skipped and one from
+the real pass where it ran,"* and *"a draft's green is indistinguishable from a real one
+in `gh pr checks`."* The window was **held closed** by one guard: a draft whose `check`
+skipped made `ci-ok` **FAIL**.
+
+`#670` (correctly, for its own reasons — every agent PR was red from birth, red must
+mean broken) changed that draft failure to a **warning that passes**. That retired the
+guard — and **the window it closed reopened** — while leaving the comment's conclusion
+*"Only the draft case is refused"* in place. So the file now **documents a protection it
+no longer provides**: the comment says refused, the code at `:472` warns and passes.
+A hazard re-enabled underneath a comment that still claims it is handled is worse than
+an undocumented one, because the comment actively reassures the next reader.
+
+> Removing a guard silently inherits every hazard that guard was the only thing holding
+> back — and if a comment named the hazard as "handled," that comment is now a lie the
+> code tells with authority. When you retire a check, grep for what it was protecting.
 
 ## The rule — it costs one command
 
@@ -59,19 +87,23 @@ A rerun **supersedes** the check-runs it replaces. If you are reporting a cancel
 failed run, **capture the output BEFORE you re-run** — otherwise the evidence for your
 own report is gone, and no one (including you) can independently re-verify it.
 
-## The rung
+## The rung — now being PROMOTED, because prose failed four times
 
-- **prose / habit (today):** **push first, let the run start, THEN mark ready** — never
-  both in one breath; and verify same-run before trusting a green. This is what the
-  three finders each had to discover independently, which is the signal it should not
-  live in habit.
-- **structural:** either a `concurrency:` group keyed on the PR so a SHA has exactly one
-  authoritative run (removing the cheap-run race — but note #672 shows naive cancellation
-  turns into red-because-cancelled, so the group must let the *building* run win, not the
-  latest one), OR `ci-ok` embeds its sibling `check`'s run-id and conclusion in its OWN
-  output, so "did the build run" is readable without cross-referencing two runs. A gate
-  whose correctness requires a human to manually correlate two runs is one API call away
-  from a false green every time two events land together.
+- **prose / habit (failed):** **push first, let the run start, THEN mark ready**, and
+  verify same-run before trusting a green. Four different roles hit this on four PRs;
+  a rule everyone must *remember* to run is the weakest rung, and it lost four times.
+- **structural (now filed):** **`C-FEL-CI-RECEIPT`** (builder, claimed) — a **read-only
+  tool over the check-runs API** applying the three predicates (same run id; `check`
+  success not skipped/in-progress; `ci-ok` started after `check` finished), with **all
+  four faces as ready-made fixtures.** Read-only on purpose: `ci-ok` is the sole required
+  context on `main` and re-concluding it is the highest-stakes line in the repo, so the
+  fix goes *beside* the gate, not *in* it. (The stronger-still version — `ci-ok` embeds
+  its sibling `check`'s run-id + conclusion in its own output so the collapse stops being
+  a trap — is recorded as owed; a `concurrency:` group would work only if it lets the
+  *building* run win, since naive cancel-in-progress is exactly what manufactured #672.)
+- **the stale comment** at `plan-a.yml:358-377` ("Only the draft case is refused") gets
+  corrected **in whatever PR next touches that block — NOT its own PR** (ruling): a
+  one-line comment fix does not justify re-running the highest-stakes gate in the repo.
 
 ## The shape worth carrying
 

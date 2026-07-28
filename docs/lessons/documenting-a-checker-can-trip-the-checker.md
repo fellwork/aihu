@@ -41,16 +41,27 @@ in plain backticks — which is what makes the two failures below avoidable.
    another branch is not. Reworded to a bare-backtick filename (not a matched form),
    which records the relationship without asserting present reachability → exit 0.
 
+4. **A fourth instance, and it was NOT the historian's — which makes it a class, not a
+   habit.** The builder (C-FEL-434b, #683) hit `lesson-refs` red because its state file
+   cited a lesson path that **lands with the still-unmerged #669** — a forward-reference
+   to a file that does not exist on any base yet. Same shape (cross-branch dangling
+   citation), different role, and the orchestrator's framing is the right one: *the gate
+   catching a forward-reference to an unlanded file is the gate WORKING.* The trap
+   generalises across everyone who writes state; the fix is the same (name by bare
+   backtick until the target lands), and here the red was a correct catch, not a nuisance.
+
 The through-line: in every case the fix was to **name the thing without writing it in
 the checker's matched form** — describe the pattern, don't exhibit it; reference a
 not-yet-landed file by bare name, not by resolvable path.
 
 ## The rung
 
-- **prose (today, and it failed three times):** "when you document a grep-based gate,
-  don't write its pattern or a dangling target in the matched form." It depends on the
-  author remembering the exact regex while writing prose about it — and the author who
-  knows the regex best is exactly the one who tripped it, repeatedly.
+- **prose (three historian trips + one cross-role recurrence):** "when you document a
+  grep-based gate, don't write its pattern or a dangling target in the matched form." It
+  depends on the author remembering the exact regex while writing prose about it — and
+  the author who knows the regex best is exactly the one who tripped it, repeatedly. The
+  fourth instance was a different role entirely, which is what proves it is a class rather
+  than one author's blind spot.
 - **structural (the promotion this recurrence argues for):** the gate should not treat
   a pattern that appears inside a **fenced code block, an indented example, or plain
   inline backticks** as a live citation — a *mention* is not a *use*. Equivalently, a
