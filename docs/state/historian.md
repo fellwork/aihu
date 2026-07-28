@@ -391,14 +391,20 @@ by it, so open them yourself when auditing.
   On a run AFTER 01:12Z a draft red is REAL (triage it); runs BEFORE it show the retired
   FAILURE. Always name WHICH run + its timestamp vs 01:12Z; a conclusion from a
   behaviour-changed run is a stale receipt. Marked resolved-and-changed in `absent-value-…`.
-- **#670 ALSO REGRESSED docs-only PRs — the fix is PR #679; #669/#676 are BLOCKED on it.**
+- **A #670 × #667 INTERACTION regressed docs-only PRs — the fix is PR #679; #669/#676 are BLOCKED on it.**
   When I marked #669/#676 READY (per the WIP=1 "finish your open PRs" dispatch), `ci-ok`
-  FAILED: `::error::'check' was skipped on a non-draft PR`. Root cause = #670 split the
-  ci-ok check-skipped gate into two arms and, on the arm it ADDED, failed EVERY non-draft
-  skip — but `check` skips BY DESIGN on a docs-only PR (`changes.code==false`), and
-  plan-a.yml's own header (lines 19-21) promises such a PR still gets ci-ok green. Header
-  vs gate contradict. Receipt: docs-only #657/#659/#660 merged GREEN the hour BEFORE #670;
-  #669/#676 fail now. **NOT my diff, NOT red-by-construction — a #670 overcorrection.**
+  FAILED: `::error::'check' was skipped on a non-draft PR`. **CORRECTED root cause (my first
+  telling was wrong; the orchestrator caught it before it hardened — I had called it a lone
+  "#670 overcorrection"):** it is the COMPOSITION of two individually-correct PRs. #670
+  (01:12Z) made "non-draft + check skipped" a hard ci-ok fail — CORRECT then, because the
+  `changes.code` filter was still inert (leading `**` under `predicate-quantifier: some`
+  killed every negation), so `code` was always true and `check` always RAN, making the
+  branch unreachable. #667 (01:46Z) made the filter discriminate, so a docs-only PR now
+  correctly skips `check` — which ARMED #670's latent branch. **Receipt that proves the
+  interaction, not #670 alone:** #659 is docs-only, merged 01:46:01Z AFTER #670, and passed
+  with `CHECK_RESULT=success` because #667 had not landed yet (`check` still ran). #657/#660
+  are before #670 entirely; #669/#676 fail because they are after BOTH. **NOT my diff, NOT
+  red-by-construction.** Verified the merge times myself with `gh pr view --json mergedAt`.
   FIX I TOOK (pre-authorized prereq): **PR #679** (`srmcguirt/ci-ok-docs-only-green`,
   `b7fe8c02`) gates the error on `changes.outputs.code` — docs-only(false)→green, real
   code PR skipped(true)→fail, broken changes('')→fail-closed; banked the lesson
