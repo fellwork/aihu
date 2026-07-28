@@ -303,7 +303,132 @@ function judge(g: RunGroup): Judgement {
   }
 }
 
+/**
+ * `--selftest`: run the discriminator against synthetic check-runs covering
+ * all four observed faces plus the controls that isolate each predicate.
+ *
+ * Offline and deterministic ON PURPOSE. Every one of these faces was found on a
+ * real sha, but a sha is not a fixture: re-pushing a branch replaces its
+ * check-runs, and #672's cancelled run had already vanished by the time this
+ * was written. Pinning the shapes here is what keeps the four faces reproducible
+ * after the evidence rots off the API.
+ */
+function selfTest(): never {
+  const run = (
+    id: string,
+    name: string,
+    status: string,
+    conclusion: string | null,
+    start: string,
+    end: string,
+  ) => ({
+    name,
+    status,
+    conclusion,
+    started_at: start,
+    completed_at: end,
+    details_url: `https://github.com/o/r/actions/runs/${id}/job/1`,
+  })
+
+  const cases: Array<{ name: string; runs: CheckRun[]; expect: 'TRUSTWORTHY' | 'NOT' }> = [
+    {
+      name: 'control: one clean run is a receipt',
+      runs: [
+        run('1', CHECK, 'completed', 'success', '02:00', '02:30'),
+        run('1', CI_OK, 'completed', 'success', '02:31', '02:31'),
+      ],
+      expect: 'TRUSTWORTHY',
+    },
+    {
+      name: 'face 1 stale-green: the only completed ci-ok belongs to a run whose check SKIPPED',
+      runs: [
+        run('2', CHECK, 'completed', 'skipped', '02:00', '02:00'),
+        run('2', CI_OK, 'completed', 'success', '02:01', '02:01'),
+      ],
+      expect: 'NOT',
+    },
+    {
+      name: 'face 2 green-beside-in_progress: ci-ok success while its check still runs',
+      runs: [
+        run('3', CHECK, 'in_progress', null, '02:00', ''),
+        run('3', CI_OK, 'completed', 'success', '02:01', '02:01'),
+      ],
+      expect: 'NOT',
+    },
+    {
+      name: 'face 3 red-because-cancelled: concurrency killed check, ci-ok failed closed',
+      runs: [
+        run('4', CHECK, 'completed', 'cancelled', '02:00', '02:10'),
+        run('4', CI_OK, 'completed', 'failure', '02:11', '02:11'),
+      ],
+      expect: 'NOT',
+    },
+    {
+      name: 'face 4 draft-gated: skipped-check run races a real one; only the real one counts',
+      runs: [
+        run('5', CHECK, 'completed', 'skipped', '02:00', '02:00'),
+        run('5', CI_OK, 'completed', 'success', '02:01', '02:01'),
+        run('6', CHECK, 'completed', 'success', '02:02', '02:40'),
+        run('6', CI_OK, 'completed', 'success', '02:41', '02:41'),
+      ],
+      expect: 'TRUSTWORTHY',
+    },
+    {
+      name: 'ordering: same run id, both success, but ci-ok started BEFORE check finished',
+      runs: [
+        run('7', CHECK, 'completed', 'success', '02:00', '02:30'),
+        run('7', CI_OK, 'completed', 'success', '02:10', '02:10'),
+      ],
+      expect: 'NOT',
+    },
+    {
+      name: 'cross-run: check green on one run, ci-ok green on another — never a pair',
+      runs: [
+        run('8', CHECK, 'completed', 'success', '02:00', '02:30'),
+        run('9', CI_OK, 'completed', 'success', '02:31', '02:31'),
+      ],
+      expect: 'NOT',
+    },
+    {
+      name: 'vacuous: check green but ci-ok absent entirely',
+      runs: [run('10', CHECK, 'completed', 'success', '02:00', '02:30')],
+      expect: 'NOT',
+    },
+    {
+      name: 'vacuous: no check-runs at all',
+      runs: [],
+      expect: 'NOT',
+    },
+  ]
+
+  let failed = 0
+  for (const c of cases) {
+    // Timestamps above are HH:MM shorthand; expand to the ISO the API returns.
+    const runs = c.runs.map((r) => ({
+      ...r,
+      started_at: r.started_at ? `2026-07-28T${r.started_at}:00Z` : null,
+      completed_at: r.completed_at ? `2026-07-28T${r.completed_at}:00Z` : null,
+    }))
+    const hasCiOk = runs.some((r) => r.name === CI_OK)
+    const trusted =
+      runs.length > 0 && hasCiOk
+        ? group(runs)
+            .map(judge)
+            .find((j) => j.kind === 'trusted')
+        : undefined
+    const got = trusted ? 'TRUSTWORTHY' : 'NOT'
+    const ok = got === c.expect
+    if (!ok) failed++
+    const detail = trusted ? ` (run ${trusted.runId})` : ''
+    process.stdout.write(`  ${ok ? 'ok  ' : 'FAIL'}  ${c.name} -> ${got}${detail}\n`)
+  }
+
+  process.stdout.write(`\nci-receipt selftest: ${cases.length - failed}/${cases.length} passed\n`)
+  process.exit(failed === 0 ? 0 : 1)
+}
+
 const main = async (): Promise<never> => {
+  if (process.argv.includes('--selftest')) selfTest()
   const opts = parseArgs(process.argv.slice(2))
   const sha = opts.fixture ? opts.target : await resolveSha(opts.target, opts.repo)
   const all = await fetchCheckRuns(sha, opts.repo, opts.fixture)
