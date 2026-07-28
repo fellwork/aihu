@@ -1202,6 +1202,44 @@ is enforced forever, anchored to a fact checked exactly once.** Adding `verified
 to that IN-list is one string; the *demotion path* it would need does not exist
 and is the real work — worth naming so the follow-on is not scoped as "one string".
 
+## Addendum — C-FEL-CREATE-GIT-STATUS / #695 PASS; and a comment about code is not a measurement
+
+Verdict `d714b0f4`, at main `1bb0dd7c` + head `1b2d6f07` (merge clean, 0 conflicts).
+Defect confirmed on main at source: three `spawnSync` git calls with `status`
+discarded, then an **unconditional** `✓ git init`. Control: the new test file →
+EXIT 0, 4 passed.
+
+Three mutations built from the source of `initGitRepo` (:641-665) rather than from
+builder-b's descriptions, each with an assert-applied so a no-op replace cannot
+report a false green, each reverted with `git checkout --`:
+
+| mutation | result |
+|---|---|
+| never read `r.status` | EXIT 1 — kills *reports the failing command* |
+| drop the identity fallback | EXIT 1 — kills **two** tests |
+| always use the fallback | EXIT 1 — kills *prefers the developer's identity* |
+
+**The load-bearing correction is builder-b's, and I confirmed it myself** (git
+2.50.1): with an empty global+system config and every identity env var unset,
+`git commit` → **rc=0**, author auto-derived `<user>@<host>`. Only
+`[user] useConfigOnly = true` → **rc=128**. So #632's comment — "*fails outright
+when no user.name/user.email is resolvable, which is the normal state of CI
+runners*" — is wrong about the mechanism, and a test that strips config tests
+nothing because git quietly guesses. **A comment about code is prose, and it
+inherits like any other citation** — same family as reproduce-against-the-source.
+
+**My own slip inside that measurement:** my first run of the `useConfigOnly` case
+piped to `tail -3` and reported `rc=0` while the fatal printed — that is *tail's*
+exit. Unpiped: **rc=128**. Third time this session the pipe-exit trap has caught
+the person who wrote it down.
+
+Fourth suite run (builder-b asked for a second data point): loadavg 32.96,
+`vitest run packages/cli --testTimeout=30000` → **EXIT 0**, 328 passed, 0 failing
+lines. Tally is now EXIT 0 ×3, EXIT 1 ×1, always with **zero failures**. I did not
+reproduce the anomaly and am not attributing it; the load correlation is
+suggestive and unproven. If it recurs, capture vitest's own stderr tail — the
+summary is what already says nothing.
+
 ## Addendum — #691 re-verified at head `6789f8d1`; the parse DETECTS, only the guard REJECTS
 
 My PASS was stamped to `d42f7270`; the head moved to `6789f8d1`, so the void clause
