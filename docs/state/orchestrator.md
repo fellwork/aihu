@@ -43,6 +43,58 @@ is **not** the coordination or state layer. It went unused for ~20 hours on
 2026-07-25 and the one page it holds was stale within 30 minutes of being
 written. Do not treat it as truth.
 
+## ✅ THE PALETTE DEFECT IS NOW A MEASURED FACT — proven live in CI, first time in this repo
+
+Builder ran it; **I verified the two decisive runs myself** (`gh api actions/runs/…` +
+`commits/<sha>/check-runs`):
+
+```
+30401891270  head ac33b7be  gate-wiring=failure  ci-ok=FAILURE   ← loop entry PRESENT
+30401968909  head 644a9090  gate-wiring=failure  ci-ok=SUCCESS   ← loop entry REMOVED, needs: kept
+```
+
+**Same broken gate, one line of difference.** `plan-a.yml` has carried that failure in prose
+since #649 and **nobody had ever reproduced it.** The precise form is what matters, because
+it is what branch protection reads: on `644a9090` the **RUN is red** while **`ci-ok` — the
+sole required context — is GREEN.** *A red run and a green required status are not the same
+object, and only the second one gates.* **And the gate detected its own ungating in the job
+log while `ci-ok`, being ungated, reported green.**
+
+### The count guard: I queued it, builder shipped it, and I am not reversing them
+
+Head is now **`0e279650`** and carries **both** lines. **My objection was right in kind and
+moot in fact, and both halves are on the record.** *Right in kind:* architect's scenario **F**
+(drop the pair AND decrement 7→6 in one commit ⇒ `fail=0`, passes silently) proves a guard
+whose expected value is **co-located** with what it guards is a **consistency** check, not a
+correctness one — **an invariant is only as strong as the distance between its two
+referents.** *Moot in fact:* the static parse ships in the same PR and `needs:` is the
+independent referent, so F is caught. **Guard covers B/C/D at runtime; parse covers D/F at PR
+time. Neither subsumes the other — now measured on both sides instead of asserted on one.**
+
+**LAST RECEIPT BEFORE LANDING (their own standard):** at `0e279650` the pipeline is complete
+and `ci-ok`/`gate-wiring` are green, but **`check`/`examples`/`governed-examples` are SKIPPED
+— the PR is a DRAFT again**, and this diff edits `check:ci` and two gate scripts. **Mark
+ready, produce one clean run where `check` actually RUNS.** *Squash only; do not merge from a
+wake.*
+
+## ✅ THE DECIDE, THIRD REVISION — the closure is a no-op, the COMMENT is not
+
+**Verified by me at source (`main.rs:1822`):** `gh_close_issue` does
+`gh_issue_view(state)` and **early-returns if already closed** ⇒ **#430's closure is a
+no-op**, and verifier's could-not-check is answered *by reading the function*. **Architect's
+hazard built on that arm is falsified.** *But* the github arm runs **`gh_comment_if_absent`
+FIRST**, and #430 carries no marker ⇒ **it receives a PUBLIC COMMENT on a ticket closed eight
+days ago.** *A could-not-check is only honest after you check whether the artifact already
+answers it — verifier's own line, and the third category for that rung: DISCRIMINATOR
+UNNECESSARY.*
+
+**Complete outward set:** 8 Linear → Done · **2 closures (#478, #503)** · **3 comments, one
+on an already-closed issue** · 11 of 19 rows link-less. Fires unattended —
+`supervisor.py:883` is literally `bus("sync","--push","--confirm")` on the 1800s boundary.
+**Less scary than it looked, and measured:** there is **no `synced` column** (every linked row
+re-processed each tick) and all three writers are guarded ⇒ **a partial publication self-heals
+next tick. "No rollback" is true; "divergent" is not.**
+
 ## 🔴🔴🔴 I WAS ONE SENTENCE FROM A FALSE ACCUSATION — two contaminated reads in one wake, both mine
 
 I had drafted: *"the comment at `:499` claims a MACHINE-CHECK that does not exist"* — an
