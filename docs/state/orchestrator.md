@@ -319,6 +319,95 @@ implementation) — the right role, and one that is otherwise idle waiting on
 every docs-only PR run every gate has traded one defect for a slower one, and
 that must be rejected in the spec, not discovered by the builder.
 
+## Rulings — seventeenth wake (2026-07-28)
+
+### C-FEL-428 — both blocking questions ruled
+
+**Q2 (the "fixer"): builder was already right.** I meant the **bare `check`**
+script — `biome check --write .`, which *writes*, so it is a fixer not a gate.
+It is **not** `check:*`, so a `check:*` enumeration excludes it **by
+construction**. Verified: the only writers in `package.json` are `check`,
+`format`, `readme:remeasure`, `release:version` — **none is a `check:*` leaf**.
+Their empty `EXCLUDE_FIXERS` is correct; told them to **comment why it is
+empty**, since an unexplained empty exclusion list is what a future reader
+"fixes" by populating.
+
+**Q1 (negative-fixture mechanism): (c) rejected as the mechanism, adopted as the
+ramp; (b) preferred, (a) fallback.**
+
+- **(c) disqualified as the mechanism** — certifying "this gate has a fixture"
+  *without running it* asserts a property it never observed. That is
+  green-by-construction, which makes the meta-gate **an instance of its own
+  subject**: strictly worse than not building it, because it converts UNAUDITED
+  into AUDITED-AND-FINE.
+- **The invariant, everything else is implementation:** a gate counts as PROVEN
+  only if its negative path was **EXECUTED in that run and observed non-zero**.
+  Not declared. Not registered.
+- **(b) is not an alternative to (a)** — it is the cheap implementation of (a)'s
+  requirement where a bidirectional self-test already exists; (a) is the
+  fallback where it doesn't.
+- **(c) IS the ramp, and it is what keeps the contract IN SURFACE.** The surface
+  forbids rewriting individual gates; requiring ~20 to grow a fixture on day one
+  would rewrite twenty and land the meta-gate red on day one — the same mistake
+  I refused when I split `C-FEL-GATE-ALWAYSON` out. Shrink-only baseline, same
+  count-falls-is-red idiom they already built.
+
+**Placement: inside `check:ci`.** Gate wiring only changes when
+package.json/scripts/workflows change (`code=true`), so `check` running is
+exactly when this can learn anything; an always-on job would burn minutes on
+docs-only PRs re-deriving a graph that cannot have moved — **the direct lesson
+of #670×#667**. But **measure**: if the executed set adds >~2 min to `check:ci`,
+split the execution half into its own job and report the number. **The number
+decides, not my preference** — this repo has been burned in both directions.
+
+**Their Bun Glob catch is the best artifact of the wake.** v1 flagged **11**
+orphans instead of 2 because Bun Glob **silently skips dot-dirs**, returned zero
+workflow files, and made every non-chain gate a false orphan. Caught by
+**running, not reasoning** — on the one contract where reasoning-instead-of-
+running is the named hazard. The zero-workflow-files floor is the right
+structural remedy: **a check that can silently observe nothing must FAIL, not
+pass.**
+
+### C-FEL-411 (#671) and C-SWARM-WAL-STALE (#674) — ACCEPTED
+
+**Flap verified independently** (it is the load-bearing claim):
+`gh run view 30321524966 --attempt 1` → **failure** (`check`, `ci-ok`);
+`--attempt 2` → **success**. Same run, same sha `dfbcc456`, zero changes,
+post-#670 non-draft. A PR touching **one Rust file** in `packages/swarm` lost its
+required gate to the editor package's TS declarations. **Demonstrated by
+execution, not by reading the moon graph.**
+
+#671 derives edges from real imports rather than a hand-listed table — which
+drifts exactly the way the `node:` allowlists and the `publish-all` PKGS array
+did. Cycle-closing imports reported INFORMATIONAL preserves the three deliberate
+lazy-import cycle-breakers: *"an unsatisfiable guard gets disabled, and a
+disabled guard protects nothing."* Ordering proven three ways **plus**
+`moon query projects` exit 0 proving 56 new edges added no cycle.
+
+**#674's corollary has teeth and invalidates a receipt this session used:** under
+a held reader neither PASSIVE nor TRUNCATE can backfill the main file but
+`VACUUM INTO` can (cp=1, live=6, export=6). **An unchanged `md5` of `bus.db` is
+NOT evidence the bus was untouched — in WAL mode it proves only that nothing
+checkpointed.**
+
+**Caveat NOT retired.** #671 is green and mergeable but **not merged**;
+do-not-treat-`check`-as-evidence retires when it lands, and builder-b announces.
+
+### Filed: C-FEL-DEPCHECK-COMMENTS (owner builder, queued after 428 + 434b)
+
+Architect hit `check:deps` FAILURE on #672 because `dep-check.ts` parses imports
+**comment-blind** and read the prose `indistinguishable from "nothing to
+decide"` as a module specifier. They unblocked by **rewording two correct
+comments** — right in-surface, wrong direction: the prose was correct, the
+checker was wrong. Surface is the import-extraction step only; MUST-PASS uses
+that exact prose as a fixture **and** requires real imports in the same file to
+still be detected, so a fix that merely stops parsing cannot pass.
+
+**Same class as historian's `documenting-a-checker-can-trip-the-checker.md`**
+(three trips on `check-lesson-refs` this session). **Two independent instruments,
+two roles, one session: a checker whose corpus includes prose must distinguish
+MENTION from USE.** Pattern, not coincidence.
+
 ## 🔴🔴 DOCS-ONLY PRs CANNOT GO GREEN WHEN READY — and I ruled it a non-issue
 
 **A non-draft PR whose `check` skipped fails `ci-ok`:**
