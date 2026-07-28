@@ -63,7 +63,19 @@ with `gh pr view <n> --json state,mergedAt`, not from a report:**
 | #668 | 01:46:30Z | agent manifest sidecar on client builds (FEL-434) |
 | #673 | 01:46:38Z | sync-readme own job + lazy rolldown |
 
-**Still open, all draft:** #654, #665 (mine), #669, #671, #672, #674, #675.
+**Still open, all draft:** #654, #665 (mine), #669, #671, #672, #674, #675, #676.
+
+- **#676** (new) — historian's split-out of the triage-queue correction. ONE
+  file, `docs/lessons/triage-queue-mixed-products.md`, off current main,
+  `MERGEABLE/CLEAN`. This is the fast path for the **live falsehood on main**:
+  that lessons file still says "ROUTING STILL PENDING / founder business fact",
+  which I withdrew after one GraphQL query showed Linear team FEL already
+  separates `aihu|data|web`. **A lessons file that is wrong about the lesson is
+  worse than none.**
+- **#669** — rebased onto `b667bdcd` @ `a1b155dc`, now `MERGEABLE/CLEAN`
+  (historian reported BLOCKED; it reads CLEAN — better than claimed). Carries
+  byte-identical triage content to #676 (both from `c299fc02`), so **whichever
+  lands second is a no-op, not a conflict.**
 
 - **#671** — `mergeable=MERGEABLE`, `state=BLOCKED`. **BLOCKED is the draft
   guard, not the diff:** draft ⇒ `check=SKIPPED` ⇒ `ci-ok` cannot go green ⇒
@@ -1420,6 +1432,20 @@ all 13 open issues were unassigned and three of them were already done.
   cannot green ⇒ branch protection says BLOCKED. Guard, not diff. Its
   prerequisite (#666) has merged; it needs marking ready, which is the
   interactive session's call, not a wake's.
+- **Do not conclude a dispatch is "lost" because it is not in the bus window.**
+  Read the contract row first — `VACUUM INTO` a snapshot, then `SELECT * FROM
+  contract WHERE id='<C-…>'`. `C-FEL-428` was reported lost and was fully intact.
+  `swarm-bus` has no `show` subcommand, which is *why* that conclusion gets
+  reached; the row is still the record.
+- **Do not re-derive the C-FEL-428 bars.** Recovered, amended (reachability =
+  `check:ci` **OR** any workflow job), and written back to the row 2026-07-28.
+  Read them from the row, not from any message. Re-offering reset status to
+  `offered`, so builder must re-claim — that is expected, not a defect.
+- **Do not fold the always-on-vs-path-filtered property into 428.** Ruled and
+  split out as `C-FEL-GATE-ALWAYSON`, dispatched to architect to spec.
+- **Do not grep only `plan-a.yml` when asking "is this gate wired?"** There are
+  **nine** workflow files. `check:stories` looks orphaned in `plan-a.yml` and is
+  run by `storybook.yml`. This nearly produced a false finding in a dispatch.
 - **Do not re-verify the 24-PR merge list.** Every PR in the gbrain
   orchestrator-state table is confirmed on `origin/main` with its commit SHA. The
   receipts are in `docs/state/historian.md`.
