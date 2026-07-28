@@ -141,6 +141,26 @@ An app/cli-only PR touching no `signals`, `arbor` or `runtime` source gets told
 failure mode is worse: a permanently-red gate trains everyone to wave red past,
 which is exactly what lets a real regression through.**
 
+### Red-by-construction answers "does it block me?" — not "do the numbers mean something?" (2026-07-27)
+
+The refinement that keeps the section honest, because the *correct* triage of the first
+question quietly closes the second. On #667, `bench` actually **RAN** — it is normally
+skipped, but the `bench:` filter includes `.github/workflows/plan-a.yml`, so a workflow
+diff **trips the filter, not the numbers.** It does not block (bench is outside `ci-ok`,
+#667 is a workflow-only diff). But it reported **cellx 807→910 ns (+12.7%)** and
+**wide-fanout-100 5363→6351 ns (+18.4%)** against the frozen 2026-05-25 baseline
+(`plan-a.yml:549` diffs against `git show origin/main:bench/signals/RESULTS.md`; gate at
+`:570`). That is either two months of real `@aihu/signals` drift or the high-variance
+flakiness C-FEL-409 targets, and **one sample cannot tell.** Recorded as
+**could-not-check** — not dismissed.
+
+> **"Red-by-construction" answers whether a lane BLOCKS your PR. It does not answer
+> whether the numbers MEAN something.** Do not let a correct triage of the first question
+> quietly close the second. A lane that is usually noise can still surface a real signal
+> the one time it runs, and *"it's red by construction"* is the sentence that buries it.
+> **Nobody re-baselines to make it green** — the STOP under "regenerating a baseline
+> destroys the evidence" stands.
+
 | 25 | A mapping between two tokens | **Only its LIGHT mode** — the one condition where they happen to coincide | `--graphite` (`style-lock.md:23`) is `#363c47` light / `#aab0bd` dark. `--color-neutral` (`:70`) is `#363c47` light / `#636a72` dark. **Identical in light, divergent in dark.** A drift census paired them and reported the dark values as the largest drift in the repo; in fact `color-neutral` matches its lock row *exactly* in both modes and `#aab0bd` appears nowhere in `css-engine`. **Any spot-check done in light alone confirms a pairing that is false half the time.** Flagged by the historian as an open question on a row they did not own, before the fix was written; confirmed independently by the orchestrator. Census 11 → **10** |
 
 | 26 | The filtered query | **An unfiltered one** — because zsh does not word-split an unquoted variable | Builder, mid-FEL-430, measured *"my change broke filtering"*: pristine returned empty, theirs returned everything. It was **the test**. `for combo in "--project web --state Canceled"` passes the whole string as **one argv element** in zsh, so no filter parsed and the tool correctly returned everything — compared against a pristine run typed with separate words. **Two different invocations, one conclusion carried between them.** Caught only because "I broke the filter" did not fit code they could see was correct. Third member of the zsh-is-not-bash cluster, with `${PIPESTATUS[0]}` and `$pipestatus` |
@@ -176,6 +196,70 @@ Practical form: **for every mapped pair, verify it under every condition the pai
 varies across** — both modes, both platforms, both build targets. If a pair agrees
 in one condition and not another, that is the signal to check whether they are the
 same thing at all.
+
+## `git diff main branch` shows main's ADDITIONS as the branch's DELETIONS (2026-07-28)
+
+A branch that is merely **behind** `main` is **indistinguishable from a destructive rebase** in a raw
+`git diff main branch`. The orchestrator was ~one command from broadcasting *"#685's rebase CLOBBERED
+#680's landed work"* — `git diff origin/main <branch>` showed **460 deletions**, `check-gate-wiring.ts`
+and three baselines "gone." It was an artifact: `main` had **gained** those files *after* the branch
+point, so a branch-vs-`main` diff renders main's additions as the branch's removals. The branch deleted
+nothing.
+
+> `git diff A B` answers *"what is different between these two trees,"* not *"what did B do."* When B is
+> behind A, everything A added since the fork reads as something B removed. **To see what a branch
+> actually changed, ask that question:** `git log main..branch` (or `git diff $(git merge-base main
+> branch) branch`). The two-dot / merge-base form excludes what only `main` did.
+
+Same family as the whole file: the *diff you ran* is not the *change the branch made*. "Twice in two
+wakes, one command from a loud confident wrong reversal — both caught by **checking the premise instead
+of the conclusion**" (orchestrator). The remedy is a habit: when a diff shows a scary deletion, confirm
+the branch is not merely behind before believing it destroyed anything.
+
+**It recurred a THIRD time the next day, on the architect** — `git diff --stat origin/main..architect/recon-authority`
+→ **111 files, 3,605 deletions**, appearing to delete `check-gate-wiring.ts`, `check-moon-graph.ts`,
+`ci-receipt.ts`, `useSwarm/schema.ts`. All artifact; the branch was 13 commits behind. Three-dot is the
+truth: `git diff origin/main...architect/recon-authority` → **2 files, +415/−15**. **Two dots on a stale
+branch manufactures a catastrophe; use three.** Banked in prose after the first two instances and it
+still caught a third role — which is the argument that this belongs on a rung above prose, not a note
+that everyone is expected to remember at the moment of alarm.
+
+### MY OWN REMEDY ABOVE IS INCOMPLETE — a SQUASH merge defeats `git log main..branch` too
+
+The remedy sentence in the block above recommends `git log main..branch` as the question to ask
+instead. **That is right for the behind-a-branch case and returns a confident wrong answer for the
+squash case**, which is how this repo merges. Correcting it here, because a half-right remedy in a
+lesson about wrong instruments is worse than none:
+
+After a squash merge the original commits are **never** ancestors of `main` — not eventually, not ever.
+So on `architect/recon-authority`, whose work merged as #686:
+
+```
+git log --oneline origin/main..architect/recon-authority   -> 6 commits   FOREVER
+git merge-base --is-ancestor <each of the 6> origin/main   -> EXIT 1      for all six
+```
+
+**Both are true, and both mean nothing about whether the work landed.** They answer *"are these SHAs on
+`main`"*; they were read as *"is this WORK on `main`."* **A squash severs sha-identity while preserving
+content** — so a sha-based instrument is structurally incapable of observing the thing, and it returns a
+confident negative rather than an error. That is `absent-value-rendered-as-real.md` expressed in git.
+
+**Ask the content question instead.** What actually settled it:
+
+```
+gh pr view 686 --json state,mergedAt,mergeCommit      -> MERGED, 2026-07-28T15:57:42Z, 5d485ba9
+git merge-base --is-ancestor 5d485ba9 origin/main     -> EXIT 0     (the SQUASH is the ancestor)
+git show origin/main:docs/plans/2026-07-28-recon-authority.md  -> exit 0, 198 lines
+  diff against the branch copy                        -> EXIT 0, BYTE-IDENTICAL
+git diff --stat origin/main...<branch> on main.rs     -> 1 insertion / 96 deletions => MAIN IS A SUPERSET
+```
+
+> **Three questions, three different instruments, and only the third one is usually what you meant:**
+> *"is this sha on main"* (`merge-base --is-ancestor`, defeated by squash), *"what did this branch do"*
+> (three-dot diff), *"is this WORK on main"* (**the merge commit + a content comparison**). Pick by the
+> question, not by habit. And when a branch is strictly behind with no unmerged content, say so — the
+> architect's `1 insertion / 96 deletions` against `main` is the clean way to state *"there is nothing
+> here to rescue."*
 
 ## The special case: regenerating a baseline destroys the evidence
 

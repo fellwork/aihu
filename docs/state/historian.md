@@ -28,6 +28,13 @@ it** — which is exactly how it went unused for twenty hours — and its write-
 litters an ungitignored `aihu/` directory into the repo root. **Prefer the repo.**
 Mirror to gbrain if convenient; never rely on it as the only copy.
 
+**The counterexample that proves the rule (2026-07-27):** the **architect** is the one
+role with **no `docs/state/architect.md`** (confirmed — every other role has one), and it
+is the role that **kept re-deriving evidence and had rulings cross it twice** because the
+answer was in no file it could read. The role without a state file is the role that
+repeats itself. The widened-surface ruling permits any agent to create its own; the
+absence is a choice with a visible cost, not a constraint.
+
 **Files are named by ROLE, not by scope.** `merge-train.md` was renamed to
 `orchestrator.md` on 2026-07-26 because `merge-train` had spent the session
 orchestrating, and `docs-next` had spent it doing config architecture. Scope names
@@ -239,12 +246,88 @@ by it, so open them yourself when auditing.
   in `docs/lessons/` (index in `promotion-rungs.md`). Cite the rung, don't re-audit.
 - **Do not re-litigate the shared-checkout force-push (incident 8).** The rung is
   settled: prose (branch-check) → structural (supervisor pins the checkout, the
-  orchestrator's to build, **still UNBUILT**). It recurred **four times on 2026-07-27**
-  across **three consequence classes**: lost-work risk (historian force-push, `aihu/zurich`
-  staged mid-build), silent branch swap (`aihu/jerusalem`), and **misattribution** (a
-  verifier TWIN's Slack post is indistinguishable from verifier's — orchestrator wrongly
-  accused them, corrected via bus receipt `d2a3d18f`). Tally in
-  `docs/lessons/promotion-rungs.md`. Do not touch the orphaned `e89e3c83`.
+  orchestrator's to build, **still UNBUILT**). One root, now **FOUR consequence classes**
+  on 2026-07-27: lost-work risk (historian force-push, `aihu/zurich` staged mid-build),
+  silent branch swap (`aihu/jerusalem`), misattribution (a verifier TWIN's Slack post is
+  indistinguishable — orchestrator wrongly accused, corrected via bus receipt `d2a3d18f`),
+  and **concurrent mutation** (builder hit a live `git index.lock` from a twin; remedy =
+  wait for the lock, NEVER `rm -f` it, then RE-VERIFY the branch before committing). Tally
+  in `docs/lessons/promotion-rungs.md`. Do not touch the orphaned `e89e3c83`.
+- **#657 is FROZEN and marked ready (HEAD `28b70e87`) — bank further lessons on a FRESH
+  branch.** Orchestrator ruling: a PR that keeps growing never gets reviewed, and #657 IS
+  the session's durable memory (one-reset-from-gone). Landing is the interactive session's,
+  not a wake's. New general rule: freeze/land, then a new branch. (The 0727 follow-ups —
+  index.lock class, triage split-lesson — are on `srmcguirt/retro-followup-0727b`.)
+- **Escalation hygiene (banked in `triage-queue-mixed-products.md`).** (a) An escalation
+  that can be split SHOULD be — bundling a decidable half with a founder-only half makes
+  the decidable half wait; split before sending. (b) A `blocked` with no natural contract
+  gets its OWN row, never a borrowed one — riding `C-FEL-433` (an unrelated filter
+  contract) tangled a routing decision into a builder's PR thread. I did this too.
+- **`~/.swarm/bus.db` is WAL and NEVER checkpoints — the bare `.db` file is hours
+  stale.** `main.rs:503` sets `journal_mode=WAL`; `grep wal_checkpoint` = nothing. To
+  read the live bus, query it in place with `sqlite3` (WAL-aware) or copy `-wal`+`-shm`
+  too; a bare-`.db` copy is missing whole status columns (I measured: main-alone has NO
+  `declined` row; sidecars show declined 17). **`md5 ~/.swarm/bus.db` unchanged proves
+  only nothing checkpointed, NOT that the bus was untouched.** Banked in
+  `stale-ledger-wal-and-disproven-receipts.md`. Fix = C-SWARM-WAL-STALE (builder-b);
+  anti-row: must not disable WAL.
+- **Disproven-receipt rung: verdicts do not un-cite a disproven method automatically.**
+  The md5 receipt above is cited as headline proof in the `C-FEL-REVIEW-0727` verdict;
+  disproving it does not propagate backward — someone must go re-check. No mechanism
+  exists. Rung prose → structural (a citation graph). Banked in the same file and
+  `promotion-rungs.md`.
+- **The plan-a.yml/biome glob trap has now burned THREE readers** (architect ×2,
+  orchestrator ×1) — always run the real matcher (`picomatch`/`biome check`), never
+  reason about globs. The picomatch-on-extracted-patterns method is ratified.
+- **A rule stated in prose does not audit its own file** (`promotion-rungs.md`). #667
+  added a comment that docs-facing gates must be their own always-on job, while
+  `plan-a.yml:123` already has `sync-readme --check` as a STEP — so #667's filter fix
+  stops README-only PRs being checked for README drift. Prose can't ask "what else is
+  already like this?" Rung → a check that enumerates docs-facing gates. `C-FEL-READMESYNC-JOB`.
+- **A `--no-verify`-bypassable hook is not a backstop in this swarm** (`guarantee-satisfied-by-the-defect.md`
+  Instance 3). The `sync-readme` gap's mitigation was ".husky/pre-commit:9 runs it" — but
+  `--no-verify` is our normal docs workflow (I use it on every commit; verifier on #659).
+  Only a CI job is non-bypassable. Don't offer a local hook as a guarantee's backstop.
+- **A DEAD gate makes OTHER people's work unverifiable** (`dead-gate-makes-work-unverifiable.md`).
+  The scaffold `matrix` lane is red-by-construction (proto/node shim collision, run
+  30318406544, outside `ci-ok` at `plan-a.yml:378`) — and it is the pipeline #663's honest
+  could-not-check needed, so a dead gate silently made a builder's contract unverifiable.
+  Rung structural (`C-FEL-MATRIX-PROTO`); must-fail = a deliberately broken scaffold must
+  go red. Standing rule: **NAME a red lane in your verdict, never omit it.**
+- **An accepted verdict is not a closed one** (`stale-ledger-…` update). Verifier struck
+  the md5 receipt from `C-FEL-REVIEW-0727` and led with a stronger isolation-by-construction
+  one — but only because one person REMEMBERED citing it. No receipt-index exists; the
+  orchestrator refused to file "index your receipts" as it has no falsifiable bar yet.
+- **Instrument-faithfulness is the rung, not the tool.** Prove a matcher/gate reproduces a
+  known-WRONG answer before trusting its right one (verifier on #667's picomatch). An
+  instrument never shown to fail on a known case is just a second opinion.
+- **A contract is an unverified claim wearing the costume of a spec** (`a-contract-is-an-unverified-claim.md`).
+  Twice this session an unbuildable/wrong-premise contract was caught only by a builder
+  checking the premise before building (C-FEL-READMESYNC-JOB: "needs only bun" but
+  sync-readme.ts:29 statically imports rolldown; C-FEL-434: naive un-elide would reverse a
+  security posture). Nothing tests the CONTRACT — only the output. Rung → pre-build premise
+  check = the first must-fail row of every contract. Builders: send `blocked`, don't drop a
+  constraint silently.
+- **Row 8 is now FIVE concurrent-instance events, 4 harmful + 1 benign** (#668 binary bump
+  at 99be3b03). Record the benign ones too — keeping only harmful understates frequency,
+  and frequency is the argument for the (still-unbuilt) checkout-pinning fix.
+- **Two places the ledger cannot express a correction** (paired in `stale-ledger-…`): no
+  index of which verdicts cited which method; and `swarm-bus` cannot amend a claimed
+  contract's bar (re-offer resets/releases it), so a corrected bar lives on the bus while
+  the row shows the stale one. Neither filed — no falsifiable bar yet.
+- **"Red-by-construction" answers whether a lane BLOCKS you, not whether its NUMBERS mean
+  something** (`checked-thing-…` bench section). #667's bench actually ran (workflow diff
+  trips the `bench:` filter, not the numbers) and reported cellx +12.7% / wide-fanout
+  +18.4% vs the frozen 2026-05-25 baseline → could-not-check, not dismissed. Never
+  re-baseline to make it green.
+- **`.git` FILE vs DIRECTORY decides whether `/tmp` is the only copy** (`worktree-vs-clone-tmp-durability.md`).
+  File = worktree, objects in the parent clone (a `/tmp` wipe costs the checkout, not the
+  commit — confirmed on THIS checkout). Directory = standalone clone, and if unpushed
+  `/tmp` IS the only copy. Check `[ -f .git ]` before you panic or relax; push either way.
+- **A guarantee can vanish between two green PRs** (`absent-value-…` ninth). If a guarantee
+  splits across two PRs and each proves only its half, the seam is verified by neither.
+  The control: a verdict that NAMES the unverified half (verifier did on #668/434b). Same
+  as "name a red lane."
 - **Flapping required gate (#661 / C-FEL-411) — do not read `ci-ok` blind.** A required
   `check` flaps red on a build-order race (`editor/moon.yml:4-5` `dependsOn:[signals]`
   while `editor/tests` import `@aihu/compiler`): a red X may be a race, a green tick may
@@ -261,12 +344,493 @@ by it, so open them yourself when auditing.
   (`examples/ssg-site/coverage.manifest.json:50`, `about.aihu`); `hacker-news/tests/smoke.test.ts:55`
   asserts its absence. Correction banked in `guarantee-satisfied-by-the-defect.md`.
   Verified by reading main 2026-07-27.
-- **Triage-queue product-mix: SCOPE declined, ROUTING still the founder's.** The 13
-  non-aihu contracts (exegesis/lexicon/commentary/Stripe) were **declined** by the
-  orchestrator (offered 133→118, non-destructive: decline = `NoOp` in Linear sync). The
-  SCOPE call an agent can make; the ROUTING (where they go) stays in DECIDE on
-  `C-FEL-433`. Do NOT bank a keyword skip-rule. `triage-queue-mixed-products.md` updated;
-  promote to a structural product-filter only once Shane rules the routing.
+- **Triage-queue product-mix: RESOLVED — the routing was a LOOKUP, not a founder call.**
+  13 non-aihu contracts declined (non-destructive, `NoOp`). The routing target was NOT a
+  founder decision — the Linear FEL `project` attribute already exists (`aihu|data|web`);
+  I (and the orchestrator) escalated a lookup, a two-wake stall. RULED: filter `project`
+  include-iff `aihu`, LOUD KEEP/EXCLUDE + reason, "no project" a DISTINCT reason, must-fail
+  on the 24 no-project ids (9 are active aihu). Naive `project==aihu` would drop them —
+  correct answer implemented naively is a worse bug than the noise. `triage-queue-mixed-products.md`
+  corrected.
+- **Escalating a LOOKUP is a stall that looks like diligence** (`a-contract-is-an-unverified-claim.md`
+  Instance 3). "Escalate what you lack the business fact for" has a precondition: FIRST
+  establish the fact is not obtainable (run the query). Same root as the contract-premise
+  miss — an unverified premise of the escalator's. I did it too (`C-FEL-433` blocked).
+- **#657 (the retro) is MERGED — session durable memory is on main, not a draft.** The
+  freeze worked. Follow-up lessons continued on `srmcguirt/retro-followup-0727b` (#669),
+  which I REBASED onto main after #657 squash-merged left it CONFLICTING (a stacked child
+  goes conflicting silently when its base merges). **CHECK `gh pr view <your-PR> --json
+  mergeable` at the START of each wake** — banked in `stack-base-merge-goes-conflicting.md`.
+  I fed a dead (conflicting) branch for two wakes before catching it; do not repeat.
+- **THE SPLIT-OUT IS DONE (PR #676) — do not redo it.** The orchestrator ruled the
+  triage-queue correction must NOT stay hostage to #669: a live falsehood on main
+  (`triage-queue-mixed-products.md` still asserting "ROUTING STILL PENDING / founder
+  business fact") is a different urgency class than a new lesson. I put ONLY the corrected
+  file on a fresh branch off `origin/main` → `srmcguirt/triage-correction-0727`,
+  `d80c3276`, **draft PR #676, mergeable=MERGEABLE / CLEAN**, `check-lesson-refs` exit 0.
+  Gate note: the corrected file's bare-backtick ref to `a-contract-is-an-unverified-claim.md`
+  (not yet on main) is NOT a tracked citation form — the gate greps only the absolute
+  `docs/lessons/`-prefixed path form and the relative markdown-link form, NOT a filename in
+  plain backticks — so a fresh-off-main split passes without dragging in the #669-only
+  sibling files. Landing is the session's. (Meta-trap, now PROMOTED to its own lesson
+  `documenting-a-checker-can-trip-the-checker.md` at the orchestrator's request — cite it
+  by name the next time anyone documents a grep-based gate: an EARLIER draft of THIS bullet
+  spelled the two grep patterns out with example filenames; the examples matched the
+  citation form and the gate failed on the non-existent example file. Describing a
+  citation-checker in prose can itself emit citations. It recurred three times this
+  session, all mine — the argument for the structural rung, recorded in that file.)
+- **#669 was REBASED A SECOND TIME — main moved again under it.** After the first rebase,
+  `origin/main` advanced `41c37df6`→`b667bdcd` (8 more PRs landed: #656/#659/#661/#663/#666/#667/#668/#673
+  — the queue un-stuck). #669 went behind; I rebased onto current main (clean, 8 commits),
+  force-pushed → **`b11b36db`, mergeable=MERGEABLE / BLOCKED-because-draft**. This is the
+  recurrence the `stack-base-merge-goes-conflicting.md` rung is for: a remembered "it's
+  mergeable" is stale the moment main moves. Both #676 and #669 carry byte-identical
+  triage-file content (both from `c299fc02`), so whichever lands second is a no-op/no-conflict.
+- **#670 (`41c37df6`, merged 01:12Z): a draft `ci-ok` now WARNS, not FAILS.** RETIRE the
+  old rule "a draft `ci-ok`=FAILURE is the FEL-437 guard doing its job" — dead on main.
+  On a run AFTER 01:12Z a draft red is REAL (triage it); runs BEFORE it show the retired
+  FAILURE. Always name WHICH run + its timestamp vs 01:12Z; a conclusion from a
+  behaviour-changed run is a stale receipt. Marked resolved-and-changed in `absent-value-…`.
+- **A #670 × #667 INTERACTION regressed docs-only PRs — the fix is PR #679; #669/#676 are BLOCKED on it.**
+  When I marked #669/#676 READY (per the WIP=1 "finish your open PRs" dispatch), `ci-ok`
+  FAILED: `::error::'check' was skipped on a non-draft PR`. **CORRECTED root cause (my first
+  telling was wrong; the orchestrator caught it before it hardened — I had called it a lone
+  "#670 overcorrection"):** it is the COMPOSITION of two individually-correct PRs. #670
+  (01:12Z) made "non-draft + check skipped" a hard ci-ok fail — CORRECT then, because the
+  `changes.code` filter was still inert (leading `**` under `predicate-quantifier: some`
+  killed every negation), so `code` was always true and `check` always RAN, making the
+  branch unreachable. #667 (01:46Z) made the filter discriminate, so a docs-only PR now
+  correctly skips `check` — which ARMED #670's latent branch. **Receipt that proves the
+  interaction, not #670 alone:** #659 is docs-only, merged 01:46:01Z AFTER #670, and passed
+  with `CHECK_RESULT=success` because #667 had not landed yet (`check` still ran). #657/#660
+  are before #670 entirely; #669/#676 fail because they are after BOTH. **NOT my diff, NOT
+  red-by-construction.** Verified the merge times myself with `gh pr view --json mergedAt`.
+  FIX I TOOK (pre-authorized prereq): **PR #679** (`srmcguirt/ci-ok-docs-only-green`,
+  `b7fe8c02`) gates the error on `changes.outputs.code` — docs-only(false)→green, real
+  code PR skipped(true)→fail, broken changes('')→fail-closed; banked the lesson
+  `gate-fix-armed-a-sibling-false-red.md` (it lives on the #679 branch, so it is written
+  here in bare backticks — a full `docs/lessons/`-prefixed path would be a cross-branch
+  dangling citation the `lesson-refs` gate reddens; I tripped exactly that here, the THIRD
+  instance this session of prose-emits-a-citation, which is the argument for the structural
+  rung). **NEXT INSTANCE:** once #679 lands,
+  **REBASE #669 and #676 onto fixed main** — `pull_request` runs use the workflow from the
+  PR head branch, so they need the gate fix IN their branch to go green. Do not re-mark
+  them ready before that rebase or they just re-fail. Do NOT re-derive the #670 root cause
+  — it is receipted here and in #679's body.
+- **#679 is DONE — verdict filed with the SAME-RUN receipt (not just a green PR summary).**
+  Before claiming done I applied the orchestrator's systemic rule (banked as
+  `ci-ok-green-only-with-same-run-check.md`): a green `ci-ok` certifies a build ONLY IF
+  `gh api commits/<full-sha>/check-runs` shows `check` and `ci-ok` on the SAME run id,
+  `check`=success, and `ci-ok` started AFTER `check` finished. #679 @ `868ac101`: check
+  success run 30322783137 (ended 02:25:46Z), ci-ok success SAME run, started 02:27:57Z.
+  **NEXT INSTANCE / every report:** readying a PR close to a push spawns TWO runs on one
+  SHA; the cheap run (check skipped) can post a green `ci-ok` first (bit #680/#681, and
+  #672 got red-because-cancelled). The PR summary + `mergeStateStatus` COLLAPSE the runs
+  and hide this. Push first, let the run start, THEN ready; and capture a cancelled/failed
+  run's output BEFORE re-running, because a rerun supersedes (destroys) its evidence.
+- **CORRECTION to that lesson (wake 18) — it is a RE-ENABLED DOCUMENTED hazard, not new, and it has a FOURTH face.**
+  I framed the fake-green as freshly found; it was not. `plan-a.yml:358-377` already
+  documented it by name — the #622/#624 double-green ("same commit carried two green
+  ci-ok runs, one draft-skipped, one real"). It was held closed by ONE guard (draft +
+  check-skipped → `ci-ok` FAIL); **#670 retired that guard** (draft now warns+passes) for
+  good reasons, which REOPENED the window **while leaving the comment saying "Only the
+  draft case is refused"** — a stale comment that now contradicts the code at `:472`.
+  Fourth face (builder-b, #682 head `518b204d`): the draft run had even `changes` SKIPPED,
+  yet `ci-ok`=SUCCESS for 8 min. Verified the provenance myself (`git show
+  origin/main:.github/workflows/plan-a.yml` :358-377). Updated `ci-ok-green-only-with-same-run-check.md`
+  to 4 faces + the guard-removal story; the STRUCTURAL rung is now FILED as
+  **C-FEL-CI-RECEIPT** (builder, claimed) — a read-only check-runs tool applying the three
+  predicates with all four faces as fixtures. Do NOT touch `ci-ok` (sole required context;
+  highest-stakes line); the stale comment gets fixed in whatever PR next touches that block.
+  Also added a 4th, CROSS-ROLE instance to `documenting-a-checker-can-trip-the-checker.md`:
+  builder #683 hit lesson-refs red citing a lesson that lands with my unmerged #669 — the
+  gate catching a forward-reference is the gate working; it makes the trap a class, not my habit.
+- **THE CLAIM-CHECK HAS NEVER FIRED (wake 21, diagnosed wrong 3× first). Banked, NOT mine to fix.**
+  Started as "2 verified rows with no merged-PR evidence"; my read-my-own-row WEAK signal
+  (C-FEL-RETRO-0727 = `no-claims` with a clean "0 claims" recon that ≠ my filed #679 verdict,
+  reported WITHOUT inflating to corruption) led the orchestrator to pull the population and find the
+  systemic defect. **DEFINITIVE mechanism, read in BOTH files + measured myself:** the reconcile
+  reads the verdict `body` ONLY (`supervisor.py:687`), never the structured `claims` column; and
+  `recon.py:95-104` matches six ENGLISH PROSE regexes (`\bI\s+pushed\b`, `\bI\s+filed X`), NOT the
+  bus-mandated `pushed:PR#N,ran:...` format. So the format the bus REQUIRES is one the reconcile
+  never reads and cannot parse. Receipts (VACUUM INTO snapshot): 27 `no-claims` rows, ALL identical
+  recon "N tool calls; 0 claims; 0 flagged" across 24→236-tool-call traces (0 exceptions); 52
+  verdicts carry a non-empty `claims` column, none read; my own C-FEL-RETRO-0727 verdict claims
+  exist as structured data, extracted as ZERO. **The control CLAUDE.md cites ("only reconcile sets
+  verified/no-claims after checking your claims") HAS NEVER RUN** — lifetime output = 27 vacuous
+  passes + 2 false verifieds. Secondary defect: selection-by-role (`:681-687`, owner's current
+  trace not the contract's) → the 2 false verifieds via incidental prose matches. The posture is
+  otherwise DISCIPLINED (refuses to launder vacuous→verified) — "guarantee-free heuristic" was my
+  unfair overstatement; correct it if you cite. **DO NOT repeat my wrong tellings** (wake19 "wrong
+  worktree"; wake20 "selection doesn't matter, recon-generation") — both wrong; each READ went a
+  layer deeper. The correction IS the lesson: reasoning about two files nobody opened; the shape of
+  the error = the shape of the defect (certify/report without observing). `no-claims` is terminal +
+  satisfies downstream needs (`main.rs:1201-1245`), so 27 rows unblocked downstream on a check that
+  could not run; fired nothing outward only by LUCK (links NULL; ext side effects `:1064/1071/1082`,
+  `:2438`). Banked (definitive) `the-audit-ledger-is-green-by-construction.md`.
+  **DO NOT attach a PR link to C-SWARM-P0** — bare-int `github_pr` + `gh_pr_view` (`main.rs:1683-1694`)
+  hardcodes `--repo fellwork/aihu`; `gh pr view 1` there = MERGED scaffolding PR vs OPEN in agent-swarm,
+  so `--github-pr 1` manufactures a false receipt. Empty link is the correct posture.
+  **FIX = `C-SWARM-RECON-AUTHORITY` (architect, dispatched):** promotion→Rust binary, supervisor.py
+  proposes only; row2 cross-repo bar; **row3 (binding): adjudicator MUST consume the structured
+  `claims` column** — prove both directions (my real verdict must NOT land no-claims; empty-claims
+  must still reach no-claims). Rust lands FIRST then demotion (demote-first = DAG stall: 27 no-claims
+  + 13 verified terminal, 12 declare needs). Heal = **27 UNCHECKED + 2 false, DO NOT MASS-REVERT**
+  (no-claims currently = "we did not check", not "nothing to check"); make honest, re-run, re-derive;
+  unrecoverable → could-not-check. Interim guard BINDING: no `sync --push` vs a verified row whose
+  recon is not a real same-repo receipt. **I do NOT decide the DECIDE, touch supervisor.py/recon.py,
+  set status, or attach a link.** Read-my-own-row: C-FEL-439fix legit-verified (#639).
+  **Wake-22:** the orchestrator's "re-correct not-selection (4th time)" note CROSSED my `209951ea`
+  — that commit already IS the 4th correction (all three defects + control-never-fired). No re-work;
+  confirmed on the bus. Do NOT re-correct it again.
+- **Fake-green lesson sharpened with two #685 (C-FEL-CI-RECEIPT, builder) measurements** —
+  `ci-ok-green-only-with-same-run-check.md`: (1) the collapsed view can DROP a whole run silently —
+  `gh pr checks 682` omitted run `30324508177` entirely, no cue, `mergeStateStatus`=CLEAN; only the
+  per-run check-runs API shows all. (2) the fake-green window has a SHAPE not a size — 491s(#685)/494s(#682),
+  within 3s, = draft-ci-ok→real-ci-ok = as wide as the build it lies about (slower build, longer lie).
+- **FOURTH KIND OF RED banked (wake 23) — `four-kinds-of-red-unlanded-fix.md`.** Taxonomy from the
+  orchestrator reading a failing job: broken→investigate, dead→fix-lane, cancelled→re-run(capture first),
+  **red-because-an-unlanded-fix→LAND IT** (the new one, the orchestrator's error class not a builder's).
+  Receipt: #685 red on `4112f541` with `editor:typecheck TS2307 Cannot find module '@aihu/compiler'` =
+  C-FEL-411 moon-ordering race; #671 is the green MERGEABLE fix (verified it touches editor+compiler
+  moon.yml), unlanded 12h+. A stalled queue lets a solved problem charge RENT (re-triage noise) —
+  #670's noise-over-signal defect arriving from the merge queue not the gate. Diagnostic: a red on a
+  diff that CANNOT have caused it (one state file → graph typecheck fail) is the tell. Also banked
+  builder-b's cross-role corroboration of the reconcile finding into the audit-ledger lesson: "every
+  --claims string was write-only" — but KEEP filling it, #686 R5 makes those rows the evidence.
+- **TWO ORCHESTRATOR INSTANCES are active and it is legitimate — do NOT chase a ghost.** One is this
+  wake orchestrator; one is the INTERACTIVE orchestrator working with the founder (e.g. it dispatched
+  then stood-down C-FEL-CE-TAGS via direct subagents, 14:02→14:03). A message signed `orchestrator` may
+  come from either. RULE for all roles incl. next historian: if a dispatch CONTRADICTS a prior ruling,
+  say so on the bus — do NOT silently pick one. This is distinct from the worktree-twin hazard (same
+  role, same checkout); this is two legitimate orchestrators. Neither merges from a wake (twin-merge hazard).
+- **VOID RULE banked (wake 24) — builder's stamped-measurement principle → `stale-ledger-wal-and-disproven-receipts.md`.**
+  Report a measurement WITH its expiry (the head/run/read-time it was taken at) so staleness is
+  DETECTABLE not silent; "#685 landable" is silently wrong once head moves, "#685 @ 50c0dbd6, void if
+  head differs" is detectably wrong (one `gh pr view --json headRefOid`). Generalises every stamp-it rule
+  this session. I applied it to my OWN #669: board stamped `43e2a401`, remote head is `215b8056` (my
+  wake-23 banking) — benign one-commit-stale snapshot, resolved in one `git ls-remote`. My bankings ARE intact.
+- **VOID RULE — SECOND CLAUSE (wake 25, orchestrator falsified a report to earn it).** The stamp was
+  right; the EXPIRY was wrong for a NEGATIVE measurement. A POSITIVE measurement ("check succeeded on
+  sha S") is STABLE — void only when S stops being head. A NEGATIVE one ("ci-ok ABSENT on sha S") is
+  NOT stable — it flips with the passage of TIME ALONE, so its expiry is "void UNTIL THE PIPELINE IS
+  KNOWN COMPLETE", not "void if head moves". An absence is evidence only once the thing had its chance
+  to appear = `absent-value` through a new door (an observation taken too early; 3rd: wrong-column
+  query, skipped CI job, 2-min API gap). Added the clause to the void-rule section.
+  **DID NOT BANK A FIFTH FAKE-GREEN FACE** — the orchestrator pre-warned me not to; I checked, I never
+  did. Taxonomy STAYS at 4 fake-green faces + 4 kinds of red. The "ci-ok absent on 50c0dbd6" was
+  FALSIFIED (I confirmed: check success + ci-ok success SAME run 30367626817, ci-ok 14:25:48 after check
+  14:23:48 — it posted after a ~2min gap). builder's C-FEL-CI-RECEIPT tool is NOT wrong: "REFUSED: no
+  ci-ok run" is a correct verdict-at-an-instant; the REPORT wrongly promoted it to a property-of-a-sha.
+- **WAKE-STORM root cause banked (wake 26) — `wake-cadence-shorter-than-runtime-self-collides.md`.**
+  The recurring "Session ID <uuid> already in use" storm (retry counter past 35 this session) is a MASK:
+  wake cadence ~25s < wake runtime 20-42s, so each wake collides with its still-running predecessor on
+  the same session id → exit 1 → not-acked → redeliver → self-sustaining. Confirmed from source: the
+  "fallback" (`supervisor.py:434-442`) retries the SAME sid with `--session-id` (which CREATES at that
+  id → also "in use") — a retry reusing the failing resource is NOT a fallback; and the loop only broke
+  because the health pass mints a fresh id after WEDGED_FAILS=3 (`supervisor.py:143-152`) — "self-limiting"
+  ≠ "self-healing by design". **CORRECTED wake 29 (was "one cadence later" — too generous):** the mint is
+  NOT one cadence later. `SWARM_TICK=5s` (reconcile/wake-processing every tick) vs `SWARM_SYNC_INTERVAL=1800s`
+  (health+mint) — both confirmed in-file at `supervisor.py:857/866` + the loop `:871-885`. So the repair fires
+  up to 30 MIN later while the failure redelivers every ~5s = a REPAIR CADENCE 360× SLOWER. Falsifying case in
+  the inbox: builder-b failed 15:07:53/15:08:39/15:09:13 with IDENTICAL sid 03ad5f3a (3 fails, WEDGED_FAILS=3,
+  sid never changed — no sync boundary to fire on). Added a push-output-vs-remote-ref line (verdict-at-an-instant
+  vs property; my wake-26 push timed out and ls-remote caught it — first time verify-on-remote PAID not reassured).
+  DO NOT re-triage those stale errors (a clean wake acks the batch). Three shapes: period<runtime self-collides;
+  reuse-the-failing-resource-isn't-a-fallback; name-what-actually-breaks-the-loop (on a clock 360× too slow). No
+  work lost. NOT mine to fix; orchestrator carries backoff (rides the recon.py in-repo migration — ONE escalation not three).
+- **DAEMON-COUNT — corrected THREE times, DEFINITIVE wake 29 (read the source). `per-session-daemon-leak-to-the-uid-ceiling.md`.**
+  History of my errors: wake27 "leak with a deadline" (2 points); wake28 over-corrected to "bounded corpse,
+  flat, no clock" (my 68s window too short to resolve ~1/min — the very error I was banking). BOTH wrong.
+  **The question got FIVE measured answers (orch×2, me×2, architect) because the WINDOW chose the answer;
+  it was settled by READING session-start.js + live-daemon.js, NOT any time series** (all confirmed in-file):
+  `session-start.js:150-164` spawns the daemon UNCONDITIONALLY (no guard) — a DOCUMENTED-but-unenforced
+  "once per session" invariant; `live-daemon.js:54` MAX_LIFETIME_MS=16h caps the population (no daemon has
+  ever exceeded it). **TWO corrections that invert the fix:** (a) "93% is ce160f8f" is composition NOT cause
+  — the corpse is 91% of population but 10% of GROWTH; 9/10 new daemons are NEW live sessions, so killing the
+  corpse buys ~12h and does NOT stop it (I failed to apply my own reap-by-ground-truth shape to my headline);
+  (b) the fix is a SPAWN GUARD not a reaper — a SessionEnd reaper CANNOT fire for a session that never ends
+  (ce160f8f: status active, end_time null), which is the ONLY leaking case, so my wake-28 "reap in SessionEnd
+  hook" was the WRONG fix. Durable shapes: a RATE needs a series but a BOUND needs the SOURCE; a documented
+  invariant with no enforcement is no invariant; watch arrival-rate not population; honest severity = ~41GB
+  RSS not fork(). There IS a slow clock but it is bounded (16h TTL), non-urgent, not a DECIDE. Killed nothing.
+- **`git stash` IS SHARED ACROSS 133 WORKTREES — STANDING RULE: DO NOT USE `git stash` in this repo.**
+  Banked `git-stash-is-a-shared-stack-across-worktrees.md`. The stash reflog lives in the COMMON git dir, not
+  the worktree; I reproduced it from sarajevo (git-common-dir shared, git-dir per-worktree, 133 worktrees,
+  `git stash list` shows builder-b's fix/fel-scaffold-pm-compat stash — `pop` would take it). ANY agent in ANY
+  worktree can silently pop/drop another's work; bare `pop` takes whoever pushed last. Index lock is per-worktree
+  (blocks you); stash stack is global + mutates silently. USE A WIP COMMIT on your own branch (owned, reflog-
+  recoverable). Durability hole it opened: a MERGED contract's state (C-FEL-EXTERNALS/#656) lived only in a
+  droppable stash 776b263f (on NO branch); builder preserved it to `recover/builder-state-fel-externals` (I remote-verified).
+  Architect ruled S2 (folded in): **a contract is NOT done until its state record is on a branch** (receipt = merged PR+sha
+  AND role-state entry on a branch; `docs/decisions/2026-07-28-state-records-must-land-on-a-branch.md @ fe01f5f`).
+- **WAKE 30 — two corrections to MY measurements.** ~~Board: origin/main 2c3dd7fe→5d485ba9, RED~~ **← STALE/WRONG,
+  struck in place (wake 31 rule): both halves went stale — main is past `5d485ba9`, the moon-graph red was resolved by
+  (a) #685/`d10674ad`, and by my own later fetch main is GREEN. DO NOT store a board sha here; re-fetch. The lesson (1)
+  below is CORRECT; only this board clause was wrong.**
+  (a) NEW lesson `regex-over-source-cannot-tell-code-from-text.md`: #683's `.aihu` source-STRING fixtures tripped #671's
+  check:moon-graph (a raw-source import regex, string-literal-blind) → main red (confirmed check+ci-ok FAILURE on 5d485ba9).
+  SAME class as #681 "comment-blind" (df34eeb2), landed same day — a regex over raw source can't tell code from text-about-code
+  (code twin of documenting-a-checker). Fix = teach extractor to skip strings/comments (builder's (b), pending dispatch; NOT
+  add a fake dependsOn edge). NOT mine to fix. (b) MY DAEMON COUNTS WERE CONTAMINATED — six agents grepping `live-daemon.js`
+  count each other; my own receipt this wake: unanchored 1135 vs ANCHORED `^node /Users/...` 1129 (Δ=observers), ce160 anchored
+  1016 frozen. My wake-28 "flat at 1116" was a too-short-window trend claim off a contaminated count — in the SAME message that
+  banked "a rate needs a series". Anchor to `^node /abs/path`. (c) TTL "no daemon exceeded 16h" is PREMATURE-ABSENCE (firing
+  unobserved until ~12:23; falsifiable prediction, drain is a WINDOW 16:51→~01:34 not a date). All folded into the daemon lesson.
+- **WAKE 31 — DO NOT STORE A BOARD SHA; it becomes a stale repo artifact. + several folds.**
+  **The `5d485ba9` above is ALREADY STALE** (main moved to `3891300a`, then IN_PROGRESS). The orchestrator's
+  own `2c3dd7fe` propagated from their broadcast into my state = "one bad measurement becomes a repo artifact."
+  Sharpened rule (theirs, banked): **a board can go stale BETWEEN TWO COMMANDS IN THE SAME WAKE** — main moved
+  TWICE while they measured it. RULE: never carry a board sha you did not fetch yourself; quote a sha only with
+  the fetch that produced it, or not at all. My own fetch this wake: origin/main=`3891300a` @ 16:21:59Z,
+  check IN_PROGRESS = **could-not-check** (not green, not red — reporting either is a coin-flip). **Do NOT
+  hardcode a current-main sha in this file again; re-fetch each wake.**
+  FOLDS this wake: (1) regex lesson — the red was RESOLVED by (a) `d10674ad` (the fake `- signals` edge), which
+  verifier proved is a **NO-OP THAT LIES** (plugin-agent-readiness→server→signals already orders it); (b)
+  C-FEL-MOONGRAPH-LITERALS must REVERT it. (2) NEW into `checked-thing-is-not-the-changed-thing.md`: `git diff
+  main branch` shows main's ADDITIONS as the branch's DELETIONS — a branch merely BEHIND looks like a destructive
+  rebase; use `git log main..branch`. (3) daemon — architect's amendment "a bound needs the SOURCE for EXISTENCE
+  and an OBSERVATION for OPERATION"; TTL prediction NOT YET DUE at my 12:21:57 check (no verdict); "a background
+  task is not a record" (watchers die with sessions — bank the test in the repo). (4) git-stash — recovery ref
+  redundant once on MAIN not once on a branch/draft. (5) audit-ledger — interim guard retired (loop not agent),
+  exposure measured-zero-with-a-deadline. Architect RETRACTED the "you misquoted me" charge (I quoted them
+  accurately; they changed their mind in R2) — durable: correct a wrong attribution AT THE POINT OF THE ERROR,
+  because "who said what" is what this record stores. I settled/attempted the TTL check (not-yet-due), corrected
+  my board, killed nothing, touched no infra.
+- **WAKE 32 — fixed a mis-quoted receipt + TTL RESOLVED + banked the premature-absence remedy.**
+  (1) MY REGEX LESSON HAD A WRONG RECEIPT: I inherited builder's misquote `` [`"] ``; the ACTUAL
+  `IMPORT_RE` is `['"]` (single-or-double), verified myself from `git show origin/main:scripts/check-moon-graph.ts:176`,
+  and the fixture is SINGLE-quoted — so a reproducer from my class matched nothing and would falsely
+  refute the diagnosis. FIXED + banked "copy a regex exactly, a wrong receipt manufactures a false refutation".
+  (2) TTL PREDICTION RESOLVED — the reaper FIRED on schedule: predicted 12:23:10, the Jul 27 20:23:10 daemon
+  gone by 12:23:20 (orchestrator+builder observed, no stake), whole pre-cutoff cohort cleared → bound is now
+  OBSERVED not derived; population capped at arrival×16h (~1330), NO ceiling clock. ce160 bolus not draining
+  until 16:51 today→~01:34 tomorrow — don't misread the rising total. Updated the daemon lesson.
+  (3) NEW lesson `settle-a-contested-claim-with-a-committed-falsifiable-prediction.md`: the premature-absence
+  loop bit FOUR roles today; the rung that WORKED was not "be more careful" but a committed falsifiable
+  prediction with an expiry + BOTH branches, settleable by a stranger in one command — six watchers died with
+  their sessions, the committed one-liner outlived them all. A BACKGROUND TASK IS NOT A RECORD.
+  (4) BOARD: struck the wake-30 stale sha IN PLACE. My own fetch this wake: main=3891300a GREEN @ 16:29:18Z
+  (was could-not-check minutes earlier — a live board-goes-stale-within-a-wake instance). NOT stored as a
+  durable sha. #669 stays draft. Killed nothing, touched no infra, set no status, merged nothing.
+- **WAKE 33 — two landmark incidents banked + two folds. Two DECIDEs are NOT mine.**
+  (A) INSTANCE 4 in `guarantee-satisfied-by-the-defect.md`: the orphan-detector is itself an orphan.
+  #680/c4724454 typo'd `check:ci`→`check:grammar-v` (should be v2) which aborts the chain BEFORE
+  `check:gate-wiring`, AND orphaned check:grammar-v2 — both in one commit, each hiding the other; and
+  check:gate-wiring is invoked by 0 workflows (I verified all three from origin/main). The DISEASE
+  (architect R-C): check-gate-wiring.ts:16 treats "in the check:ci chain" as reachability PROOF, but
+  check:ci runs in no workflow → every check:ci-only gate is green-by-construction. Wiring the detector
+  alone makes it RUN with a FALSE VERDICT = worse than never (manufactures green from silence). R-D
+  measure-the-hole-first, R-E must-fail must be a REAL CI run, "visible absence over manufactured presence".
+  Third time TODAY for this class (moon-graph, then #680, then this). NOT mine to wire (plan-a.yml/ci-ok).
+  (B) NEW `a-pr-reverted-its-own-fix-the-mutation-deleted-it.md`: #689's head e85c839d silently reverted
+  its OWN 89-line moon-graph fix along with the moon.yml edge, under a commit msg naming only moon.yml —
+  the must-fail MUTATION (revert stripNonCode→identity, restore) captured the tree MUTATED and committed it.
+  "Measured the tree then committed again." A commit message is not a diff; a verdict is verdict-at-an-instant
+  (stamp the head + void clause, the #685 clause would've caught it in 1 cmd). grep -c stripNonCode HEAD=0
+  (attributed to orch+architect's independent greps; I could not fetch the branch sha — could-not-check my arm).
+  (C) FOLDS: `a-contract-is-an-unverified-claim.md` Instance 4 — a DISPATCH that created no row is a WISH
+  (builder's `claim` → exit2 "no contract"; ledger needs --issue; a fabricated link worse than a missing row).
+  `settle-a-contested-claim…` — an INVARIANT beats a timed prediction (no clock, no reach-early bias); TTL now
+  CONCLUSIVE (3 timed deaths 20:23:10/20:28:23/20:28:28, cohort cleared). DECIDEs not mine: who wires
+  check:gate-wiring; the missing C-FEL-MOONGRAPH-LITERALS row. Board (my fetch): main 3891300a GREEN; #669 draft.
+- **WAKE 37 — I AUDITED MYSELF AGAINST THE VERIFIER'S TRAP AND I AM EXPOSED. Plus: my own wake-31
+  remedy is DEFEATED by squash merges.**
+  (1) **THE DURABILITY LADDER HAS FOUR RUNGS AND `git ls-remote` ONLY PROVES #2.** Verifier self-caught:
+  `srmcguirt/verifier-0727` had **10 state commits and NO PR AT ALL** (`gh pr list --head … --state all`
+  → `[]`), 29 behind main, ls-remote green every wake. **The warning was already in their own
+  `docs/state/verifier.md` — they read it and repeated it.** That is the cleanest proof in the
+  directory that **a lesson filed in your own state file does not fire.** Ladder banked in
+  `worktree-vs-clone-tmp-durability.md`: worktree → branch (`ls-remote`) → PR (`gh pr view`) →
+  **readable on main (`git show origin/main:<path>`)**. **MY OWN EXPOSURE, MEASURED NOT ASSUMED:**
+  `git show origin/main:docs/state/historian.md | wc -l` → **309, exit 0**; my branch copy → **813**.
+  **504 lines — wakes ~20-36 — exist only on unlanded draft #669** (OPEN, draft, MERGEABLE, ahead 33 /
+  behind 0). This is the PARTIAL form and it is WORSE than the verifier's total form: rung 4 answers
+  "yes, exit 0" while the content is a whole day behind. **CHECKING THE PATH RESOLVES ON MAIN IS NOT
+  CHECKING WHAT YOU WROTE IS ON MAIN.** Next instance: run the rung-4 check on YOUR file at every
+  handoff, and if #669 is still draft, say so loudly again — landing is the interactive session's.
+  (2) **CORRECTION TO MY OWN WAKE-31 BANKING.** I banked "two-dot diff shows main's additions as the
+  branch's deletions → use `git log main..branch`". The remedy is **incomplete**: after a SQUASH merge
+  the originals are NEVER ancestors, so `git log origin/main..branch` → 6 commits FOREVER and
+  `merge-base --is-ancestor` → exit 1 for all six. **Both true, both meaningless about whether the work
+  landed** — a sha instrument structurally cannot see content-identity, and returns a confident NEGATIVE
+  (absent-value, in git). Ask by question: *is this sha on main* (`--is-ancestor`, squash-defeated) /
+  *what did this branch do* (**three-dot**) / *is this WORK on main* (**merge commit + content compare**:
+  `gh pr view --json mergeCommit`, `--is-ancestor <mergeCommit>`, `git show origin/main:<path>` diff).
+  Also: the two-dot trap **recurred a THIRD time** (architect: 111 files / 3605 deletions vs three-dot
+  2 files / +415-15) — banked in prose after two instances and it still bit a third role, which IS the
+  above-prose argument. **Nothing was at risk in /tmp; that branch is strictly behind (1 insertion / 96
+  deletions vs main = main is a SUPERSET).**
+  (3) **MASKING (verifier, reproduced clean): defect 2 is INVISIBLE on main because defect 1 hides it.**
+  `check-gate-wiring.ts:335 if (bad) process.exit(1)`, negative-fixture half starts `:338`. Fixing the
+  typo ALONE would red main for a NEW reason. **So (b)+(d) must be in the same COMMIT, not merely the
+  same PR** — the architect's ORDER is now measured, not asserted. Shape: **a sequential checker with an
+  early exit hides its own later findings; the fix REVEALS the red rather than causing it, and those are
+  indistinguishable to observers. Re-run a multi-part gate after fixing its first failure.** Root: `check:ci`
+  has **NO automatic invoker** — not CI (both `check:ci` hits are comment text `plan-a.yml:274-275`) and
+  NOT the pre-push hook (`check:pre-push` = lint+typecheck only).
+  (4) **THE INVERSE DEAD GATE** (`dead-gate-makes-work-unverifiable.md`): pre-push fails LOCALLY for
+  everyone on a tree CI calls GREEN. **Its real cost is the HABIT** — a hook that cries wolf teaches
+  `--no-verify`, which disables its good checks too; this is where Instance 3's bypass habit is
+  manufactured. I reproduced the verifier's decisive check (`git ls-tree origin/main bench/…/aihu/` →
+  no `rolldown.config.ts`, exit 0) — real defect. **BUT causation is OPEN and I recorded it as such:**
+  their own paste shows moon treating the missing input as a WARN "skipping", and the architect measured
+  `check:pre-push` → **EXIT 0** (57 cached) the same day, calling it build-state (cold artifact)
+  dependent. **Two roles, one command, opposite exit codes ⇒ the discriminator is something neither
+  report names (cache warmth). COULD-NOT-CHECK on causation — do not blame a diff for it.** Unowned.
+  (5) `promotion-rungs.md` row 8 → **SIXTH concurrent-instance event, new consequence class: the FALSE
+  LOSS REPORT** (builder-b, near-miss). A bare `git checkout` in shared `zurich` swapped their branch
+  mid-run — and swapped in **MY `srmcguirt/triage-correction-0727`**; I am in sarajevo and ran no
+  checkout there. Every post-swap answer was **WELL-FORMED AND WRONG** (`wc -l`→291 vs 534,
+  `git log`→1 foreign commit); nothing was lost. **Not the empty-and-green class — no error, no
+  non-zero exit, a real tree that is not yours.** My rotating-coordinate clause one tier worse: stale →
+  **live and someone else's**. Check = **`git branch --show-current` (the NAME, not a sha you cannot
+  recognise)**, before every commit AND before reading history you will act on; protocol =
+  `git worktree add --detach <tmp> <sha>`, never a bare checkout in a worktree you did not create.
+  Tally **6 events: 4 harmful, 1 benign, 1 near-miss**; supervisor checkout-pinning STILL UNBUILT.
+  (6) Ledger gap 3 is now **TWICE in one day** (C-FEL-MOONGRAPH-LITERALS + C-SWARM-RECON-AUTHORITY
+  #686/`5d485ba9`) = a pattern, not an incident. Orchestrator WITHDREW ffba4878 (my point 5 accepted:
+  severity = ~41GB RSS; the row asked for two things already ruled against) and adopted my
+  rotating-coordinate clause verbatim + accepted my one-SPOF-counted-twice correction. **Three roles have
+  now hand-set a threshold** (my 1400, architect's 2/min, orchestrator's ~35h clock) — the class holds.
+  Gate exit 0. Killed nothing, touched no infra, set no status, merged nothing.
+- **WAKE 36 — MY FALSIFIER WAS WRONG AND THE ARCHITECT CAUGHT IT. Struck in place; do not reuse ~1400.**
+  (1) **THE CORRECTION, recorded loudly because it is mine.** I set the daemon tripwire at "anchored
+  >~1400 sustained" — the architect derived that steady state at the then-current rate is
+  `1.47/min × 960min = 1408`, i.e. **I set the alarm ON the model's own prediction**, so ordinary
+  convergence fires it and it cannot separate the two cases it exists to separate. DERIVED tripwires now
+  in the lesson: **>4/min sustained** (4000÷960=4.16/min for 16h; all-time peak 2.33/min = 1.8× margin);
+  **`past_ttl_survivors > 0` = escalate LOUDER** (that breaks the cap itself); **1400-2000 = EXPECTED,
+  not a signal.** The architect **withdrew their own hand-set ~2/min** in the same message (2/min⇒1920,
+  and BELOW a rate hit today with no incident) — two roles, same day, same error. Class: **a threshold
+  picked for plausibility is a restatement of the current value, not a tripwire — derive it from the
+  invariant that would be violated (ceiling/TTL/SLA), because the derivation is what makes it checkable.**
+  (2) **"A RATE NEEDS A SERIES" IS RETIRED FOR THIS CLASS — the age distribution IS the arrival history.**
+  Since nothing survives the 16h TTL, bucketing the live population by age gives 16h of rate data from
+  ONE `ps` — no clock, no second sample. My "two reads ≥10min apart" was not merely mis-calibrated, it
+  was **unnecessary**. **PRECONDITION, CHECK IT FIRST: `past_ttl_survivors == 0`** — else the histogram
+  silently stops being an arrival history. My own verification @ 21:10:14Z: anchored **1305**,
+  past_ttl_survivors **0**, oldest 57585s vs 57600s TTL (reaper holding to 15s).
+  (3) **MY CONTRIBUTION — the instrument reproduces, and the reproduction sharpens it.** Bins 8h-15h
+  agree closely across two roles 26min apart (stable history); bins 0h-7h disagree wildly (bursty, and
+  they shift with read time). So **the headline `arrival_now` is bin 0, the NOISIEST bin, and the net
+  rate is a difference of two single bins**: bin-0 alone arch 1.47 vs hist 1.15 = **28% spread**;
+  bins 0-2 averaged 0.94 vs 0.98 = **4%**. **DIRECTION robust (both falling), MAGNITUDE not — smooth
+  over ≥3 bins before doing arithmetic.** Same too-short-window error surviving into the instrument that
+  eliminated windows. (4) Committed prediction (both branches, settleable by a stranger): smoothed
+  0.98/min ⇒ steady state ~940, so **after ~13:10Z 2026-07-29 expect anchored ~950±150 with
+  past_ttl_survivors 0**; falsified by >~1400 with survivors 0 (arrival rose — read bins 0-2, not bin 0)
+  or by any survivor. **Do NOT read the coming ~1017-daemon decline (bolus drains to ~01:34) as the leak
+  stopping** — the leak is unfixed (`session-start.js:150-164` still unconditional); bounded waste is
+  still ~41GB RSS. ffba4878 severity already ruled = RSS not fork(); the architect flagged that the row
+  as framed asks for two things already ruled against — **orchestrator's row, not mine.**
+  (5) `stale-ledger-…` now **THREE** places the ledger cannot express a correction: + **a contract
+  cannot be recorded RETROACTIVELY.** C-FEL-MOONGRAPH-LITERALS shipped, was verified twice, was ACCEPTED,
+  and **has no ledger row** — `main.rs:907-923` `offer` writes the row AND a dispatch msg atomically
+  ("no contract without a work order"), correct for new work, so a retroactive row means dispatching a
+  builder to rebuild merged work (the C-FEL-436 failure, on purpose). Orchestrator refused the
+  hand-INSERT ("a ledger you can hand-author is not a ledger") — right call. **Durable record = the msg
+  stream keyed to the contract id + this lesson.** Fix named and DELIBERATELY not filed (would consume
+  the WIP slot given to gate-wiring) — naming what you are not doing is what makes a backlog ≠ a silence.
+  It is also the first of the three with an obvious falsifiable bar.
+  (6) `guarantee-satisfied-by-the-defect` Instance 4: **the three-clause wiring bar has a MEASURED
+  recidivism rate** — this repo shipped 1+2-without-3 **twice** (the `palette` job: waited on, result
+  never read, green on a red palette; and #649). That is why the architect **countermanded builder's (a)**
+  (own always-on job = 3 coordinated edits) in favour of **a step in the existing `check` job = ZERO
+  edits**. **Do not carry a fix on a mechanism that has demonstrated it can lose the fix** — sharpest
+  because the gate being built exists to forbid green-by-construction gates. Also banked: the ruling
+  **named its own reversal condition** (a doc-only diff that creates an orphan; currently unreachable —
+  `check`'s `if:` is draft==false && changes.code==true and `code` counts package.json + workflows) and
+  **stated the tradeoff it accepted**. (c)+(d) STAND; order TYPO FIRST then wiring, ONE PR; R-E must-fail
+  is a REAL CI run. **NOT MINE:** plan-a.yml/ci-ok, the contract row, ffba4878.
+  Gate exit 0. Killed nothing, touched no infra, set no status, merged nothing.
+- **WAKE 35 — #689 RESOLVED on main; R-D's hole is MEASURED and small; two method rungs banked.**
+  My wake-33 could-not-check arm is CLOSED: **verifier PASS on the MERGE COMMIT `642860f3`**, having
+  VOIDED their own earlier PASS at `18d6d6e8` when the head moved to `e85c839d` with the fix committed
+  away. My independent fetch: `origin/main`=`642860f3` @ 20:52:45Z, `git show 642860f3:scripts/check-moon-graph.ts
+  | grep -c stripNonCode` → **2**, exit 0; the no-op `- signals` edge is GONE from moon.yml. **DO NOT
+  re-open #689 or re-flag the reverted fix as live.** New 4th sub-lesson in `a-pr-reverted-its-own-fix…`:
+  **verify a shipped fix on the MERGE COMMIT / `origin/main` with a LITERAL sha, never the PR head** —
+  the head is exactly the coordinate this lesson proves you cannot trust; the merge commit is written
+  once. Void rule has now PAID TWICE (stale board snapshot; a verdict whose subject deleted its own
+  subject). (2) **BOTH-DIRECTIONS MUTATION banked into `regex-over-source-…`, the most reusable thing
+  this wake:** dir-1 (revert `stripNonCode`→identity) reproduced the false edge verbatim = fix is
+  load-bearing; dir-2 (delete a REAL `- server` edge) exit 1 = does NOT over-strip. **Dir-1 alone cannot
+  tell "reads code correctly" from "reads nothing" — a stripper that strips everything passes it.
+  Whenever a fix NARROWS what a gate looks at (stripper/filter/skip-list/exclusion glob), the must-fail
+  MUST include a case the gate must still catch, or you have shipped green-by-blindness.** Also: the
+  verifier used `git checkout --`, explicitly NOT `git stash`, citing the repo-global stack — **my prose
+  rung was applied by another role unprompted, inside the exact operation that would have exposed it.**
+  (3) **R-D IS DONE (builder, on `642860f3`) — fold into `guarantee-satisfied-by-the-defect.md` Instance 4.**
+  The false `check:ci`-chain route costs **exactly ONE gate: the meta-gate itself**; the other 18 live
+  gates are workflow-reachable by name/path, 2 baseline orphans unaffected. **The blast radius of a false
+  premise is the count of things depending on that clause ALONE, not the size of the model.** But the
+  detector was NOT hiding nothing: `bun run check:gate-wiring` → **exit 1** (NEW ORPHAN `check:grammar-v2`,
+  which **has never executed in CI once**), and `check:moon-graph` trips `NO NEGATIVE-FIXTURE PROOF`, exit 1.
+  So R-D's "do not wire it blind" was load-bearing — wiring today reddens main on two real defects, which
+  is why builder's (d) must land WITH (a). **A dangling script ref truncates a chain AND orphans what
+  follows; the two halves hide each other.** And the wiring bar has **THREE clauses**: invoked by a
+  running workflow + in `ci-ok` `needs:` + in `ci-ok`'s RESULT LOOP ("being in needs is NOT being gated
+  on") — "it's in package.json" clears none. (4) `a-contract-is-an-unverified-claim.md`: the
+  dispatch-with-no-row **RECURRED same day, same role** (`claim C-FEL-GATE-WIRING-RUNS` → exit 2) — now a
+  CLASS not a slip; record the second, frequency is the argument. **NOT MINE:** wiring plan-a.yml/ci-ok,
+  minting the contract row. I am NOT in plan-a.yml (told builder on the bus). Gate exit 0. Killed nothing,
+  touched no infra, set no status, merged nothing.
+- **WAKE 34 — the orchestrator's own correction folded in, and it does NOT reverse the clock finding.**
+  (1) `wake-cadence-shorter-than-runtime-self-collides.md`: orchestrator corrected "only the mint breaks
+  the loop" → **poison-quarantine also does** (17 quarantined + fresh sid, 16:40:21-24). TRUE, but I read
+  the source before folding: quarantine (`supervisor.py:104-113`) and mint (`:143-152`) are **both inside
+  `health_check()`**, called from exactly ONE place — the `last_sync >= sync_interval` branch (`:874-877`).
+  Same 1800s gate, which is WHY they fired in the same 3-second band. **Two self-heals, one slow gate:
+  "there is a second remedy" reads like redundancy and is the same SPOF counted twice.** The 360×
+  conclusion stands. (2) NEW shape 4, and the cheapest receipt for the clock in the whole system:
+  `POISON_ATTEMPTS = 5` (`:83`) vs **observed firing at 47-59** = **~10× the configured value**, because
+  the counter advances on the delivery path and the check runs on the sync path. **A limit counted by one
+  clock and enforced by another is not the limit you configured** — read the effective limit off observed
+  firings, never off the constant; tuning 5→3 changes ~50 to ~50. (3) NEW section *who the error names*:
+  the wedged role was the ORCHESTRATOR (1891 WAKE FAILED), but **the supervisor's own wake failures are
+  not posted to the bus**, so its only visible symptom is FIVE PEERS' stale errors redelivering — each
+  role reads a peer's outage as its own. `absent-value` pointed at the messenger: **the delivery channel
+  does not cover its own deliverer.** Rung: prose → **injected-at-dispatch (the orchestrator DID this and
+  it worked — one paragraph stopped five re-derivations; but nothing emits it, so it must be re-sent every
+  storm)** → structural (health_check on the tick, not the network-sync boundary; supervisor posts its own
+  wake failures to the bus). NOT mine to fix. **DO NOT re-triage that inbox** — a clean wake acks it.
+  (4) `stale-ledger-…` THIRD CLAUSE: **a ROTATING identifier in a record is stale by construction** — the
+  mint rotates sids, so a sid quoted in ANY state file is a coordinate for a session that may not exist;
+  diff against `~/.swarm/agents.json` LIVE. Generalised: sha/sid/run-id/head-ref/PID — quote a coordinate
+  with its fetch or not at all. (5) DAEMON BOUND PASSED ITS FIRST TEST: orchestrator reported "1324, +21%,
+  ceiling 4000"; my anchored read **1328 @ 20:44:30Z** (unanchored 1334, Δ=6 observers) — the derived cap
+  was **~1330**, so the rise is the bound being APPROACHED, not the ceiling. **A series rising toward a
+  bound and one rising toward a ceiling are indistinguishable from two points** — +21% is alarming against
+  4000 and unremarkable against 1330, same number, opposite conclusion. Falsifier banked: anchored >~1400
+  sustained (two reads ≥10min apart) reopens it; a rise before the ce160 drain (16:51→~01:34) is expected
+  and evidence of nothing. Gate `check-lesson-refs` exit 0, 25 refs. Killed nothing, touched no infra, set
+  no status, merged nothing.
+- **AUDIT-LEDGER updates (architect): interim guard RETIRED + exposure MEASURED-ZERO.** The `sync --push` guard doesn't bind the
+  actor — the supervisor LOOP runs `sync --push --confirm` (supervisor.py:874-884; NOT dry-run, main.rs:110-113) every 1800s;
+  "a guard whose subject can't do the forbidden action is not a guard". Exposure is 0 NOW (0 submitted, 0 linked) = measured luck
+  with a DEADLINE: the fix (b) must land before the next Linear/GitHub-linked contract reaches submitted. Also added verifier's
+  negative control (no-t-o-adjacency path → None, proving the "to" substring coincidence). "An escalation must carry only what a
+  human must decide" (architect's self-rule; cross of my escalation-split lesson).
+- **RECONCILER-IS-NOT-A-VERIFIER formally RULED (architect) — folded into the audit-ledger lesson.**
+  `docs/decisions/2026-07-28-reconciler-is-not-a-verifier.md @ e615ab0` (agent-swarm draft PR #1). Rejects
+  pause-vs-port: porting a bad predicate gives a REVIEWED BAD PREDICATE; the defect is a plausibility-checker
+  exit wired to a terminal+side-effect status. Concrete receipt banked: the 2 false verifieds are a SUBSTRING
+  COINCIDENCE — `extract_claims("I wrote to …")` captures the preposition `"to"` as the filename (recon.py:102,
+  I confirmed), and `backs("to", …)` grounds it against any redirect path containing `t,o` — "condu**cto**r".
+  Exposure = 27 rows not 2 (no-claims satisfies needs via main.rs:1241). R1 verified=receipt-status only;
+  R2 reconcile the structured claims field, prose may only DISPUTE; R3 stopword targets ungroundable; R4
+  no-claims STOPS satisfying needs; R5 do NOT pause. Fresh count 65 verdicts / 53 with-claims / 27 no-claims (live).
+- **Reconcile defect is LIVE, still minting (added to audit-ledger lesson).** Count moved mid-discussion
+  (orch 26/50 → hist 27/52 → orch re-measure 27/52; both right, population grew). I re-measured fresh
+  this wake: still 27 no-claims / 27-of-27 zero-recon / 52 claims-verdicts / 13 verified — stable now but
+  a live defect. The 26↔27 "disagreement" is itself the stamp-your-measurement lesson.
+- **Board arc (2026-07-27):** main reached `41c37df6` (#670), the queue STOPPED at 01:12Z
+  with ~13 green PRs sitting — then UN-STUCK: main is now `b667bdcd`, having landed
+  #656/#659/#661/#663/#666/#667/#668/#673. So "the queue stopped at 01:12Z" was a
+  snapshot, not the arc; it resumed. Landing is the interactive session's; the
+  rebase/twin/stale-branch hazards rise the longer green work sits (this cost me a second
+  #669 rebase). Do not report a stale board figure — read `git rev-parse origin/main` fresh.
 - **The release is uncut and it is the ORCHESTRATOR's item, not mine.** Merged-but-
   unpublished on main (incl. #639/#640/#641/#653/#658/#664, #655 pending); publishing is
   outward-facing + irreversible, held for the founder. Tracked on

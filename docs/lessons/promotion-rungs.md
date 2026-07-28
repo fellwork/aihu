@@ -92,10 +92,74 @@ that peer's own traffic first, and corrected it to `all` (where the accusation w
 > message id. Rung unchanged: **prose, still prose**; the structural fix (pin the
 > checkout/identity per wake) is the same one, still UNBUILT, still the orchestrator's.
 
-Four instances, three consequence classes (lost-work risk, silent branch swap,
-misattribution), **one root, one rung.** *"Prose rung, still prose"* after four is not
-a weaker entry than after one — it is the strongest argument in this file for building
-the gate.
+**A fourth consequence class — CONCURRENT MUTATION, caught live, and a remedy worth
+banking.** On C-FEL-433, a builder hit a real `git index.lock` **mid-commit**, from
+**another instance running `git` in the same shared worktree at that moment**. They did
+the right thing twice: (1) **waited for the lock to clear** rather than force-removing
+it — deleting a live `index.lock` would have corrupted the *other* instance's in-flight
+commit — and (2) **re-verified they were still on the correct branch before committing.**
+
+> **The remedy is the lesson, not the collision.** Two instances sharing one worktree
+> *will* collide on `git`; that is survivable. What turns a survivable collision into a
+> **silent wrong-branch commit** is skipping the re-verify: while you waited for the
+> lock, the other instance may have moved HEAD. *Wait for the lock, then re-check the
+> branch — the second step is the one people skip.* Never `rm -f index.lock`; it is not
+> your lock.
+
+So the root — no per-wake pinning of `(workspace, role)` identity, twins sharing one
+checkout — has now produced **four distinct consequence classes: lost-work risk,
+silent branch swap, misattribution, and concurrent mutation.** **One root, one rung —
+prose, still prose.** Four different ways to be harmed by the same missing gate is not
+a weaker entry than one; it is the strongest argument in this file for building it. The
+structural fix (supervisor pins the checkout per wake) remains UNBUILT and the
+orchestrator's.
+
+**A fifth event — BENIGN this time, recorded ANYWAY.** #668 went green at `99be3b03`
+after a **concurrent instance pushed the compiler-binary bump**; the builder correctly
+read *which* job had failed (`check:compiler-binary-bump`) and did not duplicate work
+already done — complementary and green, nothing to unwind. It is logged as a *benign*
+instance rather than omitted, and that is the point:
+
+> **A record that keeps only the harmful instances understates how often this happens.**
+> The concurrent-instance event fired five times in one day; four bit and one helped.
+> The **frequency** is the argument for the checkout-pinning fix — a gate is justified
+> by how often the hazard occurs, not only by how often it has drawn blood. Omitting the
+> benign runs would make the case for the fix look weaker than it is.
+
+**A SIXTH event (2026-07-28) — a NEAR-MISS, and it introduces a new consequence class:
+the FALSE LOSS REPORT.** Another instance ran a bare `git checkout` in the shared
+`zurich` worktree and swapped the branch out from under builder-b **mid-run**. The reflog
+is unambiguous and builder-b never ran a checkout that wake:
+
+```
+HEAD@{4}  ca33c813  rebase (finish): returning to refs/heads/fix/fel-scaffold-pm-compat   <- theirs
+HEAD@{3}  d80c3276  checkout: moving from fix/fel-scaffold-pm-compat to srmcguirt/triage-correction-0727
+```
+
+Everything measured after the swap was **well-formed and wrong**: `wc -l docs/state/builder-b.md`
+→ 291 (theirs is 534); `git log origin/main..HEAD` → one commit, not theirs. Read naively
+that is *"my rebase silently dropped 5 commits and 243 lines of durable state"* — and
+builder-b was one step from posting it as a finding. Ground truth: `git ls-remote` → `ca33c813`
+intact, `git show cd0db803:docs/state/builder-b.md | wc -l` → 534. **Nothing was lost.**
+
+> **This is not the empty-and-green class.** There is no error, no missing file, no non-zero
+> exit. `git log`, `wc -l`, `git rev-parse` all succeed and truthfully describe **a real tree
+> that is not the one your question was about.** It is the rotating-coordinate clause
+> (`stale-ledger-wal-and-disproven-receipts.md`) one tier worse: there the coordinate was
+> **stale**; here it is **live and belongs to someone else.**
+
+**The check is the BRANCH NAME, not the sha** — `git branch --show-current`, run immediately
+before every commit *and* again before reading any history you plan to act on. A sha you
+cannot recognise tells you nothing; you know your own branch name on sight. And the protocol
+builder-b adopted, which is the real remedy: **`git worktree add --detach <tmp> <sha>` — never
+a bare `git checkout` in a worktree you did not create.**
+
+**Tally: six events in two days — four harmful, one benign, one near-miss.** The near-miss is
+the most instructive of the six, because its damage would have been a *false finding entering
+the record*, which no amount of re-reading the worktree would have caught afterwards. Rung
+unchanged and **still unbuilt**: prose (`branch --show-current`, detached worktrees) →
+structural (**the supervisor pins each role's checkout per wake**). Six occurrences is now the
+argument.
 
 ## The through-line
 
@@ -197,6 +261,57 @@ not reasoning about the globs.
 > **will not accept hand-reasoning** and requires the matcher to be run — does. The
 > agent promoted their own guardrail one rung by making the wrong method inexpressible
 > in the acceptance, exactly as a `must_fail` row makes an untested claim inexpressible.
+
+**The trap has now produced THREE wrong readings from three readers** — the architect
+twice, and the orchestrator once, who nearly ruled `#667`'s `!.claude/**` exclusion a
+blocker on the reasoning that `.claude/skills/swarm/swarm.ts` is live TypeScript, then
+**ran the matcher**: `bunx biome check .claude/skills/swarm/swarm.ts` → *"These paths
+were provided but ignored"* (`biome.json` already carries `!.claude`), so the exclusion
+loses nothing. Same file, same method, same wrong answer, three times. The builder who
+broke the streak did it with **real `picomatch` against patterns extracted from the
+edited file**, and that method is now **ratified** as the acceptance for filter changes.
+The promotion completes: the structural bar (run the matcher) now has an implementation
+(picomatch on extracted patterns), not just a prohibition.
+
+**And the validation step is the rung, more than the tool choice.** On #667 the verifier
+did not merely run a real `picomatch 4.0.5` on patterns parsed from the PR head — they
+**proved the matcher faithful first, by reproducing the known pre-fix *inert* bug**
+before trusting it on the new patterns. **An instrument nobody has shown to reproduce a
+known-WRONG answer is just a second opinion.** Three readers had gotten this filter wrong
+by hand; the verdict that settled it rests on no one reading a glob correctly — only on a
+matcher demonstrated to reproduce the wrong answer and then the right one. That
+demonstrate-it-can-fail step is the same shape as the anti-recurrence must-fail rows
+elsewhere in this file: an instrument, like a gate, is not trusted until it has been made
+to fail on a case you already know the answer to.
+
+## The PR that writes the rule it violates (2026-07-27)
+
+The sharpest instance of *prose does not execute* on record. **#667** — the fix that
+makes `plan-a.yml`'s paths-filter finally discriminate — added this comment:
+
+> *"A docs-facing gate therefore must NOT be a step here, or it would silently skip on
+> the doc-only PRs it most needs to run on; it goes in its own always-on job instead."*
+
+**One screen above it, at `plan-a.yml:123`, sits `- run: bun scripts/sync-readme.ts
+--check`** — a docs-facing gate, as a step, inside the `check` job. So the moment #667
+makes the filter discriminate, **README-only PRs stop being checked for README drift**:
+`check` is gated on `changes.code`, a README-only PR is `code=false`, `check` skips, and
+the `sync-readme --check` step skips with it. The PR states the correct rule in prose
+and ships a live violation of it in the same file. Verifier found it while verifying
+#667 and reported it as a resolved could-not-check rather than burying it.
+
+> **A rule stated in prose does not audit its own file.** The author wrote the correct
+> rule and did not sweep for existing violations — not carelessness, just that **prose
+> has no way to ask "what else is already like this?"** A comment cannot enumerate.
+> **Rung: prose rule → structural** — a check that enumerates every docs-facing gate and
+> asserts each is its own always-on job, not a step under a discriminating filter. Filed
+> as `C-FEL-READMESYNC-JOB` for the instance; **the sweep is the class.**
+
+Same family as `checked-thing-is-not-the-changed-thing.md` instance #20 (a comment
+describing behaviour the file does not have) — sharper, because here the comment
+describes the behaviour the file *should* have and the file contradicts it **in the same
+diff.** The second half — that the offered backstop is a bypassable hook — is in
+`guarantee-satisfied-by-the-defect.md`.
 
 ## Related
 
