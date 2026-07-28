@@ -13,9 +13,10 @@ const external = [
   '@aihu-plugin/agent-readiness',
   '@aihu/compiler',
   'vite',
-  'node:fs',
-  'node:fs/promises',
-  'node:path',
+  // node: builtins externalized by PATTERN so the allowlist can't drift as new
+  // builtins are imported (FEL-EXTERNALS). The build-time index entry is the
+  // only node: consumer; the browser client entry imports none.
+  /^node:/,
   'virtual:aihu-routes',
   'virtual:aihu-layouts',
 ]

@@ -37,6 +37,13 @@ export default defineConfig({
   // code (matching the `.size-limit.json` ignore lists). tooltip imports the
   // position() shim from @aihu/css-engine/runtime/progressive — both the bare
   // and subpath specifiers are externalized.
+  //
+  // DELIBERATE: no `node:` externals, and DO NOT add a `/^node:/` pattern
+  // (FEL-EXTERNALS ruling). primitives is a BROWSER-tier, size-gated package
+  // (each entry has a `.size-limit.json` row); a `node:` import in a bundled
+  // entry is a genuine bug that must FAIL LOUDLY, not be silently externalized.
+  // (The only current node: imports are in a *.test.ts, which is not a bundle
+  // input — so nothing to externalize here.)
   external: [
     '@aihu/signals',
     '@aihu/arbor',

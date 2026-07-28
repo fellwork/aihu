@@ -55,6 +55,12 @@ export default defineConfig([
   // 4a796a8f-0f2b-4865-a498-73cf11b6f04c.
   {
     input: 'src/index.ts',
+    // DELIBERATE: no `node:` externals here, and DO NOT add a `/^node:/`
+    // pattern (FEL-EXTERNALS ruling). The empty node: externals list IS the
+    // check — this main entry MUST build node:module-free (see the createRequire
+    // regression above; check:runtime-purity enforces it), so a `node:` builtin
+    // that leaks into this graph must FAIL LOUDLY. A blanket `/^node:/` would
+    // silently externalize the exact leak this config exists to catch.
     external: [
       '@aihu/agent',
       // GX P4 (#466): the governed boundary consumes resolvePrincipal /
