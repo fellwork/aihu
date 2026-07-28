@@ -73,22 +73,51 @@ jobs:
       # can see). `.prototools` pins node=22.12.0, so proto installs and SHIMS
       # node here.
       #
-      # FEL-MATRIX-PROTO: do NOT also add `actions/setup-node`. It installs a
-      # SECOND node under /opt/hostedtoolcache, and with proto's node shim on
-      # PATH the two stores collide — every `node` a scaffold's `npm install` /
-      # `yarn install` spawns dies with `proto::commands::run::fallback_loop`
-      # ("a proto store on PATH that does not match the current store"), before
-      # any aihu code runs (run 30318406544: 13/15 cells red at pm-install). One
-      # node store, resolved through proto, is the fix. This step MUST precede
-      # the pnpm/yarn install below, which needs proto's node+npm on PATH.
+      # FEL-MATRIX-PROTO — ORDER IS THE FIX, and it is counter-intuitive, so
+      # read this before touching either step.
+      #
+      # The scaffolds under test are ordinary standalone projects in /tmp. They
+      # need *a* node; they do not need proto's node. moon is needed only so the
+      # cf-team cell's scripts can shell out to it.
+      #
+      # `proto` SHIMS node. When the resolved `node` on PATH is itself a proto
+      # shim, proto refuses to exec it rather than recurse, and every child
+      # process a package manager spawns (`sh -c node install.js` for esbuild's
+      # postinstall, `vite`, yarn's own `#!/usr/bin/env node` launcher) dies with:
+      #
+      #   Error: proto::commands::run::fallback_loop
+      #   x Unable to run node, as the global executable found at <path>
+      #     is a proto shim, which would trigger a recursive execution loop.
+      #
+      # Measured, not inferred — two runs, same harness:
+      #   setup-node THEN setup-toolchain  -> collides at /opt/hostedtoolcache/node/...
+      #                                       run 30318406544: 13/15 red, ALL at pm-install
+      #   setup-toolchain, no setup-node   -> collides at /usr/local/bin/node
+      #                                       run 30321617019: 13/15 red, npm still at install
+      # Deleting setup-node MOVED the collision; it did not remove it. So the
+      # cause is not "a second store" — it is that the winning `node` on PATH is
+      # a shim at all.
+      #
+      # Hence: setup-toolchain FIRST (moon on PATH for cf-team), then setup-node
+      # LAST so a REAL node binary is prepended ahead of proto's shims. Do not
+      # swap these back.
       - uses: moonrepo/setup-toolchain@v0
         with:
           auto-install: true
 
-      # pnpm and yarn are not on the ubuntu-latest image by default. Install
-      # them explicitly (npm here is proto's node's npm): the harness prints a
-      # loud SKIP for any missing PM and a skipped row is NOT a pass, so a silent
-      # absence here would quietly shrink the grid to half its width.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # pnpm and yarn are not on the ubuntu-latest image by default. This MUST
+      # run after setup-node: on run 30321617019 it ran under proto's npm,
+      # reported "added 2 packages" — and `pnpm --version` was still EMPTY,
+      # because the globals landed in proto's node prefix, which is not exported
+      # onto PATH. The step passed while achieving nothing, and the pnpm row went
+      # on saying SKIP. Under setup-node's node the prefix IS on PATH.
+      #
+      # A skipped row is NOT a pass — the harness says so out loud — so a silent
+      # absence here quietly shrinks the grid instead of failing it.
       - name: Install pnpm and yarn
         run: npm install --global pnpm yarn
 
