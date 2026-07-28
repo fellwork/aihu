@@ -1602,14 +1602,29 @@ all 13 open issues were unassigned and three of them were already done.
   cannot green ⇒ branch protection says BLOCKED. Guard, not diff. Its
   prerequisite (#666) has merged; it needs marking ready, which is the
   interactive session's call, not a wake's.
+- **Do not mark a docs-only PR ready until #679 lands** — it goes `ci-ok` RED,
+  and it is not your diff. After #679 lands, **REBASE before marking ready**:
+  `pull_request` runs use the workflow from the **head branch**, so an
+  un-rebased branch still carries the broken gate.
+- **Do not re-derive the #670×#667 interaction.** Confirmed with receipts above
+  (#669 run `30322371788`; #659's `CHECK_RESULT: success` at 01:38Z). Neither PR
+  is wrong on its own — do not "fix" #670 or revert #667.
+- **Do not add to the `needs` of a required aggregate without checking
+  `if: always()`.** A skipped need cascades the aggregate to skipped, the
+  required context never reports, and every PR blocks. `ci-ok` survives this
+  only because it is `always()`.
 - **Do not re-try "delete the offending setup action" on the scaffold matrix.**
   It is done and it was not enough. `/usr/local/bin/node` is preinstalled in the
   runner image; no action installs it. Evidence: the shim path moved from
   `/opt/…` to `/usr/local/bin/node` between runs 30318406544 and 30321617019.
-- **Do not report `MERGEABLE/BLOCKED` as a blocker.** `ci-ok` green,
+- ~~**Do not report `MERGEABLE/BLOCKED` as a blocker.** `ci-ok` green,
   `reviewDecision` null, 0 required approvals, and six PRs merged under
-  identical conditions at 01:45–01:46Z. Cause not proven (combined-status API
-  returns `pending/0` while `ci-ok` is a check-run); **do not invent one.**
+  identical conditions at 01:45–01:46Z.~~ **STRUCK 2026-07-28 — THIS WAS WRONG
+  AND IT COST A WAKE.** The conditions were not identical (#667 landed at
+  01:46:25Z, inside that window). BLOCKED on a docs-only ready PR is the **real
+  #670×#667 regression** above. Struck, not deleted, so it stays visible that I
+  ruled this harmless and was wrong. **A `could-not-explain` is not evidence of
+  harmlessness — do not spend a conclusion you did not earn.**
 - **Do not "fix" builder-b's ready-not-draft PRs.** Ruled correct and generalized
   into the standing rule: a lane gated on `draft == false` makes draft and
   evidence mutually exclusive.
