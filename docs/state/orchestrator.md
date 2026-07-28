@@ -43,6 +43,69 @@ is **not** the coordination or state layer. It went unused for ~20 hours on
 2026-07-25 and the one page it holds was stale within 30 minutes of being
 written. Do not treat it as truth.
 
+## 🔴 A TRADE PRESENTED AS REAL DISSOLVED WHEN ITS THIRD OPTION WAS PRICED RIGHT
+
+Builder offered three ways to handle `3e00b4d3` (their state commit, held back off
+`#685` so as not to churn a live receipt) and framed it, correctly and honestly, as
+a trade whose two costs land on **different people**: the CI cost is mine, the
+lost-state cost is the next builder instance's. They recommended (b) — hold, land
+#685, let the commit ride the next PR. They named (c) — cherry-pick to its own
+docs-only PR — but **priced it as if it inherited (a)'s ~7 minutes.**
+
+**RULED (c), and the trade was never real.** On a **draft**, `check` is SKIPPED, so
+(c) costs seconds and disturbs no receipt. **My own draft-vs-ready ruling, applied
+to the commit that records it.** (c) buys full durability *now* at ~zero CI and
+costs the queue nothing.
+
+**The generalisable move: when an option is dominated, check whether it was priced
+at the wrong tier before accepting the trade.** Builder's (b) reasoning was sound
+about **conflict** risk (`gh pr diff 683 --name-only` really does list
+`docs/state/builder.md` — I checked, their premise was true). It was answering the
+wrong question: the question was **durability**, and
+`git branch -r --contains 3e00b4d3` is **EMPTY** — local `fix/fel-ci-receipt` only,
+one reset from gone.
+
+**Constraint attached, measured not assumed: DO NOT READY IT UNTIL #679 LANDS.**
+`plan-a.yml:477` on main makes a NON-draft whose `check` skipped a hard failure,
+and #667 armed the docs-only skip — so **a docs-only PR marked ready today goes red
+on `ci-ok` by construction.** #679 @ `868ac101` is that exact fix (adds `changes`
+to `ci-ok`'s `needs`, exempts `CODE_RESULT=false`), green (check 02:19:46→02:25:46,
+ci-ok 02:27:57), **and unlanded.** `pull_request` takes the workflow from the HEAD
+branch, so branching off current main carries the pre-#679 file. **This is a second
+tax the stalled queue is charging** — same shape as `red-because-an-unlanded-fix`,
+but pre-emptive: an unlanded fix now constrains how new work may be opened.
+
+### #685 `C-FEL-CI-RECEIPT` — TRUSTWORTHY, receipt re-measured, LANDABLE
+
+```
+gh pr view 685 --json headRefOid → 1a0273b7…   (builder's VOID condition did NOT fire)
+check   run 30369107135  success  14:35:38Z → 14:40:29Z   (success, NOT skipped)
+ci-ok   run 30369107135  success  14:42:36Z → 14:42:39Z   (same run, strictly after)
+draft=false · CLEAN · MERGEABLE
+```
+
+**The negative-expiry clause paid for itself on first use.** Builder's prior
+could-not-check carried *"ALSO VOID once run 30369107135 reaches a verdict"* — and
+the condition, not a guess, told them when to re-look. **That is the whole
+difference between a report that ages into a lie and one that ages into a
+re-measurement.** Advice to the interactive orchestrator; **I do not merge from a
+wake.**
+
+### Banked FROM builder: **a retry dressed as a fallback**
+
+They flagged `supervisor.py`'s `--resume` → `--session-id` loop from outside their
+contract. **Confirmed at source this wake (`:434-442`): both arms pass the same
+`sid`.** I already had this — see the wake-crash storm section below — but I had
+banked only the *consequence* (*"the captured tail is always the SECOND error"*,
+which is why five roles spent a day reporting `Session ID already in use`, a string
+that is not the fault). **Their name for it is the better half:** *both arms share
+the one input that is wedged, so the second arm cannot succeed for any reason the
+first failed.* Mine explains why the evidence misleads; **theirs explains why the
+code is wrong**, and it is what a reader of that function actually needs. It is the
+`docs/lessons` *guarantee-satisfied-by-the-defect* shape — **defence-in-depth in
+the source, none in fact.** Line numbers in my older section have MOVED; that file
+is edited hot and lives in no repo. Do-not-edit-it-hot **stands**.
+
 ## 🔴🔴 THE LEDGER CAN SAY `verified` WITHOUT EVIDENCE — eighteenth wake, 2026-07-28
 
 **Read your own contract row before you trust it.** Measured from a WAL-safe
