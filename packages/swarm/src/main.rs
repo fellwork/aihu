@@ -3251,4 +3251,71 @@ mod tests {
         let err = validate_claims("pushed:PR#640,garbage,ran:tests").unwrap_err();
         assert!(err.contains("garbage"), "error should name the offender: {err}");
     }
+
+    // C-SWARM-RECON-AUTHORITY — the network-free MUST-FAIL directions. The
+    // merged->verified MUST-PASS needs a live `gh pr view` and is driven
+    // independently by verifier once #686 is green; here we prove the
+    // could-not-check directions that need no network.
+
+    fn recon_conn() -> Connection {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            "CREATE TABLE contract(id TEXT PRIMARY KEY, github_pr INTEGER, github_repo TEXT);
+             CREATE TABLE msg(id TEXT, ts REAL, contract TEXT, kind TEXT, body TEXT, pr INTEGER);",
+        )
+        .unwrap();
+        conn
+    }
+
+    #[test]
+    fn resolve_pr_refuses_github_pr_with_unknown_repo() {
+        // MUST-FAIL 2: a bare `github_pr` with no `github_repo` is REFUSED, never
+        // resolved against the hardcoded GITHUB_REPO — that default IS the
+        // agent-swarm#1-vs-fellwork/aihu#1 collision.
+        let conn = recon_conn();
+        conn.execute(
+            "INSERT INTO contract(id, github_pr, github_repo) VALUES ('C-X', 1, NULL)",
+            [],
+        )
+        .unwrap();
+        let r = resolve_pr(&conn, "C-X", Some(1));
+        assert!(r.is_err(), "github_pr with NULL github_repo must refuse, got {r:?}");
+        assert!(
+            r.unwrap_err().contains("github_repo"),
+            "the refusal must name the missing repo"
+        );
+    }
+
+    #[test]
+    fn resolve_pr_uses_the_links_own_repo_when_present() {
+        // The dual of the above: an explicit cross-repo link resolves in ITS
+        // repo, so `gh pr view` runs against agent-swarm, not fellwork/aihu.
+        let conn = recon_conn();
+        conn.execute(
+            "INSERT INTO contract VALUES ('C-X', 1, 'srmcguirt/agent-swarm')",
+            [],
+        )
+        .unwrap();
+        let (repo, pr) = resolve_pr(&conn, "C-X", Some(1)).unwrap().unwrap();
+        assert_eq!(repo, "srmcguirt/agent-swarm");
+        assert_eq!(pr, 1);
+    }
+
+    #[test]
+    fn adjudicate_merged_is_could_not_check_with_no_pr_before_any_network() {
+        // MUST-FAIL 1 (network-free half): the exact corrupt input that falsely
+        // verified C-SWARM-P0 — a `verified` proposal with a transcript-fragment
+        // recon and github_pr NULL — has NO PR reference, so adjudication returns
+        // could-not-check (Err) BEFORE any `gh` call. The caller records
+        // `unverified`, never `verified`.
+        let conn = recon_conn();
+        conn.execute(
+            "INSERT INTO contract(id, github_pr, github_repo) VALUES ('C-P0', NULL, NULL)",
+            [],
+        )
+        .unwrap();
+        let r = adjudicate_merged(&conn, "C-P0", None);
+        assert!(r.is_err(), "no PR reference must be could-not-check, got {r:?}");
+        assert_eq!(r.unwrap_err(), "no PR reference");
+    }
 }
