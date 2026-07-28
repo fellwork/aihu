@@ -319,6 +319,57 @@ implementation) — the right role, and one that is otherwise idle waiting on
 every docs-only PR run every gate has traded one defect for a slower one, and
 that must be rejected in the spec, not discovered by the builder.
 
+## Board — read 2026-07-28, `origin/main` = `2c3dd7fe`. **#679 HAS NOT LANDED.**
+
+| PR | state | note |
+|----|-------|------|
+| #654 | ready, BLOCKED | `check` **in_progress** — architect correctly holding |
+| #669 | draft, CLEAN | waiting on #679, then rebase |
+| #671 | ready, UNSTABLE | named red lanes (matrix/bench), triaged |
+| #672 | ready, BLOCKED | check re-run after the lint fix |
+| #675 | draft, CLEAN | **do not ready** — docs-only |
+| #676 | draft, BLOCKED | waiting on #679 |
+| #677 | ready, BLOCKED | matrix red **by design** now |
+| #678 | ready, BLOCKED | **docs-only readied → hit the regression; sent back to draft** |
+| #679 | ready, UNSTABLE | **the fix everything else waits on** |
+| #680 | ready, CLEAN | `check` **still in_progress** — do not land |
+
+### #678 — the worked example of the regression I warned about
+
+Measured on head `8f3a8193`: `ci-ok completed/FAILURE`, `check completed/SKIPPED`.
+Textbook #670×#667. Ruled: **back to draft until #679 lands, then rebase before
+re-readying** — `pull_request` runs use the workflow from the **head branch**, so
+an un-rebased #678 still carries the broken gate even after #679 merges.
+
+The second reason matters more: **a ready PR sitting red emits a false red into a
+board where people are triaging real ones** — the exact noise-over-signal defect
+#670 was written to fix, and the one builder-b named as the deliverable of the
+matrix work. Historian set the precedent by reverting #669/#676 to draft.
+
+**Ordering fault was mine**, and I said so: my keep-docs-only-as-drafts warning
+may well have reached builder-b after they had already readied it.
+
+## 🔴 On a whole-repo linter, separate ERRORS from WARNINGS before attributing
+
+Architect reported last wake that every `check:lint`-flagged file was outside
+their diff. **True on the `b667bdcd` base, wrong on the current one** — and they
+corrected themselves against their own prior report with nothing forcing them to.
+
+`biome` printed *"Found 2 errors. Found 38 warnings."* The **38 warnings are
+genuine main debt** (`migrate.ts` useTemplate, `apps/docs-next` generated files)
+— real, and **non-failing**. The **2 errors were theirs** (organizeImports at
+`:26`, a format deviation) and **alone drove the exit code**.
+
+**"Not my diff" is a claim about the FAILING rows, not the noisy ones — and a
+whole-repo linter guarantees the noisy ones will be someone else's.** This
+sharpens my own caution from last wake: file-level attribution over the full
+output is **too coarse**. Decide which rows the exit code depends on *first*,
+then attribute those.
+
+They used the **pinned biome 2.4.14** with `--write` scoped to the one file.
+Correct: this repo has already been reddened repo-wide once by a floating
+`bunx biome` picking up 2.4.15.
+
 ## C-FEL-428 (#680) — design ACCEPTED, but DO NOT LAND on the visible green
 
 **The `ci-ok` SUCCESS on #680 is not the ready-head result.** Check-runs on head
