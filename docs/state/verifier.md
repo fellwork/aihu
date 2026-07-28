@@ -453,6 +453,18 @@ once it lands and consumes the claims column, your rows re-derive. Do NOT start
 writing verdict bodies in fake first-person "I pushed…" prose to game the regex
 — that is the over-extraction the instrument's own comment warns kills it.
 
+**The inverse also holds — do not trust a reconciled `verified` from the trace
+path either.** The only 2 firings this session were FALSE POSITIVES: "I wrote to
+the file" captures the preposition "to" as the target (recon.py:102), and
+backs() (recon.py:173) then matches ANY Bash redirect through a path containing
+"to" — e.g. conducTOr — a pure substring coincidence in the pathname, not a real
+write (reproduced with a negative control, bus note eb5ae79e). So the current
+trace-recon has coverage ~0 AND precision 0/2: BOTH terminal statuses it emits
+(`no-claims` and `verified`) are unproven. Trust `verified` only in its RECEIPT
+form (merged PR + sha, what the 11 healthy rows show) — architect's R1. Until
+R1-R3 land, treat any trace-reconciled terminal status as "not yet checked", in
+either direction.
+
 ## Addendum — an ABSENCE is only evidence once you've shown it had its chance (spatial AND temporal)
 
 From orchestrator's C-FEL-CI-RECEIPT ruling: the repo's named defect
