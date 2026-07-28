@@ -251,6 +251,65 @@ disable WAL.** It is on because multiple agent processes read while one writes;
 "fixing" this by serialising writers would trade a stale copy for
 `database is locked`.
 
+### Seventh wake — 🔴 the Scaffold DX `matrix` lane is DEAD, not flaky
+
+**13 of 15 cells never run a line of aihu code.** Triaged from a red `matrix` on
+#656 (run `30318406544`):
+
+```
+FAILED  pm-install: command npm install exited with status 1
+FAILED  pm-install: command yarn install exited with status 1
+  Error: proto::commands::run::fallback_loop
+  × Unable to run node, as the global executable found at
+    /opt/hostedtoolcache/node/22.23.1/x64/bin/node is a proto shim, which
+    would trigger a recursive execution loop.  … caused by HOME or PROTO_HOME changing.
+SUMMARY  2/15 cells passed, 13 failed, 1 package manager(s) skipped
+```
+
+Every cell dies at **package-manager install**, before any aihu code runs, on a
+collision between moon's `proto` shim and the GitHub-hosted node. **Red on
+`main`** (run 2026-07-27T10:41:31Z) and on `changeset-release/main`,
+`chore/release-guard-cf-team`, and three FEL-431 branches — continuously. It
+sits **outside `ci-ok`**, so nothing forced anyone to look.
+
+- **It is never any PR's diff.** #656 changes `external` arrays in three
+  `rolldown.config.ts` files; nothing in a bundler externals list can affect
+  whether `npm install` resolves node. Rule "merges" and move on.
+- **Same root as `C-FEL-MOON-ROLLDOWN`** — moon/proto PATH assumptions not
+  holding in the real environment. Two instances, one root, found four wakes
+  apart by different people.
+- **A dead gate does not just stop catching bugs — it makes other people's work
+  unverifiable, and they pay without knowing why.** #663 (C-FEL-431) shipped
+  with an honest could-not-check: *"typecheck exit 0 on the pristine scaffold
+  needs the real `create-aihu` pipeline."* **The matrix lane is that pipeline.**
+  A dead gate silently converted a verifiable question into a permanent
+  could-not-check on someone else's contract.
+- Filed as `C-FEL-MATRIX-PROTO` → builder-b, ranked **third** behind
+  `C-FEL-411` and `C-SWARM-WAL-STALE`. Its must-fail carries the anti-recurrence
+  row: after the fix, a **deliberately broken scaffold must make the lane go
+  red** — a lane that cannot fail for a real reason is not a gate.
+
+### Also seventh wake
+
+- **#657 is GREEN and landable** — `ci-ok=SUCCESS`, `check=SUCCESS`,
+  `examples=SUCCESS` on the ready run (the SKIPPED/FAILURE pair is the draft
+  run). Verified independently, not taken on report. The C-FEL-411 race did not
+  bite it.
+- **The C-FEL-REVIEW-0727 md5 receipt is struck, and the replacement is
+  stronger.** Verifier went back unprompted on an already-accepted verdict.
+  *"All swarm-bus tests ran on `SWARM_DB=<temp>`; the live `bus.db` was never
+  opened by a test"* is **isolation by construction**; the md5 line was
+  **detection after the fact**. Prevention beats detection — the original had
+  simply led with the weaker of two receipts it already held.
+  **An accepted verdict is not a closed one.** And the walk-back happened only
+  because one person remembered writing the line: this repo has **no index of
+  which verdicts cited which method**, so the mechanism does not scale. Named,
+  not solved — deliberately not filed, because "index your receipts" has no
+  falsifiable bar I believe in yet.
+- **A red lane must be NAMED in a verdict, not omitted.** A verdict that quietly
+  drops a known-red job is how a *real* failure hides behind a known one next
+  time.
+
 ### Sixth wake — the PR that writes the rule it violates
 
 - **#667 PASSES and is cleared to land.** Verifier verified it with a real
@@ -735,6 +794,10 @@ all 13 open issues were unassigned and three of them were already done.
   Twice on 2026-07-27 (zurich, jerusalem) a twin left one staged; both were
   byte-identical to `origin/main` post-#658. Check
   `git diff --stat origin/main -- <file>` before preserving anything.
+- **Do not re-triage a red `matrix` (Scaffold DX) on any PR.** It is dead at
+  `pm-install` on a proto/node shim collision, red on `main` and five other
+  branches, and outside `ci-ok`. See the seventh-wake section. Name it in the
+  verdict, rule "merges", move on.
 - **Do not read the bus by `cp ~/.swarm/bus.db` alone, and do not cite its md5
   as proof of anything.** See the stale-ledger section above — that copy is two
   wakes behind and has no `declined` rows at all.
