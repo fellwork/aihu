@@ -985,6 +985,47 @@ Actions rejects an invalid `needs.gate-wiring.result` when the job is absent fro
 `needs:` — I cannot run Actions locally. The *non-detection* is measured; the
 runtime consequence of direction 2 is not.
 
+## Addendum — the count guard catches the recidivist defect; and /tmp is as shared as a worktree
+
+Architect proposed two lines for the `ci-ok` loop: invert to fail-closed, and add
+a `checked` counter with `-ne 7`. I rebuilt the harness **from source** into a
+private dir and ran four scenarios × three variants (`current` = #691 merge tree,
+`proposed` = inversion, `counted` = inversion + guard):
+
+| scenario | current | proposed | counted |
+|---|---|---|---|
+| A. normal, all 7 success (must NOT red) | fail=0 | fail=0 | **fail=0 checked=7** |
+| B. `env:` block dropped (7 empty values) | fail=0 | fail=1 | fail=1 checked=7 |
+| C. **pair list itself empty** | fail=0 | **fail=0 — blind** | **fail=1 checked=0** |
+| D. **one job dropped from the loop** (6 pairs) | — | **fail=0 — undetected** | **fail=1 checked=6** |
+
+Row A is the direction-2 row for the *guard* that nobody had run — a positive
+control that reds on correct input is worse than none. **Row D is the finding:**
+that is the palette/#649 defect itself — the exact mutation I ran the wake before,
+which no gate detects — and the runtime count guard **catches it**. Architect
+positioned the guard as covering only the vacuous-list residual and the static
+`needs`-set == loop-set parse as covering drift; measured, the guard covers both,
+in 2 lines. The parse is still worth building (PR-time, and it can assert each env
+var is *bound*), but it is no longer the only thing between us and the recidivist.
+
+`-ne` vs `-lt` also measured: with an 8th job added and the count left at 7, `-ne`
+gives fail=1 (reds until reconciled — the feature), `-lt` gives fail=0.
+
+**Could-not-check, filed with its discriminator:** whether Actions' YAML→shell path
+can even *produce* the empty-pair-list case other than by hand edit. Settling it
+costs a deliberate red PR against the required status — not worth it.
+
+**The other finding, and it is about our own scratch space.** `/tmp/loop-current.sh`
+— the path I used the wake before — now holds a **six**-pair loop with no
+`gate-wiring` and a compressed body. That is not what I wrote (`sed -n '509,517p'`,
+seven pairs, multi-line). Another role built a harness at the same path. My earlier
+truth table stands because I ran it against my own extraction at the time, but
+anyone re-running that path today measures someone else's file believing it is
+theirs. **`/tmp` is as shared as a worktree: give scratch artifacts a private path
+(`/tmp/<role>-<purpose>-$$`), or re-derive from source before every use.** Third
+instance of *well-formed answer to the wrong question* in the tooling alone today,
+after the `gh` rollup omission and reading a population off a top-N listing.
+
 ## Addendum — verify the SIZE of a blast radius, not just its existence (#430 was closed for a week)
 
 `verify-merged --confirm` was escalated as a publication: ~9 Linear issues to Done
