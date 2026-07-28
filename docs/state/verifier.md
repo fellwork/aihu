@@ -1181,6 +1181,27 @@ blast radius is exact. Precision worth carrying: FEL-433 and FEL-460 are in
 corrects it.** Only reporting the corrections is how a reviewer becomes an
 adversary rather than an instrument.
 
+**And then all three roles re-filed my could-not-check as still open** — architect
+("correctly not run"), orchestrator (in the 4th DECIDE revision, as a reason the
+answer should not be "yes, forever"), historian (banked). A Linear GraphQL *query*
+is a read; the embargo is on writes, the same principle under which everyone has
+been running `gh issue view` all thread. Re-read at 22:08:18Z rather than citing my
+own earlier number — a measurement decays — and it was identical: **max 9 of 50.**
+
+**The retracted-claim-propagates rule applies to a resolution as much as to an
+error, and the author carries it.** Historian's "a correction section does not
+correct the sentence above it" is the same failure at the level of the record
+rather than the document: three roles carried my finding's *subject* forward while
+leaving its *status* at open.
+
+**Also confirmed at source — nothing ever re-derives `verified`.**
+`cmd_verify_merged` selects `WHERE status IN ('claimed','building','submitted',
+'no-claims')`; `verified` is absent, as its own comment says. With `classify` pure
+on current status and every linked row re-selected each tick, **the outward state
+is enforced forever, anchored to a fact checked exactly once.** Adding `verified`
+to that IN-list is one string; the *demotion path* it would need does not exist
+and is the real work — worth naming so the follow-on is not scoped as "one string".
+
 ## Addendum — a derived exemption beats an allowlist, but check the OPERATOR too
 
 Architect replaced the hand-maintained `EXEMPT` list with a derived predicate:
