@@ -586,6 +586,77 @@ async function main(): Promise<void> {
   })
 }
 
+/** The identity `git commit` uses when the ambient config resolves neither a
+ * `user.name` nor a `user.email`. Deliberately the SAME pair that
+ * `scaffold-pipeline.ts`'s `git-init` step passes, so the two implementations
+ * of "initialize the scaffold's repo" cannot drift into disagreeing again —
+ * that divergence is what FEL-431 defect 5 was. */
+const FALLBACK_IDENTITY = { name: 'aihu', email: 'scaffold@aihu.dev' } as const
+
+/** True when `git config <key>` resolves to something non-empty in `dir`.
+ * Must be asked AFTER `git init`, so repo-local config counts. */
+function gitConfigResolves(dir: string, key: string): boolean {
+  const r = spawnSync('git', ['-C', dir, 'config', '--get', key], {
+    stdio: ['ignore', 'pipe', 'ignore'],
+    shell: false,
+    encoding: 'utf8',
+  })
+  return r.status === 0 && r.stdout.trim().length > 0
+}
+
+/** `git init` + `add -A` + `commit`, stopping at the FIRST failure so a later
+ * command cannot paper over an earlier one.
+ *
+ * Two defects this fixes, both of which shipped in the `create-aihu` wizard
+ * while the `aihu app` pipeline path had already been fixed (#632):
+ *
+ *  1. **No exit status was read.** All three commands ran with `stdio:
+ *     'ignore'` and their statuses discarded, then the wizard printed a green
+ *     `✓ git init` unconditionally. `git commit` FAILS OUTRIGHT when no
+ *     identity is resolvable — the normal state of CI runners and fresh
+ *     containers — so the checkmark asserted a commit that did not exist. The
+ *     result is an unborn HEAD, and `git rev-parse HEAD` then exits 128, which
+ *     is exactly the FEL-431 defect 5 breakage: moon cannot answer a question
+ *     about HEAD, so `dev`, `build` and `typecheck` all die — every command
+ *     this wizard prints as the next step.
+ *  2. **Identity was taken from ambient config only.** Ambient is the RIGHT
+ *     default here, unlike the pipeline path: a human running the wizard on
+ *     their own machine should author their own first commit. But when nothing
+ *     resolves there must be a fallback, or point 1's failure is merely
+ *     reported rather than avoided.
+ *
+ * Returns the failing command verbatim so the caller can name it. `status` is
+ * `number | null` — `spawnSync` reports null when the child was killed by a
+ * signal rather than exiting, and null is a failure, not a pass. */
+export function initGitRepo(
+  targetDir: string,
+): { ok: true } | { ok: false; failed: string; status: number | null } {
+  const run = (args: readonly string[]): { ok: true } | { ok: false; failed: string; status: number | null } => {
+    const r = spawnSync('git', [...args], { stdio: 'ignore', shell: false })
+    if (r.status === 0) return { ok: true }
+    return { ok: false, failed: `git ${args.join(' ')}`, status: r.status }
+  }
+
+  const init = run(['init', targetDir])
+  if (!init.ok) return init
+  const add = run(['-C', targetDir, 'add', '-A'])
+  if (!add.ok) return add
+
+  // Asked after `init` so repo-local config counts, and asked per-key because
+  // a machine can resolve one and not the other.
+  const identity =
+    gitConfigResolves(targetDir, 'user.name') && gitConfigResolves(targetDir, 'user.email')
+      ? []
+      : [
+          '-c',
+          `user.name=${FALLBACK_IDENTITY.name}`,
+          '-c',
+          `user.email=${FALLBACK_IDENTITY.email}`,
+        ]
+
+  return run(['-C', targetDir, ...identity, 'commit', '-m', 'chore: initial aihu scaffold'])
+}
+
 /** Shared scaffold + git + next-steps reporting, used by both the interactive
  * and non-interactive paths. */
 async function scaffoldAndReport(
@@ -616,13 +687,19 @@ async function scaffoldAndReport(
 
   // ── Git ───────────────────────────────────────────────────────────────────
   if (initGit) {
-    spawnSync('git', ['init', targetDir], { stdio: 'ignore', shell: false })
-    spawnSync('git', ['-C', targetDir, 'add', '-A'], { stdio: 'ignore', shell: false })
-    spawnSync('git', ['-C', targetDir, 'commit', '-m', 'chore: initial aihu scaffold'], {
-      stdio: 'ignore',
-      shell: false,
-    })
-    process.stdout.write(`\n  ${green('✓')} git init\n`)
+    const git = initGitRepo(targetDir)
+    if (git.ok) {
+      process.stdout.write(`\n  ${green('✓')} git init\n`)
+    } else {
+      // Do NOT print the checkmark. The scaffolded files are on disk and are
+      // fine; only the repo is missing, so this is a warning, not a failure of
+      // `create`. But it must be visible: an unborn HEAD makes `moon` exit 128
+      // on every command this wizard is about to print as the next step.
+      process.stdout.write(
+        `\n  ${yellow('!')} git init skipped — \`${git.failed}\` exited ${git.status ?? 'on a signal'}\n` +
+          `    ${dim('The project is scaffolded; only the git repo is missing. Run `git init` yourself.')}\n`,
+      )
+    }
   }
 
   // ── Next steps ────────────────────────────────────────────────────────────
