@@ -251,6 +251,68 @@ disable WAL.** It is on because multiple agent processes read while one writes;
 "fixing" this by serialising writers would trade a stale copy for
 `database is locked`.
 
+### Ninth wake — `.git` as a FILE vs a DIRECTORY decides whether /tmp is fatal
+
+**The architect's `C-SWARM-SCHEMA` work was committed but unpushed, in
+`/tmp/aihu-swarm-zod`** — the state the durability rule exists to prevent. It was
+**less dangerous than it sounds**, and telling the two apart is worth knowing:
+
+```
+/tmp/aihu-swarm-zod/.git is a FILE →
+  gitdir: /Users/smcguirt/conductor/repos/aihu/.git/worktrees/aihu-swarm-zod
+main clone holds the ref:  refs/heads/feat/swarm-state-zod = 7b8dc599
+and the object:            git cat-file -t 7b8dc599 → commit
+```
+
+**`.git` as a FILE = a worktree; objects and refs live in the PARENT clone,** so
+a `/tmp` wipe costs the checkout, not the commit. **`.git` as a DIRECTORY = a
+standalone clone, and then `/tmp` really is the only copy.**
+
+**I pushed it** (`feat/swarm-state-zod` → `7b8dc599`, verified via `ls-remote`)
+at the author's explicit request, on a clean tree. Pushing a feature branch is
+not merging, tagging, or releasing — it is inside what a wake may do, and the
+alternative was real work living on one machine, invisible to the human and to
+every gate. **I did NOT open the PR:** the architect has a body written, and
+opening one with my words would discard theirs and risk misstating the
+`dashboard.py`-is-ungated caveat, which is its most important sentence.
+
+- **Ratified:** hand-rolled validator over `zod` — `zod` is absent from the
+  monorepo and `@aihu/use` is deliberately dependency-minimal. "Same substance,
+  zero new dep, cheap to flip" is the right trade, and *cheap to flip* is what
+  makes it safe to accept.
+- The schema must-fail row they added unprompted is the one that matters: a
+  renamed field on a CLOSED array names the error **and `state()` keeps the last
+  good frame — never blanks to empty.** A schema failure that empties the DECIDE
+  bucket is indistinguishable from "nothing to decide."
+
+### Also ninth wake
+
+- **#668 PASSES** (verifier, from their own source-built compiler, both
+  directions). Three things beyond the ask: they **grepped the client bytes**
+  for `reports:read`/`rateLimit`/`registerAgentMetadata` and found zero — my
+  ruling *asserted* the sidecar is not client bytes; they proved it, and a hit
+  there would have made option (b) wrong. They **measured** the manifest
+  collision (two components → one `agent-manifest.json` listing only the second),
+  converting `C-FEL-434b` row 2 from argument to reproduction. And they **named
+  what is still owed**: the policy-not-public guarantee is unverified as of #668
+  and lives on 434b.
+- **#656/#667/#668 all `ci-ok=PASS`.** #667's own `check` **ran and passed** on
+  its own `plan-a.yml` diff — the fix is not inverted, confirmed by execution as
+  well as by the matcher.
+- 🟡 **#667 `bench=FAIL` is not the diff — but it is not proven noise either.**
+  The `bench:` filter includes `.github/workflows/plan-a.yml`, so a workflow diff
+  **trips the filter, not the numbers**; `bench` is outside `ci-ok`; the STOP on
+  re-baselining stands. **But** `bench` is normally SKIPPED, so this is one of
+  the few times it has actually run, and it reports **cellx 807→910 ns (12.7%)**
+  and **wide-fanout-100 5363→6351 ns (18.4%)** against the frozen 2026-05-25
+  baseline. That is either two months of real drift in `@aihu/signals` or the
+  high-variance flakiness `C-FEL-409` targets. **One sample cannot tell.**
+  Recorded as could-not-check, not dismissed: *"red-by-construction" answers
+  whether it blocks the PR; it does not answer whether the numbers mean
+  something.*
+- **Third crossed message this session.** Naming the message id in every ruling
+  is now standing on both sides — cite the id when re-raising.
+
 ### Eighth wake — a contract of mine was unbuildable, and only the builder's pre-build check caught it
 
 **`C-FEL-READMESYNC-JOB` could not be built as written, and the defect was in my
@@ -853,6 +915,12 @@ all 13 open issues were unassigned and three of them were already done.
   Twice on 2026-07-27 (zurich, jerusalem) a twin left one staged; both were
   byte-identical to `origin/main` post-#658. Check
   `git diff --stat origin/main -- <file>` before preserving anything.
+- **Do not re-triage `#667`'s red `bench`.** Ruled: the workflow diff trips the
+  bench FILTER, not the numbers; `bench` is outside `ci-ok`; the re-baselining
+  STOP stands. The 12.7%/18.4% deltas remain an OPEN could-not-check for
+  `C-FEL-409` — do not close them as noise, and do not re-baseline to hide them.
+- **Do not push or re-push `feat/swarm-state-zod`.** Already on the remote at
+  `7b8dc599`; the draft PR is the architect's to open with their prepared body.
 - **Do not re-litigate `C-FEL-READMESYNC-JOB`'s surface.** The contract row
   carries a STALE, unbuildable surface (no way to amend a claimed bar); the
   ruling is on the bus — lazy `rolldown` import, surface amended to include
