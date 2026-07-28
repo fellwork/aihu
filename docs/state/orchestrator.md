@@ -94,6 +94,69 @@ Rust binary** (in-repo, tested, already correct-postured) and leave
 correctness defect by hand-patching the ledger it corrupted is how the next
 person learns the ledger is editable.
 
+## 🔴🔴 A FOURTH KIND OF RED — `red-because-an-unlanded-fix`. This one is MINE.
+
+#685 went red on head `4112f541` (run `30366941091`, `check` FAILURE
+14:09:26→14:11:08, `ci-ok` FAILURE same run). **I read the failing job, not the
+summary:**
+
+```
+editor:typecheck | tests/component-compile.test.ts(16,31): error TS2307:
+    Cannot find module '@aihu/compiler' or its corresponding type declarations.
+```
+
+**That is `C-FEL-411` verbatim** — the editor→compiler moon-ordering race. The
+commit touched **one state file**; a build-ordering race is a property of the
+graph, not of that diff. And **#671 is the fix** — `gh pr diff 671 --name-only`
+lists `packages/editor/moon.yml` and `packages/compiler/moon.yml`, exactly the
+edge that failed. Green, MERGEABLE, **unlanded for twelve hours.**
+
+| category | meaning | response |
+|---|---|---|
+| red-because-broken | the diff is bad | investigate |
+| red-because-dead | the lane could not produce a result | fix the lane |
+| red-because-cancelled | never reached a verdict | re-run |
+| **red-because-an-unlanded-fix** | **known, fixed, reviewed, green, unmerged** | **LAND IT** |
+
+**A stalled queue does not just delay work — it lets a solved problem keep
+charging rent, and manufactures red that every reader re-triages from scratch.**
+Same noise-over-signal defect #670 was written to fix, arriving from the merge
+queue instead of the gate. **#671 promoted to second in the landing order on this
+evidence.**
+
+### 🔴 I published a wrong queue row — #685 is NOT landable
+
+I listed it last wake. Its head then moved to `4112f541` and it is BLOCKED. It
+re-enters after a re-run or after #671 lands, **and it still owes wiring its
+`--selftest` into `check:ci`.** Builder flagged the head-move themselves — they
+had quoted a receipt for `2ce6b408`, pushed, and reported that **their own verdict
+had become a stale receipt (face 1 of the detector they had just shipped)** rather
+than quietly re-measuring. Their follow-up reading (*"could-not-check, no ci-ok
+yet"*) has itself since aged into wrong: `ci-ok` reported, as FAILURE.
+
+**Banked from them — the mechanism under the push-then-ready habit:**
+*"ready-then-push gives you one run; push-then-ready gives you two and the earlier
+one lies."* **Readying is itself a workflow event**, so the ordering question is
+only ever *which sequence creates a second run.* I had been carrying the habit
+without the mechanism.
+
+## 🔴 A SECOND ORCHESTRATOR INSTANCE IS ACTIVE — confirmed, not suspected
+
+builder-b acknowledged a stand-down on `C-FEL-CE-TAGS`, **a contract from no wake
+of mine.** The bus shows why:
+
+```
+14:02:36  orchestrator -> builder-b  [dispatch]  C-FEL-CE-TAGS
+14:03:15  orchestrator -> builder-b  [note]      STAND DOWN — running it through direct subagents
+```
+
+The **interactive** orchestrator, working with the founder. Legitimate — not a
+spoof, not a lost contract. **Consequences:** a message signed `orchestrator` may
+come from either instance, so a role seeing a dispatch that contradicts a ruling
+should say so on the bus rather than pick one. And this is **exactly why I do not
+merge from a wake** — the queue I publish is *advice to them*, never an action I
+take. Do not re-dispatch `C-FEL-CE-TAGS`.
+
 ## Rulings — twenty-second wake (2026-07-28)
 
 ### `C-SWARM-RECON-AUTHORITY` — architect CONTINUES; R3 corrected and RE-SEQUENCED
@@ -2901,6 +2964,13 @@ all 13 open issues were unassigned and three of them were already done.
   Read that agent's own bus traffic first. Twins share `(workspace, role)` and
   the Slack bot stamps `username=<role>` for anyone, so attribution by username
   is impossible. I got this wrong about verifier and corrected it publicly.
+- **Do not re-triage a `TS2307 Cannot find module '@aihu/compiler'` in
+  `editor:typecheck`.** It is `C-FEL-411`, #671 fixes it, and #671 is green and
+  unlanded. Name it, rule "not the diff", move on.
+- **Do not re-dispatch `C-FEL-CE-TAGS`.** It belongs to the interactive
+  orchestrator, who stood it down deliberately at 14:03:15Z.
+- **Do not ship R5's `no-claims` guard inside #686.** Design yes, enforcement no —
+  it freezes nine need-declaring contracts until the extractor lands.
 - **Do not read #686 as having met must-fail row 3.** It is **re-sequenced** to
   land with or after the extractor fix — a `no-claims` guard shipped alone stalls
   the DAG.
