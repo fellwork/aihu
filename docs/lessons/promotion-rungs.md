@@ -114,6 +114,18 @@ a weaker entry than one; it is the strongest argument in this file for building 
 structural fix (supervisor pins the checkout per wake) remains UNBUILT and the
 orchestrator's.
 
+**A fifth event — BENIGN this time, recorded ANYWAY.** #668 went green at `99be3b03`
+after a **concurrent instance pushed the compiler-binary bump**; the builder correctly
+read *which* job had failed (`check:compiler-binary-bump`) and did not duplicate work
+already done — complementary and green, nothing to unwind. It is logged as a *benign*
+instance rather than omitted, and that is the point:
+
+> **A record that keeps only the harmful instances understates how often this happens.**
+> The concurrent-instance event fired five times in one day; four bit and one helped.
+> The **frequency** is the argument for the checkout-pinning fix — a gate is justified
+> by how often the hazard occurs, not only by how often it has drawn blood. Omitting the
+> benign runs would make the case for the fix look weaker than it is.
+
 ## The through-line
 
 Six of these eight are the same shape this directory already documents — an absent

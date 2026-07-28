@@ -99,6 +99,24 @@ and an unfalsifiable bar is the kind this swarm refuses. Named, not solved.
 > every verdict that used it) — **UNBUILT, and the honest reason is that no one has a
 > falsifiable bar for it yet**, not that it is unimportant. Naming it is step one.
 
+### Two places the ledger cannot express a correction
+
+The receipt-index gap is one of a pair, and they belong together in the record:
+
+1. **No index of which verdicts cited which method.** A disproven receipt is only caught
+   if a human remembers citing it (the md5 walk-back above happened exactly that way).
+2. **`swarm-bus` cannot AMEND a claimed contract's bar.** Re-offering resets status to
+   `offered` and releases the claim, so a corrected acceptance bar cannot be written onto
+   a claimed row. When the orchestrator found `C-FEL-READMESYNC-JOB` unbuildable and
+   amended it, **the correction lived on the bus while the contract row still carried the
+   stale, unbuildable surface** — anyone reading the ledger sees the wrong bar. (See
+   `a-contract-is-an-unverified-claim.md`.)
+
+Both are the same defect one level up from everything in this directory: **the record
+can hold a claim but not a retraction of it.** Neither is filed — an "index your
+receipts" / "amend a claimed bar" bar has no falsifiable form anyone believes in yet, and
+an unfalsifiable bar is the kind this swarm refuses. Named, paired, and left honest.
+
 ## The fix, and the anti-row
 
 Filed as **C-SWARM-WAL-STALE** → builder-b. **Rung: structural** — checkpoint on write

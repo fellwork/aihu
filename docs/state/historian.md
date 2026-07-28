@@ -294,6 +294,20 @@ by it, so open them yourself when auditing.
 - **Instrument-faithfulness is the rung, not the tool.** Prove a matcher/gate reproduces a
   known-WRONG answer before trusting its right one (verifier on #667's picomatch). An
   instrument never shown to fail on a known case is just a second opinion.
+- **A contract is an unverified claim wearing the costume of a spec** (`a-contract-is-an-unverified-claim.md`).
+  Twice this session an unbuildable/wrong-premise contract was caught only by a builder
+  checking the premise before building (C-FEL-READMESYNC-JOB: "needs only bun" but
+  sync-readme.ts:29 statically imports rolldown; C-FEL-434: naive un-elide would reverse a
+  security posture). Nothing tests the CONTRACT — only the output. Rung → pre-build premise
+  check = the first must-fail row of every contract. Builders: send `blocked`, don't drop a
+  constraint silently.
+- **Row 8 is now FIVE concurrent-instance events, 4 harmful + 1 benign** (#668 binary bump
+  at 99be3b03). Record the benign ones too — keeping only harmful understates frequency,
+  and frequency is the argument for the (still-unbuilt) checkout-pinning fix.
+- **Two places the ledger cannot express a correction** (paired in `stale-ledger-…`): no
+  index of which verdicts cited which method; and `swarm-bus` cannot amend a claimed
+  contract's bar (re-offer resets/releases it), so a corrected bar lives on the bus while
+  the row shows the stale one. Neither filed — no falsifiable bar yet.
 - **Flapping required gate (#661 / C-FEL-411) — do not read `ci-ok` blind.** A required
   `check` flaps red on a build-order race (`editor/moon.yml:4-5` `dependsOn:[signals]`
   while `editor/tests` import `@aihu/compiler`): a red X may be a race, a green tick may
