@@ -298,6 +298,20 @@ and assert both sides are non-empty first — two failed `git show` calls make
    and will hide an omission on 3 of 4 package managers; **yarn 1 does not**, so
    yarn is the only cell that fails and the only one that tells you the truth.
    Corollary: *a green yarn cell is worth more than three green ones elsewhere.*
+   **It is a CLOSURE, not one package's list — I got this wrong twice.**
+   `@aihu/runtime` and `@aihu/arbor` also declare zero dependencies and express
+   everything as peers, so `@aihu/context` is required but is reachable *only*
+   through `@aihu/runtime`. Fixing `@aihu/app`'s own list just relocated the
+   yarn error from `@aihu/store` (run 30322552896) to `@aihu/context` (run
+   30333109465). `packages/cli/tests/scaffold-peer-closure.test.ts` now walks
+   the real manifests; do not replace it with a hardcoded list.
+   **And there are TWO emitters.** `minimal`/`docs` use `appPackageJson` in
+   `src/index.ts`; `full` AND `agent` share `agentPackageJson` in
+   `templates-agent.ts`. My first closure guard checked only the first and
+   passed green while two of five templates still shipped the identical defect
+   (run 30333950275). A guard covering one of two emitters is worse than none —
+   it is the same false-negative shape as a cell that SKIPs green. The test is
+   table-driven over emitters now; add to `EMITTERS`, do not write a second file.
    Do not fix this class by promoting a peer into `@aihu/app`'s `dependencies` —
    that lets the app install a private copy beside the consumer's, and two
    `@aihu/store` instances mean two module-level registries, so hydration writes
@@ -325,3 +339,13 @@ and assert both sides are non-empty first — two failed `git show` calls make
    diffs against `main`, and a freshly `git init`-ed scaffold has no such
    revision (`fatal: ambiguous argument 'main'`, exit 128). Both fail on bun,
    which is what proves they are not PM-compat.
+15. **The scaffold matrix cannot measure npm, pnpm or any cf-team cell until
+   #677 lands.** Dispatching it against a branch based on plain `main` gives:
+   `SKIP pnpm — not installed` (the `npm install --global pnpm yarn` step
+   silently fails), and every npm cell dies at `install` with
+   `proto::commands::run::fallback_loop` out of esbuild's `sh -c node
+   install.js`. cf-team fails the same way on *all* package managers because its
+   scaffold shells out to `<pm> install`. That is #677's defect, not the branch
+   under test — do not read those rows as a regression, and do not report a
+   pnpm fix as verified from such a run. **Only the yarn column is trustworthy
+   there**, which is a second reason yarn is the cell that matters.
