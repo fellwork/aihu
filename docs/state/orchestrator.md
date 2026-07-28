@@ -43,7 +43,81 @@ is **not** the coordination or state layer. It went unused for ~20 hours on
 2026-07-25 and the one page it holds was stale within 30 minutes of being
 written. Do not treat it as truth.
 
-## ✅ THE TTL PREDICTION SETTLED — the reaper fired within 10s of the predicted instant
+## 🔴🔴🔴 DO NOT LAND #689 — its head REVERTED the fix it exists to ship
+
+**#689 is READY, so it is landable by anyone reading builder's (honest, and true-at-
+the-time) verdict.** Caught with `git log` / `git show --stat`, **not** `gh pr diff`
+— my own near-miss lesson paying for itself one wake later.
+
+```
+builder reported head 18d6d6e8. ACTUAL head: e85c839d
+git log origin/main..e85c839d:
+  42297934  fix(ci): check-moon-graph reads code, not text about code   +89/-1
+  e85c839d  revert(build): drop the plugin-agent-readiness → signals edge (d10674ad)
+git show --stat e85c839d  → TWO files, not one:
+  packages/plugin-agent-readiness/moon.yml    1 -     ← the intended revert
+  scripts/check-moon-graph.ts                90 +---  ← THE ENTIRE FIX, REVERTED
+grep -c stripNonCode:  42297934 → 2 · HEAD → 0 · main → 0
+```
+
+**If it merges: the (a) edge is removed AND the extractor is still blind ⇒ main goes
+red a second time from the identical cause.**
+
+**The likely mechanism is the cruellest one today: THE MUST-FAIL MUTATION DELETED THE
+FIX.** Builder's protocol was revert-`stripNonCode`-to-identity → observe `EXIT=1` →
+restore; the revert commit's content is consistent with the tree being captured
+**mutated**. *The test written to prove the fix is load-bearing is what removed it.*
+**A COMMIT MESSAGE IS NOT A DIFF** — that subject line names 1 of 2 files, and nobody
+would look for a 90-line deletion under it.
+
+**Not a competence failure — the gap is: they measured the tree and then committed
+again.** The remedy is the void clause they already used on #685, applied to their
+own head sha. **One command gates the merge:**
+`git show <head>:scripts/check-moon-graph.ts | grep -c stripNonCode` **must be 2.**
+
+### 🔴 MY defect: I dispatched a contract row that does not exist
+
+```
+builder: swarm-bus claim --id C-FEL-MOONGRAPH-LITERALS --role builder → exit 2, "no contract"
+me:      swarm-bus offer … → "--issue is required. A contract without a bidirectional
+                              acceptance bar is a wish, not a contract."
+```
+
+**I dispatched in a NOTE and named a claim command for a row I never created**, so
+their verdict is attached to a contract the ledger has never heard of. *A dispatch
+that creates no row is a wish, not a contract* — **the tool said exactly that when I
+tried to fix it, and I had skipped the step it guards.** They flagged it rather than
+proceeding silently (right) and built anyway because main was red (also right).
+**I did NOT invent an `--issue` to satisfy the validator** — that is the false-link
+trap I ruled on for `C-SWARM-P0`. **Left in DECIDE** for the interactive session to
+file the tracking issue and create the row. Builder's work is real and must not be
+redone.
+
+## ✅ MAIN IS GREEN — first trustworthy receipt on main today
+
+`origin/main = 3891300a` (fetched 12:27:49) · run `30377446642`: **check SUCCESS and
+ci-ok SUCCESS, same run.** The red is over — **which removes the urgency argument
+that justified building without a row, and means #689 can take the time to be right.**
+
+## ✅ THE TTL PREDICTION SETTLED — twice, and the second one makes it conclusive
+
+**Architect pre-registered a second check precisely because one expiry-timed death
+could be coincidence** (a daemon also exits on `completed`/`lost`). It was not.
+
+```
+12:29:52 — Jul 27 20:28:23 GONE (due 12:28:23) · Jul 27 20:28:28 GONE (due 12:28:28)
+           new oldest Jul 27 21:56:59, due 13:56:59, correctly still alive
+```
+
+**Three expiry-timed deaths matching prediction to within seconds.** The mechanism is
+the TTL, not chance. `ce160` still 1016 — correct, its window opens 16:50:59; **do
+not read that as the reaper failing, it is a different cohort.**
+
+**The sequence worth copying:** architect named their own bias out loud (four times
+reaching early for the confirming measurement), then **pre-registered a confirmation
+they had not yet earned.**
+
+## ✅ THE FIRST TTL EXPIRY — the reaper fired within 10s of the predicted instant
 
 Four agents' watchers died with their sessions before resolving this. **I ran it and
 held the window open rather than reaching early** (architect misjudged this clock
