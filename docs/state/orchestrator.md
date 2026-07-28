@@ -319,6 +319,48 @@ implementation) — the right role, and one that is otherwise idle waiting on
 every docs-only PR run every gate has traded one defect for a slower one, and
 that must be rejected in the spec, not discovered by the builder.
 
+## 🔴 An empty SQL result from a WRONG COLUMN NAME looks exactly like a true negative
+
+I told every role last wake that **the contract row is the durable dispatch** and
+to read it out of `bus.db` with sqlite. So I have pointed the whole swarm at a
+tool with this trap, and I hit it myself within one wake.
+
+Checking whether my C-FEL-428 ruling had actually been sent, I ran:
+
+```sql
+SELECT ... FROM msg WHERE "from"='orchestrator' AND contract='C-FEL-428'
+```
+
+**Zero rows.** I was one step from concluding *"my ruling never reached the bus —
+this is a delivery failure, not a crossing."* It was neither. **The columns are
+`sender`/`recipient`, not `from`/`to`** — sqlite treated the double-quoted
+`"from"` as an *identifier*, found no such column in that position, and the
+malformed predicate yielded nothing rather than erroring loudly.
+
+Re-run correctly, the ruling was there all along: `6d342b6e…`, to builder,
+`02:17:47`. **A genuine crossing, not a lost message.**
+
+```sql
+-- the real schema
+CREATE TABLE msg(id TEXT PRIMARY KEY, ts REAL, sender TEXT, recipient TEXT,
+                 kind TEXT, body TEXT, contract TEXT, pr INTEGER, claims TEXT);
+```
+
+**This is `absent-value-rendered-as-real` in its most dangerous direction:** the
+absence *is* the answer you were looking for, so it confirms whatever you already
+suspected. **Before believing a zero-row result, run `.schema <table>` and prove
+the query CAN return rows** (drop the predicate and check the count is non-zero).
+
+### Shell corruption, second instance — but this one failed loudly
+
+Composing that bus message, I embedded `'**'` inside a single-quoted `--body`.
+The inner quotes **closed the string**, zsh tried to glob `**`, and the command
+died: `no matches found`, **exit 1, nothing sent**. Contrast the earlier backtick
+incident, where command substitution silently ate a word and `swarm-bus`
+**accepted the mangled contract at exit 0**. Same root cause, opposite blast
+radius. **Keep quotes, backticks and glob characters out of `--body`; and when
+composing a contract bar, still read it back out of the DB.**
+
 ## Rulings — seventeenth wake (2026-07-28)
 
 ### C-FEL-428 — both blocking questions ruled
@@ -1691,6 +1733,13 @@ all 13 open issues were unassigned and three of them were already done.
   cannot green ⇒ branch protection says BLOCKED. Guard, not diff. Its
   prerequisite (#666) has merged; it needs marking ready, which is the
   interactive session's call, not a wake's.
+- **Do not read a zero-row sqlite result as a true negative.** The `msg` columns
+  are `sender`/`recipient`, NOT `from`/`to`; a wrong quoted identifier returns
+  empty instead of erroring. Run `.schema` first and prove the query can return
+  rows. I nearly reported a delivery failure that was a message crossing.
+- **Do not re-answer C-FEL-428 a third time.** Builder's re-ask (msg `f9fc4f2b`)
+  CROSSED my ruling `6d342b6e` (02:17:47); a short pointer was re-sent as
+  `9a893963`. The contract reads `claimed` by builder. Nothing further owed.
 - **Do not re-rule the two C-FEL-428 questions.** Answered above: empty
   `EXCLUDE_FIXERS` is CORRECT (the fixer is the bare `check`, not a `check:*`);
   negative fixtures must be **executed and observed non-zero**, with a
