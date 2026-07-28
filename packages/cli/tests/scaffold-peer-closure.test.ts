@@ -3,6 +3,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { appPackageJson } from '../src/index.ts'
+import { agentPackageJson } from '../src/templates-agent.ts'
 
 /**
  * C-FEL-SCAFFOLD-PM-COMPAT — the scaffold must declare the TRANSITIVE PEER
@@ -59,13 +60,30 @@ function peerClosure(roots: readonly string[]): Set<string> {
   return out
 }
 
+/**
+ * EVERY package.json a scaffold can emit, not just the one that happened to be
+ * broken first.
+ *
+ * The first version of this guard checked `appPackageJson` alone and passed
+ * while `full` and `agent` were still shipping the identical defect — those two
+ * templates share `agentPackageJson`, a second emitter the test never looked at
+ * (run 30333950275: minimal/docs × yarn went fully green, full/agent × yarn
+ * still failed on `@aihu/context`). A guard that covers one of two emitters is
+ * worse than none, because it reads as coverage.
+ */
+const EMITTERS: ReadonlyArray<[string, () => string]> = [
+  ['appPackageJson', () => appPackageJson('demo', 'bun', false)],
+  ['appPackageJson (css-engine)', () => appPackageJson('demo', 'bun', true)],
+  ['agentPackageJson', () => agentPackageJson('demo', 'bun')],
+]
+
 describe('scaffold declares the transitive peer closure', () => {
-  for (const withCssEngine of [false, true]) {
-    it(`covers every first-party peer (css-engine: ${withCssEngine})`, () => {
-      const pkg = JSON.parse(appPackageJson('demo', 'bun', withCssEngine))
+  for (const [label, emit] of EMITTERS) {
+    it(`covers every first-party peer — ${label}`, () => {
+      const pkg = JSON.parse(emit())
       const declared = new Set([
-        ...Object.keys(pkg.dependencies),
-        ...Object.keys(pkg.devDependencies),
+        ...Object.keys(pkg.dependencies ?? {}),
+        ...Object.keys(pkg.devDependencies ?? {}),
       ])
 
       // Walk from what the scaffold itself lists — so a package added to the
