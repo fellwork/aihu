@@ -55,6 +55,25 @@ where code exists; each was opened before being written here.
 | 7 | The dashboard showed a **stale** contract as an agent's *current task*, and **hid** that one agent held **two** contracts. | `~/.swarm/dashboard.py` — the per-role current-task query had **no `ORDER BY`** and took `fetchone()`, so SQLite returned an arbitrary row (yesterday's), and one row hid the multiplicity. The fix comment is at `:87-93`. | **structural** — fixed at `dashboard.py:97-98`: `… ORDER BY ts DESC` + `fetchall()`, and it now **surfaces** multiple holds instead of hiding them. Same family as `team-read-latest-ordering-bug.md`. |
 | 8 | Force-pushed onto an **already-merged** branch, orphaning a lessons commit. A worktree that **changed identity between the agent's turns** left the checkout on a different branch than the agent last saw. Disclosed unprompted; verified nothing was endangered — `#639` merged at `e71f80c0` **before** the push, and the orphaned tip `e89e3c83` is **not** an ancestor of `origin/main`, so no live work was touched. | Not a code line — a **shared checkout with no per-agent identity**. `git worktree list` shows 100+ worktrees; nothing pins which branch a role's checkout sits on across wakes, so the checkout the agent last saw is not necessarily the one it commits to. The agent's mitigation — `git branch --show-current` before every commit — is correct but **remembering-dependent**. | **prose → structural.** The branch-check-before-commit rule is **prose, the weakest rung**: it holds only while the agent remembers. The durable fix is the **supervisor pinning the checkout/branch per wake** (owned by the orchestrator, not the historian). See `checked-thing-is-not-the-changed-thing.md`, "shared checkout." |
 
+### Incident 8 — recurrence tally (same day, after the row was written)
+
+The clearest proof in this file that **the rung, not the writing-down, is what holds:**
+after row 8 was banked, the same shared-checkout hazard fired **twice more the same
+day**, both verified by the orchestrator as **byte-identical to `origin/main` after
+#658 (`622fa289`)** — so no work was lost, but that is now **luck three times**:
+
+- **`aihu/zurich`** — `CLAUDE.md` went **staged mid-build** under builder-b.
+- **`aihu/jerusalem`** — the worktree **switched branches** under verifier.
+
+Three instances, **one rung, unchanged: prose (the `git branch --show-current` habit),
+still prose.** The structural fix — **the supervisor pinning each role's checkout per
+wake — is UNBUILT, and owned by the orchestrator, not the historian.** This entry is
+deliberately the honest one: *"prose rung, still prose"* after three recurrences. A
+lesson that keeps recurring at the same rung is not a failure of the lesson; it is the
+evidence that earns the gate. (These two are recorded — no code `file:line`, because
+the mechanism is the *absence* of checkout pinning — on the orchestrator's verification,
+not re-derived by the historian across other worktrees.)
+
 ## The through-line
 
 Six of these eight are the same shape this directory already documents — an absent
@@ -119,6 +138,15 @@ recirculation claim is carried as the architect's, its rung the same shape:
 `423` (first-half-done + remainder-covered-by-`434`) and the selector fix are the
 **orchestrator's / reconcile's** calls, not the historian's — banked here so they are
 not re-derived a fifth time.
+
+**Disposition (same day):** the orchestrator acted on this bank — `C-FEL-423` was
+**declined**, recon naming `#440` + `#622` as the first half and `C-FEL-434` as the
+covering contract, and `C-GH-478` was **declined as a duplicate of `C-FEL-GH478`** by
+the same reasoning. So the **prose rung was exercised by hand, twice, and it worked** —
+which is exactly why the structural gate has not been built: the manual rung keeps
+holding just well enough. That is the trap. The dedup keyed on **declared surface**
+(`main.rs:1312-1344`'s sibling) remains **unbuilt**; today it is a human reading
+`emit.rs`.
 
 ## Related
 

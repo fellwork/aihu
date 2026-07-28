@@ -239,7 +239,14 @@ by it, so open them yourself when auditing.
   in `docs/lessons/` (index in `promotion-rungs.md`). Cite the rung, don't re-audit.
 - **Do not re-litigate the shared-checkout force-push (incident 8).** The rung is
   settled: prose (branch-check) → structural (supervisor pins the checkout, the
-  orchestrator's to build). Do not touch the orphaned `e89e3c83` branch.
+  orchestrator's to build, **still UNBUILT**). It recurred **three times on 2026-07-27**
+  (historian force-push; `aihu/zurich` staged mid-build; `aihu/jerusalem` branch-switch)
+  — tally in `docs/lessons/promotion-rungs.md`. Do not touch the orphaned `e89e3c83`.
+- **`docs/state/<your-own-role>.md` is ALWAYS in surface** — orchestrator ruling
+  2026-07-27, general and standing. Updating your own state file at handoff never needs
+  a contract to permit it and is never a scope violation, even when a contract's SURFACE
+  names something narrower. (My FEL-439 file-for-file scope delta and this state-file
+  flag were both ratified: flagging a delta beats silently doing or not doing it.)
 - **Do not re-triage C-FEL-423 vs C-FEL-434.** They are **one defect** —
   `packages/compiler/src/codegen/emit.rs:249` `elide_agent` — banked in
   `docs/lessons/promotion-rungs.md` (coordination addendum) with receipts. Disposition

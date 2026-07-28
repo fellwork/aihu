@@ -301,11 +301,15 @@ every green run of it was read as evidence, and every one of them was measuring 
 - **A skip must be neutral, not green** — see #10 in
   `absent-value-rendered-as-real.md`. Open, unassigned.
 - **Per-agent checkout ownership** is enforced by nothing but a social convention
-  (*"I will post before I move it"*). **Recurred with real damage on 2026-07-27**
-  (instance #31): a worktree that changed identity between turns led to a force-push
-  onto an already-merged branch. The `git branch --show-current`-before-every-commit
-  rule is prose that depends on remembering; **the durable fix is structural — the
-  supervisor pins each role's checkout/branch per wake.** Owned by the orchestrator.
+  (*"I will post before I move it"*). **Recurred THREE times on 2026-07-27** — instance
+  #31 (historian force-pushed onto an already-merged branch), plus two more the same
+  day verified by the orchestrator as byte-identical to `origin/main` post-#658:
+  `aihu/zurich` `CLAUDE.md` staged mid-build under builder-b, and `aihu/jerusalem`
+  switching branches under verifier (see the recurrence tally in
+  `docs/lessons/promotion-rungs.md`). The `git branch --show-current`-before-every-commit
+  rule is prose that depends on remembering, and it stayed prose across all three;
+  **the durable fix is structural — the supervisor pins each role's checkout/branch per
+  wake — and it is UNBUILT, owned by the orchestrator.**
 
 ## Related
 
