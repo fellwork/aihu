@@ -465,11 +465,65 @@ used by this guard. *When the right pattern already exists in the file, "the API
 stops being an explanation.*
 
 **Corrected statement, replacing mine:** **state is enforced UNCONDITIONALLY; comments are one-shot
-CONDITIONAL ON A NUMBER NOBODY IS WATCHING.** Filed as a could-not-check **with its discriminator and
-deliberately not run** (it needs a Linear read against the system under embargo): **count the comments on
-the 8 linked FEL issues; any at or near 50 makes the risk live rather than latent.** Note this one was
-filed *after* reading the function, with the exact number that settles it — the distinction the third
-could-not-check category exists to draw.
+CONDITIONAL ON A NUMBER NOBODY IS WATCHING.**
+
+**⛔ AND THE CONDITION IS MEASURED — I BANKED THIS AS "DELIBERATELY NOT RUN" AND IT HAD ALREADY BEEN RUN.**
+I filed it as *"a could-not-check with its discriminator, correctly unrun because it needs a Linear read
+against the system under embargo."* **Wrong on the premise: a Linear GraphQL query is a READ.** The
+verifier ran exactly the discriminator they had named, read-only, no mutation — and then had to say so
+twice, because the architect, the orchestrator **and I** all carried it forward as still-open:
+
+```
+FEL-411  1   FEL-428  2   FEL-431  9  <- max   FEL-433  0
+FEL-434  1   FEL-462  1   FEL-459  1   FEL-460  0        (re-read 22:08:18Z, identical to 20 min earlier)
+MAX = 9 OF THE 50 WINDOW.  ~5x headroom.  Each verified sync adds at most one comment.
+```
+
+**The cap is LATENT, not live. It is not a reason to hold anything**, and my framing of it as the
+system's worst outward failure mode should not be read as a present danger. It should still be
+paginated — *a guard whose correctness depends on a number nobody watches is a guard with a timer on
+it* — and the paginated pattern is 100 lines away.
+
+> **THE EMBARGO IS ON WRITES, NOT ON LOOKING.** This is the second could-not-check category
+> (*discriminator exists but must not be run*) **misapplied** — nobody checked whether the discriminator
+> was itself a write. Before filing that category, **ask what the check actually does**: `gh issue view`,
+> a GraphQL `query`, a `git show` are all reads, and this thread used the first of those freely all day
+> while calling the second unrunnable. **A category-2 filing needs its own one-line justification —
+> "this discriminator MUTATES X" — or it is category 3 wearing category 2's caution.**
+
+### THE ENFORCEMENT IS ANCHORED TO A FACT CHECKED EXACTLY ONCE
+
+The sharpest property in the thread, found by the architect and confirmed at source by the verifier and
+by me — `cmd_verify_merged` says it in its own comment:
+
+```rust
+:2767  // The status filter IS the "not already verified" + idempotency
+:2769  // contract this command already promoted is never reselected.
+:2772  WHERE status IN ('claimed','building','submitted','no-claims')     // 'verified' DELIBERATELY ABSENT
+```
+
+**Nothing ever re-examines an already-verified row.** It promotes *into* `verified`; nothing promotes
+*out*. Combine that with `classify` being pure on current status and every linked row re-selected every
+tick, and: **if PR #655 were reverted tomorrow, `C-FEL-GH478` would still read `verified`, #478 would
+still be re-closed every cycle, and a human reopening it would still be overridden inside thirty
+minutes.** The enforcement **outlives its own justification** and nothing re-derives.
+
+> **THE LEDGER STATUS RECORDS A HISTORICAL EVENT — "this PR merged" — WHICH REMAINS TRUE FOREVER. THE
+> OUTWARD MIRROR INTERPRETS IT AS A PRESENT-TENSE CLAIM — "this issue is resolved" — WHICH DOES NOT.**
+> A revert separates them, and only the historical reading is ever re-checked. This is not a defect in
+> `verify-merged`: `verified` is an honest receipt. **It is a mismatch between what the receipt MEANS
+> and what the mirror PUBLISHES**, and it is invisible to anyone who has not read `classify()`.
+
+**So "yes" means HELD CLOSED UNTIL SOMEONE EDITS THE LEDGER — not "held closed while the fix is in
+main."** Those sound identical to a reasonable person, and the second is what they would assume they
+were agreeing to. *When an authorisation's duration is set by a mechanism the authoriser cannot see,
+the duration belongs in the question.*
+
+**And the fix has two halves that must not be scoped as one** (verifier's precision, worth copying as a
+practice): adding `verified` to that `IN`-list so the merged-receipt check re-runs on the sync path is
+**one string**; **the demotion path — what happens when the re-check fails — does not exist and is the
+real work.** *Naming which half is a token and which half is a design problem is how an estimate stays
+honest.*
 
 ### THE DESIGN RULING — the two arms have OPPOSITE semantics and are using the SAME mechanism
 

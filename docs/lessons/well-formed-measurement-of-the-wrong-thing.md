@@ -199,6 +199,59 @@ only gives you a window" stops being an explanation.*
 > never off whatever the display chose to show you. The orchestrator's under-count was not arithmetic —
 > it was counting the orphans *visible in a top-6* rather than selecting on `ppid=1`.
 
+## A CONFIRMING MEASUREMENT IS WORTH THE SAME AS A CORRECTING ONE — reported as a NORM, not a courtesy
+
+Every instance above is a measurement that **corrected** something. That selection is itself a bias, and
+the verifier named it by doing the opposite deliberately. Having found *"#430 is already closed"* — a
+one-third overstatement nobody had checked — they went looking for the **same** class of overstatement in
+the adjacent number: `linear_ensure_state` returns `Ok(false)` when an issue is already in the target
+state, so any already-`Done` row would be a no-op and the filed count of 8 would be inflated.
+
+```
+ALREADY Done: 0 of 8.   Six In Progress, two Backlog.   ALL EIGHT ARE GENUINE STATE CHANGES.
+```
+
+**They reported the null result as loudly as the hit.**
+
+> **A MEASUREMENT THAT CONFIRMS THE FILED NUMBER IS WORTH THE SAME AS ONE THAT CORRECTS IT, AND ONLY
+> SAYING SO WHEN IT CORRECTS IS HOW A REVIEWER BECOMES AN ADVERSARY RATHER THAN AN INSTRUMENT.** The
+> architect's addition is the mechanical form of why: **a reviewer who reports only hits has an
+> unmeasurable false-negative rate.** If silence means "I found nothing" *and* "I did not look", nobody
+> downstream can tell which numbers have been checked — so a confirmed number and an unexamined one are
+> indistinguishable in the record, which is exactly the property this whole file is about.
+
+**A precision found in passing, and it is the kind that belongs in a decision rather than in a diff:**
+two of the eight (`FEL-433`, `FEL-460`) are in **Backlog**, so they jump **Backlog → Done** with no
+intermediate state — not wrong, since the work is merged, but a larger semantic step than the other six
+and visible to anyone reading the board afterwards. *That is the kind of thing a human wants told to them
+before rather than noticed after.*
+
+## THE COMMENT THAT CITED THE OTHER IMPLEMENTATION AS THE REFERENCE — and nobody opened it
+
+`scaffold-pipeline.ts` names `create.ts` as the good implementation: *"create.ts (the create-aihu wizard)
+has always done init + add + commit. This path did not."* **True, and it concealed that `create.ts` did
+all three while checking none of them** — three `spawnSync` exit statuses discarded, then an
+unconditional `write("  ✓ git init")`. A fix for one implementation cited the other as the reference, and
+the citation was accurate about *behaviour* while silent about *correctness*.
+
+> **"The other implementation already does this" is a claim about the other implementation, and it is
+> load-bearing exactly when nobody opens it.** Same shape as *nobody had opened the function*, arriving
+> through a code comment rather than a bus message — and a comment is worse, because it sits next to the
+> code and reads as though it were verified by proximity.
+
+**Two harness rules from the same work, both cheap and both about false greens in your own tooling:**
+
+- **Assert the mutation APPLIED before running it.** A no-op `str.replace` produces a green that means
+  nothing — the positive-control principle pointed at the test harness rather than at the gate.
+- **Commit before you mutate.** A cleanup of `git checkout -- <path>` **cannot tell your work from the
+  mutation**, and it silently reverted an uncommitted correction made in the same file.
+
+And the mutation earned its keep in the way that matters: a test suite that passed **also passed with the
+fix removed**, because `git` was quietly deriving `username@hostname` the whole time. Correcting the
+inherited claim (*"git commit fails outright when no `user.name` is resolvable"* — measured false; it
+auto-derives, and refuses only under `useConfigOnly=true`) moved mutation B from killing **1** test to
+killing **2**. **The test only became load-bearing once the premise under it was measured.**
+
 ## Two method rules that came out of applying it
 
 **1. REPRODUCE AGAINST THE SOURCE TEXT, NEVER THE QUOTE OF IT.** Verifying the `ci-ok` fail-open, the

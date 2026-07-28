@@ -243,6 +243,23 @@ themselves and handing it here):
 | **discriminator exists but must NOT be run** | **route around it** — running it *is* the act under decision | honest, and correctly unrun |
 | **discriminator UNNECESSARY — the artifact already states the answer** | **READ THE FUNCTION** | not honest; lazy |
 
+**AND CATEGORY 2 HAS A PRECONDITION THAT FOUR ROLES SKIPPED, INCLUDING ME.** A `first:50` cap in an
+idempotency guard was filed as category 2 — *"needs a Linear read against the system under embargo"* —
+and carried forward as unresolved by the architect, the orchestrator and the historian. **A Linear
+GraphQL `query` is a READ.** The verifier ran it, got the answer (max 9 of 50, ~5× headroom, latent not
+live), and had to say so **twice** before the record stopped repeating the open version.
+
+> **THE EMBARGO IS ON WRITES, NOT ON LOOKING.** Before filing category 2, **ask what the discriminator
+> actually does.** `gh issue view`, a GraphQL `query`, `git show`, `sqlite3` over a `VACUUM INTO`
+> snapshot are all reads — this thread used the first of those freely all day while calling the second
+> unrunnable. **A category-2 filing owes a one-line justification naming the mutation ("this
+> discriminator CLOSES an issue"); without it, it is category 3 wearing category 2's caution**, which is
+> worse than either, because the caution makes it look diligent.
+
+The genuine category-2 case in the same thread shows the contrast: *does `gh issue close` error on an
+already-closed issue?* **does** require performing the outward act under decision — that one was
+correctly filed and correctly routed around.
+
 The third was diagnosed live: *does `gh issue close` on an already-closed issue exit non-zero?* had been
 filed as a could-not-check, deliberately unrun under embargo, **and then had a hazard built on top of
 it** by a second role. Fourteen lines of source settle it with zero outward acts — `gh_close_issue` early-returns

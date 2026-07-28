@@ -636,6 +636,56 @@ for every job J in ci-ok.needs:
 Add a job to `needs:` and neither gate on it nor consume its outputs → **flagged**. The only way to
 silence it is to *actually consume its outputs* — a real property the file must exhibit.
 
+**⛔ THE OPERATOR IS WRONG — `XOR` FALSE-REDS A LEGITIMATE CASE. Use `OR`.** The verifier enumerated the
+four rows that had been reasoned about but not tabled:
+
+| gated | outputs consumed | XOR | OR | |
+|---|---|---|---|---|
+| 1 | 1 | **FLAG** | ok | a job **both** required to pass and exporting a value — **legitimate; XOR false-reds it** |
+| 1 | 0 | ok | ok | a normal gate |
+| 0 | 1 | ok | ok | the `changes` case |
+| 0 | 0 | **FLAG** | **FLAG** | neither — **the actual defect** |
+
+**Final predicate: FLAG IFF `NOT ((J in result loop) OR (ci-ok references needs.J.outputs.*))`** —
+identical to `XOR` on every row but one, and on that row `XOR` is wrong. It costs nothing today (no job
+is currently both), and the reason to fix it anyway is the durable part:
+
+> **A FALSE RED IS NOT MERELY NOISE — IT IS PRESSURE TOWARD REINTRODUCING THE ESCAPE HATCH.** The first
+> time someone adds an output to a gated job and the checker reds a correct file, the natural fix is
+> *"add it to an exemption list"* — **the hatch just removed, re-opening under a different name.** A
+> checker wrong in the safe direction still erodes itself: every false red spends the credibility that
+> keeps the true reds actionable.
+
+**Two precisions so nobody files a fix for a non-problem.** The *shipped* implementation is already the
+`OR` form — `gatingProblems` consults the exemption only when the job is **absent** from the loop
+(`const varName = loop.get(job); if (!varName) { … }`) — so **the correction belongs in the queued
+contract's SPEC, not in the PR.** And the architect named the residual in their own corrected form before
+anyone found it: **`OR` can be silenced by declaring an output reference nobody uses** (`FOO: ${{
+needs.badjob.outputs.x }}` in the step env exempts a job without gating it). Strictly narrower and more
+visible than a name on a list — real text asserting a real dependency, in the file, in the diff — but not
+zero. The strengthening **if it is ever exercised**: require the bound env var to also appear in the
+step's `run:` body. Deliberately **not built now**; speculative hardening against an evasion nobody has
+attempted is the unmeasured addition this session has been paying for all day.
+
+### DETECTION IS NOT REJECTION — and the counter-example came from production, not from argument
+
+The orchestrator ruled the runtime guard **redundant**, reasoning that a truncated loop is caught at PR
+time by the parse. Builder did not argue the point; they produced the case from a real run:
+
+```
+run 30401968909 — the parse WAS installed.   gate-wiring: FAILURE.   ci-ok: SUCCESS.
+the gate-wiring job log printed: "NOT GATED — gate-wiring: in needs: but MISSING from ci-ok result loop."
+```
+
+**The parse detected, printed the exact diagnosis, and `ci-ok` went green anyway.**
+
+> **A DETECTOR WHOSE FAILURE NOTHING READS IS THE PALETTE DEFECT ONE LEVEL UP** — the very defect the
+> contract exists to close, **reproduced by the defence proposed against it.** The parse *detects*; only
+> the runtime guard *rejects*. The orchestrator's own diagnosis is the transferable half: *"I ruled
+> 'redundant' from the property I could see (it is caught) and skipped the adjacent one (does the catch
+> gate)"* — **class 2 committed in a RULING rather than in a measurement**, which is the more expensive
+> place for it, because a ruling propagates to everyone who complies with it.
+
 > **AN EXEMPTION THAT MUST BE EARNED vs ONE THAT CAN BE DECLARED.** A hand-maintained `EXEMPT` list is an
 > escape hatch where *"add the job to EXEMPT"* silences the very defect the parse exists to catch — the
 > palette bug re-entering through the checker's own door. Deriving it removes the hatch entirely. Same

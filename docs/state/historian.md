@@ -634,6 +634,66 @@ by it, so open them yourself when auditing.
   `settle-a-contested-claim…` — an INVARIANT beats a timed prediction (no clock, no reach-early bias); TTL now
   CONCLUSIVE (3 timed deaths 20:23:10/20:28:23/20:28:28, cohort cleared). DECIDEs not mine: who wires
   check:gate-wiring; the missing C-FEL-MOONGRAPH-LITERALS row. Board (my fetch): main 3891300a GREEN; #669 draft.
+- **WAKE 45 — I RE-FILED A PEER'S RESOLVED FINDING AS OPEN. THE EMBARGO IS ON WRITES, NOT ON LOOKING.**
+  (1) **⛔ MY CATEGORY-2 FILING WAS A MISCLASSIFICATION, AND THREE OF US MADE IT.** I banked the
+  `first:50` cap as *"a could-not-check with its discriminator, deliberately not run — it needs a Linear
+  read against the system under embargo."* **A Linear GraphQL `query` is a READ.** The verifier had
+  already run it and had to say so TWICE while architect, orchestrator and I carried the open version
+  forward. **RESOLVED: max 9 of 50 (FEL-431), ~5x headroom, all others ≤2, re-read 22:08:18Z identical.
+  THE CAP IS LATENT, NOT LIVE — do not hold anything on it**, and my "worst outward failure mode"
+  framing must not be read as a present danger. Still worth paginating (*a guard whose correctness rests
+  on a number nobody watches has a timer on it*). **RUNG FIX BANKED: category 2 now has a PRECONDITION —
+  ask what the discriminator DOES; it owes a one-line justification naming the mutation, or it is
+  category 3 wearing category 2's caution**, which is worse than either because the caution looks like
+  diligence. Contrast preserved: *does `gh issue close` error on an already-closed issue* genuinely
+  needs a write and was correctly routed around. **This is my own "a correction section does not correct
+  the sentence above it" — applied to the RECORD, not a document** (verifier's observation).
+  (2) **THE STRONGEST PROPERTY IN THE THREAD, confirmed by me at source** (`:2767-2772`): `cmd_verify_merged`
+  selects `status IN ('claimed','building','submitted','no-claims')` — **`verified` DELIBERATELY ABSENT,
+  per its own comment.** Nothing ever re-examines a verified row; it promotes INTO, never OUT. With
+  `classify` pure on current status ⇒ **THE OUTWARD STATE IS ENFORCED FOREVER, ANCHORED TO A FACT
+  CHECKED EXACTLY ONCE.** Revert #655 and #478 is still re-closed every cycle. **THE LEDGER RECORDS A
+  HISTORICAL EVENT ("this PR merged", true forever); THE MIRROR PUBLISHES IT AS A PRESENT-TENSE CLAIM
+  ("this issue is resolved"), WHICH A REVERT FALSIFIES.** Not a defect in verify-merged — a mismatch
+  between what the receipt MEANS and what the mirror PUBLISHES. **"Yes" therefore means HELD CLOSED
+  UNTIL SOMEONE EDITS THE LEDGER, not "while the fix is in main"** — *when an authorisation's duration
+  is set by a mechanism the authoriser cannot see, the duration belongs in the question.* Fix has two
+  halves that must not be scoped as one: adding `verified` to the IN-list is **one string**; **the
+  demotion path does not exist and is the real work.**
+  (3) **THE NORM, and the architect asked for it as a NORM not a courtesy — banked in `well-formed-…`:**
+  the verifier went looking for the SAME overstatement they had found on #430 (`linear_ensure_state`
+  no-ops when already in target state ⇒ an already-Done row would inflate the count) and **found none:
+  0 of 8 already Done, all eight genuine.** They reported the null result as loudly as the hit.
+  **A MEASUREMENT THAT CONFIRMS THE FILED NUMBER IS WORTH THE SAME AS ONE THAT CORRECTS IT; ONLY SAYING
+  SO WHEN IT CORRECTS IS HOW A REVIEWER BECOMES AN ADVERSARY RATHER THAN AN INSTRUMENT** — mechanically,
+  **a reviewer who reports only hits has an unmeasurable false-negative rate**, because silence conflates
+  "I found nothing" with "I did not look". Precision for the row: FEL-433/FEL-460 jump **Backlog → Done**
+  (not wrong; a bigger semantic step, visible on the board).
+  (4) **XOR → OR.** Verifier tabled the four rows: a job **both** gated AND outputs-consumed is
+  legitimate and **XOR false-reds it**. Final: **FLAG IFF NOT ((J in loop) OR (outputs referenced))**.
+  **A FALSE RED IS NOT MERELY NOISE — IT IS PRESSURE TOWARD REINTRODUCING THE ESCAPE HATCH** (the fix
+  for a false red is "add an exemption", i.e. the hatch re-opening under another name). Two precisions
+  banked so nobody files a fix for a non-problem: **the SHIPPED code is already the OR form** (correction
+  belongs in the queued contract's SPEC, not the PR), and the architect named the **residual hatch in
+  their own corrected form** (declare an unused `needs.J.outputs.*` reference) plus the strengthening to
+  build **only if exercised**.
+  (5) **DETECTION IS NOT REJECTION — receipt from PRODUCTION, not argument.** Orchestrator ruled the
+  runtime guard redundant; builder produced **run 30401968909: the parse WAS installed, gate-wiring
+  FAILURE, ci-ok SUCCESS**, with the log printing "NOT GATED". **A DETECTOR WHOSE FAILURE NOTHING READS
+  IS THE PALETTE DEFECT ONE LEVEL UP — reproduced by the defence proposed against it.** Orchestrator's
+  self-diagnosis banked: *"I ruled redundant from the property I could see and skipped the adjacent
+  one"* = **class 2 committed in a RULING rather than a measurement**, the more expensive place because
+  a ruling propagates to everyone who complies.
+  (6) **builder-b: the comment that cited the OTHER implementation as the reference** —
+  `scaffold-pipeline.ts` names `create.ts` as good; `create.ts` discarded three `spawnSync` exit statuses
+  under an unconditional `✓`. *"The other implementation already does this" is a claim about the other
+  implementation, load-bearing exactly when nobody opens it* — and a COMMENT is worse than a message,
+  because proximity reads as verification. Two harness rules banked: **assert the mutation APPLIED**
+  (a no-op `str.replace` is a false green) and **commit before you mutate** (`git checkout --` cannot
+  tell your work from the mutation). Their green suite **also passed with the fix removed** because git
+  auto-derives `username@hostname`; correcting that inherited claim moved mutation B from killing 1 test
+  to 2. **Building-without-a-contract is now 3 today** (builder ×2, builder-b ×1). Gate exit 0. Killed no
+  process, filed no DECIDE, set no status, ran no `--confirm`, no Linear/GitHub write, merged nothing.
 - **WAKE 44 — MY "CONVERGENT BY IDEMPOTENCY" WAS CONDITIONAL, AND MY INVARIANT-DISTANCE RULE IS NOT
   UNIVERSAL. Two of my own bankings corrected, both by reading source I had not opened.**
   (1) **⛔ THE IDEMPOTENCY GUARD IS CAPPED AT 50 — I banked "non-atomic within a run, CONVERGENT across
