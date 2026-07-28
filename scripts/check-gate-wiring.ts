@@ -471,7 +471,13 @@ function main(): void {
       console.error(`    - ${g}  (${scripts[g]})`)
     }
     console.error(
-      '  Wire it into check:ci or its own always-on workflow job — do NOT baseline it away.',
+      '  Add a `run:` step invoking it in .github/workflows/*.yml — do NOT baseline it away.',
+    )
+    console.error(
+      '  Prefer a STEP in the existing `check` job over a new job: a new job also needs adding to',
+    )
+    console.error(
+      "  ci-ok's `needs:` AND to ci-ok's RESULT LOOP, and this repo has shipped needs-without-loop twice.",
     )
   }
   if (fixed.length) {
