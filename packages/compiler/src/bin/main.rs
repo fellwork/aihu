@@ -557,7 +557,15 @@ fn main() {
                 process::exit(1);
             });
             if !result.manifest_json.is_empty() {
-                let manifest_path = format!("{}/agent-manifest.json", dir);
+                // Per-tag filename (`<tag>.agent-manifest.json`), matching the
+                // sibling `<tag>.ts` / `<tag>.route.json` / `<tag>.aihu.ts`
+                // sidecars. FEL-434b: the previous fixed `agent-manifest.json`
+                // collided when N>=2 agent components compiled into one output
+                // directory — the second write silently overwrote the first, so
+                // the agent-readiness consumer that reads these sidecars found
+                // only one of N components. Per-tag names let the reader glob
+                // `*.agent-manifest.json` and recover every component.
+                let manifest_path = format!("{}/{}.agent-manifest.json", dir, tag_name);
                 std::fs::write(&manifest_path, &result.manifest_json).unwrap_or_else(|e| {
                     eprintln!("error writing '{}': {}", manifest_path, e);
                     process::exit(1);
