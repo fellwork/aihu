@@ -24,9 +24,9 @@
  *   instrument is only trusted once watched failing.
  */
 import { execFileSync } from 'node:child_process'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -35,10 +35,7 @@ mkdirSync(SCRATCH, { recursive: true })
 
 /** The real `declare function __aihu_each…;` string, straight from the codegen. */
 function emittedEachDecl(): string {
-  const src = readFileSync(
-    resolve(__dirname, '../src/codegen/sidecar_ts.rs'),
-    'utf8',
-  )
+  const src = readFileSync(resolve(__dirname, '../src/codegen/sidecar_ts.rs'), 'utf8')
   // The declaration is a single Rust string literal on one line.
   const m = src.match(/"(declare function __aihu_each<T>\(list:[\s\S]*?)"/)
   if (!m) throw new Error('could not find __aihu_each declaration in sidecar_ts.rs')
@@ -115,10 +112,7 @@ describe('GH#503 — __aihu_each over any / typed / non-iterable sources', () =>
   })
 
   it('control: loosening the parameter back to bare `list: T` fails the negative (TS2578)', () => {
-    const permissive = emittedEachDecl().replace(
-      /list: T & \([^)]*\)/,
-      'list: T',
-    )
+    const permissive = emittedEachDecl().replace(/list: T & \([^)]*\)/, 'list: T')
     // Guard the guard: if the emitted decl ever loses its constraint, this
     // replacement is a no-op and the control would silently pass. Assert we
     // actually changed something.
