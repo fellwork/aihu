@@ -9,7 +9,11 @@ layer: library
 
 tasks:
   build:
-    command: "rolldown -c"
+    # `bunx` resolves the local node_modules/.bin binary; a BARE `rolldown`
+    # relies on node_modules/.bin being on PATH, which `bun run` adds but moon's
+    # task runner does not — so a cold-cache `moon run compiler:build` failed
+    # with `rolldown: command not found` (exit 127). Mirrors `bunx tsc` below.
+    command: "bunx rolldown -c"
     inputs:
       - "js/**/*.ts"
       - "rolldown.config.ts"

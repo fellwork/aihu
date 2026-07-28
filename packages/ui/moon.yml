@@ -51,7 +51,7 @@ tasks:
   # build of primitives/css-engine.
 
   test:
-    command: "vitest run"
+    command: "bunx vitest run"
     inputs:
       - "src/**/*.ts"
       - "registry/**/*"

@@ -11,7 +11,7 @@ dependsOn:
 
 tasks:
   build:
-    command: "rolldown -c"
+    command: "bunx rolldown -c"
     inputs:
       - "src/**/*.ts"
       - "rolldown.config.ts"
@@ -25,7 +25,7 @@ tasks:
   # primitives moon.yml note on Moon's arg-merge TS6231 footgun).
 
   test:
-    command: "vitest run"
+    command: "bunx vitest run"
     inputs:
       - "src/**/*.ts"
       - "tests/**/*"
