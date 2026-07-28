@@ -445,22 +445,28 @@ by it, so open them yourself when auditing.
   Also added a 4th, CROSS-ROLE instance to `documenting-a-checker-can-trip-the-checker.md`:
   builder #683 hit lesson-refs red citing a lesson that lands with my unmerged #669 — the
   gate catching a forward-reference is the gate working; it makes the trap a class, not my habit.
-- **THE AUDIT LEDGER IS GREEN-BY-CONSTRUCTION (wake 19) — banked, NOT mine to fix.** The
-  reconcile pass promoted two contracts (C-FEL-SCAFFOLD-PM-COMPAT, C-SWARM-P0) to `verified`
-  from a transcript scan that read a raw `Bash` fragment from a DIFFERENT worktree ("0
-  flagged" → terminal status). `verified`/`no-claims` have EXTERNAL side effects (confirmed
-  myself on origin/main `packages/swarm/src/main.rs:1064/1071/1082` external-side-effects,
-  `:2438` Linear Done + close GitHub issue, `:1201-1241` unblock downstream needs) — fired
-  nothing only because those two carry no linear/github link (LUCK). It is the CI
-  green-by-construction defect one level up, in the ledger that audits CI. Banked
-  `the-audit-ledger-is-green-by-construction.md`. Structural rung = move the promotion
-  decision INTO the tested in-repo Rust binary (dry-run posture already right), leaving
-  `supervisor.py` able only to PROPOSE; the broader pause-and-fix-supervisor.py is a founder
-  DECIDE (pending) — **I do NOT decide it, do NOT touch supervisor.py, do NOT set any status.**
-  **Read-your-own-row (I did, via VACUUM INTO snapshot of `~/.swarm/bus.db`):** C-FEL-439fix
-  legit-verified (#639 receipt); C-FEL-RETRO-0727 is `no-claims`/links-NULL with recon "0
-  claims" that does NOT reflect the #679 done verdict I filed — flagged to reconcile, not
-  touched (weaker than the two flagged; its recon is a clean scan, not a wrong-worktree fragment).
+- **THE AUDIT LEDGER IS GREEN-BY-CONSTRUCTION (wake 19, CORRECTED wake 20) — banked, NOT mine to fix.**
+  The reconcile pass promoted two contracts (C-FEL-SCAFFOLD-PM-COMPAT, C-SWARM-P0) to
+  `verified` with NO merged-PR evidence and a recon that is a raw `Bash` tool-call dump.
+  **CORRECTION (do not repeat my first telling):** it is NOT "read the wrong worktree" for
+  both. For C-SWARM-P0 the reconciler read the RIGHT trace (architect's OWN work,
+  `agent-swarm/sydney`, commit 592e6e8, phase0/recon.py) and STILL wrote garbage recon +
+  premature `verified` — so the defect is recon GENERATION + premature-terminal, NOT trace
+  selection (a selection-only fix leaves C-SWARM-P0 broken). `verified`/`no-claims` have
+  EXTERNAL side effects (confirmed on origin/main `main.rs:1064/1071/1082`, `:2438` Linear
+  Done + close GitHub issue, `:1201-1241` unblock downstream) — fired nothing only by LUCK
+  (no linear/github link). Banked+corrected `the-audit-ledger-is-green-by-construction.md`.
+  **DO NOT attach a PR link to C-SWARM-P0.** `contract.github_pr` is a bare integer and
+  `gh_pr_view` (`main.rs:1683-1694`) hardcodes `--repo fellwork/aihu`; I verified `gh pr view 1
+  --repo fellwork/aihu` = MERGED 2026-04-26 scaffolding PR vs `--repo srmcguirt/agent-swarm` = OPEN.
+  So `setstatus --github-pr 1` would manufacture a false `merged: PR #1` receipt indistinguishable
+  from the 11 real ones. The empty link is load-bearing BY ACCIDENT. Structural rung = move
+  promotion INTO the tested Rust binary (supervisor.py proposes only) + `github_pr` must carry a
+  repo or a cross-repo contract is REFUSED a link. Broader pause-and-fix is a founder DECIDE
+  (pending) — **I do NOT decide it, do NOT touch supervisor.py, do NOT set any status, do NOT attach the link.**
+  **Read-your-own-row (VACUUM INTO snapshot of `~/.swarm/bus.db`):** C-FEL-439fix legit-verified
+  (#639 receipt); C-FEL-RETRO-0727 is `no-claims`/links-NULL with recon "0 claims" that does NOT
+  reflect the #679 done verdict — flagged to reconcile, not touched.
 - **Board arc (2026-07-27):** main reached `41c37df6` (#670), the queue STOPPED at 01:12Z
   with ~13 green PRs sitting — then UN-STUCK: main is now `b667bdcd`, having landed
   #656/#659/#661/#663/#666/#667/#668/#673. So "the queue stopped at 01:12Z" was a
