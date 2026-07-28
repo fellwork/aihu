@@ -199,6 +199,17 @@ export function dirFamilyOf(
  * `"http://…"`) is not mistaken for a comment start. Prose inside a STRING
  * literal is out of scope for the same reason a real parser is (the module's own
  * note): erasing string contents would erase the imports.
+ *
+ * KNOWN LIMITATION (the false-negative direction, deliberately unmodeled): the
+ * scanner does not model REGEX LITERALS. A regex containing a slash-slash outside
+ * a string — e.g. `/https:\/\//` — looks like a line-comment start, so the REST
+ * OF THAT LINE is stripped (and a regex opening with `/*` would read as a block
+ * comment, the rarer and worse variant). The `//` case is confined to the regex's
+ * own line — a line-comment strip stops at the newline — so an import on any LATER
+ * line still survives (asserted in the fixture). Left unmodeled because an import
+ * statement essentially never shares a line with a regex literal; distinguishing
+ * regex context from division needs the real parser this module deliberately
+ * forgoes (C-FEL-DEPCHECK-COMMENTS).
  */
 function stripComments(src: string): string {
   let out = ''

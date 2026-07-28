@@ -255,4 +255,17 @@ describe('extractSpecifiers (comment-blindness)', () => {
     const src = "import axios from 'axios'\nconst from = 'shadowed'\n"
     expect(extractSpecifiers(src)).toContain('axios')
   })
+
+  it('an import on a later line survives a regex-with-slashes above it', () => {
+    // Documents the one known limitation: stripComments does not model regex
+    // literals, so a `//` inside a regex (e.g. /https:\/\//) reads as a line
+    // comment. The damage is CONFINED to that line — a line-comment strip stops
+    // at the newline — so imports on later lines are unaffected. This is the
+    // false-negative direction the contract warned about; it is nearly
+    // untriggerable because an import never shares a line with a regex literal.
+    const src = ['const urlRe = /https:\\/\\//g', "import { effect } from '@aihu/signals'"].join(
+      '\n',
+    )
+    expect(extractSpecifiers(src)).toContain('@aihu/signals')
+  })
 })
