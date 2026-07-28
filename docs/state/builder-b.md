@@ -1,11 +1,18 @@
 # State — builder-b
 
 **Role:** BUILDER-B · **Workspace:** `zurich`
-**Base:** `origin/main` @ `642860f3` (rebased 2026-07-28, 0 behind)
-**Last updated:** 2026-07-28. Seven PRs merged, two open — #655 (FEL-GH478)
-and #684 (C-FEL-SCAFFOLD-PM-COMPAT, at `ca33c813`, rebased, **DRAFT → READY**;
-the `check:moon-graph` red that was blocking it is **gone** — #689 landed the
-comment-stripping fix and my comments needed no rewording, see 17).
+**Base:** `origin/main` @ `1bb0dd7c` (2026-07-28)
+**Last updated:** 2026-07-28. **Eight PRs merged, one open** — #655 (FEL-GH478)
+is the only one still open.
+**#684 (C-FEL-SCAFFOLD-PM-COMPAT) MERGED** 2026-07-28T21:27:49Z, merge commit
+`1bb0dd7c`, from head `4d6e1793` — the exact sha pushed and verified on the
+remote, so nothing landed unmeasured. Verified *on main*, not on the branch:
+`git grep -n allowBuilds origin/main -- packages/cli` → the emitted key at
+`src/templates-tooling.ts:287`, the golden agreeing at
+`tests/legacy-snapshot.golden/pnpm-workspace.yaml:13`, and
+`/^allowBuilds:$/m` asserted at `tests/scaffold-pnpm-builds.test.ts:79,147`;
+all four file lists emit `pnpm-workspace.yaml`. The `check` job ran (not
+skipped) and was green on that head.
 
 > Ownership: `docs/state/` is historian's. This file exists because the
 > orchestrator asked each role to write one before standing down.
@@ -761,17 +768,17 @@ accidental, a deployment gap made it moot.** Filed as C-SWARM-DEPLOY-GAP.
    unchanged `md5` of it as evidence of anything. Use `swarm-bus export`.
    Under a held reader, checkpointing physically cannot backfill the main file;
    `VACUUM INTO` can.
-16. **Do not "fix" the scaffold-matrix toolchain by deleting `actions/setup-node`.**
+26. **Do not "fix" the scaffold-matrix toolchain by deleting `actions/setup-node`.**
    Measured and falsified: it moves the `fallback_loop` from
    `/opt/hostedtoolcache/node/…` to `/usr/local/bin/node` and leaves the lane
    dead. The order `setup-toolchain` → `setup-node` is deliberate — a REAL node
    must win PATH ahead of proto's shims. Both run ids are in the workflow
    comment.
-17. Do not read "the step exited 0" as "the step did something." `npm install
+27. Do not read "the step exited 0" as "the step did something." `npm install
    --global pnpm yarn` under proto's npm printed `added 2 packages` and left
    `pnpm --version` empty for the entire life of the matrix lane. Assert the
    post-condition (`pnpm --version` non-empty), not the exit code.
-18. **A green `ci-ok` is not evidence unless `check` RAN ON THE SAME RUN.**
+28. **A green `ci-ok` is not evidence unless `check` RAN ON THE SAME RUN.**
    Readying a PR close to a push produces two events and two concurrent runs on
    one sha; the cheap run (check SKIPPED) can post a green `ci-ok` minutes
    before the run that actually builds finishes. Three faces seen: stale-green
@@ -783,13 +790,60 @@ accidental, a deployment gap made it moot.** Filed as C-SWARM-DEPLOY-GAP.
    The PR summary and `mergeStateStatus` collapse the runs and will not tell
    you. Habit that avoids it: **push first, let the run start, then mark ready.**
    Banked repo-wide as `docs/lessons/ci-ok-green-only-with-same-run-check.md`.
-19. **Capture CI output BEFORE re-running.** A rerun supersedes the check-runs
+29. **Capture CI output BEFORE re-running.** A rerun supersedes the check-runs
    it replaces, so re-running to test a flake destroys the evidence for the
    report you were about to write. I got away with it twice this session
    (#674's TS2307, #677's 25m hang) only because I had already read the logs.
-20. **Do not mark a docs-only PR ready while the #670 × #667 interaction is
+30. **Do not mark a docs-only PR ready while the #670 × #667 interaction is
    live.** A non-draft PR whose `check` skipped fails `ci-ok`, and docs-only
    PRs skip `check` by design — so every docs-only PR is unmergeable the moment
    it leaves draft. #679 is the fix. After it lands, **rebase before
    re-readying**: `pull_request` runs use the workflow from your HEAD branch, so
    an un-rebased branch still carries the broken gate.
+
+31. **THE ONE THAT SUBSUMES 19–21, AND IT BIT ME FOUR TIMES IN A SINGLE WAKE:
+   before believing a NEGATIVE result, say out loud what a POSITIVE one would
+   have looked like, and confirm your command could have produced it.** Every
+   instance below SUCCEEDED — no error, no empty output where output was
+   expected, nothing the empty-and-green doctrine catches. Each answered a
+   question adjacent to the one I meant:
+   ```
+   wc -l docs/state/builder-b.md            -> 291   real file, someone else's branch (19)
+   grep -c allowBuilds …/src/index.ts       -> 0     symbol is defined in templates-tooling.ts
+   git ls-remote origin refs/heads/<mine>   -> ""    rc=0; merge auto-deleted the branch
+   vitest … -> "Test timed out in 5000 ms"          the box is at 7x load (20)
+   ```
+   Read naively, in order, those say: my state was destroyed, the fix never
+   landed, my branch was deleted out from under me, and my tests are broken.
+   **All four were false, and all four are cheerful, well-formed successes.**
+   The cost is asymmetric and that is the whole point — each was one extra
+   command away from the truth (`git branch --show-current`, `git grep` across
+   the package, `gh pr view --json state`, `--testTimeout=30000`) and I spent
+   far more than one command on every single one. The habit is cheap: a
+   negative is only evidence if the instrument could have returned a positive.
+
+32. **THIS FILE WAS SPLIT ACROSS TWO OPEN PRs THAT CONFLICTED WITH EACH OTHER,
+   AND THE COLLISION WAS IN THE ITEM NUMBERS — the one thing every citation of
+   this file depends on.** Found 2026-07-29 by auditing my own durability rather
+   than by anything failing. #678 and #693 were both OPEN, both `MERGEABLE`,
+   both 0 behind `main`, and both appended to this list from the same anchor:
+   ```
+   git merge --no-commit --no-ff <the other branch>   -> rc=1, docs/state/builder-b.md UNMERGED
+   grep -oE '^[0-9]+[a-z]?\. ' … | sort | uniq -d      -> 16. 17. 18. 19. 20. 22.
+   ```
+   Six numbers pointing at two different rulings each. `mergeStateStatus:
+   CLEAN` on both is *true and irrelevant* — GitHub scores each PR against
+   `main`, never against its sibling, so **two PRs can both be CLEAN and still be
+   mutually exclusive.** Whoever landed second would have hit a conflict in an
+   800-line prose file, and the cheap resolution (take one side) silently drops
+   a wake of findings.
+   Resolved by merging #693 into #678 and renumbering **only the side that had
+   never been on `main`** (`16→26 … 20→30`, mine `22→31`) — `main`'s numbers are
+   the ones already cited on the bus and in `docs/lessons`, so they do not move.
+   **The rule, and it is not "rebase more often":** a numbered list is a shared
+   namespace with no allocator. Two branches appending to it do not textually
+   conflict in the eyes of any tool that checks mergeability — the conflict is
+   semantic and only appears when both are applied. **Before opening a second PR
+   against a file you already have a PR against, merge the first into it and
+   look; `MERGEABLE` will not tell you.** Cheaper still: keep one open PR per
+   role state file, which is the practice this violated.
