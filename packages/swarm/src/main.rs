@@ -2729,11 +2729,31 @@ fn cmd_verify_merged(args: &Args) -> rusqlite::Result<()> {
 
 // ---------------------------------------------------------------------------
 
+/// `export --to <path>` — write a fully-materialised, read-safe snapshot of the
+/// bus via `VACUUM INTO`. Unlike `cp ~/.swarm/bus.db` (which in WAL mode can
+/// silently omit uncheckpointed writes, and is only correct with its -wal/-shm
+/// sidecars), the result is a SINGLE standalone DB reflecting ALL committed
+/// state — a consistent read-transaction snapshot that holds even when a
+/// concurrent reader's held page-snapshot blocks a checkpoint from backfilling
+/// the main file. This is the hazard-proof way to back up or hand-copy the
+/// ledger; `md5 bus.db` unchanged is NOT evidence the bus was untouched, but a
+/// diff of two `export`s is.
+fn cmd_export(args: &Args) -> rusqlite::Result<()> {
+    let to = match args.get_str("to") {
+        Some(p) if !p.is_empty() => p,
+        _ => die("export requires --to <path>", 64),
+    };
+    let conn = open_db()?;
+    conn.execute("VACUUM INTO ?1", rusqlite::params![to])?;
+    println!("exported authoritative snapshot -> {to}");
+    Ok(())
+}
+
 fn main() {
     let raw_args: Vec<String> = env::args().collect();
     if raw_args.len() < 2 {
         die(
-            "usage: swarm-bus <send|pull|offer|claim|ack|attempt|setstatus|watch|ready|sync|link|verify-merged> [--k v ...]",
+            "usage: swarm-bus <send|pull|offer|claim|ack|attempt|setstatus|watch|ready|sync|link|verify-merged|export> [--k v ...]",
             64,
         );
     }
@@ -2753,6 +2773,7 @@ fn main() {
         "sync" => cmd_sync(&args),
         "link" => cmd_link(&args),
         "verify-merged" => cmd_verify_merged(&args),
+        "export" => cmd_export(&args),
         other => die(&format!("unknown command '{other}'"), 64),
     };
 
@@ -2760,6 +2781,46 @@ fn main() {
         eprintln!("swarm-bus: {e}");
         std::process::exit(1);
     }
+
+    // C-SWARM-WAL-STALE: the DB is WAL-mode (open_db) and opened per-invocation,
+    // so a committed write lands in `bus.db-wal`, not `bus.db`. Nothing ever
+    // checkpointed, so the MAIN file lagged by every write since the last one —
+    // a plain `cp bus.db` / backup / `md5 bus.db` reads a STALE ledger with no
+    // signal that it is stale ("the bus is the record", and its most obvious
+    // artifact was hours behind). After a successful WRITE, checkpoint the WAL
+    // into the main file so `bus.db` alone is authoritative; TRUNCATE also stops
+    // `bus.db-wal` growing without bound (it had reached ~4 MB).
+    //
+    // WAL STAYS ON (anti-row): this does not touch journal_mode — concurrent
+    // agents still read via the WAL while one writes. The checkpoint is
+    // BEST-EFFORT: under a concurrent reader/writer it returns SQLITE_BUSY and
+    // copies only the frames it can, so we ignore its result — a committed write
+    // is NEVER turned into a CLI error, and the next write flushes the rest. No
+    // writer is serialised beyond the `busy_timeout` the connection already sets.
+    if is_write_cmd(&cmd) {
+        if let Ok(conn) = open_db() {
+            let _ = conn.query_row("PRAGMA wal_checkpoint(TRUNCATE)", [], |_row| Ok(()));
+        }
+    }
+}
+
+/// Commands that mutate the DB (`msg`, `contract`, `seen`, `activity`, sync
+/// state). Read-only commands (`watch`, `ready`) are excluded so a reader never
+/// pays for a checkpoint. `pull` is a WRITE — it records `seen` rows.
+fn is_write_cmd(cmd: &str) -> bool {
+    matches!(
+        cmd,
+        "send"
+            | "offer"
+            | "claim"
+            | "ack"
+            | "attempt"
+            | "setstatus"
+            | "sync"
+            | "link"
+            | "verify-merged"
+            | "pull"
+    )
 }
 
 #[cfg(test)]
