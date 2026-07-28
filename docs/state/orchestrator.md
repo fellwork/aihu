@@ -2117,6 +2117,15 @@ all 13 open issues were unassigned and three of them were already done.
   cannot green ⇒ branch protection says BLOCKED. Guard, not diff. Its
   prerequisite (#666) has merged; it needs marking ready, which is the
   interactive session's call, not a wake's.
+- **Do not re-verify #679.** Measured green: one run `30322783137`, `check` ran
+  6 min, `ci-ok` started after it ended. The only open question is landing.
+- **Do not confirm a builder's recollection of a contract without re-sending the
+  row.** Builder's C-FEL-434b recall was *accurate* and still missing the seams,
+  the N≥2 half, the source-built-compiler proof method, and row 1's both-
+  directions framing. Accurate-but-lossy is the dangerous case.
+- **Do not let C-FEL-434b be proved by the scaffold e2e.** It installs the
+  PUBLISHED compiler (`scaffold-default-e2e.test.ts:117-119`). Set
+  `AIHU_COMPILE_BIN` — this trap has cost hours twice.
 - **Do not accept a green `ci-ok` without checking its sibling `check` is
   SUCCESS on the SAME run id.** Two runs per sha is normal here; the one where
   `check` skips finishes first and posts a green that certifies nothing. Bit
