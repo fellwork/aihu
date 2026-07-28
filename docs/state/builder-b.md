@@ -2,7 +2,8 @@
 
 **Role:** BUILDER-B · **Workspace:** `zurich`
 **Base:** `origin/main` @ `2350f49c`
-**Last updated:** 2026-07-27. Six PRs merged, one open (#655, FEL-GH478).
+**Last updated:** 2026-07-28. Seven PRs merged, two open — #655 (FEL-GH478)
+and #684 (C-FEL-SCAFFOLD-PM-COMPAT, draft, at `5444d4bc`).
 
 > Ownership: `docs/state/` is historian's. This file exists because the
 > orchestrator asked each role to write one before standing down.
@@ -190,6 +191,20 @@ itself.
 5-file PR**, including two other agents' merged work as my blast radius. Always
 `git fetch` then `git diff origin/main...HEAD`.
 
+**`git stash push -- <paths>` ABORTS on an untracked pathspec — and the
+`git stash pop` you write next still succeeds, against SOMEBODY ELSE'S STASH.**
+Hit 2026-07-28 wanting a clean-tree control run. One of my three paths was a
+new untracked test file, so the push died with
+`error: pathspec … did not match any file(s) known to git` and stashed nothing.
+I then popped, believing I was undoing my own push, and instead applied
+builder's stashed `docs/state/builder.md` (+62/-3, their PR #656 update) into
+the shared worktree — one `git commit -a` from being swept into my PR. Re-stashed
+it intact and disclosed on the bus; recovery sha was `776b263f`.
+**The stash stack is shared mutable state in this checkout, exactly like the
+index.** Run `git stash list` BEFORE any pop, and prefer a control run that
+touches no git state at all: copy the files to `/tmp`, `git checkout HEAD --`
+them, run, copy back. That is what I did on the retry and it cost nothing.
+
 **A conclusion is scoped to the premises it was drawn under.** I nearly carried
 the #609 "matrix is environmental" verdict onto a diff that *deletes*
 `packages/cli/src/templates/` — making "scaffold still works" the one claim I
@@ -266,6 +281,10 @@ and assert both sides are non-empty first — two failed `git show` calls make
 
 ## What the next instance must not redo
 
+0. **Do not re-derive the pnpm build-script mechanism.** It is `allowBuilds`
+   (a map) on pnpm 11, measured three ways — see item 15b. And do not conclude
+   "there is no pnpm here": there is, it just needs a node ≥22.13 that is
+   already on disk.
 1. Do not propose "`ci-ok` should skip on drafts". Measured: it renders CLEAN.
 2. Do not try to give `minimal`/`docs` served readiness routes. They have no
    server, and that is what those templates *are*.
@@ -339,25 +358,68 @@ and assert both sides are non-empty first — two failed `git show` calls make
    diffs against `main`, and a freshly `git init`-ed scaffold has no such
    revision (`fatal: ambiguous argument 'main'`, exit 128). Both fail on bun,
    which is what proves they are not PM-compat.
-15b. **pnpm's build-script block is UNSOLVED after two measured attempts, and
-   the runner is on pnpm 11, not 10.** Do not assume either mechanism works —
-   both were tried and both failed on the real thing:
-   - `pnpm: { onlyBuiltDependencies: [...] }` in package.json → pnpm says out
-     loud that it ignores it (`The "pnpm" field in package.json is no longer
-     read by pnpm`), run 30365123040.
-   - `onlyBuiltDependencies:` at the root of `pnpm-workspace.yaml` → **silently
-     not honoured**. Still `ERR_PNPM_IGNORED_BUILDS: esbuild@0.25.12`, stderr
-     completely empty, run 30367767061 on pnpm@11.17.0. Tried in BOTH shapes:
-     the flat scaffold (settings-only file) and cf-team (a real workspace file
-     with `packages:` beside it). Identical failure.
-   The file IS emitted — verified by scaffolding locally and reading it off
-   disk, and independently by the package.json warning disappearing from CI.
-   So this is not a wiring bug; pnpm 11 is not taking the setting from where
-   the docs for pnpm 10 put it. **There is no pnpm on this machine**, so every
-   hypothesis costs a full ~10-minute matrix run — get pnpm installed locally
-   before attacking this again, or you will burn the afternoon one guess at a
-   time. And note the trap that made attempt 1 look plausible: an emitter-level
-   assertion proves the bytes were written, never that anything reads them.
+15b. **SOLVED 2026-07-28 — pnpm 11 RENAMED the setting. `onlyBuiltDependencies`
+   → `allowBuilds`, a map, not a list.** Two attempts failed before this
+   because both were spelling the pnpm-10 key; the second failed *silently*,
+   which is what made it look like a wiring bug. It was not. Measured locally
+   on pnpm 11.17.0 — the runner's exact version — one package depending on
+   `esbuild@0.25.12`, three otherwise-identical dirs:
+
+   ```
+   no pnpm-workspace.yaml        rc=1  ERR_PNPM_IGNORED_BUILDS: esbuild@0.25.12
+   onlyBuiltDependencies: [...]  rc=1  ERR_PNPM_IGNORED_BUILDS: esbuild@0.25.12
+   allowBuilds: {esbuild: true}  rc=0  esbuild postinstall$ node install.js Done
+   ```
+
+   The middle row is the whole finding: **the legacy spelling is
+   indistinguishable in effect from having no file at all**, and pnpm does not
+   warn about it. So "the file is emitted" was never the property worth
+   testing — assert the KEY.
+
+   **GET PNPM RUNNING LOCALLY; it is a 2-minute setup, and it converts a
+   10-minute matrix run per hypothesis into 11 seconds.** The reason nobody had
+   is a trap of its own: `npm i -g pnpm@11` *succeeds*, then every invocation
+   dies with `requires at least Node.js v22.13` (this box's default node is
+   v22.12.0), which reads as "pnpm is broken here". It is not — point it at a
+   newer node that is already installed:
+
+   ```
+   ~/.proto/tools/node/22.22.2/bin/node $(npm root -g)/pnpm/bin/pnpm.cjs install
+   ```
+15c. **Two more defects sat BEHIND the pnpm one, and neither was findable from
+   the generator.** Both found 2026-07-28 by running the acceptance instead of
+   asserting it — the scaffold emitted a perfectly correct
+   `pnpm-workspace.yaml` and still could not be installed.
+   - **The `agent` template never emitted `pnpm-workspace.yaml` at all.**
+     `minimal`/`docs` (`index.ts:857`) and `full` (`templates-full.ts:1268`)
+     did; the `agent` file list (`index.ts:798`) simply lacked the line. Same
+     false-negative shape as item 12's two emitters, one level out: the setting
+     was right in the generator and absent from one of four **file lists**.
+   - **`aihu app --pm <x>` parsed the flag NOWHERE.** bin.ts resolved `--pm`
+     for the template-package path and not for the built-in one, so every
+     built-in scaffold took the `pm` default and emitted
+     `"packageManager": "bun@…"`. pnpm then refuses outright — `ERROR: This
+     project is configured to use bun` — before resolving one dependency.
+     `create-aihu` threaded `pm` correctly all along; two entry points
+     disagreeing about one flag is what kept it alive. Now both call
+     `resolvePmFlag()`.
+   **The lesson to carry, not the two bugs:** a test that calls
+   `scaffoldApp({pm})` passes either way, because the break was in argument
+   handling — it never executes the broken code. `packages/cli/tests/scaffold-pnpm-builds.test.ts`
+   spawns the real CLI for that case and is table-driven over every template
+   for the other. End-to-end acceptance: `--template agent --pm pnpm` then
+   `pnpm install` went rc=1 → rc=0, with the installed esbuild binary reporting
+   0.25.12 (so the postinstall `allowBuilds` unblocks really ran).
+
+15d. **The legacy-snapshot golden was ALREADY RED on `main`** and had been for
+   two commits — `pnpm-workspace.yaml` joined the baseline file set and
+   `package.json` gained the three peer-closure entries, and neither refreshed
+   the fixture. This is the concrete cost of the gate being excluded from the
+   root vitest config (trap already recorded below): `bun run test packages/cli`
+   was green the whole time. Refresh it by **copying the changed files** from a
+   real `aihu app … --pm bun` run, not by `rm -rf` + regenerate — the directory
+   holds a hand-written provenance README the generator does not recreate.
+
 16. **The scaffold matrix cannot measure npm, pnpm or any cf-team cell until
    #677 lands.** Dispatching it against a branch based on plain `main` gives:
    `SKIP pnpm — not installed` (the `npm install --global pnpm yarn` step
