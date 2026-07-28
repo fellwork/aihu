@@ -394,10 +394,20 @@ pub fn emit_with_options(unit: &CompileUnit, tag_name: &str, strict_templates: b
         }
     };
 
-    // v0.6.6: Do NOT emit manifest_json for client-only builds.
-    let manifest_json = if elide_agent {
-        String::new()
-    } else if is_agent_component {
+    // FEL-434 (closes FEL-423): emit the agent manifest for EVERY agent
+    // component — including client (`elide_agent`) builds. `manifest_json` is a
+    // BUILD-TIME SIDECAR (`agent-manifest.json`, written beside `.route.json` by
+    // bin/main.rs), NOT bundled bytes: it costs zero browser weight and leaks
+    // zero policy into the client output. Suppressing it for client builds
+    // (the former `if elide_agent { String::new() }`) is what starved the
+    // agent-readiness generator, so a $action component compiled `--target
+    // client` produced an empty `## Components` section. The client JS elision
+    // of `registerAgentMetadata` stays untouched (mcp_emit.rs "NEVER in client
+    // builds"; T1-b: no scope/rateLimit bytes in the bundle) — only this on-disk
+    // sidecar is (re)enabled. The sidecar MAY carry policy (scope/rate-limit);
+    // that is fine for a build artifact — the readiness generator is responsible
+    // for not RENDERING policy into the served llms.txt.
+    let manifest_json = if is_agent_component {
         let empty_agent = AgentBlock::default();
         let agent = unit.source.agent.as_ref().unwrap_or(&empty_agent);
         emit_manifest(tag_name, agent, unit.source.script.unwrap_or(""), &extract)

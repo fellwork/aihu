@@ -64,16 +64,34 @@ fn route_json_is_none_without_route_block() {
     assert!(result.route_json.is_none());
 }
 
+// FEL-434 (closes FEL-423): a CLIENT-target build of an agent component now
+// EMITS the agent manifest sidecar (`manifest_json`) so the agent-readiness
+// generator can list the component — while the client JS still elides the
+// in-bundle `registerAgentMetadata` (mcp_emit.rs "NEVER in client builds"; the
+// manifest is an on-disk build artifact, never bundled). Was
+// `build_target_client_suppresses_manifest`, which asserted the opposite; that
+// suppression is exactly the FEL-434 defect (client -> empty ## Components).
 #[test]
-fn build_target_client_suppresses_manifest() {
+fn build_target_client_emits_manifest_sidecar_but_elides_in_bundle_registration() {
     let parsed = sfc::parse(
         "@agent {\naction ping() -> { ok: boolean }\n}\n@template { <div></div> }\n",
     )
     .unwrap();
     let unit = compile_full_with_target(&parsed, BuildTarget::Client).unwrap();
     let result = emit(&unit, "x-ping");
-    assert!(result.manifest_json.is_empty());
+    // The build-time sidecar IS emitted for client builds (the fix).
+    assert!(
+        !result.manifest_json.is_empty(),
+        "client build must emit the agent manifest sidecar, got empty"
+    );
+    // The client JS still elides the in-bundle registration — the elision and
+    // the size/policy invariant (T1-b) are untouched.
     assert!(result.js.contains("// [client build] @agent block elided"));
+    assert!(
+        !result.js.contains("registerAgentMetadata"),
+        "client JS must NOT carry registerAgentMetadata (in-bundle elision stays), got:\n{}",
+        result.js
+    );
 }
 
 #[test]
