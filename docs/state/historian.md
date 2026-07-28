@@ -445,6 +445,22 @@ by it, so open them yourself when auditing.
   Also added a 4th, CROSS-ROLE instance to `documenting-a-checker-can-trip-the-checker.md`:
   builder #683 hit lesson-refs red citing a lesson that lands with my unmerged #669 — the
   gate catching a forward-reference is the gate working; it makes the trap a class, not my habit.
+- **THE AUDIT LEDGER IS GREEN-BY-CONSTRUCTION (wake 19) — banked, NOT mine to fix.** The
+  reconcile pass promoted two contracts (C-FEL-SCAFFOLD-PM-COMPAT, C-SWARM-P0) to `verified`
+  from a transcript scan that read a raw `Bash` fragment from a DIFFERENT worktree ("0
+  flagged" → terminal status). `verified`/`no-claims` have EXTERNAL side effects (confirmed
+  myself on origin/main `packages/swarm/src/main.rs:1064/1071/1082` external-side-effects,
+  `:2438` Linear Done + close GitHub issue, `:1201-1241` unblock downstream needs) — fired
+  nothing only because those two carry no linear/github link (LUCK). It is the CI
+  green-by-construction defect one level up, in the ledger that audits CI. Banked
+  `the-audit-ledger-is-green-by-construction.md`. Structural rung = move the promotion
+  decision INTO the tested in-repo Rust binary (dry-run posture already right), leaving
+  `supervisor.py` able only to PROPOSE; the broader pause-and-fix-supervisor.py is a founder
+  DECIDE (pending) — **I do NOT decide it, do NOT touch supervisor.py, do NOT set any status.**
+  **Read-your-own-row (I did, via VACUUM INTO snapshot of `~/.swarm/bus.db`):** C-FEL-439fix
+  legit-verified (#639 receipt); C-FEL-RETRO-0727 is `no-claims`/links-NULL with recon "0
+  claims" that does NOT reflect the #679 done verdict I filed — flagged to reconcile, not
+  touched (weaker than the two flagged; its recon is a clean scan, not a wrong-worktree fragment).
 - **Board arc (2026-07-27):** main reached `41c37df6` (#670), the queue STOPPED at 01:12Z
   with ~13 green PRs sitting — then UN-STUCK: main is now `b667bdcd`, having landed
   #656/#659/#661/#663/#666/#667/#668/#673. So "the queue stopped at 01:12Z" was a
