@@ -162,6 +162,42 @@ interface Baseline {
   orphans: string[]
 }
 
+// ── GATING HALF (C-FEL-GATE-WIRING-RUNS) ─────────────────────────────────────
+//
+// REACHABILITY (above) answers "does some workflow invoke this gate". It does
+// NOT answer "does a failure of that gate fail the PR". Those are different
+// properties and only the first existed.
+//
+// `ci-ok` is the SOLE required status on main. Its own comment states the rule:
+// "being in `needs` is NOT being gated on; only appearing in the loop below is."
+// A job in `needs:` is WAITED on; a job read in the result loop is GATED on.
+// Drop the loop entry and the job still runs, still goes red, and ci-ok reports
+// SUCCESS — green-by-construction one layer up from the gates.
+//
+// THIS IS NOT HYPOTHETICAL AND THAT IS WHY IT IS CHECKED IN CODE. plan-a.yml
+// records it happening TWICE: the `palette` job (in `needs:`, result never read,
+// ci-ok green on a red palette) and #649. A two-incident history is what argued
+// against wiring any gate as its own job at all. This closes it structurally, so
+// own-job is safe rather than merely careful — and the check is the same parse
+// of plan-a.yml the reachability half already does.
+//
+// Deliberately stronger than "the name appears in the loop": the loop entry's
+// env var must be bound to THAT job's `.result`. A copy-paste that leaves
+// `"gate-wiring:$README_SYNC_RESULT"` reads perfectly and gates nothing.
+const AGGREGATOR_WORKFLOW = '.github/workflows/plan-a.yml'
+const AGGREGATOR_JOB = 'ci-ok'
+
+/**
+ * Jobs allowed in the aggregator's `needs:` WITHOUT a result-loop entry, because
+ * they are consumed for their OUTPUTS rather than as a pass/fail gate.
+ *
+ * This list cannot be used to excuse a gate: an entry here is only accepted if
+ * the aggregator actually reads `needs.<job>.outputs.` somewhere. Add a real
+ * gate to it and the proof below fails, so the escape hatch cannot be widened
+ * by editing this line alone.
+ */
+const NEEDS_NOT_GATED = new Set(['changes'])
+
 function readScripts(): Record<string, string> {
   return JSON.parse(readFileSync(join(REPO_ROOT, 'package.json'), 'utf8')).scripts ?? {}
 }
@@ -299,6 +335,111 @@ function isReachable(
   return scriptPathsOf(cmd).some((p) => workflowRunText.includes(p))
 }
 
+/** The `jobs:` block's top-level job ids, in order. */
+export function jobIdsOf(yamlText: string): string[] {
+  const lines = yamlText.split('\n')
+  const start = lines.findIndex((l) => /^jobs:\s*$/.test(l))
+  if (start === -1) return []
+  // Scoped to AFTER `jobs:` on purpose: `on:` has `  push:` / `  pull_request:`
+  // children with the identical shape, and counting those as jobs would make
+  // every real check downstream nonsense.
+  return lines
+    .slice(start + 1)
+    .map((l) => l.match(/^ {2}([A-Za-z0-9_-]+):\s*$/)?.[1])
+    .filter((x): x is string => Boolean(x))
+}
+
+/** The text of one job block (from `  <id>:` to the next `  <id>:`). */
+export function jobBlockOf(yamlText: string, jobId: string): string {
+  const lines = yamlText.split('\n')
+  const start = lines.indexOf(`  ${jobId}:`)
+  if (start === -1) return ''
+  let end = start + 1
+  while (end < lines.length && !/^ {2}[A-Za-z0-9_-]+:\s*$/.test(lines[end])) end++
+  return lines.slice(start, end).join('\n')
+}
+
+interface GatingAudit {
+  /** jobs listed in the aggregator's `needs:` */
+  needs: string[]
+  /** job name -> the env var its result-loop entry reads */
+  loop: Map<string, string>
+  /** env var -> the job whose `.result` it is bound to */
+  binding: Map<string, string>
+  /** jobs the aggregator reads `.outputs.` from */
+  outputsRead: Set<string>
+}
+
+export function auditGating(aggregatorBlock: string): GatingAudit {
+  const needs = (aggregatorBlock.match(/^\s*needs:\s*\[([^\]]*)\]/m)?.[1] ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+
+  // `for pair in "check:$CHECK_RESULT" "examples:$EXAMPLES_RESULT" ...; do`
+  const forLine = aggregatorBlock.split('\n').find((l) => /^\s*for\s+\w+\s+in\s+"/.test(l)) ?? ''
+  const loop = new Map<string, string>()
+  for (const m of forLine.matchAll(/"([A-Za-z0-9_-]+):\$\{?([A-Za-z_][A-Za-z0-9_]*)\}?"/g)) {
+    loop.set(m[1], m[2])
+  }
+
+  // `CHECK_RESULT: ${{ needs.check.result }}`
+  const binding = new Map<string, string>()
+  for (const m of aggregatorBlock.matchAll(
+    /^\s*([A-Za-z_][A-Za-z0-9_]*):\s*\$\{\{\s*needs\.([A-Za-z0-9_-]+)\.result\s*\}\}/gm,
+  )) {
+    binding.set(m[1], m[2])
+  }
+
+  const outputsRead = new Set<string>()
+  for (const m of aggregatorBlock.matchAll(/needs\.([A-Za-z0-9_-]+)\.outputs\./g)) {
+    outputsRead.add(m[1])
+  }
+
+  return { needs, loop, binding, outputsRead }
+}
+
+/**
+ * Every `needs:` entry of the aggregator must be GATED ON, not merely waited on:
+ * present in the result loop, and bound to its OWN job's `.result`. The only
+ * exemption is an outputs-provider, and it must PROVE it is one.
+ */
+function gatingProblems(aggregatorBlock: string): string[] {
+  const { needs, loop, binding, outputsRead } = auditGating(aggregatorBlock)
+  const problems: string[] = []
+  if (needs.length === 0) {
+    return [`${AGGREGATOR_JOB}: could not parse a \`needs:\` list — refusing to pass vacuously.`]
+  }
+  if (loop.size === 0) {
+    return [`${AGGREGATOR_JOB}: could not parse a result loop — refusing to pass vacuously.`]
+  }
+  for (const job of needs) {
+    const varName = loop.get(job)
+    if (!varName) {
+      if (NEEDS_NOT_GATED.has(job)) {
+        // An exemption is only honoured if the job really is an outputs provider.
+        if (!outputsRead.has(job)) {
+          problems.push(
+            `${job}: exempted in NEEDS_NOT_GATED but ${AGGREGATOR_JOB} never reads needs.${job}.outputs.* — the exemption is for outputs providers, not for gates.`,
+          )
+        }
+        continue
+      }
+      problems.push(
+        `${job}: in \`needs:\` but MISSING from ${AGGREGATOR_JOB}'s result loop — it is WAITED on, not GATED on. It can fail while ${AGGREGATOR_JOB} reports success (the palette defect, #649).`,
+      )
+      continue
+    }
+    const boundTo = binding.get(varName)
+    if (boundTo !== job) {
+      problems.push(
+        `${job}: result-loop entry reads $${varName}, which is bound to \`needs.${boundTo ?? '<nothing>'}.result\` — the loop reports on the wrong job.`,
+      )
+    }
+  }
+  return problems
+}
+
 /**
  * Self-test — the meta-check's own negative fixture. Proves the reachability
  * logic CAN flag an orphan (should-flag) AND does not flag a wired gate
@@ -343,6 +484,44 @@ function selfTest(): void {
   // a real run: block-scalar IS captured
   const realRun = runBodiesOf('    - run: |\n        bun scripts/ghost.ts\n        echo done\n')
   if (!realRun.includes('scripts/ghost.ts')) fail('block-scalar run body missed')
+
+  // ── GATING half ────────────────────────────────────────────────────────────
+  // `on:` children have the same shape as job ids; counting them would poison
+  // every downstream assertion, so prove the scoping first.
+  const ids = jobIdsOf('on:\n  push:\n  pull_request:\njobs:\n  alpha:\n  beta:\n    x: 1\n')
+  if (ids.join(',') !== 'alpha,beta') fail(`jobIdsOf scoping wrong: got [${ids}]`)
+
+  const ok = [
+    '  ci-ok:',
+    '    needs: [changes, alpha]',
+    '        env:',
+    '          ALPHA_RESULT: ${{ needs.alpha.result }}',
+    '          CODE: ${{ needs.changes.outputs.code }}',
+    '        run: |',
+    '          for pair in "alpha:$ALPHA_RESULT"; do',
+  ].join('\n')
+  if (gatingProblems(ok).length) fail(`correct wiring flagged: ${gatingProblems(ok)}`)
+
+  // should-flag: in needs:, absent from the loop (the palette/#649 defect)
+  const dropped = ok.replace(' "alpha:$ALPHA_RESULT"', ' "beta:$BETA_RESULT"')
+  if (!gatingProblems(dropped).some((p) => p.startsWith('alpha:'))) {
+    fail('needs-without-loop not flagged')
+  }
+  // should-flag: present in the loop but bound to another job's result
+  const misbound = ok.replace(
+    'ALPHA_RESULT: ${{ needs.alpha.result }}',
+    'ALPHA_RESULT: ${{ needs.changes.result }}',
+  )
+  if (!gatingProblems(misbound).some((p) => p.includes('wrong job'))) {
+    fail('mis-bound result var not flagged')
+  }
+  // should-flag: an exemption that is NOT an outputs provider cannot buy silence
+  const fakeExempt = ok.replace('          CODE: ${{ needs.changes.outputs.code }}\n', '')
+  if (!gatingProblems(fakeExempt).some((p) => p.includes('NEEDS_NOT_GATED'))) {
+    fail('unproven NEEDS_NOT_GATED exemption not flagged')
+  }
+  // must not pass vacuously on an unparseable block
+  if (gatingProblems('  ci-ok:\n    steps: []').length === 0) fail('vacuous gating pass')
 
   // ── chain route is conditional (C-FEL-GATE-WIRING-RUNS) ────────────────────
   if (ciChainIsWired('bun run check:lint')) fail('chain route active with no check:ci invocation')
@@ -488,6 +667,49 @@ function main(): void {
       '  Remove it from scripts/gate-wiring-baseline.json so the debt cannot silently regrow.',
     )
   }
+
+  // ── GATING HALF: every job ci-ok WAITS on must also be GATED on ────────────
+  const aggYaml = readFileSync(join(REPO_ROOT, AGGREGATOR_WORKFLOW), 'utf8')
+  const aggBlock = jobBlockOf(aggYaml, AGGREGATOR_JOB)
+  if (!aggBlock) {
+    console.error(
+      `\n  check:gate-wiring: no \`${AGGREGATOR_JOB}\` job in ${AGGREGATOR_WORKFLOW} — refusing to pass vacuously.`,
+    )
+    process.exit(1)
+  }
+  const { needs, loop } = auditGating(aggBlock)
+  console.log(
+    `\n  GATING (${AGGREGATOR_JOB}, the sole required status) — ${needs.length} in \`needs:\`, ${loop.size} read in the result loop.`,
+  )
+  // Clause (i)->(ii): a gate wired via its OWN job is only gating if ci-ok needs
+  // that job. Checked for the jobs in THIS workflow that run a gate; gates in
+  // other workflow files (e.g. check:stories in storybook.yml) have their own
+  // aggregator and are out of scope here — stated rather than silently passed.
+  const needsSet = new Set(needs)
+  const ungatedJobs: string[] = []
+  for (const jobId of jobIdsOf(aggYaml)) {
+    if (jobId === AGGREGATOR_JOB || needsSet.has(jobId)) continue
+    const body = runBodiesOf(jobBlockOf(aggYaml, jobId))
+    const runsAGate = gates.some(
+      (g) => body.includes(g) || scriptPathsOf(scripts[g]).some((p) => body.includes(p)),
+    )
+    if (runsAGate) ungatedJobs.push(jobId)
+  }
+  const problems = gatingProblems(aggBlock)
+  for (const j of ungatedJobs) {
+    problems.push(
+      `${j}: runs a check:* gate but is NOT in ${AGGREGATOR_JOB}'s \`needs:\` — the gate runs, can go red, and the required status never sees it.`,
+    )
+  }
+  if (problems.length) {
+    console.error(`\n  NOT GATED — a job ${AGGREGATOR_JOB} does not READ cannot fail a PR:`)
+    for (const p of problems) console.error(`    - ${p}`)
+    console.error(
+      `  "${AGGREGATOR_JOB}" is the sole required status on main. Being in \`needs:\` is being WAITED on, not GATED on.`,
+    )
+    process.exit(1)
+  }
+  console.log(`  Every \`needs:\` job is read in the result loop, bound to its own result. OK.`)
 
   // A fixture subprocess runs the reachability half ONLY and returns — it must
   // not recurse into the negative-fixture half that spawned it.

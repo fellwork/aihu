@@ -83,37 +83,6 @@ jobs:
       # failing TS2307 nondeterministically. Reads only source + moon.yml text,
       # so it runs with the other cheap graph guards, before typecheck.
       - run: bun run check:moon-graph
-      # FEL-428 meta-gate: every check:* gate must be invoked by some CI path,
-      # and its red path must have been EXECUTED and observed to exit non-zero.
-      #
-      # THIS STEP IS THE POINT (C-FEL-GATE-WIRING-REACHABLE). #680 shipped the
-      # meta-check into `check:ci` only, and `check:ci` is invoked by no workflow
-      # in this repo — the lesson-refs comment below already said so. So
-      # `grep -rn gate-wiring .github/` returned nothing and the gate that exists
-      # to forbid green-by-construction gates was one. It scored ITSELF reachable
-      # because its rule counted check:ci-chain membership: a fact about
-      # package.json, not about CI. That rule is now conditional on a workflow
-      # actually invoking check:ci, so THIS STEP is what makes it honest — delete
-      # this line and the meta-check reports itself an orphan.
-      #
-      # A STEP HERE, NOT ITS OWN JOB, and that was ruled against my first draft
-      # for a measured reason. An own-job route needs THREE coordinated edits
-      # (define the job, add it to ci-ok `needs:`, add its RESULT to ci-ok's
-      # loop) and this repo has shipped 1+2-without-3 TWICE — the palette job
-      # (waited on, result never read, green on a red palette) and #649. Building
-      # the gate that forbids green-by-construction on the one mechanism with a
-      # two-incident history of PRODUCING green-by-construction is the wrong
-      # vehicle. `check` is already in `needs:` and already in the loop, so a
-      # step costs zero of those three edits.
-      #
-      # The always-on tier (lesson-refs/readme-sync/palette) does not apply: those
-      # are always-on because their SUBJECT MATTER IS DOCS. This gate's inputs are
-      # package.json and .github/workflows/**, and `changes.code` counts both as
-      # code, so every diff that can create an orphan already runs `check`.
-      # ACCEPTED TRADEOFF: invisible on doc-only PRs — unreachable by
-      # construction today. If it ever moves to its own job, all three edits land
-      # in the SAME change.
-      - run: bun run check:gate-wiring
       # Guard: a compiler Rust change must bump the platform binary packages,
       # or the rebuilt binary is silently skipped at publish (see the script).
       - run: bun run check:compiler-binary-bump
@@ -393,6 +362,52 @@ jobs:
           bun-version: '1.3.8'
       - run: bun scripts/sync-readme.ts --check
 
+  gate-wiring:
+    # The FEL-428 meta-gate: every check:* gate must be invoked by some CI path,
+    # and its red path must have been EXECUTED and observed to exit non-zero.
+    #
+    # THIS JOB IS THE POINT (C-FEL-GATE-WIRING-RUNS). #680 shipped the meta-check
+    # into `check:ci` only, and `check:ci` is invoked by no workflow in this repo
+    # — the lesson-refs comment above already said so. So `grep -rn gate-wiring
+    # .github/` returned nothing and the gate that exists to forbid
+    # green-by-construction gates was one. It scored ITSELF reachable because its
+    # rule counted check:ci-chain membership, a fact about package.json rather
+    # than about CI. That rule is now conditional on a workflow actually invoking
+    # check:ci, so THIS JOB is what makes it honest — delete it and the
+    # meta-check reports itself an orphan (proven; that is a negative fixture).
+    #
+    # WHY ITS OWN JOB AND NOT A STEP IN `check`, corrected. My first version of
+    # this comment said the `code` filter does not guarantee package.json /
+    # .github/workflows. THAT WAS FALSE and it was measured false: `code` is
+    # `**` minus .team, docs, .claude, state-*.md, READMEs, CHANGELOGs and
+    # .changeset, so both ARE code. A false premise in a workflow comment is the
+    # exact failure this contract is about, so it is corrected rather than
+    # quietly dropped.
+    #
+    # The TRUE reason is the OTHER half of `check`'s `if:` — `draft == false`.
+    # A step in `check` is invisible on every draft PR, and agents are instructed
+    # to push a draft the moment they make an edit, so a wiring regression would
+    # go unseen for the entire life of the branch it was introduced on. This job
+    # carries no `if:` and no path filter: it runs on drafts too.
+    #
+    # Own-job costs THREE coordinated edits — this job, ci-ok's `needs:`, and
+    # ci-ok's RESULT LOOP — and this repo has shipped 1+2-without-3 twice (the
+    # palette job; #649). That risk is why a step was ruled first. It is now
+    # closed IN CODE, not by this comment: check-gate-wiring.ts asserts every job
+    # in ci-ok's `needs:` also appears in the result loop, bound to its own
+    # result. Drop the loop entry below and the gate goes red.
+    #
+    # Cheap like lesson-refs/readme-sync — reads text, spawns its own negative
+    # fixtures (~2s), needs bun + the repo but NO `bun install`, no build, no Rust.
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.3.8'
+      - run: bun run check:gate-wiring
+
   ci-ok:
     # Single stable REQUIRED status for branch protection. Always runs (even
     # when `check` / `examples` / `governed-examples` are skipped — e.g. a
@@ -454,7 +469,7 @@ jobs:
     # resolves every needed job to a terminal state (success/failure/
     # cancelled/skipped) before evaluating this job's `if: always()`, which
     # then runs regardless of what that state was.
-    needs: [changes, check, examples, governed-examples, lesson-refs, palette, readme-sync]
+    needs: [changes, check, examples, governed-examples, lesson-refs, palette, readme-sync, gate-wiring]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -478,6 +493,15 @@ jobs:
           # loop below, not just here: being in `needs` is being WAITED on, not
           # gated on (the palette bug above, and #649, both proved that).
           README_SYNC_RESULT: ${{ needs.readme-sync.result }}
+          # gate-wiring is always-on (no if:, no path filter) like readme-sync,
+          # so it is never `skipped` on a real event. It MUST appear in the loop
+          # below, not merely here: being in `needs` is being WAITED on, not
+          # gated on. That distinction is now MACHINE-CHECKED — check:gate-wiring
+          # parses this job and fails if any `needs:` entry is missing from the
+          # loop or bound to the wrong job's result. Deleting the loop entry
+          # while leaving this line is the palette/#649 defect, and it is the one
+          # direction nobody in this repo had ever proven until now.
+          GATE_WIRING_RESULT: ${{ needs.gate-wiring.result }}
           # `true` only for a pull_request event whose PR is a draft. For push
           # and workflow_dispatch, `github.event.pull_request` is null and this
           # evaluates to `false` — so the draft rule below can never fire on a
@@ -496,9 +520,10 @@ jobs:
           echo "lesson-refs:        $LESSON_REFS_RESULT"
           echo "palette:            $PALETTE_RESULT"
           echo "readme-sync:        $README_SYNC_RESULT"
+          echo "gate-wiring:        $GATE_WIRING_RESULT"
           echo "draft PR:           $IS_DRAFT"
           fail=0
-          for pair in "check:$CHECK_RESULT" "examples:$EXAMPLES_RESULT" "governed-examples:$GOVERNED_EXAMPLES_RESULT" "lesson-refs:$LESSON_REFS_RESULT" "palette:$PALETTE_RESULT" "readme-sync:$README_SYNC_RESULT"; do
+          for pair in "check:$CHECK_RESULT" "examples:$EXAMPLES_RESULT" "governed-examples:$GOVERNED_EXAMPLES_RESULT" "lesson-refs:$LESSON_REFS_RESULT" "palette:$PALETTE_RESULT" "readme-sync:$README_SYNC_RESULT" "gate-wiring:$GATE_WIRING_RESULT"; do
             name="${pair%%:*}"
             result="${pair#*:}"
             if [ "$result" = "failure" ] || [ "$result" = "cancelled" ]; then
