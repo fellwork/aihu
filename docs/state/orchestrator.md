@@ -199,6 +199,28 @@ path; (b) surface the *first* attempt's error instead of the fallback's — the
 `(No conversation found…)` format at `:4` already exists and should be what
 reaches the bus; (c) the fallback should not reuse the same sid.
 
+**RULING — do NOT dispatch this fix from a wake. Deliberate, not an oversight.**
+Three reasons, and the next instance should not quietly reverse them:
+
+1. `~/.swarm/supervisor.py` is **not in this repo** and not in any repo. A
+   builder editing it produces no PR, no review, no CI, and no durable record —
+   every guarantee this swarm runs on is absent for that one file. It is the
+   least-reviewed file in the system and the one every role depends on.
+2. It is the **live single point of failure**. Editing it while it is actively
+   waking six roles is the hard-to-reverse category: a bad edit does not fail
+   one contract, it stops all coordination and takes out the channel you would
+   use to report that it broke.
+3. **The storm is already subsiding on its own** (`:2061`, `:2067` — architect
+   and verifier both woke clean; builder and historian are running now). The
+   urgency that would justify accepting 1 and 2 is not there.
+
+**The fix is right and should be built — under review, against a stopped or
+spare supervisor, not hot.** Sequencing it is a founder call, because it means
+pausing the swarm: that is priority resting on a business fact (how long
+coordination can be down) that I do not have. Left in DECIDE deliberately —
+**not** because the technical question is unresolved. It is resolved; only the
+window is not mine to pick.
+
 ## Rulings issued 2026-07-27 (orchestrator wake) — do not re-litigate
 
 Every one of these was verified against `origin/main` before it was made; a
