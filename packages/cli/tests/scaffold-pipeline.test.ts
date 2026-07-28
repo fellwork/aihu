@@ -6,10 +6,12 @@ import {
   type FileTuple,
   mergeOptions,
   printNextSteps,
+  type ResolvedOptions,
   readSubstituteWrite,
   resolveTemplate,
   runPostInstall,
   type Spawner,
+  workspaceProtocolFor,
 } from '../src/scaffold-pipeline.ts'
 import type { TemplateManifest } from '../src/template-manifest.ts'
 
@@ -623,5 +625,63 @@ describe('F-5b: conditionalFiles rename field', () => {
     const targets = tuples.map((t) => t.targetRelPath)
     // No rename → filename unchanged.
     expect(targets).toContain('src/auth/better-auth.ts')
+  })
+})
+
+describe('__WORKSPACE_PROTOCOL__ substitution (C-FEL-SCAFFOLD-PM-COMPAT)', () => {
+  // Regression guard for run 30322552896, where cf-team failed to scaffold on
+  // npm, pnpm AND yarn — three of four package managers — because the template
+  // hardcoded `workspace:*` and assumed every one of them read it.
+  //
+  // Asserts the SHAPE the range must have per PM, not merely that substitution
+  // happened: a test that only checked "no placeholder left" would have passed
+  // against the broken template.
+  const cases: ReadonlyArray<[ResolvedOptions['pm'], string]> = [
+    // Understood natively — and preferred, because unlike a bare `*` it can
+    // never silently resolve to a same-named package on the public registry.
+    ['bun', 'workspace:*'],
+    ['pnpm', 'workspace:*'],
+    // npm rejects the protocol outright (EUNSUPPORTEDPROTOCOL); yarn 1 takes it
+    // literally and asks the npm registry for a package at that "version".
+    ['npm', '*'],
+    ['yarn', '*'],
+  ]
+
+  for (const [pm, expected] of cases) {
+    it(`renders an intra-workspace dep as ${JSON.stringify(expected)} for ${pm}`, () => {
+      const m = manifestFixture()
+      const o = mergeOptions(m, { appName: 'demo', pm, userOverrides: {} })
+      const fs = fakeFs({
+        'tpl-root/package.json.tmpl':
+          '{"name":"@__APP_NAME__/web","dependencies":{"@__APP_NAME__/shared":"__WORKSPACE_PROTOCOL__"}}',
+      })
+      const tuples: FileTuple[] = [
+        { sourcePath: 'package.json.tmpl', targetRelPath: 'package.json', isTemplate: true },
+      ]
+      readSubstituteWrite(tuples, {
+        templateRoot: 'tpl-root',
+        targetDir: 'demo',
+        manifest: m,
+        options: o,
+        fs,
+      })
+      // Parsed, not string-matched: a malformed range that still contains the
+      // right substring would be a broken package.json all the same.
+      const pkg = JSON.parse([...fs.writes.values()][0]!)
+      expect(pkg.dependencies['@demo/shared']).toBe(expected)
+    })
+  }
+
+  it('defaults to the workspace: protocol when no pm is given', () => {
+    // mergeOptions defaults pm to bun; the safer range must be the fallback, so
+    // a caller that forgets to thread pm through cannot land a bare `*`.
+    expect(
+      workspaceProtocolFor(
+        mergeOptions(manifestFixture(), {
+          appName: 'demo',
+          userOverrides: {},
+        }).pm,
+      ),
+    ).toBe('workspace:*')
   })
 })
