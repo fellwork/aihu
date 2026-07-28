@@ -415,12 +415,30 @@ jobs:
               fail=1
             fi
           done
-          # FEL-437 — a draft skipped the build, so "skipped is allowed" must
-          # not apply here. Reported as a failure rather than silently green:
-          # a draft cannot be merged anyway, so this blocks nothing, and a red
-          # X that says why beats a green tick that means nothing.
+          # FEL-437 — a draft skipped the build, so "skipped is allowed" must not
+          # silently read as a pass. Announced as a WARNING, not a failure.
+          #
+          # It used to fail, reasoning "a draft cannot be merged anyway, so this
+          # blocks nothing." True in isolation, false in aggregate: agents are
+          # instructed to push a draft PR as soon as they make their first edit
+          # (work left only in a workspace is one reset from gone), so EVERY agent
+          # PR was red from birth until someone promoted it. The queue filled with
+          # red meaning "unfinished", real failures hid among them, and the board
+          # trained everyone to ignore red — the same noise-over-signal defect
+          # already fixed for the bench lanes. Red must mean "this is broken."
+          #
+          # Safe because two independent things stop an untested draft merging:
+          # GitHub refuses to merge a draft PR at all, and draft -> ready is in
+          # this workflow's `types:` list, so promotion fires a fresh run whose
+          # `check` actually executes. The stale-green window the original comment
+          # feared is closed by that trigger, not by this failure.
           if [ "$IS_DRAFT" = "true" ] && [ "$CHECK_RESULT" = "skipped" ]; then
-            echo "::error::Draft PR: 'check' was skipped, so nothing was built or tested. This is NOT a pass — mark the PR ready for review to get a real result. (FEL-437)"
+            echo "::warning::Draft PR: 'check' was skipped, so nothing was built or tested. NOT evidence of a pass — mark ready for review to get a real result. Not failed, because a draft is unfinished, not broken. (FEL-437)"
+          fi
+          # A NON-draft whose `check` skipped is a genuine anomaly: the gate would
+          # be reporting on a build that never ran, with nothing blocking a merge.
+          if [ "$IS_DRAFT" != "true" ] && [ "$CHECK_RESULT" = "skipped" ]; then
+            echo "::error::'check' was skipped on a non-draft PR — ci-ok would be reporting on a build that never ran. Investigate the changes/paths filter before merging."
             fail=1
           fi
           if [ "$fail" = "1" ]; then
