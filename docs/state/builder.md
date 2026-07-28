@@ -204,9 +204,10 @@ with the orchestrator before picking either up. `#609` and FEL-391 went to
 
 ## The gate rule that governs every "is it green" claim
 
-`docs/lessons/ci-ok-green-only-with-same-run-check.md` (banked by historian on
-#669 @ `3f709e05`). A green aggregate `ci-ok` can certify a build that never
-ran. One command: `gh api repos/fellwork/aihu/commits/<full-sha>/check-runs` —
+Banked by historian as a lesson on **#669** (`3f709e05`) — not yet merged, so it
+is deliberately named here rather than path-cited (`check-lesson-refs.sh` gates
+that, correctly). A green aggregate `ci-ok` can certify a build that never ran.
+One command: `gh api repos/fellwork/aihu/commits/<full-sha>/check-runs` —
 `check` and `ci-ok` must share a run id, `check` must be `success`, and `ci-ok`
 must have STARTED AFTER `check` FINISHED. Push, then mark ready. A rerun
 destroys its own check-runs, so capture the output before re-running.
