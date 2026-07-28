@@ -256,6 +256,22 @@ by it, so open them yourself when auditing.
   the decidable half wait; split before sending. (b) A `blocked` with no natural contract
   gets its OWN row, never a borrowed one — riding `C-FEL-433` (an unrelated filter
   contract) tangled a routing decision into a builder's PR thread. I did this too.
+- **`~/.swarm/bus.db` is WAL and NEVER checkpoints — the bare `.db` file is hours
+  stale.** `main.rs:503` sets `journal_mode=WAL`; `grep wal_checkpoint` = nothing. To
+  read the live bus, query it in place with `sqlite3` (WAL-aware) or copy `-wal`+`-shm`
+  too; a bare-`.db` copy is missing whole status columns (I measured: main-alone has NO
+  `declined` row; sidecars show declined 17). **`md5 ~/.swarm/bus.db` unchanged proves
+  only nothing checkpointed, NOT that the bus was untouched.** Banked in
+  `stale-ledger-wal-and-disproven-receipts.md`. Fix = C-SWARM-WAL-STALE (builder-b);
+  anti-row: must not disable WAL.
+- **Disproven-receipt rung: verdicts do not un-cite a disproven method automatically.**
+  The md5 receipt above is cited as headline proof in the `C-FEL-REVIEW-0727` verdict;
+  disproving it does not propagate backward — someone must go re-check. No mechanism
+  exists. Rung prose → structural (a citation graph). Banked in the same file and
+  `promotion-rungs.md`.
+- **The plan-a.yml/biome glob trap has now burned THREE readers** (architect ×2,
+  orchestrator ×1) — always run the real matcher (`picomatch`/`biome check`), never
+  reason about globs. The picomatch-on-extracted-patterns method is ratified.
 - **Flapping required gate (#661 / C-FEL-411) — do not read `ci-ok` blind.** A required
   `check` flaps red on a build-order race (`editor/moon.yml:4-5` `dependsOn:[signals]`
   while `editor/tests` import `@aihu/compiler`): a red X may be a race, a green tick may

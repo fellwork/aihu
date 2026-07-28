@@ -215,6 +215,17 @@ not reasoning about the globs.
 > agent promoted their own guardrail one rung by making the wrong method inexpressible
 > in the acceptance, exactly as a `must_fail` row makes an untested claim inexpressible.
 
+**The trap has now produced THREE wrong readings from three readers** — the architect
+twice, and the orchestrator once, who nearly ruled `#667`'s `!.claude/**` exclusion a
+blocker on the reasoning that `.claude/skills/swarm/swarm.ts` is live TypeScript, then
+**ran the matcher**: `bunx biome check .claude/skills/swarm/swarm.ts` → *"These paths
+were provided but ignored"* (`biome.json` already carries `!.claude`), so the exclusion
+loses nothing. Same file, same method, same wrong answer, three times. The builder who
+broke the streak did it with **real `picomatch` against patterns extracted from the
+edited file**, and that method is now **ratified** as the acceptance for filter changes.
+The promotion completes: the structural bar (run the matcher) now has an implementation
+(picomatch on extracted patterns), not just a prohibition.
+
 ## Related
 
 - `checked-thing-is-not-the-changed-thing.md` — the recurrence (incident 1) and the exit-code-not-checked family

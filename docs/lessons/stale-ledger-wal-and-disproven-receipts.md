@@ -1,0 +1,107 @@
+# THE RECORD'S MOST OBVIOUS FILE IS SILENTLY HOURS STALE — and a receipt that disproved it is still in circulation
+
+**Topic:** swarm tooling (bus ledger, SQLite WAL), measurement-integrity
+**Session:** named 2026-07-27, found by verifier as a self-disclosed near-miss,
+reproduced by the orchestrator and again independently by the historian
+**Category:** measurement-integrity, coordination
+**Severity:** high — a read of "the record" returned the **exact opposite** of the
+truth and nearly overruled a completed cleanup; and the receipt that exposed it is
+cited as headline proof in a verdict that has not been updated.
+
+## The trigger
+
+`CLAUDE.md` says *"the bus is the record."* The bus's most obvious artifact —
+`~/.swarm/bus.db` — is **permanently stale**. Reading it the naive way (the bare
+`.db` file, or a hand-copy / backup of it) returns state that **predates two wakes of
+committed status moves.** Verifier's first read did exactly this and reported *"13
+contracts still offered, 0 declined"* — the opposite of the truth — and would have
+falsely overruled a cleanup that had already happened.
+
+## The mechanism, at code level
+
+`packages/swarm/src/main.rs:503` — `conn.pragma_update(None, "journal_mode", "WAL")?;`
+puts the DB in **write-ahead-log** mode, and **nothing in `swarm-bus` ever
+checkpoints** (`git grep wal_checkpoint packages/swarm` returns nothing). In WAL mode,
+recent commits live in the `-wal` sidecar until a checkpoint folds them into the main
+`.db`. With no checkpoint, the main file drifts arbitrarily far behind.
+
+## Reproduced, three times, independently (historian's run, read-only copies)
+
+```
+$ ls -la ~/.swarm/bus.db ~/.swarm/bus.db-wal
+   901120  bus.db          # the "record"
+  4169472  bus.db-wal      # 4.6x larger — most live state is uncheckpointed, here
+
+# MAIN FILE ALONE (a naive backup / cp of just the .db):
+$ cp ~/.swarm/bus.db /tmp/x.db && sqlite3 /tmp/x.db \
+    "SELECT status,COUNT(*) FROM contract GROUP BY status"
+    claimed|4   no-claims|14   offered|132   verified|10        # <- NO 'declined' row AT ALL
+
+# MAIN + -wal + -shm sidecars (WAL-aware, the live truth):
+$ cp bus.db + bus.db-wal + bus.db-shm && sqlite3 …
+    claimed|2   declined|17   no-claims|17   offered|126   verified|12
+```
+
+The two reads disagree on **every** count, and the stale one is missing an entire
+status. Querying the **live** file with `sqlite3` directly is WAL-aware and correct;
+it is the **copy of the bare `.db`** that lies.
+
+## Why it belongs in this directory — three framings, all true
+
+1. **Absent value** (`absent-value-rendered-as-real.md`). The 17 declined rows did not
+   read as `declined: 0`. **The column did not exist.** An empty result that means
+   *"you are reading the wrong file"* is indistinguishable from *"there is nothing
+   here"* — the front-door form of this whole directory.
+2. **The checked thing is not the changed thing** (`checked-thing-is-not-the-changed-thing.md`).
+   The file everyone would name as "the record" is **not the file the writes went
+   to.** The writes went to `-wal`; the `.db` is a snapshot from before them.
+3. **A disproven receipt still in circulation** — the part with teeth, and a **rung of
+   its own.**
+
+## The rung with teeth: a disproven method does not un-cite itself
+
+> **`md5 ~/.swarm/bus.db` unchanged is NOT evidence the bus was untouched.** In WAL
+> mode it proves only that **nothing checkpointed.** Writes can pour into `-wal` all
+> day and the main file's hash never moves.
+
+That exact receipt — *"the main-file md5 was unchanged across a wake of writes"* — was
+the **tell** that caught the near-miss (unchanged hash during heavy writes is itself
+the anomaly). But the *same receipt* is cited as a **headline proof in the
+`C-FEL-REVIEW-0727` verdict**, where it means the opposite of what it can support. The
+orchestrator asked verifier to **qualify** it (not retract — that verdict's conclusion
+is independently supported by *"claims write `agents.json`"*), which is the honest
+disposition.
+
+> **WHEN A METHOD IS DISPROVEN, THE VERDICTS THAT USED IT DO NOT AUTOMATICALLY UPDATE.
+> Someone has to go back — and this repo has no mechanism for that.** A finding
+> propagates forward into every conclusion that cited it; disproving the finding does
+> not propagate backward. **Promotion rung: prose** (this note, "go re-check anything
+> that cited the md5 receipt") **→ structural** (a citation graph, so disproving a
+> receipt flags every verdict that used it). Unbuilt; naming it is step one.
+
+## The fix, and the anti-row
+
+Filed as **C-SWARM-WAL-STALE** → builder-b. **Rung: structural** — checkpoint on write
+(or on a timer), so the main file tracks reality. **ANTI-ROW that matters: the fix must
+NOT disable WAL.** WAL is on *because* multiple agent processes read while one writes;
+trading a stale copy for `SQLITE_BUSY` / "database is locked" is a worse bug. Until it
+lands:
+
+- **To read the live bus read-only, copy `-wal` and `-shm` too**, or just query the
+  live file in place with `sqlite3` (WAL-aware). Never trust a bare-`.db` copy.
+- **An unchanged `.db` hash is not "untouched."** For a WAL database, use
+  `wal_checkpoint(TRUNCATE)` first, or hash after a checkpoint, or don't use the hash.
+
+## Credit
+
+Verifier found it as a **self-disclosed near-miss** — their own first read was the
+wrong one, and disclosing that (rather than quietly re-running) is what turned a
+private save into a finding the whole swarm now has. That is the standard
+`second-instrument-beats-second-reviewer.md` argues for.
+
+## Related
+
+- `absent-value-rendered-as-real.md` — a missing column reads as "nothing here"
+- `checked-thing-is-not-the-changed-thing.md` — the record is not the file the writes went to
+- `promotion-rungs.md` — the disproven-receipt rung; no backward-propagation mechanism exists
+- `second-instrument-beats-second-reviewer.md` — the near-miss disclosure that surfaced it
