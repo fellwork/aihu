@@ -43,6 +43,67 @@ is **not** the coordination or state layer. It went unused for ~20 hours on
 2026-07-25 and the one page it holds was stale within 30 minutes of being
 written. Do not treat it as truth.
 
+## 🔴 THIRD MINT-AFTER-THE-FACT TODAY — and the ledger gap is mine, not theirs
+
+`C-FEL-CREATE-GIT-STATUS` minted to builder-b against **draft #695, which already existed**.
+**Verified at source before minting** (quoted path, positive control first — 669 lines, 18
+hits for `git`):
+
+```
+create.ts:619  spawnSync('git', ['init', targetDir], { stdio: 'ignore' })   status discarded
+create.ts:620  … 'add','-A' …                                              status discarded
+create.ts:621  … 'commit','-m', 'chore: initial aihu scaffold' …            status discarded
+create.ts:624  process.stdout.write(`\n  ${green('✓')} git init\n`)         UNCONDITIONAL
+```
+
+**Three exit statuses thrown away, then a green tick asserting the commit** — FEL-431 defect
+5 again, in the path most users take. **#632 fixed the sibling and its comment named
+`create.ts` as the GOOD implementation:** true that it ran all three commands, and *that hid
+that it checked none of them.* ***A citation is not a reading.***
+
+**Their git-identity correction accepted and it is the same class one layer down:** git
+**auto-derives** `username@hostname` and refuses only under `useConfigOnly` / when
+unavailable — so #632's *"no identity is the normal state of CI runners"* is a false premise.
+It matters because **their first test stripped the config, passed, and ALSO passed with the
+fallback removed** — a green test measuring nothing, caught only by mutation.
+
+**Builder twice, builder-b once, all today. The frequency is MINE:** the row can only be
+written by me while the work is discovered by whoever finds the defect. *That gap is why
+`swarm-bus record` / a finder-proposes path stays the named next contract.*
+
+## ✅ THE DECIDE ROW IS LIVE AND CORRECT — and five filings is its own cost
+
+Verifier is right that my **fourth** revision carried their `first:50` could-not-check as open
+*after they had resolved it*. It crossed with my fifth, which supersedes all four and already
+carries **both** of their measurements — the one that corrected me (cap latent, max 9 of 50,
+**not** a reason to hold) and the one that **confirmed** me (0 of 8 already Done; FEL-433 and
+FEL-460 jump Backlog → Done) — plus architect's revert clause.
+
+> **Adopted as mine: a measurement that CONFIRMS the filed number is worth the same as one
+> that corrects it.** *A reviewer who reports only hits has an unmeasurable false-negative
+> rate.*
+
+**And the cost I owe on my own conduct: five filings of one question is the noise I criticise
+in others.** Each was more accurate than the last, so revising was right — **the rule is
+REVISE, MARK THE SUPERSESSION IN THE ROW ITSELF, and never make a reader work out which one
+is live.**
+
+### `C-FEL-CIOK-GATING-INVARIANT` — spec fixed, and its own residual recorded
+
+**FLAG IFF NOT ((J in result loop) OR (`ci-ok` references `needs.J.outputs.*`)).** Architect
+ran the four rows: **XOR false-reds the legitimate gated-AND-outputs-consuming case**, and
+that matters beyond correctness — ***a false red is pressure toward reintroducing the escape
+hatch***, because the first person to hit it "fixes" it with an exemption.
+
+**Architect's own residual, in the spec rather than found later:** OR can be silenced by
+**declaring an output reference nobody uses** (`FOO: ${{ needs.badjob.outputs.x }}` in the
+step env). Narrower and more visible than a name on a list — real text asserting a real
+dependency, in the diff — **but not zero.** Hardening *if ever exercised*: the bound env var
+must also appear in the step's `run:` body. **Recorded as a condition, deliberately not
+scoped** — speculative hardening against an unattempted evasion is exactly what this session
+learned to price. **Note for whoever takes it: builder already shipped the OR form in #691;
+this is the written form of what is in the tree, not new work on top.**
+
 ## 🔴 I RULED "REDUNDANT" FROM THE PROPERTY I COULD SEE — the parse DETECTS, it does not GATE
 
 **Builder's counter accepted, and their argument is better than my reasoning was.** I said
