@@ -574,7 +574,17 @@ impl VerdictStatus {
 /// checked non-empty: an unparseable claim (no `:`, an unknown verb, or an
 /// empty target) is exit-2'd naming the offending entry, the same
 /// silent-failure class as no claim at all.
+/// The verbs recon knows how to trace mechanically. NOT a closed set — see
+/// below. Kept for documentation and for the error text's example.
 const CLAIM_VERBS: &[&str] = &["filed", "pushed", "merged", "committed", "ran", "opened", "closed"];
+
+/// A verb must be a plausible identifier, not free prose. This is the line
+/// between "structured enough to check" and "a sentence with a colon in it".
+fn verb_is_wellformed(verb: &str) -> bool {
+    !verb.is_empty()
+        && verb.len() <= 24
+        && verb.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+}
 
 fn validate_claims(claims: &str) -> Result<(), String> {
     for entry in claims.split(',') {
@@ -594,9 +604,23 @@ fn validate_claims(claims: &str) -> Result<(), String> {
                 ))
             }
         };
-        if !CLAIM_VERBS.contains(&verb) {
+        // OPEN verb set, deliberately. A closed enum was shipped first and
+        // measured against real traffic before deploy: it rejected 5 of the 6
+        // verbs agents actually write — `repro:`, `verified:`, `tested:`,
+        // `impl:`, and `couldnotcheck:` — keeping only `ran:`. Deploying it
+        // would have exit-2'd essentially every verdict and jammed the swarm.
+        //
+        // The anti-silent-failure property lives in the FORMAT (a colon, a
+        // non-empty verb, a non-empty target), not in the vocabulary. And
+        // `couldnotcheck:` is precisely the honest reporting this project
+        // wants — a closed list would have punished the most valuable claim
+        // an agent can make. Recon handles a verb it does not recognise; it
+        // cannot handle a claim it cannot parse.
+        if !verb_is_wellformed(verb) {
             return Err(format!(
-                "claim '{entry}' has unknown verb '{verb}'. Valid verbs: {}",
+                "claim '{entry}' has a malformed verb '{verb}' — a verb is a short \
+                 identifier (letters, digits, - or _), e.g. {}. Free prose before \
+                 the ':' is not a claim.",
                 CLAIM_VERBS.join(", ")
             ));
         }
@@ -2963,6 +2987,30 @@ mod tests {
         assert!(validate_claims("pushed:PR#640,ran:cargo test").is_ok());
     }
 
+    /// REGRESSION: a closed verb enum rejected 5 of the 6 verbs agents
+    /// actually write, measured against real bus traffic before deploy.
+    /// These exact strings came off the live bus.
+    #[test]
+    fn validate_claims_accepts_the_verbs_agents_really_use() {
+        for c in [
+            "repro:moon check->app::missing_workspace",
+            "verified:tsc runs in web+shared",
+            "tested:arg-parse filter collects all 3 names",
+            "impl:packages/swarm/src/main.rs",
+            "couldnotcheck:full mutating scaffold",
+            "already-resolved-by:merged #645",
+        ] {
+            assert!(validate_claims(c).is_ok(), "must accept real-world claim: {c}");
+        }
+    }
+
+    /// The format guard must still bite: prose before the colon is not a verb.
+    #[test]
+    fn validate_claims_still_rejects_prose_verbs() {
+        assert!(validate_claims("this is a sentence:target").is_err());
+        assert!(validate_claims("has space:x").is_err());
+    }
+
     #[test]
     fn validate_claims_accepts_every_valid_verb() {
         for verb in CLAIM_VERBS {
@@ -2978,9 +3026,14 @@ mod tests {
     }
 
     #[test]
-    fn validate_claims_rejects_unknown_verb() {
-        let err = validate_claims("invented:X").unwrap_err();
-        assert!(err.contains("invented"), "error should name the offender: {err}");
+    fn validate_claims_accepts_an_unfamiliar_but_wellformed_verb() {
+        // Was `rejects_unknown_verb`. That test encoded a CLOSED verb set,
+        // which measurement against live traffic disproved: agents write
+        // `repro:`, `verified:`, `couldnotcheck:` and similar, all of them
+        // legitimate. An unfamiliar verb is fine; an unparseable claim is not.
+        assert!(validate_claims("invented:X").is_ok());
+        let err = validate_claims("invented X").unwrap_err();
+        assert!(err.contains("invented X"), "error should name the offender: {err}");
     }
 
     #[test]
