@@ -327,6 +327,9 @@ const PLACEHOLDER_TOKENS = [
   '__SCAFFOLD_DATE__',
   // F-3b: expands to conditional dep lines (with leading comma) or '' when none match.
   '__APP_CONDITIONAL_DEPS__',
+  // Range for an intra-workspace dependency, chosen by package manager.
+  // See workspaceProtocolFor().
+  '__WORKSPACE_PROTOCOL__',
 ] as const
 
 export interface ReadSubstituteWriteInput {
@@ -397,6 +400,33 @@ function buildConditionalDepLines(
   return entries.length > 0 ? `,\n${entries.join(',\n')}` : ''
 }
 
+/**
+ * The dependency range a monorepo template should use to point one of its own
+ * workspace members at another, for the package manager actually being used.
+ *
+ * There is no single spelling that works everywhere, which is what broke the
+ * cf-team template on 3 of 4 package managers (run 30322552896, all three at
+ * the `scaffold` step, before a single file could be typechecked):
+ *
+ *   `workspace:*`  bun ✓  pnpm ✓  npm ✘  yarn 1 ✘
+ *     npm    → EUNSUPPORTEDPROTOCOL: Unsupported URL Type "workspace:"
+ *     yarn 1 → Couldn't find package "@app/shared@workspace:*" on the "npm"
+ *              registry — it takes the range literally and asks the registry
+ *              for it, rather than reading it as a workspace pointer.
+ *
+ *   `*`            bun ✓  npm ✓  yarn 1 ✓  pnpm ✘
+ *     pnpm 10 defaults `link-workspace-packages` to false, so a bare `*`
+ *     resolves from the REGISTRY — silently installing a stranger's package,
+ *     or failing, instead of linking the sibling next door.
+ *
+ * So the choice is genuinely per-PM. `workspace:` is strictly better where it
+ * is understood (it cannot accidentally resolve to a registry package), so it
+ * is the default and `*` is the fallback for the two that reject it.
+ */
+export function workspaceProtocolFor(pm: ResolvedOptions['pm']): string {
+  return pm === 'npm' || pm === 'yarn' ? '*' : 'workspace:*'
+}
+
 function buildSubstitutions(
   manifest: TemplateManifest,
   options: ResolvedOptions,
@@ -413,6 +443,7 @@ function buildSubstitutions(
     __SCAFFOLD_DATE__: (now ?? (() => new Date().toISOString().slice(0, 10)))(),
     // F-3b: conditional auth deps (leading comma + newline when non-empty).
     __APP_CONDITIONAL_DEPS__: buildConditionalDepLines(manifest, ctx),
+    __WORKSPACE_PROTOCOL__: workspaceProtocolFor(options.pm),
   }
 }
 

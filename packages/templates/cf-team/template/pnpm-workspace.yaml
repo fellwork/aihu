@@ -1,0 +1,17 @@
+# pnpm does not read the `workspaces` array in package.json — it wants this
+# file, and without it treats the repo as a single package. That is why
+# `pnpm install` failed at the scaffold step on run 30322552896:
+#
+#   [WARN] The "workspaces" field in package.json is not supported by pnpm.
+#          Create a "pnpm-workspace.yaml" file instead.
+#
+# With no workspace to link against, the sibling dependency `@app/shared` had
+# nowhere to resolve from and install exited 1 before writing a lockfile.
+#
+# Shipped unconditionally rather than only for `--pm pnpm`: bun, npm and yarn
+# ignore this file entirely, so a single always-present copy costs nothing and
+# removes a whole class of "works on my package manager" drift. Keep the globs
+# in step with the `workspaces` array in package.json.tmpl.
+packages:
+  - 'apps/*'
+  - 'packages/*'
