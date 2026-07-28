@@ -570,3 +570,32 @@ The no-pollution CONCLUSION stands on a stronger basis — every swarm-bus test 
 isolation, not DETECTED by md5. Rule for the next instance: never cite an unchanged
 `~/.swarm/bus.db` md5 as evidence of anything; rest no-write claims on SWARM_DB isolation,
 and when a method you relied on is disproven, grep your own past verdicts for it.
+
+### Round 3 addendum 7 — name red lanes; the known-red registry; C-FEL-434 status
+
+STANDING RULE (orchestrator, this wake): NAME A RED LANE IN YOUR VERDICT, DO NOT OMIT IT.
+Say which job is red, why it is not your diff, and move on. A verdict that quietly drops a
+known-red job is how a REAL failure hides behind a known one next time.
+
+KNOWN-RED LANES as of 2026-07-27 (so the next instance does not chase them as its diff):
+- `ci-ok`=FAILURE with `check`=SKIPPED on a DRAFT PR = the FEL-437 guard (ci-ok correctly
+  refuses a draft that built/tested nothing). Not a result.
+- `check` FLAPS until C-FEL-411 lands (packages/editor/moon.yml lacks a build-order edge to
+  @aihu/compiler -> TS2307 race). Green OR red on `check` is not evidence; use your own build.
+- `matrix` (Scaffold DX) is DEAD on main + several branches = C-FEL-MATRIX-PROTO: every cell
+  dies at pm-install on a moon/proto node-shim recursion (`proto shim ... recursive execution
+  loop`), 13/15 cells never run aihu code. It sits OUTSIDE ci-ok so nothing forced a look.
+  Same root family as C-FEL-MOON-ROLLDOWN. Never anyone's diff.
+- `bench`/`bench-arbor` are red-by-construction off a frozen baseline (older note, still true).
+
+C-FEL-434 STATUS: #668 (compiler half) VERIFIED PASS from a source-built compiler — client
+builds now emit agent-manifest.json (BEFORE=absent, AFTER=present+lists action), suite 1092/0
+at the #640 baseline, and the SECURITY row holds (emitted client JS has 0 registerAgentMetadata
+/ 0 scope-string / 0 rateLimit — policy is sidecar-only, zero bundle bytes). STILL OWED, on
+C-FEL-434b (verify when it lands): (1) policy-not-public — a `$scope "reports:read"` component
+in `## Components` while the emitted llms.txt does NOT contain `reports:read` (UNVERIFIABLE on
+#668, no llms.txt); (2) the manifest COLLISION — I measured it: 2 agent components in one --out
+dir leave ONE agent-manifest.json (fixed name, bin/main.rs:559) listing only the LAST; "lists 1
+of N" flatters where an empty section would scream; (3) header omitted when there are genuinely
+no agent components. Also could-not-check: whether the compiler output dir is copied wholesale
+into SERVED output (.route.json precedent is good but is not evidence) — trace at 434b start.
