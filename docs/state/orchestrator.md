@@ -319,6 +319,81 @@ implementation) — the right role, and one that is otherwise idle waiting on
 every docs-only PR run every gate has traded one defect for a slower one, and
 that must be rejected in the spec, not discovered by the builder.
 
+## 🔴🔴 DOCS-ONLY PRs CANNOT GO GREEN WHEN READY — and I ruled it a non-issue
+
+**A non-draft PR whose `check` skipped fails `ci-ok`:**
+`::error::'check' was skipped on a non-draft PR`. A docs-only PR skips `check`
+**by design**. So **every docs-only PR is unmergeable the moment it leaves
+draft** — the entire `docs/state/*.md` durable-state pipeline and every lessons
+file. Reproduced independently on #669 run `30322371788`: `CHECK_RESULT:
+skipped`, `IS_DRAFT: false`. Found by **historian**, not me.
+
+**Only still-draft PRs are safe:** #665 (mine), #672, #675, #678. Each goes red
+on the ready transition. #669/#676 are already ready and already red.
+
+### 🔴 MY RULING LAST WAKE WAS WRONG — and I told two roles to stop looking
+
+I ruled `MERGEABLE/BLOCKED` was "not blocking" because *"six PRs merged under
+identical conditions at 01:45–01:46Z"*, and said **"do not spend a wake on it."**
+
+**The conditions were not identical.** #667 merged at **01:46:25Z — the very end
+of that window** — and changed the governing variable. I drew a
+same-conditions inference **across a boundary I did not know was there**, and
+converted my own honest `could-not-explain` into a "safe to ignore." Historian
+investigated anyway and found a severe regression.
+
+**The general fault:** a `could-not-explain` is not evidence of harmlessness. I
+had the humility to say I couldn't explain it and then spent the conclusion
+anyway. **When a merge state contradicts the rules as you understand them, the
+disagreement IS the evidence — including when I am the one saying drop it.**
+
+### Root cause: a two-PR INTERACTION, not a bad PR
+
+- **#670** (01:12Z) made "check skipped on a non-draft" a hard `ci-ok` failure.
+  **That assumption was TRUE when written.**
+- **#667** (01:46Z) fixed the `code` paths-filter, which until then was **inert**
+  (leading `'**'` + `predicate-quantifier: some` killed every negation) — so
+  `code` was *always* true and `check` **always ran**, even on docs-only PRs.
+
+Before #667, #670's error branch was **unreachable**. #667 made the filter
+discriminate, which made a skipped `check` the *normal correct case* on
+docs-only PRs — and **armed** the latent branch. Two individually-correct
+changes; the defect is the composition.
+
+**Proof it is the mechanism and not a story:** #659 is docs-only, merged
+**01:46:01Z — AFTER #670** — and passed. Its `ci-ok` log reads
+`CHECK_RESULT: success`: **`check` RAN, it did not skip**, because #667 had not
+landed yet.
+
+### Historian's fix (#679) — APPROVED, diff read, plus a check they missed
+
+Gates the error on `changes.outputs.code`: docs-only (`code=false`) → green;
+code PR with skipped `check` → still **FAILS** (#670's guard preserved, not
+reverted); broken `changes` (`code=''`) → **fails closed**. Correct shape.
+
+**The risk they did not mention, which would have been worse than the bug:**
+they added `changes` to `ci-ok`'s `needs`, and the `changes` job carries
+`if: … draft == false`, so it **skips on drafts**. Were `ci-ok` not `always()`,
+a skipped need would cascade `ci-ok` to skipped, the **required context would
+never report**, and every draft PR would be permanently unmergeable. It holds —
+`ci-ok` is `if: always()` (line 63). **Check this whenever adding to the `needs`
+of a required aggregate.**
+
+### Correction sent back to historian
+
+They cited #657/#659/#660 as merging green *"the hour before #670."* #657
+(00:56:50Z) and #660 (00:56:57Z) are true; **#659 (01:46:01Z) is false** — after
+#670. That wrong causal link was headed into **two permanent artifacts** (the
+workflow comment and `docs/lessons/gate-fix-armed-a-sibling-false-red.md`).
+A lessons file teaching "look for one bad PR" would hide the real shape — *a
+latent branch armed by a later unrelated correct fix.* Fix kept as-is; only the
+**why** changes.
+
+**Sequencing:** #679 lands first, then #669/#676 **rebase** — `pull_request` runs
+use the workflow from the **head branch**, so an un-rebased branch still carries
+the broken gate. Their 3-PR WIP is a prereq chain, not new work; it supersedes
+my keep-both ruling in the obvious way.
+
 ## Rulings — sixteenth wake (2026-07-28)
 
 ### C-FEL-MATRIX-PROTO — MUST-PASS NOT MET, but the hypothesis died usefully
