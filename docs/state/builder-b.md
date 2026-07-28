@@ -1,9 +1,10 @@
 # State — builder-b
 
 **Role:** BUILDER-B · **Workspace:** `zurich`
-**Base:** `origin/main` @ `2350f49c`
+**Base:** `origin/main` @ `3891300a` (rebased 2026-07-28, 0 behind)
 **Last updated:** 2026-07-28. Seven PRs merged, two open — #655 (FEL-GH478)
-and #684 (C-FEL-SCAFFOLD-PM-COMPAT, draft, at `5444d4bc`).
+and #684 (C-FEL-SCAFFOLD-PM-COMPAT, draft, at `30d09ee4`, rebased; **red on
+`check:moon-graph` for a reason that is not mine — see 17**).
 
 > Ownership: `docs/state/` is historian's. This file exists because the
 > orchestrator asked each role to write one before standing down.
@@ -319,11 +320,36 @@ and assert both sides are non-empty first — two failed `git show` calls make
    "there is no pnpm here": there is, it just needs a node ≥22.13 that is
    already on disk.
 1. Do not propose "`ci-ok` should skip on drafts". Measured: it renders CLEAN.
+   **AMENDED 2026-07-28 — someone else deliberately changed the draft rendering
+   and they were right to.** FEL-437 made a draft's `check`-skipped a `failure`;
+   `plan-a.yml:481-495` now makes it a **`::warning::` and lets ci-ok go green.**
+   The argument in that comment is better than mine: agents are instructed to
+   push a draft PR at their first edit, so EVERY agent PR was red from birth,
+   the queue filled with red meaning "unfinished", and real failures hid in it —
+   the same noise-over-signal defect already fixed for the bench lanes. My
+   measurement is NOT contradicted: an `if:`-false job still emits a `skipped`
+   check-run and GitHub still treats that as satisfying protection, so
+   "ci-ok should not report on drafts" remains wrong. What changed is the
+   verdict for a job that DID run. Do not revert it to `failure`.
+   **The cost is now yours to carry, and I paid it this wake:** a draft's
+   `ci-ok: success` is indistinguishable from a real one in `gh pr checks`, and
+   the warning is invisible there. See rule 5 — it is no longer a nicety.
 2. Do not try to give `minimal`/`docs` served readiness routes. They have no
    server, and that is what those templates *are*.
 3. Do not re-derive `collectSetupShape`. It has never existed.
 4. Do not reinstate #612's ESM rationale for avoiding the `agentReadiness` option.
 5. Do not read a green `ci-ok` as coverage. Read `check`'s own conclusion.
+   **This bit me for real on 2026-07-28 and it is the single cheapest mistake to
+   make.** My rebased branch showed `Plan A — TS runtime family: success` in
+   `gh run list`, and the run's own job list was:
+   ```
+   ci-ok   completed  success
+   check   completed  SKIPPED     <- nothing was built or tested
+   ```
+   Since the draft rule is now a warning (rule 1), a draft PR's `ci-ok` is green
+   with `check` skipped BY DESIGN. So on a draft, `ci-ok` carries no information
+   at all. Read it with:
+   `gh run view <id> --json jobs --jq '.jobs[] | "\(.name)\t\(.conclusion)"'`
 6. Do not use behind-count as the gate-currency test.
 7. `packages/cli/src/templates/` is **deleted** — it was dead code whose
    `AGENTS.md` taught the *inverse* of its own rule to any agent that read it.
@@ -453,8 +479,51 @@ and assert both sides are non-empty first — two failed `git show` calls make
    real `aihu app … --pm bun` run, not by `rm -rf` + regenerate — the directory
    holds a hand-written provenance README the generator does not recreate.
 
-16. **The scaffold matrix cannot measure npm, pnpm or any cf-team cell until
-   #677 lands.** Dispatching it against a branch based on plain `main` gives:
+17. **#684 IS GATED ON SOMEONE ELSE'S CONTRACT, and the cause is two COMMENTS.**
+   After rebasing onto `3891300a`, `bun run check:moon-graph` exits 1 demanding
+   `packages/cli/moon.yml` add `- 'context'`. There is **no import of
+   `@aihu/context` anywhere in `packages/cli/src`** — `@aihu/cli` is a
+   build-time scaffolder with a zero-dependency thesis. The gate's regex is
+   `/(?:from|import|require)\s*\(?\s*['"]([^'"]+)['"]/` and the two things it
+   matches are both comments quoting a **Rollup error message** pasted from a CI
+   log:
+   ```
+   packages/cli/src/templates-agent.ts:64          // … failed to resolve import "@aihu/context" from
+   packages/cli/tests/scaffold-peer-closure.test.ts:27   *   run 30333109465  yarn build → failed to resolve import "@aihu/context"
+   ```
+   Causation proved by neutralising ONLY that quoted text in both comments →
+   `check:moon-graph` **exit 0**; control on pristine main → **exit 0**. So the
+   red is introduced by my branch and its sole cause is comment prose.
+   **DO NOT REWORD THE COMMENTS TO GO GREEN.** That is the exact harm
+   `dep-check.ts:193` was written to stop ("a false positive that forced a
+   correct comment to be reworded to get CI green"). This belongs to
+   **C-FEL-MOONGRAPH-LITERALS (builder's)** — do not co-own it.
+   **The lever to hand them:** `scripts/dep-check.ts` ALREADY has a documented
+   `stripComments()` (`:214`) from #681; `scripts/check-moon-graph.ts` has **no
+   stripping of any kind**. The sibling fix was never ported. And note my
+   specimen is the COMMENT variant, not the string-literal one — a fix that only
+   skips string literals leaves #684 red.
+
+18. **`check:gate-wiring` is RED on pristine `main`.** Measured in a throwaway
+   worktree at `3891300a`: `bun scripts/check-gate-wiring.ts` → exit 1,
+   `NEW ORPHAN: check:grammar-v2`. My branch touches no script and no baseline,
+   so this is not mine — do not spend a wake on it thinking you broke it.
+   Related and worth knowing before you trust ANY local gate run:
+   `plan-a.yml:275` states outright that **`check:ci` is invoked by no workflow
+   in this repo.** So `bun run check:ci` passing (or failing) is not the same
+   question as CI passing. Check which job actually runs the gate you care about
+   — `check:moon-graph` is `plan-a.yml:85`, inside `check`.
+
+16. **~~The scaffold matrix cannot measure npm, pnpm or any cf-team cell until
+   #677 lands.~~ #677 LANDED 2026-07-28 (`a3c05531`).** Kept for the reading of
+   those old red rows, but the constraint is GONE: rebase onto main and the
+   matrix is dispatchable for real —
+   `gh workflow run "Scaffold DX matrix" --ref <branch> -f mode=local -f pm=… -f template=…`
+   (`mode=local` tests the checkout, which is what you want for an unpublished
+   fix; `mode=npm` tests published packages). The `pull_request` trigger reports
+   **skipped** on a draft, so a dispatch is required, not optional.
+   Original text: the matrix could not measure npm, pnpm or any cf-team cell until
+   #677 landed. Dispatching it against a branch based on plain `main` gives:
    `SKIP pnpm — not installed` (the `npm install --global pnpm yarn` step
    silently fails), and every npm cell dies at `install` with
    `proto::commands::run::fallback_loop` out of esbuild's `sh -c node
