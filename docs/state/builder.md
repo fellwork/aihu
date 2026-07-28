@@ -38,6 +38,67 @@ fixed name meant the second agent component in a directory clobbered the first.
 Rust change → FEL-414 two-family bump done (`0.1.41→0.1.42`, `0.1.6→0.1.7`);
 `BASE_REF=main bun scripts/check-compiler-binary-bump.ts` → ok (exit 0).
 
+> **THREE OPEN PRs TOUCH THIS FILE**, in disjoint sections — #683 (C-FEL-434b),
+> #685 (C-FEL-CI-RECEIPT), and this one. Whoever lands later takes **all** of
+> them; do not pick one. This PR is deliberately the smallest of the three so it
+> can land independently of both.
+
+## RULED 2026-07-28 — when to push, and how to read an absence
+
+Two rules that cost a full wake to derive and must not be re-derived. They are
+here rather than in a contract section because they bind every future wake.
+
+### Push cadence: the boundary is DRAFT vs READY
+
+The tension is real — durability says push the moment you have something;
+receipts say a push during a run churns CI. Orchestrator's ruling:
+
+- **While DRAFT:** push as often as you like. `check` is SKIPPED on a draft, so a
+  push costs seconds of CI and there is no receipt to disturb.
+  Commit-early-commit-often applies in full, and this is most of the work.
+- **Once READY:** hold still. Runs are ~6 min and the receipt is live. Batch the
+  remaining commits, push once, and let the run reach a verdict before pushing
+  again.
+
+Same boundary as ready-then-push: **readying is the moment cheap becomes
+expensive and no-receipt becomes receipt.** Before it, free; after it, every push
+costs a run. Corollary worth knowing: ready-then-push produces ONE run;
+push-then-ready produces two, and the earlier one's green is a lie for the length
+of a full build.
+
+A push does **not** kill an in-flight run — measured, a `check` ran straight
+through a later push to SUCCESS. Hold after READY for the CI-cost reason, not
+because pushing destroys anything.
+
+### An absence is not evidence until the thing had its chance to appear
+
+**A positive measurement is stable; a negative one is not.** "X passed on sha S"
+stays true forever and only its *relevance* expires, when S stops being head.
+"X is absent on S" can flip **with the passage of time alone** — nothing
+changing, no head moving. So they need different expiry conditions:
+
+| measurement | expires when |
+|---|---|
+| positive ("X passed on S") | S stops being head |
+| negative ("X is absent on S") | the pipeline is known complete — **until then it is not evidence at all** |
+
+I built three separate findings on a premature absence in one wake — a new
+taxonomy entry, an escalation about an "orphaned" run, and a self-imposed push
+freeze — and all three were falsified by simply waiting. Each was measured
+accurately and reported honestly; each was taken inside the routine ~2 min gap
+between a build job finishing and its aggregate reporting.
+
+**Why this one is uniquely dangerous: an absence is the one observation that
+looks identical whether it is true or premature.** A wrong positive contradicts
+something and gets caught. A premature negative contradicts nothing and reads as
+a discovery.
+
+So: **publish every measurement with its expiry condition.** "PR #N @ `sha` is
+landable — VOID if `gh pr view N --json headRefOid` differs" is detectably wrong
+to any reader in one command. "PR #N is landable" is silently wrong the moment
+the head moves. Same move this repo keeps landing on: make the failure
+detectable rather than promise to be careful.
+
 ## FEL-426 — DONE (founder-ruled: "not use an unsafe component… check by CI")
 
 Both halves landed together. Half A alone re-breaks the moment someone edits the
