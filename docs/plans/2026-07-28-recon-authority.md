@@ -74,20 +74,51 @@ FALSE receipt in the exact costume of a true one.
   Defaulting-to-fellwork is exactly the collision, so the default is "unknown →
   refuse", not "unknown → fellwork".
 
-### R3 — `no-claims` stays writable, unchanged here (MUST-PASS "must write no-claims")
-`no-claims` is the vacuous-pass (grounded exit-0, no claims); it does NOT mirror
-outward (:1082-1083), only satisfies downstream needs. It has no PR, so R1's
-merged-receipt rule cannot apply. R1 tightens the `verified` branch ONLY; the
-`no-claims --reconciled` branch is untouched, so the 26 rows keep working. Its
-residual (role-selected transcript can mis-judge a vacuous pass) is addressed by
-the propose-only boundary below, which needs supervisor.py + recon.py to carry a
-**contract-anchored** transcript reference — sequenced after this, out of surface.
+### R3 — `no-claims` stays REACHABLE, but gated by R5 (MUST-PASS "must write no-claims")
+`no-claims` is the genuinely-nothing-to-check case; it does NOT mirror outward
+(:1082-1083), only satisfies downstream needs, and has no PR (R1's merged rule
+cannot apply). It must remain reachable — 26 rows + 9 need-declaring contracts
+depend on it, and demoting its only writer without a replacement STALLS THE DAG
+(see Sequencing). But it is NOT "unchanged": R5 gates it on a genuinely-empty
+structured `claims` column, so the 26-vacuous-passes defect cannot recur. The
+role-selected-transcript residual is addressed by the propose-only boundary
+below (contract-anchored transcript ref) — sequenced after, out of surface.
 
-### R4 — needs-satisfaction follows for free (MUST-FAIL 3)
+### R4 — needs-satisfaction follows for free (MUST-FAIL: downstream needs)
 `:1201-1241` treats a need satisfied when the upstream is `verified`/`no-claims`.
 Once R1 makes a false `verified` impossible (it becomes `unverified`), a
 downstream can no longer read a fabricated `verified` as satisfied. No separate
-change; MUST-FAIL 3 is a consequence of R1.
+change; it is a consequence of R1.
+
+### R5 — the adjudicator MUST consume the STRUCTURED `claims` column (binding MUST-FAIL, added by amendment)
+The deepest defect, measured across the whole population: **the trace reconcile
+has never once checked a claim.** All 26 `no-claims` rows carry the identical
+recon `"N tool calls in trace; 0 claims; 0 flagged"`, across traces of 24–558
+tool calls, while 50 verdict messages carry a populated structured `claims`
+column. Mechanism:
+- `supervisor.py:686` selects verdict **`body` only** — the `claims` column is
+  never read.
+- `recon.py:95-104` matches six English first-person PROSE regexes (`\bI\s+pushed`,
+  `\bI\s+filed [A-Z]+-\d+`, …), but the bus MANDATES the machine format
+  `--claims 'pushed:PR#N,ran:cargo test'`. **The format the bus requires is the
+  format the reconciler cannot parse** — even passed the column, `pushed:PR#679@…`
+  never matches "I pushed". So the claim-checking control CLAUDE.md promises has
+  structurally never fired: 26 vacuous passes + 2 false positives.
+
+The fix: the adjudicator's evidence input is the contract's latest verdict
+**`claims` column** (`msg.claims`), parsed as the `verb:target` machine format,
+not prose. Each `verb:target` is checked against real evidence (a `pushed:PR#N`
+claim resolves like R1; `ran:`/`verified:` against the trace). Prose extraction
+MAY remain a supplement; it may NOT be the sole input.
+- `no-claims` is reachable ONLY when the verdict's `claims` column is genuinely
+  EMPTY. A zero-extraction while `claims` is NON-EMPTY must NOT reach `no-claims`
+  — that is the exact miss (a machine-format claims column the prose regex could
+  not see). MUST-FAIL, both directions:
+  (a) feed historian's real C-FEL-RETRO-0727 verdict
+  (`claims = "pushed:PR#679@868ac101,ran:check-cargo-build+full-suite,verified:…"`)
+  → assert it does NOT land `no-claims`;
+  (b) feed a verdict with a genuinely empty `claims` column → assert `no-claims`
+  IS still reachable (the fix is not "never emit `no-claims`").
 
 ## The propose-only boundary (DESIGN; supervisor.py side is out of surface)
 supervisor.py, once demoted, emits a PROPOSAL rather than calling
@@ -103,27 +134,45 @@ supervisor.py, once demoted, emits a PROPOSAL rather than calling
 Rust exposes a `propose` verb consuming this; `setstatus --reconciled` for
 verified is retained only as the R1-guarded path until supervisor.py cuts over.
 
-## Sequencing (fail-closed)
-This Rust side lands FIRST. Immediately, a trace-scan `verified` proposal (no
-merged PR) becomes could-not-check — nothing auto-promotes to `verified` without
-a receipt. That is fail-closed and strictly better than the current fail-open.
-The supervisor.py demotion (emit proposals, contract-anchored transcript) is a
-separate, sequenced-after change to the live out-of-repo SPOF — not in this
-surface.
+## Sequencing — Rust FIRST, demotion AFTER (ruled; corrects my earlier note)
+My first recommendation said the demotion should land "first-or-with" the Rust
+path on a fail-closed argument. That was WRONG, and the blast radius is only
+visible with the no-claims count: `no-claims` is the ONLY writer for every
+contract whose legitimate work produces no merged PR (spec-only, docs-only, every
+vacuous pass), and `cmd_ready` (:1199-1245) satisfies a need on `verified` OR
+`no-claims`. Demote the only `no-claims` writer first and every such upstream can
+never satisfy a downstream need — that is not fail-closed, it is a **DAG stall**
+(9 contracts currently declare needs). So: the Rust adjudicator lands FIRST; the
+supervisor.py demotion to propose-only follows. My "capability-removal is the
+safest edit" argument stands — it applies to step TWO, not step one. Once the
+Rust side is in, a trace-scan `verified` proposal with no merged PR resolves to
+could-not-check, so the outward-firing hazard is closed at step one without
+touching the DAG.
 
-## Healing the two corrupt rows
-Not by hand-edit (verified is machine-set; hand-editing the ledger to correct the
-ledger relocates the corruption). Re-running the corrected reconcile walks
-`C-SWARM-P0` (agent-swarm #1 OPEN, cross-repo) and `C-FEL-SCAFFOLD-PM-COMPAT`
-(#684 draft, two could-not-checks) back to their true status: with R1+R2, neither
-has a merged same-repo receipt, so both resolve to `unverified` / could-not-check.
+## Healing — 26 unchecked + 2 false, NOT a mass-revert
+Not by hand-edit (a terminal status is machine-set; hand-editing the ledger to
+correct the ledger relocates the corruption). The honest reading: `no-claims`
+currently means "we did NOT check", not "there was nothing to check" — R5 shows
+the check never ran. So it is 26 UNCHECKED rows plus the 2 FALSE `verified`, not
+28 wrong rows: most of the 26 correspond to genuinely completed work with merged
+PRs, so they are unchecked, not wrong. DO NOT mass-revert. Make the mechanism
+honest (R5), re-run it, and let it re-derive each row from evidence. Where the
+evidence is no longer recoverable — a role-scoped transcript that has since
+rolled — the honest landing place is **could-not-check / `unverified`, NOT a
+reconstructed "true" status**. A heal that invents a status to look complete is
+the same defect one level up. (C-SWARM-P0 → agent-swarm #1 OPEN cross-repo, no
+same-repo receipt → unverified; C-FEL-SCAFFOLD-PM-COMPAT → #684 draft, two
+could-not-checks → unverified.)
 
-## Bars (from the contract)
+## Bars (from the contract + binding amendments)
 - MUST-PASS: same posture as verify-merged (no promotion on failed/ambiguous
-  query, idempotent, dry-run); `verified` requires the `merged: PR #N @ sha`
-  receipt; `no-claims` still writable.
+  query → could-not-check, idempotent, dry-run); `verified` requires the
+  `merged: PR #N @ sha` receipt; `no-claims` still reachable; the adjudicator
+  consumes the STRUCTURED `msg.claims` column, not prose extraction.
 - MUST-FAIL: (1) corrupt input (verified, transcript-fragment recon, github_pr
   NULL) → could-not-check, not verified. (2) `setstatus --github-pr 1` on a
   cross-repo contract → refused / resolved in its own repo, never a false
   fellwork/aihu #1 receipt. (3) downstream needs unsatisfied until upstream
-  carries a real receipt.
+  carries a real receipt. (4, amendment) a verdict whose `claims` column is
+  NON-EMPTY (e.g. historian's `pushed:PR#679@868ac101,…`) must NOT land
+  `no-claims`; a genuinely-empty `claims` column MUST still be able to.
