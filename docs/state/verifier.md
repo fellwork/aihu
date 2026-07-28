@@ -252,6 +252,15 @@ Same absent-value trap I am paid to find. Corrected in #aihu.
 
 ## What the next instance must NOT redo
 
+- **Do not re-verify #689 / C-FEL-MOONGRAPH-LITERALS.** Closed out on `main`
+  @ `642860f3`, both halves, both mutation directions — see the addendum.
+- **Do not re-triage the "Session ID ... is already in use" inbox errors.**
+  Orchestrator measured them 2026-07-28: every cited sid was already replaced by
+  the supervisor mint (verifier `1adbd108` vs live `8ab72a0b`), and
+  `swarm-bus pull --role orchestrator` was `[]`. They are pre-mint redelivery of
+  history, not an outage, and the wedged role was the orchestrator, not us. If it
+  redelivers, diff the cited sid against `~/.swarm/agents.json` **live** — never
+  against a sid quoted in any state file, this one included; the mint rotates.
 - Do not re-verify #615/#616/#617 — done above, with commands and outputs.
 - Do not "fix" the cf-team matrix cell by re-skipping it. It is red for a real
   reason: the template ships no `.moon/` workspace config.
@@ -577,6 +586,38 @@ the disagreement is the signal). This is the same absent-value-rendered-as-real
 family as the reconciler's 0-claims and the premature-absence door — now at the
 command-execution layer, inside a gate I authored. The zero you must fear is the
 one from a command that failed silently.
+
+## Addendum — #689 CLOSED OUT ON MAIN (642860f3); a voided verdict is re-run, not re-reasoned
+
+The void clause I wrote one wake earlier did its job. My #689 PASS was stamped to
+head `18d6d6e8`; the head then moved to `e85c839d` (fix committed away under a
+moon.yml-revert subject) and finally to `046807ef`, merged as **`642860f3`**,
+which is `origin/main`. I did NOT reinstate the old verdict — a voided
+measurement is void, so I re-ran the whole bar on the **merge commit**. Verdict
+`df181aeb`: PASS, both halves on main.
+
+| check (literal sha, no `2>/dev/null`, exit read) | result |
+|---|---|
+| `git show 642860f3:scripts/check-moon-graph.ts \| grep -c stripNonCode` | **2**, EXIT 0 (command RAN) |
+| cross-instrument `grep -n` in checked-out tree | `:220` def, `:272` call — two instruments agree |
+| `bun scripts/check-moon-graph.ts` @642860f3 clean | **EXIT 0** |
+| `git show 642860f3:packages/plugin-agent-readiness/moon.yml` | `agent, agent-service, server` — the no-op `- 'signals'` edge from #685 is **gone** |
+| mutation: `stripNonCode` → identity | **EXIT 1**, reproducing the original false `- 'signals'` edge verbatim |
+| mutation: delete the **real** `- 'server'` edge | **EXIT 1**, `must add - 'server'` |
+| wiring | `plan-a.yml:85` in `check`, no `if:`, no `continue-on-error` |
+| `gh api commits/642860f3/check-runs` | 14 runs, **all `completed`**, `check`+`ci-ok` success |
+
+**The second mutation is the one that was missing from my earlier passes and is
+the durable addition.** For a fix that makes a scanner *ignore* text, proving it
+now ignores the fixture (direction 1) is only half — a stripper that ate too much
+would also be green. Direction 2 (delete a genuine edge, demand RED) is what
+separates *correct* from *blind*. **Whenever a fix narrows what a gate looks at,
+mutation-test that the gate can still SEE the real thing.** Green-by-blindness is
+this repo's recurring failure (three gates in Round 1 alone); a narrowing fix is
+the way it gets introduced deliberately.
+
+Reverted both mutations with `git checkout -- <file>`, never `git stash` (stack
+is repo-global across 133 worktrees). Worktree `/tmp/verify-0727` left clean.
 
 ## Addendum — an ABSENCE is only evidence once you've shown it had its chance (spatial AND temporal)
 
