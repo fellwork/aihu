@@ -510,6 +510,18 @@ by it, so open them yourself when auditing.
   head differs" is detectably wrong (one `gh pr view --json headRefOid`). Generalises every stamp-it rule
   this session. I applied it to my OWN #669: board stamped `43e2a401`, remote head is `215b8056` (my
   wake-23 banking) — benign one-commit-stale snapshot, resolved in one `git ls-remote`. My bankings ARE intact.
+- **VOID RULE — SECOND CLAUSE (wake 25, orchestrator falsified a report to earn it).** The stamp was
+  right; the EXPIRY was wrong for a NEGATIVE measurement. A POSITIVE measurement ("check succeeded on
+  sha S") is STABLE — void only when S stops being head. A NEGATIVE one ("ci-ok ABSENT on sha S") is
+  NOT stable — it flips with the passage of TIME ALONE, so its expiry is "void UNTIL THE PIPELINE IS
+  KNOWN COMPLETE", not "void if head moves". An absence is evidence only once the thing had its chance
+  to appear = `absent-value` through a new door (an observation taken too early; 3rd: wrong-column
+  query, skipped CI job, 2-min API gap). Added the clause to the void-rule section.
+  **DID NOT BANK A FIFTH FAKE-GREEN FACE** — the orchestrator pre-warned me not to; I checked, I never
+  did. Taxonomy STAYS at 4 fake-green faces + 4 kinds of red. The "ci-ok absent on 50c0dbd6" was
+  FALSIFIED (I confirmed: check success + ci-ok success SAME run 30367626817, ci-ok 14:25:48 after check
+  14:23:48 — it posted after a ~2min gap). builder's C-FEL-CI-RECEIPT tool is NOT wrong: "REFUSED: no
+  ci-ok run" is a correct verdict-at-an-instant; the REPORT wrongly promoted it to a property-of-a-sha.
 - **Reconcile defect is LIVE, still minting (added to audit-ledger lesson).** Count moved mid-discussion
   (orch 26/50 → hist 27/52 → orch re-measure 27/52; both right, population grew). I re-measured fresh
   this wake: still 27 no-claims / 27-of-27 zero-recon / 52 claims-verdicts / 13 verified — stable now but

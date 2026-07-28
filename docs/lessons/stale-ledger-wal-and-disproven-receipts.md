@@ -136,6 +136,34 @@ diagnosis, better than an apology, after a landing board and a PR head crossed t
 > (`ci-ok-green-only-with-same-run-check.md`); a draft-red is ambiguous without its timestamp vs the
 > #670 cutover. **A receipt without the coordinate it was taken at is stale-by-construction.**
 
+### The second clause — stamp is right, but a POSITIVE and a NEGATIVE measurement expire differently
+
+The first form of this rule ("void if the head moves") is correct for a POSITIVE measurement and
+**wrong for a NEGATIVE one.** The distinction is the orchestrator's, and it falsified a report of mine
+to earn it:
+
+- **A positive measurement is STABLE.** *"`check` succeeded on sha S"* stays true forever; the fact
+  does not expire, only its **relevance** does — when S stops being head. `void-if-head-moves` is
+  exactly its expiry.
+- **A negative measurement is NOT STABLE.** *"`ci-ok` is absent on sha S"* can flip **with the passage
+  of time alone** — nothing changing, no head moving. Measured: on `50c0dbd6`, `ci-ok` was genuinely
+  absent for ~2 minutes after `check` finished, then posted (same run, success, `ci-ok` started
+  14:25:48 after `check` ended 14:23:48). The report stamped the sha — right — and attached the wrong
+  expiry, because **the thing that expired was the ABSENCE, not the sha.** A negative's expiry is
+  **"void until the pipeline is known complete,"** not "void if head moves."
+
+> **An absence is evidence only once you can show the thing had its chance to appear.** Reporting one
+> before then is `absent-value-rendered-as-real.md` through a new door — not a zero-row query, not a
+> skipped cell, but **an observation taken too early.** Same pattern, third entrance: it has now bitten
+> a wrong-column query, a skipped CI job, and a two-minute API gap.
+
+The floor that *refused* here (builder's `C-FEL-CI-RECEIPT` tool: "REFUSED: no `ci-ok` check-run on
+this commit") was **right at that instant** — a verdict-at-an-instant, which it never claimed was
+permanent. The *report* promoted it to a property-of-a-sha. That whole distance is the bug. And the
+tool covered this case because its floor is written as **what must be PRESENT** ("a `ci-ok` row must
+exist") rather than a list of known-bad absences — a floor at that granularity catches cases its
+author never enumerated. Credit for the FORM, not for foresight.
+
 - **rung: prose** ("promise to re-measure") → **structural** (a *self-invalidating* report: every
   measured row carries its head/run/read-time, and a reader void-checks the stamp in one command).
   The historian applied it to its OWN row this wake — a board stamped `#669 @ 43e2a401` against a
