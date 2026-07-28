@@ -1126,10 +1126,63 @@ fn cmd_setstatus(args: &Args) -> rusqlite::Result<()> {
         },
         None => None,
     };
-    if let Err(e) = write_contract_status(&conn, cid, status, recon, github_pr) {
+    // R2: a link may carry its repo. `owner/repo` shape only — a bare word would
+    // reintroduce the hardcoded-repo ambiguity `resolve_pr` refuses.
+    let github_repo: Option<&str> = match args.get_str("github-repo") {
+        Some(v) if v.contains('/') => Some(v),
+        Some(v) => die(
+            &format!("--github-repo must be owner/repo, got '{v}'"),
+            2,
+        ),
+        None => None,
+    };
+    // Persist link fields FIRST so R1's `adjudicate_merged` (via `resolve_pr`)
+    // reads the repo just set on this same call.
+    if github_pr.is_some() || github_repo.is_some() {
+        if let Err(e) = conn.execute(
+            "UPDATE contract SET github_pr = COALESCE(?1, github_pr), \
+             github_repo = COALESCE(?2, github_repo) WHERE id = ?3",
+            params![github_pr, github_repo, cid],
+        ) {
+            die(&e.to_string(), 1);
+        }
+    }
+
+    // R1 (C-SWARM-RECON-AUTHORITY): `verified` is NOT persisted on the
+    // --reconciled flag alone (a flag any process can pass — FEL-436). It routes
+    // through the SAME merged-evidence discipline `verify-merged` uses. A
+    // proposal — a trace scan with no real merged same-repo receipt — lands
+    // `unverified` (could-not-check), NEVER `verified`. `no-claims` is untouched
+    // (STEP 2/3, the DAG reason); `verify-merged`'s own objective-evidence path
+    // still writes `verified` directly.
+    let row_pr: Option<i64> = conn
+        .query_row(
+            "SELECT github_pr FROM contract WHERE id = ?1",
+            params![cid],
+            |r| r.get::<_, Option<i64>>(0),
+        )
+        .optional()
+        .ok()
+        .flatten()
+        .flatten();
+    let (final_status, final_recon): (&str, String) = if status == "verified" {
+        match adjudicate_merged(&conn, cid, row_pr) {
+            Ok(receipt) => ("verified", receipt),
+            Err(reason) => ("unverified", format!("could-not-check: {reason}")),
+        }
+    } else {
+        (status, recon.to_string())
+    };
+    if let Err(e) = write_contract_status(&conn, cid, final_status, &final_recon, None) {
         die(&e, 1);
     }
-    println!("{cid} -> {status}");
+    if final_status != status {
+        eprintln!(
+            "{cid}: '{status}' requested, but no merged same-repo receipt — \
+             recorded '{final_status}' ({final_recon})"
+        );
+    }
+    println!("{cid} -> {final_status}");
     Ok(())
 }
 
@@ -2643,6 +2696,39 @@ fn resolve_pr(
         .as_deref()
         .and_then(parse_pr_ref)
         .map(|pr| (GITHUB_REPO.to_string(), pr)))
+}
+
+/// R1 (C-SWARM-RECON-AUTHORITY): adjudicate whether a contract has a GENUINE
+/// merged-PR receipt — the SAME discipline `verify-merged` applies, factored so
+/// the `setstatus --status verified --reconciled` path cannot diverge from it.
+/// Returns the MACHINE-GENERATED `merged: PR #N @ <sha> <ts>` receipt (a
+/// transcript fragment can never wear its costume, because this code path, not
+/// the caller, writes it), or an `Err(reason)` the caller turns into a
+/// could-not-check `unverified`: no PR reference, unknown repo (refused by
+/// `resolve_pr`), a failed query (NEVER read as "not merged"), or not merged.
+fn adjudicate_merged(
+    conn: &Connection,
+    cid: &str,
+    contract_pr: Option<i64>,
+) -> Result<String, String> {
+    let (repo, pr) = match resolve_pr(conn, cid, contract_pr)? {
+        Some(rp) => rp,
+        None => return Err("no PR reference".to_string()),
+    };
+    let data = gh_pr_view(&repo, pr).map_err(|e| format!("PR #{pr} ({repo}): {e}"))?;
+    let state = data.get("state").and_then(Value::as_str).unwrap_or("");
+    let merged_at = data.get("mergedAt").and_then(Value::as_str);
+    if !is_merged_evidence(state, merged_at) {
+        return Err(format!("PR #{pr} ({repo}) not merged (state={state})"));
+    }
+    let short: String = data
+        .pointer("/mergeCommit/oid")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .chars()
+        .take(8)
+        .collect();
+    Ok(format!("merged: PR #{pr} @ {short} {}", merged_at.unwrap_or("")))
 }
 
 /// `verify-merged`: for every contract not already `verified` and sitting
