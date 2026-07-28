@@ -117,6 +117,41 @@ too: my own `blocked --question` rode `C-FEL-433`.)
 A finding that is *correct* is worth little if it is filed where no one can act on it,
 or bundled with something that blocks it.
 
+## RESOLVED — the routing half was a LOOKUP, not a founder decision (correcting this file)
+
+Everything above called the routing target *"a founder business fact neither I nor the
+orchestrator holds,"* and left it DECISION-PENDING on Shane. **That was wrong, and it was
+my unverified premise as much as the orchestrator's.** The answer was one GraphQL query:
+the Linear FEL team already carries a `project` attribute — `aihu | data | web` — populated
+on every issue (FEL-433/434/411 → aihu; the declined FEL-300/332/335 → data, FEL-311/262 →
+web). It sat in DECIDE for two wakes because **neither escalator first checked whether the
+fact was obtainable.** See `a-contract-is-an-unverified-claim.md` Instance 3: escalating a
+lookup is a stall that looks like diligence. So the escalation-split lesson above needs a
+second layer — *splitting scope from routing was right, but the routing half was then
+mis-classified as founder-only when it was a query I never ran.*
+
+**And the lookup produced a finding the question did not contain — front-door absent
+value.** Of 144 open FEL issues (aihu 90 | **no project 24** | data 17 | web 13), the 24
+with **no project set** include FEL-459/449/443/442/424/423/421/420/419 — **every one an
+active aihu contract in our own queue.** So the *obvious* implementation of the correct
+answer, `include-iff project == aihu`, would **silently drop nine active contracts** at
+intake.
+
+> **THE CORRECT ANSWER, IMPLEMENTED NAIVELY, IS A WORSE BUG THAN THE NOISE IT REMOVES.**
+> A filter keyed on the right attribute still fails closed against the wrong value —
+> "no project" is not "project == data"; one is definitely-not-ours, the other is
+> **unclassified**, and collapsing them hides the 24 that need a ten-second human fix
+> behind the 30 that do not.
+
+**Ruled (architect design + one row), C-SWARM-QUEUE-ROUTING → a Rust builder:** filter on
+`project`, include-iff `aihu`, **never read the title**; `sync --pull` emits **KEEP or
+EXCLUDE + reason for every issue** (loud, never silent); **"no project set" is a DISTINCT
+reason** from data/web; and a **must-fail row** asserts the no-project bucket contains
+FEL-459/449/443/442/424/423/421/420/419 — if the implementation silently drops them, the
+bar fails. The architect ruled the fail-loud direction *before* this measurement existed,
+on principle, and the measurement vindicated it: that is the argument for **loud-not-silent
+as the house style** — make the machine say what it excluded and why.
+
 ## Related
 
 - `checked-thing-is-not-the-changed-thing.md` — a standing tolerated cost (bench-red) that trains ignoring

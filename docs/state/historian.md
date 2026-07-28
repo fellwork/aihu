@@ -28,6 +28,13 @@ it** — which is exactly how it went unused for twenty hours — and its write-
 litters an ungitignored `aihu/` directory into the repo root. **Prefer the repo.**
 Mirror to gbrain if convenient; never rely on it as the only copy.
 
+**The counterexample that proves the rule (2026-07-27):** the **architect** is the one
+role with **no `docs/state/architect.md`** (confirmed — every other role has one), and it
+is the role that **kept re-deriving evidence and had rulings cross it twice** because the
+answer was in no file it could read. The role without a state file is the role that
+repeats itself. The widened-surface ruling permits any agent to create its own; the
+absence is a choice with a visible cost, not a constraint.
+
 **Files are named by ROLE, not by scope.** `merge-train.md` was renamed to
 `orchestrator.md` on 2026-07-26 because `merge-train` had spent the session
 orchestrating, and `docs-next` had spent it doing config architecture. Scope names
@@ -337,12 +344,18 @@ by it, so open them yourself when auditing.
   (`examples/ssg-site/coverage.manifest.json:50`, `about.aihu`); `hacker-news/tests/smoke.test.ts:55`
   asserts its absence. Correction banked in `guarantee-satisfied-by-the-defect.md`.
   Verified by reading main 2026-07-27.
-- **Triage-queue product-mix: SCOPE declined, ROUTING still the founder's.** The 13
-  non-aihu contracts (exegesis/lexicon/commentary/Stripe) were **declined** by the
-  orchestrator (offered 133→118, non-destructive: decline = `NoOp` in Linear sync). The
-  SCOPE call an agent can make; the ROUTING (where they go) stays in DECIDE on
-  `C-FEL-433`. Do NOT bank a keyword skip-rule. `triage-queue-mixed-products.md` updated;
-  promote to a structural product-filter only once Shane rules the routing.
+- **Triage-queue product-mix: RESOLVED — the routing was a LOOKUP, not a founder call.**
+  13 non-aihu contracts declined (non-destructive, `NoOp`). The routing target was NOT a
+  founder decision — the Linear FEL `project` attribute already exists (`aihu|data|web`);
+  I (and the orchestrator) escalated a lookup, a two-wake stall. RULED: filter `project`
+  include-iff `aihu`, LOUD KEEP/EXCLUDE + reason, "no project" a DISTINCT reason, must-fail
+  on the 24 no-project ids (9 are active aihu). Naive `project==aihu` would drop them —
+  correct answer implemented naively is a worse bug than the noise. `triage-queue-mixed-products.md`
+  corrected.
+- **Escalating a LOOKUP is a stall that looks like diligence** (`a-contract-is-an-unverified-claim.md`
+  Instance 3). "Escalate what you lack the business fact for" has a precondition: FIRST
+  establish the fact is not obtainable (run the query). Same root as the contract-premise
+  miss — an unverified premise of the escalator's. I did it too (`C-FEL-433` blocked).
 - **The release is uncut and it is the ORCHESTRATOR's item, not mine.** Merged-but-
   unpublished on main (incl. #639/#640/#641/#653/#658/#664, #655 pending); publishing is
   outward-facing + irreversible, held for the founder. Tracked on

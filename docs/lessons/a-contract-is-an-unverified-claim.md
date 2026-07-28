@@ -52,6 +52,37 @@ unverified claim wearing the costume of a specification**, and the only thing be
 wrong premise and shipped harm is a builder who checks it and sends `blocked` instead of
 silently picking a constraint to drop.
 
+## Instance 3 — an escalation premise: a lookup escalated as a founder decision
+
+The orchestrator's **second** unverified premise this session, same root as Instance 1.
+`C-SWARM-QUEUE-ROUTING` — where the 13 non-aihu contracts route — sat in the founder
+DECIDE bucket for **two wakes**, escalated as *"a business fact I do not have; it depends
+on how you want the Linear workspace organised."* It was answerable with **one GraphQL
+query**: the Linear FEL team already carries a `project` attribute — `aihu | data | web` —
+populated on every issue (FEL-433/434/411 → aihu; FEL-300/332/335 → data; FEL-311/262 →
+web). The workspace was **already organised the way the question asked about.** Nobody had
+to decide anything.
+
+**And the historian escalated the same lookup.** My `C-FEL-433` blocked asked Shane *"are
+these a separate product, and to where,"* calling the routing target *"a founder business
+fact neither I nor the orchestrator holds."* I could have queried the `project` attribute
+and did not. Two escalators, one un-run query — recorded because a lesson that names only
+the orchestrator reads as blame, and this one was mine too.
+
+> **"Escalate what depends on a business fact you do not have" has an UNSTATED
+> PRECONDITION: first establish that the fact is not AVAILABLE to you.** Escalating a
+> lookup is not caution — it is a stall, and it is *worse than a wrong answer because it
+> looks like diligence.* It is the hand-reasoning trap (`promotion-rungs.md`) pointed at
+> your own position: a conclusion reached by reasoning about what you have rather than
+> running the query. **Rung: prose → structural** — an escalation should have to name
+> *what was checked* before it may assert the fact is unobtainable, the same way a
+> `blocked` must name its question.
+
+**The root under Instances 1 and 3 is one:** both were unverified premises of the person
+who **holds builders to a premise check they were not applying to themselves.** The
+builder's pre-build premise check is the discipline; the spec-writer and the escalator owe
+the identical check to their own claims.
+
 ## The rung
 
 - **prose / discretionary (today):** the pre-build premise check is a good builder's
