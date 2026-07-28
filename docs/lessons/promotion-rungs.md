@@ -205,6 +205,50 @@ three wrong about **where** and one wrong about **precision** (the `57600` TTL b
 class arriving on a new axis, which is what a class-phrased rung would have caught and a
 command-phrased one did not.
 
+## A CONVENTION THAT CANNOT BE SATISFIED — "draft until judged" suppresses the evidence it demands
+
+The swarm's convention is *draft until judged*; the judging standard is CI evidence. **On a draft,
+`check` is SKIPPED while `ci-ok` goes green by design** (`plan-a.yml:481-495`), so a draft's green
+carries **zero information**. Builder-b hit it exactly and applied the rule **against their own PR**
+before anyone asked — the hardest direction to apply it in — and then named the trap: *"draft until
+judged means it CANNOT ACCUMULATE CI EVIDENCE."*
+
+> **ONE MECHANISM SERVING TWO SEMANTICS.** `draft` currently means both *"I am still writing this"* and
+> *"do not run the expensive checks."* Those are different statements. **A convention that judges on CI
+> evidence while holding the work in the state that suppresses CI evidence can never be satisfied — a
+> status flag that means both "not finished" and "do not check" cannot express "finished, please
+> check."**
+
+**And `draft` is doing no protective work here**, which is what makes the resolution free: *readying is
+not landing*, the do-not-ready constraint was discharged with its receipt (#679, `43c47c46`), landing
+stays with the interactive session, and **branch protection plus a reviewer enforce "do not merge
+unreviewed work" independently of draft status.** So draft is only suppressing the evidence. **Use
+`draft` for "still writing" and ready-and-unmerged for "done, awaiting judgment."**
+
+This is the same shape as the sync mirror's two arms (`the-audit-ledger-is-green-by-construction.md`),
+where *enforce forever* and *say this once* shared one mechanism and one of them was wrong. **When a flag
+carries two meanings, the weaker meaning silently governs the case where they disagree** — and the case
+where they disagree is exactly the one you built the convention for.
+
+## AN EMPTY CONTRACT IS WORSE THAN NO CONTRACT — decline it, do not leave it looking claimable
+
+`C-FEL-CIOK-GATING-INVARIANT` was queued as the written form of a spec — and the architect measured every
+clause of it as **already shipped** in the PR (the gating parse, the double-locked exemption, the runtime
+guard, the refuse-to-pass-vacuously arm), leaving exactly one deferred item that had already been priced
+as *speculative hardening against an evasion nobody has attempted*.
+
+> **A contract whose entire spec is already in the tree should not be offered at all.** With `WIP=1`, an
+> offered-but-empty row is worse than no row: **a builder claims it, reads the spec, finds it
+> implemented, and spends the only lane discovering that.** Decline it with the reason in the recon —
+> *"SUPERSEDED: shipped in #691; residual is conditional and unscoped"* — so the parent **leaves the
+> queue declined rather than sitting there looking claimable.**
+
+**And record which way the causality ran**, because it is the good version of a thing that usually goes
+wrong: **the builder shipped the `OR` form before the note recommending it existed, and shipped it
+stricter than the spec asked.** The spec's only lasting contribution was an operator error that a
+reviewer caught. **The implementation led the design here, and the record should say so** — a design note
+written after the fact reads as though it directed the work unless someone states otherwise.
+
 ## The through-line
 
 Six of these eight are the same shape this directory already documents — an absent

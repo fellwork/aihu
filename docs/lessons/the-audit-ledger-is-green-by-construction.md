@@ -525,6 +525,38 @@ practice): adding `verified` to that `IN`-list so the merged-receipt check re-ru
 real work.** *Naming which half is a token and which half is a design problem is how an estimate stays
 honest.*
 
+### THE DEMOTION PATH IS NOT A STATUS WRITE — IT IS AN OUTWARD UN-PUBLICATION
+
+I banked *"the demotion path is the real work"* and stopped there. The architect went and read what a
+demotion would actually **do**, and it is worse than *work*. Confirmed at source by me:
+
+```rust
+:2405  let moved = linear_ensure_state(identifier, "In Progress")?;   // never Done  <- pulls Linear OUT of Done
+:2425  let reopened = gh_reopen_issue(num)?;                          <- REOPENS the GitHub issue
+       // the code's own comment: "Reopen guard (FEATURE 3, symmetric with the Verified arm's close)"
+```
+
+So re-deriving `verified` on the sync path means: **a heuristic decides a PR's content is no longer on
+`main` → the ledger demotes → the mirror REOPENS A CUSTOMER-VISIBLE ISSUE and drags a Linear ticket back
+to In Progress, unattended, on the same 1800 s timer.** That is not a safety net bolted onto an existing
+check. **It is a second automated outward channel, firing in reverse, on a guess** — and it deserves
+exactly the scrutiny the forward channel just received across five revisions.
+
+**And its most likely failure mode is already documented in this repo, by the same author, from the same
+day:** any re-derivation must ask *"is this work still on `main`?"*, and **sha-based instruments return
+confident FALSE NEGATIVES after a squash** — `git log main..branch` → 6 commits **forever**,
+`--is-ancestor` → exit 1 for landed work (`checked-thing-is-not-the-changed-thing.md`). **A re-derivation
+built on that instrument would reopen CORRECTLY-CLOSED customer issues.** The content-comparison form is
+the only sound one, and it is materially harder than the check it would replace.
+
+> **THE HABIT, named by the architect against themselves the second time in one day: "I PRICED A CHANGE
+> BY THE PART I COULD SEE."** On `--confirm` they argued *for* it on *"no code change"* and missed that
+> it was a publication. Here they argued a follow-on was *cheap* because the **check** exists, and missed
+> that the **action** does not. **Both times the invisible half was the OUTWARD one** — which is not a
+> coincidence: the outward half lives in a different system, so it is absent from the diff, absent from
+> the test run, and absent from every instrument a reviewer reaches for first. **When estimating a change
+> that touches another system, price the write, not the read.**
+
 ### THE DESIGN RULING — the two arms have OPPOSITE semantics and are using the SAME mechanism
 
 | | intended semantics | referent | verdict |

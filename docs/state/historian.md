@@ -634,6 +634,57 @@ by it, so open them yourself when auditing.
   `settle-a-contested-claim…` — an INVARIANT beats a timed prediction (no clock, no reach-early bias); TTL now
   CONCLUSIVE (3 timed deaths 20:23:10/20:28:23/20:28:28, cohort cleared). DECIDEs not mine: who wires
   check:gate-wiring; the missing C-FEL-MOONGRAPH-LITERALS row. Board (my fetch): main 3891300a GREEN; #669 draft.
+- **WAKE 47 — THE DEMOTION PATH IS AN OUTWARD UN-PUBLICATION, AND "DRAFT UNTIL JUDGED" CANNOT BE
+  SATISFIED. Mostly convergence; three genuinely new structural findings.**
+  (1) **⛔ DEEPENS MY OWN "the demotion path is the real work" — it is WORSE than work.** I banked the
+  one-string-vs-design-problem split and stopped. Architect read what a demotion DOES; **I confirmed at
+  source**: `:2405 linear_ensure_state(identifier, "In Progress") // never Done` and **`:2425
+  gh_reopen_issue(num)`**, with the code's own comment naming the FEATURE 3 reopen guard as symmetric
+  with the Verified arm's close. **So re-deriving `verified` on the sync path = a heuristic decides a PR
+  is no longer on main → the ledger demotes → THE MIRROR REOPENS A CUSTOMER-VISIBLE ISSUE and drags a
+  Linear ticket back to In Progress, unattended, on the 1800s timer. A SECOND AUTOMATED OUTWARD CHANNEL,
+  FIRING IN REVERSE, ON A GUESS.** And its likeliest failure mode is already banked in this repo by the
+  same author from the same day: **sha instruments return confident FALSE NEGATIVES after a squash**, so
+  a naive re-derivation **REOPENS CORRECTLY-CLOSED CUSTOMER ISSUES.** **WHOEVER SCOPES IT MUST NOT SCOPE
+  IT AS ONE STRING.** Architect's self-named habit, second time in one day: **"I PRICED A CHANGE BY THE
+  PART I COULD SEE"** — on `--confirm`, argued FOR it on "no code change" and missed it was a
+  publication; here, argued a follow-on cheap because the CHECK exists and missed that the ACTION does
+  not. **Both times the invisible half was the OUTWARD one** — not coincidence: the outward half lives in
+  another system, so it is absent from the diff, the test run, and every instrument a reviewer reaches
+  for first. **When estimating a change that touches another system, price the WRITE, not the read.**
+  (2) **"DRAFT UNTIL JUDGED" IS SELF-DEFEATING — banked in `promotion-rungs.md`.** On a draft `check` is
+  SKIPPED while ci-ok goes green by design, so a draft's green carries ZERO information; the convention
+  judges on CI evidence while holding work in the state that SUPPRESSES CI evidence. **ONE MECHANISM, TWO
+  SEMANTICS: `draft` means both "still writing" and "do not run the expensive checks" — A STATUS FLAG
+  THAT MEANS BOTH "NOT FINISHED" AND "DO NOT CHECK" CANNOT EXPRESS "FINISHED, PLEASE CHECK."** Resolution
+  is free because **draft does no protective work here** (branch protection + a reviewer enforce
+  don't-merge-unreviewed independently; readying ≠ landing; #679 discharged the constraint). Same shape
+  as the mirror's two arms: **when a flag carries two meanings, the WEAKER meaning silently governs the
+  case where they disagree — which is the case you built the convention for.** builder-b applied the rule
+  **against their own PR** first. **The #695 call is the orchestrator's; #693 is CLOSED (merged into
+  #678), so that ruling is already discharged on builder-b's side.**
+  (3) **AN EMPTY CONTRACT IS WORSE THAN NO CONTRACT — `promotion-rungs.md`.** Architect measured every
+  clause of `C-FEL-CIOK-GATING-INVARIANT` as already shipped; the only residual was already priced as
+  speculative hardening. **With WIP=1, an offered-but-empty row means a builder claims it, reads the
+  spec, finds it implemented, and spends the ONLY LANE discovering that. DECLINE IT with the reason in
+  the recon** so the parent leaves the queue declined rather than looking claimable. And record the
+  causality: **the builder shipped the OR form BEFORE the note recommending it existed, and STRICTER than
+  the spec asked** — the spec's only lasting contribution was an operator error a reviewer caught.
+  **THE IMPLEMENTATION LED THE DESIGN HERE AND THE RECORD SHOULD SAY SO**, because a design note written
+  after the fact reads as though it directed the work unless someone states otherwise.
+  (4) **builder-b's account of HOW a wrong number won an argument is sharper than the correction, and it
+  is now banked as its own section:** *"I supplied a claim that SOUNDED measured because it CAME WITH
+  measurements. The measurements were real. They just did not measure the thing the sentence claimed."*
+  **ATTACHED EVIDENCE IS EVALUATED AS THOUGH IT WERE EVIDENCE FOR THE CLAIM, WHEN IT IS ONLY EVIDENCE FOR
+  ITS NEIGHBOURS.** The join — *these daemons caused that load* — was the only part asserted and the only
+  part never measured. **Check: ASK WHICH MEASUREMENT ESTABLISHES THE VERB; if none does, the claim is a
+  hypothesis wearing a receipt.** They originated it and carried the correction themselves (four
+  independent reads now agree: orphans n=5 ≈ 3.5 cores ≈ 40%, stable across four roles and ~40 min).
+  (5) **Two instrument confirmations banked:** the **void clause fired a FOURTH time and PASSED** — its
+  other job is invisible, it tells you **when NOT to spend a re-verification**, and a stamp that could
+  only ever cost work would not be kept. And **the pipe-exit trap caught its own author, third time this
+  session** (`| tail -3` reporting rc=0 while the fatal printed; unpiped rc=128). Gate exit 0. Killed no
+  process, filed no DECIDE, set no status, ran no `--confirm`, no Linear/GitHub write, merged nothing.
 - **WAKE 46 — MY LAYER RANKING WAS COVERAGE-BASED AND MISSED THE STRUCTURAL POINT. A DETECTOR THAT RUNS
   IN A GATED JOB CANNOT ENFORCE ITS OWN GATING.**
   (1) **⛔ CORRECTS MY OWN "NEITHER SUBSUMES THE OTHER".** True about COVERAGE, and it misses the shape.

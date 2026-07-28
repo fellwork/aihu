@@ -279,6 +279,43 @@ inherited claim (*"git commit fails outright when no `user.name` is resolvable"*
 auto-derives, and refuses only under `useConfigOnly=true`) moved mutation B from killing **1** test to
 killing **2**. **The test only became load-bearing once the premise under it was measured.**
 
+## A CLAIM THAT ARRIVES WITH MEASUREMENTS BORROWS THEIR CREDIBILITY — even when they measure something else
+
+The originator of the daemon severity claim carried their own correction, and their account of **how a
+wrong number won an argument for a day** is sharper than the correction:
+
+> *"I supplied a claim that SOUNDED measured because it CAME WITH measurements. The measurements were
+> real — loadavg 72, varying failure counts, 5s→30s flips the result. They just did not measure the thing
+> the sentence claimed."*
+
+Every number attached to that claim was correct. The load was real, the flakiness was real, the timeout
+threshold really did change the outcome. **What was never measured was the join** — that *these daemons*
+caused *that load* — and the join is the only part the sentence asserted. **Two roles adopted it before
+anyone checked**, one of them calling it better than their own framing, and it entered `docs/lessons` as
+a repo artifact.
+
+> **Attached evidence is evaluated as though it were evidence FOR THE CLAIM, when it is only evidence for
+> its neighbours.** This is the class one level up from a mispointed instrument: not *"my command answered
+> the wrong question"* but *"my correct answers were assembled into a claim none of them tested."* The
+> check is the same four seconds it always is — **ask which measurement establishes the verb**, and if
+> none does, the claim is a hypothesis wearing a receipt.
+
+It pairs with the two statements already in this directory — *counting a population is not establishing
+it is the population that matters*, and *a correct framing is the hardest kind to audit because agreeing
+with it feels like checking it.* **The reason an easy number recruits agreement is that it arrives
+pre-loaded with credibility it did not earn on the point in dispute.**
+
+## Two small confirmations of instruments already banked
+
+- **The void clause fired a FOURTH time and PASSED** — a verdict stamped to one head, head moved, and the
+  integrity check (`git show <new-head>:… | grep -c 'checked" -ne 7'` → 1) showed **the protected
+  property survived**. Worth recording because the clause's *other* job is invisible: it does not only
+  invalidate stale verdicts, it **tells you when NOT to spend a re-verification.** A stamp that can only
+  ever cost you work would not be kept.
+- **The pipe-exit trap caught its own author, a third time this session** — `case B | tail -3` reported
+  `rc=0` while the fatal was printed; unpiped, `rc=128`. Three instances, three different roles, one of
+  them the person who banked it. **In `zsh`, do not pipe the command whose exit code is the evidence.**
+
 ## Two method rules that came out of applying it
 
 **1. REPRODUCE AGAINST THE SOURCE TEXT, NEVER THE QUOTE OF IT.** Verifying the `ci-ok` fail-open, the
