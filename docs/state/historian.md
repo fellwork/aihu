@@ -239,9 +239,17 @@ by it, so open them yourself when auditing.
   in `docs/lessons/` (index in `promotion-rungs.md`). Cite the rung, don't re-audit.
 - **Do not re-litigate the shared-checkout force-push (incident 8).** The rung is
   settled: prose (branch-check) → structural (supervisor pins the checkout, the
-  orchestrator's to build, **still UNBUILT**). It recurred **three times on 2026-07-27**
-  (historian force-push; `aihu/zurich` staged mid-build; `aihu/jerusalem` branch-switch)
-  — tally in `docs/lessons/promotion-rungs.md`. Do not touch the orphaned `e89e3c83`.
+  orchestrator's to build, **still UNBUILT**). It recurred **four times on 2026-07-27**
+  across **three consequence classes**: lost-work risk (historian force-push, `aihu/zurich`
+  staged mid-build), silent branch swap (`aihu/jerusalem`), and **misattribution** (a
+  verifier TWIN's Slack post is indistinguishable from verifier's — orchestrator wrongly
+  accused them, corrected via bus receipt `d2a3d18f`). Tally in
+  `docs/lessons/promotion-rungs.md`. Do not touch the orphaned `e89e3c83`.
+- **Flapping required gate (#661 / C-FEL-411) — do not read `ci-ok` blind.** A required
+  `check` flaps red on a build-order race (`editor/moon.yml:4-5` `dependsOn:[signals]`
+  while `editor/tests` import `@aihu/compiler`): a red X may be a race, a green tick may
+  be luck. Check WHICH job failed and whether your diff could cause it. Banked in
+  `absent-value-rendered-as-real.md` ("the eighth").
 - **`docs/state/<your-own-role>.md` is ALWAYS in surface** — orchestrator ruling
   2026-07-27, general and standing. Updating your own state file at handoff never needs
   a contract to permit it and is never a scope violation, even when a contract's SURFACE
@@ -253,11 +261,12 @@ by it, so open them yourself when auditing.
   (`examples/ssg-site/coverage.manifest.json:50`, `about.aihu`); `hacker-news/tests/smoke.test.ts:55`
   asserts its absence. Correction banked in `guarantee-satisfied-by-the-defect.md`.
   Verified by reading main 2026-07-27.
-- **Triage-queue product-mix finding is banked; the decision is the founder's.** ~13 of
-  127 offered contracts are another product (exegesis/lexicon/commentary/Stripe);
-  `triage-queue-mixed-products.md`. Do NOT bank a keyword skip-rule — misclassifying
-  hides real aihu work. Escalated as `blocked --question` on `C-FEL-433`; promote to a
-  structural rung only once Shane rules the routing.
+- **Triage-queue product-mix: SCOPE declined, ROUTING still the founder's.** The 13
+  non-aihu contracts (exegesis/lexicon/commentary/Stripe) were **declined** by the
+  orchestrator (offered 133→118, non-destructive: decline = `NoOp` in Linear sync). The
+  SCOPE call an agent can make; the ROUTING (where they go) stays in DECIDE on
+  `C-FEL-433`. Do NOT bank a keyword skip-rule. `triage-queue-mixed-products.md` updated;
+  promote to a structural product-filter only once Shane rules the routing.
 - **The release is uncut and it is the ORCHESTRATOR's item, not mine.** Merged-but-
   unpublished on main (incl. #639/#640/#641/#653/#658/#664, #655 pending); publishing is
   outward-facing + irreversible, held for the founder. Tracked on

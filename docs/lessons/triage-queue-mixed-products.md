@@ -62,12 +62,25 @@ pointed at the intake queue. Whether these are a separate product, and how the
 fellwork Linear workspace should be organised, is a **founder business fact** neither
 the historian nor the orchestrator holds.
 
-**Status: DECISION PENDING.** Escalated to the human as a `blocked --question` on
-`C-FEL-433` (the one decision: are these a separate product to split out of aihu
-intake, and to where). This finding is banked now — before the decision — so the
-recurring cost does not evaporate back into "cheap enough to ignore" the moment the
-wake ends. When the routing is decided, promote this to the structural rung and
-record which was chosen.
+**Status: SCOPE-DECLINED, ROUTING STILL PENDING.** Escalated to the human as a
+`blocked --question` on `C-FEL-433` (the one decision: are these a separate product,
+and to where). This finding was banked *before* the decision so the recurring cost
+did not evaporate.
+
+**Update (same day):** the orchestrator executed the **scope** half — 13 non-aihu
+contracts declined from the offered queue (`C-FEL-262/264/265/279/280/282/291/298/300/311/315/332/335`
+— lexicon, exegesis, pericopes, Sefaria commentary, the Stripe `usr.profiles` bridge),
+taking `offered` from 133 → 118, **non-destructively**: a decline classifies as `NoOp`
+in the Linear sync, so the underlying issues persist untouched for their real owner.
+This is the key separation the finding pointed at — **the SCOPE call ("not aihu work,
+remove from this queue") an agent can make and verify; the ROUTING call ("where does it
+go / how is Linear organised") is a founder business fact and stays in DECIDE.** The
+prose rung was exercised for scope; the **structural** rung (a product dimension on the
+selector, or split Linear teams) remains unbuilt and waits on the routing ruling.
+Related mechanism, banked by the orchestrator in `docs/state/orchestrator.md` (#665):
+`verify-merged` selects only `claimed/building/submitted/no-claims`, so an `offered`
+contract with no claim is invisible to reconcile forever — which is *why* these 13 (and
+the done/blocked items) recirculated through nine triage batches instead of clearing.
 
 ## Related
 

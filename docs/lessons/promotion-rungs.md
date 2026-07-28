@@ -65,14 +65,37 @@ day**, both verified by the orchestrator as **byte-identical to `origin/main` af
 - **`aihu/zurich`** — `CLAUDE.md` went **staged mid-build** under builder-b.
 - **`aihu/jerusalem`** — the worktree **switched branches** under verifier.
 
-Three instances, **one rung, unchanged: prose (the `git branch --show-current` habit),
-still prose.** The structural fix — **the supervisor pinning each role's checkout per
-wake — is UNBUILT, and owned by the orchestrator, not the historian.** This entry is
-deliberately the honest one: *"prose rung, still prose"* after three recurrences. A
-lesson that keeps recurring at the same rung is not a failure of the lesson; it is the
-evidence that earns the gate. (These two are recorded — no code `file:line`, because
+Those two, **one rung, unchanged: prose (the `git branch --show-current` habit), still
+prose.** The structural fix — **the supervisor pinning each role's checkout per wake —
+is UNBUILT, and owned by the orchestrator, not the historian.** This entry is
+deliberately the honest one: a lesson that keeps recurring at the same rung is not a
+failure of the lesson; it is the evidence that earns the gate. (These two are recorded — no code `file:line`, because
 the mechanism is the *absence* of checkout pinning — on the orchestrator's verification,
 not re-derived by the historian across other worktrees.)
+
+**A fourth instance, and a NEW consequence class — MISATTRIBUTION, not lost work.**
+The first three risked losing work (all turned out byte-identical, so nothing was).
+This one is worse because nothing was lost and harm still occurred: the orchestrator
+**publicly accused verifier** of posting the FEL-461 finding to Slack. Verifier
+produced a receipt — *their* instance sent it over the **bus** (msg `d2a3d18f`,
+20:34:14) — and the Slack copy is attributable to a **verifier TWIN sharing the
+`(workspace, role)` identity**. Because the Slack bot stamps `username=<role>` for any
+sender, **a twin's post is indistinguishable from the role's by construction.** The
+orchestrator accepted a second-hand attribution about a peer's conduct without reading
+that peer's own traffic first, and corrected it to `all` (where the accusation went).
+
+> **Shared identity on an unauthenticated channel means misconduct cannot be
+> attributed.** Same root as the three above — no per-wake pinning of `(workspace,
+> role)` identity, so twins are indistinguishable — but the consequence is not lost
+> work, it is a **false accusation that no system could adjudicate.** The only thing
+> that resolved it was the accused checking their own trace and producing the bus
+> message id. Rung unchanged: **prose, still prose**; the structural fix (pin the
+> checkout/identity per wake) is the same one, still UNBUILT, still the orchestrator's.
+
+Four instances, three consequence classes (lost-work risk, silent branch swap,
+misattribution), **one root, one rung.** *"Prose rung, still prose"* after four is not
+a weaker entry than after one — it is the strongest argument in this file for building
+the gate.
 
 ## The through-line
 
@@ -147,6 +170,33 @@ which is exactly why the structural gate has not been built: the manual rung kee
 holding just well enough. That is the trap. The dedup keyed on **declared surface**
 (`main.rs:1312-1344`'s sibling) remains **unbuilt**; today it is a human reading
 `emit.rs`.
+
+## A bar that forbids the method that produced the wrong answer (2026-07-27)
+
+The purest promotion example of the day, self-disclosed by the **architect** — worth
+banking *because of who it happened to*, the agent whose whole job is reading these
+surfaces carefully.
+
+**The error:** they read `.github/workflows/plan-a.yml`'s `code:` exclusion list and
+concluded *"docs-only ⇒ `code=false`"* — **twice** — by reasoning about the glob
+patterns, without evaluating them under the real matcher. The file **says, three
+times, in comments, that the filter is inert**: `plan-a.yml:251-252` — *"dorny/paths-filter
+defaults to `predicate-quantifier: some`, and the first pattern `'**'` matches every
+file, so every negation below it is dead"* — reaffirmed at `:299` and `:354`, and the
+filter itself is `:451-452` (`code:` → `- '**'`). This is a **recurrence of instance
+#20** in `checked-thing-is-not-the-changed-thing.md` (two agents read the same YAML and
+reached opposite, both-wrong conclusions); the tie-break there was also a real run.
+
+**The remedy is the lesson, not the error.** The architect then wrote into their **own
+acceptance bar** that it now **MANDATES evaluating the condition with the real action**,
+not reasoning about the globs.
+
+> **A bar that forbids the method that produced the wrong answer is a promotion rung.**
+> *prose* — "be careful with globs," a comment in the file — did not hold (it was
+> present three times and still got read past). *structural* — an acceptance bar that
+> **will not accept hand-reasoning** and requires the matcher to be run — does. The
+> agent promoted their own guardrail one rung by making the wrong method inexpressible
+> in the acceptance, exactly as a `must_fail` row makes an untested claim inexpressible.
 
 ## Related
 
