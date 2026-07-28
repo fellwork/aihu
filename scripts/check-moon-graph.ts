@@ -299,7 +299,9 @@ if (process.argv.includes('--fix')) {
     )
     console.log(`fixed packages/${project}/moon.yml (+${list.length} edge(s))`)
   }
-  console.log(`\ncheck:moon-graph --fix: added ${missing.length} edge(s) to ${byProject.size} file(s).`)
+  console.log(
+    `\ncheck:moon-graph --fix: added ${missing.length} edge(s) to ${byProject.size} file(s).`,
+  )
   process.exit(0)
 }
 
