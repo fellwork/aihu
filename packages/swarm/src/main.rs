@@ -536,6 +536,21 @@ fn open_db() -> rusqlite::Result<Connection> {
     ensure_column(&conn, "contract", "linear", "TEXT")?;
     ensure_column(&conn, "contract", "github_issue", "INTEGER")?;
     ensure_column(&conn, "contract", "github_pr", "INTEGER")?;
+    // R2 (C-SWARM-RECON-AUTHORITY): `github_pr` is a bare integer, but the swarm
+    // runs contracts in more than one repo. Resolving a bare number against a
+    // hardcoded GITHUB_REPO mints a FALSE receipt — `agent-swarm#1` is OPEN
+    // while `fellwork/aihu#1` is MERGED, so a cross-repo link would verify
+    // against the wrong PR. The link must carry its repo. Backfill the
+    // KNOWN-correct existing links to fellwork/aihu EXPLICITLY: an explicit
+    // backfill of known rows is not the same as an implicit fallback for
+    // unknown ones — a future link with no repo is REFUSED for auto-verify
+    // (see `resolve_pr`), never defaulted, because defaulting IS the collision.
+    ensure_column(&conn, "contract", "github_repo", "TEXT")?;
+    conn.execute(
+        "UPDATE contract SET github_repo = ?1 \
+         WHERE github_pr IS NOT NULL AND github_repo IS NULL",
+        params![GITHUB_REPO],
+    )?;
     Ok(conn)
 }
 
@@ -1118,10 +1133,63 @@ fn cmd_setstatus(args: &Args) -> rusqlite::Result<()> {
         },
         None => None,
     };
-    if let Err(e) = write_contract_status(&conn, cid, status, recon, github_pr) {
+    // R2: a link may carry its repo. `owner/repo` shape only — a bare word would
+    // reintroduce the hardcoded-repo ambiguity `resolve_pr` refuses.
+    let github_repo: Option<&str> = match args.get_str("github-repo") {
+        Some(v) if v.contains('/') => Some(v),
+        Some(v) => die(
+            &format!("--github-repo must be owner/repo, got '{v}'"),
+            2,
+        ),
+        None => None,
+    };
+    // Persist link fields FIRST so R1's `adjudicate_merged` (via `resolve_pr`)
+    // reads the repo just set on this same call.
+    if github_pr.is_some() || github_repo.is_some() {
+        if let Err(e) = conn.execute(
+            "UPDATE contract SET github_pr = COALESCE(?1, github_pr), \
+             github_repo = COALESCE(?2, github_repo) WHERE id = ?3",
+            params![github_pr, github_repo, cid],
+        ) {
+            die(&e.to_string(), 1);
+        }
+    }
+
+    // R1 (C-SWARM-RECON-AUTHORITY): `verified` is NOT persisted on the
+    // --reconciled flag alone (a flag any process can pass — FEL-436). It routes
+    // through the SAME merged-evidence discipline `verify-merged` uses. A
+    // proposal — a trace scan with no real merged same-repo receipt — lands
+    // `unverified` (could-not-check), NEVER `verified`. `no-claims` is untouched
+    // (STEP 2/3, the DAG reason); `verify-merged`'s own objective-evidence path
+    // still writes `verified` directly.
+    let row_pr: Option<i64> = conn
+        .query_row(
+            "SELECT github_pr FROM contract WHERE id = ?1",
+            params![cid],
+            |r| r.get::<_, Option<i64>>(0),
+        )
+        .optional()
+        .ok()
+        .flatten()
+        .flatten();
+    let (final_status, final_recon): (&str, String) = if status == "verified" {
+        match adjudicate_merged(&conn, cid, row_pr) {
+            Ok(receipt) => ("verified", receipt),
+            Err(reason) => ("unverified", format!("could-not-check: {reason}")),
+        }
+    } else {
+        (status, recon.to_string())
+    };
+    if let Err(e) = write_contract_status(&conn, cid, final_status, &final_recon, None) {
         die(&e, 1);
     }
-    println!("{cid} -> {status}");
+    if final_status != status {
+        eprintln!(
+            "{cid}: '{status}' requested, but no merged same-repo receipt — \
+             recorded '{final_status}' ({final_recon})"
+        );
+    }
+    println!("{cid} -> {final_status}");
     Ok(())
 }
 
@@ -1687,14 +1755,17 @@ fn gh_issue_view(number: i64, fields: &str) -> Result<Value, String> {
 /// `gh pr view` — used by `verify-merged` to ask GitHub, authoritatively,
 /// whether a resolved PR number is merged. Read-only: this is safe to call
 /// even in a `verify-merged` dry run.
-fn gh_pr_view(number: i64) -> Result<Value, String> {
+fn gh_pr_view(repo: &str, number: i64) -> Result<Value, String> {
     let n = number.to_string();
+    // `repo` is the LINK's own repo (from `resolve_pr`), never a hardcoded
+    // default — R2, C-SWARM-RECON-AUTHORITY. Resolving #1 against `fellwork/aihu`
+    // when the work is `agent-swarm#1` is exactly the false-receipt collision.
     let out = gh_run(&[
         "pr",
         "view",
         &n,
         "--repo",
-        GITHUB_REPO,
+        repo,
         "--json",
         "state,mergedAt,mergeCommit",
     ])?;
@@ -2577,10 +2648,36 @@ fn is_merged_evidence(state: &str, merged_at: Option<&str>) -> bool {
 /// (c) a STRICT prose parse (`parse_pr_ref`) of that contract's most recent
 /// verdict body. Returns `None` — never a guess — when nothing in that
 /// chain resolves.
-fn resolve_pr(conn: &Connection, cid: &str, contract_pr: Option<i64>) -> rusqlite::Result<Option<i64>> {
+fn resolve_pr(
+    conn: &Connection,
+    cid: &str,
+    contract_pr: Option<i64>,
+) -> Result<Option<(String, i64)>, String> {
+    // The `contract.github_pr` link (caller-provided or on the row) can name ANY
+    // repo, so it MUST carry `github_repo`. A bare number with no repo is REFUSED
+    // for auto-verify (Err → could-not-check by every caller), never defaulted to
+    // GITHUB_REPO — defaulting IS the collision (R2, C-SWARM-RECON-AUTHORITY).
     if let Some(pr) = contract_pr {
-        return Ok(Some(pr));
+        let github_repo: Option<String> = conn
+            .query_row(
+                "SELECT github_repo FROM contract WHERE id = ?1",
+                params![cid],
+                |r| r.get::<_, Option<String>>(0),
+            )
+            .optional()
+            .map_err(|e| e.to_string())?
+            .flatten();
+        return match github_repo {
+            Some(repo) => Ok(Some((repo, pr))),
+            None => Err(format!(
+                "contract has github_pr #{pr} but no github_repo — a cross-repo link \
+                 must name its repo (set --github-repo); refusing to resolve #{pr} \
+                 against {GITHUB_REPO}, which is how a false receipt is minted"
+            )),
+        };
     }
+    // Fallbacks resolve the swarm's OWN verdict-message PR references, which are
+    // fellwork/aihu by construction — a KNOWN repo, not an unknown default.
     let from_column: Option<i64> = conn
         .query_row(
             "SELECT pr FROM msg WHERE contract = ?1 AND kind = 'verdict' AND pr IS NOT NULL \
@@ -2588,9 +2685,10 @@ fn resolve_pr(conn: &Connection, cid: &str, contract_pr: Option<i64>) -> rusqlit
             params![cid],
             |r| r.get(0),
         )
-        .optional()?;
-    if from_column.is_some() {
-        return Ok(from_column);
+        .optional()
+        .map_err(|e| e.to_string())?;
+    if let Some(pr) = from_column {
+        return Ok(Some((GITHUB_REPO.to_string(), pr)));
     }
     let latest_verdict_body: Option<String> = conn
         .query_row(
@@ -2599,8 +2697,45 @@ fn resolve_pr(conn: &Connection, cid: &str, contract_pr: Option<i64>) -> rusqlit
             params![cid],
             |r| r.get(0),
         )
-        .optional()?;
-    Ok(latest_verdict_body.as_deref().and_then(parse_pr_ref))
+        .optional()
+        .map_err(|e| e.to_string())?;
+    Ok(latest_verdict_body
+        .as_deref()
+        .and_then(parse_pr_ref)
+        .map(|pr| (GITHUB_REPO.to_string(), pr)))
+}
+
+/// R1 (C-SWARM-RECON-AUTHORITY): adjudicate whether a contract has a GENUINE
+/// merged-PR receipt — the SAME discipline `verify-merged` applies, factored so
+/// the `setstatus --status verified --reconciled` path cannot diverge from it.
+/// Returns the MACHINE-GENERATED `merged: PR #N @ <sha> <ts>` receipt (a
+/// transcript fragment can never wear its costume, because this code path, not
+/// the caller, writes it), or an `Err(reason)` the caller turns into a
+/// could-not-check `unverified`: no PR reference, unknown repo (refused by
+/// `resolve_pr`), a failed query (NEVER read as "not merged"), or not merged.
+fn adjudicate_merged(
+    conn: &Connection,
+    cid: &str,
+    contract_pr: Option<i64>,
+) -> Result<String, String> {
+    let (repo, pr) = match resolve_pr(conn, cid, contract_pr)? {
+        Some(rp) => rp,
+        None => return Err("no PR reference".to_string()),
+    };
+    let data = gh_pr_view(&repo, pr).map_err(|e| format!("PR #{pr} ({repo}): {e}"))?;
+    let state = data.get("state").and_then(Value::as_str).unwrap_or("");
+    let merged_at = data.get("mergedAt").and_then(Value::as_str);
+    if !is_merged_evidence(state, merged_at) {
+        return Err(format!("PR #{pr} ({repo}) not merged (state={state})"));
+    }
+    let short: String = data
+        .pointer("/mergeCommit/oid")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .chars()
+        .take(8)
+        .collect();
+    Ok(format!("merged: PR #{pr} @ {short} {}", merged_at.unwrap_or("")))
 }
 
 /// `verify-merged`: for every contract not already `verified` and sitting
@@ -2663,8 +2798,8 @@ fn cmd_verify_merged(args: &Args) -> rusqlite::Result<()> {
     let mut could_not_check = 0i64;
 
     for (cid, contract_pr) in &candidates {
-        let pr = match resolve_pr(&conn, cid, *contract_pr) {
-            Ok(Some(p)) => p,
+        let (repo, pr) = match resolve_pr(&conn, cid, *contract_pr) {
+            Ok(Some(rp)) => rp,
             Ok(None) => {
                 println!("  {cid}: no PR reference — skipped");
                 skipped_no_pr += 1;
@@ -2677,12 +2812,12 @@ fn cmd_verify_merged(args: &Args) -> rusqlite::Result<()> {
             }
         };
 
-        let data = match gh_pr_view(pr) {
+        let data = match gh_pr_view(&repo, pr) {
             Ok(d) => d,
             Err(e) => {
                 // A failed query is NEVER "not merged" — it's unknown, and
                 // reported as such.
-                println!("  could-not-check: {cid} PR #{pr}: {e}");
+                println!("  could-not-check: {cid} PR #{pr} ({repo}): {e}");
                 could_not_check += 1;
                 continue;
             }
@@ -3210,5 +3345,72 @@ mod tests {
         // close.
         let err = validate_claims("pushed:PR#640,garbage,ran:tests").unwrap_err();
         assert!(err.contains("garbage"), "error should name the offender: {err}");
+    }
+
+    // C-SWARM-RECON-AUTHORITY — the network-free MUST-FAIL directions. The
+    // merged->verified MUST-PASS needs a live `gh pr view` and is driven
+    // independently by verifier once #686 is green; here we prove the
+    // could-not-check directions that need no network.
+
+    fn recon_conn() -> Connection {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            "CREATE TABLE contract(id TEXT PRIMARY KEY, github_pr INTEGER, github_repo TEXT);
+             CREATE TABLE msg(id TEXT, ts REAL, contract TEXT, kind TEXT, body TEXT, pr INTEGER);",
+        )
+        .unwrap();
+        conn
+    }
+
+    #[test]
+    fn resolve_pr_refuses_github_pr_with_unknown_repo() {
+        // MUST-FAIL 2: a bare `github_pr` with no `github_repo` is REFUSED, never
+        // resolved against the hardcoded GITHUB_REPO — that default IS the
+        // agent-swarm#1-vs-fellwork/aihu#1 collision.
+        let conn = recon_conn();
+        conn.execute(
+            "INSERT INTO contract(id, github_pr, github_repo) VALUES ('C-X', 1, NULL)",
+            [],
+        )
+        .unwrap();
+        let r = resolve_pr(&conn, "C-X", Some(1));
+        assert!(r.is_err(), "github_pr with NULL github_repo must refuse, got {r:?}");
+        assert!(
+            r.unwrap_err().contains("github_repo"),
+            "the refusal must name the missing repo"
+        );
+    }
+
+    #[test]
+    fn resolve_pr_uses_the_links_own_repo_when_present() {
+        // The dual of the above: an explicit cross-repo link resolves in ITS
+        // repo, so `gh pr view` runs against agent-swarm, not fellwork/aihu.
+        let conn = recon_conn();
+        conn.execute(
+            "INSERT INTO contract VALUES ('C-X', 1, 'srmcguirt/agent-swarm')",
+            [],
+        )
+        .unwrap();
+        let (repo, pr) = resolve_pr(&conn, "C-X", Some(1)).unwrap().unwrap();
+        assert_eq!(repo, "srmcguirt/agent-swarm");
+        assert_eq!(pr, 1);
+    }
+
+    #[test]
+    fn adjudicate_merged_is_could_not_check_with_no_pr_before_any_network() {
+        // MUST-FAIL 1 (network-free half): the exact corrupt input that falsely
+        // verified C-SWARM-P0 — a `verified` proposal with a transcript-fragment
+        // recon and github_pr NULL — has NO PR reference, so adjudication returns
+        // could-not-check (Err) BEFORE any `gh` call. The caller records
+        // `unverified`, never `verified`.
+        let conn = recon_conn();
+        conn.execute(
+            "INSERT INTO contract(id, github_pr, github_repo) VALUES ('C-P0', NULL, NULL)",
+            [],
+        )
+        .unwrap();
+        let r = adjudicate_merged(&conn, "C-P0", None);
+        assert!(r.is_err(), "no PR reference must be could-not-check, got {r:?}");
+        assert_eq!(r.unwrap_err(), "no PR reference");
     }
 }
