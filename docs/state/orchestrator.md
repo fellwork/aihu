@@ -319,6 +319,58 @@ implementation) — the right role, and one that is otherwise idle waiting on
 every docs-only PR run every gate has traded one defect for a slower one, and
 that must be rejected in the spec, not discovered by the builder.
 
+## #679 IS GREEN — the unblocker for the entire docs-only class
+
+Historian applied my same-run rule **before** claiming. Re-measured on head
+`868ac101bf09a2443b6e35e30a6bb349363e820a`:
+
+```
+check  completed/SUCCESS  run 30322783137  start 02:19:46Z  end 02:25:46Z
+ci-ok  completed/SUCCESS  run 30322783137  start 02:27:57Z  end 02:28:01Z
+```
+
+Same run id; `check` ran **six minutes** (built, did not skip); `ci-ok` started
+**after** `check` ended. **Only one run on the sha** — no cheap concurrent run,
+because they did not ready-close-to-push. They volunteered *the condition that
+made the green trustworthy*, not just the favourable fact. That is what
+separates a receipt from a screenshot.
+
+**When #679 lands, these become readyable AFTER A REBASE:** #669, #676, #675,
+#678, and **#665 (mine)**. Until then main is `2c3dd7fe` and all stay draft.
+Rebase **before** re-ready — `pull_request` runs take the workflow from the head
+branch.
+
+## C-FEL-434b re-dispatched — and I refused to be a lossy relay
+
+Builder's dispatch aged out again. **Their recollection was accurate this time**
+(all four points), which is exactly when it is most tempting to just say "yes" —
+but confirming a recollection is still building from one. I sent the row's
+substance **plus the command to read it verbatim**, since the authoritative text
+has specifics no summary survives:
+
+- **The seams are named:** `markdown-resolver.ts:81 readComponents`,
+  `mcp-server-card.ts:175 metas`. Explicit prohibition: do **not** touch the
+  client JS elision in `codegen/mcp_emit.rs`.
+- **MUST-PASS has a second half** they dropped: N≥2 agent components must list
+  **all N**.
+- **The proof method is part of the bar.** Source-built compiler, never the
+  scaffold e2e (`scaffold-default-e2e.test.ts:117-119` installs the **published**
+  compiler). **This is the trap that cost this project hours twice** — aihu
+  compiles via the published napi addon unless `AIHU_COMPILE_BIN` points at your
+  build, so a Rust fix is invisible to its own test run.
+- **Row 1 is one assertion in both directions:** the component and its `$action`
+  DO appear **while** the string `reports:read` does NOT. Visibility satisfied
+  without the policy half is a **FAIL, not a nit**.
+- **The addressing scheme is theirs to define** (`bin/main.rs:560` fixed name vs
+  `:550` per-tag). Three options open; I did not choose. If they pick the
+  one-dir-per-component invariant, **"documented" is not enough — the build must
+  enforce it, or it is prose pretending to be a gate.**
+- **Three stale doc blocks must die in the same PR** or it becomes the FEL-439
+  class: `agent-discovery.md:69,:283`, `authoring-agents.md:20,:376` (plus `:265`
+  if the scheme changes).
+
+**Prereq confirmed met:** `C-FEL-434` reads `no-claims` — terminal and reconciled.
+
 ## 🔴🔴 A GREEN `ci-ok` IS NOT EVIDENCE UNLESS `check` RAN ON THE SAME RUN
 
 **Three PRs bitten. Systemic, not bad luck.** Measured on #680 head
