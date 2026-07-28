@@ -43,6 +43,113 @@ is **not** the coordination or state layer. It went unused for ~20 hours on
 2026-07-25 and the one page it holds was stale within 30 minutes of being
 written. Do not treat it as truth.
 
+## 🔴🔴 MAIN IS RED ON `check:gate-wiring` RIGHT NOW — and fixing the typo only REVEALS the second defect
+
+Builder's finding, **re-measured by me on `origin/main` `642860f3` (fetched 21:08:25Z)**
+rather than taken on trust:
+
+```
+package.json:32  check:ci calls  check:grammar-v     ← the typo
+package.json:65  the script is   check:grammar-v2
+bun run check:gate-wiring → EXIT 1
+  "22 gates, 3 orphaned (baseline 2) … NEW ORPHAN(S): check:grammar-v2"
+```
+
+**Main is red on that gate today and nothing observes it**, because the gate is
+reachable only through `check:ci`, which no workflow invokes. *The gate that exists to
+forbid green-by-construction gates is the one gate that is green by construction.*
+
+**THE ORDERING TRAP IS WORSE THAN MY CONTRACT SAID, and I found it by reading the
+script rather than the report: the orphan half `process.exit(1)`s BEFORE the
+negative-fixture half runs.** So fixing the typo does not green the gate — **it
+reveals defect 2.** `check:moon-graph` is in **neither** `gate-fixture-baseline.json`
+`notYetProven` **nor** `NEGATIVE_FIXTURES` (proven = `ci`, `gate-wiring`, `pre-push`,
+`thesis`) ⇒ *unaccounted* at `check-gate-wiring.ts:373-379`. The baseline's own
+`$comment` says the list is **SHRINK-ONLY** and *"a NEW gate must ship a proof"* — and
+**#671 added `check:moon-graph` after that baseline was measured at `b667bdcd`.** *The
+ramp guard was built to catch exactly this and could not speak.* **A PR landing the
+typo fix + wiring without (d) reds main.**
+
+### Rulings — issued so builder is not caught between two roles
+
+- **(a) COUNTERMANDED, architect's call ratified: a STEP in `check`, not its own job.**
+  I verified the load-bearing premise myself instead of accepting it: `plan-a.yml:552`
+  filters `code` as `'**'` minus `.team/`, `docs/`, `.claude/`, `state-*.md`, READMEs,
+  CHANGELOGs, `.changeset/` — **so `package.json` AND `.github/workflows/**` ARE code**,
+  and every diff that can create an orphan already runs `check`. Builder's always-on
+  argument was the one thing that would have moved me; the filter kills it. **The
+  deciding reason is their own finding turned on itself:** the own-job route needs
+  three coordinated edits (job + `needs:` + result loop) and *this repo has shipped
+  1+2-without-3 twice.* **Do not carry the anti-green-by-construction gate on the one
+  mechanism with a measured recidivism rate for producing it.**
+- **(c) I AMENDED MY OWN MUST-PASS: build CONDITIONAL, not DELETE.** The row says
+  *"ARM A DELETED"*. Conditional-on-`check:ci`-actually-being-invoked is **strictly
+  better and I overrode myself**: it is self-correcting — wire `check:ci` tomorrow and
+  the route becomes true **by measurement**, where deletion hardcodes today's topology.
+  **DANGLING-REFERENCE detection approved** (a `bun run check:X` naming a nonexistent
+  script must be red) — that is defect 1's root cause, and approving the widening is
+  the dispatcher's job so it is not unilateral.
+- **(b) `check:grammar-v2` goes in `check` too.** ">120s locally" is a reason to
+  **report a number**, not to open a second job that costs the three-edit dance.
+  **Tripwire derived, not guessed: if `check` total crosses ~12 min (today ~6), say so
+  and I re-sequence.**
+- **(d) required — with a constraint the row did not carry:** the `MOON_GRAPH_ROOT`
+  fixture tree **must not weaken what #689 just proved.** That verdict rests on BOTH
+  directions; a fixture exercising only the false-positive direction **re-opens
+  green-by-blindness.**
+
+**Contract id: their `C-FEL-GATE-WIRING-RUNS` → exit 2 was right about the id and
+wrong about the absence.** The row is `C-FEL-GATE-WIRING-REACHABLE`, `offered`,
+owner `builder`, minted **16:59:58** — *my dispatch and their note crossed.* **A
+contract id is not a description; two names for one job is two contracts.**
+
+## ✅ ffba4878 WITHDRAWN — my own DECIDE row, killed by my own measurement
+
+It asked a human to authorise **machine-wide kills + hook reaping**, both already
+ruled against (**R3** don't mass-kill; **R2** a SessionEnd reaper cannot fire for a
+session that never ends — *which IS the leaking population*), justified by a trend
+that now measures **negative**.
+
+```
+ps -eo args | grep -c '^node .*live-daemon\.js'  →  1306  @ 21:09:50Z   (mine, anchored)
+historian 1328 @ 20:44:30Z · architect 1328, unrelated selector, same number
+⇒ −22 in ~25 min ≈ −53/hour. FALLING, steeper than architect's projected −27/hour.
+oldest etime = 16:00:12 — AT the 16h TTL, not past it. past_ttl_survivors = 0
+```
+
+**I checked the survivor count BEFORE relying on the histogram-as-arrival-history, not
+after** — that instrument is valid only while nothing outlives the TTL. **A DECIDE
+that outlives its own evidence is worse than none: it spends the one channel that is
+supposed to mean a human must choose.** Replaced with a note + derived tripwires:
+**>4/min sustained**, or **`past_ttl_survivors > 0` louder and immediately**;
+**1400-2000 is expected convergence, not a signal**; severity is **~41GB bounded RSS
+waste, NOT fork() exhaustion**; the **R1 spawn guard is still worth doing** —
+*"unreachable ceiling" must not be read as "nothing to fix."*
+
+**ADOPTED, and it indicts me most: DERIVE TRIPWIRES FROM THE CEILING AND THE TTL,
+NEVER FROM WHERE THE NUMBER HAPPENS TO BE SITTING.** Architect withdrew a hand-set
+2/min; historian's 1400 sat **on the model's own prediction**; my ~35-hour clock was
+the loudest instance and I have withdrawn it twice. **Three roles, one error, three
+numbers — the shape is picking a threshold for plausibility.**
+
+**ADOPTED FROM HISTORIAN, generalising my own rule past shas: a coordinate quoted in a
+state file is stale by construction — sha, sid, run-id, head-ref, PID. Quote it with
+the fetch that produced it, or not at all.**
+
+**CORRECTION ACCEPTED on my framing:** the quarantine and the wedged-sid mint are
+**one** remedy, not two — both inside `health_check()`, both gated by the single 1800s
+boundary (`supervisor.py:104-113`, `:143-152`, called only at `:874-877`). **I counted
+one SPOF twice.** The 360× repair-cadence conclusion stands; the redundancy I implied
+does not exist.
+
+**STILL OPEN, named so it is not lost (historian's):** *the delivery channel does not
+cover its own deliverer.* My wake failures never reach the bus, so a wedged
+orchestrator's only symptom is **five peers reading their own stale errors**. Structural
+fix is two lines of somebody's contract — `health_check` on the **tick** boundary, and
+the supervisor posting its own wake failures to the bus. **Not dispatched:** builder is
+on gate-wiring and that file is the no-repo-no-CI SPOF I have twice ruled
+do-not-edit-hot.
+
 ## ✅ C-FEL-MOONGRAPH-LITERALS CLOSED — and the ledger has no row for it, by design
 
 `origin/main` = `642860f3` (fetched **20:48:06Z**) — **identical to the sha verifier
