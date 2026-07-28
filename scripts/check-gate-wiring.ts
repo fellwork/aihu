@@ -437,6 +437,36 @@ function gatingProblems(aggregatorBlock: string): string[] {
       )
     }
   }
+
+  // ── The runtime count guard's expected value must be DERIVED, not asserted ──
+  //
+  // ci-ok carries `if [ "$checked" -ne N ]`. That N is the one hand-maintained
+  // number in this design, and a hand-maintained number in the file it guards is
+  // a CONSISTENCY check, not a CORRECTNESS one — it only catches someone who
+  // edited one side. Drop a pair AND decrement N in the same commit (two
+  // self-consistent edits) and the guard passes while ci-ok reads one job fewer.
+  //
+  // So N is checked HERE, against the loop this file already parses. That makes
+  // it derived-and-enforced rather than magic: the number cannot drift from the
+  // loop without this gate going red, and the two referents now live in
+  // DIFFERENT FILES, which is the whole property the co-located version lacked.
+  //
+  // Why the guard is not redundant with the checks above, which is the part that
+  // is easy to get wrong: those make check:gate-wiring red, i.e. they make the
+  // GATE-WIRING JOB red. In the exact scenario they detect — a job dropped from
+  // the result loop — ci-ok no longer reads that job, so CI-OK ITSELF STAYS
+  // GREEN. Measured in production, not argued: run 30401968909, gate-wiring
+  // failure + ci-ok SUCCESS. The parse DETECTS; only the runtime guard REJECTS.
+  const guard = aggregatorBlock.match(/\$\{?checked\}?"?\s*-ne\s+(\d+)/)
+  if (!guard) {
+    problems.push(
+      `${AGGREGATOR_JOB}: no \`[ "$checked" -ne N ]\` guard — the result loop can be truncated to zero pairs and still report fail=0. \`fail=0\` is an absence report and cannot distinguish "no failing job" from "no job examined".`,
+    )
+  } else if (Number(guard[1]) !== loop.size) {
+    problems.push(
+      `${AGGREGATOR_JOB}: count guard expects ${guard[1]} but the result loop has ${loop.size} pair(s) — the guard would pass a loop that reads the wrong number of jobs.`,
+    )
+  }
   return problems
 }
 
@@ -499,6 +529,7 @@ function selfTest(): void {
     '          CODE: ${{ needs.changes.outputs.code }}',
     '        run: |',
     '          for pair in "alpha:$ALPHA_RESULT"; do',
+    '          if [ "$checked" -ne 1 ]; then',
   ].join('\n')
   if (gatingProblems(ok).length) fail(`correct wiring flagged: ${gatingProblems(ok)}`)
 
@@ -519,6 +550,16 @@ function selfTest(): void {
   const fakeExempt = ok.replace('          CODE: ${{ needs.changes.outputs.code }}\n', '')
   if (!gatingProblems(fakeExempt).some((p) => p.includes('NEEDS_NOT_GATED'))) {
     fail('unproven NEEDS_NOT_GATED exemption not flagged')
+  }
+  // should-flag: the count guard's literal drifted from the loop it guards.
+  // This is the ONLY thing separating scenario F (drop a pair AND decrement the
+  // count — two self-consistent edits) from a silent pass.
+  if (!gatingProblems(ok.replace('-ne 1', '-ne 2')).some((p) => p.includes('count guard'))) {
+    fail('count guard drift not flagged')
+  }
+  // should-flag: no count guard at all -> a truncated loop reports fail=0
+  if (!gatingProblems(ok.replace('          if [ "$checked" -ne 1 ]; then', '')).length) {
+    fail('missing count guard not flagged')
   }
   // must not pass vacuously on an unparseable block
   if (gatingProblems('  ci-ok:\n    steps: []').length === 0) fail('vacuous gating pass')
