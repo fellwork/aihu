@@ -965,6 +965,45 @@ than none.
 
 ## Standing rulings (do not re-litigate)
 
+### NEW — the findability rule: `git show origin/main:<path>`, never `ls-remote` on your own branch
+
+Promoted to a standing rule for **every** role, from a self-catch by verifier
+against their own work (unprompted, in the expensive direction).
+
+**`git ls-remote <your-branch>` proves the push SUCCEEDED. It never proves the
+artifact is FINDABLE where the reader is told to look.** Push-verified and
+reader-verified are different claims, and the first silently impersonates the
+second. Verifier had been running `ls-remote` on their branch every wake for 13
+wakes; `docs/state/verifier.md` on `origin/main` was still the 2026-07-26
+Round-1/2 file, and every Round-3 lesson was trapped in an unlanded branch. A
+next verifier instance told to "read your durable state FIRST" would have been
+blind to the entire session while every push receipt looked green.
+
+**The check is `git show origin/main:<path>` or `git ls-tree origin/main <dir>`.**
+
+Disposition of the two instances of this class:
+
+- **verifier — CLOSED.** #659 merged 01:46:01Z. I ran *their* test rather than
+  trusting the merge: `git show origin/main:docs/state/verifier.md` now returns
+  `Last updated: 2026-07-27 (Round 3 …)` with the isolation rule, the C-FEL-434
+  bar, and the WAL addendum all present on main.
+- **architect — STILL OPEN.** `git ls-tree origin/main docs/state/` returns
+  builder-b, builder, historian, orchestrator, transcripts, verifier — **no
+  `architect.md`**. #675 is the fix, draft, `MERGEABLE`/`CLEAN`, unlanded. It is
+  now the **only** unlanded durable-state gap in the swarm.
+
+**The cause of the architect gap was mine**, and it is worth keeping as a
+pattern: I scoped the `C-SWARM-SCHEMA` override too narrowly (leaving their
+default in `agent-swarm`), then asked three separate times for `architect.md`
+**without ever naming the path**. Three asks, zero paths — so the file landed in
+the wrong repo, correct content, silent. **When you ask for a file, name its
+full path.** Architect absorbed a failure I created and did not push back on it.
+
+Note what architect did *right* under pressure to claim success: with six PRs
+merging around them, they reported "the file is NOT on origin/main yet — it is
+on the PR branch," and named the test they could not yet run true. **That is the
+difference between a report and a claim**, and it is the behaviour to reward.
+
 ### Coordination protocol — adopted 2026-07-26, after paying for it three times
 
 - **A claim is not a claim until it is in Linear.** *"I am filing X unless you
@@ -1264,6 +1303,26 @@ all 13 open issues were unassigned and three of them were already done.
 
 ## WHAT THE NEXT INSTANCE MUST NOT REDO
 
+- **Do not treat `Session ID <uuid> is already in use` as the cause of a wake
+  crash.** It is the `--session-id` fallback's error, structurally guaranteed
+  whenever `--resume` fails first. Read `~/.swarm/supervisor.log` for the paired
+  `--resume failed` line and triage *that*. Full mechanism + evidence above.
+- **Do not answer a repetitive wake with "No response requested."** I did that
+  for many wakes of the crash storm and missed a five-role outage that took one
+  `ps` and one `grep` to diagnose. **Volume is not noise.** A message at delivery
+  attempt 35 is 35 pieces of evidence that something is not being handled.
+- **Do not re-ack #673, #659, or the architect note.** All three answered on the
+  bus this wake (msg ids `0dc12250`, `a6d93bed`, `255f1c11`), plus the outage
+  triage to all (`0d547aa4`). All sent at exit 0. #673 and #659 are **merged**;
+  only architect's #675 is still live.
+- **Do not re-assert "the merge queue is stalled at 01:12Z."** It moved: six PRs
+  landed 01:45–01:46Z and `origin/main` is `b667bdcd`. **Re-measure board state
+  at the top of every wake** — `gh pr list` costs one call and I re-asserted a
+  stale reading for several wakes without spending it.
+- **Do not "fix" #671's `BLOCKED` state.** Draft ⇒ `check` skipped ⇒ `ci-ok`
+  cannot green ⇒ branch protection says BLOCKED. Guard, not diff. Its
+  prerequisite (#666) has merged; it needs marking ready, which is the
+  interactive session's call, not a wake's.
 - **Do not re-verify the 24-PR merge list.** Every PR in the gbrain
   orchestrator-state table is confirmed on `origin/main` with its commit SHA. The
   receipts are in `docs/state/historian.md`.
