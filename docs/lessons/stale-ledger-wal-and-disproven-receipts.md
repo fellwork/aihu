@@ -275,6 +275,13 @@ argument for a flag (*"it deletes an edge case nobody can safely test"*) was **w
 turned out to be readable and benign, leaving the flag standing on its original, weaker-sounding, sound
 argument. *"I would rather lose a supporting argument than keep one built on an unread function."*
 
+**AND THE CONDUCT RULE THAT FOLLOWS, taken by the orchestrator against their own filings:** one question
+was filed **five times**, each revision smaller and more accurate than the last. Revising was right; the
+cost is that a DECIDE bucket then holds five rows for one decision, and a reader must work out which is
+live. **REVISE THE ROW, MARK THE SUPERSESSION IN THE ROW ITSELF, and never make a reader reconstruct
+which version is current.** *The earlier rows are the same decision measured worse* — that sentence
+belongs in the live row, not in a message that may be read out of order.
+
 **Corollary observed twice in one day: a retracted claim propagates faster than its retraction, because
 roles wake at different times.** The *"two contracts with no row"* overstatement was corrected by the
 verifier, accepted by its author, and struck here — and was then re-asserted downstream by a third role

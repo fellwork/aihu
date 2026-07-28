@@ -587,6 +587,23 @@ the guard is 2 lines and catches B + C + D at runtime; the parse catches D + F a
 each pair's env var is **bound**, which the guard cannot. Both. **`-ne`, not `-lt`** — measured: adding
 an 8th job with the count left at 7 reds under `-ne` (the feature) and **silently passes under `-lt`**.
 
+> **⛔ "NEITHER SUBSUMES THE OTHER" IS TRUE ABOUT COVERAGE AND MISSES THE STRUCTURAL POINT — the two
+> layers are NOT symmetric, and the production run above is the proof.** The architect re-ranked their own
+> layers after it, and this supersedes the coverage-based ranking banked above:
+>
+> **THE PARSE LIVES INSIDE THE `gate-wiring` JOB.** For its `EXIT 1` to mean anything, `gate-wiring` must
+> itself be in `ci-ok`'s result loop. **But the parse's whole purpose is to detect jobs MISSING from that
+> loop — including itself.** So **in exactly the case it exists to catch, it detects and is ignored.**
+>
+> **A DETECTOR THAT RUNS IN A GATED JOB CANNOT ENFORCE ITS OWN GATING.** That is a **bootstrap
+> dependency, not a coverage gap**, and no amount of parser quality fixes it. The guard has no such
+> dependency **because it runs inside the aggregator itself** — it is the only layer whose rejection does
+> not route through the property under test.
+>
+> **So the guard is not merely complementary: it is the only layer that can enforce the gating of the
+> detector.** Generalises past this file: **when you add a checker, ask what enforces the checker — if the
+> answer is the same mechanism it checks, it cannot fail the build on its own behalf.**
+
 **AND THE PARSE HAS THE SAME WEAKNESS ONE LAYER UP — it already fails today, which nobody had checked.**
 Before building `needs`-set == loop-set, the verifier asked whether the invariant is even **true** on the
 current tree. It is not:
@@ -685,6 +702,31 @@ the gate-wiring job log printed: "NOT GATED — gate-wiring: in needs: but MISSI
 > 'redundant' from the property I could see (it is caught) and skipped the adjacent one (does the catch
 > gate)"* — **class 2 committed in a RULING rather than in a measurement**, which is the more expensive
 > place for it, because a ruling propagates to everyone who complies with it.
+
+**⛔ AND THE SHIPPED FORM IS STRICTER THAN THE DERIVED ONE I BANKED — the answer is BOTH, not either.**
+I recorded *"retire the allowlist entirely, derive the exemption"* as the fix. Builder shipped **both
+locks**: `NEEDS_NOT_GATED` membership is **necessary**, and `outputsRead.has(job)` is what makes it
+**sufficient** (`:419-423`). The architect corrected their own recommendation on seeing it, and the
+reason is the durable part:
+
+> **An exemption should require a human to DECLARE it AND the machine to VERIFY the property holds — a
+> two-key operation.** Pure derivation is weaker than it sounds: it lets an exemption **appear silently**
+> the moment someone adds an outputs reference. Requiring both means a new legitimate outputs-provider
+> that nobody listed gets **flagged** — friction that fails **closed**. *A name alone silences nothing;
+> a property alone silences without anyone deciding.*
+
+The verifier proved the shipped predicate is already the `OR` form **by measurement rather than by
+conceding the argument**: they added `CHECK_FOO: ${{ needs.check.outputs.foo }}`, making `check` both
+gated and outputs-consumed → **EXIT 0, no false red.** And **a fourth palette variant was closed
+unprompted** — binding the loop's variable to the *wrong job*
+(`GATE_WIRING_RESULT: ${{ needs.palette.result }}`) → **EXIT 1**, *"the loop reports on the wrong job."*
+The family is now: (1) in `needs`, never read [palette]; (2) same [#649]; (3) read but yields **empty**;
+(4) **read, bound, and pointing at another job** — green while reporting on a job that is not the one
+under test.
+
+**And the checker refuses to pass vacuously** — `if (needs.length === 0) return ["could not parse a
+needs: list — REFUSING TO PASS VACUOUSLY"]`, same for an unparseable loop. **Rule 0 built into the
+detector**: it declines to issue a clean bill of health over an input it could not read.
 
 > **AN EXEMPTION THAT MUST BE EARNED vs ONE THAT CAN BE DECLARED.** A hand-maintained `EXEMPT` list is an
 > escape hatch where *"add the job to EXEMPT"* silences the very defect the parse exists to catch — the

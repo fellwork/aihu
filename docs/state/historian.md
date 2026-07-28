@@ -634,6 +634,57 @@ by it, so open them yourself when auditing.
   `settle-a-contested-claim…` — an INVARIANT beats a timed prediction (no clock, no reach-early bias); TTL now
   CONCLUSIVE (3 timed deaths 20:23:10/20:28:23/20:28:28, cohort cleared). DECIDEs not mine: who wires
   check:gate-wiring; the missing C-FEL-MOONGRAPH-LITERALS row. Board (my fetch): main 3891300a GREEN; #669 draft.
+- **WAKE 46 — MY LAYER RANKING WAS COVERAGE-BASED AND MISSED THE STRUCTURAL POINT. A DETECTOR THAT RUNS
+  IN A GATED JOB CANNOT ENFORCE ITS OWN GATING.**
+  (1) **⛔ CORRECTS MY OWN "NEITHER SUBSUMES THE OTHER".** True about COVERAGE, and it misses the shape.
+  **The parse lives INSIDE the `gate-wiring` job; for its EXIT 1 to mean anything, `gate-wiring` must be
+  in ci-ok's result loop — but the parse's whole purpose is to detect jobs MISSING from that loop,
+  INCLUDING ITSELF.** So **in exactly the case it exists to catch, it detects and is ignored** — proven
+  in production (run 30401968909: parse installed, gate-wiring FAILURE, ci-ok SUCCESS). **A BOOTSTRAP
+  DEPENDENCY, NOT A COVERAGE GAP** — no parser quality fixes it. The guard has no such dependency
+  **because it runs inside the aggregator itself**, the only layer whose rejection does not route through
+  the property under test. **So the guard is not merely complementary — it is the ONLY layer that can
+  enforce the gating of the detector.** General form banked: **when you add a checker, ask what enforces
+  the checker; if the answer is the same mechanism it checks, it cannot fail the build on its own
+  behalf.** Supersedes my referent-distance ranking for THIS pair (distance still holds for F).
+  (2) **⛔ CORRECTS MY "DERIVE THE EXEMPTION, RETIRE THE ALLOWLIST" — the answer is BOTH.** Builder
+  shipped two locks: `NEEDS_NOT_GATED` membership **necessary**, `outputsRead.has(job)` **sufficient**
+  (`:419-423`). Architect corrected their own recommendation on reading it. **An exemption should require
+  a human to DECLARE it AND the machine to VERIFY the property — a two-key operation.** Pure derivation
+  is weaker: it lets an exemption **appear silently** the moment someone adds an outputs reference.
+  *A name alone silences nothing; a property alone silences without anyone deciding.* **NOBODY SHOULD
+  FILE AN XOR FIX AGAINST #691** — verifier proved the shipped code is already OR **by measurement**
+  (added `CHECK_FOO: ${{ needs.check.outputs.foo }}` → EXIT 0, no false red); the OR correction belongs
+  in the QUEUED SPEC (`C-FEL-CIOK-GATING-INVARIANT`), which is the WRITTEN form of what is already in the
+  tree — **do not build it twice.**
+  (3) **FOURTH PALETTE VARIANT closed unprompted** (verifier's own mutation): bind the loop's var to the
+  WRONG job (`GATE_WIRING_RESULT: ${{ needs.palette.result }}`) → EXIT 1, *"the loop reports on the wrong
+  job."* Family now: (1) in needs never read [palette]; (2) same [#649]; (3) read but yields EMPTY;
+  (4) **read, bound, pointing at another job**. Plus **rule 0 built into the checker**: `if (needs.length
+  === 0) return ["... REFUSING TO PASS VACUOUSLY"]`.
+  (4) **BUILDER-B ADDRESSED ME: THE FIFTH PLACE A DURABILITY CHECK READS GREEN.** Two open PRs against
+  ONE file (#693/#678), **both `MERGEABLE/CLEAN` — true and irrelevant, because GitHub scores each
+  against `main` and NEVER against its sibling.** Trial merge answered it: **rc=1**. **And the collision
+  was in the ITEM NUMBERS** (16-20, 22 each pointing at two rulings) in the file whose whole function is
+  to be **cited by number** — a textual merge could have succeeded and still broken the record.
+  **`mergeable` answers "does this apply to main right now"; when two PRs touch one file the only
+  instrument is a TRIAL MERGE of one into the other**, and for a numbered document success is not
+  sufficient. Remedy banked: **renumber only the side that never reached `main`**, so existing citations
+  do not move.
+  (5) **CONDUCT RULE from the orchestrator against themselves:** five filings of one question is itself a
+  cost. **REVISE THE ROW, MARK THE SUPERSESSION IN THE ROW ITSELF**, never make a reader reconstruct
+  which version is live. Also theirs: **the mint gap is structural, not builder discipline** — the ledger
+  row can only be written by the orchestrator while the work is discovered by whoever finds the defect;
+  that is why `swarm-bus record` / a finder-proposes path stays the named next contract. (Third
+  mint-after-the-fact today; C-FEL-CREATE-GIT-STATUS now minted to builder-b against #695.)
+  (6) **Discipline worth copying, all from others:** verifier's void clause fired a **third** time (re-ran
+  rather than re-cited); builder-b reported **run 1 EXIT 1 with ZERO failures** alongside two EXIT 0 runs
+  and refused to attribute it (*"consistent-with is not evidence-of"*); builder-b applied the
+  draft-ci-ok-carries-no-information rule **against their own PR**; orchestrator's jq positive control
+  caught their own bad slice before it reached the record. Daemon thread corroborated from a fourth angle
+  (loadavg 72→32→36 as anchored daemons fell 1328→1277) — **the drain is visible in SYSTEM LOAD, the
+  variable that actually costs wakes.** Tripwires unchanged and unaffected. Gate exit 0. Killed no
+  process, filed no DECIDE, set no status, ran no `--confirm`, no Linear/GitHub write, merged nothing.
 - **WAKE 45 — I RE-FILED A PEER'S RESOLVED FINDING AS OPEN. THE EMBARGO IS ON WRITES, NOT ON LOOKING.**
   (1) **⛔ MY CATEGORY-2 FILING WAS A MISCLASSIFICATION, AND THREE OF US MADE IT.** I banked the
   `first:50` cap as *"a could-not-check with its discriminator, deliberately not run — it needs a Linear

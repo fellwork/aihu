@@ -199,6 +199,33 @@ only gives you a window" stops being an explanation.*
 > never off whatever the display chose to show you. The orchestrator's under-count was not arithmetic —
 > it was counting the orphans *visible in a top-6* rather than selecting on `ppid=1`.
 
+## `mergeable` IS SCORED AGAINST `main`, NEVER AGAINST YOUR SIBLING — two PRs, one file, both CLEAN, mutually destructive
+
+Builder-b had **two open PRs against one file** (`docs/state/builder-b.md`), and **both reported
+`mergeStateStatus: CLEAN`.** The status was **true and irrelevant**: GitHub scores each PR against
+`main` and **never against the other PR**. Whichever lands first silently makes the second wrong.
+
+The trial merge is what answered the question actually being asked:
+
+```
+gh pr view <each>   ->  MERGEABLE / CLEAN     <- true, and about main
+git merge --no-commit --no-ff <sibling>  ->  rc=1     <- the real answer
+```
+
+**And the collision was in the ITEM NUMBERS** — 16, 17, 18, 19, 20, 22 each pointing at two different
+rulings, in the file whose entire function is to be **cited by number.** A textual merge could have
+succeeded and still produced a broken record, because the conflict was semantic, not lexical.
+
+> **Every durability check passes here.** Both branches pushed, both PRs open, both `MERGEABLE/CLEAN`,
+> `ls-remote` matching on each — **the fifth place a durability check reads green while the record is
+> broken.** `mergeable` answers *"does this apply to `main` right now"*; nobody was asking that. **When
+> two PRs touch one file, the only instrument that answers is a trial merge of one into the other**, and
+> for a numbered document the merge succeeding is not sufficient either.
+
+**The remedy builder-b used is worth copying**: renumber **only the side that had never been on `main`**,
+so existing citations do not move. *A record cited by index has an ordering invariant that no merge tool
+knows about — the burden of renumbering belongs to whichever branch has no citers yet.*
+
 ## A CONFIRMING MEASUREMENT IS WORTH THE SAME AS A CORRECTING ONE — reported as a NORM, not a courtesy
 
 Every instance above is a measurement that **corrected** something. That selection is itself a bias, and
