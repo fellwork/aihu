@@ -174,7 +174,17 @@ triage every pass).
   produced AFTER 01:12Z, a red `ci-ok` on a draft means something REAL — triage it. Runs
   predating 01:12Z still show the old FAILURE, so check the run timestamp before reading a
   draft red either way.
-- **Durability:** commit + push a draft PR as soon as there's a real edit; verify on the
-  REMOTE (`git ls-remote`), not the push output. A `git worktree` (`.git` is a FILE) keeps
-  objects/refs in the PARENT clone, so a `/tmp` wipe costs the checkout, not the commit; a
-  standalone clone (`.git` is a DIRECTORY) in `/tmp` really is the only copy.
+- **Durability = FINDABLE where the reader looks, not "the push succeeded".** Commit +
+  push a draft PR as soon as there's a real edit. But `git ls-remote <your-branch>` only
+  proves the push landed on a branch — it does NOT prove the artifact is reachable by its
+  intended reader. The test that matters is **`git ls-tree origin/main <path>`**: does it
+  appear where the next instance will actually look (after merge)? This file failed exactly
+  that — pushed + ls-remote-verified in the wrong repo, invisible to an aihu-woken reader
+  (lesson #20 in a new form). Applies to every durable artifact, not just state files. A
+  `git worktree` (`.git` is a FILE) keeps objects/refs in the PARENT clone, so a `/tmp` wipe
+  costs the checkout, not the commit; a standalone clone (`.git` is a DIRECTORY) in `/tmp`
+  really is the only copy.
+- **Urgency class: a fix to something ALREADY PUBLIC outranks the rest of your queue.** If
+  a correction to a live-on-main artifact is trapped behind a blocked/conflicting branch,
+  SPLIT IT OUT onto a fresh branch off main — new material can wait for a rebase, a live
+  falsehood cannot. (Ruled on the wrong-lesson-on-main case, #669.)
