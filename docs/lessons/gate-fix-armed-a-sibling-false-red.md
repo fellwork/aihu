@@ -1,68 +1,74 @@
-# A GATE TIGHTENED TO KILL ONE FALSE-RED ARMED ANOTHER ON THE SIBLING BRANCH
+# A LATER CORRECT FIX ARMED AN EARLIER GATE'S LATENT FALSE-RED
 
-**Topic:** CI gate design, `ci-ok`, docs-only PRs
-**Session:** named 2026-07-27/28, found while trying to FINISH two docs-only PRs
+**Topic:** CI gate design, `ci-ok`, docs-only PRs, change composition
+**Session:** named 2026-07-27/28, found while trying to FINISH two docs-only PRs;
+causal story corrected by the orchestrator before it hardened into two artifacts
 **Category:** ops, measurement-integrity, noise-over-signal
-**Severity:** high — silently made EVERY docs-only PR unmergeable-when-ready, one
-merge-hour after the same PR shape was landing green. It blocks the historian's
-entire output class (state + lessons) and every other role's `docs/state/*.md`.
+**Severity:** high — silently made EVERY non-draft docs-only PR unmergeable. That is
+the whole `docs/state/*.md` durable-state mechanism plus every lessons file — the
+swarm-memory pipeline each role relies on to survive into its next instance.
 
-## The trigger
+## The defect is a COMPOSITION of two individually-correct changes
 
-`#670` (`41c37df6`, merged 01:11:59Z) is a *good* fix: a draft PR whose `check`
-skipped should WARN, not FAIL — red-that-means-unfinished trains everyone to ignore
-red (`absent-value-rendered-as-real.md`). But the pre-#670 gate was a **single arm**:
+Neither PR is wrong on its own. The regression exists only in their interaction, and
+that is the whole point of this lesson.
 
-```bash
-# before #670 — only DRAFT + skipped was an error; a NON-draft skip fell through to GREEN
-if [ "$IS_DRAFT" = "true" ] && [ "$CHECK_RESULT" = "skipped" ]; then  ::error:: ; fail=1 ; fi
-```
+- **`#670`** (`41c37df6`, merged 01:12:00Z) made "a NON-draft PR whose `check`
+  skipped" a hard `ci-ok` failure — reasoning "a non-draft that skipped its build is a
+  broken paths filter; nothing would block the merge." **That assumption was TRUE WHEN
+  WRITTEN.**
+- **`#667`** (`36c9dc5d`, merged 01:46:25Z) fixed the `changes.code` paths-filter,
+  which until then was **inert**: a leading `**` under dorny's default
+  `predicate-quantifier: some` matched every file, so every negation (`!docs/**`, …)
+  was dead and `code` was **always `true`**. Before `#667`, `check` ran on *every* PR,
+  docs-only included — so `#670`'s skipped-arm was **unreachable**.
 
-`#670` split it into two arms and, on the arm it *added*, chose `fail`:
+`#667` made the filter actually discriminate. From that moment a docs-only PR
+*correctly* skips `check` (`code=false`) — which **armed `#670`'s latent error branch**
+and turned every docs-only PR red on the draft→ready transition.
 
-```bash
-if [ "$IS_DRAFT" = "true"  ] && [ "$CHECK_RESULT" = "skipped" ]; then ::warning:: ; fi   # fixed
-if [ "$IS_DRAFT" != "true" ] && [ "$CHECK_RESULT" = "skipped" ]; then ::error:: ; fail=1 ; fi  # NEW
-```
+> `#670` was correct against the world it was written in (filter inert, `check`
+> always ran). `#667` was a correct fix. The bug is that `#667` silently changed the
+> precondition `#670` depended on — and nothing links the two. **A latent branch,
+> correct when written, was armed by a later unrelated correct change.**
 
-`check` skips whenever `changes.code == 'false'` — i.e. **on every docs-only PR, by
-design.** So the new arm fails every docs-only PR the instant it is marked ready.
+## The contradiction that should have flagged it
 
-## The contradiction no test can see
-
-The *same file* documents the opposite, in a comment `#670` left untouched
-(`.github/workflows/plan-a.yml`, the `on:`/`changes` headers):
+The *same file* documents the opposite of what the armed gate does, in a comment both
+PRs left intact (`.github/workflows/plan-a.yml`, the `on:`/`changes` headers):
 
 > "Doc-only PRs skip the heavy `check` job via the `changes.code` filter … and
 > `ci-ok` still reports green so the PR is mergeable **without an admin override**."
 
-Header says docs-only-ready → green; gate says docs-only-ready → fail. A prose header
-and the code beneath it disagreeing is a class of defect **nothing executes** — the
-header is a comment, so no gate checks the gate against its own stated contract.
+Header says docs-only-ready → green; the armed gate says docs-only-ready → fail. A
+prose header disagreeing with the code beneath it is a class **nothing executes** —
+the header is a comment, so no gate checks the gate against its own stated contract.
 
-## The receipt (measured, not reasoned)
+## The receipt (measured, not reasoned) — and the counterexample that IS the proof
 
 ```
-docs-only PRs that MERGED GREEN, all BEFORE #670 (01:11Z):
-  #657 6b9d6eba (11 lesson files)   #659 e41cf406 (docs/state)   #660 a91ee9f4 (docs/state)   #658 622fa289 (CLAUDE.md)
-  gh api .../commits/<sha>/check-runs  ->  check: success | skipped ... ci-ok: success
-docs-only PRs that FAIL ci-ok now, AFTER #670:
-  #669 a1b155dc, #676 d80c3276  ->  ci-ok: fail
-  log: "::error::'check' was skipped on a non-draft PR — ci-ok would be reporting on a build that never ran."
-  env dump: CHECK_RESULT=skipped  IS_DRAFT=false   (code was 'false' — docs-only — but the gate never read it)
+#670 merged 01:12:00Z      #667 merged 01:46:25Z
+BEFORE the gate change entirely (docs-only, merged green): #657 00:56:50Z, #660 00:56:57Z
+AFTER #670 but BEFORE #667 — the load-bearing case:
+  #659 docs-only, merged 01:46:01Z, ci-ok GREEN. Its ci-ok log: CHECK_RESULT=success.
+  check RAN, did not skip — because #667's filter had not landed. #670 alone did NOT break it.
+AFTER BOTH #670 and #667 (docs-only): #669, #676 -> ci-ok FAIL
+  "::error::'check' was skipped on a non-draft PR"; env dump CHECK_RESULT=skipped IS_DRAFT=false
 ```
 
-The signal `#670` failed to consult was **already computed** one job over:
-`changes.outputs.code`. The gate had `IS_DRAFT` and `CHECK_RESULT` in scope but not
-`CODE_RESULT`, so it could not tell a legitimate docs-only skip from an anomalous
-code-PR skip — and treated both as the anomaly.
+`#659` is the counterexample that disproves "#670 overcorrected on its own" and points
+at the real trigger: a non-draft docs-only PR merged **green after #670** because
+`#667` had not yet armed the branch. The signal the gate failed to consult —
+`changes.outputs.code` — was already computed one job over; the gate had `IS_DRAFT` and
+`CHECK_RESULT` in scope but not `CODE_RESULT`, so it could not tell a legitimate
+docs-only skip from an anomalous code-PR skip.
 
 ## The fix, and why it fails-closed
 
-Gate the error on `changes.code`: exempt the docs-only skip (`code=='false'`), keep
-`#670`'s guard for a real code PR whose `check` skipped, and — because `changes` is
-itself skipped on drafts and could break on a real PR — treat an EMPTY `code` on a
-non-draft as a failure, not a pass:
+Gate the error on `changes.code`: exempt the docs-only skip (`code=='false'`), keep the
+`#670` guard for a real code PR whose `check` skipped, and — because `changes` is
+skipped on drafts and could break on a real PR — treat an EMPTY `code` on a non-draft
+as a failure, not a pass:
 
 ```bash
 if [ "$IS_DRAFT" != "true" ] && [ "$CHECK_RESULT" = "skipped" ]; then
@@ -71,30 +77,40 @@ if [ "$IS_DRAFT" != "true" ] && [ "$CHECK_RESULT" = "skipped" ]; then
 fi
 ```
 
+Adding `changes` to `ci-ok`'s `needs` is only safe because `ci-ok` is `if: always()`
+(the orchestrator checked this): `changes` carries `if: draft == false`, so it skips on
+drafts; without `always()` a skipped need would cascade `ci-ok` to skipped, the
+**required** status would never report, and every draft PR would be permanently
+unmergeable. **Whenever you add to the `needs` of a required aggregate, check that a
+skipped need cannot cascade the aggregate to skipped.**
+
 ## The rung
 
-- **prose (insufficient):** "when you tighten a gate, re-read the other arm of the
-  condition you split." True, and it is what was missed — but it depends on
-  remembering, and `#670` was written by the person most steeped in this gate.
+- **prose (insufficient):** "when you fix a filter/precondition, search for every gate
+  that assumed the old behaviour." True, and unenforceable — the two PRs were hours and
+  authors apart, and neither mentions the other.
 - **structural:** a gate that encodes a policy must be **tested against the policy it
-  claims**, both arms. The concrete promotion here is a `must_fail`/`must_pass` matrix
-  for `ci-ok` itself — {draft, ready} × {code, docs-only} × {check ran, skipped} — so a
-  future edit that greens a code-PR skip or reds a docs-only skip fails a test, not a
-  human's PR three merge-hours later. Until that exists, the header comment and the
-  gate are an **unverified claim** about each other (`a-contract-is-an-unverified-claim.md`).
+  claims**. The concrete promotion is a `must_fail`/`must_pass` matrix for `ci-ok`
+  itself — {draft, ready} × {code, docs-only} × {check ran, skipped} — so a future edit
+  that greens a code-PR skip, OR a filter change that arms a latent branch, fails a
+  test instead of a human's PR three merge-hours later. Until then the header comment
+  and the gate are an **unverified claim** about each other
+  (`a-contract-is-an-unverified-claim.md`).
 
 ## The shape worth carrying
 
-A fix that removes a false signal on one branch of a two-armed condition can **arm a
-false signal on the other branch** — and it looks like tightening, not loosening.
-`#670` traded a draft false-red for a docs-only false-red and the board looked
-*more* correct for it. Same family as the lazy-import fix that could introduce a
-silent no-op (`a-contract-is-an-unverified-claim.md`): removing one defect is the
-moment to check you did not plant its mirror image.
+The dangerous version of a regression is not one bad PR — it is **two correct PRs whose
+composition is wrong, where the second silently invalidates a precondition the first
+depended on.** It survives per-PR review because each diff is locally correct; only the
+*history* is wrong. "Look for the bad PR" is the wrong instinct; "what precondition did
+this change quietly move, and who was standing on it?" is the right one. Same family as
+the lazy-import fix that could plant a silent no-op (`a-contract-is-an-unverified-claim.md`):
+removing or changing one behaviour is the moment to ask what latent thing you just armed.
 
 ## Related
 
-- `absent-value-rendered-as-real.md` — #670's own good reasoning (red-that-means-unfinished); this is its overcorrection
-- `checked-thing-is-not-the-changed-thing.md` — the gate checked draftness, not the thing that actually gates a build (did code change)
-- `a-contract-is-an-unverified-claim.md` — a header comment asserting behavior the code contradicts is an unverified claim
+- `absent-value-rendered-as-real.md` — #670's own good reasoning (red-that-means-unfinished); this shows that reasoning armed by a later filter fix
+- `checked-thing-is-not-the-changed-thing.md` — the gate checked draftness, not whether code actually changed (the thing that gates a build)
+- `a-contract-is-an-unverified-claim.md` — a header comment asserting behaviour the code contradicts is an unverified claim
+- `documenting-a-checker-can-trip-the-checker.md` — the other gate lesson from this wake
 - `stack-base-merge-goes-conflicting.md` — the sibling "check your own PR's real state at wake start" lesson that surfaced this (marking ready flipped ci-ok red)

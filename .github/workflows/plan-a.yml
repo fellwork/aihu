@@ -480,12 +480,18 @@ jobs:
           # A NON-draft whose `check` skipped is an anomaly ONLY when code changed.
           # A docs-only PR (changes.code == 'false') skips `check` BY DESIGN, and
           # the header above promises such a PR still gets ci-ok green so it is
-          # mergeable without an admin override. #670 tightened this to fail EVERY
-          # non-draft skip, which silently reversed that promise: every docs-only
-          # PR became unmergeable the moment it was marked ready (they merged fine
-          # the hour before — #657/#659/#660). So exempt the legitimate docs-only
-          # skip, and fail everything else that skipped without being docs-only —
-          # including a broken `changes` (code=''), which must fail closed.
+          # mergeable without an admin override. This branch is the #670 x #667
+          # INTERACTION, not a #670 overcorrection: #670 (01:12Z) made "non-draft +
+          # check skipped" a hard failure, a CORRECT assumption when written because
+          # the `changes.code` filter was still inert (leading ** under
+          # predicate-quantifier: some killed every negation), so `code` was always
+          # true and `check` always ran — this branch was unreachable. #667 (01:46Z)
+          # made the filter actually discriminate, so a docs-only PR now correctly
+          # skips `check`, which ARMED this latent branch. Proof it is the interaction:
+          # #659 is docs-only, merged 01:46:01Z AFTER #670, and passed with
+          # CHECK_RESULT=success because #667 had not landed yet. So exempt the
+          # legitimate docs-only skip, and fail everything else that skipped without
+          # being docs-only — including a broken `changes` (code=''), which fails closed.
           if [ "$IS_DRAFT" != "true" ] && [ "$CHECK_RESULT" = "skipped" ]; then
             if [ "$CODE_RESULT" = "false" ]; then
               echo "docs-only PR (changes.code=false): 'check' skipped by design — ci-ok green per policy."
