@@ -1,6 +1,10 @@
 #!/usr/bin/env bun
 /**
- * check-gate-wiring.ts — C-FEL-428 gate-wiring meta-check (REACHABILITY half).
+ * check-gate-wiring.ts — C-FEL-428 gate-wiring meta-check.
+ *
+ * Two properties per gate: (1) REACHABILITY — some CI path invokes it; (2)
+ * NEGATIVE FIXTURE — its red path was EXECUTED this run and observed to exit
+ * non-zero. Both halves below.
  *
  * WHY THIS EXISTS: a gate that no CI path ever invokes is green-by-construction
  * — it can never make a PR red, so it protects nothing. That is the
@@ -39,9 +43,13 @@
  * SURFACE (C-FEL-428): this meta-check + its baseline only. It does NOT rewrite
  * or rewire any individual gate to fix what it finds.
  *
- * SCOPE: this is the REACHABILITY half. The NEGATIVE-FIXTURE half (every gate
- * ships a fixture it actually rejects) is pending the mechanism ruling — see
- * the C-FEL-428 verdict/design note on the bus.
+ * NEGATIVE FIXTURE (ruling 1): a gate is PROVEN only if its red command is
+ * EXECUTED in this run and observed to exit non-zero — declared/registered is
+ * not enough (that would be green-by-construction, the meta-gate becoming an
+ * instance of its own subject). Gates not yet proven are grandfathered into a
+ * SHRINK-ONLY ramp (scripts/gate-fixture-baseline.json) so this does not require
+ * rewriting ~20 gates on day one; the ramp can only shrink as gates opt in. See
+ * NEGATIVE_FIXTURES below.
  */
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -49,14 +57,48 @@ import { Glob } from 'bun'
 
 const REPO_ROOT = join(import.meta.dir, '..')
 
-// Pure chains (not gates) and the fixer are excluded from enumeration.
-// check:ci / check:pre-push / check:thesis only orchestrate other check:*; they
-// have no assertion of their own. FIXER: no check:* leaf in this repo writes /
-// regenerates (verified: none call writeFileSync), so the set is empty today —
-// if a fixer check is later added, list it here so it is not enumerated as a
-// gate that must go red.
+// Pure chains (not gates) are excluded: check:ci / check:pre-push / check:thesis
+// only orchestrate other check:*; they have no assertion of their own.
 const EXCLUDE_CHAINS = new Set(['check:ci', 'check:pre-push', 'check:thesis'])
+// Fixers (scripts that WRITE/regenerate rather than assert) must not be
+// enumerated as gates that have to go red. This set is EMPTY BY CONSTRUCTION and
+// must stay that way: the repo's writers are `check` (biome check --write .),
+// `format`, `readme:remeasure` and `release:version` — NONE is a check:* leaf,
+// so the check:*-prefixed enumeration already excludes every one of them. This
+// list exists only for a HYPOTHETICAL future check:* that writes; do NOT
+// populate it to "tidy up" an empty set. (C-FEL-428 ruling 2.)
 const EXCLUDE_FIXERS = new Set<string>([])
+
+// A fixture subprocess (used to prove a gate's negative path — see below) sets
+// this so it runs the reachability half ONLY and does not recurse into the
+// negative-fixture half that spawned it.
+const NO_FIXTURES = Boolean(process.env.GATE_WIRING_NO_FIXTURES)
+// The reachability baseline path is overridable so a proof run can point the
+// meta-check at an EMPTY baseline (turning the real orphans into "new" ones) and
+// observe it go red — the meta-gate proving its own detector actually fires.
+const REACH_BASELINE = process.env.GATE_WIRING_BASELINE ?? 'scripts/gate-wiring-baseline.json'
+
+/**
+ * NEGATIVE-FIXTURE REGISTRY (C-FEL-428, ruling 1). A gate counts as PROVEN only
+ * if the command here is EXECUTED in this run and OBSERVED to exit non-zero —
+ * not declared, not registered. Day-one this proves the meta-check ITSELF (the
+ * meta-gate is not exempt from its own rule): run it against an EMPTY baseline
+ * so the real orphans become "new" and it MUST go red; a detector that found
+ * nothing would exit 0 and be caught as unproven. Every other gate is
+ * grandfathered into the SHRINK-ONLY not-yet-proven baseline
+ * (scripts/gate-fixture-baseline.json). A gate opts in by adding a
+ * fixture-invocation entry here — future work, since THIS contract's surface
+ * forbids rewriting the individual gates to expose a fixture-scan mode.
+ */
+const NEGATIVE_FIXTURES: Record<string, { cmd: string[]; env?: Record<string, string> }> = {
+  'check:gate-wiring': {
+    cmd: ['bun', 'scripts/check-gate-wiring.ts'],
+    env: {
+      GATE_WIRING_NO_FIXTURES: '1',
+      GATE_WIRING_BASELINE: 'scripts/fixtures/gate-wiring/empty-baseline.json',
+    },
+  },
+}
 
 interface Baseline {
   orphans: string[]
@@ -202,6 +244,39 @@ function selfTest(): void {
   if (!realRun.includes('scripts/ghost.ts')) fail('block-scalar run body missed')
 }
 
+interface NegResult {
+  proven: Set<string>
+  /** fixture ran but the gate did NOT reject it (exit 0) — a gate that cannot go red. */
+  passed: string[]
+  ms: number
+}
+
+/**
+ * Execute each registered negative fixture and OBSERVE its exit code. A gate is
+ * proven iff its fixture command exits NON-ZERO in this run (executed and
+ * observed — ruling 1). A fixture that exits 0 means the gate did not reject its
+ * own red input: it cannot go red, the exact green-by-construction defect this
+ * meta-check exists to kill.
+ */
+function proveNegativeFixtures(gates: string[]): NegResult {
+  const proven = new Set<string>()
+  const passed: string[] = []
+  const start = performance.now()
+  for (const g of gates) {
+    const entry = NEGATIVE_FIXTURES[g]
+    if (!entry) continue
+    const r = Bun.spawnSync(entry.cmd, {
+      cwd: REPO_ROOT,
+      env: { ...process.env, ...(entry.env ?? {}) },
+      stdout: 'ignore',
+      stderr: 'ignore',
+    })
+    if (r.exitCode !== 0) proven.add(g)
+    else passed.push(g)
+  }
+  return { proven, passed, ms: performance.now() - start }
+}
+
 function main(): void {
   selfTest()
 
@@ -220,9 +295,7 @@ function main(): void {
 
   const orphans = gates.filter((g) => !isReachable(g, scripts[g], chain, workflowRunText)).sort()
 
-  const baseline: Baseline = JSON.parse(
-    readFileSync(join(REPO_ROOT, 'scripts/gate-wiring-baseline.json'), 'utf8'),
-  )
+  const baseline: Baseline = JSON.parse(readFileSync(join(REPO_ROOT, REACH_BASELINE), 'utf8'))
   const baseSet = new Set(baseline.orphans)
   const newOrphans = orphans.filter((g) => !baseSet.has(g))
   const fixed = baseline.orphans.filter((g) => !orphans.includes(g))
@@ -253,8 +326,68 @@ function main(): void {
     )
   }
 
+  // A fixture subprocess runs the reachability half ONLY and returns — it must
+  // not recurse into the negative-fixture half that spawned it.
+  if (NO_FIXTURES) {
+    if (bad) process.exit(1)
+    return
+  }
   if (bad) process.exit(1)
   console.log('  All gates reachable except the known baseline debt. OK.')
+
+  // ── NEGATIVE-FIXTURE HALF (executed and observed, ruling 1) ────────────────
+  const { proven, passed, ms } = proveNegativeFixtures(gates)
+  const notYetProven: string[] = JSON.parse(
+    readFileSync(join(REPO_ROOT, 'scripts/gate-fixture-baseline.json'), 'utf8'),
+  ).notYetProven
+  const nyp = new Set(notYetProven)
+  // Every gate must be PROVEN this run or grandfathered into the ramp.
+  const unaccounted = gates.filter((g) => !proven.has(g) && !nyp.has(g)).sort()
+  // A gate now proven but still listed as debt: the shrink-only baseline is stale.
+  const provenButBaselined = notYetProven.filter((g) => proven.has(g)).sort()
+
+  console.log(
+    `\n  NEGATIVE FIXTURE — executed ${proven.size} proof(s) in ${(ms / 1000).toFixed(1)}s; ${notYetProven.length} gate(s) not yet proven (shrink-only ramp debt).`,
+  )
+  if (ms > 120_000) {
+    console.log(
+      '  NOTE: executed-fixture wall-clock > 120s — split the execution half into its own always-on job and report the number to the orchestrator.',
+    )
+  }
+
+  let badFix = false
+  // Floor: if NOTHING was executed, the executed-and-observed invariant is
+  // untested this run — the green-by-construction shape this half exists to
+  // forbid. A meta-check that can silently observe nothing must fail, not pass.
+  if (proven.size === 0) {
+    badFix = true
+    console.error('\n  NO negative-fixture proof executed — the mechanism is unverified this run.')
+  }
+  if (passed.length) {
+    badFix = true
+    console.error(
+      '\n  NEGATIVE FIXTURE PASSED — the gate did NOT reject its own red input (it cannot go red):',
+    )
+    for (const g of passed) console.error(`    - ${g}`)
+  }
+  if (unaccounted.length) {
+    badFix = true
+    console.error('\n  GATE WITH NO NEGATIVE-FIXTURE PROOF and not grandfathered:')
+    for (const g of unaccounted) console.error(`    - ${g}`)
+    console.error(
+      '  Add an executed proof to NEGATIVE_FIXTURES — the not-yet-proven baseline is SHRINK-ONLY.',
+    )
+  }
+  if (provenButBaselined.length) {
+    badFix = true
+    console.error(
+      '\n  GATE NOW PROVEN but still in the not-yet-proven baseline — remove it (shrink-only):',
+    )
+    for (const g of provenButBaselined) console.error(`    - ${g}`)
+  }
+
+  if (badFix) process.exit(1)
+  console.log('  All gates either proven or grandfathered into the shrink-only ramp. OK.')
 }
 
 main()
