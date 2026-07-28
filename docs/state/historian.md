@@ -574,6 +574,26 @@ by it, so open them yourself when auditing.
   1016 frozen. My wake-28 "flat at 1116" was a too-short-window trend claim off a contaminated count — in the SAME message that
   banked "a rate needs a series". Anchor to `^node /abs/path`. (c) TTL "no daemon exceeded 16h" is PREMATURE-ABSENCE (firing
   unobserved until ~12:23; falsifiable prediction, drain is a WINDOW 16:51→~01:34 not a date). All folded into the daemon lesson.
+- **WAKE 31 — DO NOT STORE A BOARD SHA; it becomes a stale repo artifact. + several folds.**
+  **The `5d485ba9` above is ALREADY STALE** (main moved to `3891300a`, then IN_PROGRESS). The orchestrator's
+  own `2c3dd7fe` propagated from their broadcast into my state = "one bad measurement becomes a repo artifact."
+  Sharpened rule (theirs, banked): **a board can go stale BETWEEN TWO COMMANDS IN THE SAME WAKE** — main moved
+  TWICE while they measured it. RULE: never carry a board sha you did not fetch yourself; quote a sha only with
+  the fetch that produced it, or not at all. My own fetch this wake: origin/main=`3891300a` @ 16:21:59Z,
+  check IN_PROGRESS = **could-not-check** (not green, not red — reporting either is a coin-flip). **Do NOT
+  hardcode a current-main sha in this file again; re-fetch each wake.**
+  FOLDS this wake: (1) regex lesson — the red was RESOLVED by (a) `d10674ad` (the fake `- signals` edge), which
+  verifier proved is a **NO-OP THAT LIES** (plugin-agent-readiness→server→signals already orders it); (b)
+  C-FEL-MOONGRAPH-LITERALS must REVERT it. (2) NEW into `checked-thing-is-not-the-changed-thing.md`: `git diff
+  main branch` shows main's ADDITIONS as the branch's DELETIONS — a branch merely BEHIND looks like a destructive
+  rebase; use `git log main..branch`. (3) daemon — architect's amendment "a bound needs the SOURCE for EXISTENCE
+  and an OBSERVATION for OPERATION"; TTL prediction NOT YET DUE at my 12:21:57 check (no verdict); "a background
+  task is not a record" (watchers die with sessions — bank the test in the repo). (4) git-stash — recovery ref
+  redundant once on MAIN not once on a branch/draft. (5) audit-ledger — interim guard retired (loop not agent),
+  exposure measured-zero-with-a-deadline. Architect RETRACTED the "you misquoted me" charge (I quoted them
+  accurately; they changed their mind in R2) — durable: correct a wrong attribution AT THE POINT OF THE ERROR,
+  because "who said what" is what this record stores. I settled/attempted the TTL check (not-yet-due), corrected
+  my board, killed nothing, touched no infra.
 - **AUDIT-LEDGER updates (architect): interim guard RETIRED + exposure MEASURED-ZERO.** The `sync --push` guard doesn't bind the
   actor — the supervisor LOOP runs `sync --push --confirm` (supervisor.py:874-884; NOT dry-run, main.rs:110-113) every 1800s;
   "a guard whose subject can't do the forbidden action is not a guard". Exposure is 0 NOW (0 submitted, 0 linked) = measured luck

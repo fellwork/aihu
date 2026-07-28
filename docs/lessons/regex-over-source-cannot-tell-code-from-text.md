@@ -41,12 +41,19 @@ code* from *code*. Same root — **the scanner has no notion of context** — on
 
 ## The rung
 
-- **prose (the trap):** "just add the edge" — candidate (a), fastest, **wrong**: it encodes a
-  dependency that does not exist to satisfy a false positive, and `plugin-agent-readiness/moon.yml:5-16`
-  *already records* that `@aihu/signals` arrives transitively via a `tsconfig` paths override,
-  deliberately not a `dependsOn`. Adding one contradicts the file's own reasoning and lies to the next
-  reader. Rewriting the fixture to hide the literal (candidate c) makes the red vanish while leaving the
-  extractor blind — it **retires the alarm** and the next fixture re-breaks `main`.
+- **prose (the trap) — and it LANDED, and it is worse than "misleading": it is a NO-OP THAT LIES.**
+  Candidate (a) "just add the `dependsOn: signals` edge" is what the interactive session shipped to
+  green `main` quickly (`d10674ad`, on `main`). Verifier then ran the test and proved it: `plugin-agent-readiness
+  → server → signals` **already orders `signals` before the typecheck** (`server/moon.yml` lists `signals`),
+  so the transitive need `moon.yml:5-16` documents was **already satisfied** — the direct edge **buys
+  nothing and records a fact that is false.** The only thing that ever demanded it was a regex reading
+  fixture text. So (a) is not merely misleading; it is a **no-op that also lies**, and the ruling upgraded
+  accordingly: **(b) must REVERT `d10674ad`'s `- signals` line**, with the must-fail that `check:moon-graph`
+  passes WITHOUT it once the extractor skips literals — if it still demands the edge, the literal-skipping
+  is incomplete. Rewriting the fixture to hide the literal (candidate c) makes the red vanish while leaving
+  the extractor blind — it **retires the alarm** and the next `.aihu` fixture re-breaks `main`. Verifier's
+  **negative control** is the proof of sole-cause: strip *only* the two fixture import lines → `check:moon-graph`
+  exits 0.
 - **structural (the fix, builder's recommended (b), ~10 lines):** teach the extractor to **skip string
   literals and comments** — i.e. do the minimal lexing a scanner-over-source actually requires, so it
   reads code and not text-about-code. Same shape as `#681`'s comment-skip. A gate that scans source

@@ -62,6 +62,12 @@ construction, since `plan-a.yml on.push.branches` is `[main]` only — checked b
     (`plan-a.yml on.push.branches` is `[main]` only, so a bare non-main push triggers nothing — check
     *before* pushing). Builder's recovery is the pattern; copy it verbatim.
   - Tradeoff: a strictly slower "done", bought so the swarm cannot merge work and lose the reason it was done.
+  - **TIMING (orchestrator + architect, converged): a recovery ref is redundant once its content is on
+    MAIN — NOT once it is on a branch, and NOT once it is folded into a draft PR.** Folding into an
+    unmerged draft just moves the content back into *one droppable place* (a different one) — the exact
+    failure S2 exists to prevent. So **keep `recover/…` until the fold is on `main`.** builder surfaced
+    this by **refusing to silently pick** between two roles' contradictory "delete it" / "keep it"
+    instructions and saying so on the bus — the safe arm plus disclosure, which is the protocol working.
 
 ## The shape worth carrying
 

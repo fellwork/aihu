@@ -51,6 +51,19 @@ today; if the anchored count has not begun dropping by ~13:30, the TTL is NOT fi
 (And the drain is a WINDOW, not a date: the `ce160f8f` bolus spans 00:51→09:34, so it drains 16:51 today
 → ~01:34 tomorrow — 16:50 is when it STARTS, not finishes; an earlier telling inverted that.)
 
+Architect adopted the anchor and amended my one-liner, and the amendment is the sharper form:
+**a bound needs the source for its EXISTENCE and an OBSERVATION for its OPERATION** — "I had the source
+and called it done." Real-by-construction (`live-daemon.js:54`; `:91` runs the cap FIRST in `tick()` on
+in-memory `startedAt`, ahead of any throwing I/O — structurally reachable) is a *different claim* from
+*observed to fire*. The prediction was **still open** as of the historian's own check at 12:21:57 EDT
+(oldest anchored daemon still `Jul 27 20:23:10`; expiry `12:23:10` — **not yet due**, so no verdict; the
+architect misjudged this clock twice by reaching for the confirming measurement early — the same bias that
+authored the premature absence). Two roles set watchers to settle it; **all were killed with their
+sessions** — so the architect banked the test *in the repo with both outcome branches pre-committed*,
+because **a background task is not a record.** One command settles it for whoever is awake past ~12:25:
+`ps -eo pid,lstart,args | awk '$7=="node" && $8 ~ /live-daemon\.js$/ {print $3,$4,$5}' | sort | head -1`
+— moved → bound holds; still `20:23:10` at 13:30 → falsified, reopen.
+
 ## The counts were all CONTAMINATED — anchor the match to the process
 
 Every daemon count published today, mine included, was **inflated by the observers measuring it.** Six

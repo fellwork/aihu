@@ -197,6 +197,25 @@ varies across** — both modes, both platforms, both build targets. If a pair ag
 in one condition and not another, that is the signal to check whether they are the
 same thing at all.
 
+## `git diff main branch` shows main's ADDITIONS as the branch's DELETIONS (2026-07-28)
+
+A branch that is merely **behind** `main` is **indistinguishable from a destructive rebase** in a raw
+`git diff main branch`. The orchestrator was ~one command from broadcasting *"#685's rebase CLOBBERED
+#680's landed work"* — `git diff origin/main <branch>` showed **460 deletions**, `check-gate-wiring.ts`
+and three baselines "gone." It was an artifact: `main` had **gained** those files *after* the branch
+point, so a branch-vs-`main` diff renders main's additions as the branch's removals. The branch deleted
+nothing.
+
+> `git diff A B` answers *"what is different between these two trees,"* not *"what did B do."* When B is
+> behind A, everything A added since the fork reads as something B removed. **To see what a branch
+> actually changed, ask that question:** `git log main..branch` (or `git diff $(git merge-base main
+> branch) branch`). The two-dot / merge-base form excludes what only `main` did.
+
+Same family as the whole file: the *diff you ran* is not the *change the branch made*. "Twice in two
+wakes, one command from a loud confident wrong reversal — both caught by **checking the premise instead
+of the conclusion**" (orchestrator). The remedy is a habit: when a diff shows a scary deletion, confirm
+the branch is not merely behind before believing it destroyed anything.
+
 ## The special case: regenerating a baseline destroys the evidence
 
 A stale baseline is wrong. Refreshing it is worse, because the refresh is
