@@ -136,6 +136,38 @@ self-assessed disposition is exactly what must not be taken on trust.
   produces either shallow claims or blocked ones; three of four in one earlier
   batch were already merged.
 
+### Second wake, same day
+
+- **The 13 non-aihu contracts are DECLINED from this queue**
+  (`C-FEL-262/264/265/279/280/282/291/298/300/311/315/332/335` — lexicon,
+  exegesis, pericopes, Sefaria commentary, the Stripe `usr.profiles` bridge).
+  The architect's split was the right move and I executed it: **declining from
+  the swarm queue is non-destructive** — `declined` classifies as `NoOp` in
+  `classify()`, so no Linear issue is touched and each persists for its real
+  owner. That separates the *scope* call (an agent can make it) from the
+  *routing* call (needs a founder business fact, still in DECIDE). It also
+  breaks the "cheap enough to live with, so never fixed" trap I named when I
+  escalated it — the queue is clean now whether or not the routing is ever
+  answered.
+- **A DECOMPOSED PARENT LEAVES THE QUEUE.** `C-GH-487` was still sitting
+  `offered` + bar-empty after being decomposed into `-a/-b/-c/-d`. That is the
+  stuck-five shape exactly: an un-barrable row that resurfaces every triage pass.
+  Declined as *"DECOMPOSED, not dropped: superseded by children …"*, with the
+  children named in the recon and the GitHub epic untouched. **Every future
+  decomposition ends this way.**
+- **Epic decomposition method CONFIRMED** — cut along **role + feature seams,
+  never compiler phases** (a parse/lower/emit cut yields children that cannot
+  ship or fail independently, which makes their bars unfalsifiable in isolation);
+  resolve an embedded design fork **inline**, never as a fifth contract (a design
+  ruling has no bidirectional bar and would re-add an un-barrable row); use
+  `needs` edges for sequencing. Verified before confirming: all four children
+  carry a non-empty `must_pass`.
+  **Gap flagged back:** `C-GH-483` is the `needs` target for all four children
+  and is itself unspecced, so nobody can build them yet. Decompose it next.
+- **A `needs` edge pointing at an un-barred contract is a trap,** not
+  sequencing — it blocks-on-needs the moment anyone claims. Same shape that
+  stalled `C-SWARM-SCHEMA`.
+
 ### Published vs repo — verified 2026-07-26 via `npm view <pkg> version`
 
 ```
@@ -262,6 +294,19 @@ than none.
 2. **Cut the release.** Everything is on main and unpublished; this session alone
    added #639/#640/#641/#653/#658/#664 with #655 ready to land. Outward-facing
    and irreversible, so no wake may cut it. Open since 2026-07-26.
+3. **`@state` model: is a bare `let x = 0` auto-reactive, or is
+   `let x = state(0)` required?** The public authoring surface — what a person
+   types in a `.aihu` file — so it is not an agent's to settle. **Non-blocking:**
+   the architect ruled EXPLICIT as the working decision (Svelte 5 runes require
+   `$state()`, Solid requires `createSignal()`, both having rejected implicit
+   auto-reactivity as the invisible-reactivity footgun the epic itself names; it
+   also matches the FEL-391 ruling). A flip is cheap — children `C-GH-487-a/-b`
+   change their `let` treatment and the seams and must-fails do not move — which
+   is precisely why decomposition proceeds without an answer.
+
+**Note the shape of item 1 after the second wake:** the *scope* half is settled
+and executed; only the *routing target* still needs the founder. An escalation
+that cannot be split blocks everything behind it; one that can should be.
 
 **Both former items on this list are RESOLVED and must not be re-escalated:**
 FEL-391 (E1) was ruled by the architect — *ratify "replace, don't mutate"; no
@@ -270,14 +315,47 @@ remainder was ruled by this wake as C-FEL-434 option (b) (see Rulings above);
 it never needed to be a product question, because `manifest_json` is a build-time
 sidecar and not client bytes.
 
+## 🔴 `ci-ok` FLAPS — a red X on your PR may not be your diff
+
+**Until `C-FEL-411` lands, a required-check result is not by itself evidence.**
+Read *which job* failed and ask whether your diff could possibly have caused it.
+
+`PR #661` is a **one-file markdown diff** whose required `check` went red:
+
+```
+run 30317184761 / job `check` / step `bun run typecheck`
+  editor:typecheck | tests/component-compile.test.ts(16,31): error TS2307:
+    Cannot find module '@aihu/compiler' or its corresponding type declarations.
+  × Task editor:typecheck failed to run  ╰─▶ Process bunx failed: exit code 2
+  → ci-ok FAILURE (CHECK_RESULT: failure, IS_DRAFT: false)
+```
+
+Cause, read from the file rather than inferred: `packages/editor/moon.yml`
+declares `dependsOn: [signals]` **and nothing else**, while
+`packages/editor/tests/component-compile.test.ts:16` imports `@aihu/compiler`.
+The graph is missing the edge, so `editor:typecheck` can be scheduled before
+`compiler:build` and the declarations do not exist yet.
+
+`main` is **green** on every recent run (`edba0c5a`, `8a692439`, `622fa289`,
+`2350f49c`) — so this is a **race, not a breakage**, and that is what makes it
+serious: *a red X might be your diff or might be the race, and a green tick
+might be correctness or might be luck.* Both are absent values rendered as real.
+Dispatched to builder-b as `C-FEL-411`, paired with `C-FEL-MOON-ROLLDOWN` (same
+`moon.yml` surface, same root class: **the task graph does not describe the real
+dependencies**), with two added acceptance rows — the guard must name
+`packages/editor` on today's graph, and it must **derive** required edges from
+what packages actually import rather than hand-list them (a hand-list drifts the
+way the `node:` allowlists and the `publish-all` PKGS array did).
+
 ## Queue shape — measured 2026-07-27, not estimated
 
 ```
-offered                            127
-  ...of which carry a bar          19     (all authored by the architect)
-claimed                             4     C-FEL-424/427/428/434 (builder)
+offered                           127 → 118   (13 non-aihu + C-GH-487 declined)
+  ...of which carry a bar          19 → 23    (all authored by the architect)
+claimed                             4 → 6
 no-claims                          14
-verified                            9  → 12 after this wake's three status moves
+verified                            9 → 12    (three status moves, wake 1)
+declined                            0 → 15
 ```
 
 The architect's own composition finding stands and is the reason "127 offered"
@@ -447,6 +525,15 @@ all 13 open issues were unassigned and three of them were already done.
   Twice on 2026-07-27 (zurich, jerusalem) a twin left one staged; both were
   byte-identical to `origin/main` post-#658. Check
   `git diff --stat origin/main -- <file>` before preserving anything.
+- **Do not re-triage `#661`'s red `check`.** Ruled: not its diff, it merges.
+  The cause is the missing `editor → compiler` moon edge (`C-FEL-411`); see the
+  flapping-gate section above for the run id and the log line.
+- **Do not re-decide the non-aihu 13 or re-add them to the queue.** Declined
+  with reasons in each contract's recon; the Linear issues are untouched.
+- **Do not accuse an agent of channel misconduct from a second-hand report.**
+  Read that agent's own bus traffic first. Twins share `(workspace, role)` and
+  the Slack bot stamps `username=<role>` for anyone, so attribution by username
+  is impossible. I got this wrong about verifier and corrected it publicly.
 - **Do not reuse a branch whose content already merged.** `docs/claude-md-bus-is-the-record`
   carries commits that are NOT ancestors of main even though its content landed as
   #658 (squash). Branch fresh off `origin/main` every time — this is retro
@@ -454,13 +541,33 @@ all 13 open issues were unassigned and three of them were already done.
 
 ## Structural fix I owe, and have not built
 
-**The supervisor must pin the checkout per wake.** Three incidents on
-2026-07-27 — a force-push onto an already-merged branch, and two worktrees that
-changed identity between turns under builder-b and verifier — all share one
-root: a role's workspace is not stable across wakes, and twins can share one
-checkout with no lock. The current rung is prose ("check your branch"), which is
-the weakest possible and depends on remembering. Recorded as retro incident 8 in
-`docs/lessons/promotion-rungs.md` (PR #657). **Owner: orchestrator. Unbuilt.**
+**The supervisor must pin the checkout per wake.** On 2026-07-27 this defect
+produced **three distinct consequence classes**, not three copies of one:
+
+1. **Lost-work risk** — a force-push onto an already-merged branch; `CLAUDE.md`
+   left staged mid-build in `aihu/zurich`; a branch switched under verifier in
+   `aihu/jerusalem`. (Nothing was actually lost: both files proved
+   byte-identical to `origin/main` post-#658. That was luck, not design.)
+2. **Identity swap between turns** — a worktree that is on a different branch
+   than the role that last used it, which has produced confident wrong
+   corrections more than once.
+3. **MISATTRIBUTION — the one I caused.** I publicly told the bus that verifier
+   posted the FEL-461 finding to Slack. They produced a receipt: their instance
+   sent it *over the bus* (msg `d2a3d18f`, 20:34:14). The Slack copy came from a
+   verifier **twin** sharing the `(workspace, role)` identity — and because the
+   Slack bot stamps `username=<role>` for any sender, **a twin's post is
+   indistinguishable from theirs by construction.** I accepted a second-hand
+   attribution about a peer's conduct without reading that peer's own traffic
+   first, which is the "verify before you rule" standard skipped in the one case
+   where it was about someone's reputation. Corrected to all, since that is
+   where the accusation went.
+
+The current rung is prose ("check your branch") — the weakest possible, and it
+depends on remembering. Recorded as retro incident 8 in
+`docs/lessons/promotion-rungs.md` (PR #657, HEAD `dfeaf047`). **Owner:
+orchestrator. Unbuilt.** Consequence class 3 is the argument that should
+finally get it built: shared identity on an unauthenticated channel means
+misconduct cannot be attributed *at all*.
 
 ## Pointers
 
