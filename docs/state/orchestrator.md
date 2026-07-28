@@ -46,8 +46,32 @@ written. Do not treat it as truth.
 ## Where main actually is
 
 ```
-origin/main  edba0c5a  fix(swarm): claim verbs are open, the format is what is validated (#664)
+origin/main  41c37df6  fix(ci): a draft is unfinished, not broken — warn instead of failing (#670)
 ```
+
+### 🔴 A DRAFT NO LONGER FAILS `ci-ok` — #670, merged 01:12Z
+
+**My standing triage rule is SUPERSEDED.** For six wakes I told every agent that
+*"a draft showing `check=SKIPPED` + `ci-ok=FAILURE` is the FEL-437 guard doing
+its job, not a defect."* On main, a draft now emits a **`::warning::`** —
+visible, explicitly "NOT evidence of a pass", not a failure.
+
+**New rule: on a run produced AFTER 01:12Z, a red `ci-ok` on a draft means
+something REAL.** Triage it.
+
+**Transition hazard:** runs predating #670 still show the old FAILURE, so a
+draft red is ambiguous for a while — retired-behaviour-on-a-stale-run, or a real
+failure. **Name which run you read, with its timestamp.** A conclusion drawn
+from a run whose behaviour has since changed is a stale receipt — the same class
+as the `bus.db` md5.
+
+#670's reasoning is this session's own: *"the board fills with red that means
+unfinished, genuine failures hide among them, and everyone learns to ignore red.
+Red must mean this is broken."* Same noise-over-signal defect as the dead matrix
+lane and the flapping check.
+
+**MERGED since the ninth wake:** #655 (slot fallback), **#657 (the retro — the
+session's lessons are on main, not in a draft)**, #660, #670.
 
 ### Open PRs — verified 2026-07-27 via `gh pr list --state open`
 
@@ -250,6 +274,48 @@ Filed as `C-SWARM-WAL-STALE` → builder-b, carrying an **anti-row: a fix must n
 disable WAL.** It is on because multiple agent processes read while one writes;
 "fixing" this by serialising writers would trade a stale copy for
 `database is locked`.
+
+### Eleventh wake — a stack base merged and its child went CONFLICTING silently
+
+- 🔴 **#669 is CONFLICTING.** It was stacked on #657; #657 merged; the child did
+  **not** become landable — it became conflicting, and **nothing notified
+  anyone.** The historian had been adding wake-items to it for four wakes.
+  *When a stack base merges, the child often becomes CONFLICTING and no signal
+  fires.* Rung: **check `mergeable` on your own open PR at the START of a wake**,
+  not when you go to land it. More insidious than the growing-unmerged-PR trap,
+  because a growing draft at least looks like it is accumulating value; a
+  conflicting one accumulates value it cannot deliver.
+- **`C-SWARM-QUEUE-ROUTING` retargeted to builder-b**, architect's claim
+  released by the re-offer. **Their three-outcome sharpening is ratified
+  verbatim, and it corrected me:** I wrote "a distinct EXCLUDE *reason*", which
+  keeps 24 actionable items inside a bucket whose whole meaning is *stop looking
+  at these*.
+
+  ```
+  KEEP           project==aihu          → becomes an offered contract
+  EXCLUDE        project in {data,web}  → owned elsewhere; TERMINAL
+  NEEDS-PROJECT  no project set         → UNCLASSIFIED; its OWN list
+  ```
+
+  **EXCLUDE is terminal; NEEDS-PROJECT is actionable.** A reason-field does not
+  carry that to a human scanning output; a third outcome does. The difference is
+  between a taxonomy and a **worklist**, and only one gets acted on.
+- **SEQUENCING RULING:** builder-b takes `C-SWARM-WAL-STALE` **first**, then
+  routing. Both are `packages/swarm/src/main.rs` — WAL-STALE at `open_db`
+  ~496-503, routing at `263` / `1496-1632` / `1785`. Regions do not overlap, but
+  **two in-flight branches on one file is the collision hazard that has bitten
+  this swarm five times.** One after the other.
+- **House style, named because the architect reached it three times
+  independently:** `/state` `error()` keeps the last good frame rather than
+  blanking; `sync --pull` says KEEP/EXCLUDE rather than trusting a filter; an
+  unclassified item is visibly unclassified rather than silently mixed into
+  terminal noise. One sentence covers all three — **make the machine SAY what it
+  did, especially when what it did was "nothing."** Every silent-wrong failure
+  this session (the inert paths filter, the dead matrix lane, the stale ledger
+  read, the suppressed manifest) is the machine doing nothing and saying nothing.
+- **Tool gap, second face:** I can hand a contract over by re-offering (it
+  releases the claim), but I **cannot amend a claimed contract's bar** without
+  releasing the claim. Same gap, two symptoms.
 
 ### Tenth wake — I escalated a lookup, and it cost two wakes
 
@@ -995,6 +1061,8 @@ all 13 open issues were unassigned and three of them were already done.
   Twice on 2026-07-27 (zurich, jerusalem) a twin left one staged; both were
   byte-identical to `origin/main` post-#658. Check
   `git diff --stat origin/main -- <file>` before preserving anything.
+- **Do not tell anyone a draft's red `ci-ok` is "the FEL-437 guard".** Superseded
+  by #670 as of 01:12Z — see the top of this file. Check the run timestamp.
 - **Do not re-escalate the queue-routing question.** Answered by lookup:
   `project == "aihu"` on Linear team FEL. And **before escalating anything as
   "a business fact I do not have", check whether it is a fact you can look up.**
