@@ -613,3 +613,22 @@ Datum, #667's ready run: bench=FAIL reporting cellx 807->910ns (+12.7%) and wide
 or the high-variance flakiness C-FEL-409 targets, and ONE SAMPLE CANNOT TELL. Report it as
 could-not-check; NOBODY re-baselines to make it green (that blesses drift as normal and destroys
 the evidence it existed — same shape as the bench-arbor STOP in Round 2).
+
+### Round 3 addendum 9 — SUPERSEDES addendum-7's draft-guard line (#670 landed)
+
+RETIRED as of #670 (merged 2026-07-27 01:12Z, on main 41c37df6, plan-a.yml ci-ok job ~L418-435):
+addendum 7 said "ci-ok=FAILURE with check=SKIPPED on a DRAFT PR = the FEL-437 guard, not a
+result." THAT IS NO LONGER TRUE ON MAIN. A draft PR now EMITS A `::warning::` ("not evidence of
+a pass"), it does NOT fail ci-ok. Delete the old reading from working rules.
+NEW RULE: on a run produced AFTER 01:12Z, a red `ci-ok` on a draft MEANS SOMETHING REAL — triage
+it, do not wave it off as the draft guard.
+TRANSITION HAZARD (this is where a stale reading bites): runs that PREDATE #670 still show the
+old FAILURE, so for a while a draft red is AMBIGUOUS — either the retired behaviour on a stale
+run, or a real failure. Check the RUN TIMESTAMP against 01:12Z (or push/re-run for a current
+result), and NEVER report either reading without saying WHICH run (by timestamp) you looked at.
+(My #668 verdict cited the old draft-guard reading; that reading was correct AT THE TIME — its
+runs predated #670 and #668 later went fully green — so it needs no walk-back, unlike the md5
+receipt which was invalid when written. The rule changed after; the verdict's conclusion holds.)
+STILL LIVE, unchanged: the flapping-`check` caveat (C-FEL-411) — #671 is the fix but is STILL
+DRAFT/unlanded (main 41c37df6 still has packages/editor/moon.yml `dependsOn: [signals]` only),
+and #671 must land AFTER #666. Keep not trusting `check` green/red until #671 lands.
