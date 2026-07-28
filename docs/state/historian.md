@@ -634,6 +634,62 @@ by it, so open them yourself when auditing.
   `settle-a-contested-claim…` — an INVARIANT beats a timed prediction (no clock, no reach-early bias); TTL now
   CONCLUSIVE (3 timed deaths 20:23:10/20:28:23/20:28:28, cohort cleared). DECIDEs not mine: who wires
   check:gate-wiring; the missing C-FEL-MOONGRAPH-LITERALS row. Board (my fetch): main 3891300a GREEN; #669 draft.
+- **WAKE 40 — THE BIGGEST CORRECTION OF THE DAY, AND I AMPLIFIED THE ERROR INTO THE RECORD.**
+  (1) **⛔ "WE OPTIMISED THE POPULATION WE COULD COUNT." THE DAEMON LEAK IS NOT WHAT DEGRADES THE TEST
+  SIGNAL.** Last wake I banked builder-b's "the leak corrupts the test signal" and called it **better
+  than my own framing** — without asking what was actually using the CPU. Architect falsified it,
+  verifier reproduced with a 2nd instrument, **I reproduced with a 3rd (my own awk)**:
+  `live-daemon n=1253 cpu=27.4%` **vs** `bun server.ts n=25 cpu=946%` (9.5 of 10 cores); `top -l 2`
+  2nd sample = **top five consumers ALL `bun` ~67% each, NOT ONE daemon.** **The daemons are IDLE**
+  (30s setInterval); reaping all 1253 fixes ZERO timeouts — the remedy that framing implies is the one
+  that cannot work. **NOTE MY OWN DISCREPANCY, unresolved and honest: my daemon cpu 27.4% vs their
+  2.0-2.2% (12x). Does not change the conclusion (0.27 vs 9.5 cores) — direction robust, magnitude not,
+  the same pattern I banked for bin-0.** PROFILE CONTRAST is the operative content: daemons = MANY /
+  IDLE / **TTL-bounded, observed firing** / cost RSS; bun servers = FEW / EXPENSIVE / **NO TTL, oldest
+  1d20h = 44h = 2.75x the daemon TTL** / 5 ORPHANS at ppid=1. **The proven remedy (TTL) is absent from
+  the population that needs it.** Verifier's decision-changing correction: **orphans n=5 = ~3.5 CORES =
+  36-37% of the class**, safe to reap (parents already dead) — I measured 337.7%/36% myself. Severity of
+  the daemon leak: **~36-37GB RSS measured** (I said ~41GB), bounded, falling, unchanged, still not
+  urgent — **but nobody should ship the R1 spawn guard expecting test stability.** Neither role filed a
+  DECIDE (orchestrator owns that lane, just withdrew ffba4878) — question NAMED so it is not lost:
+  *"may orphaned (ppid=1) plugin/MCP servers be reaped, and should plugin servers carry a TTL?"*
+  NOT VERIFIED BY ANYONE: whether the ~67-90% CPU is a busy-loop bug or honest work.
+  **THE DURABLE SHAPE: counting a population is not establishing it is the population that matters; a
+  number that is easy to produce attracts effort out of proportion to its importance.** And the personal
+  half: **a framing can be correct and still be pointed at the wrong subject — a correct framing is the
+  HARDEST kind to audit, because agreeing with it feels like checking it.** builder-b's WAKES-not-
+  gigabytes unit SURVIVES; re-attach it to the bun servers. Their triage command is untouched and best:
+  `vm.loadavg` + `--testTimeout=30000` before believing any timeout.
+  (2) **ARCHITECT'S "your banking is stale" FLAG CROSSED MY WAKE-39 COMMIT — already fixed** (grep:
+  "SETTLED — the unrun experiment was run" = 1, "NOBODY HAS AN UNCACHED RUN" = 0). **Their general point
+  is banked anyway and is new:** `stale-ledger-…` now carries **A COULD-NOT-CHECK HAS NO EXPIRY** — in a
+  citation graph it is a durable claim that the question is OPEN when it is closed. **Remedy: file every
+  could-not-check WITH THE DISCRIMINATOR that would settle it** (the command + what each outcome means),
+  which converts a dead end into an invitation — that is exactly how the pre-push dispute closed.
+  **Corollary: a retracted claim propagates faster than its retraction because roles wake at different
+  times; the role that ORIGINATED a claim carries its correction, more than once if it is still moving.**
+  (3) **ARCHITECT'S FAIR HIT ON MY NEW FILE: my headline rule is phrased as a HABIT, which by my own
+  test is the weak rung.** Added the **FIXTURE FORM**: *every gate that reports a negative MUST carry an
+  input it is required to report POSITIVE on, exercised in the same run.* Also folded their class map
+  (rule 0 / 0b / 0c were TWO classes filed three times — **DID-NOT-RUN vs RAN-AND-MISSED**; my rule
+  **generalises** rule 0, `wc -l` being the special case) and their stated tradeoff (paid overwhelmingly
+  on TRUE negatives; worth it because the prevented failure ENTERS THE RECORD AS FACT). Architect filed
+  `docs/decisions/2026-07-28-a-well-formed-answer-to-the-wrong-question.md @ 3eb3a36`; **the lesson stays
+  mine.** TWO NEW INSTRUMENT CAVEATS banked in it: **`gh pr view --json statusCheckRollup` IS NOT AN
+  ENUMERATION** (omits a job that ran; use `gh api commits/<sha>/check-runs` for presence/absence — 2nd
+  face of the collapsed-view defect), and **`ps` %CPU is a LIFETIME AVERAGE** (cross-check `top -l 2`,
+  use the SECOND sample) — nobody said it while three roles argued off `ps`.
+  (4) **CLAUSE 3 CONFIRMED BY MUTATION AND IT IS TWO-SIDED** (verifier): drop loop entry keep `needs:`
+  → EXIT 0 undetected; drop `needs:` keep loop → EXIT 0 **also** undetected. Non-detection measured;
+  whether Actions rejects the dangling `needs.*.result` = could-not-check (cannot run Actions locally).
+  **NOT a blocker on #691.** And **my both-directions bar was applied by a THIRD ROLE unprompted** to
+  two of #691's narrowings — incl. replacing `check-moon-graph`'s `exit(1)` with `exit(0)` → caught:
+  *"the gate did NOT reject its own red input (it cannot go red)"*. **First time in this directory that
+  green-by-construction was caught by MACHINERY rather than by a person noticing.**
+  (5) **#691 DOES NOT MERGE** — conflict in `docs/state/builder.md`; `gh` said mergeable UNKNOWN, which
+  **is not the same as yes**. My own #692 read UNKNOWN last wake and is now **MERGEABLE/CLEAN** — the
+  premature-observation clause resolving exactly as predicted. Gate exit 0. Killed nothing, touched no
+  infra, set no status, ran no `--confirm`, filed no DECIDE.
 - **WAKE 39 — NEW LESSON `well-formed-measurement-of-the-wrong-thing.md` (builder-b handed it to me).
   Plus: the typecheck dispute SETTLED, a countermand WITHDRAWN, and a severity framing better than mine.**
   (1) **THE NEW FILE IS THE WAKE'S REAL OUTPUT.** builder-b found it (4 instances in ONE wake) and

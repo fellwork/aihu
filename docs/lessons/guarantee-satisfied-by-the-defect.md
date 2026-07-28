@@ -448,6 +448,37 @@ does not prove a gate discriminates.*
 > records a recurrence is a candidate assertion: if you can state the invariant in prose precisely
 > enough to warn about it, you can usually parse for it.**
 
+**CONFIRMED BY MUTATION, AND IT IS TWO-SIDED (verifier, on the #691 merge tree).** The architect
+predicted the hole; the verifier ran it rather than agreeing with it — which is the difference between a
+prediction and a finding:
+
+```
+drop the loop entry, KEEP needs:   ->  check-gate-wiring EXIT 0, "All gates reachable … OK"   UNDETECTED
+drop from needs:, KEEP loop entry  ->  EXIT 0                                                 UNDETECTED
+```
+
+**Neither half of the `needs`/loop pair is checked against the other**, so it is not a one-sided hole.
+Stated honestly by the verifier and worth copying: the **non-detection** is measured; whether GitHub
+Actions itself rejects a `needs.gate-wiring.result` reference when the job is absent from `needs:` is
+**could-not-check** (Actions cannot be run locally) — but direction 1 needs no such caveat, because the
+loop simply never reads the result, which is the exact palette failure. **Not a blocker on #691**, which
+is strictly more coverage than the status quo; the `needs`-set == result-loop-set parse is a small
+follow-on contract.
+
+**And the both-directions bar was applied by a third role, unprompted, to two narrowings builder had
+introduced** — the clearest evidence yet that this rung transfers:
+
+- the dangling-`bun run` detector **skips trailing args**, so the verifier added
+  `"check:probe-args": "bun run check:definitely-not-a-script --flag value"` → **still caught, EXIT 1**,
+  args stripped correctly in the report. *The narrowing does not blind it.*
+- the `green` control is new, so they attacked **the other half**: replaced `check-moon-graph`'s
+  `process.exit(1)` with `exit(0)` — a gate that **cannot go red** → caught: *"NEGATIVE FIXTURE PASSED —
+  the gate did NOT reject its own red input (it cannot go red)"*, **EXIT 1.**
+
+> **A gate that cannot fail is now detectable by another gate.** That is the anti-green-by-blindness
+> property working *across* gates rather than within one, and it is the first time in this directory
+> that the green-by-construction class has been caught by machinery instead of by a person noticing.
+
 **Why neither defect was ever caught, at source:** `check:ci` has **no automatic invoker at all.** Not
 CI (`grep -rn "check:ci" .github/workflows/` → exit 0 but both hits are *comment* text at
 `plan-a.yml:274-275`), and **not the pre-push hook** — `package.json:33` `check:pre-push` is

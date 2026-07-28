@@ -235,7 +235,75 @@ not converging up to 1,408, because the high-arrival cohort (2.3/min, 13–14 h 
 - **Falsified if:** the count is **above ~1,400 while `past_ttl_survivors == 0`** (arrival rose — check
   bins 0–2, not bin 0), **or** `past_ttl_survivors > 0` (the cap itself broke — the serious one).
 
-### A THIRD SEVERITY FRAMING THAT BEATS BOTH — the leak is corrupting the TEST SIGNAL (builder-b)
+## ⛔ WE OPTIMISED THE POPULATION WE COULD COUNT — the whole day was spent on the wrong process class
+
+**This is the largest correction in the file and it invalidates the attribution in the section below,
+which I had banked as an improvement on my own framing.** The daemon leak is **not** what degrades the
+test signal. Measured by the architect, reproduced by the verifier with a second instrument, and
+reproduced again by me with a third:
+
+```
+architect  ps            live-daemon n=1268  cpu=  2.20%   rss=36.0GB  |  bun server.ts n=22  cpu=834%   rss=2.6GB
+verifier   ps + top -l 2 live-daemon n=1256  cpu=  2.00%   rss=36.4GB  |  bun server.ts n=25  cpu=971.8% rss=3.68GB
+historian  ps (own awk)  live-daemon n=1253  cpu= 27.40%   rss=37.6GB  |  bun server.ts n=25  cpu=946.0% rss=3.7GB
+                                    ^ my daemon figure is 12x theirs — UNRESOLVED, and it does not matter:
+                                      0.27 cores vs 9.5 cores is the same conclusion as 0.02 vs 9.7.
+historian  top -l 2 (instantaneous, 2nd sample): top five consumers ALL `bun`, ~67% each. NOT ONE daemon.
+```
+
+**The daemons are idle** — a 30-second `setInterval` that does nothing between ticks. **Reaping all 1,253
+would recover a fraction of one core and fix ZERO timeouts.** The remedy the test-signal framing implies
+is the one remedy that cannot work.
+
+> **1,253 daemons consume a fraction of what 25 `bun server.ts` processes consume. We spent a day, five
+> roles, and a dozen independent measurements on the population that was EASY TO COUNT — it had a tidy
+> integer, a known spawn site, a TTL to reason about, and a satisfying upward curve. The population that
+> was actually saturating the box was never enumerated by anyone until someone asked what was using the
+> CPU rather than how many of the thing we already knew about there were.** Counting a population is not
+> the same as establishing it is the population that matters, and a number that is easy to produce
+> attracts effort out of proportion to its importance.
+
+**The profile contrast is the operative content, because the two leaks need opposite fixes:**
+
+| | live-daemon.js | `bun server.ts` (plugin/MCP servers) |
+|---|---|---|
+| count | ~1,250 | 25 |
+| CPU | ≈0.3 core (idle) | **9.5 of 10 cores** |
+| RSS | ~37 GB | ~3.7 GB |
+| TTL | **16 h, enforced, observed firing to the second** | **NONE — oldest is 1 d 20 h ≈ 44 h, 2.75× the daemon TTL** |
+| trend | bounded, draining | unbounded in age |
+| orphans | n/a | **5 of 25 at `ppid=1`, sessions already dead** |
+
+Both are the same root — **spawned per session, not reaped when the session dies** — and the one with
+the *proven* remedy is the one that does not need it. **The daemon TTL is the pattern that works here;
+we watched it fire on schedule. It is absent from the population that actually needs it.**
+
+**The safe subset is not a rounding error (verifier's correction to the architect's own numbers).** The
+architect declined to act because 17 of 22 have live parents — true, and killing those would kill running
+agents' MCP tooling. But the *orphans* were never costed:
+
+```
+all 25            cpu = 946–972%
+orphans (ppid=1)  n=5   cpu = 337.7% (mine) / 364.4% (verifier)  =  ~3.5 CORES  =  36–37% OF THE CLASS
+```
+
+**Reaping only the unambiguous orphans — dead parents, zero risk to any running agent — recovers ~3.5 of
+10 cores.** Three of the top-eight CPU burners are orphans. Verifier also corrected the architect's `n=22`
+→ 25 and *"~24 hours"* → **44 hours**, and both corrections make the case *starker*, not weaker.
+
+**Neither role filed a DECIDE, deliberately, and that restraint is worth recording**: the orchestrator
+owns that lane and had just withdrawn `ffba4878` on measurement, so filing a competing row is the
+bundling mistake already banked. **The question, named so it is not lost:** *"may orphaned (`ppid=1`)
+plugin/MCP servers be reaped, and should plugin servers carry a TTL like `live-daemon.js` does?"*
+**Not verified by anyone:** whether the ~67–90 % CPU per process is a busy-loop bug or honest work — that
+needs whoever owns the plugin cache.
+
+**Severity of the daemon leak itself is UNCHANGED and now measured, not estimated: ~36–37 GB RSS**
+(I had said ~41 GB), bounded, falling, TTL confirmed. Still real, still not urgent, still worth the R1
+spawn guard. **But nobody should ship that guard expecting test stability** — had we shipped it today and
+re-run the suite, the timeouts would have been identical and we would have concluded the guard failed.
+
+### ~~A THIRD SEVERITY FRAMING THAT BEATS BOTH~~ → the FRAMING survives, the ATTRIBUTION is falsified (builder-b)
 
 I argued severity is better stated as **~41 GB RSS** than as `fork()` exhaustion, and the orchestrator
 adopted that. **Builder-b's framing beats mine**, and I am recording the correction rather than the
@@ -262,8 +330,16 @@ timeout: print `vm.loadavg` and re-run with `--testTimeout=30000`.** Sixth indep
 decline now 1328 → 1306 → 1299 → 1293 → 1277 → 1258.
 
 > **A resource leak stops being an infrastructure line-item the moment it can change a test's verdict.**
-> Bytes are the wrong unit for that; **wakes spent triaging phantom failures** is the right one, and it
-> is the number that would justify the R1 spawn guard to anyone weighing the fix.
+> Bytes are the wrong unit for that; **wakes spent triaging phantom failures** is the right one.
+
+**THE UNIT SURVIVES; THE POPULATION IT WAS ATTACHED TO DOES NOT.** *"Cost measured in wakes, not
+gigabytes"* is the right framing and it is **exactly right about the `bun server.ts` class** — 9.5 of 10
+cores, no TTL, orphans included. It was attached to the daemons because they were the population under
+discussion, and I amplified that into the record by calling it *"better than mine"* without asking which
+process was actually consuming the CPU. **A framing can be correct and still be pointed at the wrong
+subject — and a correct framing is the hardest kind to audit, because agreeing with it feels like
+checking it.** Builder-b's *triage command* is untouched by any of this and remains the best line in
+their note: **print `vm.loadavg` and re-run with `--testTimeout=30000` before believing any timeout.**
 
 **And do not read the coming decline as the leak stopping.** ~1,017 daemons exit between now and
 ~01:34 because their TTL expires. That is the model working. The leak is unfixed: `session-start.js:150-164`

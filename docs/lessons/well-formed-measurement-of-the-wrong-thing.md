@@ -72,6 +72,45 @@ And the meta-lesson about how the earlier version of this was banked, which belo
 content-truthful. **The rung had been written about the wrong COMMAND rather than about the CLASS**, so
 it protected against one instance and licensed the next.
 
+## Where it sits relative to the doctrine that already existed (architect)
+
+The architect had **rule 0, rule 0b and rule 0c** filed as three lessons in their state. They are **two
+classes**, and they had *"filed the second one three times in three costumes without noticing"* — which
+is the class-vs-instance defect recorded in `promotion-rungs.md`, arriving in the very file that records
+it. Named, the two collapse cleanly:
+
+| class | what it catches | doctrine |
+|---|---|---|
+| **DID-NOT-RUN** (silence) | empty / skipped / failed measurement wearing a result's clothes | `absent-value-rendered-as-real.md`, rule 0 |
+| **RAN-AND-MISSED** | an instrument that ran perfectly, aimed one inch off | **this file** — had no name until 2026-07-28 |
+
+And the containment is one-directional: **"state what a POSITIVE result would have looked like"
+GENERALISES rule 0** — *"`wc -l` the input first"* is just the special case where that question reduces
+to *"was there any input at all?"* So the older rule is not superseded; it is the cheapest instance of
+the newer one, and it is still the right first move when the answer is a zero or an empty set.
+
+**The tradeoff, stated rather than hidden:** this check is paid **overwhelmingly on negative findings
+that are true.** Most of the time you will confirm your instrument was aimed correctly and learn nothing.
+It is worth it because the failure it prevents is the one that **enters the record as fact** — four of
+the nine instances above were one message from being posted as findings, and no amount of re-reading
+your worktree catches that afterwards.
+
+## Two instrument caveats found the same day, both worth carrying
+
+**1. `gh pr view --json statusCheckRollup` IS NOT AN ENUMERATION.** The verifier was one step from
+filing *"the always-on job never ran in CI"*: the rollup **does not list `gate-wiring` at all**, while
+`gh api repos/.../commits/<sha>/check-runs` lists it as completed/success with a timestamp. **Two `gh`
+instruments, same sha, one silently omits a job that ran.** Use the check-runs API for
+**presence/absence** questions; the rollup answers *"is anything failing"*, not *"what exists."* This is
+the second face of the collapsed-view defect already in `ci-ok-green-only-with-same-run-check.md`, where
+`gh pr checks` dropped a whole run.
+
+**2. `ps` `%CPU` is a LIFETIME AVERAGE, not an instantaneous reading** — named by the verifier, and
+nobody had said it while three roles built arguments on `ps` output. For *"what is saturating the box
+right now"* the lifetime average of a long-lived process understates a recent spike and overstates a
+finished one. Cross-check with `top -l 2` and **use the second sample**; the first is itself a lifetime
+average. Two instruments agreeing is what turned that finding from an assertion into a result.
+
 ## The rung
 
 - **prose (today):** the one-sentence rule at the top, plus the five one-command checks above. Cheap,
@@ -80,6 +119,15 @@ it protected against one instance and licensed the next.
 - **injected-at-dispatch:** the rule belongs in the standing brief next to *"evidence over assertion"*,
   because it is the same instruction one level deeper — **evidence over assertion, then instrument over
   evidence.**
+- **THE FIXTURE FORM — because the rule above is phrased as a HABIT, and by this repo's own test that
+  makes it the weak rung.** The architect flagged exactly this against this file, citing my own line
+  (*a lesson phrased as a fixture is portable into code; one phrased as a habit is not*). So, stated as
+  something a checker can hold: **every gate that reports a negative MUST carry an input it is required
+  to report POSITIVE on, exercised in the same run.** That is a property, not a discipline — it is what
+  builder's `NEGATIVE_FIXTURES.green` control already is, and it is why the verifier could kill a gate
+  that had been altered to `exit(0)`: *"NEGATIVE FIXTURE PASSED — the gate did NOT reject its own red
+  input (it cannot go red)."* A checker with no positive control cannot distinguish *clean* from
+  *blind*, and neither can its reader.
 - **structural:** the shape that generalises is a **positive control**. Builder's `NEGATIVE_FIXTURES`
   gained a `green` control for exactly this reason (*"one that says no to everything satisfies the red
   half perfectly"*), and verifier's `extract_claims` audit ran a positive control (a hand-written prose

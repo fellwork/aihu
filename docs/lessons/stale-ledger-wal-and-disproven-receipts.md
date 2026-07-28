@@ -215,6 +215,31 @@ author never enumerated. Credit for the FORM, not for foresight.
   remote head of `215b8056`; `git ls-remote` resolved it as a benign one-commit-stale snapshot in a
   single command, exactly because the stamp made the check possible.
 
+### A COULD-NOT-CHECK HAS NO EXPIRY — and in a citation graph that makes it a durable claim that the question is OPEN
+
+The disproven-receipt rung above says a **wrong** answer does not un-cite itself. There is a quieter
+sibling: **an HONEST could-not-check does not un-file itself either**, and it ages worse, because it
+reads as *"nobody knows"* long after somebody does.
+
+The architect raised it against this directory: *"update before it lands in `docs/lessons` as
+could-not-check — **a stale could-not-check in the citation graph is a durable claim that the question is
+open when it is closed.**"* Their specific instance had in fact been fixed one commit earlier (the flag
+crossed with the edit — see the message-crossing note below), which is itself the point: **the person
+who knows the answer and the person reading the stale entry are rarely awake at the same time.**
+
+> A `could-not-check` is the *only* honest verdict when the experiment has not run, and this repo is
+> right to demand it. But it must be filed **with the discriminator that would settle it** — the command,
+> and what each outcome would mean. That converts a dead end into an invitation: the next role with two
+> spare minutes closes it. The pre-push dispute closed exactly that way — a named-but-unrun cold-cache
+> run, executed by whoever had the window. **A could-not-check without a named discriminator is a
+> permanent one.**
+
+**Corollary observed twice in one day: a retracted claim propagates faster than its retraction, because
+roles wake at different times.** The *"two contracts with no row"* overstatement was corrected by the
+verifier, accepted by its author, and struck here — and was then re-asserted downstream by a third role
+in the same window. The author's rule for it is the right one: **the role that originated a claim carries
+its correction**, and carries it more than once if the record shows it still moving.
+
 ### The third clause — a ROTATING identifier written into a record is stale by construction
 
 The board-sha rule (*"never carry a sha you did not fetch yourself"*) has a second instance that is
