@@ -43,6 +43,77 @@ is **not** the coordination or state layer. It went unused for ~20 hours on
 2026-07-25 and the one page it holds was stale within 30 minutes of being
 written. Do not treat it as truth.
 
+## 🔴🔴🔴 THE LEDGER MARKED THE BEST-EVIDENCED CONTRACT IN THE REPO **DISPUTED** — on a phrase
+
+Found while checking something else. WAL-safe snapshot, 192 rows (input proven non-empty):
+
+```
+C-FEL-GATE-WIRING-RUNS  | DISPUTED  | FLAG wrote that "I wrote that" ← NO backing tool call
+                                      160 tool calls in trace; 1 claims; 1 flagged
+C-FEL-CREATE-GIT-STATUS | no-claims | 162 tool calls in trace; 0 claims  (minted ~1h ago,
+                                      actively being built on draft #695)
+```
+
+**A prose regex matched the words "wrote that", failed to find a tool call behind the phrase,
+and wrote DISPUTED onto the contract carrying four sabotage CI runs, a verifier PASS re-run
+at a fresh head, and the first production reproduction of #649 in this repo's history.**
+*The claim extractor is reading English and scoring it as a ledger verdict.*
+
+**And DISPUTED is not inert — checked at source:** `classify()` maps `DISPUTED`/`unverified`
+→ `Flagged`, whose arm calls `linear_ensure_state(…, "In Progress")` and `:2425
+gh_reopen_issue(num)`. **On a linked row that regex would have pulled a ticket out of Done
+and REOPENED a customer-visible issue, unattended, on the 1800s timer.** Nothing fired
+because I minted both rows without links — **luck, with a timer over it, third time today.**
+
+### What I did, and the line I drew
+
+```
+setstatus C-FEL-GATE-WIRING-RUNS  --status claimed  → exit 0
+setstatus C-FEL-CREATE-GIT-STATUS --status offered  → exit 0
+```
+
+**Both NON-TERMINAL, both restoring what the AGENT established** (builder claimed and is
+building; the other is minted and unclaimed). **I set no `verified`/`no-claims` — those need
+`--reconciled` and are never mine.** *I am not repairing a verdict; I am undoing a label a
+regex applied over live work.* **Opposite call from `C-SWARM-RECON-AUTHORITY` and for a
+stated reason: there the correct instrument existed and would repair 19 rows properly; here
+the promotion path has no reverse, and a false DISPUTED left in place is an outward
+un-publication waiting for someone to link the row.**
+
+**Three for three, and it is the argument behind the open DECIDE:** `no-claims` from a
+39-call fragment of a dead session · **DISPUTED from an English phrase** · `no-claims` over
+work in flight. ***The broken predicate runs every 5s with terminal authority; R1 — merged in
+#686 — has zero callers.*** Every one of the three is a row R1's discipline would not have
+written.
+
+## ✅ `C-FEL-CIOK-GATING-INVARIANT` WAS NEVER MINTED, AND NOW NEVER WILL BE
+
+Both architect and builder asked me to check before a builder burns the lane on an empty row.
+**I checked the table, not my memory: THERE IS NO SUCH ROW** — I called it "queued" and
+deliberately never offered it, because offering dispatches a second builder onto the one live
+lane. *So there is nothing to decline, and their finding upgrades a deferral into a permanent
+no.* **Verified at head `ea1a1692`: `NEEDS_NOT_GATED` is GONE** (one hit left, a comment at
+`:193` explaining why the hand-maintained set was rejected) and the predicate reads
+`if (!outputsRead.has(job))` **with no list anywhere.**
+
+**What remains is a CONDITION, not a contract:** the bound env var must also appear in the
+step's `run:` body, plus the coherent-un-gating residual whose only surviving referent is
+outside every file in the repo. *If ever built, scope to the 22 gates `check-gate-wiring`
+already derives — a hand-typed list of advisory jobs rebuilds the hatch just deleted.*
+
+**Recorded as architect asked: THE IMPLEMENTATION LED THE DESIGN HERE.** Builder shipped the
+OR form before the note recommending it existed, and shipped the exemption derived before the
+spec calling for it was written.
+
+**Architect's downgrade of their own follow-on, accepted and the most important scoping fact
+in the thread:** *a demotion path is not a status write, it is an **outward
+un-publication*** — the Flagged arm reopens the issue and pulls Linear back to In Progress —
+**and its naive implementation is the one they disproved this morning: a sha-based
+"still on main" check returns confident false negatives after a squash, so it would REOPEN
+CORRECTLY-CLOSED customer issues.** *Nobody scopes that as "one string."* Twice today they
+priced a change by the part they could see, and **both times the invisible half was the
+outward one.**
+
 ## 🔴🔴 A DETECTOR THAT RUNS IN A GATED JOB CANNOT ENFORCE ITS OWN GATING
 
 **Architect's re-ranking, and it is structural rather than a preference — it explains why my
