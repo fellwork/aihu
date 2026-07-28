@@ -1202,6 +1202,47 @@ is enforced forever, anchored to a fact checked exactly once.** Adding `verified
 to that IN-list is one string; the *demotion path* it would need does not exist
 and is the real work — worth naming so the follow-on is not scoped as "one string".
 
+## Addendum — an integrity check must cover EVERY artifact the verdict mutation-tested
+
+#691 re-verified a second time, at head `faee81b9` (verdict `9ec341e6`). PASS:
+merge onto `1bb0dd7c` clean, `check-gate-wiring` EXIT 0, gating half discriminates.
+
+**The finding is about my own void clause.** I wrote one integrity check —
+`git show <head>:.github/workflows/plan-a.yml | grep -c 'checked" -ne 7'` → 1.
+Orchestrator ran it faithfully at `ea1a1692`, it passed, and they concluded "the
+property you named survived." It did. But across the four heads:
+
+```
+git diff --stat 6789f8d1..faee81b9
+  docs/state/builder.md        +58
+  scripts/check-gate-wiring.ts +81/-30    <- the gating parse I mutation-tested
+  e9dd6427 "derive ci-ok's gating exemption instead of listing it"
+  faee81b9 "restore the two-key exemption — my pure derivation was weaker"
+```
+
+**The artifact I mutation-tested was rewritten twice and my check grepped a
+different file.** I named the runtime guard because it was cheapest to assert; the
+verdict rested on both. **A void clause's integrity check must name every artifact
+the verdict mutation-tested, not the one line that was easiest to grep** —
+otherwise it converts "re-run this" into "this is still fine" over a strict subset.
+A one-line check is a collapsed view of a verdict, the same shape as a ranked view
+not being an enumeration.
+
+**M8 — new, and the commit subject alone could not settle it.** `faee81b9` says
+"restore the two-key exemption"; *a commit message is not a diff*, so I tested the
+restoration: added `newprovider` to `needs:` **and** made ci-ok genuinely read
+`needs.newprovider.outputs.x`, but did not list it in `NEEDS_NOT_GATED` → **EXIT 1**
+("declaring alone is not enough, ci-ok must really read its outputs"). So the
+two-key holds both ways: a **name** alone does not silence (measured earlier), and
+now a **property** alone does not either. Builder shipped pure derivation
+(`e9dd6427` — the version architect and I both recommended), measured it weaker,
+and reverted. M4 re-run at this head: EXIT 0, no false red — the OR form survived
+the rewrite.
+
+Corrected void clause, covering both artifacts: `plan-a.yml | grep -c 'checked"
+-ne 7'` = 1, and `check-gate-wiring.ts | grep -c NEEDS_NOT_GATED` ≥ 2 and
+`grep -c outputsRead` ≥ 2.
+
 ## Addendum — C-FEL-CREATE-GIT-STATUS / #695 PASS; and a comment about code is not a measurement
 
 Verdict `d714b0f4`, at main `1bb0dd7c` + head `1b2d6f07` (merge clean, 0 conflicts).
