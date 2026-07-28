@@ -13,7 +13,7 @@
  *   aihu list [--installed]    List registry recipes (css-5 §9.6)
  */
 
-import type { CssChoice, ShadowChoice } from './index.js'
+import type { CssChoice, PkgManager, ShadowChoice } from './index.js'
 import { scaffoldApp, scaffoldComponent, scaffoldPage, scaffoldPlugin } from './index.js'
 import {
   printNextSteps,
@@ -42,6 +42,22 @@ function extractFlag(args: ReadonlyArray<string>, flag: string): string | undefi
 /** True when `--<flag>` (boolean) appears in argv. */
 function hasFlag(args: ReadonlyArray<string>, flag: string): boolean {
   return args.includes(`--${flag}`)
+}
+
+/**
+ * `--pm <bun|pnpm|npm|yarn>`, defaulting to bun.
+ *
+ * Shared by both scaffold paths because the built-in one used to parse it
+ * nowhere at all: `aihu app x --pm pnpm` dropped the flag on the floor and
+ * scaffolded with the `pm` default, so the emitted package.json carried
+ * `"packageManager": "bun@…"` and `pnpm install` refused to run before
+ * resolving a single dependency — `ERROR: This project is configured to use
+ * bun`. The interactive `create-aihu` path always threaded it correctly, which
+ * is why the hole survived: the two entry points disagreed about the same flag.
+ */
+function resolvePmFlag(args: ReadonlyArray<string>): PkgManager {
+  const flag = extractFlag(args, 'pm')
+  return flag === 'pnpm' || flag === 'npm' || flag === 'yarn' || flag === 'bun' ? flag : 'bun'
 }
 
 function extractTemplateFlag(args: ReadonlyArray<string>): string | undefined {
@@ -173,9 +189,7 @@ async function dispatchTemplate(args: {
   const { appName, templatePkg, rest } = args
 
   // --- flag parsing ---
-  const pmFlag = extractFlag(rest, 'pm')
-  const pm: ResolvedOptions['pm'] =
-    pmFlag === 'pnpm' || pmFlag === 'npm' || pmFlag === 'yarn' || pmFlag === 'bun' ? pmFlag : 'bun'
+  const pm: ResolvedOptions['pm'] = resolvePmFlag(rest)
   // --use-defaults / --no-interactive: in B1.3 we don't yet drive interactive
   // prompts from bin.ts. Both flags currently mean "use manifest defaults
   // for unspecified overridable cells" — which mergeOptions() already does
@@ -323,6 +337,7 @@ async function main(): Promise<void> {
       // legacy-snapshot golden gates that.
       const { css, shadowMode } = parseCssOptions(rest)
       result = scaffoldApp(arg, undefined, {
+        pm: resolvePmFlag(rest),
         css,
         shadowMode,
         // A built-in `--template` value now actually selects that built-in;

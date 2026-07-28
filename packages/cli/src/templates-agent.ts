@@ -57,6 +57,14 @@ export function agentPackageJson(name: string, pm = 'bun'): string {
         '@aihu/agent-service': 'latest',
         '@aihu/arbor': 'latest',
         '@aihu/compiler': 'latest',
+        // Peer of `@aihu/runtime`, not of anything listed here directly — which
+        // is why two passes missed it. `@aihu/runtime` and `@aihu/arbor` declare
+        // ZERO runtime dependencies and express every edge as a peer, so what
+        // must be installed is the transitive peer closure. Without it, `vite
+        // build` dies with: Rollup failed to resolve import "@aihu/context" from
+        // node_modules/@aihu/runtime/dist/index.js (run 30333950275, `full` and
+        // `agent` x yarn — the two templates that share this emitter).
+        '@aihu/context': 'latest',
         '@aihu/runtime': 'latest',
         '@aihu/signals': 'latest',
         ws: '^8.18.0',
@@ -77,6 +85,10 @@ export function agentPackageJson(name: string, pm = 'bun'): string {
       // @aihu/compiler ships its native binary via an arch-validating postinstall
       // that bun blocks unless the package is trusted.
       trustedDependencies: ['@aihu/compiler'],
+      // The pnpm-side equivalent is deliberately NOT here: current pnpm does not
+      // read settings from package.json and says so on every install ("The
+      // "pnpm" field in package.json is no longer read by pnpm"). It ships as
+      // `pnpm-workspace.yaml` alongside this manifest — see pnpmWorkspaceYaml().
       ...(packageManager ? { packageManager } : {}),
     },
     null,

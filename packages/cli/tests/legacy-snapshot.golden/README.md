@@ -21,6 +21,30 @@ with them.
 
 ## Regeneration log
 
+### 2026-07-28 — pnpm build-allow + the transitive peer closure (C-FEL-SCAFFOLD-PM-COMPAT)
+
+- **Why it moved:** two already-committed scaffold changes had never been
+  reflected here, so this gate was red on `main` before the work below touched
+  it. (a) `pnpm-workspace.yaml` joined the baseline file set — pnpm reads its
+  per-project settings from that file only, and without it a scaffold's first
+  `pnpm install` exits non-zero with `ERR_PNPM_IGNORED_BUILDS`. (b)
+  `package.json` gained `@aihu/context`, `@aihu/server` and `@aihu/store`: the
+  scaffold has to declare the TRANSITIVE PEER CLOSURE of what it lists, because
+  `@aihu/app`, `@aihu/runtime` and `@aihu/arbor` all declare zero runtime
+  dependencies and express every edge as a peer.
+- **Refreshed, not regenerated.** The delta was one added file plus one
+  `package.json`, so both were copied from a real `aihu app legacy-snapshot
+  --pm bun` run rather than deleting the directory — which would have taken
+  this README with it (see the warning above). Verified by a full harness run
+  (`bun run test packages/cli/tests/legacy-snapshot.test.ts --config
+  vitest.gates.config.ts` → 1 passed).
+- **Diff vs previous golden:** `+pnpm-workspace.yaml`, and three added
+  dependency lines in `package.json`. No other file changed.
+- **Note for the next refresh:** this gate is EXCLUDED from the root vitest
+  config, so a green `bun run test packages/cli` does not cover it. That is how
+  both deltas above reached `main` unnoticed. Run it explicitly whenever
+  scaffold output changes.
+
 ### 2026-07-26 — config moves into `vite.config.ts` (#609)
 
 - **Why it moved:** #609 relocates the whole aihu configuration surface out of

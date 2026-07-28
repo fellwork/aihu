@@ -231,3 +231,61 @@ export function viteTemplateAgentsFacts(name: string): AgentsMdFacts {
     ],
   }
 }
+
+/**
+ * `pnpm-workspace.yaml` for a scaffolded app — settings, not workspaces.
+ *
+ * Shipped even though a scaffold is a SINGLE package and declares no workspace
+ * members, because current pnpm has moved its per-project settings out of
+ * package.json and this file is now their only home. The `pnpm` key we used to
+ * emit is not merely inert, it is announced as inert on every install:
+ *
+ *   [WARN] The "pnpm" field in package.json is no longer read by pnpm.
+ *          The following keys were ignored: "pnpm.onlyBuiltDependencies".
+ *
+ * Which is what made the first attempt at this fix look right and measure
+ * wrong: the key was emitted exactly as intended, and nothing read it. Run
+ * 30365123040 still failed 4 of 4 pnpm cells at `install` with the same
+ * ERR_PNPM_IGNORED_BUILDS as before the fix.
+ *
+ * MOVING THE KEY WAS NOT ENOUGH EITHER — the setting itself was renamed.
+ * Putting `onlyBuiltDependencies` in this file failed too, and this time
+ * SILENTLY: run 30367767061 on pnpm@11.17.0, same ERR_PNPM_IGNORED_BUILDS,
+ * stderr completely empty, in both shapes (a settings-only file for the flat
+ * scaffold and a real workspace file with `packages:` for cf-team). pnpm v11
+ * replaced `onlyBuiltDependencies` / `neverBuiltDependencies` /
+ * `ignoredBuiltDependencies` with a single `allowBuilds` map, and an
+ * unrecognised legacy key is simply not read.
+ *
+ * `allowBuilds` is the pnpm counterpart of the `trustedDependencies` emitted
+ * for bun, and it is not optional: pnpm blocks every lifecycle script by
+ * default and — unlike bun, which blocks them SILENTLY — exits non-zero, so
+ * `pnpm install` fails outright on a fresh scaffold before the user can reach a
+ * build. Both entries are load-bearing for the same reason their bun
+ * counterparts are: `@aihu/compiler` postinstalls the correct-arch native
+ * binary and vite's `esbuild` postinstalls its own; a blocked script leaves the
+ * wrong-arch binary in place to resurface later as ENOEXEC.
+ *
+ * Targets pnpm >=11 deliberately rather than emitting both spellings. The
+ * legacy key is not merely redundant on v11 — pnpm auto-appends unlisted
+ * build-script packages to this file, so a stale second list is a source of
+ * drift, and a scaffold should teach the current shape rather than hedge.
+ */
+export function pnpmWorkspaceYaml(): string {
+  return `# Settings, not workspaces. pnpm reads its per-project settings from this file
+# only — the "pnpm" key in package.json is ignored, and pnpm says so on every
+# install. This file is why \`pnpm install\` works here.
+#
+# allowBuilds is the pnpm equivalent of package.json's trustedDependencies
+# (bun): both @aihu/compiler and esbuild postinstall an arch-specific native
+# binary, and pnpm blocks lifecycle scripts by default AND exits non-zero doing
+# it, so without this the very first \`pnpm install\` fails with
+# ERR_PNPM_IGNORED_BUILDS. Anything not listed here is denied by default.
+#
+# pnpm v11 renamed this: it was onlyBuiltDependencies (a list) through v10 and
+# is now allowBuilds (a map). The old key is silently ignored, not warned about.
+allowBuilds:
+  '@aihu/compiler': true
+  esbuild: true
+`
+}

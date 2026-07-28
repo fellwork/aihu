@@ -1,8 +1,11 @@
 # State — builder-b
 
 **Role:** BUILDER-B · **Workspace:** `zurich`
-**Base:** `origin/main` @ `2350f49c`
-**Last updated:** 2026-07-27. Six PRs merged, one open (#655, FEL-GH478).
+**Base:** `origin/main` @ `642860f3` (rebased 2026-07-28, 0 behind)
+**Last updated:** 2026-07-28. Seven PRs merged, two open — #655 (FEL-GH478)
+and #684 (C-FEL-SCAFFOLD-PM-COMPAT, at `ca33c813`, rebased, **DRAFT → READY**;
+the `check:moon-graph` red that was blocking it is **gone** — #689 landed the
+comment-stripping fix and my comments needed no rewording, see 17).
 
 > Ownership: `docs/state/` is historian's. This file exists because the
 > orchestrator asked each role to write one before standing down.
@@ -190,6 +193,42 @@ itself.
 5-file PR**, including two other agents' merged work as my blast radius. Always
 `git fetch` then `git diff origin/main...HEAD`.
 
+**`git stash push -- <paths>` ABORTS on an untracked pathspec — and the
+`git stash pop` you write next still succeeds, against SOMEBODY ELSE'S STASH.**
+Hit 2026-07-28 wanting a clean-tree control run. One of my three paths was a
+new untracked test file, so the push died with
+`error: pathspec … did not match any file(s) known to git` and stashed nothing.
+I then popped, believing I was undoing my own push, and instead applied
+builder's stashed `docs/state/builder.md` (+62/-3, their PR #656 update) into
+the shared worktree — one `git commit -a` from being swept into my PR. Re-stashed
+it intact and disclosed on the bus; recovery sha was `776b263f`.
+**I scoped this trap too narrowly and builder corrected it with a measurement —
+the stash stack is per-REPOSITORY, not per-checkout:**
+
+```
+git rev-parse --git-common-dir  ->  /Users/smcguirt/conductor/repos/aihu/.git
+git worktree list | wc -l       ->  132
+```
+
+They ran `git stash list` from `almaty` and saw a stash created in `zurich`.
+So it is shared across **132 worktrees**, not "this checkout" — any agent in any
+of them can pop or drop any other's work, and a bare `git stash pop` takes
+`stash@{0}`, whoever pushed last from wherever. The index lock is per-worktree
+and merely blocks you; **the stash stack is global and mutates silently.**
+
+**Therefore: do not use `git stash` as scratch space in this repo at all.** Use
+a WIP commit on your own branch — per-branch, unpoppable by a stranger,
+recoverable by reflog. For a clean-tree control run, touch no git state: copy
+the files to `/tmp`, `git checkout HEAD --` them, run, copy back. That is what I
+did on the retry and it cost nothing.
+
+Postscript worth keeping: the entry I popped turned out to be on **no branch at
+all** (`git branch -a --contains 776b263f` → empty) — a prior builder's durable
+state for C-FEL-EXTERNALS, whose PR #656 had already merged while its state
+record never landed. Builder preserved it at
+`origin/recover/builder-state-fel-externals`. The near-miss was not "someone's
+uncommitted edit"; it was the only copy of a merged contract's record.
+
 **A conclusion is scoped to the premises it was drawn under.** I nearly carried
 the #609 "matrix is environmental" verdict onto a diff that *deletes*
 `packages/cli/src/templates/` — making "scaffold still works" the one claim I
@@ -266,12 +305,61 @@ and assert both sides are non-empty first — two failed `git show` calls make
 
 ## What the next instance must not redo
 
+0a. **~~#684 STAYS DRAFT~~ — marked READY 2026-07-28 (`gh pr ready 684`, exit 0,
+   head `ca33c813`), because the one thing that kept it draft (item 17) is
+   fixed.** Keeping it draft was never caution for its own sake: on a draft,
+   `check` is SKIPPED and `ci-ok` is green by design (rule 5), so a draft PR
+   buys zero CI signal. Local acceptance before flipping it, all on `ca33c813`:
+   `scaffold-pnpm-builds` 6/6 exit 0 · legacy-snapshot gate (separate config)
+   1/1 exit 0 · full `packages/cli` 324 passed / 7 skipped exit 0 (at
+   `--testTimeout=30000`, see 20) · `check:moon-graph` exit 0.
+   **The rest of this item still stands unchanged — a `verified` status on
+   C-FEL-SCAFFOLD-PM-COMPAT is a RECONCILER ARTIFACT, not a review.**
+   Architect's ruling 2026-07-28
+   (`docs/decisions/2026-07-28-reconciler-is-not-a-verifier.md`): `recon.py`
+   regexes prose and grounded the claim "I wrote **to** the file" against any
+   shell redirect through a path containing adjacent `t`,`o` — *conduc**to**r*.
+   That is verbatim the evidence string on my own row. It never reads the
+   structured `claims` column that 53 of 65 verdicts already populate. Coverage
+   ~0, precision 0/2. So: do not read a green ledger row as acceptance of this
+   PR, and keep sending `--claims` in `key:value` shorthand regardless — the
+   structured field is the one that will survive the fix.
+
+0. **Do not re-derive the pnpm build-script mechanism.** It is `allowBuilds`
+   (a map) on pnpm 11, measured three ways — see item 15b. And do not conclude
+   "there is no pnpm here": there is, it just needs a node ≥22.13 that is
+   already on disk.
 1. Do not propose "`ci-ok` should skip on drafts". Measured: it renders CLEAN.
+   **AMENDED 2026-07-28 — someone else deliberately changed the draft rendering
+   and they were right to.** FEL-437 made a draft's `check`-skipped a `failure`;
+   `plan-a.yml:481-495` now makes it a **`::warning::` and lets ci-ok go green.**
+   The argument in that comment is better than mine: agents are instructed to
+   push a draft PR at their first edit, so EVERY agent PR was red from birth,
+   the queue filled with red meaning "unfinished", and real failures hid in it —
+   the same noise-over-signal defect already fixed for the bench lanes. My
+   measurement is NOT contradicted: an `if:`-false job still emits a `skipped`
+   check-run and GitHub still treats that as satisfying protection, so
+   "ci-ok should not report on drafts" remains wrong. What changed is the
+   verdict for a job that DID run. Do not revert it to `failure`.
+   **The cost is now yours to carry, and I paid it this wake:** a draft's
+   `ci-ok: success` is indistinguishable from a real one in `gh pr checks`, and
+   the warning is invisible there. See rule 5 — it is no longer a nicety.
 2. Do not try to give `minimal`/`docs` served readiness routes. They have no
    server, and that is what those templates *are*.
 3. Do not re-derive `collectSetupShape`. It has never existed.
 4. Do not reinstate #612's ESM rationale for avoiding the `agentReadiness` option.
 5. Do not read a green `ci-ok` as coverage. Read `check`'s own conclusion.
+   **This bit me for real on 2026-07-28 and it is the single cheapest mistake to
+   make.** My rebased branch showed `Plan A — TS runtime family: success` in
+   `gh run list`, and the run's own job list was:
+   ```
+   ci-ok   completed  success
+   check   completed  SKIPPED     <- nothing was built or tested
+   ```
+   Since the draft rule is now a warning (rule 1), a draft PR's `ci-ok` is green
+   with `check` skipped BY DESIGN. So on a draft, `ci-ok` carries no information
+   at all. Read it with:
+   `gh run view <id> --json jobs --jq '.jobs[] | "\(.name)\t\(.conclusion)"'`
 6. Do not use behind-count as the gate-currency test.
 7. `packages/cli/src/templates/` is **deleted** — it was dead code whose
    `AGENTS.md` taught the *inverse* of its own rule to any agent that read it.
@@ -289,3 +377,252 @@ and assert both sides are non-empty first — two failed `git show` calls make
    the supervisor's reconcile pass. `no-claims` on a contract you own means
    your claims were not extractable — send the verdict again with `--claims`
    in `key:value` shorthand and `--pr`, do not argue about it in prose.
+12. **`@aihu/app` declares NO runtime `dependencies` — every import it makes is
+   a `peerDependency`.** Verified at source 2026-07-28: `dependencies` is
+   literally absent from `packages/app/package.json`; the peers are `arbor`,
+   `router`, `runtime`, `server`, `signals`, `store`, `vite`, and there is no
+   `peerDependenciesMeta`, so none are optional. Any scaffold that lists
+   `@aihu/app` must list all of them. npm 7+, pnpm and bun auto-install peers
+   and will hide an omission on 3 of 4 package managers; **yarn 1 does not**, so
+   yarn is the only cell that fails and the only one that tells you the truth.
+   Corollary: *a green yarn cell is worth more than three green ones elsewhere.*
+   **It is a CLOSURE, not one package's list — I got this wrong twice.**
+   `@aihu/runtime` and `@aihu/arbor` also declare zero dependencies and express
+   everything as peers, so `@aihu/context` is required but is reachable *only*
+   through `@aihu/runtime`. Fixing `@aihu/app`'s own list just relocated the
+   yarn error from `@aihu/store` (run 30322552896) to `@aihu/context` (run
+   30333109465). `packages/cli/tests/scaffold-peer-closure.test.ts` now walks
+   the real manifests; do not replace it with a hardcoded list.
+   **And there are TWO emitters.** `minimal`/`docs` use `appPackageJson` in
+   `src/index.ts`; `full` AND `agent` share `agentPackageJson` in
+   `templates-agent.ts`. My first closure guard checked only the first and
+   passed green while two of five templates still shipped the identical defect
+   (run 30333950275). A guard covering one of two emitters is worse than none —
+   it is the same false-negative shape as a cell that SKIPs green. The test is
+   table-driven over emitters now; add to `EMITTERS`, do not write a second file.
+   Do not fix this class by promoting a peer into `@aihu/app`'s `dependencies` —
+   that lets the app install a private copy beside the consumer's, and two
+   `@aihu/store` instances mean two module-level registries, so hydration writes
+   to one and reads the other.
+13. There is **no single spelling of an intra-workspace dependency range that
+   all four package managers accept.** Measured, not inferred:
+   `workspace:*` → bun ok, pnpm ok, npm `EUNSUPPORTEDPROTOCOL`, yarn 1 asks the
+   *registry* for a package at that literal version. Bare `*` → bun/npm/yarn ok,
+   but pnpm 10 defaults `link-workspace-packages` to **false**, so `*` resolves
+   from the registry rather than linking the sibling. It must be chosen per-PM
+   (`workspaceProtocolFor()` in `scaffold-pipeline.ts`; `options.pm` was already
+   threaded through). Do not "simplify" it back to one constant.
+   Also: pnpm ignores the `workspaces` array in package.json entirely and needs
+   `pnpm-workspace.yaml`; and pnpm ≥10 blocks lifecycle scripts *and exits
+   non-zero* (`ERR_PNPM_IGNORED_BUILDS`), so every emitted manifest needs
+   `pnpm.onlyBuiltDependencies` as the counterpart of bun's
+   `trustedDependencies`. Bun blocks the same scripts **silently** — so bun
+   passing proves nothing about whether the postinstall actually ran.
+14. Two failures in scaffold-matrix run `30322552896` are **not** package-manager
+   defects; do not fold them into a PM contract. (a) `full` × bun *and* npm at
+   `dev`: the script is `concurrently "bun run server" "vite --port 5108"`, so
+   the harness's `--port <random> --strictPort` is appended to `concurrently`
+   and never reaches vite — vite binds 5108, the harness polls the random port,
+   120 s timeout. (b) `cf-team` × bun at `typecheck`: `moon run :typecheck`
+   diffs against `main`, and a freshly `git init`-ed scaffold has no such
+   revision (`fatal: ambiguous argument 'main'`, exit 128). Both fail on bun,
+   which is what proves they are not PM-compat.
+15b. **SOLVED 2026-07-28 — pnpm 11 RENAMED the setting. `onlyBuiltDependencies`
+   → `allowBuilds`, a map, not a list.** Two attempts failed before this
+   because both were spelling the pnpm-10 key; the second failed *silently*,
+   which is what made it look like a wiring bug. It was not. Measured locally
+   on pnpm 11.17.0 — the runner's exact version — one package depending on
+   `esbuild@0.25.12`, three otherwise-identical dirs:
+
+   ```
+   no pnpm-workspace.yaml        rc=1  ERR_PNPM_IGNORED_BUILDS: esbuild@0.25.12
+   onlyBuiltDependencies: [...]  rc=1  ERR_PNPM_IGNORED_BUILDS: esbuild@0.25.12
+   allowBuilds: {esbuild: true}  rc=0  esbuild postinstall$ node install.js Done
+   ```
+
+   The middle row is the whole finding: **the legacy spelling is
+   indistinguishable in effect from having no file at all**, and pnpm does not
+   warn about it. So "the file is emitted" was never the property worth
+   testing — assert the KEY.
+
+   **GET PNPM RUNNING LOCALLY; it is a 2-minute setup, and it converts a
+   10-minute matrix run per hypothesis into 11 seconds.** The reason nobody had
+   is a trap of its own: `npm i -g pnpm@11` *succeeds*, then every invocation
+   dies with `requires at least Node.js v22.13` (this box's default node is
+   v22.12.0), which reads as "pnpm is broken here". It is not — point it at a
+   newer node that is already installed:
+
+   ```
+   ~/.proto/tools/node/22.22.2/bin/node $(npm root -g)/pnpm/bin/pnpm.cjs install
+   ```
+15c. **Two more defects sat BEHIND the pnpm one, and neither was findable from
+   the generator.** Both found 2026-07-28 by running the acceptance instead of
+   asserting it — the scaffold emitted a perfectly correct
+   `pnpm-workspace.yaml` and still could not be installed.
+   - **The `agent` template never emitted `pnpm-workspace.yaml` at all.**
+     `minimal`/`docs` (`index.ts:857`) and `full` (`templates-full.ts:1268`)
+     did; the `agent` file list (`index.ts:798`) simply lacked the line. Same
+     false-negative shape as item 12's two emitters, one level out: the setting
+     was right in the generator and absent from one of four **file lists**.
+   - **`aihu app --pm <x>` parsed the flag NOWHERE.** bin.ts resolved `--pm`
+     for the template-package path and not for the built-in one, so every
+     built-in scaffold took the `pm` default and emitted
+     `"packageManager": "bun@…"`. pnpm then refuses outright — `ERROR: This
+     project is configured to use bun` — before resolving one dependency.
+     `create-aihu` threaded `pm` correctly all along; two entry points
+     disagreeing about one flag is what kept it alive. Now both call
+     `resolvePmFlag()`.
+   **The lesson to carry, not the two bugs:** a test that calls
+   `scaffoldApp({pm})` passes either way, because the break was in argument
+   handling — it never executes the broken code. `packages/cli/tests/scaffold-pnpm-builds.test.ts`
+   spawns the real CLI for that case and is table-driven over every template
+   for the other. End-to-end acceptance: `--template agent --pm pnpm` then
+   `pnpm install` went rc=1 → rc=0, with the installed esbuild binary reporting
+   0.25.12 (so the postinstall `allowBuilds` unblocks really ran).
+
+15d. **The legacy-snapshot golden was ALREADY RED on `main`** and had been for
+   two commits — `pnpm-workspace.yaml` joined the baseline file set and
+   `package.json` gained the three peer-closure entries, and neither refreshed
+   the fixture. This is the concrete cost of the gate being excluded from the
+   root vitest config (trap already recorded below): `bun run test packages/cli`
+   was green the whole time. Refresh it by **copying the changed files** from a
+   real `aihu app … --pm bun` run, not by `rm -rf` + regenerate — the directory
+   holds a hand-written provenance README the generator does not recreate.
+
+17. **~~#684 IS GATED ON SOMEONE ELSE'S CONTRACT~~ — CLEARED 2026-07-28 by #689
+   (`642860f3`), and it cleared the way I asked for.** `check-moon-graph.ts` now
+   has `stripNonCode()` (defined `:220`, called `:272`). Measured on my rebased
+   head `ca33c813`, **with both comments byte-unchanged**:
+   `bun run check:moon-graph` → **exit 0** ("every acyclic imported package has
+   a dependsOn edge"). So the port covers the COMMENT variant, not only the
+   string-literal one — that was the exact residual risk the original entry
+   flagged, and it is closed. Verifier's PASS on C-FEL-MOONGRAPH-LITERALS also
+   mutation-tested it both directions (identity-stub → the false edge returns;
+   real edge deleted → still caught), so it is not green-by-over-stripping.
+   **Carry the ruling, not the moon-graph specifics: when a gate is wrong about
+   your code, the cheap move — reword until green — destroys the specimen that
+   makes the gate fixable.** Holding the red for one wake and handing the
+   specimen to the gate's owner ended with the comments intact *and* the gate
+   green. Cost of waiting: one wake. Cost of rewording: the bug survives and the
+   next agent re-derives it. Original entry follows for the specimen it names.
+
+   **#684 WAS GATED ON SOMEONE ELSE'S CONTRACT, and the cause was two COMMENTS.**
+   After rebasing onto `3891300a`, `bun run check:moon-graph` exits 1 demanding
+   `packages/cli/moon.yml` add `- 'context'`. There is **no import of
+   `@aihu/context` anywhere in `packages/cli/src`** — `@aihu/cli` is a
+   build-time scaffolder with a zero-dependency thesis. The gate's regex is
+   `/(?:from|import|require)\s*\(?\s*['"]([^'"]+)['"]/` and the two things it
+   matches are both comments quoting a **Rollup error message** pasted from a CI
+   log:
+   ```
+   packages/cli/src/templates-agent.ts:64          // … failed to resolve import "@aihu/context" from
+   packages/cli/tests/scaffold-peer-closure.test.ts:27   *   run 30333109465  yarn build → failed to resolve import "@aihu/context"
+   ```
+   Causation proved by neutralising ONLY that quoted text in both comments →
+   `check:moon-graph` **exit 0**; control on pristine main → **exit 0**. So the
+   red is introduced by my branch and its sole cause is comment prose.
+   **DO NOT REWORD THE COMMENTS TO GO GREEN.** That is the exact harm
+   `dep-check.ts:193` was written to stop ("a false positive that forced a
+   correct comment to be reworded to get CI green"). This belongs to
+   **C-FEL-MOONGRAPH-LITERALS (builder's)** — do not co-own it.
+   **The lever to hand them:** `scripts/dep-check.ts` ALREADY has a documented
+   `stripComments()` (`:214`) from #681; `scripts/check-moon-graph.ts` has **no
+   stripping of any kind**. The sibling fix was never ported. And note my
+   specimen is the COMMENT variant, not the string-literal one — a fix that only
+   skips string literals leaves #684 red.
+
+18. **`check:gate-wiring` is RED on pristine `main`.** Measured in a throwaway
+   worktree at `3891300a`: `bun scripts/check-gate-wiring.ts` → exit 1,
+   `NEW ORPHAN: check:grammar-v2`. My branch touches no script and no baseline,
+   so this is not mine — do not spend a wake on it thinking you broke it.
+   Related and worth knowing before you trust ANY local gate run:
+   `plan-a.yml:275` states outright that **`check:ci` is invoked by no workflow
+   in this repo.** So `bun run check:ci` passing (or failing) is not the same
+   question as CI passing. Check which job actually runs the gate you care about
+   — `check:moon-graph` is `plan-a.yml:85`, inside `check`.
+
+16. **~~The scaffold matrix cannot measure npm, pnpm or any cf-team cell until
+   #677 lands.~~ #677 LANDED 2026-07-28 (`a3c05531`).** Kept for the reading of
+   those old red rows, but the constraint is GONE: rebase onto main and the
+   matrix is dispatchable for real —
+   `gh workflow run "Scaffold DX matrix" --ref <branch> -f mode=local -f pm=… -f template=…`
+   (`mode=local` tests the checkout, which is what you want for an unpublished
+   fix; `mode=npm` tests published packages). The `pull_request` trigger reports
+   **skipped** on a draft, so a dispatch is required, not optional.
+   Original text: the matrix could not measure npm, pnpm or any cf-team cell until
+   #677 landed. Dispatching it against a branch based on plain `main` gives:
+   `SKIP pnpm — not installed` (the `npm install --global pnpm yarn` step
+   silently fails), and every npm cell dies at `install` with
+   `proto::commands::run::fallback_loop` out of esbuild's `sh -c node
+   install.js`. cf-team fails the same way on *all* package managers because its
+   scaffold shells out to `<pm> install`. That is #677's defect, not the branch
+   under test — do not read those rows as a regression, and do not report a
+   pnpm fix as verified from such a run. **Only the yarn column is trustworthy
+   there**, which is a second reason yarn is the cell that matters.
+
+19. **ANOTHER INSTANCE CAN `git checkout` A DIFFERENT BRANCH IN YOUR WORKTREE
+   MID-RUN, AND EVERY GIT ANSWER AFTERWARDS IS WELL-FORMED AND WRONG.** Happened
+   to me 2026-07-28 in `zurich` while a vitest run was in flight. Reflog, and I
+   ran no checkout this wake:
+   ```
+   HEAD@{4}  ca33c813  rebase (finish): returning to refs/heads/fix/fel-scaffold-pm-compat
+   HEAD@{3}  d80c3276  checkout: moving from fix/fel-scaffold-pm-compat to srmcguirt/triage-correction-0727
+   ```
+   What I then measured, in good faith, believing it was my branch:
+   ```
+   wc -l docs/state/builder-b.md        -> 291   (mine is 534)
+   git log --oneline origin/main..HEAD  -> 1 commit, and not one of mine
+   ```
+   Read naively that is *"my rebase silently dropped five commits and 243 lines
+   of durable state."* I was one step from posting it as a finding. **It was
+   false** — `git ls-remote` showed my ref intact at `ca33c813` and
+   `git show cd0db803:docs/state/builder-b.md | wc -l` → 534.
+   **This is worse than the empty-and-green class, not a member of it.** There is
+   no error, no missing file, no non-zero exit; the commands succeed and
+   truthfully describe a real tree that is *not the one your question was about*.
+   Same family as the stale-`origin/main` trap and historian's rotating-sid
+   clause, one level worse: there the coordinate is stale, here it is LIVE and
+   belongs to somebody else.
+   **The tripwire is `git branch --show-current`, not `git rev-parse HEAD`** — a
+   sha you do not recognise tells you nothing, but you know your own branch name
+   on sight. Run it before every commit (my existing `git status --short` rule
+   was NOT enough) and again before reading any history you intend to act on.
+   **And do not retaliate in kind:** if you need your branch while someone else
+   holds the checkout, `git worktree add --detach <tmp> <your-sha>`, work there,
+   and `git push origin HEAD:<your-branch>`. That is what I did; it cost one
+   worktree add and left their checkout untouched.
+
+20. **A 5 s vitest timeout is not a defect signal on this box — `loadavg` is 7x
+   `ncpu` and the tests that fail are the ones doing a first TS transform.**
+   `packages/cli/tests/agent-readiness-floor.test.ts` (mine, #622) reported 2, 3,
+   then 4 failures across three runs of the *same tree* — a varying count is the
+   tell. Every failure was `Test timed out in 5000ms`, every one in a test that
+   calls `loadGenerated`. Measured:
+   ```
+   sysctl -n vm.loadavg -> { 72.18 71.50 56.40 }   hw.ncpu -> 10
+   node live-daemon.js processes -> 1309
+   bunx vitest run <file>                      -> 4 failed | 1 passed   exit 1
+   bunx vitest run <file> --testTimeout=30000  -> 5 passed              exit 0
+   bunx vitest run packages/cli --testTimeout=30000 -> 324 passed, 7 skipped, exit 0
+   ```
+   The A2A test that "timed out at 5092 ms" completes in **540 ms** once past the
+   first import: the budget is eaten by transform/collect, not by assertions.
+   So **the daemon leak (DECIDE `ffba4878`) has crossed out of the RSS column and
+   into correctness of the test signal** — that is a sharper severity statement
+   than either ~41 GB RSS or fork() exhaustion, and it is the one that costs
+   agent-wakes. Before reporting any red, print `vm.loadavg` and re-run with
+   `--testTimeout=30000`; a red that survives that is real, a red that does not
+   is the box.
+
+21. **Two things in this repo take longer than a 2-minute command budget and
+   look like failure when they are killed.**
+   - `git push` runs a pre-push hook that executes **63 moon tasks** (~3m40s
+     here). Killed at 2 min it exits 143 and **the remote is unchanged** — which
+     reads as "push rejected". It was never attempted. Give push ≥8 min, and
+     confirm with `git ls-remote`, never the push output (the output is also
+     what you lose when it is killed).
+   - `bun run test` goes through moon, which **fetches a plugin from
+     `ghcr.io`**: `plugin::loader::registry::load_failure … connection closed via
+     error`, exit 1, before a single test runs. That is a network failure
+     wearing a test-runner's exit code. `bunx vitest run <path>` bypasses moon
+     entirely and is the right instrument for a local acceptance run.

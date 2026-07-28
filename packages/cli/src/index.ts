@@ -34,7 +34,11 @@ import {
   agentViteConfig,
 } from './templates-agent.js'
 import { fullTemplateFiles } from './templates-full.js'
-import { agentToolingFiles, viteTemplateAgentsFacts } from './templates-tooling.js'
+import {
+  agentToolingFiles,
+  pnpmWorkspaceYaml,
+  viteTemplateAgentsFacts,
+} from './templates-tooling.js'
 
 // ---------------------------------------------------------------------------
 // Result types
@@ -108,13 +112,41 @@ export function appPackageJson(
         // here keeps version drift visible at `bun outdated`.
         '@aihu/app': 'latest',
         '@aihu/arbor': 'latest',
+        // Peer of `@aihu/runtime`, which is why it is easy to miss: it is not a
+        // peer of `@aihu/app`, so satisfying app's own list is not enough.
+        // `@aihu/app`, `@aihu/runtime` and `@aihu/arbor` all declare ZERO
+        // dependencies and express every edge as a peer, so what a scaffold has
+        // to install is the TRANSITIVE PEER CLOSURE, not one package's list.
+        // Missing it took `full` and `agent` from a yarn build failure on
+        // `@aihu/store` to a yarn build failure on `@aihu/context` — one layer
+        // down the same chain (run 30333109465).
+        '@aihu/context': 'latest',
         // `@aihu/css-engine` is the optional utility-class compiler peer; only
         // emitted for the OOTB css-engine scaffold (`--css engine`). Its scoped
         // utilities fold into each component's shadow style at build time.
         ...(withCssEngine ? { '@aihu/css-engine': 'latest' } : {}),
         '@aihu/router': 'latest',
         '@aihu/runtime': 'latest',
+        // `@aihu/server` and `@aihu/store` are peers of `@aihu/app` that its
+        // CLIENT entry imports eagerly — `hydrateStores` from `@aihu/store` and
+        // `routeHeadToSsrHead` from `@aihu/server/head-lowering`. `@aihu/app`
+        // declares NO runtime `dependencies` at all; every one of its imports is
+        // a peer, so a consumer must list them or nothing installs them.
+        //
+        // npm 7+, pnpm and bun auto-install peers, which hid this: the scaffold
+        // worked on three of four package managers. YARN 1 DOES NOT, so it was
+        // the only one to fail — `yarn run build` died at config load with
+        // ERR_MODULE_NOT_FOUND "Cannot find package '@aihu/store' imported from
+        // node_modules/@aihu/app/dist/index.js" (run 30322552896, 4 cells).
+        //
+        // The fix belongs HERE and not in `@aihu/app`'s dependencies: promoting
+        // a peer to a dependency lets the app install its own copy alongside the
+        // consumer's, and two `@aihu/store` instances mean two module-level
+        // store registries — hydration writes to one and reads from the other.
+        // Same reasoning as `@aihu-plugin/agent-readiness` below.
+        '@aihu/server': 'latest',
         '@aihu/signals': 'latest',
+        '@aihu/store': 'latest',
       },
       devDependencies: {
         // `@aihu-plugin/agent-readiness` powers the `agentReadiness` pass in
@@ -136,6 +168,16 @@ export function appPackageJson(
       // the published tarball stays in place and `bun run build` dies with
       // ENOEXEC ("Unknown system error -8"). See FIX 1 (cli release readiness).
       trustedDependencies: ['@aihu/compiler'],
+      // NOTE: pnpm's counterpart to `trustedDependencies` is NOT here. Current
+      // pnpm does not read settings from package.json at all — it says so, out
+      // loud, and then ignores them:
+      //
+      //   [WARN] The "pnpm" field in package.json is no longer read by pnpm.
+      //          The following keys were ignored: "pnpm.onlyBuiltDependencies".
+      //
+      // It lives in the emitted `pnpm-workspace.yaml` instead. See
+      // pnpmWorkspaceYaml() below for why that file ships even for a
+      // single-package scaffold.
       ...(packageManager ? { packageManager } : {}),
     },
     null,
@@ -755,6 +797,12 @@ export function scaffoldApp(
   if (template === 'agent') {
     const files: Array<readonly [string, string]> = [
       ['package.json', agentPackageJson(name, pm)],
+      // Same reason as `minimal`/`docs`/`full`: pnpm reads its settings from
+      // this file only, and without it the first `pnpm install` exits non-zero
+      // with ERR_PNPM_IGNORED_BUILDS before the user reaches a build. `agent`
+      // was the one template that never emitted it — the file list is a
+      // fourth place this had to be said, and it was the place nobody looked.
+      ['pnpm-workspace.yaml', pnpmWorkspaceYaml()],
       ['vite.config.ts', agentViteConfig()],
       ['tsconfig.json', agentTsConfig()],
       ['index.html', agentIndexHtml(name)],
@@ -801,6 +849,12 @@ export function scaffoldApp(
   const indexPage = template === 'docs' ? appDocsIndexAihu(name) : appIndexAihu(name, withCssEngine)
   const files: Array<readonly [string, string]> = [
     ['package.json', appPackageJson(name, pm, withCssEngine)],
+    // Emitted for every scaffold, not only `--pm pnpm`: bun, npm and yarn
+    // ignore the file outright, so one always-present copy costs nothing and
+    // means a user who scaffolds with bun and later runs `pnpm install` does
+    // not hit ERR_PNPM_IGNORED_BUILDS. Choosing per-PM would make the failure
+    // depend on which package manager the project was BORN with.
+    ['pnpm-workspace.yaml', pnpmWorkspaceYaml()],
     ['vite.config.ts', appViteConfig(name, withCssEngine, shadowMode)],
     ['tsconfig.json', appTsConfig()],
     ['index.html', appIndexHtml(name)],

@@ -12,9 +12,12 @@
   "dependencies": {
     "@aihu/app": "latest",
     "@aihu/arbor": "latest",
+    "@aihu/context": "latest",
     "@aihu/router": "latest",
     "@aihu/runtime": "latest",
-    "@aihu/signals": "latest"
+    "@aihu/server": "latest",
+    "@aihu/signals": "latest",
+    "@aihu/store": "latest"
   },
   "devDependencies": {
     "@aihu-plugin/agent-readiness": "latest",
