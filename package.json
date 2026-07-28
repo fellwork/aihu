@@ -29,7 +29,7 @@
     "format": "biome format --write .",
     "check": "biome check --write .",
     "check:lint": "biome ci .",
-    "check:ci": "bun run check:lint && bun run typecheck && bun run test && bun run build && bun run size && bun run check:size-rows && bun run check:publish-manifest && bun run check:use-registry-parity && bun run check:deps && bun run check:moon-graph && bun run check:runtime-purity && bun run check:grammar-v2 && bun run check:cookbook && bun run check:lesson-refs",
+    "check:ci": "bun run check:lint && bun run typecheck && bun run test && bun run build && bun run size && bun run check:size-rows && bun run check:publish-manifest && bun run check:use-registry-parity && bun run check:deps && bun run check:moon-graph && bun run check:runtime-purity && bun run check:grammar-v && bun run check:cookbook && bun run check:lesson-refs && bun run check:gate-wiring",
     "check:pre-push": "bun run check:lint && bun run typecheck",
     "size": "bun scripts/size.ts",
     "readme:remeasure": "bun scripts/sync-readme.ts --remeasure",
@@ -65,6 +65,7 @@
     "check:cookbook": "bun scripts/check-cookbook-index.ts",
     "check:lesson-refs": "bash scripts/check-lesson-refs.sh",
     "check:coverage-manifest": "bun scripts/check-coverage-manifest.ts",
+    "check:gate-wiring": "bun scripts/check-gate-wiring.ts",
     "test:scaffold-matrix": "bun packages/cli/tests/scaffold-matrix-e2e.ts",
     "build:governed-examples": "bun scripts/build-governed-examples.ts"
   },
