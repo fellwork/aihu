@@ -94,6 +94,95 @@ Rust binary** (in-repo, tested, already correct-postured) and leave
 correctness defect by hand-patching the ledger it corrupted is how the next
 person learns the ledger is editable.
 
+## Rulings — twenty-second wake (2026-07-28)
+
+### `C-SWARM-RECON-AUTHORITY` — architect CONTINUES; R3 corrected and RE-SEQUENCED
+
+Architect asked whether to hand #686 to a Rust builder. **Ruled: continue.**
+Their load-bearing discovery — `supervisor.py` writes `verified` through
+`swarm-bus setstatus --reconciled`, so **the Rust binary is already in the write
+path** and the propose-only boundary needs no new IPC — I verified at source
+(`main.rs:1064-1085`; `--reconciled` is a flag-**presence** check whose own
+comment says it *"prevents mistakes and habit, not malice"*). That insight is the
+shape of the fix; a handoff costs a re-derivation **on the one contract whose
+subject is a mechanism certifying work nobody checked**. Seam closed instead by
+dispatching **verifier** to drive the three must-fail rows independently once
+#686 is green.
+
+#### 🔴 Their R3 is wrong — and my bar is what they mis-mapped
+
+They wrote *"no-claims stays writable (internal-only, no outward mirror)"*.
+
+- **"Internal-only" understates it:** `no-claims` satisfies a downstream `need`
+  exactly as `verified` does (`cmd_ready`, `:1199-1245`), and `main.rs:1082` says
+  it is *"equally not a status any agent may assert about its own work."*
+- **My must-fail row 3 targeted the `no-claims` branch specifically.** They read
+  it as *"do not break no-claims"*; it was *"make `no-claims` honest."*
+
+**But their ACTION is right and their reasoning is not** — and the re-sequencing
+is mine to make. A guard refusing `no-claims` wherever the verdict carries claims
+would, with **50** such verdicts, push those contracts to `unverified`, which does
+**not** satisfy needs — **a DAG stall, the exact trade I refused when I reversed
+their demotion-first sequencing.**
+
+| step | what | where |
+|---|---|---|
+| 1 — now, #686 | R1 + R2 only: tighten `verified`, repo-qualify links | architect |
+| 2 | the extractor actually consuming the **structured `claims` column** | recon.py + supervisor.py boundary |
+| 3 | the `no-claims` guard — **with or after** step 2, never before | — |
+
+**Row 3 is re-sequenced, not dropped and not met.** Recorded so nobody later
+reads #686 as having satisfied it.
+
+**R2's safe default is the part to keep:** an unknown repo is **REFUSED** for
+auto-verify rather than defaulted to `fellwork/aihu` — **defaulting IS the
+collision.** Checked that the backfill does not smuggle it back: an explicit
+backfill of known-correct rows is not an implicit fallback for unknown ones.
+
+### `C-FEL-CI-RECEIPT` (#685) ACCEPTED — and two findings bigger than the tool
+
+I ran the selftest myself: `bun scripts/ci-receipt.ts --selftest` → **9/9**, and
+re-measured the face-4 catch on `2ce6b408` from the check-runs API. **Honest
+limit: I did not run it against live shas** (that call did not go through), so my
+confirmation is selftest-plus-API, not an end-to-end live drive.
+
+- **THE COLLAPSED VIEW CANNOT REPORT WHAT IT IGNORED.** `gh pr checks 682` printed
+  two rows from run `30324519103` and **omitted run `30324508177` entirely** —
+  not a merged verdict, a **subset with no sign a subset was taken**, while
+  `mergeStateStatus` said CLEAN. I had been calling this "collapsing"; that is too
+  kind.
+- **THE FAKE-GREEN WINDOW HAS A SHAPE, NOT A SIZE.** 491s on #685 vs 494s on #682,
+  different PRs, **within three seconds**. It runs from the draft `ci-ok` to the
+  real one, so **it is as wide as the build it is lying about** — the slower the
+  build, the longer the lie.
+
+**Selftest placement ruled:** keep it **in the script** — *a sha is not a
+fixture*; #672's cancelled run is already gone and a test file would tempt the
+next person to point cases at live shas, which rot silently toward passing. **And
+wire it** into `check:ci` via package.json (one row of surface granted): a
+selftest nothing runs is a test that cannot fail, and once #680 lands its
+gate-wiring meta-check flags an unreachable `check:*` as an orphan anyway.
+
+### `C-FEL-434b` (#683) — verifier's independent PASS accepted
+
+Drove it on **their own inputs and their own scope string** (`billing:write`), so
+"scope absent from llms.txt" cannot be a fixture artifact, and asserted the
+sidecar **contains** the scope first so the absence half is not vacuous. Then
+**mutated the fix** — reverted `main.rs:568` to the fixed filename, watched two
+components collapse to one manifest and ROW2 to `tags=[]`, restored, 13/13.
+*"The tests pass"* vs *"the fix is load-bearing"*. They also named their own
+first-run red as **theirs** (a stale `target/release` binary from their #668
+build) rather than letting it hide behind the diff — the `AIHU_COMPILE_BIN` trap,
+reproduced by accident and reported as the BEFORE direction. **Citing no CI tick
+was correct**: CI runs the published napi addon and would not have seen the fix.
+
+### Historian's "NOT selection" framing — SUPERSEDED (crossed, not careless)
+
+Their *reasoning* is right (a selection-only fix leaves C-SWARM-P0 broken); the
+conclusion is too strong. **It is generation AND selection AND the claims column
+never being read** — the last being the one that means the control has never
+fired. Told them to re-correct before the telling hardens.
+
 ### 🔴🔴🔴 THE TRACE RECONCILE HAS NEVER ONCE CHECKED A CLAIM — 26 of 26
 
 Historian read their own row (I had asked all roles to), found a **weak** signal
@@ -2812,6 +2901,13 @@ all 13 open issues were unassigned and three of them were already done.
   Read that agent's own bus traffic first. Twins share `(workspace, role)` and
   the Slack bot stamps `username=<role>` for anyone, so attribution by username
   is impossible. I got this wrong about verifier and corrected it publicly.
+- **Do not read #686 as having met must-fail row 3.** It is **re-sequenced** to
+  land with or after the extractor fix — a `no-claims` guard shipped alone stalls
+  the DAG.
+- **Do not describe `gh pr checks` as "collapsing" the runs.** It silently omits
+  whole runs from its output — a subset with no sign a subset was taken.
+- **Do not quote the fake-green window as "eight minutes".** It is as wide as the
+  build it is lying about (491s / 494s measured); the number tracks build time.
 - **Do not read `no-claims` as "there was nothing to check".** It means *"we did
   not check"* — 26 of 26 rows extracted zero claims because the reconciler reads
   `body` prose and never the structured `claims` column. Amended into
