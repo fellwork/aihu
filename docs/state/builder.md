@@ -1,12 +1,56 @@
 # State — builder
 
-**Role:** BUILDER · **Workspace:** `almaty` · **Branch:** `srmcguirt/builder-await-assignment`
-**Base:** rebased onto `origin/main` @ `bc1c4eac` (picked up #615, #616, #617)
-**Last updated:** 2026-07-26, FEL-426 complete (rebuilt twice), #619 ready for review.
+**Role:** BUILDER · **Workspace:** `almaty` · **Branch:** `fix/fel-externals-node-builtins-pattern`
+**Base:** `origin/main` @ `4121604d` (2 behind at time of writing; needs-list property, not behind-count, is the gate)
+**Last updated:** 2026-07-27, C-FEL-EXTERNALS reported DONE — draft PR #656.
 
 > Ownership note: `historian` claimed `docs/state/` at 13:24. This file was
 > flagged to them and to team-lead (ts `1785087210.788909`); rename or delete on
 > request.
+
+## C-FEL-EXTERNALS — DONE, draft PR #656 (2026-07-27)
+
+Three configs converted from hand-listed `node:` arrays to a single `/^node:/`
+pattern: `packages/{cli,app,adapter-vercel}/rolldown.config.ts`. Full `bun run
+build` node: `UNRESOLVED_IMPORT` count **4 → 0**; the one remaining warning
+(`virtual:aihu-components`, app client entry) is a legitimate vite virtual
+module, reported not suppressed. MUST-FAIL run in both directions: a new
+`node:crypto` probe produced no warning (drift survives), a genuinely bogus
+`definitely-not-a-package` import still warned (the class is not silenced).
+Probe reverted.
+
+### The repo-wide audit the contract implies but the surface excluded
+
+`must_pass` says *every* package that imports a `node:` builtin externalizes by
+pattern; the granted surface named only six packages. Measured across all 12
+rolldown configs (script: compare each config's quoted `node:` literals against
+the builtins actually imported by its bundle inputs):
+
+```
+PATTERN (/^node:/)  adapter-vercel, app, cli   <- this contract
+                    language-server, tsc       <- already were
+hand-listed         adapter-cloudflare, compiler, css-engine, magna,
+                    mcp, router, server
+ACTIVE DRIFT        none — every hand-listed config is currently COMPLETE
+```
+
+So the remaining seven are **latent, not broken**. Do not describe them as
+drifting; that was the scarier version and it did not survive the measurement.
+
+:point_right: **`packages/server` must NOT be converted.** Its MAIN entry
+externalizes *no* `node:` builtin on purpose — the design property is that the
+main graph contains none, so a leak fails loudly (`check:runtime-purity`,
+`@aihu/app@0.1.8` regression, investigation `4a796a8f`). A blanket `/^node:/`
+there would silently externalize the exact leak the file exists to catch. Same
+argument the prior instance used to leave `packages/primitives` alone. A
+follow-up contract that says "convert the rest" is wrong as stated.
+
+### #656 is a DRAFT, so its red `ci-ok` is the FEL-437 rendering, not a defect
+
+Run `30298978032`: `check`/`examples`/`governed-examples` **skipped**, `ci-ok`
+**failure** with `::error::Draft PR: 'check' was skipped, so nothing was built
+or tested… mark the PR ready for review (FEL-437)`. Nothing has been built by
+CI on this branch yet. Marking ready is what produces a real result.
 
 ## FEL-426 — DONE (founder-ruled: "not use an unsafe component… check by CI")
 
@@ -151,6 +195,21 @@ list. Stating it rather than silently skipping.
   `aihu-css-core` binary (`cargo build --release -p aihu-css-core`). Four
   governed examples also fail locally on unbuilt `dist/`. **Not mine** — verified
   by running them on a clean tree.
+- A red `packages/compiler/tests/ref-onmount-order-drive.test.ts` (FEL-441,
+  `expected 'NULL' to be 'INPUT'`) locally is a **stale binary**, not a
+  regression. The test resolves `AIHU_COMPILE_BIN ?? target/release/aihu-compile`;
+  a binary built before `2e231e4c` predates the fix. Rebuilt
+  (`cargo build --release --bin aihu-compile`) and re-ran with
+  `AIHU_COMPILE_BIN` set: **passes**. Measured, not assumed.
+- `moon run compiler:build --force` fails `bash: rolldown: command not found`
+  (exit 127) in a clean worktree. `packages/compiler/moon.yml` sets
+  `command: "rolldown -c"` directly, so it never gets bun's PATH augmentation
+  the way packages whose build is a `package.json` script do. A plain
+  `bun run build` hides this behind moon's cache. Pre-existing, unrelated to any
+  contract I hold — flagged, not claimed.
+- Do **not** batch-convert the remaining seven hand-listed configs to
+  `/^node:/` on the strength of C-FEL-EXTERNALS. See the `packages/server`
+  caveat above: one of them is load-bearing.
 
 ## Queue behind this (from orchestrator, 15:05)
 
