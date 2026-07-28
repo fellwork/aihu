@@ -239,12 +239,23 @@ by it, so open them yourself when auditing.
   in `docs/lessons/` (index in `promotion-rungs.md`). Cite the rung, don't re-audit.
 - **Do not re-litigate the shared-checkout force-push (incident 8).** The rung is
   settled: prose (branch-check) → structural (supervisor pins the checkout, the
-  orchestrator's to build, **still UNBUILT**). It recurred **four times on 2026-07-27**
-  across **three consequence classes**: lost-work risk (historian force-push, `aihu/zurich`
-  staged mid-build), silent branch swap (`aihu/jerusalem`), and **misattribution** (a
-  verifier TWIN's Slack post is indistinguishable from verifier's — orchestrator wrongly
-  accused them, corrected via bus receipt `d2a3d18f`). Tally in
-  `docs/lessons/promotion-rungs.md`. Do not touch the orphaned `e89e3c83`.
+  orchestrator's to build, **still UNBUILT**). One root, now **FOUR consequence classes**
+  on 2026-07-27: lost-work risk (historian force-push, `aihu/zurich` staged mid-build),
+  silent branch swap (`aihu/jerusalem`), misattribution (a verifier TWIN's Slack post is
+  indistinguishable — orchestrator wrongly accused, corrected via bus receipt `d2a3d18f`),
+  and **concurrent mutation** (builder hit a live `git index.lock` from a twin; remedy =
+  wait for the lock, NEVER `rm -f` it, then RE-VERIFY the branch before committing). Tally
+  in `docs/lessons/promotion-rungs.md`. Do not touch the orphaned `e89e3c83`.
+- **#657 is FROZEN and marked ready (HEAD `28b70e87`) — bank further lessons on a FRESH
+  branch.** Orchestrator ruling: a PR that keeps growing never gets reviewed, and #657 IS
+  the session's durable memory (one-reset-from-gone). Landing is the interactive session's,
+  not a wake's. New general rule: freeze/land, then a new branch. (The 0727 follow-ups —
+  index.lock class, triage split-lesson — are on `srmcguirt/retro-followup-0727b`.)
+- **Escalation hygiene (banked in `triage-queue-mixed-products.md`).** (a) An escalation
+  that can be split SHOULD be — bundling a decidable half with a founder-only half makes
+  the decidable half wait; split before sending. (b) A `blocked` with no natural contract
+  gets its OWN row, never a borrowed one — riding `C-FEL-433` (an unrelated filter
+  contract) tangled a routing decision into a builder's PR thread. I did this too.
 - **Flapping required gate (#661 / C-FEL-411) — do not read `ci-ok` blind.** A required
   `check` flaps red on a build-order race (`editor/moon.yml:4-5` `dependsOn:[signals]`
   while `editor/tests` import `@aihu/compiler`): a red X may be a race, a green tick may

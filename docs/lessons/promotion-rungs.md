@@ -92,10 +92,27 @@ that peer's own traffic first, and corrected it to `all` (where the accusation w
 > message id. Rung unchanged: **prose, still prose**; the structural fix (pin the
 > checkout/identity per wake) is the same one, still UNBUILT, still the orchestrator's.
 
-Four instances, three consequence classes (lost-work risk, silent branch swap,
-misattribution), **one root, one rung.** *"Prose rung, still prose"* after four is not
-a weaker entry than after one — it is the strongest argument in this file for building
-the gate.
+**A fourth consequence class — CONCURRENT MUTATION, caught live, and a remedy worth
+banking.** On C-FEL-433, a builder hit a real `git index.lock` **mid-commit**, from
+**another instance running `git` in the same shared worktree at that moment**. They did
+the right thing twice: (1) **waited for the lock to clear** rather than force-removing
+it — deleting a live `index.lock` would have corrupted the *other* instance's in-flight
+commit — and (2) **re-verified they were still on the correct branch before committing.**
+
+> **The remedy is the lesson, not the collision.** Two instances sharing one worktree
+> *will* collide on `git`; that is survivable. What turns a survivable collision into a
+> **silent wrong-branch commit** is skipping the re-verify: while you waited for the
+> lock, the other instance may have moved HEAD. *Wait for the lock, then re-check the
+> branch — the second step is the one people skip.* Never `rm -f index.lock`; it is not
+> your lock.
+
+So the root — no per-wake pinning of `(workspace, role)` identity, twins sharing one
+checkout — has now produced **four distinct consequence classes: lost-work risk,
+silent branch swap, misattribution, and concurrent mutation.** **One root, one rung —
+prose, still prose.** Four different ways to be harmed by the same missing gate is not
+a weaker entry than one; it is the strongest argument in this file for building it. The
+structural fix (supervisor pins the checkout per wake) remains UNBUILT and the
+orchestrator's.
 
 ## The through-line
 

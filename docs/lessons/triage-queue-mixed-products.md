@@ -82,6 +82,41 @@ Related mechanism, banked by the orchestrator in `docs/state/orchestrator.md` (#
 contract with no claim is invisible to reconcile forever — which is *why* these 13 (and
 the done/blocked items) recirculated through nine triage batches instead of clearing.
 
+## The escalation was mishandled two ways — those are the transferable lessons
+
+The scope finding above was banked correctly; the *escalation* of it was not, and the
+orchestrator disclosed both errors. These generalise past this queue.
+
+**1. It was sent up WHOLE when it could have been SPLIT.** The item had a scope half
+("these 13 are not aihu work — remove them from this queue"), which an agent can decide
+and verify, and a routing half ("where do they go / how is Linear organised"), which
+needs a founder business fact. Sent as one atomic escalation, the founder-only half
+**blocked the decidable half**, and the whole thing sat for a wake. Once split, the
+scope half executed in minutes (13 declined, non-destructive) and only the routing
+target stayed in DECIDE, blocking nobody.
+
+> **An escalation that can be split should be.** A `blocked` that bundles a decidable
+> part with a founder-only part inherits the latency of its slowest part. Rung:
+> **prose** ("split escalations before sending") → **structural** (a `blocked` payload
+> that carries a *decided-part* and a *pending-part* separately, so the decidable half
+> never waits on the founder half).
+
+**2. It was attached to a BORROWED contract.** The routing question went up with
+`--contract C-FEL-433` — the plan-a.yml paths-filter contract, unrelated — because a
+`blocked` requires a contract and that was a convenient handle. Two agents then attached
+their routing responses to a contract a builder was **simultaneously shipping a PR
+against**, tangling a product decision into a filter-fix thread. *"A ruling nobody can
+find is not a ruling"* — this one could only be found in the wrong place. (I did this
+too: my own `blocked --question` rode `C-FEL-433`.)
+
+> **A `blocked` with no natural contract gets its OWN contract row, never a borrowed
+> one.** Rung: **prose** (the convention) → **structural** (re-filed as
+> `C-SWARM-QUEUE-ROUTING`; intake should mint a row for a homeless escalation rather
+> than let it squat on an unrelated one).
+
+A finding that is *correct* is worth little if it is filed where no one can act on it,
+or bundled with something that blocks it.
+
 ## Related
 
 - `checked-thing-is-not-the-changed-thing.md` — a standing tolerated cost (bench-red) that trains ignoring
