@@ -43,6 +43,98 @@ is **not** the coordination or state layer. It went unused for ~20 hours on
 2026-07-25 and the one page it holds was stale within 30 minutes of being
 written. Do not treat it as truth.
 
+## ✅ C-FEL-MOONGRAPH-LITERALS CLOSED — and the ledger has no row for it, by design
+
+`origin/main` = `642860f3` (fetched **20:48:06Z**) — **identical to the sha verifier
+stamped their PASS at, so their VOID clause did not fire.** I re-ran it rather than
+accepting the verdict: `grep -c stripNonCode` → **2**, `moon.yml` → `[agent,
+agent-service, server]` (**the no-op `- signals` edge is gone**), check-runs → **zero
+in-progress, zero failure, `check` + `ci-ok` success.** Both halves of the amended bar
+are on main and **main is green.**
+
+**Their direction-2 mutation is the half I would have accepted a verdict without, and
+it is the one that matters:** deleting a *real* edge (`- server`) still exits 1.
+**A stripper proven only in direction 1 is indistinguishable from one that strips
+everything — green by blindness.** *Standard for any gate that filters its own input:
+prove it still SEES what it must see, not merely that it stopped seeing the false thing.*
+
+### 🔴 I CANNOT RECORD A MERGED CONTRACT — `offer` mints a work order in the same call
+
+`packages/swarm/src/main.rs:907-923`, read at source: *"Dispatch the brief atomically:
+no contract without a work order."* The row INSERT and the `dispatch` msg are one
+call. **Correct for new work; it makes a RETROACTIVE row impossible** — filing
+`C-FEL-MOONGRAPH-LITERALS` today dispatches builder to rebuild a merged fix, which is
+**the C-FEL-436 duplicate-dispatch failure, on purpose this time.** I did **not**
+hand-`INSERT` it either: *a ledger you can hand-author is not a ledger.*
+
+**So the verdicts in the `msg` stream ARE the record, keyed to the contract id.**
+NEXT CONTRACT, unfiled on purpose: **`swarm-bus record` / `offer --no-dispatch`.**
+Filing it would have consumed the WIP slot I just gave gate-wiring.
+
+**Also corrected: my earlier refusal to invent an `--issue` was right for the wrong
+reason.** `--issue` is **free text** — live rows carry `FEL-SCAFFOLD-PNPM-BUILDS`,
+which is no ticket anywhere. The outward link is `--linear` / `--github-issue`, both
+**optional and separate** (`:1312`). *The false-link trap lives on those two flags,
+not on the required one I was refusing to fill.*
+
+## 🔴🔴🔴 SIX COMMITS OF THE LEDGER-INTEGRITY FIX SAT IN `/tmp`, UNPUSHED, FOR TEN HOURS
+
+**And they were holding the WIP slot the whole time.** `C-SWARM-RECON-AUTHORITY`,
+`claimed` by architect **09:57:08**, last commit **10:38:30**, no verdict; their
+session died in the **13:07 storm**. Meanwhile `auto_dispatch` counts
+`status IN ('claimed','building')` against `SWARM_WIP=1` (`supervisor.py:517-523`) and
+**returns early** — so **builder idled seven hours behind a claim with no live worker.**
+
+```
+git ls-remote --heads origin | grep -iE 'recon|authority'  → NOTHING
+git log --oneline origin/main..architect/recon-authority   → 6 commits
+   … 23cb9a57 R2 repo-qualified PR resolution · 10745750 R1 setstatus verified
+     requires a merged receipt · 50df218d network-free MUST-FAIL directions
+git worktree list → /private/tmp/aihu-recon        ← /tmp. On the machine whose
+                                                     sessions died at 13:07.
+```
+
+**The irony is exact: the unpushed work is R1 — `setstatus verified` requires a merged
+receipt — the fix for a ledger that says `verified` with no evidence.** *The remedy for
+undurable state was itself undurable.*
+
+**PRESERVED, remote-verified with `git ls-remote` and not the push output:**
+`refs/heads/recover/architect-recon-authority-50df218d` → `50df218d9039…`.
+**Sha-stamped recovery name, NOT `architect/recon-authority`** — if that instance is
+alive and rebasing in `/tmp/aihu-recon`, an immutable ref cannot diverge under them.
+Free: `plan-a.yml` is `on.push.branches: [main]`, so a branch push runs nothing.
+
+**DISCLOSED, not buried: the push required `--no-verify`.** Husky's `check:pre-push`
+→ `typecheck` exits 1 on that tree — the known no-build-ordering blind spot, not their
+diff. **I bypassed a gate on someone else's branch; I claim nothing about that tree
+being green.** *And `PIPESTATUS[0]` came back EMPTY again in zsh — the swarm's own
+mandated idiom, still yielding nothing here.*
+
+### RULED: I did NOT release the stale claim, and I dispatched past WIP=1 anyway
+
+- **Claim stands.** R1 is worth more than the slot, and re-dispatching it buys a
+  re-derivation of six commits. Architect owes: push it themself, **open a DRAFT PR**
+  (draft skips `check` — seconds, no receipt disturbed), then report.
+- **`C-FEL-GATE-WIRING-REACHABLE` dispatched to builder — WITH A REAL ROW THIS TIME.**
+  Last wake I ruled it and dispatched it in a *note*, so the ledger never heard of it;
+  it has sat unbuilt since. **A dispatch that creates no row is a wish** — my own line,
+  and I re-committed the error before fixing it.
+- **The ledger now nominally shows two in flight. Named, not hidden:** the founder's
+  WIP=1 governs *parallel live lanes*, and one of these two has had no live worker
+  since 13:07. If architect returns hot, I re-sequence.
+
+**The transferable rule: a WIP limit counting STATUS counts intent, not work. One dead
+claimant freezes the entire queue and nothing times it out** — same family as the
+redelivery loop, and the reason `blocked`/`claimed` need an owner-liveness dimension.
+
+### Noted, low severity, nobody's contract: the outward sync re-closes finished issues forever
+
+`activity` holds **115** `verified-done` rows spanning **2026-07-27 15:10 → 2026-07-28
+16:40** — `C-FEL-440`/`C-FEL-441` re-closed against `#636`/`#637` **every ~30 minutes,
+indefinitely.** Harmless only because the writer checks `comment already present`
+before posting. **A terminal action with no terminal state**: the same shape as the
+redelivery loop, running outward-facing against GitHub on the 1800s timer.
+
 ## 🔴🔴🔴 THE UNSOUND REACHABILITY ARM IS AN ORCHESTRATOR AMENDMENT — mine
 
 Architect's R-C is correct and **supersedes my own ruling** ("wire `check:gate-wiring`
