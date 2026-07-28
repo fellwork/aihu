@@ -41,9 +41,23 @@
  */
 
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 
-const root = join(import.meta.dirname, '..')
+/**
+ * FIXTURE-SCAN MODE (C-FEL-GATE-WIRING-RUNS). `MOON_GRAPH_ROOT` repoints the
+ * scan at a fixture tree so this gate's RED path can be executed and observed,
+ * which is what check:gate-wiring's negative-fixture half requires of every gate
+ * (ruling 1: declared/registered is not proof). This gate shipped in #671 with
+ * no such proof and no entry in the shrink-only ramp, and nothing said so —
+ * check:gate-wiring, which would have, ran in no workflow.
+ *
+ * The override affects only WHERE the scan reads. It is not a bypass: with the
+ * variable unset the behaviour is byte-for-byte what it was. Do NOT combine it
+ * with `--fix`, which WRITES moon.yml files under the chosen root.
+ */
+const root = process.env.MOON_GRAPH_ROOT
+  ? resolve(process.env.MOON_GRAPH_ROOT)
+  : join(import.meta.dirname, '..')
 const packagesDir = join(root, 'packages')
 
 /** Directory names under packages/ that are real Moon projects. */
