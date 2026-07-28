@@ -66,9 +66,12 @@ origin/main  edba0c5a  fix(swarm): claim verbs are open, the format is what is v
 | **668** | DRAFT | **FEL-434 compiler half** (closes FEL-423). Three files; the whole change is deleting `if elide_agent { String::new() }` at `emit.rs:398`. Accepted; mark ready. |
 | **667** | DRAFT | **FEL-433, the paired filter fix — highest-stakes diff on the board**, it changes what CI runs on every PR. `code` split to its own step with `predicate-quantifier: every`; blanket `!**/*.md` → targeted doc-md exclusions so `skills/aihu/**.md` stays code. Mark ready; verifier dispatched. |
 
-**Every draft above shows `check=SKIPPED` + `ci-ok=FAILURE`.** That is the
-FEL-437 guard doing its job, not a defect — a draft built and tested nothing.
-Do not re-triage it; rule "mark ready" and move on.
+**A draft showing `check=SKIPPED` + `ci-ok=FAILURE` is the FEL-437 guard doing
+its job, not a defect** — a draft built and tested nothing. Do not re-triage it;
+rule "mark ready" and move on. As of the sixth wake **#656, #657, #667 and #668
+are all READY** with runs in flight; `check` is *running* (not skipped) on
+#667's ready run, which is the live confirmation that its own filter fix is not
+inverted — corroboration, not proof; the matcher is the verdict.
 
 Merged this session: **#639** (FEL-439 docs), **#640** (FEL-440 registration as
 codegen input), **#641** (FEL-441 ref/onMount order), **#653**, **#658**
@@ -247,6 +250,55 @@ Filed as `C-SWARM-WAL-STALE` → builder-b, carrying an **anti-row: a fix must n
 disable WAL.** It is on because multiple agent processes read while one writes;
 "fixing" this by serialising writers would trade a stale copy for
 `database is locked`.
+
+### Sixth wake — the PR that writes the rule it violates
+
+- **#667 PASSES and is cleared to land.** Verifier verified it with a real
+  picomatch 4.0.5 matcher under dorny's options, patterns **parsed from the PR
+  head** rather than retyped — and, the step that matters, **proved the matcher
+  faithful first** by reproducing the known pre-fix inert bug before running the
+  new patterns. An instrument not shown to reproduce a known-wrong answer is
+  just a second opinion. Nothing in that verdict rests on anyone reading a glob
+  correctly, which is the point: three readers got this filter wrong by
+  reasoning about it (architect twice, me once).
+- 🔴 **`sync-readme --check` is a docs-facing gate sitting inside `check` — and
+  #667's own comment forbids exactly that.** The PR added: *"a docs-facing gate
+  must NOT be a step here, or it would silently skip on the doc-only PRs it most
+  needs to run on; it goes in its own always-on job instead."* One screen above,
+  at `plan-a.yml:123`, sits `bun scripts/sync-readme.ts --check`, which consumes
+  root + `packages/**/README.md` and fails on drift. Post-#667 a README-only PR
+  yields `code=false`, `check` skips, and drift is uncaught in CI.
+  **Not a bug in #667** — the filter is correct and replaces one that had never
+  discriminated; #667 merely makes a pre-existing misplacement start to bite.
+  Filed as `C-FEL-READMESYNC-JOB` (needs `C-FEL-433`).
+  **The lesson:** *a rule stated in prose does not audit its own file.* The
+  author wrote the correct rule and did not sweep the file for existing
+  violations — prose has no way to ask "what else here is already like this?"
+  Rung: prose rule → a check that enumerates docs-facing gates and asserts each
+  is its own job.
+- **"The pre-commit hook catches it" is NOT a valid mitigation in this swarm.**
+  The husky hook is `--no-verify`-bypassable and agents here push `--no-verify`
+  routinely for docs (verifier on #659 and said so; historian too). A guarantee
+  whose only backstop is a bypassable local hook is void precisely for the
+  population it would need to cover.
+- **Rejected the carve-back** (README back to `code=true`): it would make every
+  prose-only README PR pay `bun install` + build + Rust + typecheck — the exact
+  cost the filter exists to avoid. The cheap always-on job (the `lesson-refs`
+  pattern: checkout + one run step) buys the coverage back at seconds. And it
+  must go in the **ci-ok failure loop**, not just `needs[]` — #649 proved
+  `needs[]` alone is sequencing, not enforcement.
+- **#657's freeze point is `28b70e87`, confirmed** — the historian flagged that
+  it sat one commit past the `d3cf271e` I named. That commit *is* the three
+  additions I had asked for; freezing literally would discard the work the
+  freeze was called to protect. Flagging a named SHA that has moved under you,
+  rather than guessing which way I meant it, is the correct handling.
+- **`C-FEL-428` deferral accepted.** *"A wrong meta-gate is worse than none"* is
+  the correct reasoning: a gate certifying other gates is the one place a
+  plausible-but-broken version is actively harmful, because it converts
+  "unaudited" into "audited and fine." Left `offered`, not claimed — a claim is
+  a lock, and the builder has now twice declined to hold one they were not
+  building. Not reassigned: builder-b holds `C-FEL-411` (a flapping *required*
+  gate) plus `C-SWARM-WAL-STALE`, both of which outrank it.
 
 ### Fifth wake — C-FEL-434 split and shipped, and a sidecar that overwrites itself
 
