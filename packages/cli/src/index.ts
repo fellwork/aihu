@@ -108,6 +108,15 @@ export function appPackageJson(
         // here keeps version drift visible at `bun outdated`.
         '@aihu/app': 'latest',
         '@aihu/arbor': 'latest',
+        // Peer of `@aihu/runtime`, which is why it is easy to miss: it is not a
+        // peer of `@aihu/app`, so satisfying app's own list is not enough.
+        // `@aihu/app`, `@aihu/runtime` and `@aihu/arbor` all declare ZERO
+        // dependencies and express every edge as a peer, so what a scaffold has
+        // to install is the TRANSITIVE PEER CLOSURE, not one package's list.
+        // Missing it took `full` and `agent` from a yarn build failure on
+        // `@aihu/store` to a yarn build failure on `@aihu/context` — one layer
+        // down the same chain (run 30333109465).
+        '@aihu/context': 'latest',
         // `@aihu/css-engine` is the optional utility-class compiler peer; only
         // emitted for the OOTB css-engine scaffold (`--css engine`). Its scoped
         // utilities fold into each component's shadow style at build time.
