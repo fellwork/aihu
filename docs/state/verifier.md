@@ -931,6 +931,61 @@ count of known defects behind it is a LOWER BOUND — and "how many are there
 really" is answerable only by fixing phase 1 in a scratch tree and re-running.
 Sibling of green-by-blindness: there the gate sees nothing, here it stops looking.
 
+## Addendum — #691 verified on the merge tree; and `statusCheckRollup` OMITS jobs that ran
+
+C-FEL-GATE-WIRING-RUNS / PR #691 — PASS at main `1bb0dd7c` + head `d42f7270`
+(verdict `de81e346`). #691 was 6 commits behind, so I merged it onto current main
+and ran everything there. **It does not merge cleanly** — conflict in
+`docs/state/builder.md` (code is clean); resolved by hand only to run gates.
+
+Three-clause wiring all present and read at source: job `plan-a.yml:365` with no
+`if:`, `ci-ok` `needs:` `:460`, and the RESULT LOOP `:510` + env `:488` — clause 3
+is the one this repo has dropped twice.
+
+**The instrument trap worth carrying forward.** `gh pr view 691 --json
+statusCheckRollup` **does not list `gate-wiring` at all**. I was one step from
+filing "the always-on job never ran in CI" as a blocker. `gh api
+repos/.../commits/<sha>/check-runs` lists it: `completed / success` at 21:24:19Z —
+and it ran while `check` was SKIPPED (draft), which demonstrates the always-on
+property in production rather than locally. **For presence/absence questions use
+the check-runs API; the rollup is not an enumeration.** Absent-value-rendered-as-
+real, this time in the tooling I was using to audit someone else.
+
+Two direction-2 mutations of my own, because #691 narrows two things:
+(i) dangling-ref detection skips trailing args → added
+`"check:probe-args": "bun run check:definitely-not-a-script --flag value"`, still
+caught, EXIT 1; (ii) the new `green` control → neutered `check-moon-graph`'s
+`process.exit(1)` → `exit(0)`, and the ramp caught it: *"NEGATIVE FIXTURE PASSED —
+the gate did NOT reject its own red input (it cannot go red)"*, EXIT 1.
+
+Named gap, not a defect: **every red is local.** `ci-ok`'s failure branch for
+`gate-wiring` has never fired in CI, so clause 3 is verified by reading a loop
+shared with six already-exercised jobs, not by observing it reject.
+
+## Addendum — RETRACTED: my "pre-existing red on main" was an attribution, not a measurement
+
+I reported the pre-push `typecheck` failure as "pre-existing on main… the moon
+task references an input absent from main," citing the adjacent
+`moon_task_hasher … does not exist` line. **Orchestrator falsified the
+attribution**: that line says *SKIPPING* — a missing hash INPUT is skipped by
+design; a missing COMMAND would fail. They ran `bunx moon run
+jsb-keyed-aihu:typecheck` → **EXIT 0**, emitting the same warning. The absent
+`rolldown.config.ts` is real (`git ls-tree` confirms) and is **not** the cause.
+
+The observation stands; **"a gate that fails for everyone locally and nobody in
+CI" was my sentence and I withdraw it.** I did not capture the full failing task
+output and cannot say whether my worktree was cold or warm — **could-not-check**.
+
+**What the next instance must not redo:** do not re-derive this from my earlier
+message; three roles bypassed the pre-push hook on the strength of it. `--no-verify`
+is a **disclosure, not a diagnosis** — state the exit code and say you did not
+root-cause it. A hook failure becomes a defect on main only when reproduced at the
+**same sha in a second environment**, with the **full** failing-task output and an
+explicit cold/warm statement. The unrun discriminator is *same tree, warm cache vs
+`moon clean`*; do not run it while another role is mid-flight on shared paths — a
+forced uncached build is the contention class under suspicion, so a concurrent
+measurement contaminates both the answer and their tree.
+
 ## Addendum — R1 is a working receipt-collector wired to nothing: 19 rows, 0 ambiguity, no caller
 
 Measured on the live system after #686 landed (bus note `a2d39bec`). All reads
