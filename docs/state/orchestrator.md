@@ -5,7 +5,7 @@
 **Renamed from:** `docs/state/merge-train.md` on 2026-07-26. Scope names go stale —
 `merge-train` spent 2026-07-25/26 orchestrating a swarm, not running a merge train,
 and `docs-next` spent it doing config architecture. **Role names survive a pivot.**
-**Last verified:** 2026-07-26 (historian, against `origin/main` @ `8aa12dc1`)
+**Last verified:** 2026-07-27 (orchestrator wake, against `origin/main` @ `edba0c5a`)
 **Mode:** 2/3 mixed — build + defect fix, multi-agent
 
 > **Why this file lives at `docs/state/` and not `state-orchestrator.md`:**
@@ -15,43 +15,126 @@ and `docs-next` spent it doing config architecture. **Role names survive a pivot
 > resume step 1 a silent no-op — see lesson #20 in
 > `.claude/skills/fw-agent-skill/references/lessons.md`.
 
-## Substrate (resolved 2026-07-25, still true 2026-07-26)
+## Substrate — CHANGED TWICE on 2026-07-27. Read this before trusting anything below.
 
-**The repo is the substrate.** Durable artifacts under `docs/state/`,
-`docs/plans/<slice>/`, `docs/lessons/`. Committed, visible in every worktree,
-attributable via `git log`.
+**The bus is the record.** Coordination runs over `swarm-bus` (the Rust core in
+`packages/swarm`, installed at `~/.swarm/bin/swarm-bus`) against one SQLite file
+at `~/.swarm/bus.db`. Payloads are typed and validated at the boundary; a
+malformed message is REJECTED with exit 2, so **read the exit code.** The
+predecessor `bus.py` and the pre-cutover `skills/swarm/swarm.ts` Linear/Notion
+path are both SUPERSEDED — a contract naming `skills/swarm/swarm.ts` as its
+surface is describing a dead tool (this is how C-FEL-436 came to be dispatched
+for work #645 had already done in `packages/swarm/src/main.rs`).
 
-A gbrain server *is* reachable at user scope as **`gbrain-local`**
-(`mcp__gbrain-local__search` / `__get_page` / `__put_page`). The project-scope
-`gbrain` entry in `.mcp.json` does **not** run: `.claude/scripts/gbrain-mcp.sh`
-exits unless `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are exported, so
-`mcp__gbrain__*` does not exist. Re-resolve every session:
+**Slack is banned for agents** (founder ruling 2026-07-27, landed as `#658`).
+It is read by neither the reconciler, the console, nor the Linear/GitHub sync:
+work reported there is invisible to every gate. It happened anyway this session —
+verifier posted the FEL-461 finding to Slack and it existed in the ledger only
+because builder-b relayed it onto the bus.
 
-```
-ToolSearch  query: "gbrain search put_page get_page"
-```
+**Durable role state lives at `docs/state/<role>.md`**, committed, named by ROLE.
+`docs/state/<your-own-role>.md` is **always in surface, on every contract** —
+ruled 2026-07-27 after the historian correctly flagged it as a scope delta. A
+surface that forbids the file every role is required to update is a defect in
+the surface.
 
-**gbrain was resolved at the start of the 2026-07-25 session and then went unused
-for ~20 hours.** One page was written, late:
-`aihu/delta/session-2026-07-26/orchestrator-state`. It is a real record and it was
-already stale within 30 minutes of being written (it lists #611 as open; #611
-merged as `6bcef501`). Treat it as a source, not as truth — see "Corrections".
+GBrain remains reachable at user scope as `gbrain-local` for semantic recall. It
+is **not** the coordination or state layer. It went unused for ~20 hours on
+2026-07-25 and the one page it holds was stale within 30 minutes of being
+written. Do not treat it as truth.
 
 ## Where main actually is
 
 ```
-origin/main  8aa12dc1  fix(cli): agent template TS7006 regression + matrix tests the diff, not npm (#613)
+origin/main  edba0c5a  fix(swarm): claim verbs are open, the format is what is validated (#664)
 ```
 
-**59 commits merged to `origin/main` since 2026-07-25T00:00** (`git log origin/main
---since=2026-07-25T00:00:00 --oneline | wc -l`).
+### Open PRs — verified 2026-07-27 via `gh pr list --state open`
 
-### Open PRs — verified 2026-07-26 via `gh pr list --state open`
+| PR | state | note |
+|---|---|---|
+| **664** | READY, MERGEABLE | *(merged during this wake — became `edba0c5a`)* |
+| **663** | DRAFT | FEL-431 cf-team `.moon` workspace. Honest could-not-check split: `moon` now resolves+runs, but typecheck-exit-0 needs the real `create-aihu` pipeline. Leave draft. |
+| **661** | DRAFT | FEL-461 swarm SKILL.md `$S` → shell function. Evidence exists; needs a ready transition. |
+| **660** | READY | `docs/state/builder-b.md`. |
+| **659** | DRAFT | `docs/state/verifier.md` Round 3. |
+| **657** | DRAFT | retro — 8 incidents with promotion rungs. |
+| **656** | DRAFT | FEL-EXTERNALS `/^node:/` in cli/app/adapter-vercel. **Ruled: mark ready** — a draft builds nothing, so its own acceptance is unobtainable. |
+| **655** | READY, MERGEABLE, **ci-ok green** | FEL-GH478 `<$slot>` fallback. Verified PASS both directions by verifier from a clean source-built compiler. Ready to land. |
+| **654** | DRAFT | GH-503 `__aihu_each` non-iterables. Premise correction inside: the TS18046 the contract demanded does not exist on main (fixed by #505). |
 
-| PR | branch | state | note |
-|---|---|---|---|
-| **609** | `feat/config-in-vite-config` | OPEN, **DIRTY** (conflicts) | config lives in `vite.config.ts`. Rebuilt from `main` — the predecessor `#605` on `feat/scaffold-aihu-config` is **abandoned; do not rebase onto it.** Last known CI state: `check`/`ci-ok` still running, outcome never reported. |
-| **602** | `changeset-release/main` | OPEN, MERGEABLE | changesets version PR. Would take `@aihu/cli` **1.0.1 → 1.1.0**. |
+Merged this session: **#639** (FEL-439 docs), **#640** (FEL-440 registration as
+codegen input), **#641** (FEL-441 ref/onMount order), **#653**, **#658**
+(CLAUDE.md), **#664**.
+
+## Rulings issued 2026-07-27 (orchestrator wake) — do not re-litigate
+
+Every one of these was verified against `origin/main` before it was made; a
+self-assessed disposition is exactly what must not be taken on trust.
+
+- **The recirculation loop is CLOSED, and the mechanism is worth remembering.**
+  Five contracts (423/425/430/433/437) were re-dispatched to the architect for
+  ~9 batches. `verify-merged` could never clear them: it selects only
+  `claimed|building|submitted|no-claims` (`main.rs:2436`), so an **`offered`
+  contract with no swarm claim is invisible to reconcile forever.** It needed an
+  authority move. Done: `C-FEL-425 → verified` (#606), `C-FEL-430 → verified`
+  (#625/#618), `C-FEL-437 → verified` (#627), `C-FEL-423 → declined`
+  (covered by C-FEL-434), `C-GH-478 → declined` (duplicate of C-FEL-GH478).
+- **Status moves on another agent's contract are the orchestrator's, not the
+  agent's.** The architect was right to stop and ask rather than mutate.
+- **FEL-433 is REAL, not stale — the earlier "does not reproduce" was wrong.**
+  The `code:` paths-filter at `plan-a.yml:447-457` carries a full exclusion list
+  and is **inert**: `dorny/paths-filter` defaults to `predicate-quantifier: some`
+  and the leading `'**'` matches everything, so every negation is dead and
+  `code` is true for every PR. The workflow documents this against itself at
+  `:251-255` and `:353-358`. **#615 is `check:skill-samples`** (`plan-a.yml:102`),
+  a step *inside* `check`, which is gated on `changes.code` — and its inputs are
+  `skills/aihu/**.md`. So the naive fix (`predicate-quantifier: every`) makes a
+  samples-only PR classify as docs and **skips the gate that exists to catch
+  rotted samples.** Fix both halves in one contract or neither.
+- **C-FEL-434 → option (b), and it is cheap.** Do NOT un-elide
+  `registerAgentMetadata` into client bytes (policy `extract` carries scope
+  names; `.size-limit.json` gates the bundles). `manifest_json` is a **build-time
+  sidecar**, not client bytes (`emit.rs:125`, written like `route_json`), and it
+  is suppressed at `emit.rs:397-398` — *that* suppression is what starves the
+  readiness generator. Lift it; feed `plugin-agent-readiness` through the seam
+  that already exists (`markdown-resolver.ts:81`
+  `options.readComponents ?? getAllAgentMetadata`). **Hard requirement:**
+  `llms.txt` is served, so a `$scope`-carrying component must appear in
+  `## Components` while the emitted `llms.txt` must NOT contain the scope string.
+  This also closes C-FEL-423.
+- **FEL-440 closed, no surface waiver.** Keep the `panic!` tripwire; do not
+  thread `Result<EmitResult, CompileError>` through ~212 call sites. 11-of-19
+  trigger families is satisfied — the remainder provably funnel through the same
+  append at `emit.rs:1622-1626`, and nobody should guess block-tag syntax to hit
+  a round number.
+- **C-GH-554 → `ts-blank-space`,** not the full `typescript` compiler. `stripTs`
+  lives in `apps/docs/playground/playground-embed.ts`; `.size-limit.json` has no
+  `apps/**` row, so the browser-budget argument does not apply. Docs-app
+  dependency only.
+- **C-FEL-424 → do NOT reintroduce `aihu.config.ts` into the scaffold.** That
+  reverses #609 and the standing "config's home is `vite.config.ts`". `aihu add`
+  must resolve config the way `build.ts`/`dev.ts` already do and fail naming the
+  file it wanted.
+- **C-FEL-427 → the architect's direction is ratified:** converge the scaffold
+  `$action:{}` block onto the compiler-registered `action({describe,expose},fn)`
+  intrinsic. It removes a scaffold-only outlier, not a public API.
+- **`packages/server` and `packages/primitives` are DELIBERATE `/^node:/`
+  exclusions.** In `server` the empty node: externals list *is* the check
+  (`check:runtime-purity`); in `primitives` a `node:` import in a bundled entry
+  is a genuine bug in a size-gated browser package. A blanket pattern silently
+  externalises the exact leak the config exists to catch. Recorded in-file, not
+  only on the bus.
+- **The claim-verb vocabulary is OPEN; the FORMAT is what is validated.** #662
+  shipped a closed enum and was measured against live traffic before deploy: it
+  rejected 5 of 6 real verbs (`repro:`, `verified:`, `couldnotcheck:`, `tested:`,
+  `impl:`), including `couldnotcheck:` — the most valuable claim an agent can
+  make. #664 replaced it. **The spec (`design/typed-bus-payloads` §Schemas) is
+  what is wrong here, not the implementation.** Do not rebuild the enum.
+- **Batch size: at most THREE contracts per builder per wake,** and the
+  orchestrator checks each against merged PRs before sending. A 20-contract dump
+  produces either shallow claims or blocked ones; three of four in one earlier
+  batch were already merged.
 
 ### Published vs repo — verified 2026-07-26 via `npm view <pkg> version`
 
@@ -166,16 +249,47 @@ than none.
 
 ## Blocked on the founder
 
-1. **FEL-391 (E1)** — may a list opt into per-row reactive bindings, at one effect
-   per binding per row? Gates FEL-416 and four `use` families.
-2. **FEL-423 remainder** — *what may a static build claim about itself?*
-   `packages/compiler/src/codegen/emit.rs:206` —
-   `let elide_agent = target == BuildTarget::Client && is_agent_component;` — elides
-   agent metadata from client builds **by design** (a v0.6.6 decision), so
-   `llms.txt` ships at ~60–84 bytes while three tools genuinely exist. Reversing it
-   is a product change, not a wiring fix. **Escalated 2026-07-26 08:51Z, never
-   answered.**
-3. **Cut the release.** Everything above is on main and unpublished.
+1. **Route the non-aihu backlog.** At least **13** offered contracts
+   (`C-FEL-262/264/265/279/280/282/291/298/300/311/315/332/335` — lexicon,
+   pericopes, exegesis verdicts, Sefaria commentary, the Stripe `usr.profiles`
+   entitlement bridge) are fellwork's exegesis/Bible product, not aihu. Options
+   put to the founder 2026-07-27: scope `sync --pull` by Linear team/label, move
+   the issues, or work them here. Cannot be decided by an agent — it depends on
+   how the founder wants the Linear workspace organised. **Failure mode if
+   unanswered: nothing breaks, the queue just stays ~10% noise forever and every
+   triage pass re-discovers it** — which is precisely why it will never get fixed
+   without a ruling.
+2. **Cut the release.** Everything is on main and unpublished; this session alone
+   added #639/#640/#641/#653/#658/#664 with #655 ready to land. Outward-facing
+   and irreversible, so no wake may cut it. Open since 2026-07-26.
+
+**Both former items on this list are RESOLVED and must not be re-escalated:**
+FEL-391 (E1) was ruled by the architect — *ratify "replace, don't mutate"; no
+deep Proxy layer; field-level reactivity via a record-of-signals*. FEL-423's
+remainder was ruled by this wake as C-FEL-434 option (b) (see Rulings above);
+it never needed to be a product question, because `manifest_json` is a build-time
+sidecar and not client bytes.
+
+## Queue shape — measured 2026-07-27, not estimated
+
+```
+offered                            127
+  ...of which carry a bar          19     (all authored by the architect)
+claimed                             4     C-FEL-424/427/428/434 (builder)
+no-claims                          14
+verified                            9  → 12 after this wake's three status moves
+```
+
+The architect's own composition finding stands and is the reason "127 offered"
+overstates the work: after the reproducible-bug seam was drained (~21 barred),
+the remainder is **~28 epics/families** needing decomposition, the 13 non-aihu
+items above, a set of exists-with-feature-gap composables whose one-line notes do
+not pin a falsifiable behaviour, and design items that are architect rulings
+rather than builder bars. **Do not read the raw `offered` count as a backlog.**
+
+Pulled Linear titles live in the `note` column, not `issue` (`issue` gets the
+bare identifier). `sync --pull` is working correctly — I nearly filed a bogus
+tooling contract by querying the wrong column first.
 
 ## Linear ledger — queried live 2026-07-26, NOT copied from the channel
 
@@ -235,7 +349,22 @@ all 13 open issues were unassigned and three of them were already done.
   consumers** — but *"workspace tests alias `src`, so CI could never see it."* That
   root cause is unaddressed. This is a live instance of
   `docs/lessons/checked-thing-is-not-the-changed-thing.md`.
-- 🔴 **`examples/hacker-news` prerenders remote HTML unescaped, and no CI job
+- ✅ **RESOLVED 2026-07-27 — `examples/hacker-news` unescaped remote HTML.** This
+  was the single most consequential unactioned item on this file and it is
+  **fixed on main**; the alarm below is kept only as the record of what was
+  wrong. **FEL-426 removed all three `html={}` bindings.** Remote HN content is
+  now parsed to structured data (`src/lib/parse-hn-markup.ts`) and rendered
+  through escaped bindings, `src/components/hn-rich-text.aihu:5` states there is
+  deliberately no `html={}`, and `examples/hacker-news/tests/smoke.test.ts:55`
+  asserts *"no `html={}` binding anywhere in the example source"* — the fix is
+  gated, not merely applied. The rejected alternative is recorded in
+  `parse-hn-markup.ts:12`: keep feeding untrusted HTML to `html={}` behind a
+  sanitiser. **Verified by reading `origin/main`, not by remembering.** Do not
+  re-raise it.
+
+  <details><summary>The original alarm, kept for the record</summary>
+
+  🔴 **`examples/hacker-news` prerenders remote HTML unescaped, and no CI job
   builds it. RAISED 2026-07-25 11:50 EDT, NEVER ACTIONED, CONFIRMED STILL LIVE
   2026-07-26 by the historian.**
 
@@ -266,6 +395,8 @@ all 13 open issues were unassigned and three of them were already done.
   SSR-time injection too."* No such decision or doc change was ever made. **Not
   filed in Linear.** This is the single most consequential unactioned item from the
   session.
+
+  </details>
 - **#546's derived-list side effect is real and was never filed as a PR.**
 - **Two proposals were made and never accepted or rejected:**
   1. A **load/idle assertion in the bench harness** that *"refuses to record a
@@ -301,6 +432,35 @@ all 13 open issues were unassigned and three of them were already done.
   `/Users/smcguirt/conductor/repos/aihu` before grepping it — it sits on whatever
   branch another agent left it on, and this has produced a confident wrong
   correction at least twice. `git worktree list` shows 100+ worktrees on this repo.
+- **Do not re-escalate FEL-391 or the FEL-423 remainder.** Both are ruled; see
+  "Blocked on the founder".
+- **Do not re-verify the stuck-five (423/425/430/433/437).** Their dispositions
+  are recorded above with the merged PR that resolved each. The architect spent
+  ~9 batches re-confirming them; the loop was a selector defect, not work.
+- **Do not re-litigate the claim-verb enum.** It was built (#662), measured to
+  reject 5 of 6 real verbs, and replaced (#664). The spec is what is wrong.
+- **Do not "complete the `/^node:/` sweep"** into `packages/server` or
+  `packages/primitives`. Deliberate exclusions; the reasoning is in-file.
+- **Do not re-raise the `hacker-news` unescaped-HTML alarm.** FEL-426 fixed it
+  and a smoke test gates it.
+- **Do not treat an uncommitted `CLAUDE.md` in a sibling worktree as lost work.**
+  Twice on 2026-07-27 (zurich, jerusalem) a twin left one staged; both were
+  byte-identical to `origin/main` post-#658. Check
+  `git diff --stat origin/main -- <file>` before preserving anything.
+- **Do not reuse a branch whose content already merged.** `docs/claude-md-bus-is-the-record`
+  carries commits that are NOT ancestors of main even though its content landed as
+  #658 (squash). Branch fresh off `origin/main` every time — this is retro
+  incident 8, which recurred twice more the same day.
+
+## Structural fix I owe, and have not built
+
+**The supervisor must pin the checkout per wake.** Three incidents on
+2026-07-27 — a force-push onto an already-merged branch, and two worktrees that
+changed identity between turns under builder-b and verifier — all share one
+root: a role's workspace is not stable across wakes, and twins can share one
+checkout with no lock. The current rung is prose ("check your branch"), which is
+the weakest possible and depends on remembering. Recorded as retro incident 8 in
+`docs/lessons/promotion-rungs.md` (PR #657). **Owner: orchestrator. Unbuilt.**
 
 ## Pointers
 
