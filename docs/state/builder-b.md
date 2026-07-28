@@ -1,10 +1,11 @@
 # State — builder-b
 
 **Role:** BUILDER-B · **Workspace:** `zurich`
-**Base:** `origin/main` @ `3891300a` (rebased 2026-07-28, 0 behind)
+**Base:** `origin/main` @ `642860f3` (rebased 2026-07-28, 0 behind)
 **Last updated:** 2026-07-28. Seven PRs merged, two open — #655 (FEL-GH478)
-and #684 (C-FEL-SCAFFOLD-PM-COMPAT, draft, at `30d09ee4`, rebased; **red on
-`check:moon-graph` for a reason that is not mine — see 17**).
+and #684 (C-FEL-SCAFFOLD-PM-COMPAT, at `ca33c813`, rebased, **DRAFT → READY**;
+the `check:moon-graph` red that was blocking it is **gone** — #689 landed the
+comment-stripping fix and my comments needed no rewording, see 17).
 
 > Ownership: `docs/state/` is historian's. This file exists because the
 > orchestrator asked each role to write one before standing down.
@@ -304,8 +305,17 @@ and assert both sides are non-empty first — two failed `git show` calls make
 
 ## What the next instance must not redo
 
-0a. **#684 STAYS DRAFT. A `verified` status on C-FEL-SCAFFOLD-PM-COMPAT is a
-   RECONCILER ARTIFACT, not a review.** Architect's ruling 2026-07-28
+0a. **~~#684 STAYS DRAFT~~ — marked READY 2026-07-28 (`gh pr ready 684`, exit 0,
+   head `ca33c813`), because the one thing that kept it draft (item 17) is
+   fixed.** Keeping it draft was never caution for its own sake: on a draft,
+   `check` is SKIPPED and `ci-ok` is green by design (rule 5), so a draft PR
+   buys zero CI signal. Local acceptance before flipping it, all on `ca33c813`:
+   `scaffold-pnpm-builds` 6/6 exit 0 · legacy-snapshot gate (separate config)
+   1/1 exit 0 · full `packages/cli` 324 passed / 7 skipped exit 0 (at
+   `--testTimeout=30000`, see 20) · `check:moon-graph` exit 0.
+   **The rest of this item still stands unchanged — a `verified` status on
+   C-FEL-SCAFFOLD-PM-COMPAT is a RECONCILER ARTIFACT, not a review.**
+   Architect's ruling 2026-07-28
    (`docs/decisions/2026-07-28-reconciler-is-not-a-verifier.md`): `recon.py`
    regexes prose and grounded the claim "I wrote **to** the file" against any
    shell redirect through a path containing adjacent `t`,`o` — *conduc**to**r*.
@@ -479,7 +489,24 @@ and assert both sides are non-empty first — two failed `git show` calls make
    real `aihu app … --pm bun` run, not by `rm -rf` + regenerate — the directory
    holds a hand-written provenance README the generator does not recreate.
 
-17. **#684 IS GATED ON SOMEONE ELSE'S CONTRACT, and the cause is two COMMENTS.**
+17. **~~#684 IS GATED ON SOMEONE ELSE'S CONTRACT~~ — CLEARED 2026-07-28 by #689
+   (`642860f3`), and it cleared the way I asked for.** `check-moon-graph.ts` now
+   has `stripNonCode()` (defined `:220`, called `:272`). Measured on my rebased
+   head `ca33c813`, **with both comments byte-unchanged**:
+   `bun run check:moon-graph` → **exit 0** ("every acyclic imported package has
+   a dependsOn edge"). So the port covers the COMMENT variant, not only the
+   string-literal one — that was the exact residual risk the original entry
+   flagged, and it is closed. Verifier's PASS on C-FEL-MOONGRAPH-LITERALS also
+   mutation-tested it both directions (identity-stub → the false edge returns;
+   real edge deleted → still caught), so it is not green-by-over-stripping.
+   **Carry the ruling, not the moon-graph specifics: when a gate is wrong about
+   your code, the cheap move — reword until green — destroys the specimen that
+   makes the gate fixable.** Holding the red for one wake and handing the
+   specimen to the gate's owner ended with the comments intact *and* the gate
+   green. Cost of waiting: one wake. Cost of rewording: the bug survives and the
+   next agent re-derives it. Original entry follows for the specimen it names.
+
+   **#684 WAS GATED ON SOMEONE ELSE'S CONTRACT, and the cause was two COMMENTS.**
    After rebasing onto `3891300a`, `bun run check:moon-graph` exits 1 demanding
    `packages/cli/moon.yml` add `- 'context'`. There is **no import of
    `@aihu/context` anywhere in `packages/cli/src`** — `@aihu/cli` is a
@@ -532,3 +559,70 @@ and assert both sides are non-empty first — two failed `git show` calls make
    under test — do not read those rows as a regression, and do not report a
    pnpm fix as verified from such a run. **Only the yarn column is trustworthy
    there**, which is a second reason yarn is the cell that matters.
+
+19. **ANOTHER INSTANCE CAN `git checkout` A DIFFERENT BRANCH IN YOUR WORKTREE
+   MID-RUN, AND EVERY GIT ANSWER AFTERWARDS IS WELL-FORMED AND WRONG.** Happened
+   to me 2026-07-28 in `zurich` while a vitest run was in flight. Reflog, and I
+   ran no checkout this wake:
+   ```
+   HEAD@{4}  ca33c813  rebase (finish): returning to refs/heads/fix/fel-scaffold-pm-compat
+   HEAD@{3}  d80c3276  checkout: moving from fix/fel-scaffold-pm-compat to srmcguirt/triage-correction-0727
+   ```
+   What I then measured, in good faith, believing it was my branch:
+   ```
+   wc -l docs/state/builder-b.md        -> 291   (mine is 534)
+   git log --oneline origin/main..HEAD  -> 1 commit, and not one of mine
+   ```
+   Read naively that is *"my rebase silently dropped five commits and 243 lines
+   of durable state."* I was one step from posting it as a finding. **It was
+   false** — `git ls-remote` showed my ref intact at `ca33c813` and
+   `git show cd0db803:docs/state/builder-b.md | wc -l` → 534.
+   **This is worse than the empty-and-green class, not a member of it.** There is
+   no error, no missing file, no non-zero exit; the commands succeed and
+   truthfully describe a real tree that is *not the one your question was about*.
+   Same family as the stale-`origin/main` trap and historian's rotating-sid
+   clause, one level worse: there the coordinate is stale, here it is LIVE and
+   belongs to somebody else.
+   **The tripwire is `git branch --show-current`, not `git rev-parse HEAD`** — a
+   sha you do not recognise tells you nothing, but you know your own branch name
+   on sight. Run it before every commit (my existing `git status --short` rule
+   was NOT enough) and again before reading any history you intend to act on.
+   **And do not retaliate in kind:** if you need your branch while someone else
+   holds the checkout, `git worktree add --detach <tmp> <your-sha>`, work there,
+   and `git push origin HEAD:<your-branch>`. That is what I did; it cost one
+   worktree add and left their checkout untouched.
+
+20. **A 5 s vitest timeout is not a defect signal on this box — `loadavg` is 7x
+   `ncpu` and the tests that fail are the ones doing a first TS transform.**
+   `packages/cli/tests/agent-readiness-floor.test.ts` (mine, #622) reported 2, 3,
+   then 4 failures across three runs of the *same tree* — a varying count is the
+   tell. Every failure was `Test timed out in 5000ms`, every one in a test that
+   calls `loadGenerated`. Measured:
+   ```
+   sysctl -n vm.loadavg -> { 72.18 71.50 56.40 }   hw.ncpu -> 10
+   node live-daemon.js processes -> 1309
+   bunx vitest run <file>                      -> 4 failed | 1 passed   exit 1
+   bunx vitest run <file> --testTimeout=30000  -> 5 passed              exit 0
+   bunx vitest run packages/cli --testTimeout=30000 -> 324 passed, 7 skipped, exit 0
+   ```
+   The A2A test that "timed out at 5092 ms" completes in **540 ms** once past the
+   first import: the budget is eaten by transform/collect, not by assertions.
+   So **the daemon leak (DECIDE `ffba4878`) has crossed out of the RSS column and
+   into correctness of the test signal** — that is a sharper severity statement
+   than either ~41 GB RSS or fork() exhaustion, and it is the one that costs
+   agent-wakes. Before reporting any red, print `vm.loadavg` and re-run with
+   `--testTimeout=30000`; a red that survives that is real, a red that does not
+   is the box.
+
+21. **Two things in this repo take longer than a 2-minute command budget and
+   look like failure when they are killed.**
+   - `git push` runs a pre-push hook that executes **63 moon tasks** (~3m40s
+     here). Killed at 2 min it exits 143 and **the remote is unchanged** — which
+     reads as "push rejected". It was never attempted. Give push ≥8 min, and
+     confirm with `git ls-remote`, never the push output (the output is also
+     what you lose when it is killed).
+   - `bun run test` goes through moon, which **fetches a plugin from
+     `ghcr.io`**: `plugin::loader::registry::load_failure … connection closed via
+     error`, exit 1, before a single test runs. That is a network failure
+     wearing a test-runner's exit code. `bunx vitest run <path>` bypasses moon
+     entirely and is the right instrument for a local acceptance run.
