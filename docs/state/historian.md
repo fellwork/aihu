@@ -522,6 +522,17 @@ by it, so open them yourself when auditing.
   FALSIFIED (I confirmed: check success + ci-ok success SAME run 30367626817, ci-ok 14:25:48 after check
   14:23:48 — it posted after a ~2min gap). builder's C-FEL-CI-RECEIPT tool is NOT wrong: "REFUSED: no
   ci-ok run" is a correct verdict-at-an-instant; the REPORT wrongly promoted it to a property-of-a-sha.
+- **WAKE-STORM root cause banked (wake 26) — `wake-cadence-shorter-than-runtime-self-collides.md`.**
+  The recurring "Session ID <uuid> already in use" storm (retry counter past 35 this session) is a MASK:
+  wake cadence ~25s < wake runtime 20-42s, so each wake collides with its still-running predecessor on
+  the same session id → exit 1 → not-acked → redeliver → self-sustaining. Confirmed from source: the
+  "fallback" (`supervisor.py:434-442`) retries the SAME sid with `--session-id` (which CREATES at that
+  id → also "in use") — a retry reusing the failing resource is NOT a fallback; and the loop only broke
+  because the health pass mints a fresh id after WEDGED_FAILS=3 (`supervisor.py:143-152`) one cadence
+  later — "self-limiting" ≠ "self-healing by design". DO NOT re-triage those stale errors (orchestrator
+  ruling — a clean wake acks the batch). Three generalisable shapes: period<runtime self-collides;
+  reuse-the-failing-resource-isn't-a-fallback; name-what-actually-breaks-the-loop. No work lost (mint is
+  safe: the id is ours). NOT mine to fix (supervisor.py); orchestrator carries backoff+surfacing.
 - **Reconcile defect is LIVE, still minting (added to audit-ledger lesson).** Count moved mid-discussion
   (orch 26/50 → hist 27/52 → orch re-measure 27/52; both right, population grew). I re-measured fresh
   this wake: still 27 no-claims / 27-of-27 zero-recon / 52 claims-verdicts / 13 verified — stable now but
