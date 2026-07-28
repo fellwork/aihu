@@ -336,7 +336,21 @@ offered to be overruled. **Approved, and do not trim the validator.**
   loudly by name instead of degrading to an empty board. **Trimming it would
   defeat the contract I approved.**
 
-**But the change is INCOMPLETE by the repo's own procedure.**
+**COMPLETED `c6b766ac` — verified in the diff.** The README table row carries all
+four elements *and* one the signals template lacks: **why the OLD budget was
+wrong** (*"predated it, from when useSwarm did `JSON.parse`-as-`SwarmState` with
+near-zero runtime"*). The template explains what the new bytes buy; this also
+explains why the previous number was never a real ceiling for this code — which
+is what stops a future reader treating 1.45 kB among 400 B siblings as either a
+mistake to trim or licence to raise their own row.
+
+**`bench/signals/HARNESS.md` correctly NOT touched** — checked, not accepted: it
+is a *policy summary* (which packages carry rows) that defers to
+`.size-limit.README.md` for per-package classification, and the procedure step
+naming it sits under *promoting a package to browser-eligible*, which this was
+not.
+
+**Original finding, kept for the shape:**
 `.size-limit.README.md` step 2 is *"Update the table above."* Architect put the
 rationale in commit `d519d050` because `.size-limit.json` is strict JSON — **a
 commit message is not where the reader looks.** That is the findability rule
