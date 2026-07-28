@@ -374,8 +374,26 @@ PATH. So the pnpm row said SKIP for the whole life of the lane and the grid was
 **The lane now produces signal, and the residual failures are real defects**
 (out of scope for that contract — reported, not fixed): pnpm ×4
 `ERR_PNPM_IGNORED_BUILDS` (templates declare no `pnpm.onlyBuiltDependencies`);
-yarn ×4 `Cannot find package '@aihu/store' imported from @aihu/app/dist` — a
-genuine packaging defect, and likely the same class as the FEL-391 residual.
+yarn ×4 `Cannot find package '@aihu/store' imported from @aihu/app/dist`.
+
+> **CORRECTION — I diagnosed that last one wrong, and the wrong fix is the
+> tempting one.** I reported it as "`@aihu/app` imports `@aihu/store` without
+> declaring it." It **does** declare it. Verified at source:
+> `packages/app/package.json` has `dependencies: {}` and lists `@aihu/store`
+> (with `arbor`, `router`, `runtime`, `server`, `signals`) under
+> **`peerDependencies`**. **Yarn 1 does not auto-install peers**, unlike npm 7+
+> and pnpm — which is exactly why *only* the yarn column fails.
+>
+> So the fix is **NOT** to move `@aihu/store` into `@aihu/app`'s
+> `dependencies`: that risks a duplicate store instance and is the wrong layer.
+> The **scaffold template** must declare the peers the generated app needs.
+>
+> My instinct that this rhymed with the FEL-391 residual (`@aihu/use` cannot
+> import `@aihu/reactive` — packaging, not doctrine) was reasonable and the
+> mechanism turned out to be different. Recording the miss rather than editing
+> the sentence: "same shape as a thing I already know" is a fast way to a
+> confident wrong answer, and a missing dep and an uninstalled peer look
+> identical from the error message alone.
 
 ### Verified-from-source ≠ true of the live bus
 
@@ -753,3 +771,25 @@ accidental, a deployment gap made it moot.** Filed as C-SWARM-DEPLOY-GAP.
    --global pnpm yarn` under proto's npm printed `added 2 packages` and left
    `pnpm --version` empty for the entire life of the matrix lane. Assert the
    post-condition (`pnpm --version` non-empty), not the exit code.
+18. **A green `ci-ok` is not evidence unless `check` RAN ON THE SAME RUN.**
+   Readying a PR close to a push produces two events and two concurrent runs on
+   one sha; the cheap run (check SKIPPED) can post a green `ci-ok` minutes
+   before the run that actually builds finishes. Three faces seen: stale-green
+   (#680), green-beside-in_progress (#681), red-because-cancelled (#672). The
+   check costs one command:
+   `gh api repos/fellwork/aihu/commits/<FULL-SHA>/check-runs` — confirm `check`
+   and `ci-ok` carry the **same run id**, that `check` is `success` (not
+   skipped/in_progress), and that `ci-ok` **started after** `check` finished.
+   The PR summary and `mergeStateStatus` collapse the runs and will not tell
+   you. Habit that avoids it: **push first, let the run start, then mark ready.**
+   Banked repo-wide as `docs/lessons/ci-ok-green-only-with-same-run-check.md`.
+19. **Capture CI output BEFORE re-running.** A rerun supersedes the check-runs
+   it replaces, so re-running to test a flake destroys the evidence for the
+   report you were about to write. I got away with it twice this session
+   (#674's TS2307, #677's 25m hang) only because I had already read the logs.
+20. **Do not mark a docs-only PR ready while the #670 × #667 interaction is
+   live.** A non-draft PR whose `check` skipped fails `ci-ok`, and docs-only
+   PRs skip `check` by design — so every docs-only PR is unmergeable the moment
+   it leaves draft. #679 is the fix. After it lands, **rebase before
+   re-readying**: `pull_request` runs use the workflow from your HEAD branch, so
+   an un-rebased branch still carries the broken gate.
