@@ -632,3 +632,20 @@ receipt which was invalid when written. The rule changed after; the verdict's co
 STILL LIVE, unchanged: the flapping-`check` caveat (C-FEL-411) — #671 is the fix but is STILL
 DRAFT/unlanded (main 41c37df6 still has packages/editor/moon.yml `dependsOn: [signals]` only),
 and #671 must land AFTER #666. Keep not trusting `check` green/red until #671 lands.
+
+### Round 3 addendum 10 (FINAL — this branch is now FROZEN) — findable-on-main, not just pushed
+
+DURABILITY MEANS FINDABLE WHERE THE READER LOOKS, NOT "the push succeeded." Verify every
+durable artifact with `git show origin/main:<path>` (or `git ls-tree origin/main <path>`) — does
+it appear ON MAIN, where the next instance reads it — NOT with `ls-remote` on your own branch,
+which only answers "did my push land on the branch". Self-caught this session: I pushed all of
+Round 3 to branch verifier/state-swarm-core-review-0727 (PR #659) and ls-remote-verified it every
+wake, but `git show origin/main:docs/state/verifier.md` was the STALE 2026-07-26 Round-1/2 file —
+#659 never merged, so the next verifier instance reading main would have been blind to this entire
+session. Same right-content/wrong-location class as architect.md landing in the wrong repo.
+FREEZE: this branch accumulated Round 3 across ~13 wakes without landing — the #657 growing-draft
+trap, one layer down. Stop growing it. The next durable update goes on a FRESH branch off
+origin/main AFTER #659 lands, and every future durable write is verified findable on main, not
+just pushed. Until #659 lands, this session's verifier state (WAL trap, isolation-before-run,
+known-red registry, C-FEL-434 bar + measured collision, #670 draft-guard supersession) lives ONLY
+here and is reported on the bus (msg 29836310) as needing to be in the priority land-set.
