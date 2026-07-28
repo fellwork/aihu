@@ -393,9 +393,13 @@ fn v064_compile_full_with_target_server() {
 
 // ─── v0.6.6 — Client build emission gates ────────────────────────────────────
 
-/// Client build with @agent block: manifest_json is empty, JS has elision comment.
+/// FEL-434 (closes FEL-423): client build with @agent block EMITS the manifest
+/// sidecar (a build-time artifact, not bundled), while the JS still carries the
+/// elision comment and no in-bundle registration. Was
+/// `v066_client_build_elides_agent_manifest`, which asserted the manifest was
+/// suppressed — that suppression starved the agent-readiness generator.
 #[test]
-fn v066_client_build_elides_agent_manifest() {
+fn v066_client_build_emits_agent_manifest_sidecar() {
     let src = r#"
 @agent {
   input name: string
@@ -410,15 +414,20 @@ fn v066_client_build_elides_agent_manifest() {
     let unit = compile_full_with_target(&parsed, BuildTarget::Client).unwrap();
     let result = emit(&unit, "my-agent");
 
-    // manifest_json must be empty for client build
+    // manifest_json IS emitted for client builds now (the sidecar is on-disk,
+    // never bundled — zero browser bytes, zero policy in the client output).
     assert!(
-        result.manifest_json.is_empty(),
-        "manifest_json should be elided in client build"
+        !result.manifest_json.is_empty(),
+        "manifest_json (agent-manifest.json sidecar) must be emitted for client builds"
     );
-    // JS must contain the elision comment
+    // JS must still contain the elision comment and no in-bundle registration.
     assert!(
         result.js.contains("// [client build] @agent block elided"),
         "JS should contain elision comment"
+    );
+    assert!(
+        !result.js.contains("registerAgentMetadata"),
+        "client JS must NOT carry registerAgentMetadata (in-bundle elision stays)"
     );
 }
 
@@ -663,10 +672,11 @@ fn v069_fixture_client_elides_agent_js() {
         result.js.contains("// [client build] @agent block elided"),
         "client build JS should have elision comment"
     );
-    // Must not have manifest_json.
+    // FEL-434: client build now EMITS the manifest sidecar (build-time artifact,
+    // never bundled); the in-bundle registration stays elided (comment above).
     assert!(
-        result.manifest_json.is_empty(),
-        "client build must not emit manifest_json"
+        !result.manifest_json.is_empty(),
+        "client build must emit the agent manifest sidecar (FEL-434)"
     );
 }
 

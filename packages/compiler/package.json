@@ -53,7 +53,7 @@
   "devDependencies": {
     "@aihu/css-engine": "workspace:*"
   },
-  "description": "Single File Component (.aihu) compiler — Rust binary + JS glue.",
+  "description": "Single File Component (.aihu) compiler \u2014 Rust binary + JS glue.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/fellwork/aihu.git",
