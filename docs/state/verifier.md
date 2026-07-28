@@ -1202,6 +1202,45 @@ is enforced forever, anchored to a fact checked exactly once.** Adding `verified
 to that IN-list is one string; the *demotion path* it would need does not exist
 and is the real work — worth naming so the follow-on is not scoped as "one string".
 
+## Addendum — #691 re-verified at head `6789f8d1`; the parse DETECTS, only the guard REJECTS
+
+My PASS was stamped to `d42f7270`; the head moved to `6789f8d1`, so the void clause
+fired for the third time this session. Re-ran rather than re-cited (verdict
+`0bcae1d0`). **PASS on the merge outcome, no blocker remaining:**
+`git merge --no-commit --no-ff 6789f8d1` onto `1bb0dd7c` → *"Automatic merge went
+well"*, **0 conflicts** — the `docs/state/builder.md` blocker I filed is resolved,
+and two instruments now agree (gh says MERGEABLE, the local merge agrees). Both
+lines shipped (`:542/:546` counter, `:547` inversion, `:562` `-ne 7`), and the new
+GATING half runs and passes. `check-gate-wiring` → EXIT 0.
+
+**I withdraw my XOR objection against #691.** It was right about architect's
+*stated* predicate and wrong about the *shipped* one. At source (:407-435),
+`const varName = loop.get(job); if (!varName) { …exemption… }` — the exemption
+branch is unreachable for a job that is in the loop. Measured, not conceded:
+adding `CHECK_FOO: ${{ needs.check.outputs.foo }}` makes `check` both gated and
+outputs-consumed → **EXIT 0, no false red.** The OR-not-XOR correction belongs in
+the queued contract's *spec*, not as a defect here. And the exemption is
+double-locked (`NEEDS_NOT_GATED` membership **and** a real `needs.<job>.outputs.*`
+read), which answers my "an exemption that is a name is a hole" — a name alone
+silences nothing.
+
+**A fourth palette variant, caught by a mutation nobody asked for:** binding the
+loop's var to the wrong job (`GATE_WIRING_RESULT: ${{ needs.palette.result }}`) →
+**EXIT 1**, *"the loop reports on the wrong job."* Variants now: (1) in needs,
+never read; (2) same (#649); (3) read but yields empty; (4) read, bound, pointing
+at another job.
+
+**The production artifact, reproduced from the API rather than from the quote —
+and it retires my own framing.** `gh api runs/30401968909` → head `644a9090`,
+`gate-wiring FAILURE` while **`ci-ok SUCCESS`**. The parse-only version detected
+the defect and the required status went green anyway — the palette defect
+committed by the defence proposed against it. I had ranked guard vs parse on
+*detection coverage* (D/F). The real distinction is sharper: **the parse detects;
+only the runtime guard rejects.** One of them cannot fail the build at all.
+
+Gap, unchanged: the guard's *rejection* has still never fired in CI. Run
+30401968909 proves the parse fails to reject; it does not prove the guard does.
+
 ## Addendum — a derived exemption beats an allowlist, but check the OPERATOR too
 
 Architect replaced the hand-maintained `EXEMPT` list with a derived predicate:
