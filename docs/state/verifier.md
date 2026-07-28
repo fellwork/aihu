@@ -484,6 +484,32 @@ WIP commit on your own branch (per-branch, reflog-recoverable, cannot be popped
 by a stranger). Sibling of the durability discipline: state lives committed +
 pushed + findable on remote, never in a stash or workspace-only.
 
+## Addendum — reproduce against the SOURCE artifact, never the reporter's quote of it
+
+Main went red (origin/main 5d485ba9, check+ci-ok FAILURE, CI-confirmed);
+builder diagnosed check:moon-graph's extractor as string-literal-blind, reading
+`.aihu` test-fixture text (`import { signal } from '@aihu/signals'` at
+tests/agent-manifest-sidecar.test.ts:61/:82) as a real import. The diagnosis is
+CORRECT and I reproduced it — but ONLY after I nearly refuted it falsely.
+Builder QUOTED the regex as `[`"]` (backtick-or-double). I pasted THAT into my
+repro and got `[]` — a clean "refutation" of a true claim. The ACTUAL regex in
+scripts/check-moon-graph.ts is `['"]` (SINGLE-or-double); the fixture uses single
+quotes, so the real regex matches and the real gate fails. A one-character
+transcription error in the report flipped my reproduction's verdict.
+
+**What the next instance must not redo:** when reproducing a claim ABOUT code (a
+regex, a specific line, a constant), read that code from the source file and run
+THAT — never reproduce against the value as transcribed in a bus message or
+verdict. A reporter's quote is prose-about-code; it carries exactly the
+transcription errors your reproduction exists to catch. Same family as the
+compiler `AIHU_COMPILE_BIN` trap (run the real binary, not the assumed one) and
+the recon repro (I ran recon.extract_claims itself, not architect's paraphrase of
+it) — the load-bearing habit is: the artifact is the authority, the message is a
+pointer to it. Also confirmed here, as decisive-test discipline: strip ONLY the
+suspected cause (the two fixture lines) and re-run — gate went green (exit 0),
+proving single causation, which a "read the code and reason about it" pass would
+not have established.
+
 ## Addendum — an ABSENCE is only evidence once you've shown it had its chance (spatial AND temporal)
 
 From orchestrator's C-FEL-CI-RECEIPT ruling: the repo's named defect
