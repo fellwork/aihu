@@ -8,6 +8,13 @@
 //!   reimplementation against the *same* schema and the *same* exit-code
 //!   contract: an empty result must never read like a broken query.
 //!
+//! INSTALLING (C-SWARM-DEPLOY-GAP)
+//!   `bun run swarm:install` — builds release and installs to
+//!   `~/.swarm/bin/swarm-bus`, then prints the build stamp so the install
+//!   verifies itself. MERGING A packages/swarm PR DOES NOT DEPLOY IT; run that
+//!   command, or the bus keeps executing whatever was installed last. Ask a
+//!   binary what it is with `swarm-bus --version`.
+//!
 //! EXIT CODES (matches the oracle)
 //!   0  = ok (including a successful non-empty `pull`/`watch`)
 //!   2  = broken input: missing/unknown role, missing required field, no
@@ -2749,15 +2756,103 @@ fn cmd_export(args: &Args) -> rusqlite::Result<()> {
     Ok(())
 }
 
+/// The git sha this binary was compiled from, embedded by `build.rs`.
+/// `"unknown"` when built outside a git checkout — see the staleness check.
+const BUILD_SHA: &str = env!("SWARM_BUILD_SHA");
+
+/// Prints what source this binary came from. The whole point of
+/// C-SWARM-DEPLOY-GAP: before this, `--version` was `unknown command` (exit 64)
+/// and there was no way to ask the running CLI what code it was.
+fn cmd_version() {
+    println!("swarm-bus {} ({})", env!("CARGO_PKG_VERSION"), BUILD_SHA);
+    println!("rebuild + install:  bun run swarm:install");
+}
+
+/// LOUD when the installed binary predates the repo it is invoked in.
+///
+/// The failure this exists to catch is silent by nature: merging a
+/// `packages/swarm` PR does not touch `~/.swarm/bin/swarm-bus`, so the bus goes
+/// on running old code while everyone reads the merged diff and assumes
+/// otherwise. Silence when stale is the bug; this prints to **stderr** so it
+/// cannot corrupt stdout that another tool is parsing.
+///
+/// BEST-EFFORT, and every branch below returns rather than failing:
+///   * no `git`, not a checkout, unknown/dirty stamp -> say nothing
+///   * the invoking repo has no `packages/swarm` -> not our repo, say nothing
+///   * build sha not an ancestor of HEAD -> a side branch or a rewritten
+///     history, not evidence of staleness; saying "stale" there would be a
+///     false alarm, and a warning that cries wolf gets filtered out mentally,
+///     which costs more than the one it catches.
+/// A missing repo context must NEVER break the CLI — the write already
+/// succeeded by the time this runs.
+fn warn_if_stale() {
+    if BUILD_SHA == "unknown" || BUILD_SHA.ends_with("-dirty") {
+        return;
+    }
+    let git = |args: &[&str]| -> Option<String> {
+        let out = std::process::Command::new("git").args(args).output().ok()?;
+        out.status
+            .success()
+            .then(|| String::from_utf8_lossy(&out.stdout).trim().to_string())
+    };
+
+    // Only compare against a checkout that actually contains this crate.
+    let root = match git(&["rev-parse", "--show-toplevel"]) {
+        Some(r) if !r.is_empty() => r,
+        _ => return,
+    };
+    if !std::path::Path::new(&root).join("packages/swarm").is_dir() {
+        return;
+    }
+    // Is the built sha even in this history? If not, stay quiet (see above).
+    if std::process::Command::new("git")
+        .args(["merge-base", "--is-ancestor", BUILD_SHA, "HEAD"])
+        .status()
+        .map(|s| !s.success())
+        .unwrap_or(true)
+    {
+        return;
+    }
+    // Count commits touching THIS crate since the build. Commits elsewhere in
+    // the monorepo cannot make this binary stale, and warning on them would
+    // fire on nearly every invocation.
+    let behind = git(&[
+        "rev-list",
+        "--count",
+        &format!("{BUILD_SHA}..HEAD"),
+        "--",
+        "packages/swarm",
+    ])
+    .and_then(|s| s.parse::<u32>().ok())
+    .unwrap_or(0);
+    if behind == 0 {
+        return;
+    }
+
+    eprintln!(
+        "swarm-bus: STALE BINARY — built from {}, but packages/swarm has moved {} commit(s) since.",
+        &BUILD_SHA[..BUILD_SHA.len().min(8)],
+        behind
+    );
+    eprintln!("swarm-bus: you are NOT running the merged code. Rebuild: bun run swarm:install");
+}
+
 fn main() {
     let raw_args: Vec<String> = env::args().collect();
     if raw_args.len() < 2 {
         die(
-            "usage: swarm-bus <send|pull|offer|claim|ack|attempt|setstatus|watch|ready|sync|link|verify-merged|export> [--k v ...]",
+            "usage: swarm-bus <send|pull|offer|claim|ack|attempt|setstatus|watch|ready|sync|link|verify-merged|export|--version> [--k v ...]",
             64,
         );
     }
     let cmd = raw_args[1].clone();
+    if cmd == "--version" || cmd == "-V" || cmd == "version" {
+        cmd_version();
+        return;
+    }
+    // Before the work, not after: if a command is about to write to the ledger
+    // on stale code, the warning is only useful ahead of it.
+    warn_if_stale();
     let args = parse_args(&raw_args[2..]);
 
     let result = match cmd.as_str() {
