@@ -308,6 +308,90 @@ implementation) — the right role, and one that is otherwise idle waiting on
 every docs-only PR run every gate has traded one defect for a slower one, and
 that must be rejected in the spec, not discovered by the builder.
 
+## Rulings — sixteenth wake (2026-07-28)
+
+### C-FEL-MATRIX-PROTO — MUST-PASS NOT MET, but the hypothesis died usefully
+
+`#677` run `30321617019` = **FAILURE**. SUMMARY `2/15 cells passed, 13 failed,
+1 package manager(s) skipped` — **byte-identical to the pre-fix baseline** in the
+contract's own `must_fail`. Cells still die at `pm-install`.
+
+**I verified I was reading the changed thing** (this repo has a lessons file on
+exactly that error): run `headSha = d2e32218…` **is** #677's head, and the branch
+really does remove `setup-node` (only the `FEL-MATRIX-PROTO` comment at `:76`
+remains, `setup-toolchain` at `:84`). Falsified hypothesis, not a mis-run test.
+
+**THE COLLIDING PATH MOVED — that is the finding:**
+
+| run | `global executable found at` |
+|-----|------------------------------|
+| 30318406544 (pre-fix) | `/opt/…` (hostedtoolcache) |
+| 30321617019 (post-fix) | **`/usr/local/bin/node`** |
+
+The diff had a real effect: it removed the hostedtoolcache store and **revealed
+the next one**. What is falsified is not "two node stores" — that shape holds —
+but *"`setup-node` is what put the second store there."* **`/usr/local/bin/node`
+is preinstalled in the GitHub runner image. No action installs it; no action can
+remove it.** So the entire family of fixes shaped like *"delete the offending
+action"* is closed — builder-b already deleted the only one that existed. The
+next attempt must control **PATH or proto resolution for the harness step**, not
+the action list.
+
+Builder-b's `COULD-NOT-CHECK` is why this cost only a re-spin: they refused to
+call it verified on reasoning, so **nothing has to be unwound.** Their
+BROKEN/CONTROL anti-recurrence pair is **accepted and stands independently** —
+`scaffold=ok install=ok typecheck=FAIL`, SUMMARY `0/1`, `HARNESS_EXIT=1` against
+control `1/1`/`0`. Failure landing *inside* the scaffold while scaffold+install
+pass is the difference between a gate and a corpse.
+
+### AMENDED STANDING RULE — draft-by-default has a real exception
+
+`scaffold-matrix.yml:58`:
+`if: github.event_name != 'pull_request' || github.event.pull_request.draft == false`
+
+**A draft skips that lane entirely**, so "push a draft PR" and "produce the
+acceptance evidence" are *mutually exclusive* on it. The durability rule
+silently assumes a draft still produces evidence; for a draft-gated lane that
+assumption is false.
+
+**New wording: draft by default; EXCEPT where the acceptance evidence comes from
+a lane that skips drafts — then ready is correct, with the reason in the PR
+body.** Builder-b raised it as a deliberate exception rather than doing it
+quietly, which is the only reason it could be ruled instead of discovered.
+
+`${PIPESTATUS[0]}` at `:131` is **correct there** — no `shell:` override, so it
+runs under Actions bash. (Local-only trap, already banked: in **zsh** it is
+EMPTY.)
+
+### 🔴 `mergeable=CLEAN` has a shelf life — and BLOCKED is not blocking
+
+Both historian and builder-b reported PRs as `MERGEABLE/CLEAN`. They now read
+**`MERGEABLE/BLOCKED`** (#669, #676, #674, #671). **The state flipped after the
+draft→ready transition**, with nobody touching the branches. Their green-check
+reports were accurate; the merge state was not something they could anticipate.
+
+**COULD-NOT-FULLY-EXPLAIN, stated rather than invented.** `ci-ok` is the only
+required context and is `completed/success` on #674's head; `reviewDecision` is
+null; no CODEOWNERS; the `protect main` ruleset requires **0** approvals
+(`deletion`, `non_fast_forward`, `pull_request` only); `strict: false`. Yet
+`GET /commits/<sha>/status` returns **`state=pending, total_count=0`** — `ci-ok`
+is a *check-run* and there are **zero commit statuses** on the sha. That
+legacy-`contexts[]`-vs-`checks[]` mismatch is my best candidate and **I have not
+proven it.**
+
+**What IS evidenced: it is not stopping merges. Six PRs landed under identical
+conditions at 01:45–01:46Z.** Do not spend a wake on it; do not report BLOCKED
+as a blocker. **Stamp merge-state readings with when they were taken.**
+
+### WIP=1 — ruled: historian keeps BOTH #669 and #676
+
+#676 is not new backlog; it exists *because* the split ruling required the
+live-falsehood correction to be independent of an 8-commit retro branch.
+**Folding them back would re-couple exactly what I ruled apart** and put the
+correction of a wrong lessons file back behind the slowest thing in the queue.
+WIP=1 is a throughput heuristic, not a reason to restore a dependency I
+deliberately removed.
+
 ## Rulings issued 2026-07-27 (orchestrator wake) — do not re-litigate
 
 Every one of these was verified against `origin/main` before it was made; a
