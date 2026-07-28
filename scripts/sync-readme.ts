@@ -26,7 +26,13 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, relative } from 'node:path'
 import { gzipSync } from 'node:zlib'
 import { Glob } from 'bun'
-import { rolldown } from 'rolldown'
+
+// NOTE: `rolldown` is NOT imported statically. It is loaded lazily inside
+// `measureSizes()` (the only caller), so `--check` — which reads the committed
+// scripts/__bundle-sizes.json cache and never measures — does not need the
+// bundler on the module graph. That decoupling lets the always-on CI
+// readme-sync job run cheaply with no `bun install` (C-FEL-READMESYNC-JOB;
+// the coupling was accidental — a static import at the top of a two-mode file).
 
 const REPO_ROOT = process.cwd()
 const CHECK_MODE = process.argv.includes('--check')
@@ -261,6 +267,21 @@ async function peerDepsOf(entryPath: string): Promise<string[]> {
 async function measureSizes(): Promise<
   Array<{ name: string; bytes: number; limit: string; ok: boolean }>
 > {
+  // Lazy-load `rolldown` — the ONLY place the bundler is needed (the measure
+  // path). Loaded OUTSIDE the per-entry try/catch below (which is for a single
+  // entry failing to bundle) so a MISSING rolldown FAILS LOUDLY here — an
+  // aborting throw with a clear cause — rather than being swallowed into a
+  // silent `bytes: -1` no-op for every entry. A measurement that quietly
+  // becomes "absent" is the exact absent-value failure this repo has a lesson
+  // about; a dynamic import in a swallowing try/catch is how it sneaks in.
+  const { rolldown } = await import('rolldown').catch((cause: unknown) => {
+    throw new Error(
+      'sync-readme: measuring bundle sizes needs the `rolldown` dev dependency, which is not ' +
+        'installed. Run `bun install` on a built tree, or use `--check` (which reads the committed ' +
+        'scripts/__bundle-sizes.json cache and needs no bundler).',
+      { cause },
+    )
+  })
   const entries: SizeEntry[] = JSON.parse(readFileSync(join(REPO_ROOT, '.size-limit.json'), 'utf8'))
   const out: Array<{ name: string; bytes: number; limit: string; ok: boolean }> = []
   for (const entry of entries) {
