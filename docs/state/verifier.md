@@ -402,3 +402,31 @@ comparing a brand ink against a component background is comparing two different
 jobs. **If that mapping is not 1:1, the census is 10, not 11.**
 
 Open question for whoever owns the design tokens, not a verdict.
+
+## Addendum — C-FEL-434b / PR #683 independently reproduced (PASS), and a compiler-test trap
+
+Verdict sent (bus msg 20b9e44e): #683 (readiness CONSUMES the agent-manifest
+sidecar) PASSES all three must-fail rows, reproduced end-to-end from a
+SOURCE-BUILT compiler on my OWN inputs (scope `billing:write`, tags
+billing-card/metrics-card — mine, not the builder's `reports:read` fixture, so
+"scope absent from llms.txt" cannot be an accident of the fixture). Row 1
+(policy-not-public) holds across /llms.txt, /llms-full.txt AND the mcp
+server-card; row 2 (both components listed) via per-tag filenames; row 3 (header
+omitted on empty). Containment is a structural ALLOWLIST (toAgentMetadata copies
+only tag/describes/state/actions/extract; scope/rateLimit/streamOutput never
+referenced). Load-bearing mutation: revert main.rs:568 to the fixed
+`agent-manifest.json` → two components collapse to ONE manifest (last-writer-wins)
+and the per-tag reader glob finds none → row 2 fails; restore → green.
+
+**THE DURABLE TRAP: a bare `vitest run` on a compiler-consuming test silently uses
+a STALE `target/release/aihu-compile`.** The test resolver order is
+`AIHU_COMPILE_BIN → packages/compiler/bin → target/release`. My first run (no env
+set) picked up a target/release binary left from an EARLIER worktree build (#668 @
+9cfcafcc, pre per-tag-manifest) and 3 rows failed with `ENOENT
+reports-card.agent-manifest.json` / `[]`. That looks exactly like a diff failure
+and would overrule a correct PR. It was the pre-#683 collision reproduced by
+accident (the BEFORE direction). ALWAYS `cargo build --release -p aihu-compiler
+--bin aihu-compile` at THIS head and `export
+AIHU_COMPILE_BIN=<worktree>/target/release/aihu-compile` before running any
+sidecar/compiler-output test; a stale binary is an environment red, not a diff
+red. Sibling of [[project_aihu_compiler_binary_resolution_trap]].
