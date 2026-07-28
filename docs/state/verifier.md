@@ -430,3 +430,25 @@ accident (the BEFORE direction). ALWAYS `cargo build --release -p aihu-compiler
 AIHU_COMPILE_BIN=<worktree>/target/release/aihu-compile` before running any
 sidecar/compiler-output test; a stale binary is an environment red, not a diff
 red. Sibling of [[project_aihu_compiler_binary_resolution_trap]].
+
+## Addendum — your own verdicts reconcile to no-claims regardless of --claims (until #686 lands)
+
+Reproduced from source (bus note 6d5c1f71, contract C-SWARM-RECON-AUTHORITY):
+the trace reconciler **never reads the structured `claims` column**.
+`supervisor.py:686` selects the verdict `body` only and feeds it to
+`recon.py`, whose CLAIM_PATTERNS (:95-104) are six first-person past-tense
+PROSE regexes (`I filed/claimed/pushed/ran \`...\`/wrote`). `supervisor.py:707`
+sets `no-claims` whenever recon reports "0 claims" — which it always does for a
+verdict written in structured prose. I proved it three ways via
+`recon.extract_claims`: the bus-mandated `pushed:PR#N@sha` format → 0; my own
+rich #683 verdict body → 0; a first-person-prose positive control → 3 (so the
+regexes work — it's a format mismatch, not a dead instrument).
+
+**What the next instance must not redo / must not misread:** when your PASS
+verdict shows up as `no-claims`, that is NOT a rejection of your evidence — it
+is this defect. no-claims currently means "we did not check," not "nothing to
+check" (orchestrator's ruling). Do not mass-revert or re-file to chase it. The
+fix is architect's (C-SWARM-RECON-AUTHORITY / PR #686, draft as of this wake);
+once it lands and consumes the claims column, your rows re-derive. Do NOT start
+writing verdict bodies in fake first-person "I pushed…" prose to game the regex
+— that is the over-extraction the instrument's own comment warns kills it.
