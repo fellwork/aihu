@@ -1,3 +1,17 @@
 # yaml-language-server: $schema=https://moonrepo.dev/schemas/project.json
 language: typescript
 layer: library
+
+dependsOn:
+  - 'agent'
+  - 'agent-server'
+  - 'app'
+  - 'arbor'
+  - 'compiler'
+  - 'plugin'
+  - 'plugin-agent-readiness'
+  - 'plugin-data'
+  - 'primitives'
+  - 'runtime'
+  - 'server'
+  - 'signals'

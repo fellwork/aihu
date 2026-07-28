@@ -77,8 +77,8 @@ describe('B3b — AC12 sidecar tsc end-to-end', () => {
     const tmp = mkdtempSync(join(SCRATCH, 'aihu-b3b-sidecar-'))
     try {
       const src = readFileSync(join(fixturesDir, 'good-emit-payload.aihu'), 'utf8')
-      const sidecarOut = join(tmp, 'good.aihu.ts')
-      transform(src, join(tmp, 'good.aihu'), { sidecarOut })
+      const sidecarOut = join(tmp, 'aihu-aihu-good.aihu.ts')
+      transform(src, join(tmp, 'aihu-good.aihu'), { sidecarOut })
       expect(existsSync(sidecarOut)).toBe(true)
       const ts = readFileSync(sidecarOut, 'utf8')
       expect(ts).toContain('declare const $emit')
@@ -92,8 +92,8 @@ describe('B3b — AC12 sidecar tsc end-to-end', () => {
     const tmp = mkdtempSync(join(SCRATCH, 'aihu-b3b-bad-'))
     try {
       const src = readFileSync(join(fixturesDir, 'bad-emit-payload.aihu'), 'utf8')
-      const sidecarOut = join(tmp, 'bad.aihu.ts')
-      transform(src, join(tmp, 'bad.aihu'), { sidecarOut })
+      const sidecarOut = join(tmp, 'aihu-aihu-bad.aihu.ts')
+      transform(src, join(tmp, 'aihu-bad.aihu'), { sidecarOut })
       const result = runTsc(sidecarOut)
       // tsc must surface a type error.
       expect(result.code).not.toBe(0)
@@ -164,8 +164,8 @@ describe('B3b — AC12 sidecar tsc end-to-end', () => {
     const tmp = mkdtempSync(join(SCRATCH, 'aihu-b3b-good-'))
     try {
       const src = readFileSync(join(fixturesDir, 'good-emit-payload.aihu'), 'utf8')
-      const sidecarOut = join(tmp, 'good.aihu.ts')
-      transform(src, join(tmp, 'good.aihu'), { sidecarOut })
+      const sidecarOut = join(tmp, 'aihu-aihu-good.aihu.ts')
+      transform(src, join(tmp, 'aihu-good.aihu'), { sidecarOut })
       const result = runTsc(sidecarOut)
       // The sidecar is emitted with permissive `any`-shape framework
       // primitives, so the test passes whenever tsc surfaces no errors

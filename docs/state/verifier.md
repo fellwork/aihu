@@ -8,7 +8,7 @@ the PR when they do.
 `srmcguirt/verify-pr-queue`. **Curated into `docs/state/` by the historian**
 2026-07-26 at the verifier's request and the orchestrator's ruling — one copy,
 not two. The verdicts, receipts and wording below are the verifier's.
-**Last updated:** 2026-07-26
+**Last updated:** 2026-07-28 (verifier — #689 closed out on main @ 642860f3)
 
 > **Historian's correction to my own earlier seed of this file.** I first seeded
 > `docs/state/verifier.md` from the Slack record and wrote that **#612 was
@@ -411,6 +411,263 @@ comparing a brand ink against a component background is comparing two different
 jobs. **If that mapping is not 1:1, the census is 10, not 11.**
 
 Open question for whoever owns the design tokens, not a verdict.
+
+## Round 3 — the swarm-core merge day, independently reproduced (`origin/main` @ `2350f49c`)
+
+Thirteen PRs (mostly the swarm core itself) merged in one day, each verified only
+by the orchestrator at merge time — the same instance that dispatched the work.
+C-FEL-REVIEW-0727 was the correction: re-run every acceptance bar from a clean
+checkout I built myself. Method held — **ran each gate, mutation-tested both
+directions, built from source, isolated every `swarm-bus` test with `SWARM_DB`.**
+All four groups reproduced green. Two residual soft spots reported (not false
+greens, not blockers).
+
+**Isolation discipline that matters (write it down):** every `swarm-bus`
+invocation uses `SWARM_DB=<temp>`. The live `~/.swarm/bus.db` is production; the
+reconciler reads it. **Merely OPENING the DB mutates the file** — a copy I ran a
+read-only dry-run against changed md5 (`5f07fa0c`→`50c44017`) purely from SQLite's
+WAL/schema-touch on open. So a test that runs against the default DB corrupts the
+ledger even if it "only reads." Live md5 stayed `5f07fa0c` start→end **because no
+test ever opened it.** `claim` does not touch `bus.db` (it writes `agents.json`);
+`send` does.
+
+### #651 verify-merged — PASS. Bare `#NNN` is closed; wrong-PR-by-prose is not.
+`cargo test -p aihu-swarm` → 21 pass. The two negatives are real AND non-vacuous,
+proven by targeted mutation then revert:
+- mutated `parse_pr_ref` (main.rs:2310/2313) to scan a bare `#` → `parse_pr_ref_rejects_bare_hash` + `_in_prose` FLIP to FAILED → revert → pass. Only `github.com/<o>/<r>/pull/N` and `PR#N`/`PR #N` parse.
+- mutated `is_merged_evidence` (main.rs:2371) to drop the mergedAt check → `is_merged_evidence_rejects_merged_with_null_merged_at` FLIPS to FAILED → revert → pass.
+**Residual:** `gh pr view` is unstubbable, repo hardcoded `fellwork/aihu` (main.rs:239), no e2e test of `cmd_verify_merged`. `parse_pr_ref` is a first-match whole-body scan, so a verdict quoting *someone else's* `pull/N` or `PR #N` resolves to THAT pr — if merged in fellwork/aihu it verifies the contract. The next reviewer should push on that path, not on bare-`#NNN` (closed).
+
+### #647/#645 sync — PASS. `--confirm <value>` → exit 2; dry-run offline.
+`sync --push --confirm false|xyz` and `verify-merged --confirm false` all → **exit 2** (main.rs:2191 `die(...,2)`). `sync --push` no-confirm → exit 0 offline, "nothing to mirror" (gate: `if !confirm { continue }` main.rs:2258 + early return 2268). Did NOT run bare `--confirm` (real Linear/GitHub writes).
+**Residual:** no contract carries a linear/github id, so I never saw a populated "WOULD move" plan — the zero-write proof is the structural gate + offline exit-0, not a watched plan. Seed a contract with an id to exercise it fully.
+
+### #649 palette gate — PASS. The bug (present-in-needs, never evaluated) is fixed.
+`check_palette_parity.py --verbose` → exit 0; mutate a `packs.ts` hex → exit 1 ("NEW divergence"). Enforcement: plan-a.yml:396 binds `PALETTE_RESULT: needs.palette.result`, :410 puts `"palette:$PALETTE_RESULT"` in the `ci-ok` failure loop → :427 `exit 1`. `ci-ok` is the sole required status. **Being in `needs:` is sequencing, not gating — only appearing in the loop gates.** (Same shape as the Round-2 `check` fuse: needs/loop wiring is where inert gates hide.)
+
+### #643/#646/#648/#650 useSwarm SSR no-op — PASS.
+`vitest packages/use/tests/use-swarm.test.ts` → 11 pass. EventSource (index.ts:138) is behind a SYNCHRONOUS early return (index.ts:125, `!isClient || win===undefined || typeof EventSource==='undefined'`) — NOT a useEffect, so SSR never constructs one. Mutation (disable guard) → the SSR no-op test FAILS; the suite's own DOM-direction control still passes. swarm-console is a plain Vite SPA (no SSR entry).
+
+### Method lesson this wake earned — a false green I nearly shipped.
+My first #651 mutation run printed `exit 1` and I almost recorded it as "tests
+failed under mutation = good." It was a **cargo CLI usage error** (`cargo test`
+takes ONE positional filter; I passed two), so the tests **never ran**. Exit-1
+from the *harness refusing to start* looks identical to exit-1 from a *test
+failing*. **Read the actual output, not just the exit code** — "a failed check is
+never a pass" cuts both ways: a check that didn't run is not a fail either. Re-ran
+with `-- <filter>`; the real result (3 FAILED under mutation, 6 pass reverted) is
+what's above. Recorded as a sibling to the `${PIPESTATUS[0]}`-is-empty trap.
+
+**What the next instance must not redo:**
+- Do NOT run `swarm-bus` tests against the default DB — `SWARM_DB=<temp>` always; opening the live DB mutates it (WAL), which is itself the defect that "happened today."
+- Do NOT re-attack bare-`#NNN` in `verify-merged` — it is closed and mutation-proven. Attack the wrong-PR-by-prose path (foreign `pull/N` / `PR #N` in a verdict body) and the untested `cmd_verify_merged` e2e seam.
+- Do NOT trust a bare exit code from `cargo test` with multiple positional filters — it errors out (exit 1/101) WITHOUT running; grep the output for `test result:` before believing a pass or a fail.
+- Build in a DEDICATED detached worktree (`git worktree add`), never the shared checkout — the shared-worktree identity-swap hazard is live (it force-pushed the historian onto a merged branch this same day).
+
+### Round 3 addendum — FEL-461 fix, and an acceptance-bar near-miss (mine)
+
+Fixed FEL-461 (PR #661): `.claude/skills/swarm/SKILL.md` documented `S="bun …"; $S
+whoami` (the RUN-THIS-FIRST line). zsh does not word-split an unquoted `$S`, so it
+runs a command literally named `bun .claude/…` → "no such file or directory".
+Fix = a shell function `S() { bun … "$@"; }` (portable zsh+bash). Grepped the whole
+skill set — the only instance. Acceptance bar: extract the fenced block
+programmatically, shadow `bun` with a function, run under zsh both directions
+(broken → 10× not-found; fixed → every line dispatches).
+
+**The near-miss — write it down, it is the durable part.** My first acceptance-bar
+harness isolated the backend with a **PATH-prepended `bun` shim**. Under `zsh -c`
+that did NOT shadow the real `bun`, so the harness ran the LIVE swarm tool against
+production Linear/Notion. Reads landed; writes (`claim`/`note`/`move`/`wiki-write`
+on FEL-409) were refused ONLY by the tool's role-unset guard (`.agent-role` unset
+in the worktree). No mutation landed — but that was defense-in-depth, not my design.
+Two rules for any extract-and-run acceptance bar that EXECUTES documented commands:
+- Shadow the real binary with a shell **function** (`bun() { … }`), never a PATH
+  entry — PATH shims don't reliably win under `zsh -c`.
+- **Prove the shim intercepts BEFORE running anything that can mutate.** I ran
+  first and verified isolation second; that is the wrong order and is exactly the
+  "a test that writes to production is itself a defect" hazard, one guard away from
+  real damage.
+
+**Bus identity is `(workspace, role)`.** `swarm-bus send` must run from the role's
+bound workspace dir (here: the jerusalem checkout), NOT a `git worktree` — sending
+from `/tmp/verify-0727` gives `exit 5 IDENTITY MISMATCH`. Do git/build in the
+isolated worktree; run every bus `send` from the workspace.
+
+### Round 3 addendum 2 — #655 / FEL-GH478 (compiler <$slot> fallback) verified, both directions
+
+Independent reproduction of a builder-b PR (author-only-verified before this — the
+SPOF the orchestrator flagged). From a source-built compiler (`cargo build
+--release --bin aihu-compile` @ f7b5c7f5):
+- FIXED: `slot-fallback-drive.test.ts` 2/2 pass (exit 0); `cargo test --test codegen
+  slot_default_codegen slot_named_codegen` pass.
+- PRE-FIX (reverted ONLY emit.rs:667 to childless `slot(o?.name ?? undefined)`,
+  KEEPING the new tests, rebuilt): drive test 2/2 FAIL ("expected '' to contain
+  'fallback text'"); `slot_default_codegen` FAIL (no `branch('slot'`).
+The drive test honors `AIHU_COMPILE_BIN` and SKIPS (never the published napi addon)
+if no source binary exists — so the trap "a Rust fix is invisible against the addon"
+does not bite here, provided you build first. That is the reusable check: before
+trusting ANY compiler drive/e2e test as evidence, confirm it resolved a from-source
+binary and did not skip.
+
+### Round 3 addendum 3 — orchestrator rulings 2026-07-27: isolation standing rule + the C-FEL-434 bar
+
+**STANDING REQUIREMENT (ruling, not optional):** any acceptance harness that shells
+out to a real tool MUST assert its shadow/stub intercepts BEFORE running a single
+documented command — e.g. `type bun` == `bun: function` — then run. The role-unset
+guard that stopped the FEL-461 near-miss from mutating production was LUCK; it is now
+a design item, not a war story. FEL-461 (PR #661) is ready-for-review with the
+concluded extract-and-run evidence attached: isolation proven first, then broken
+block rc=127 (10x "no such file or directory"), fixed block rc=0 (all lines dispatch,
+zero live calls).
+
+**NEXT — holding as VERIFIER for C-FEL-434** (orchestrator unblocked it). Client-target
+`@agent` builds elide `registerAgentMetadata` (emit.rs `elide_agent`, confirmed
+origin/main), so llms.txt ships no `## Components`. THE BAR — compiler-level, from a
+SOURCE-BUILT compiler, NEVER the scaffold e2e (it installs the PUBLISHED compiler and
+cannot see an unlanded change):
+1. Compile a Client-target `@agent` component declaring `$action` → the emitted module
+   RETAINS `registerAgentMetadata` / the readiness manifest lists the `$action`; AND
+2. POLICY-MUST-NOT-BECOME-PUBLIC (orchestrator's added row): a component with
+   `$scope "reports:read"` must appear in `## Components` with its `$action` WHILE the
+   emitted `llms.txt` does NOT contain the string `reports:read`. Reachable is not
+   public. Satisfying (1) but not (2) is a **FAIL, not a nit**.
+
+**Live but unfiled:** verify-merged wrong-PR-by-prose — a foreign `github.com/.../pull/N`
+or `PR#N` in a verdict body resolves to that PR (parse_pr_ref is a first-match whole-body
+scan). Orchestrator will not file it until a case fires in the wild; file it if seen.
+
+### Round 3 addendum 4 — C-FEL-434 bar: do not trust the `check` status until C-FEL-411 lands
+
+Orchestrator ruling 2026-07-27 (learned from #661): `packages/editor/moon.yml` declares
+`dependsOn: [signals]` only, but `tests/component-compile.test.ts` imports `@aihu/compiler`,
+so `editor:typecheck` can be scheduled before `compiler:build` and fail TS2307 — a moon-graph
+ORDER/CACHE race (that is C-FEL-411, already barred; #661's red was collateral, not its
+markdown diff). Consequence for verifying C-FEL-434: **a RED `check` on the 434 PR may be
+this race, and a GREEN one may be luck** — do not accept the CI `check` job as evidence
+either way until C-FEL-411 has landed. Verify the 434 fix ONLY from my own SOURCE-BUILT
+compiler (the two-part bar in addendum 3, incl. the policy-not-public row). Also ruled:
+C-FEL-434 fix is option (b) and cheap — `manifest_json` is a build-time SIDECAR, not client
+bytes, so client elision stays untouched; the sidecar is what must carry the `$action` while
+`llms.txt` still omits `reports:read`.
+
+### Round 3 addendum 5 — reading the live bus.db read-only: include the WAL or you read a stale checkpoint
+
+The swarm bus is SQLite in WAL mode. `cp ~/.swarm/bus.db` ALONE gives a STALE snapshot:
+recent writes live in `bus.db-wal` (can be multiple MB) until a checkpoint, and the main
+`bus.db` file's md5 can stay byte-identical across a busy wake. I nearly filed a FALSE
+NEGATIVE overruling a queue cleanup this way — a cp-only read showed 13 contracts still
+`offered` and 0 `declined`; the WAL-inclusive read showed all 13 `declined` and the
+keyword-count-on-offered = 0 (the true committed state). THE TELL was the main-file md5
+(`34510a03`) being unchanged from the prior wake despite heavy orchestrator activity.
+FIX: to read the live bus.db read-only, copy `bus.db` + `bus.db-wal` + `bus.db-shm`
+together and query the copy, OR open the live DB in sqlite `mode=ro`. A cp of the main
+file alone is a stale-checkpoint trap. (Distinct from the earlier note that the swarm-bus
+BINARY opening the DB mutates it via WAL — this is the READ side of the same WAL fact.)
+Corollary: an unchanged bus.db md5 is NOT evidence the bus is idle — it may just mean
+nothing has checkpointed yet.
+
+### Round 3 addendum 6 — applied the "disproven method → go back and fix the verdict" rule
+
+The WAL near-miss (addendum 5) disproved a method I had already cited: the
+C-FEL-REVIEW-0727 verdict headlined "live ~/.swarm/bus.db md5 IDENTICAL start->end"
+as proof my tests did not pollute the ledger. In WAL mode that is void — a live write
+lands in `bus.db-wal` and the main-file md5 never moves (C-SWARM-WAL-STALE, main.rs:503
+sets WAL, nothing checkpoints). A disproven method does NOT auto-update the verdicts that
+used it — someone must go back. I did: qualified that verdict on the bus (msg 6a15cb0d).
+The no-pollution CONCLUSION stands on a stronger basis — every swarm-bus test ran with
+`SWARM_DB=<temp>` so the live DB was never OPENED by a test; pollution was PREVENTED by
+isolation, not DETECTED by md5. Rule for the next instance: never cite an unchanged
+`~/.swarm/bus.db` md5 as evidence of anything; rest no-write claims on SWARM_DB isolation,
+and when a method you relied on is disproven, grep your own past verdicts for it.
+
+### Round 3 addendum 7 — name red lanes; the known-red registry; C-FEL-434 status
+
+STANDING RULE (orchestrator, this wake): NAME A RED LANE IN YOUR VERDICT, DO NOT OMIT IT.
+Say which job is red, why it is not your diff, and move on. A verdict that quietly drops a
+known-red job is how a REAL failure hides behind a known one next time.
+
+KNOWN-RED LANES as of 2026-07-27 (so the next instance does not chase them as its diff):
+- `ci-ok`=FAILURE with `check`=SKIPPED on a DRAFT PR = the FEL-437 guard (ci-ok correctly
+  refuses a draft that built/tested nothing). Not a result.
+- `check` FLAPS until C-FEL-411 lands (packages/editor/moon.yml lacks a build-order edge to
+  @aihu/compiler -> TS2307 race). Green OR red on `check` is not evidence; use your own build.
+- `matrix` (Scaffold DX) is DEAD on main + several branches = C-FEL-MATRIX-PROTO: every cell
+  dies at pm-install on a moon/proto node-shim recursion (`proto shim ... recursive execution
+  loop`), 13/15 cells never run aihu code. It sits OUTSIDE ci-ok so nothing forced a look.
+  Same root family as C-FEL-MOON-ROLLDOWN. Never anyone's diff.
+- `bench`/`bench-arbor` are red-by-construction off a frozen baseline (older note, still true).
+
+C-FEL-434 STATUS: #668 (compiler half) VERIFIED PASS from a source-built compiler — client
+builds now emit agent-manifest.json (BEFORE=absent, AFTER=present+lists action), suite 1092/0
+at the #640 baseline, and the SECURITY row holds (emitted client JS has 0 registerAgentMetadata
+/ 0 scope-string / 0 rateLimit — policy is sidecar-only, zero bundle bytes). STILL OWED, on
+C-FEL-434b (verify when it lands): (1) policy-not-public — a `$scope "reports:read"` component
+in `## Components` while the emitted llms.txt does NOT contain `reports:read` (UNVERIFIABLE on
+#668, no llms.txt); (2) the manifest COLLISION — I measured it: 2 agent components in one --out
+dir leave ONE agent-manifest.json (fixed name, bin/main.rs:559) listing only the LAST; "lists 1
+of N" flatters where an empty section would scream; (3) header omitted when there are genuinely
+no agent components. Also could-not-check: whether the compiler output dir is copied wholesale
+into SERVED output (.route.json precedent is good but is not evidence) — trace at 434b start.
+
+### Round 3 addendum 8 — "red-by-construction" answers BLOCKS-your-PR, not DO-the-numbers-mean-something
+
+Sharpening the bench note in addendum 7 so the next instance does not misread it. "bench is
+red-by-construction off a frozen 2026-05-25 baseline" correctly answers ONE question — does it
+block this PR (no: bench is outside ci-ok, and a plan-a.yml diff trips the bench: filter on the
+workflow path, not on the numbers). It does NOT answer whether the NUMBERS mean something. Do
+not let a correct triage of the first question quietly close the second. When bench actually
+RUNS (rare — normally SKIPPED), read its numbers as a separate COULD-NOT-CHECK, not noise.
+Datum, #667's ready run: bench=FAIL reporting cellx 807->910ns (+12.7%) and wide-fanout-100
+5363->6351ns (+18.4%) vs the frozen baseline — either two months of real @aihu/signals drift
+or the high-variance flakiness C-FEL-409 targets, and ONE SAMPLE CANNOT TELL. Report it as
+could-not-check; NOBODY re-baselines to make it green (that blesses drift as normal and destroys
+the evidence it existed — same shape as the bench-arbor STOP in Round 2).
+
+### Round 3 addendum 9 — SUPERSEDES addendum-7's draft-guard line (#670 landed)
+
+RETIRED as of #670 (merged 2026-07-27 01:12Z, on main 41c37df6, plan-a.yml ci-ok job ~L418-435):
+addendum 7 said "ci-ok=FAILURE with check=SKIPPED on a DRAFT PR = the FEL-437 guard, not a
+result." THAT IS NO LONGER TRUE ON MAIN. A draft PR now EMITS A `::warning::` ("not evidence of
+a pass"), it does NOT fail ci-ok. Delete the old reading from working rules.
+NEW RULE: on a run produced AFTER 01:12Z, a red `ci-ok` on a draft MEANS SOMETHING REAL — triage
+it, do not wave it off as the draft guard.
+TRANSITION HAZARD (this is where a stale reading bites): runs that PREDATE #670 still show the
+old FAILURE, so for a while a draft red is AMBIGUOUS — either the retired behaviour on a stale
+run, or a real failure. Check the RUN TIMESTAMP against 01:12Z (or push/re-run for a current
+result), and NEVER report either reading without saying WHICH run (by timestamp) you looked at.
+(My #668 verdict cited the old draft-guard reading; that reading was correct AT THE TIME — its
+runs predated #670 and #668 later went fully green — so it needs no walk-back, unlike the md5
+receipt which was invalid when written. The rule changed after; the verdict's conclusion holds.)
+STILL LIVE, unchanged: the flapping-`check` caveat (C-FEL-411) — #671 is the fix but is STILL
+DRAFT/unlanded (main 41c37df6 still has packages/editor/moon.yml `dependsOn: [signals]` only),
+and #671 must land AFTER #666. Keep not trusting `check` green/red until #671 lands.
+
+### Round 3 addendum 10 (FINAL — this branch is now FROZEN) — findable-on-main, not just pushed
+
+DURABILITY MEANS FINDABLE WHERE THE READER LOOKS, NOT "the push succeeded." Verify every
+durable artifact with `git show origin/main:<path>` (or `git ls-tree origin/main <path>`) — does
+it appear ON MAIN, where the next instance reads it — NOT with `ls-remote` on your own branch,
+which only answers "did my push land on the branch". Self-caught this session: I pushed all of
+Round 3 to branch verifier/state-swarm-core-review-0727 (PR #659) and ls-remote-verified it every
+wake, but `git show origin/main:docs/state/verifier.md` was the STALE 2026-07-26 Round-1/2 file —
+#659 never merged, so the next verifier instance reading main would have been blind to this entire
+session. Same right-content/wrong-location class as architect.md landing in the wrong repo.
+FREEZE: this branch accumulated Round 3 across ~13 wakes without landing — the #657 growing-draft
+trap, one layer down. Stop growing it. The next durable update goes on a FRESH branch off
+origin/main AFTER #659 lands, and every future durable write is verified findable on main, not
+just pushed. Until #659 lands, this session's verifier state (WAL trap, isolation-before-run,
+known-red registry, C-FEL-434 bar + measured collision, #670 draft-guard supersession) lives ONLY
+here and is reported on the bus (msg 29836310) as needing to be in the priority land-set.
+
+> **Status correction, 2026-07-28 (verifier).** The FREEZE note above is
+> discharged: **#659 LANDED** — `git log origin/main -- docs/state/verifier.md`
+> shows `e41cf406 (#659)`, so Round 3 is on `main` and readable by the next
+> instance. The addenda below were written on the stale `srmcguirt/verifier-0727`
+> branch, which had accumulated **10 unlanded commits and no PR at all** while
+> `ls-remote` on the branch reported green every wake — *the exact trap Round 3
+> names, repeated by the next instance who had read it.* Verifying the push
+> landed on **your branch** is not verifying it landed on **main**; only a merged
+> PR is. Merged onto current `main` and PR'd here.
 
 ## Addendum — C-FEL-434b / PR #683 independently reproduced (PASS), and a compiler-test trap
 

@@ -100,20 +100,21 @@ function compileClient(file: string): {
 
 /**
  * The router only mounts a route whose `name` is a valid (hyphenated)
- * custom-element tag; the compiler warns `does not contain a hyphen` for any
- * page registered under a non-hyphenated stem, which then never mounts (blank
- * `#outlet`). Every scaffolded PAGE (`src/pages/`) now carries a
- * `@route { name }` with a hyphenated tag, so this warning MUST be absent for
- * page files. Asserting its absence is the regression guard for the blank-page
- * bug. Layouts (`src/layouts/`) and components (`src/components/`) are
- * author-mounted (not router-mounted) and legitimately keep their filename
- * stem as the tag, so the warning is benign for them and is not asserted.
+ * custom-element tag; a page registered under a hyphen-less stem never mounts
+ * (blank `#outlet`). Every scaffolded PAGE (`src/pages/`) carries a
+ * `@route { name }` with a hyphenated tag, so this must never trip.
+ *
+ * This used to assert the ABSENCE of an advisory `does not contain a hyphen`
+ * warning — a string that no longer exists, because the rule is now the hard
+ * compile error C450 raised wherever a define-name is resolved. Left as a
+ * belt-and-braces check on the page path specifically: `compileFile` already
+ * fails on any `C###`, so a regression here is caught twice.
  */
 function assertNoHyphenWarning(stderr: string, file: string): void {
   if (!file.includes(`${join('src', 'pages')}${sep}`)) return
   expect(
-    stderr.includes('does not contain a hyphen'),
-    `scaffolded page emitted a non-hyphenated tag warning (would render blank #outlet) for ${file}\nstderr:\n${stderr}`,
+    stderr.includes('C450'),
+    `scaffolded page resolved to a tag that cannot register (would render a blank #outlet) for ${file}\nstderr:\n${stderr}`,
   ).toBe(false)
 }
 
@@ -221,7 +222,10 @@ describe('scaffold-compile-clean · every emitted .aihu compiles under current a
     // page lands at src/pages/about.aihu (carries a @route block, so it must
     // be compiled at a src/pages/ path — C500 — which scaffoldPage emits).
     scaffoldPage('/about', root)
-    scaffoldComponent('Card', root)
+    // Multi-word: the filename stem IS the registered tag, so it must kebab to
+    // a hyphenated name (`user-card`). A single-word name is refused outright —
+    // see the sibling test below.
+    scaffoldComponent('UserCard', root)
 
     const files = collectAihu(root)
     expect(files.length, 'page+component scaffold must emit .aihu files').toBe(2)
@@ -231,6 +235,19 @@ describe('scaffold-compile-clean · every emitted .aihu compiles under current a
       expect(r.ok, `compile failed for ${f}\nstatus=${r.status}\nstderr:\n${r.stderr}`).toBe(true)
       assertNoHyphenWarning(r.stderr, f)
     }
+  })
+
+  // The scaffolder must not emit a component that can never register. Before
+  // this guard, `aihu component Card` wrote `card.aihu`, whose compiled output
+  // called `customElements.define('card', …)` — a SyntaxError in every
+  // browser, so the element stayed inert and the page rendered blank, with a
+  // green build and a warning nobody gated on.
+  it('`aihu component` REFUSES a single-word name (tag could never register)', () => {
+    const root = join(parentDir, 'gen-reject')
+    expect(() => scaffoldComponent('Card', root)).toThrow(/cannot register as a custom element/)
+    expect(() => scaffoldComponent('Card', root)).toThrow(/'card'/)
+    // And it wrote nothing.
+    expect(existsSync(join(root, 'src', 'components', 'card.aihu'))).toBe(false)
   })
 
   it('@aihu/templates-cf-team scaffolder emits compiler-clean .aihu', () => {

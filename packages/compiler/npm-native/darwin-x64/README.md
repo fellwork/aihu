@@ -34,7 +34,7 @@ npm install @aihu/compiler-native-darwin-x64
 bun add @aihu/compiler-native-darwin-x64
 ```
 
-<sub><i>Auto-generated against `@aihu/compiler-native-darwin-x64@0.1.5`.</i></sub>
+<sub><i>Auto-generated against `@aihu/compiler-native-darwin-x64@0.1.8`.</i></sub>
 
 <!-- END_AUTOGEN: install -->
 
@@ -45,12 +45,12 @@ bun add @aihu/compiler-native-darwin-x64
 
 | | |
 |---|---|
-| **Version** | `0.1.5` |
+| **Version** | `0.1.8` |
 | **Tier** | platform — Platform-specific native binary distributor for `@aihu/compiler` |
 | **Published files** | 1 entries |
 | **License** | MIT |
 
-<sub><i>Auto-generated against `@aihu/compiler-native-darwin-x64@0.1.5`.</i></sub>
+<sub><i>Auto-generated against `@aihu/compiler-native-darwin-x64@0.1.8`.</i></sub>
 
 <!-- END_AUTOGEN: stats -->
 
@@ -62,7 +62,7 @@ bun add @aihu/compiler-native-darwin-x64
 - [@aihu/compiler](../../README.md)
 - [Aihu framework root](../../../../README.md)
 
-<sub><i>Auto-generated against `@aihu/compiler-native-darwin-x64@0.1.5`.</i></sub>
+<sub><i>Auto-generated against `@aihu/compiler-native-darwin-x64@0.1.8`.</i></sub>
 
 <!-- END_AUTOGEN: see-also -->
 
@@ -73,6 +73,6 @@ bun add @aihu/compiler-native-darwin-x64
 
 MIT — see [LICENSE](../../../../LICENSE).
 
-<sub><i>Auto-generated against `@aihu/compiler-native-darwin-x64@0.1.5`.</i></sub>
+<sub><i>Auto-generated against `@aihu/compiler-native-darwin-x64@0.1.8`.</i></sub>
 
 <!-- END_AUTOGEN: license -->

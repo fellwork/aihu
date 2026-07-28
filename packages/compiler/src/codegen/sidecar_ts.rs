@@ -235,7 +235,20 @@ pub(crate) fn emit_sidecar_ts(
         // Overload resolution picked `Iterable<T>` and inferred T=unknown for
         // `any`; the leading `0 extends (1 & T)` IsAny guard forces `any` first,
         // then the array/iterable/number cases infer the element as before.
-        "declare function __aihu_each<T>(list: T): ReadonlyArray<[0 extends (1 & T) ? any : T extends readonly (infer E)[] ? E : T extends Iterable<infer E> ? E : T extends number ? number : unknown, number]>; "
+        //
+        // The parameter is INTERSECTED with the valid-source set rather than
+        // left as bare `T`. Bare `T` accepts anything and silently types a
+        // genuine non-iterable (a `boolean`, a plain `{a,b}` object) as
+        // `unknown` — no error — so a typo like `each={user.active}` compiles.
+        // `T & (Iterable | ArrayLike | number | null | undefined)` still infers
+        // T from the RAW argument (so `any` is preserved for the IsAny guard and
+        // arrays infer their element exactly), but a value that is none of those
+        // is `never` at the call site → a real TS2345, not a widen-to-any. `null`
+        // /`undefined` stay permitted: `each` over nullish is a render-nothing
+        // no-op (the Vue `v-for` / svelte `#each` semantics this helper mirrors),
+        // and a plain object is not a valid source — you iterate `Object.entries`
+        // (40-spec §5: `each={[k,v] of entries}`), which is already an array.
+        "declare function __aihu_each<T>(list: T & (Iterable<any> | ArrayLike<any> | number | null | undefined)): ReadonlyArray<[0 extends (1 & T) ? any : T extends readonly (infer E)[] ? E : T extends Iterable<infer E> ? E : T extends number ? number : unknown, number]>; "
     } else {
         ""
     };

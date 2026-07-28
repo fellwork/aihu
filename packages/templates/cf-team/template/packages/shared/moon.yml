@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=https://moonrepo.dev/schemas/project.json
+#
+# Per-package tasks — the root moon.yml depends on `packages/shared:{build,test,typecheck}`.
+# `shared` is consumed as source via `workspace:*`, so `build` is a noop that
+# exists only to satisfy the root aggregate task's dependency graph.
+layer: 'library'
+language: 'typescript'
+
+tasks:
+  build:
+    command: 'noop'
+  test:
+    command: 'bun run vitest run'
+  typecheck:
+    command: 'bun run tsc --noEmit'

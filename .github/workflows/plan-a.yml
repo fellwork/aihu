@@ -76,6 +76,13 @@ jobs:
           # release download — it predates the --ast-json hook.
           AIHU_SKIP_POSTINSTALL: "1"
       - run: bun run check:deps
+      # Guard (FEL-411): the Moon project graph must describe the REAL
+      # build-order dependencies, DERIVED from what each package imports. A
+      # missing edge (e.g. editor imports @aihu/compiler but omitted it from
+      # dependsOn) lets `typecheck` race ahead of the dependency's `build`,
+      # failing TS2307 nondeterministically. Reads only source + moon.yml text,
+      # so it runs with the other cheap graph guards, before typecheck.
+      - run: bun run check:moon-graph
       # Guard: a compiler Rust change must bump the platform binary packages,
       # or the rebuilt binary is silently skipped at publish (see the script).
       - run: bun run check:compiler-binary-bump
@@ -101,10 +108,11 @@ jobs:
       # pass by checking nothing.
       - run: bun run check:skill-samples
       # NOTE: the lesson-citation gate is deliberately NOT here — see the
-      # `lesson-refs` job below. This job is *documented* to skip doc-only PRs
-      # via `changes.code`; today it does not, because that filter is inert (see
-      # the `changes` job). A docs gate placed here would run only for as long as
-      # that bug survives.
+      # `lesson-refs` job below. This `check` job IS skipped on doc-only PRs via
+      # `changes.code` (FEL-433 made that filter discriminate — it previously ran
+      # on everything). A docs-facing gate therefore must NOT be a step here, or
+      # it would silently skip on the doc-only PRs it most needs to run on; it
+      # goes in its own always-on job instead.
       # @aihu/use registry parity — a composable's six touch points (src dir,
       # barrel, package.json exports, rolldown input, .size-limit.json row,
       # USE_COMPOSABLES tuple) must all agree, bidirectionally. Needs no build
@@ -117,10 +125,12 @@ jobs:
         # `bunx biome`, which resolves its own latest copy and made CI flap when
         # biome 2.4.15 published mid-day (see PR pinning @biomejs/biome to 2.4.14).
       - run: bun run check:lint
-      # README autogen sync — fails CI if README.md or any per-package README
-      # is out of sync with its canonical sources. Author runs
-      # `bun scripts/sync-readme.ts` to fix; pre-commit hook runs it locally.
-      - run: bun scripts/sync-readme.ts --check
+      # README autogen sync moved OUT of this job to its own always-on
+      # `readme-sync` job (C-FEL-READMESYNC-JOB). It is a DOCS-FACING gate — it
+      # consumes root + every packages/**/README.md — and `check` now skips
+      # doc-only PRs (FEL-433 `code` filter), so as a step here it silently
+      # stopped running on the README-only PRs it exists to catch. Exactly the
+      # misplacement the NOTE above (check:skill-samples) warns against.
       - run: bun run typecheck
       # Slice 0 — thesis invariants (docs/architecture/thesis.md §Invariants).
       # Each converts a property from "true today if you check" into "cannot
@@ -245,20 +255,21 @@ jobs:
     # WHY ITS OWN JOB, and not a step in `check` — the reasoning was corrected
     # once, so the corrected version is what is written here:
     #
-    # `check` is gated on `changes.code`, which is DOCUMENTED to exclude
-    # 'docs/**' and '**/*.md'. Reading that, a docs gate inside `check` looks
-    # like it would never run on docs. That reading is wrong TODAY: the filter is
-    # inert. dorny/paths-filter defaults to `predicate-quantifier: some`, and the
-    # first pattern '**' matches every file, so every negation below it is dead
-    # and `code` is true for everything — including README.md. Verified with
-    # picomatch 4.0.5 under dorny's MatchOptions, not inferred.
+    # `check` is gated on `changes.code`, which excludes 'docs/**' and doc
+    # markdown. Since FEL-433 that filter actually DISCRIMINATES: the `code`
+    # step uses `predicate-quantifier: every` so a docs-only PR yields
+    # code=false and `check` is skipped (verified with picomatch 4.0.5 under
+    # dorny's MatchOptions). So a docs gate placed as a step inside `check`
+    # would silently NOT run on the doc-only PRs it most needs to catch. This
+    # job depends on none of that: no `if:`, no path filter, always runs. It
+    # needs only git and bash — no bun install, no build, no Rust — so it costs
+    # seconds.
     #
-    # So `check` currently runs on doc-only PRs, and a step here would work — for
-    # exactly as long as nobody fixes the filter. The moment someone adds
-    # `predicate-quantifier: every` or drops the '**', a docs gate inside `check`
-    # stops running on docs and reports green. This job depends on none of that:
-    # no `if:`, no path filter, always runs. It needs only git and bash — no bun
-    # install, no build, no Rust — so it costs seconds.
+    # (Before FEL-433 the filter was INERT — dorny defaults to
+    # `predicate-quantifier: some` and the leading '**' matched every file, so
+    # `code` was true for everything and `check` ran even on doc-only PRs. A
+    # step here worked then only by that accident; the own-job design was
+    # already correct and is now load-bearing.)
     #
     # `check:ci` in package.json also lists it, for local pre-push. That is NOT
     # what makes it run: `check:ci` is invoked by no workflow in this repo. THIS
@@ -296,10 +307,11 @@ jobs:
     # commit as the check rather than being left for later.
     #
     # Own job, no `if:`, no path filter — historian's `lesson-refs` pattern, for
-    # the same reason: `check` is gated on `changes.code`, whose leading '**'
-    # makes every negation inert, so it runs on everything today BY ACCIDENT. A
-    # gate depending on that keeps working only until someone fixes the filter.
-    # This needs python3 and two files: seconds, no install, no build, no Rust.
+    # the same reason: `check` is gated on `changes.code`, which since FEL-433
+    # discriminates (`predicate-quantifier: every`) and so SKIPS doc-only PRs. A
+    # palette gate as a step in `check` would not run on a doc-only PR; as its
+    # own always-on job it always does. Needs python3 and two files: seconds, no
+    # install, no build, no Rust.
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -311,6 +323,33 @@ jobs:
       # the recorded set as DEBT every run so it cannot go quiet. Deliberately
       # not permanently red — that is the state that gets a gate disabled.
       - run: python3 .tastemaker/check_palette_parity.py --verbose
+
+  readme-sync:
+    # README autogen sync — the generated sections of root README.md and every
+    # packages/**/README.md must match their canonical sources, or
+    # `bun scripts/sync-readme.ts` was not re-run. Its OWN always-on job, on the
+    # lesson-refs pattern, because it is a DOCS-FACING gate: it consumes READMEs,
+    # which the `code` filter correctly excludes, so a README-only PR yields
+    # code=false and skips `check`. It lived as a STEP inside `check` until
+    # C-FEL-READMESYNC-JOB, where it silently stopped running on exactly the
+    # README-only PRs it exists to catch the moment FEL-433 made the filter
+    # discriminate. No `if:`, no path filter — it runs on every PR.
+    #
+    # Cheap like lesson-refs: `sync-readme --check` READS the committed
+    # scripts/__bundle-sizes.json cache and never bundles, so it needs bun + the
+    # repo but NO `bun install`, no build, no Rust. (The `rolldown` import it
+    # once loaded statically at module top is now lazy — reached only in the
+    # --remeasure/write path; see scripts/sync-readme.ts.) The husky pre-commit
+    # hook also runs it, but that is --no-verify-bypassable and routinely
+    # bypassed for docs, so it is NOT a substitute for this CI gate.
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.3.8'
+      - run: bun scripts/sync-readme.ts --check
 
   ci-ok:
     # Single stable REQUIRED status for branch protection. Always runs (even
@@ -348,14 +387,12 @@ jobs:
     # unconditionally, including doc-only ones. Deliberate: a doc-only PR is
     # precisely how an unreachable lesson citation gets in.
     #
-    # CORRECTION to the paragraph above, which predates this note and is wrong:
-    # "a doc-only PR skips `check` via the `changes.code` filter" DOES NOT HAPPEN.
-    # That filter is inert — dorny/paths-filter defaults to
-    # `predicate-quantifier: some` and the leading '**' matches everything, so
-    # every negation is dead and `code` is true for every file. The doc-only skip
-    # described here and at the `changes` job has never occurred. Left in place
-    # rather than deleted because the INTENT is real and someone will implement
-    # it; when they do, re-read every job gated on `changes.code`.
+    # (FEL-433: the doc-only skip described above is now REAL. It was inert until
+    # FEL-433 — dorny defaults to `predicate-quantifier: some` and the leading
+    # '**' matched every file, so `code` was true for every path and `check` ran
+    # on doc-only PRs. The `code` filter now uses `every` and discriminates, so
+    # `check` genuinely skips doc-only PRs and `lesson-refs` is what still gates
+    # them.)
     #
     # examples + governed-examples were added after PR #549 merged
     # ci-ok-green while both were RED — `ci-ok` only watched `check`, so
@@ -375,7 +412,7 @@ jobs:
     # resolves every needed job to a terminal state (success/failure/
     # cancelled/skipped) before evaluating this job's `if: always()`, which
     # then runs regardless of what that state was.
-    needs: [check, examples, governed-examples, lesson-refs, palette]
+    needs: [changes, check, examples, governed-examples, lesson-refs, palette, readme-sync]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -394,20 +431,32 @@ jobs:
           # end, reproduced one layer up. Being in `needs` is NOT being gated
           # on; only appearing in the loop below is.
           PALETTE_RESULT: ${{ needs.palette.result }}
+          # readme-sync is always-on (no if:/filter), so it is never `skipped`
+          # on a real event — it is success or failure. It MUST appear in the
+          # loop below, not just here: being in `needs` is being WAITED on, not
+          # gated on (the palette bug above, and #649, both proved that).
+          README_SYNC_RESULT: ${{ needs.readme-sync.result }}
           # `true` only for a pull_request event whose PR is a draft. For push
           # and workflow_dispatch, `github.event.pull_request` is null and this
           # evaluates to `false` — so the draft rule below can never fire on a
           # branch build.
           IS_DRAFT: ${{ github.event.pull_request.draft == true }}
+          # `changes.code` — 'false' means this PR is docs-only, so `check` skipped
+          # BY DESIGN and ci-ok must still be green (the `on:`/`changes` header
+          # promises exactly that). On a draft PR the `changes` job is skipped, so
+          # this is '' — but the draft branch below never reads it. Empty on a
+          # NON-draft (a broken `changes` job) must fail closed, not green.
+          CODE_RESULT: ${{ needs.changes.outputs.code }}
         run: |
           echo "check:              $CHECK_RESULT"
           echo "examples:           $EXAMPLES_RESULT"
           echo "governed-examples:  $GOVERNED_EXAMPLES_RESULT"
           echo "lesson-refs:        $LESSON_REFS_RESULT"
           echo "palette:            $PALETTE_RESULT"
+          echo "readme-sync:        $README_SYNC_RESULT"
           echo "draft PR:           $IS_DRAFT"
           fail=0
-          for pair in "check:$CHECK_RESULT" "examples:$EXAMPLES_RESULT" "governed-examples:$GOVERNED_EXAMPLES_RESULT" "lesson-refs:$LESSON_REFS_RESULT" "palette:$PALETTE_RESULT"; do
+          for pair in "check:$CHECK_RESULT" "examples:$EXAMPLES_RESULT" "governed-examples:$GOVERNED_EXAMPLES_RESULT" "lesson-refs:$LESSON_REFS_RESULT" "palette:$PALETTE_RESULT" "readme-sync:$README_SYNC_RESULT"; do
             name="${pair%%:*}"
             result="${pair#*:}"
             if [ "$result" = "failure" ] || [ "$result" = "cancelled" ]; then
@@ -415,13 +464,48 @@ jobs:
               fail=1
             fi
           done
-          # FEL-437 — a draft skipped the build, so "skipped is allowed" must
-          # not apply here. Reported as a failure rather than silently green:
-          # a draft cannot be merged anyway, so this blocks nothing, and a red
-          # X that says why beats a green tick that means nothing.
+          # FEL-437 — a draft skipped the build, so "skipped is allowed" must not
+          # silently read as a pass. Announced as a WARNING, not a failure.
+          #
+          # It used to fail, reasoning "a draft cannot be merged anyway, so this
+          # blocks nothing." True in isolation, false in aggregate: agents are
+          # instructed to push a draft PR as soon as they make their first edit
+          # (work left only in a workspace is one reset from gone), so EVERY agent
+          # PR was red from birth until someone promoted it. The queue filled with
+          # red meaning "unfinished", real failures hid among them, and the board
+          # trained everyone to ignore red — the same noise-over-signal defect
+          # already fixed for the bench lanes. Red must mean "this is broken."
+          #
+          # Safe because two independent things stop an untested draft merging:
+          # GitHub refuses to merge a draft PR at all, and draft -> ready is in
+          # this workflow's `types:` list, so promotion fires a fresh run whose
+          # `check` actually executes. The stale-green window the original comment
+          # feared is closed by that trigger, not by this failure.
           if [ "$IS_DRAFT" = "true" ] && [ "$CHECK_RESULT" = "skipped" ]; then
-            echo "::error::Draft PR: 'check' was skipped, so nothing was built or tested. This is NOT a pass — mark the PR ready for review to get a real result. (FEL-437)"
-            fail=1
+            echo "::warning::Draft PR: 'check' was skipped, so nothing was built or tested. NOT evidence of a pass — mark ready for review to get a real result. Not failed, because a draft is unfinished, not broken. (FEL-437)"
+          fi
+          # A NON-draft whose `check` skipped is an anomaly ONLY when code changed.
+          # A docs-only PR (changes.code == 'false') skips `check` BY DESIGN, and
+          # the header above promises such a PR still gets ci-ok green so it is
+          # mergeable without an admin override. This branch is the #670 x #667
+          # INTERACTION, not a #670 overcorrection: #670 (01:12Z) made "non-draft +
+          # check skipped" a hard failure, a CORRECT assumption when written because
+          # the `changes.code` filter was still inert (leading ** under
+          # predicate-quantifier: some killed every negation), so `code` was always
+          # true and `check` always ran — this branch was unreachable. #667 (01:46Z)
+          # made the filter actually discriminate, so a docs-only PR now correctly
+          # skips `check`, which ARMED this latent branch. Proof it is the interaction:
+          # #659 is docs-only, merged 01:46:01Z AFTER #670, and passed with
+          # CHECK_RESULT=success because #667 had not landed yet. So exempt the
+          # legitimate docs-only skip, and fail everything else that skipped without
+          # being docs-only — including a broken `changes` (code=''), which fails closed.
+          if [ "$IS_DRAFT" != "true" ] && [ "$CHECK_RESULT" = "skipped" ]; then
+            if [ "$CODE_RESULT" = "false" ]; then
+              echo "docs-only PR (changes.code=false): 'check' skipped by design — ci-ok green per policy."
+            else
+              echo "::error::'check' was skipped on a non-draft PR with code changes (changes.code='$CODE_RESULT') — ci-ok would be reporting on a build that never ran. Investigate the changes/paths filter before merging."
+              fail=1
+            fi
           fi
           if [ "$fail" = "1" ]; then
             exit 1
@@ -435,19 +519,36 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     outputs:
-      code: ${{ steps.filter.outputs.code }}
+      code: ${{ steps.code_filter.outputs.code }}
       bench: ${{ steps.filter.outputs.bench }}
       bench_lsp: ${{ steps.filter.outputs.bench_lsp }}
       governed: ${{ steps.filter.outputs.governed }}
     steps:
       - uses: actions/checkout@v4
+      # `code` = any changed file that is NOT a doc/agent artifact. When false,
+      # the PR is docs-only and the heavy `check` job is skipped (ci-ok still
+      # reports green). This filter is NEGATION-BASED and so needs
+      # `predicate-quantifier: every` (FEL-433): under dorny/paths-filter's
+      # DEFAULT `some`, the leading `**` matches every file and every negation
+      # below it is dead, so `code` was true even for docs-only PRs and the skip
+      # never happened (verified with picomatch 4.0.5 under dorny's MatchOptions,
+      # not inferred). `every` ANDs the rules, so a `docs/**` path fails
+      # `!docs/**` and yields code=false. It is its OWN step because the
+      # positive-include filters below (`bench`/`governed`) need `some` — a file
+      # matches those if it hits ANY pattern — and a single quantifier per step
+      # cannot serve both semantics.
+      #
+      # The `.md` exclusions are TARGETED at doc markdown, deliberately NOT a
+      # blanket `!**/*.md`: `skills/aihu/**.md` are compiler INPUT that
+      # check:skill-samples validates, so they must count as `code`. A blanket
+      # `.md` exclusion under `every` would make a skills/aihu-only PR yield
+      # code=false and SKIP the sample gate on exactly the PRs that can rot
+      # samples — re-unwiring #615 through the front door (FEL-433 half-2).
       - uses: dorny/paths-filter@v3
-        id: filter
+        id: code_filter
         with:
+          predicate-quantifier: 'every'
           filters: |
-            # `code` = any changed file that is NOT a doc/agent artifact. When
-            # false, the PR is docs-only and the heavy `check` job is skipped
-            # (ci-ok still reports green). Mirrors the old workflow paths-ignore.
             code:
               - '**'
               - '!.team/**'
@@ -455,7 +556,13 @@ jobs:
               - '!.claude/**'
               - '!state-*.md'
               - '!README.md'
-              - '!**/*.md'
+              - '!**/README.md'
+              - '!**/CHANGELOG.md'
+              - '!.changeset/**'
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
             # Source-scoped: docs/README regeneration (e.g. sync-readme touching
             # packages/arbor/README.md from an unrelated PR) must NOT trigger the
             # perf gate on a noisy runner. Watch source + manifests + the harness.

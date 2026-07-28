@@ -1,7 +1,9 @@
+import type { AgentMetadata } from '@aihu/agent'
 import { getAllAgentMetadata } from '@aihu/agent'
 import type { RouteHandler } from '@aihu/server'
 import { json, notFound } from '@aihu/server'
 import { generateA2aCard } from './a2a-card.ts'
+import { readAgentManifestDir } from './agent-manifest-sidecar.ts'
 import { generateLlmsFullTxt, generateLlmsTxt } from './llms-txt.ts'
 import { generateMcpDiscovery } from './mcp-discovery.ts'
 import { generateMcpServerCard } from './mcp-server-card.ts'
@@ -46,7 +48,42 @@ interface VitePlugin {
  *   ],
  * })
  */
-export function createAgentReadinessRoutes(config: AgentReadinessConfig): {
+/**
+ * Injectable sources for the generators, alongside the declarative config.
+ *
+ * These are NOT part of `AgentReadinessConfig` (which is single-sourced in
+ * `@aihu/server`): they are wiring, not app configuration.
+ */
+export interface AgentReadinessSources {
+  /**
+   * Component-metadata reader, mirroring `RouteMarkdownResolverOptions`'
+   * seam of the same name. Defaults to `getAllAgentMetadata` — the live
+   * registry.
+   *
+   * FEL-434b: the registry is EMPTY on a client-target build, because the
+   * compiler elides `registerAgentMetadata` from client JS. Point this at
+   * `readAgentManifestDir(<compiler out dir>)` to build the `## Components`
+   * section from the on-disk agent-meta sidecars instead.
+   */
+  readonly readComponents?: () => ReadonlyArray<AgentMetadata>
+}
+
+/** `AgentReadinessSources` plus the build-time-only sidecar directory. */
+export interface ViteAgentReadinessSources extends AgentReadinessSources {
+  /**
+   * Directory the compiler wrote its `<tag>.agent-manifest.json` sidecars to
+   * (the `--out` dir). When set, the `## Components` section and the MCP
+   * server card's skills are derived from those files instead of the live
+   * registry — the fix for a client-target build listing nothing (FEL-434b).
+   * Overrides `readComponents`. A missing directory reads as zero components.
+   */
+  readonly agentManifestDir?: string
+}
+
+export function createAgentReadinessRoutes(
+  config: AgentReadinessConfig,
+  sources: AgentReadinessSources = {},
+): {
   readonly llmsTxt: RouteHandler
   readonly llmsFullTxt: RouteHandler
   readonly mcpServerCard: RouteHandler
@@ -63,10 +100,12 @@ export function createAgentReadinessRoutes(config: AgentReadinessConfig): {
     ...(config.siteUrl !== undefined ? { baseUrl: config.siteUrl } : {}),
   }
 
+  const readComponents = sources.readComponents ?? getAllAgentMetadata
+
   const llmsTxt: RouteHandler = (_req) => {
-    // Snapshot the component registry at request/build time, consistent with
+    // Snapshot the component source at request/build time, consistent with
     // how the rest of the config is read. Zero components → omitted section.
-    const components = getAllAgentMetadata()
+    const components = readComponents()
     const txt = generateLlmsTxt({
       name: config.name,
       sections: config.llmsSections ?? [],
@@ -82,7 +121,7 @@ export function createAgentReadinessRoutes(config: AgentReadinessConfig): {
   }
 
   const llmsFullTxt: RouteHandler = (_req) => {
-    const components = getAllAgentMetadata()
+    const components = readComponents()
     const txt = generateLlmsFullTxt({
       name: config.name,
       sections: config.llmsSections ?? [],
@@ -103,6 +142,7 @@ export function createAgentReadinessRoutes(config: AgentReadinessConfig): {
       name: config.name,
       version: config.version ?? '0.0.0',
       endpoint: config.endpoint,
+      ...(sources.readComponents !== undefined ? { components: sources.readComponents() } : {}),
       ...(config.skills !== undefined ? { skills: config.skills } : {}),
       ...(config.auth !== undefined ? { auth: config.auth } : {}),
       ...(config.summary !== undefined ? { description: config.summary } : {}),
@@ -194,8 +234,25 @@ export function createAgentReadinessRoutes(config: AgentReadinessConfig): {
  * Previously named `agentReadiness`. That name is kept as a deprecated alias
  * until v1.0 to avoid a breaking change.
  */
-export function viteAgentReadinessIntegration(config: AgentReadinessConfig): VitePlugin {
-  const routes = createAgentReadinessRoutes(config)
+export function viteAgentReadinessIntegration(
+  config: AgentReadinessConfig,
+  sources: ViteAgentReadinessSources = {},
+): VitePlugin {
+  // FEL-434b: when a manifest directory is given, the component listing comes
+  // from the compiler's on-disk sidecars rather than the live registry — the
+  // registry is empty on a client-target build, because the compiler elides
+  // `registerAgentMetadata` from client JS. Loaded on first use (the sidecars
+  // are written by the compile step that precedes this plugin) and cached, so
+  // every file generated in one build sees the same snapshot.
+  let routes = createAgentReadinessRoutes(config, sources)
+  let loaded = sources.agentManifestDir === undefined
+  const ensureRoutes = async (): Promise<typeof routes> => {
+    if (loaded) return routes
+    loaded = true
+    const components = await readAgentManifestDir(sources.agentManifestDir as string)
+    routes = createAgentReadinessRoutes(config, { readComponents: () => components })
+    return routes
+  }
 
   const serveResponse = async (path: string, handler: RouteHandler, res: any): Promise<boolean> => {
     const req = new Request(`http://localhost${path}`)
@@ -243,6 +300,7 @@ export function viteAgentReadinessIntegration(config: AgentReadinessConfig): Vit
     configureServer(server) {
       server.middlewares.use(async (req, res, next) => {
         const url = (req.url as string | undefined) ?? '/'
+        const routes = await ensureRoutes()
         const pathMap: Array<[string, RouteHandler]> = [
           ['/llms.txt', routes.llmsTxt],
           ['/llms-full.txt', routes.llmsFullTxt],
@@ -264,6 +322,7 @@ export function viteAgentReadinessIntegration(config: AgentReadinessConfig): Vit
       })
     },
     async generateBundle(_options, _bundle) {
+      const routes = await ensureRoutes()
       const files: Array<[string, RouteHandler]> = [
         ['llms.txt', routes.llmsTxt],
         ['llms-full.txt', routes.llmsFullTxt],

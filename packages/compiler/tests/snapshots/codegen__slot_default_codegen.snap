@@ -7,7 +7,7 @@ expression: output.js
 import { branch, leaf, slot } from '@aihu/arbor'
 import { defineComponent, defineElement } from '@aihu/runtime'
 
-const createSlotBoundary = (o, b) => slot(o?.name ?? undefined);
+const createSlotBoundary = (o, b) => branch('slot', o?.name != null ? { name: o.name } : undefined, typeof b === 'function' ? [b()] : []);
 
 defineElement('x-slot', defineComponent((_ctx) => {
   return branch('div', undefined, [createSlotBoundary({ expose: [] }, () => { return branch(null, undefined, []) })])

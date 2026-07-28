@@ -84,9 +84,24 @@ if (files.length === 0) {
 
 const failures: Array<{ file: string; stage: string; detail: string }> = []
 
+/**
+ * The define-name this file is actually registered under, mirroring the Vite
+ * plugin (`packages/compiler/js/index.ts`: `_isLayoutFile` / `_layoutTag`).
+ *
+ * A layout SFC never registers under its bare stem — `src/layouts/app.aihu`
+ * is registered as `aihu-layout-app`, because `app` has no hyphen and could
+ * not register at all. Passing the bare stem here would ask the compiler to
+ * emit `defineElement('app', …)`, which is now a hard C450 error: this gate
+ * would fail on a file that is perfectly correct in a real build.
+ */
+function defineTagFor(rel: string): string {
+  const stem = basename(rel, '.aihu')
+  return /(^|\/)layouts\//.test(rel) ? `aihu-layout-${stem.toLowerCase()}` : stem
+}
+
 for (const rel of files) {
   const abs = join(ROOT, rel)
-  const tag = basename(rel, '.aihu')
+  const tag = defineTagFor(rel)
   const source = readFileSync(abs, 'utf8')
 
   let emitted: string

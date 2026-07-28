@@ -11,7 +11,9 @@
 import { describe, expect, it } from 'vitest'
 import { transform } from '../../js/index.ts'
 
-function compile(source: string, id = '/virtual/test.aihu'): string {
+// Hyphenated stem: `transform()` derives the define-name from the filename,
+// and a hyphen-less one is C450 — it could never reach customElements.define.
+function compile(source: string, id = '/virtual/aihu-test.aihu'): string {
   return transform(source, id).code
 }
 

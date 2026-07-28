@@ -10,10 +10,13 @@ layer: library
 # source via tsconfig `paths` — see packages/seo) gets typechecked. This is
 # the FEL-399 root cause: server had no `dependsOn` at all.
 dependsOn:
-  - 'signals'
   - 'agent'
   - 'agent-service'
+  - 'arbor'
+  - 'context'
   - 'plugin'
+  - 'signals'
+  - 'store'
 
 tasks:
   check-boundary:

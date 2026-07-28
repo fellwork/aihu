@@ -1,6 +1,12 @@
 # yaml-language-server: $schema=https://moonrepo.dev/schemas/project.json
 language: typescript
 layer: library
+
+dependsOn:
+  - 'agent-service'
+  - 'context'
+  - 'server'
+  - 'signals'
 tasks:
   check-boundary:
     command: "bash ../../scripts/check-boundary.sh"

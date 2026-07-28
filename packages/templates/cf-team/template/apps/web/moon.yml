@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=https://moonrepo.dev/schemas/project.json
+#
+# Per-app tasks — the root moon.yml depends on `apps/web:{build,dev,test,typecheck}`.
+# Commands mirror this package's package.json scripts (bun runs the local binaries).
+layer: 'application'
+language: 'typescript'
+
+tasks:
+  dev:
+    command: 'bun run vite dev'
+    preset: 'server'
+  build:
+    command: 'bun run vite build'
+  test:
+    command: 'bun run vitest run'
+  typecheck:
+    command: 'bun run tsc --noEmit'

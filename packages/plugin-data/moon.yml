@@ -2,5 +2,7 @@
 language: typescript
 layer: library
 dependsOn:
-  - signals
-  - context
+  - 'context'
+  - 'plugin'
+  - 'server'
+  - 'signals'

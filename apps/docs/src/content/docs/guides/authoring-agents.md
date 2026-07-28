@@ -1,6 +1,6 @@
 # Authoring Agents
 
-aihu is agent-first by design. Every `.aihu` SFC can declare an `@agent` block, and the Rust compiler emits both a Web Component and an `agent-manifest.json` sidecar (aihu's own shape — not an MCP `.mcp.json` document) from the same source file. The result is a three-layer stack — component-level `@agent` declarations, the `@aihu/agent` static registry, and the `@aihu/agent-service` live execution engine — that lets an aihu app be made callable by MCP-compatible AI agents once the agent surface is wired up (the discovery and serving pieces are opt-in, not automatic — see §6 and §10).
+aihu is agent-first by design. Every `.aihu` SFC can declare an `@agent` block, and the Rust compiler emits both a Web Component and a `<tag>.agent-manifest.json` sidecar (aihu's own shape — not an MCP `.mcp.json` document) from the same source file. The result is a three-layer stack — component-level `@agent` declarations, the `@aihu/agent` static registry, and the `@aihu/agent-service` live execution engine — that lets an aihu app be made callable by MCP-compatible AI agents once the agent surface is wired up (the discovery and serving pieces are opt-in, not automatic — see §6 and §10).
 
 ---
 
@@ -17,7 +17,7 @@ aihu is agent-first by design. Every `.aihu` SFC can declare an `@agent` block, 
 ### Key properties
 
 - **Agent code is fully elided from client builds.** When compiling with `BuildTarget.Client`, the `@agent` block produces a `// [client build] @agent block elided` comment and zero runtime bytes. Agent schemas never reach the browser bundle.
-- **The Rust compiler emits an `agent-manifest.json` sidecar** for every SFC with an exposed agent surface (`expose:` on `@state` entries, or a legacy `@agent` block). The schema is derived directly from `describe:` and `expose:` metadata in `@state` entries. Note: this is aihu's own shape, not `.mcp.json`, and it currently has **no consumers** — see §7.
+- **The Rust compiler emits a `<tag>.agent-manifest.json` sidecar** for every SFC with an exposed agent surface (`expose:` on `@state` entries, or a legacy `@agent` block) — one file per component, including on client builds. The schema is derived directly from `describe:` and `expose:` metadata in `@state` entries. This is aihu's own shape, not `.mcp.json`; `@aihu-plugin/agent-readiness` reads it to build `llms.txt` and the MCP server card — see §7.
 - **Live-binding (v0.3.0+)** wires agent tool calls to the actual signal graph of mounted components, so an AI agent invoking `live-counter/increment` triggers the same reactive path as a user clicking the button.
 
 ---
@@ -371,9 +371,9 @@ Note: `viteAgentReadinessIntegration()` does NOT inject routes into `createRoute
 
 ## 7. Compiler-emitted agent manifest
 
-The Rust compiler emits an `agent-manifest.json` sidecar alongside the compiled JS for every SFC that has exposed state or actions. The shape is aihu's own — it is **not** an MCP `.mcp.json` document. It is derived from `describe:` and `expose:` metadata in `@state` entries.
+The Rust compiler emits a `<tag>.agent-manifest.json` sidecar alongside the compiled JS for every SFC that has exposed state or actions. The shape is aihu's own — it is **not** an MCP `.mcp.json` document. It is derived from `describe:` and `expose:` metadata in `@state` entries.
 
-> **🚧 `agent-manifest.json` has no consumers yet.** The file is emitted but nothing reads it. The operational agent surface is instead carried by the `registerAgentMetadata(...)` module-scope call (§3) and the `__agentBinding` server export (below). Wiring `agent-manifest.json` into the server-card skills generation is planned (#430).
+`@aihu-plugin/agent-readiness` consumes these sidecars — pass `agentManifestDir` to `viteAgentReadinessIntegration` and the `## Components` section of `llms.txt` plus the MCP server card's skills are derived from them. This is the only source that works on a **client** build, where `registerAgentMetadata(...)` is elided and the runtime registry is therefore empty. The sidecar may carry policy (`scope`, `rateLimit`, `streamOutput`); the reader copies only `tag` / `describes` / `state` / `actions` / `extract`, so policy never reaches the served documents. The operational agent surface remains carried by the `registerAgentMetadata(...)` module-scope call (§3) and the `__agentBinding` server export (below).
 
 ### Emitted manifest for `live-counter.aihu`
 

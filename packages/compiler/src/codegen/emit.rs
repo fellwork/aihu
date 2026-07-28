@@ -202,14 +202,17 @@ pub fn emit(unit: &CompileUnit, tag_name: &str) -> EmitResult {
 /// generated type-check surface (`sidecar_ts`); the emitted JS, manifest, and
 /// route sidecar are identical either way. Default-off keeps the sidecar
 /// byte-identical to the pre-#486 output.
+///
+/// `tag_name` is assumed to be a REGISTERABLE custom-element name. It used to
+/// be merely warned about here — an advisory `eprintln!` that fired ~30 times
+/// per build while the build stayed green, so components that could never
+/// register shipped for months. That rule is now a hard C450 error raised
+/// where the define-name is resolved, before this function is reached:
+/// `envelope::validate_define_tag`, called from the CLI (`src/bin/main.rs`),
+/// the wasm binding, and `compile_envelope` (the napi addon path). A gate that
+/// cannot fail the build is not a gate; see
+/// `docs/lessons/hyphenless-custom-element-tags.md`.
 pub fn emit_with_options(unit: &CompileUnit, tag_name: &str, strict_templates: bool) -> EmitResult {
-    if !tag_name.contains('-') {
-        eprintln!(
-            "warning: tag '{}' does not contain a hyphen; custom element names must include '-'",
-            tag_name
-        );
-    }
-
     let target = unit.target;
 
     // GX Phase 1 (#437-GX) — resolve the ONE effective extract policy
@@ -394,10 +397,20 @@ pub fn emit_with_options(unit: &CompileUnit, tag_name: &str, strict_templates: b
         }
     };
 
-    // v0.6.6: Do NOT emit manifest_json for client-only builds.
-    let manifest_json = if elide_agent {
-        String::new()
-    } else if is_agent_component {
+    // FEL-434 (closes FEL-423): emit the agent manifest for EVERY agent
+    // component — including client (`elide_agent`) builds. `manifest_json` is a
+    // BUILD-TIME SIDECAR (`agent-manifest.json`, written beside `.route.json` by
+    // bin/main.rs), NOT bundled bytes: it costs zero browser weight and leaks
+    // zero policy into the client output. Suppressing it for client builds
+    // (the former `if elide_agent { String::new() }`) is what starved the
+    // agent-readiness generator, so a $action component compiled `--target
+    // client` produced an empty `## Components` section. The client JS elision
+    // of `registerAgentMetadata` stays untouched (mcp_emit.rs "NEVER in client
+    // builds"; T1-b: no scope/rateLimit bytes in the bundle) — only this on-disk
+    // sidecar is (re)enabled. The sidecar MAY carry policy (scope/rate-limit);
+    // that is fine for a build artifact — the readiness generator is responsible
+    // for not RENDERING policy into the served llms.txt.
+    let manifest_json = if is_agent_component {
         let empty_agent = AgentBlock::default();
         let agent = unit.source.agent.as_ref().unwrap_or(&empty_agent);
         emit_manifest(tag_name, agent, unit.source.script.unwrap_or(""), &extract)
@@ -664,7 +677,15 @@ fn emit_boundary_helpers(h: &NeededHelpers) -> String {
         lines.push("const createEachBoundary = (items, key, itemFn) => each(items, key, itemFn);");
     }
     if h.slot_boundary {
-        lines.push("const createSlotBoundary = (o, b) => slot(o?.name ?? undefined);");
+        // FEL-GH478: `b` is the authored fallback-content fn. A `<slot>` renders
+        // its own children as fallback when it has no assigned nodes, and the
+        // assigned nodes override them otherwise — so emit the fallback AS the
+        // slot's children rather than a childless `slot()` leaf (which discarded
+        // it). `branch('slot', …)` is the same element `slot()` builds, but can
+        // carry children; `branch` is always imported. `b()` returns a fragment
+        // (`branch(null, …, [])`) when no fallback was authored — an empty child
+        // list, so a bare `<$slot>` still emits a plain childless `<slot>`.
+        lines.push("const createSlotBoundary = (o, b) => branch('slot', o?.name != null ? { name: o.name } : undefined, typeof b === 'function' ? [b()] : []);");
     }
     if h.suspense_boundary {
         lines.push("const createSuspenseBoundary = (src, b, fb) => b();");

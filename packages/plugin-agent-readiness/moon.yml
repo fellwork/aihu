@@ -15,8 +15,9 @@ layer: library
 # module '@aihu/signals'" — confirmed actively failing on main's required
 # `check` job.
 dependsOn:
-  - 'server'
   - 'agent'
+  - 'agent-service'
+  - 'server'
 
 tasks:
   check-boundary:

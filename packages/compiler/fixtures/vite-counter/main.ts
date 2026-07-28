@@ -1,1 +1,1 @@
-import './counter.aihu'
+import './aihu-counter.aihu'

@@ -14,6 +14,15 @@
 //!   never become a valid custom-element name.
 //! - Plain lowercase HTML/SVG tags (`div`, `linearGradient`) are NOT component
 //!   tags and are never touched.
+//!
+//! **C450 applies at BOTH sites.** `validate_component_tag` guards a component
+//! *reference* in a template; `validate_define_tag` guards the resolved
+//! *define-name* — the string handed to `customElements.define`. These were
+//! split for a long time: the reference path errored while the define path
+//! only printed an emit-time warning, so components that can never register
+//! (`timer`, `button`, `outlet`) shipped green. A platform invariant is an
+//! error everywhere or it is an error nowhere; see
+//! `docs/lessons/hyphenless-custom-element-tags.md`.
 
 /// Grammar-v2 (C611 protection) — the known HTML element vocabulary. A
 /// non-hyphenated tag must be (a) one of these, (b) a framework element
@@ -119,6 +128,48 @@ pub fn kebab_component_tag(raw: &str) -> String {
     out
 }
 
+/// The infallible half of DEFINE-name resolution: PascalCase→kebab for a
+/// component-shaped name, verbatim for a plain lowercase one. Shared by the
+/// CLI (`src/bin/main.rs`), the wasm binding, and the envelope so the three
+/// cannot drift. Validation is `validate_define_tag`.
+pub fn normalize_define_tag(raw: &str) -> String {
+    if is_component_tag(raw) {
+        kebab_component_tag(raw)
+    } else {
+        raw.to_string()
+    }
+}
+
+/// The DEFINE-site rule (C450) — the same platform invariant
+/// `validate_component_tag` enforces for component *references*, applied to
+/// the name that actually reaches `customElements.define`.
+///
+/// `raw` is a resolved define-name (`@route { name }`, or the file stem, or an
+/// explicit `--tag`). It is normalized, then REQUIRED to carry a hyphen: the
+/// HTML spec reserves hyphen-free names for built-in elements, so
+/// `customElements.define("timer", …)` throws `SyntaxError` and the element
+/// never upgrades — it renders as an inert unknown element with no content.
+///
+/// Hard error, not a warning: a name that can never register is a defect in
+/// every browser, and the alternative (silently prefixing it) would rewrite a
+/// PUBLIC tag name on an already-shipped component, turning a loud build
+/// failure into an invisible breaking change for every consumer of that tag.
+///
+/// ONLY call this where the emitted artifact contains a `defineElement(...)`
+/// call. The `--ast-json` / `--route-json` paths resolve a PROVISIONAL stem
+/// (a layout SFC is registered as `aihu-layout-<stem>` by the Vite plugin, so
+/// its bare stem is never its define-name) and must stay infallible.
+pub fn validate_define_tag(raw: &str) -> Result<String, String> {
+    let norm = normalize_define_tag(raw);
+    if norm.contains('-') {
+        Ok(norm)
+    } else {
+        Err(format!(
+            "C450: '{norm}' cannot register as a custom element (custom-element names require a hyphen), so `customElements.define('{norm}', …)` throws SyntaxError and the component never upgrades. Rename it to 'aihu-{norm}' — or any hyphenated name — and update the tag wherever it is used."
+        ))
+    }
+}
+
 /// Transform + validate. Ok(normalized) when it contains a hyphen; else Err(msg)
 /// — a single-word component tag can't be a valid custom-element name.
 pub fn validate_component_tag(raw: &str) -> Result<String, String> {
@@ -180,6 +231,50 @@ mod tests {
             err.contains("C450"),
             "error must carry the C450 code: {err}"
         );
+    }
+
+    #[test]
+    fn normalize_define_tag_matches_the_three_driver_copies() {
+        // PascalCase component-shaped names kebab; plain lowercase names and
+        // already-hyphenated names pass through verbatim.
+        assert_eq!(normalize_define_tag("UserCard"), "user-card");
+        assert_eq!(normalize_define_tag("Comment"), "comment");
+        assert_eq!(normalize_define_tag("aihu-layout-app"), "aihu-layout-app");
+        assert_eq!(normalize_define_tag("todo-mvc"), "todo-mvc");
+        assert_eq!(normalize_define_tag("timer"), "timer");
+    }
+
+    #[test]
+    fn validate_define_tag_accepts_hyphenated_names() {
+        assert_eq!(validate_define_tag("todo-mvc"), Ok("todo-mvc".to_string()));
+        assert_eq!(validate_define_tag("UserCard"), Ok("user-card".to_string()));
+        assert_eq!(
+            validate_define_tag("aihu-layout-app"),
+            Ok("aihu-layout-app".to_string())
+        );
+    }
+
+    #[test]
+    fn validate_define_tag_rejects_hyphenless_names() {
+        // The shipped defects this rule exists to catch.
+        for (raw, norm) in [
+            ("timer", "timer"),
+            ("button", "button"),
+            ("outlet", "outlet"),
+            ("Card", "card"),
+        ] {
+            let err = validate_define_tag(raw)
+                .expect_err("a hyphenless define-name must be a hard error");
+            assert!(err.contains("C450"), "must carry the C450 code: {err}");
+            assert!(
+                err.contains(norm),
+                "must name the offending tag '{norm}': {err}"
+            );
+            assert!(
+                err.contains(&format!("aihu-{norm}")),
+                "must suggest a concrete hyphenated rename: {err}"
+            );
+        }
     }
 
     #[test]

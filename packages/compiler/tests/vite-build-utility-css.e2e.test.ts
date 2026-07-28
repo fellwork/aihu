@@ -63,7 +63,7 @@ if (process.env.CI && !cssCoreBin) {
 // vite version (^6) pinned in its package.json.
 const EXAMPLE_ROOT = resolve(__dirname, '../../../examples/css-engine-utility')
 const TEST_DIST = 'dist-test-bug6'
-const TEST_FIXTURE_SFC = resolve(EXAMPLE_ROOT, 'src', '__bug6_test_widget.aihu')
+const TEST_FIXTURE_SFC = resolve(EXAMPLE_ROOT, 'src', 'aihu-bug6-test-widget.aihu')
 const TEST_FIXTURE_ENTRY = resolve(EXAMPLE_ROOT, 'src', '__bug6_test_main.ts')
 const TEST_VITE_CONFIG = resolve(EXAMPLE_ROOT, '__bug6_test_vite.config.ts')
 
@@ -84,7 +84,7 @@ describe("Bug 6 — Vite build emits utility CSS into bundle when shadowMode='li
 `,
           'utf8',
         )
-        writeFileSync(TEST_FIXTURE_ENTRY, `import './__bug6_test_widget.aihu'\n`, 'utf8')
+        writeFileSync(TEST_FIXTURE_ENTRY, `import './aihu-bug6-test-widget.aihu'\n`, 'utf8')
 
         // A minimal vite.config.ts that wires JUST the compiler plugin with
         // `shadowMode: 'light'` + `islands: false` — the exact production

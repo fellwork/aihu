@@ -38,7 +38,7 @@ export const config = {
   conditionalFiles: [
     { path: 'apps/web/src/components/live-counter.aihu', when: 'starter === "live-counter"' },
     { path: '.mcp.json', when: 'agentSurface !== "none"' },
-    { path: 'apps/web/src/agent/expose.aihu', when: 'agentSurface !== "none"' },
+    { path: 'apps/web/src/agent/aihu-expose.aihu', when: 'agentSurface !== "none"' },
     { path: 'apps/web/src/auth/better-auth.ts', when: 'auth === "better-auth"' },
     { path: 'apps/web/src/auth/kinde.ts', when: 'auth === "kinde"' },
     { path: 'apps/web/src/auth/supabase.ts', when: 'auth === "supabase"' },

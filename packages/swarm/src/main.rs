@@ -8,11 +8,19 @@
 //!   reimplementation against the *same* schema and the *same* exit-code
 //!   contract: an empty result must never read like a broken query.
 //!
+//! INSTALLING (C-SWARM-DEPLOY-GAP)
+//!   `bun run swarm:install` — builds release and installs to
+//!   `~/.swarm/bin/swarm-bus`, then prints the build stamp so the install
+//!   verifies itself. MERGING A packages/swarm PR DOES NOT DEPLOY IT; run that
+//!   command, or the bus keeps executing whatever was installed last. Ask a
+//!   binary what it is with `swarm-bus --version`.
+//!
 //! EXIT CODES (matches the oracle)
 //!   0  = ok (including a successful non-empty `pull`/`watch`)
 //!   2  = broken input: missing/unknown role, missing required field, no
 //!        such contract, a verdict with no --contract, a blocked with no
-//!        --question
+//!        --question, a verdict reporting --status done with no (or
+//!        malformed) --claims, or an unknown --status value
 //!   3  = genuinely empty (a `pull`/`watch` with nothing new — NOT an error)
 //!   4  = conflict (claiming a contract someone else already owns)
 //!   5  = IDENTITY MISMATCH (bound_identity: role is registered to a
@@ -45,6 +53,30 @@
 //!     - `contract.needs` (new, nullable TEXT, comma-separated contract ids)
 //!       — the Graph/DAG edge. `ready --id C` reports whether every upstream
 //!       need has reached a satisfied status.
+//!     - `msg.vstatus` (new, nullable TEXT, one of `done`/`blocked`/
+//!       `could-not-check`) — set via `send --status <value>`, mirroring the
+//!       Verdict schema in the design doc. This is the FIELD, not prose,
+//!       that answers "does this verdict report completion?" — the
+//!       reconciler classifies a contract by checking a done-verdict's
+//!       --claims against the agent's transcript, so a verdict that reports
+//!       completion with nothing to check against is the same silent-failure
+//!       class as a verdict with no --contract:
+//!         - `--kind verdict --status done` (the default when `--status` is
+//!           omitted, so pre-existing done-verdicts are still caught)
+//!           REQUIRES a non-empty, well-formed `--claims` — rejected (exit 2)
+//!           if absent.
+//!         - `--kind verdict --status blocked` / `--status could-not-check`
+//!           does NOT require `--claims` — there is legitimately nothing to
+//!           claim.
+//!         - an unknown `--status` value is rejected (exit 2), listing the
+//!           three valid values.
+//!     - `msg.claims` is VALIDATED, not merely required non-empty: it is a
+//!       comma-separated list of `verb:target` pairs, where `verb` is one of
+//!       `filed`, `pushed`, `merged`, `committed`, `ran`, `opened`, `closed`.
+//!       An entry with no `:`, an unknown verb, or an empty target is
+//!       rejected (exit 2) naming the offending entry — an unparseable claim
+//!       is the same silent-failure class as no claim at all, so it is
+//!       caught at the boundary rather than stored and discovered later.
 //!
 //! ACCOUNTABILITY SYNC (docs/typed-bus-payloads.md, "Accountability" section,
 //! contract C-SWARM-SYNC) — binds the contract lifecycle to Linear + GitHub.
@@ -495,13 +527,132 @@ fn open_db() -> rusqlite::Result<Connection> {
     ensure_column(&conn, "contract", "needs", "TEXT")?;
     ensure_column(&conn, "msg", "pr", "INTEGER")?;
     ensure_column(&conn, "msg", "claims", "TEXT")?;
+    // A verdict's completion status (done/blocked/could-not-check), same
+    // idempotent-upgrade posture as every other typed-payload column above.
+    ensure_column(&conn, "msg", "vstatus", "TEXT")?;
     // Accountability sync fields (docs/typed-bus-payloads.md, C-SWARM-SYNC):
     // the contract's Linear/GitHub home, all nullable — absent until a
     // `sync --pull` or an explicit `offer`/`setstatus` sets them.
     ensure_column(&conn, "contract", "linear", "TEXT")?;
     ensure_column(&conn, "contract", "github_issue", "INTEGER")?;
     ensure_column(&conn, "contract", "github_pr", "INTEGER")?;
+    // R2 (C-SWARM-RECON-AUTHORITY): `github_pr` is a bare integer, but the swarm
+    // runs contracts in more than one repo. Resolving a bare number against a
+    // hardcoded GITHUB_REPO mints a FALSE receipt — `agent-swarm#1` is OPEN
+    // while `fellwork/aihu#1` is MERGED, so a cross-repo link would verify
+    // against the wrong PR. The link must carry its repo. Backfill the
+    // KNOWN-correct existing links to fellwork/aihu EXPLICITLY: an explicit
+    // backfill of known rows is not the same as an implicit fallback for
+    // unknown ones — a future link with no repo is REFUSED for auto-verify
+    // (see `resolve_pr`), never defaulted, because defaulting IS the collision.
+    ensure_column(&conn, "contract", "github_repo", "TEXT")?;
+    conn.execute(
+        "UPDATE contract SET github_repo = ?1 \
+         WHERE github_pr IS NOT NULL AND github_repo IS NULL",
+        params![GITHUB_REPO],
+    )?;
     Ok(conn)
+}
+
+// ---------------------------------------------------------------------------
+// Verdict typed payload: a done-verdict must carry its evidence, enforced
+// HERE at the bus boundary (docs/typed-bus-payloads.md). `VerdictStatus` is
+// the closed 3-value enum behind `send --status`; `validate_claims` is the
+// pure, DB-free parser behind `send --claims` — both unit-tested directly
+// below, same posture as `decide_link`/`parse_pr_ref`/`is_merged_evidence`.
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum VerdictStatus {
+    Done,
+    Blocked,
+    CouldNotCheck,
+}
+
+impl VerdictStatus {
+    const ALL_NAMES: [&'static str; 3] = ["done", "blocked", "could-not-check"];
+
+    fn parse(s: &str) -> Option<Self> {
+        match s {
+            "done" => Some(Self::Done),
+            "blocked" => Some(Self::Blocked),
+            "could-not-check" => Some(Self::CouldNotCheck),
+            _ => None,
+        }
+    }
+
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Done => "done",
+            Self::Blocked => "blocked",
+            Self::CouldNotCheck => "could-not-check",
+        }
+    }
+}
+
+/// Claims are comma-separated `verb:target` pairs (e.g.
+/// `pushed:PR#640,ran:cargo test`) — the reconciler's evidence that a
+/// done-verdict is checkable, not a rubber stamp. Validated here, not just
+/// checked non-empty: an unparseable claim (no `:`, an unknown verb, or an
+/// empty target) is exit-2'd naming the offending entry, the same
+/// silent-failure class as no claim at all.
+/// The verbs recon knows how to trace mechanically. NOT a closed set — see
+/// below. Kept for documentation and for the error text's example.
+const CLAIM_VERBS: &[&str] = &["filed", "pushed", "merged", "committed", "ran", "opened", "closed"];
+
+/// A verb must be a plausible identifier, not free prose. This is the line
+/// between "structured enough to check" and "a sentence with a colon in it".
+fn verb_is_wellformed(verb: &str) -> bool {
+    !verb.is_empty()
+        && verb.len() <= 24
+        && verb.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+}
+
+fn validate_claims(claims: &str) -> Result<(), String> {
+    for entry in claims.split(',') {
+        let entry = entry.trim();
+        if entry.is_empty() {
+            return Err(format!(
+                "claim '{claims}' has an empty entry — claims are comma-separated \
+                 verb:target pairs, e.g. 'pushed:PR#640,ran:cargo test'"
+            ));
+        }
+        let (verb, target) = match entry.split_once(':') {
+            Some((v, t)) => (v.trim(), t.trim()),
+            None => {
+                return Err(format!(
+                    "claim '{entry}' has no ':' — claims are verb:target pairs, \
+                     e.g. 'pushed:PR#640'"
+                ))
+            }
+        };
+        // OPEN verb set, deliberately. A closed enum was shipped first and
+        // measured against real traffic before deploy: it rejected 5 of the 6
+        // verbs agents actually write — `repro:`, `verified:`, `tested:`,
+        // `impl:`, and `couldnotcheck:` — keeping only `ran:`. Deploying it
+        // would have exit-2'd essentially every verdict and jammed the swarm.
+        //
+        // The anti-silent-failure property lives in the FORMAT (a colon, a
+        // non-empty verb, a non-empty target), not in the vocabulary. And
+        // `couldnotcheck:` is precisely the honest reporting this project
+        // wants — a closed list would have punished the most valuable claim
+        // an agent can make. Recon handles a verb it does not recognise; it
+        // cannot handle a claim it cannot parse.
+        if !verb_is_wellformed(verb) {
+            return Err(format!(
+                "claim '{entry}' has a malformed verb '{verb}' — a verb is a short \
+                 identifier (letters, digits, - or _), e.g. {}. Free prose before \
+                 the ':' is not a claim.",
+                CLAIM_VERBS.join(", ")
+            ));
+        }
+        if target.is_empty() {
+            return Err(format!(
+                "claim '{entry}' has an empty target — name what was {verb}"
+            ));
+        }
+    }
+    Ok(())
 }
 
 // ---------------------------------------------------------------------------
@@ -548,15 +699,79 @@ fn cmd_send(args: &Args) -> rusqlite::Result<()> {
     };
     let claims = args.get_str("claims");
 
+    // `--status` is a closed 3-value enum, validated whenever it is given —
+    // for any kind, not just `verdict` — so a typo is caught at the boundary
+    // rather than stored verbatim and silently ignored.
+    let status_arg = args.get_str("status");
+    let parsed_status: Option<VerdictStatus> = match status_arg {
+        Some(s) => match VerdictStatus::parse(s) {
+            Some(v) => Some(v),
+            None => die(
+                &format!(
+                    "unknown --status '{s}'. Valid: {}",
+                    VerdictStatus::ALL_NAMES.join(", ")
+                ),
+                2,
+            ),
+        },
+        None => None,
+    };
+
+    // A verdict declares completion via a FIELD, not prose the reconciler
+    // has to sniff out of `body`: omitting --status on a verdict defaults to
+    // `done` (so pre-existing done-verdicts with no --status are still
+    // caught), and `done` REQUIRES evidence. `blocked`/`could-not-check`
+    // legitimately have nothing to claim, so claims stay optional there —
+    // but if claims ARE given anyway, they are validated all the same.
+    let effective_status: Option<VerdictStatus> = if kind == "verdict" {
+        Some(parsed_status.unwrap_or(VerdictStatus::Done))
+    } else {
+        parsed_status
+    };
+
+    if kind == "verdict" && effective_status == Some(VerdictStatus::Done) {
+        match claims {
+            Some(c) if !c.is_empty() => {
+                if let Err(e) = validate_claims(c) {
+                    die(&e, 2);
+                }
+            }
+            _ => {
+                let defaulted = if status_arg.is_none() {
+                    " (--status was omitted, which defaults to 'done')"
+                } else {
+                    ""
+                };
+                die(
+                    &format!(
+                        "a verdict with --status done{defaulted} requires --claims — \
+                         comma-separated verb:target pairs, e.g. \
+                         'pushed:PR#640,ran:cargo test'. Pass --claims, or use \
+                         --status blocked / --status could-not-check if there is \
+                         genuinely nothing to claim."
+                    ),
+                    2,
+                );
+            }
+        }
+    } else if let Some(c) = claims {
+        if !c.is_empty() {
+            if let Err(e) = validate_claims(c) {
+                die(&e, 2);
+            }
+        }
+    }
+
     let conn = open_db()?;
     let mid = new_id();
     let ts = now_ts();
+    let vstatus = effective_status.map(VerdictStatus::as_str);
     // Column-explicit insert: a positional VALUES(...) breaks the moment a
     // column is added and the writer isn't updated.
     conn.execute(
-        "INSERT INTO msg (id, ts, sender, recipient, kind, body, contract, pr, claims) \
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
-        params![mid, ts, from, to, kind, body, contract, pr, claims],
+        "INSERT INTO msg (id, ts, sender, recipient, kind, body, contract, pr, claims, vstatus) \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+        params![mid, ts, from, to, kind, body, contract, pr, claims, vstatus],
     )?;
     // A verdict is the owner declaring done, not the supervisor reconciling
     // it: flip the contract to 'submitted', never 'verified'.
@@ -918,10 +1133,63 @@ fn cmd_setstatus(args: &Args) -> rusqlite::Result<()> {
         },
         None => None,
     };
-    if let Err(e) = write_contract_status(&conn, cid, status, recon, github_pr) {
+    // R2: a link may carry its repo. `owner/repo` shape only — a bare word would
+    // reintroduce the hardcoded-repo ambiguity `resolve_pr` refuses.
+    let github_repo: Option<&str> = match args.get_str("github-repo") {
+        Some(v) if v.contains('/') => Some(v),
+        Some(v) => die(
+            &format!("--github-repo must be owner/repo, got '{v}'"),
+            2,
+        ),
+        None => None,
+    };
+    // Persist link fields FIRST so R1's `adjudicate_merged` (via `resolve_pr`)
+    // reads the repo just set on this same call.
+    if github_pr.is_some() || github_repo.is_some() {
+        if let Err(e) = conn.execute(
+            "UPDATE contract SET github_pr = COALESCE(?1, github_pr), \
+             github_repo = COALESCE(?2, github_repo) WHERE id = ?3",
+            params![github_pr, github_repo, cid],
+        ) {
+            die(&e.to_string(), 1);
+        }
+    }
+
+    // R1 (C-SWARM-RECON-AUTHORITY): `verified` is NOT persisted on the
+    // --reconciled flag alone (a flag any process can pass — FEL-436). It routes
+    // through the SAME merged-evidence discipline `verify-merged` uses. A
+    // proposal — a trace scan with no real merged same-repo receipt — lands
+    // `unverified` (could-not-check), NEVER `verified`. `no-claims` is untouched
+    // (STEP 2/3, the DAG reason); `verify-merged`'s own objective-evidence path
+    // still writes `verified` directly.
+    let row_pr: Option<i64> = conn
+        .query_row(
+            "SELECT github_pr FROM contract WHERE id = ?1",
+            params![cid],
+            |r| r.get::<_, Option<i64>>(0),
+        )
+        .optional()
+        .ok()
+        .flatten()
+        .flatten();
+    let (final_status, final_recon): (&str, String) = if status == "verified" {
+        match adjudicate_merged(&conn, cid, row_pr) {
+            Ok(receipt) => ("verified", receipt),
+            Err(reason) => ("unverified", format!("could-not-check: {reason}")),
+        }
+    } else {
+        (status, recon.to_string())
+    };
+    if let Err(e) = write_contract_status(&conn, cid, final_status, &final_recon, None) {
         die(&e, 1);
     }
-    println!("{cid} -> {status}");
+    if final_status != status {
+        eprintln!(
+            "{cid}: '{status}' requested, but no merged same-repo receipt — \
+             recorded '{final_status}' ({final_recon})"
+        );
+    }
+    println!("{cid} -> {final_status}");
     Ok(())
 }
 
@@ -1487,14 +1755,17 @@ fn gh_issue_view(number: i64, fields: &str) -> Result<Value, String> {
 /// `gh pr view` — used by `verify-merged` to ask GitHub, authoritatively,
 /// whether a resolved PR number is merged. Read-only: this is safe to call
 /// even in a `verify-merged` dry run.
-fn gh_pr_view(number: i64) -> Result<Value, String> {
+fn gh_pr_view(repo: &str, number: i64) -> Result<Value, String> {
     let n = number.to_string();
+    // `repo` is the LINK's own repo (from `resolve_pr`), never a hardcoded
+    // default — R2, C-SWARM-RECON-AUTHORITY. Resolving #1 against `fellwork/aihu`
+    // when the work is `agent-swarm#1` is exactly the false-receipt collision.
     let out = gh_run(&[
         "pr",
         "view",
         &n,
         "--repo",
-        GITHUB_REPO,
+        repo,
         "--json",
         "state,mergedAt,mergeCommit",
     ])?;
@@ -2377,10 +2648,36 @@ fn is_merged_evidence(state: &str, merged_at: Option<&str>) -> bool {
 /// (c) a STRICT prose parse (`parse_pr_ref`) of that contract's most recent
 /// verdict body. Returns `None` — never a guess — when nothing in that
 /// chain resolves.
-fn resolve_pr(conn: &Connection, cid: &str, contract_pr: Option<i64>) -> rusqlite::Result<Option<i64>> {
+fn resolve_pr(
+    conn: &Connection,
+    cid: &str,
+    contract_pr: Option<i64>,
+) -> Result<Option<(String, i64)>, String> {
+    // The `contract.github_pr` link (caller-provided or on the row) can name ANY
+    // repo, so it MUST carry `github_repo`. A bare number with no repo is REFUSED
+    // for auto-verify (Err → could-not-check by every caller), never defaulted to
+    // GITHUB_REPO — defaulting IS the collision (R2, C-SWARM-RECON-AUTHORITY).
     if let Some(pr) = contract_pr {
-        return Ok(Some(pr));
+        let github_repo: Option<String> = conn
+            .query_row(
+                "SELECT github_repo FROM contract WHERE id = ?1",
+                params![cid],
+                |r| r.get::<_, Option<String>>(0),
+            )
+            .optional()
+            .map_err(|e| e.to_string())?
+            .flatten();
+        return match github_repo {
+            Some(repo) => Ok(Some((repo, pr))),
+            None => Err(format!(
+                "contract has github_pr #{pr} but no github_repo — a cross-repo link \
+                 must name its repo (set --github-repo); refusing to resolve #{pr} \
+                 against {GITHUB_REPO}, which is how a false receipt is minted"
+            )),
+        };
     }
+    // Fallbacks resolve the swarm's OWN verdict-message PR references, which are
+    // fellwork/aihu by construction — a KNOWN repo, not an unknown default.
     let from_column: Option<i64> = conn
         .query_row(
             "SELECT pr FROM msg WHERE contract = ?1 AND kind = 'verdict' AND pr IS NOT NULL \
@@ -2388,9 +2685,10 @@ fn resolve_pr(conn: &Connection, cid: &str, contract_pr: Option<i64>) -> rusqlit
             params![cid],
             |r| r.get(0),
         )
-        .optional()?;
-    if from_column.is_some() {
-        return Ok(from_column);
+        .optional()
+        .map_err(|e| e.to_string())?;
+    if let Some(pr) = from_column {
+        return Ok(Some((GITHUB_REPO.to_string(), pr)));
     }
     let latest_verdict_body: Option<String> = conn
         .query_row(
@@ -2399,8 +2697,45 @@ fn resolve_pr(conn: &Connection, cid: &str, contract_pr: Option<i64>) -> rusqlit
             params![cid],
             |r| r.get(0),
         )
-        .optional()?;
-    Ok(latest_verdict_body.as_deref().and_then(parse_pr_ref))
+        .optional()
+        .map_err(|e| e.to_string())?;
+    Ok(latest_verdict_body
+        .as_deref()
+        .and_then(parse_pr_ref)
+        .map(|pr| (GITHUB_REPO.to_string(), pr)))
+}
+
+/// R1 (C-SWARM-RECON-AUTHORITY): adjudicate whether a contract has a GENUINE
+/// merged-PR receipt — the SAME discipline `verify-merged` applies, factored so
+/// the `setstatus --status verified --reconciled` path cannot diverge from it.
+/// Returns the MACHINE-GENERATED `merged: PR #N @ <sha> <ts>` receipt (a
+/// transcript fragment can never wear its costume, because this code path, not
+/// the caller, writes it), or an `Err(reason)` the caller turns into a
+/// could-not-check `unverified`: no PR reference, unknown repo (refused by
+/// `resolve_pr`), a failed query (NEVER read as "not merged"), or not merged.
+fn adjudicate_merged(
+    conn: &Connection,
+    cid: &str,
+    contract_pr: Option<i64>,
+) -> Result<String, String> {
+    let (repo, pr) = match resolve_pr(conn, cid, contract_pr)? {
+        Some(rp) => rp,
+        None => return Err("no PR reference".to_string()),
+    };
+    let data = gh_pr_view(&repo, pr).map_err(|e| format!("PR #{pr} ({repo}): {e}"))?;
+    let state = data.get("state").and_then(Value::as_str).unwrap_or("");
+    let merged_at = data.get("mergedAt").and_then(Value::as_str);
+    if !is_merged_evidence(state, merged_at) {
+        return Err(format!("PR #{pr} ({repo}) not merged (state={state})"));
+    }
+    let short: String = data
+        .pointer("/mergeCommit/oid")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .chars()
+        .take(8)
+        .collect();
+    Ok(format!("merged: PR #{pr} @ {short} {}", merged_at.unwrap_or("")))
 }
 
 /// `verify-merged`: for every contract not already `verified` and sitting
@@ -2463,8 +2798,8 @@ fn cmd_verify_merged(args: &Args) -> rusqlite::Result<()> {
     let mut could_not_check = 0i64;
 
     for (cid, contract_pr) in &candidates {
-        let pr = match resolve_pr(&conn, cid, *contract_pr) {
-            Ok(Some(p)) => p,
+        let (repo, pr) = match resolve_pr(&conn, cid, *contract_pr) {
+            Ok(Some(rp)) => rp,
             Ok(None) => {
                 println!("  {cid}: no PR reference — skipped");
                 skipped_no_pr += 1;
@@ -2477,12 +2812,12 @@ fn cmd_verify_merged(args: &Args) -> rusqlite::Result<()> {
             }
         };
 
-        let data = match gh_pr_view(pr) {
+        let data = match gh_pr_view(&repo, pr) {
             Ok(d) => d,
             Err(e) => {
                 // A failed query is NEVER "not merged" — it's unknown, and
                 // reported as such.
-                println!("  could-not-check: {cid} PR #{pr}: {e}");
+                println!("  could-not-check: {cid} PR #{pr} ({repo}): {e}");
                 could_not_check += 1;
                 continue;
             }
@@ -2536,15 +2871,123 @@ fn cmd_verify_merged(args: &Args) -> rusqlite::Result<()> {
 
 // ---------------------------------------------------------------------------
 
+/// `export --to <path>` — write a fully-materialised, read-safe snapshot of the
+/// bus via `VACUUM INTO`. Unlike `cp ~/.swarm/bus.db` (which in WAL mode can
+/// silently omit uncheckpointed writes, and is only correct with its -wal/-shm
+/// sidecars), the result is a SINGLE standalone DB reflecting ALL committed
+/// state — a consistent read-transaction snapshot that holds even when a
+/// concurrent reader's held page-snapshot blocks a checkpoint from backfilling
+/// the main file. This is the hazard-proof way to back up or hand-copy the
+/// ledger; `md5 bus.db` unchanged is NOT evidence the bus was untouched, but a
+/// diff of two `export`s is.
+fn cmd_export(args: &Args) -> rusqlite::Result<()> {
+    let to = match args.get_str("to") {
+        Some(p) if !p.is_empty() => p,
+        _ => die("export requires --to <path>", 64),
+    };
+    let conn = open_db()?;
+    conn.execute("VACUUM INTO ?1", rusqlite::params![to])?;
+    println!("exported authoritative snapshot -> {to}");
+    Ok(())
+}
+
+/// The git sha this binary was compiled from, embedded by `build.rs`.
+/// `"unknown"` when built outside a git checkout — see the staleness check.
+const BUILD_SHA: &str = env!("SWARM_BUILD_SHA");
+
+/// Prints what source this binary came from. The whole point of
+/// C-SWARM-DEPLOY-GAP: before this, `--version` was `unknown command` (exit 64)
+/// and there was no way to ask the running CLI what code it was.
+fn cmd_version() {
+    println!("swarm-bus {} ({})", env!("CARGO_PKG_VERSION"), BUILD_SHA);
+    println!("rebuild + install:  bun run swarm:install");
+}
+
+/// LOUD when the installed binary predates the repo it is invoked in.
+///
+/// The failure this exists to catch is silent by nature: merging a
+/// `packages/swarm` PR does not touch `~/.swarm/bin/swarm-bus`, so the bus goes
+/// on running old code while everyone reads the merged diff and assumes
+/// otherwise. Silence when stale is the bug; this prints to **stderr** so it
+/// cannot corrupt stdout that another tool is parsing.
+///
+/// BEST-EFFORT, and every branch below returns rather than failing:
+///   * no `git`, not a checkout, unknown/dirty stamp -> say nothing
+///   * the invoking repo has no `packages/swarm` -> not our repo, say nothing
+///   * build sha not an ancestor of HEAD -> a side branch or a rewritten
+///     history, not evidence of staleness; saying "stale" there would be a
+///     false alarm, and a warning that cries wolf gets filtered out mentally,
+///     which costs more than the one it catches.
+/// A missing repo context must NEVER break the CLI — the write already
+/// succeeded by the time this runs.
+fn warn_if_stale() {
+    if BUILD_SHA == "unknown" || BUILD_SHA.ends_with("-dirty") {
+        return;
+    }
+    let git = |args: &[&str]| -> Option<String> {
+        let out = std::process::Command::new("git").args(args).output().ok()?;
+        out.status
+            .success()
+            .then(|| String::from_utf8_lossy(&out.stdout).trim().to_string())
+    };
+
+    // Only compare against a checkout that actually contains this crate.
+    let root = match git(&["rev-parse", "--show-toplevel"]) {
+        Some(r) if !r.is_empty() => r,
+        _ => return,
+    };
+    if !std::path::Path::new(&root).join("packages/swarm").is_dir() {
+        return;
+    }
+    // Is the built sha even in this history? If not, stay quiet (see above).
+    if std::process::Command::new("git")
+        .args(["merge-base", "--is-ancestor", BUILD_SHA, "HEAD"])
+        .status()
+        .map(|s| !s.success())
+        .unwrap_or(true)
+    {
+        return;
+    }
+    // Count commits touching THIS crate since the build. Commits elsewhere in
+    // the monorepo cannot make this binary stale, and warning on them would
+    // fire on nearly every invocation.
+    let behind = git(&[
+        "rev-list",
+        "--count",
+        &format!("{BUILD_SHA}..HEAD"),
+        "--",
+        "packages/swarm",
+    ])
+    .and_then(|s| s.parse::<u32>().ok())
+    .unwrap_or(0);
+    if behind == 0 {
+        return;
+    }
+
+    eprintln!(
+        "swarm-bus: STALE BINARY — built from {}, but packages/swarm has moved {} commit(s) since.",
+        &BUILD_SHA[..BUILD_SHA.len().min(8)],
+        behind
+    );
+    eprintln!("swarm-bus: you are NOT running the merged code. Rebuild: bun run swarm:install");
+}
+
 fn main() {
     let raw_args: Vec<String> = env::args().collect();
     if raw_args.len() < 2 {
         die(
-            "usage: swarm-bus <send|pull|offer|claim|ack|attempt|setstatus|watch|ready|sync|link|verify-merged> [--k v ...]",
+            "usage: swarm-bus <send|pull|offer|claim|ack|attempt|setstatus|watch|ready|sync|link|verify-merged|export|--version> [--k v ...]",
             64,
         );
     }
     let cmd = raw_args[1].clone();
+    if cmd == "--version" || cmd == "-V" || cmd == "version" {
+        cmd_version();
+        return;
+    }
+    // Before the work, not after: if a command is about to write to the ledger
+    // on stale code, the warning is only useful ahead of it.
+    warn_if_stale();
     let args = parse_args(&raw_args[2..]);
 
     let result = match cmd.as_str() {
@@ -2560,6 +3003,7 @@ fn main() {
         "sync" => cmd_sync(&args),
         "link" => cmd_link(&args),
         "verify-merged" => cmd_verify_merged(&args),
+        "export" => cmd_export(&args),
         other => die(&format!("unknown command '{other}'"), 64),
     };
 
@@ -2567,6 +3011,46 @@ fn main() {
         eprintln!("swarm-bus: {e}");
         std::process::exit(1);
     }
+
+    // C-SWARM-WAL-STALE: the DB is WAL-mode (open_db) and opened per-invocation,
+    // so a committed write lands in `bus.db-wal`, not `bus.db`. Nothing ever
+    // checkpointed, so the MAIN file lagged by every write since the last one —
+    // a plain `cp bus.db` / backup / `md5 bus.db` reads a STALE ledger with no
+    // signal that it is stale ("the bus is the record", and its most obvious
+    // artifact was hours behind). After a successful WRITE, checkpoint the WAL
+    // into the main file so `bus.db` alone is authoritative; TRUNCATE also stops
+    // `bus.db-wal` growing without bound (it had reached ~4 MB).
+    //
+    // WAL STAYS ON (anti-row): this does not touch journal_mode — concurrent
+    // agents still read via the WAL while one writes. The checkpoint is
+    // BEST-EFFORT: under a concurrent reader/writer it returns SQLITE_BUSY and
+    // copies only the frames it can, so we ignore its result — a committed write
+    // is NEVER turned into a CLI error, and the next write flushes the rest. No
+    // writer is serialised beyond the `busy_timeout` the connection already sets.
+    if is_write_cmd(&cmd) {
+        if let Ok(conn) = open_db() {
+            let _ = conn.query_row("PRAGMA wal_checkpoint(TRUNCATE)", [], |_row| Ok(()));
+        }
+    }
+}
+
+/// Commands that mutate the DB (`msg`, `contract`, `seen`, `activity`, sync
+/// state). Read-only commands (`watch`, `ready`) are excluded so a reader never
+/// pays for a checkpoint. `pull` is a WRITE — it records `seen` rows.
+fn is_write_cmd(cmd: &str) -> bool {
+    matches!(
+        cmd,
+        "send"
+            | "offer"
+            | "claim"
+            | "ack"
+            | "attempt"
+            | "setstatus"
+            | "sync"
+            | "link"
+            | "verify-merged"
+            | "pull"
+    )
 }
 
 #[cfg(test)]
@@ -2761,5 +3245,172 @@ mod tests {
     #[test]
     fn is_merged_evidence_rejects_merged_with_null_merged_at() {
         assert!(!is_merged_evidence("MERGED", None));
+    }
+
+    // FEATURE 5 (done-verdict-requires-claims) — `VerdictStatus` is the
+    // closed 3-value enum behind `send --status`.
+
+    #[test]
+    fn verdict_status_parses_all_three_valid_values() {
+        assert_eq!(VerdictStatus::parse("done"), Some(VerdictStatus::Done));
+        assert_eq!(VerdictStatus::parse("blocked"), Some(VerdictStatus::Blocked));
+        assert_eq!(
+            VerdictStatus::parse("could-not-check"),
+            Some(VerdictStatus::CouldNotCheck)
+        );
+    }
+
+    #[test]
+    fn verdict_status_rejects_unknown_values() {
+        // Case variants and near-misses must NOT be silently accepted.
+        for s in ["Done", "DONE", "done ", " done", "complete", "", "could_not_check"] {
+            assert_eq!(VerdictStatus::parse(s), None, "'{s}' must not parse");
+        }
+    }
+
+    // `validate_claims` — the pure parser behind `send --claims`. Claims are
+    // comma-separated verb:target pairs; a malformed one is the same
+    // silent-failure class as no claim at all, so it must be rejected, not
+    // merely accepted because the string is non-empty.
+
+    #[test]
+    fn validate_claims_accepts_valid_multi_claim() {
+        assert!(validate_claims("pushed:PR#640,ran:cargo test").is_ok());
+    }
+
+    /// REGRESSION: a closed verb enum rejected 5 of the 6 verbs agents
+    /// actually write, measured against real bus traffic before deploy.
+    /// These exact strings came off the live bus.
+    #[test]
+    fn validate_claims_accepts_the_verbs_agents_really_use() {
+        for c in [
+            "repro:moon check->app::missing_workspace",
+            "verified:tsc runs in web+shared",
+            "tested:arg-parse filter collects all 3 names",
+            "impl:packages/swarm/src/main.rs",
+            "couldnotcheck:full mutating scaffold",
+            "already-resolved-by:merged #645",
+        ] {
+            assert!(validate_claims(c).is_ok(), "must accept real-world claim: {c}");
+        }
+    }
+
+    /// The format guard must still bite: prose before the colon is not a verb.
+    #[test]
+    fn validate_claims_still_rejects_prose_verbs() {
+        assert!(validate_claims("this is a sentence:target").is_err());
+        assert!(validate_claims("has space:x").is_err());
+    }
+
+    #[test]
+    fn validate_claims_accepts_every_valid_verb() {
+        for verb in CLAIM_VERBS {
+            let claim = format!("{verb}:target");
+            assert!(validate_claims(&claim).is_ok(), "'{claim}' should be valid");
+        }
+    }
+
+    #[test]
+    fn validate_claims_rejects_missing_colon() {
+        let err = validate_claims("PR640").unwrap_err();
+        assert!(err.contains("PR640"), "error should name the offending entry: {err}");
+    }
+
+    #[test]
+    fn validate_claims_accepts_an_unfamiliar_but_wellformed_verb() {
+        // Was `rejects_unknown_verb`. That test encoded a CLOSED verb set,
+        // which measurement against live traffic disproved: agents write
+        // `repro:`, `verified:`, `couldnotcheck:` and similar, all of them
+        // legitimate. An unfamiliar verb is fine; an unparseable claim is not.
+        assert!(validate_claims("invented:X").is_ok());
+        let err = validate_claims("invented X").unwrap_err();
+        assert!(err.contains("invented X"), "error should name the offender: {err}");
+    }
+
+    #[test]
+    fn validate_claims_rejects_empty_target() {
+        let err = validate_claims("pushed:").unwrap_err();
+        assert!(err.contains("pushed:"), "error should name the offender: {err}");
+    }
+
+    #[test]
+    fn validate_claims_rejects_empty_string() {
+        assert!(validate_claims("").is_err());
+    }
+
+    #[test]
+    fn validate_claims_rejects_one_bad_entry_among_good_ones() {
+        // A single malformed entry invalidates the whole claims string —
+        // partial acceptance would be exactly the silent gap this exists to
+        // close.
+        let err = validate_claims("pushed:PR#640,garbage,ran:tests").unwrap_err();
+        assert!(err.contains("garbage"), "error should name the offender: {err}");
+    }
+
+    // C-SWARM-RECON-AUTHORITY — the network-free MUST-FAIL directions. The
+    // merged->verified MUST-PASS needs a live `gh pr view` and is driven
+    // independently by verifier once #686 is green; here we prove the
+    // could-not-check directions that need no network.
+
+    fn recon_conn() -> Connection {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            "CREATE TABLE contract(id TEXT PRIMARY KEY, github_pr INTEGER, github_repo TEXT);
+             CREATE TABLE msg(id TEXT, ts REAL, contract TEXT, kind TEXT, body TEXT, pr INTEGER);",
+        )
+        .unwrap();
+        conn
+    }
+
+    #[test]
+    fn resolve_pr_refuses_github_pr_with_unknown_repo() {
+        // MUST-FAIL 2: a bare `github_pr` with no `github_repo` is REFUSED, never
+        // resolved against the hardcoded GITHUB_REPO — that default IS the
+        // agent-swarm#1-vs-fellwork/aihu#1 collision.
+        let conn = recon_conn();
+        conn.execute(
+            "INSERT INTO contract(id, github_pr, github_repo) VALUES ('C-X', 1, NULL)",
+            [],
+        )
+        .unwrap();
+        let r = resolve_pr(&conn, "C-X", Some(1));
+        assert!(r.is_err(), "github_pr with NULL github_repo must refuse, got {r:?}");
+        assert!(
+            r.unwrap_err().contains("github_repo"),
+            "the refusal must name the missing repo"
+        );
+    }
+
+    #[test]
+    fn resolve_pr_uses_the_links_own_repo_when_present() {
+        // The dual of the above: an explicit cross-repo link resolves in ITS
+        // repo, so `gh pr view` runs against agent-swarm, not fellwork/aihu.
+        let conn = recon_conn();
+        conn.execute(
+            "INSERT INTO contract VALUES ('C-X', 1, 'srmcguirt/agent-swarm')",
+            [],
+        )
+        .unwrap();
+        let (repo, pr) = resolve_pr(&conn, "C-X", Some(1)).unwrap().unwrap();
+        assert_eq!(repo, "srmcguirt/agent-swarm");
+        assert_eq!(pr, 1);
+    }
+
+    #[test]
+    fn adjudicate_merged_is_could_not_check_with_no_pr_before_any_network() {
+        // MUST-FAIL 1 (network-free half): the exact corrupt input that falsely
+        // verified C-SWARM-P0 — a `verified` proposal with a transcript-fragment
+        // recon and github_pr NULL — has NO PR reference, so adjudication returns
+        // could-not-check (Err) BEFORE any `gh` call. The caller records
+        // `unverified`, never `verified`.
+        let conn = recon_conn();
+        conn.execute(
+            "INSERT INTO contract(id, github_pr, github_repo) VALUES ('C-P0', NULL, NULL)",
+            [],
+        )
+        .unwrap();
+        let r = adjudicate_merged(&conn, "C-P0", None);
+        assert!(r.is_err(), "no PR reference must be could-not-check, got {r:?}");
+        assert_eq!(r.unwrap_err(), "no PR reference");
     }
 }

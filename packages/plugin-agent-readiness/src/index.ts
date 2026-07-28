@@ -1,5 +1,10 @@
 export type { A2aCapabilities, A2aCard, A2aCardConfig, A2aSkill } from './a2a-card.ts'
 export { generateA2aCard } from './a2a-card.ts'
+export {
+  AGENT_MANIFEST_SUFFIX,
+  componentsFromManifestJson,
+  readAgentManifestDir,
+} from './agent-manifest-sidecar.ts'
 export type { ContentNegotiationOptions, MarkdownResolver } from './content-negotiation.ts'
 export { createContentNegotiationHandler, isAiCrawlerUserAgent } from './content-negotiation.ts'
 export type { JsonLdPage } from './json-ld.ts'
@@ -32,6 +37,7 @@ export type { SitemapChangefreq, SitemapConfig, SitemapUrl } from './sitemap.ts'
 export { generateSitemapXml } from './sitemap.ts'
 export type { AgentReadinessConfig, McpAuthConfig } from './types.ts'
 // v0.7.4: viteAgentReadinessIntegration is the canonical name; agentReadiness is deprecated
+export type { AgentReadinessSources, ViteAgentReadinessSources } from './vite-plugin.ts'
 export {
   agentReadiness,
   createAgentReadinessRoutes,

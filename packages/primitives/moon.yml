@@ -13,7 +13,7 @@ dependsOn:
 
 tasks:
   build:
-    command: "rolldown -c"
+    command: "bunx rolldown -c"
     inputs:
       - "src/**/*.ts"
       - "src/**/*.aihu"
@@ -31,7 +31,7 @@ tasks:
   # build of signals/arbor/css-engine.
 
   test:
-    command: "vitest run"
+    command: "bunx vitest run"
     inputs:
       - "src/**/*.ts"
       - "tests/**/*"
