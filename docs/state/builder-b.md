@@ -2,8 +2,11 @@
 
 **Role:** BUILDER-B · **Workspace:** `zurich`
 **Base:** `origin/main` @ `1bb0dd7c` (2026-07-28)
-**Last updated:** 2026-07-28. **Eight PRs merged, one open** — #655 (FEL-GH478)
-is the only one still open.
+**Last updated:** 2026-07-29. **Eight PRs merged, three open** — #655
+(FEL-GH478), **#678** (this file — the single state PR; #693 was merged into it
+and closed, see 32), and **#695** (draft, `create.ts` git-init, see 33–35;
+NO CONTRACT EXISTS for it — `swarm-bus claim --id C-FEL-CREATE-GIT-STATUS`
+→ exit 2, disclosed on the bus, mint requested).
 **#684 (C-FEL-SCAFFOLD-PM-COMPAT) MERGED** 2026-07-28T21:27:49Z, merge commit
 `1bb0dd7c`, from head `4d6e1793` — the exact sha pushed and verified on the
 remote, so nothing landed unmeasured. Verified *on main*, not on the branch:
@@ -847,3 +850,52 @@ accidental, a deployment gap made it moot.** Filed as C-SWARM-DEPLOY-GAP.
    against a file you already have a PR against, merge the first into it and
    look; `MERGEABLE` will not tell you.** Cheaper still: keep one open PR per
    role state file, which is the practice this violated.
+
+33. **THE FIX FOR ONE IMPLEMENTATION CITED THE OTHER AS ITS REFERENCE, AND
+   NOBODY OPENED THE REFERENCE.** #632 fixed FEL-431 defect 5 in the `aihu app`
+   pipeline path, and its comment says: *"`create.ts` (the create-aihu wizard)
+   has always done init + add + commit. This path did not."* True — and it hid
+   that `create.ts` did all three **without reading a single exit status**,
+   then printed a green `✓ git init` unconditionally. Any failure leaves an
+   unborn HEAD under a tick claiming otherwise, `git rev-parse HEAD` exits 128,
+   and moon then kills `dev`/`build`/`typecheck` — every command the wizard
+   prints as its own next step. Same defect, same file pair, one round later.
+   Fixed in #695 (`initGitRepo()`, stops at first failure, names the failing
+   command; ambient identity PREFERRED here — a human running the wizard should
+   author their own first commit — with the pipeline's fallback pair only when
+   nothing resolves, so the two implementations cannot drift apart again).
+   **The durable half: "the other implementation already does this" is a claim
+   about code, and a comment is not a reading of it.** When a fix names a
+   sibling as the good one, open the sibling — that sentence is where the
+   second instance hides.
+
+34. **`git commit` does NOT fail merely because no identity is configured, and
+   my test was green for exactly that wrong reason until the mutation caught
+   it.** #632's comment asserts it does ("fails outright when no
+   user.name/user.email is resolvable, which is the normal state of CI
+   runners"). Measured on git 2.50.1 rather than inherited:
+   ```
+   empty global+system config, identity env unset  ->  rc=0, author=user@hostname
+   [user] useConfigOnly = true                     ->  rc=128
+   ```
+   Git auto-derives `username@hostname` and refuses only when that is
+   unavailable or forbidden. So a test that strips the config to simulate "no
+   identity" **passes whether or not the fallback exists** — git was quietly
+   guessing the whole time. Caught only because the mutation run was
+   per-mutation rather than pass/fail:
+   ```
+   before the correction:  mutation "remove the fallback"  killed 1 of 4 tests
+   after:                  the same mutation               kills  2 of 4
+   ```
+   `useConfigOnly = true` is what actually reproduces the slim-container case.
+   **Generalises item 31 into a procedure: run each mutation SEPARATELY and
+   record WHICH test it kills.** A suite that merely goes red under mutation
+   proves something is load-bearing; only the per-test kill map proves *the
+   thing you think is load-bearing* is. Mine named the wrong one.
+
+35. **A mutation harness that cleans up with `git checkout -- <path>` eats your
+   uncommitted work in that path.** Mine reverted a comment correction I had
+   made in the file under mutation, silently — the loop cannot tell your edit
+   from its own. **Commit before you mutate.** (And this is why the harness
+   must also assert its mutation APPLIED: a no-op `str.replace` runs the suite
+   against pristine code and reports a confident green.)
