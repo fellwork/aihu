@@ -289,3 +289,39 @@ and assert both sides are non-empty first — two failed `git show` calls make
    the supervisor's reconcile pass. `no-claims` on a contract you own means
    your claims were not extractable — send the verdict again with `--claims`
    in `key:value` shorthand and `--pr`, do not argue about it in prose.
+12. **`@aihu/app` declares NO runtime `dependencies` — every import it makes is
+   a `peerDependency`.** Verified at source 2026-07-28: `dependencies` is
+   literally absent from `packages/app/package.json`; the peers are `arbor`,
+   `router`, `runtime`, `server`, `signals`, `store`, `vite`, and there is no
+   `peerDependenciesMeta`, so none are optional. Any scaffold that lists
+   `@aihu/app` must list all of them. npm 7+, pnpm and bun auto-install peers
+   and will hide an omission on 3 of 4 package managers; **yarn 1 does not**, so
+   yarn is the only cell that fails and the only one that tells you the truth.
+   Corollary: *a green yarn cell is worth more than three green ones elsewhere.*
+   Do not fix this class by promoting a peer into `@aihu/app`'s `dependencies` —
+   that lets the app install a private copy beside the consumer's, and two
+   `@aihu/store` instances mean two module-level registries, so hydration writes
+   to one and reads the other.
+13. There is **no single spelling of an intra-workspace dependency range that
+   all four package managers accept.** Measured, not inferred:
+   `workspace:*` → bun ok, pnpm ok, npm `EUNSUPPORTEDPROTOCOL`, yarn 1 asks the
+   *registry* for a package at that literal version. Bare `*` → bun/npm/yarn ok,
+   but pnpm 10 defaults `link-workspace-packages` to **false**, so `*` resolves
+   from the registry rather than linking the sibling. It must be chosen per-PM
+   (`workspaceProtocolFor()` in `scaffold-pipeline.ts`; `options.pm` was already
+   threaded through). Do not "simplify" it back to one constant.
+   Also: pnpm ignores the `workspaces` array in package.json entirely and needs
+   `pnpm-workspace.yaml`; and pnpm ≥10 blocks lifecycle scripts *and exits
+   non-zero* (`ERR_PNPM_IGNORED_BUILDS`), so every emitted manifest needs
+   `pnpm.onlyBuiltDependencies` as the counterpart of bun's
+   `trustedDependencies`. Bun blocks the same scripts **silently** — so bun
+   passing proves nothing about whether the postinstall actually ran.
+14. Two failures in scaffold-matrix run `30322552896` are **not** package-manager
+   defects; do not fold them into a PM contract. (a) `full` × bun *and* npm at
+   `dev`: the script is `concurrently "bun run server" "vite --port 5108"`, so
+   the harness's `--port <random> --strictPort` is appended to `concurrently`
+   and never reaches vite — vite binds 5108, the harness polls the random port,
+   120 s timeout. (b) `cf-team` × bun at `typecheck`: `moon run :typecheck`
+   diffs against `main`, and a freshly `git init`-ed scaffold has no such
+   revision (`fatal: ambiguous argument 'main'`, exit 128). Both fail on bun,
+   which is what proves they are not PM-compat.
