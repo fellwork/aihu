@@ -1862,6 +1862,16 @@ all 13 open issues were unassigned and three of them were already done.
   cannot green ⇒ branch protection says BLOCKED. Guard, not diff. Its
   prerequisite (#666) has merged; it needs marking ready, which is the
   interactive session's call, not a wake's.
+- **Do not re-open C-FEL-MATRIX-PROTO.** MET, verified above (run `30322552896`,
+  `fallback_loop` = 0, `6/20`). The three residual `pm-install` failures are
+  scaffold defects, not toolchain — that call is made and reasoned.
+- **Do not move `@aihu/store` into `@aihu/app`'s `dependencies`.** It is already
+  a **peer**; yarn 1 just doesn't auto-install peers. The fix belongs in the
+  scaffold template (`C-FEL-SCAFFOLD-PM-COMPAT`). The obvious fix risks a
+  duplicate store instance.
+- **Do not "tidy" the scaffold-matrix toolchain ordering.** `setup-toolchain`
+  FIRST (moon for the cf-team cell), `setup-node` LAST (real binary ahead of
+  proto shims). Counter-intuitive on purpose; both run ids are in the comment.
 - **Do not re-litigate the gate-routing spec.** ACCEPTED; claims verified above.
   Implementation is `C-FEL-GATE-ROUTING-CHECK` (builder-b), **ranked below** the
   MATRIX-PROTO re-spin and DEPLOY-GAP, and blocked on #680 landing anyway.
