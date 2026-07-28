@@ -2065,6 +2065,15 @@ all 13 open issues were unassigned and three of them were already done.
   cannot green ⇒ branch protection says BLOCKED. Guard, not diff. Its
   prerequisite (#666) has merged; it needs marking ready, which is the
   interactive session's call, not a wake's.
+- **Do not accept a green `ci-ok` without checking its sibling `check` is
+  SUCCESS on the SAME run id.** Two runs per sha is normal here; the one where
+  `check` skips finishes first and posts a green that certifies nothing. Bit
+  #680, #681 and (as a cancel) #672.
+- **Do not re-block #680.** Cleared: `check` + `ci-ok` both SUCCESS on run
+  `30323361044`. Do-not-land is LIFTED; the meta-gate has executed in CI.
+- **Do not re-verify #654.** Terminal green on `517f0a8c`, accepted.
+- **Do not file a contract for the `stripComments` regex-literal edge.** Known,
+  nearly untriggerable, told builder to comment it and fold a test into #681.
 - **Do not make `cancelled` green in ci-ok.** It fails closed on purpose
   (`plan-a.yml:449`, documented `:354`). A cancelled job reached no verdict, so
   ci-ok cannot certify it. Only the *message* is worth improving
