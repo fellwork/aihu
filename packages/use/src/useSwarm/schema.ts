@@ -18,9 +18,9 @@
  * That is a cross-language contract nothing enforces end to end: Python may
  * rename a field tomorrow. When it does, this validator must make the drift
  * LOUD and VISIBLE — an error naming the field — never degrade to an empty
- * array. An empty DECIDE bucket that means "schema drifted" is
- * indistinguishable from "nothing to decide", which is the worst failure for
- * this particular UI. See `useSwarm`'s `error` getter.
+ * array. An empty DECIDE bucket that means the schema drifted is
+ * indistinguishable from one that means there is genuinely nothing to decide —
+ * the worst failure for this particular UI. See `useSwarm`'s `error` getter.
  *
  * GRANULARITY (the #664 lesson at the right level). Fixed-shape arrays are
  * CLOSED — their known fields are required, so a renamed/removed field is a

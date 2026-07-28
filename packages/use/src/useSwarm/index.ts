@@ -96,8 +96,8 @@ export interface UseSwarmReturn {
    * frame validated; a {@link SwarmParseError} naming the failed field(s) when
    * it did not. The UI MUST render this: `/state` is produced by out-of-tree
    * `dashboard.py`, so a renamed Python field is caught only here, and a
-   * silent empty panel ("nothing to decide") would be indistinguishable from
-   * drift ("schema broke"). A validation failure NEVER blanks the data —
+   * silent empty panel (rendering as though there is nothing to decide) is
+   * indistinguishable from real drift. A validation failure NEVER blanks data —
    * `state()` keeps the last good frame and `error()` explains the drift. */
   readonly error: () => SwarmParseError | null
   /** Tear down the underlying `EventSource`. Idempotent; a no-op under
