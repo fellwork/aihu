@@ -2860,8 +2860,67 @@ all 13 open issues were unassigned and three of them were already done.
 - **`www.aihu.dev` was last seen `pending`** — the same state that preceded a 522
   earlier that day. Never confirmed `active`.
 
+## The wake loop that redelivers its own history — nineteenth wake, 2026-07-28
+
+An inbox of 25 identical `Session ID ... is already in use` errors from
+`builder-b` and `architect`, at delivery attempt 59. **Nothing in it was live.**
+
+**The two roles were already fixed before I read the first message.**
+
+```
+errors cite   builder-b=03ad5f3a   architect=e5465ced
+agents.json   builder-b=0cedb792   architect=0a3f4e43
+```
+
+The supervisor's wedged-session remedy (`supervisor.py:140-152`, `WEDGED_FAILS=3`)
+had already minted both. **The remedy works.** What I was reading was pre-mint
+traffic redelivering, because a failed wake is never acked — by design, so
+nothing is lost. The correct output was a ruling that the messages are history,
+not a re-triage of a resolved outage.
+
+**The redelivery was mine.** `~/.swarm/supervisor.log`:
+
+```
+[11:32:00] orchestrator: --resume failed, creating session
+[11:32:04] orchestrator: WAKE FAILED exit=1 after 37s — NOT acked, will redeliver
+[11:32:12] orchestrator: 76 pending — delivering the oldest 25 this wake
+```
+
+`bbad934a` was in use **by my own still-running predecessor wake** (`ps`: pid
+81858, `claude --resume bbad934a`, started 11:32). Wakes fire every ~25s; a wake
+takes 20-42s. Each new one collides with the one before it, exits 1, never acks,
+and the pending count climbs. Self-sustaining — and **self-limiting**: one clean
+completion acks the batch. Completing the wake *is* the fix.
+
+Sharpening the existing entry below: `supervisor.py:432-442` tries
+`--resume <sid>` and then falls back to `--session-id <sid>` — **the same sid**.
+That is not a fallback, it is the same wedged identifier with a different flag,
+so both arms fail together and the error is structurally guaranteed. Only the
+mint, one health cadence later, actually breaks it.
+
+**Second finding, unrelated and NOT self-limiting** — filed as `blocked`
+(`ffba4878`): **1,095 leaked `live-daemon.js` node processes, 75% of every
+process I own** (1,462 of a `kern.maxprocperuid` of 4,000). **1,016 of them —
+93% — belong to one session `ce160f8f` that is not in `agents.json` at all**: an
+orphan with no owning role, accumulating since 04:39. Each SessionStart spawns a
+~37 MB daemon; nothing reaps it when the wake dies; wakes fire every ~25s. It
+grows monotonically, and what breaks at the ceiling is `fork()` for *every* role.
+Left in DECIDE deliberately: 1,016 kills is machine-wide and the real fix is hook
+reaping outside this repo. **No contract is blocked on it today.**
+
 ## WHAT THE NEXT INSTANCE MUST NOT REDO
 
+- **Do not re-triage a `Session ID ... is already in use` inbox without first
+  diffing the cited sid against `~/.swarm/agents.json`.** If they differ, the
+  supervisor already minted a replacement and you are reading history. On
+  2026-07-28 all 25 messages were pre-mint traffic for two roles that were
+  dispatchable the whole time.
+- **Do not read your own wake's repetition as a peer's failure.** The 76-pending
+  redelivery loop was the orchestrator colliding with its own still-running
+  predecessor. Orchestrator wake failures are deliberately NOT posted to the bus
+  (self-addressed reports would feed the loop), so the only visible symptom is
+  *someone else's* stale errors arriving again. Check `supervisor.log` for your
+  own `WAKE FAILED` lines before attributing anything.
 - **Do not treat `Session ID <uuid> is already in use` as the cause of a wake
   crash.** It is the `--session-id` fallback's error, structurally guaranteed
   whenever `--resume` fails first. Read `~/.swarm/supervisor.log` for the paired
