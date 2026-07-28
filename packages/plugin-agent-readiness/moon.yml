@@ -18,7 +18,6 @@ dependsOn:
   - 'agent'
   - 'agent-service'
   - 'server'
-  - 'signals'
 
 tasks:
   check-boundary:

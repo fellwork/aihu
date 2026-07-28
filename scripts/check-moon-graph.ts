@@ -175,101 +175,13 @@ function specifierToPackage(spec: string): string | null {
 
 const IMPORT_RE = /(?:from|import|require)\s*\(?\s*['"]([^'"]+)['"]/g
 
-/**
- * Blank out the regions of `src` that are TEXT rather than CODE, so
- * `IMPORT_RE` cannot read a sentence — or a source-code fixture — as an import.
- *
- * A REGEX OVER RAW SOURCE CANNOT TELL CODE FROM TEXT ABOUT CODE. That class has
- * now bitten this repo twice in one day: `dep-check.ts` was comment-blind
- * (C-FEL-DEPCHECK-COMMENTS, #681), and this scanner was string-literal-blind —
- * `packages/plugin-agent-readiness/tests/agent-manifest-sidecar.test.ts` holds
- * `.aihu` component source inside BACKTICK TEMPLATE LITERALS, and one of those
- * fixtures contains the line `import { signal } from '@aihu/signals'`. The
- * regex matched the fixture's INNER SINGLE QUOTES — the enclosing backticks are
- * invisible to it — and demanded a `dependsOn: signals` edge that does not
- * exist. It turned `main` red (run 30375932836) on two PRs that were each green
- * in isolation and whose union was never built.
- *
- * Two kinds of region are blanked, and the asymmetry is the whole design:
- *
- *   COMMENTS — blanked. Same fix as #681, whose `stripComments` this mirrors.
- *   TEMPLATE LITERALS (`` ` ``) — CONTENTS blanked. A template literal is where
- *     this repo keeps embedded source (`.aihu` fixtures, codegen snippets), so
- *     its contents are text. A real specifier is never written in backticks:
- *     `import … from` requires a plain string literal, and a dynamic
- *     `import(`…`)` with a template is a computed specifier this scanner could
- *     not resolve anyway.
- *   ORDINARY '…' / "…" STRINGS — PRESERVED. Their contents ARE the specifiers
- *     (`from './foo'`); blanking them would erase every real import. This is the
- *     opposite of the template rule ON PURPOSE.
- *
- * Blanking replaces characters with spaces and PRESERVES NEWLINES, so byte
- * offsets and line numbers still line up with the original file.
- *
- * KNOWN LIMITATIONS, both in the false-NEGATIVE direction (a missed edge in an
- * advisory graph check), deliberately unmodeled rather than half-modeled:
- *   - REGEX LITERALS are not tracked, so `/…\/\//` reads as a line comment and
- *     the rest of THAT line is blanked. Inherited from #681's scanner, same
- *     rationale: an import essentially never shares a line with a regex.
- *   - An import-shaped sentence nested in an ORDINARY string (`"… from 'x' …"`)
- *     still matches, since those are preserved by design.
- * Distinguishing these needs a real parser; unifying both gates on
- * `ts.preProcessFile` is the follow-up, deliberately not bundled into a
- * main-is-red unblock.
- */
-export function stripNonCode(src: string): string {
-  let out = ''
-  let quote: string | null = null // active string delimiter: ' " or `
-  const blank = (s: string): string => s.replace(/[^\n]/g, ' ')
-  for (let i = 0; i < src.length; ) {
-    const c = src[i] as string
-    const c2 = src[i + 1]
-    if (quote) {
-      // Inside a literal. Template contents are text → blanked; ordinary string
-      // contents are specifiers → kept verbatim.
-      if (c === '\\') {
-        out += quote === '`' ? blank(src.slice(i, i + 2)) : src.slice(i, i + 2)
-        i += 2
-        continue
-      }
-      out += c === quote ? c : quote === '`' ? blank(c) : c
-      if (c === quote) quote = null
-      i += 1
-      continue
-    }
-    if (c === "'" || c === '"' || c === '`') {
-      quote = c
-      out += c
-      i += 1
-      continue
-    }
-    if (c === '/' && c2 === '/') {
-      while (i < src.length && src[i] !== '\n') {
-        out += ' '
-        i += 1
-      }
-      continue
-    }
-    if (c === '/' && c2 === '*') {
-      const end = src.indexOf('*/', i + 2)
-      const stop = end === -1 ? src.length : end + 2
-      out += blank(src.slice(i, stop))
-      i = stop
-      continue
-    }
-    out += c
-    i += 1
-  }
-  return out
-}
-
 /** Workspace package names imported anywhere in `dir`'s source. */
 function importedPackages(dir: string, nameToProject: Map<string, string>): Set<string> {
   const found = new Set<string>()
   for (const file of sourceFiles(dir)) {
     let content: string
     try {
-      content = stripNonCode(readFileSync(file, 'utf-8'))
+      content = readFileSync(file, 'utf-8')
     } catch {
       continue
     }
