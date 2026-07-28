@@ -797,6 +797,12 @@ export function scaffoldApp(
   if (template === 'agent') {
     const files: Array<readonly [string, string]> = [
       ['package.json', agentPackageJson(name, pm)],
+      // Same reason as `minimal`/`docs`/`full`: pnpm reads its settings from
+      // this file only, and without it the first `pnpm install` exits non-zero
+      // with ERR_PNPM_IGNORED_BUILDS before the user reaches a build. `agent`
+      // was the one template that never emitted it — the file list is a
+      // fourth place this had to be said, and it was the place nobody looked.
+      ['pnpm-workspace.yaml', pnpmWorkspaceYaml()],
       ['vite.config.ts', agentViteConfig()],
       ['tsconfig.json', agentTsConfig()],
       ['index.html', agentIndexHtml(name)],
