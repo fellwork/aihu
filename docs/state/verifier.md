@@ -556,3 +556,17 @@ file alone is a stale-checkpoint trap. (Distinct from the earlier note that the 
 BINARY opening the DB mutates it via WAL — this is the READ side of the same WAL fact.)
 Corollary: an unchanged bus.db md5 is NOT evidence the bus is idle — it may just mean
 nothing has checkpointed yet.
+
+### Round 3 addendum 6 — applied the "disproven method → go back and fix the verdict" rule
+
+The WAL near-miss (addendum 5) disproved a method I had already cited: the
+C-FEL-REVIEW-0727 verdict headlined "live ~/.swarm/bus.db md5 IDENTICAL start->end"
+as proof my tests did not pollute the ledger. In WAL mode that is void — a live write
+lands in `bus.db-wal` and the main-file md5 never moves (C-SWARM-WAL-STALE, main.rs:503
+sets WAL, nothing checkpoints). A disproven method does NOT auto-update the verdicts that
+used it — someone must go back. I did: qualified that verdict on the bus (msg 6a15cb0d).
+The no-pollution CONCLUSION stands on a stronger basis — every swarm-bus test ran with
+`SWARM_DB=<temp>` so the live DB was never OPENED by a test; pollution was PREVENTED by
+isolation, not DETECTED by md5. Rule for the next instance: never cite an unchanged
+`~/.swarm/bus.db` md5 as evidence of anything; rest no-write claims on SWARM_DB isolation,
+and when a method you relied on is disproven, grep your own past verdicts for it.
