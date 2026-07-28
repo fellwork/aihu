@@ -43,6 +43,85 @@ is **not** the coordination or state layer. It went unused for ~20 hours on
 2026-07-25 and the one page it holds was stale within 30 minutes of being
 written. Do not treat it as truth.
 
+## 🔴🔴🔴 I WAS ONE SENTENCE FROM A FALSE ACCUSATION — two contaminated reads in one wake, both mine
+
+I had drafted: *"the comment at `:499` claims a MACHINE-CHECK that does not exist"* — an
+accusation of a **false wiring claim, in the PR whose subject is false wiring claims,**
+against work that had done exactly what it said. **Two instruments, both well-formed, both
+pointed at the wrong thing:**
+
+```
+(a) read plan-a.yml + check-gate-wiring.ts through FETCH_HEAD after an unrelated
+    `git fetch origin`. FETCH_HEAD was NOT the PR — the tell was
+    `git diff --name-only origin/main FETCH_HEAD` → my own state file.
+(b) re-read by sha: `git show $SHA:scripts/check-gate-wiring.ts`
+    bare `$SHA:s` is a ZSH MODIFIER — it silently ate "cripts/chec"; git reported an
+    ambiguous argument and my file came back 3 LINES.
+```
+
+**The positive control is the only reason this did not ship:** 785 lines / 98 hits for
+`gate` on the correct read, against **3 lines / 1 hit** on the broken one. *Builder-b's rule
+used rather than admired — state what a POSITIVE result would look like and confirm your
+command could have produced it.* **Standing, mine: quote your paths; never trust `FETCH_HEAD`
+after an unrelated fetch; read a PR head by immutable sha.** *Second time in two wakes my own
+shell silently deleted data (backtick command-substitution, now the `:s` modifier).*
+
+## ✅ #691's HEAD `394788cb` IS THE ONE THAT LANDS — I withdraw "the step stands"
+
+**Measured by sha:** own-job at `:365`, in `ci-ok` `needs:` `:472`, in the 7-pair result loop
+`:526` — **and `check-gate-wiring.ts` is now 785 lines against main's 393**, containing
+`AGGREGATOR_JOB = 'ci-ok'` (`:188`), a `needs:` parse (`:374`), a for-pair parse (`:379`), a
+`*_RESULT` binding parse (`:386`), **and the subtle case architect named — a pair bound to
+the WRONG job's result (`"gate-wiring:$README_SYNC_RESULT"` reads perfectly and gates
+nothing).**
+
+**The entire basis for "step, not job" was that own-job needs three coordinated edits and
+this repo has dropped clause 3 twice. Builder did not argue that risk away — they CLOSED it
+in code, with the gate whose purpose is exactly this.** *A ruling whose premise is measured
+away should die.*
+
+**STEP → JOB → STEP → JOB: four positions in three wakes, all mine and architect's; builder
+implemented each as issued.** The remedy is mine and it is the same lesson as the section
+above: **read the head by sha before ruling on it, not the report of it.**
+
+### Architect's two lines — one in, one queued
+
+- **(1) fail-closed inversion: IN**, as already ruled and reproduced on main's own loop text.
+  It closes empty **VALUES**, which the static parse cannot see — *a binding can exist in the
+  file and still resolve empty at runtime.*
+- **(2) `checked -ne 7` count guard: QUEUED, not in #691.** Architect measured a real
+  residual (truncated pair LIST ⇒ `checked=0, fail=0`; **`fail=0` is an absence report that
+  cannot distinguish "no failing job" from "no job examined"** — their own rule 0 wearing
+  shell). **But with the static parse landing in the same PR, a truncated loop is caught at
+  PR time.** *Adding a hardcoded 7 to the sole required status, in the PR that adds a checker
+  built to eliminate hand-maintained coupling, is self-contradictory.* If it returns it must
+  be **derived**, not a magic number.
+
+## ✅ THE DECIDE SHRANK BY A THIRD — #430 has been closed for eight days
+
+```
+gh issue view 430 → CLOSED, COMPLETED, closedAt 2026-07-20T21:09:17Z
+gh issue view 478 → OPEN     gh issue view 503 → OPEN
+19 would-verify ids joined on a WAL-safe snapshot: 19 matched · NO LINK 11 · linear 8 · gh 3
+```
+
+**My "15 Linear links" was over the wider candidate set** (it includes the 9 skipped-no-PR
+rows). Among the 19 that actually verify it is **8**, and the **new** customer-visible
+closures are **TWO**. *Three roles repeated "#430, #478, #503" — I filed it, architect
+retracted against it, and neither of us checked the issue states.* **Say the number or say
+nothing.**
+
+**The half nobody had checked, and it makes the question easier:** both closures look
+correct — `#478` → PR #655 merged, `#503` → PR #654 merged, **and both regression tests are
+on main** (`slot-fallback-drive.test.ts`, `gh503-each-noniterable-sidecar-tsc.test.ts`). *Not
+"close issues that might not be fixed" but "close two issues whose fixes are merged and carry
+named regression tests."* **Re-filed at its true size.**
+
+**Adopted from architect, and it is why the flag is not a stall:** *without subsetting, every
+use of a bulk outward command becomes a founder decision, and a gate that always needs a
+human is a gate nobody runs.* `--skip-linked` unblocks **11 of 19 rows (58%) with zero
+outward effect**; the human answers only the two closures.
+
 ## 🔴🔴🔴 `ci-ok` CAN PASS HAVING READ NOTHING — the sole required status, fail-open, ON MAIN
 
 Architect traced it, verifier tabled it, **and I reproduced it from `origin/main`'s own loop
