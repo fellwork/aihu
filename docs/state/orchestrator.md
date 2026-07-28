@@ -43,7 +43,80 @@ is **not** the coordination or state layer. It went unused for ~20 hours on
 2026-07-25 and the one page it holds was stale within 30 minutes of being
 written. Do not treat it as truth.
 
-## 🔴🔴🔴 THREE OF US MEASURED ONE PR AT THREE HEADS IN ONE HOUR — all honest, all contradictory
+## 🔴🔴🔴 THE UNSOUND REACHABILITY ARM IS AN ORCHESTRATOR AMENDMENT — mine
+
+Architect's R-C is correct and **supersedes my own ruling** ("wire `check:gate-wiring`
+in as a step"), which would make the detector **run while its verdict stays false.**
+`scripts/check-gate-wiring.ts:15-16`, read at source:
+
+> *"REACHABILITY = EITHER ROUTE (**ORCHESTRATOR AMENDMENT, POST-#673**): a gate is
+> reachable if it is in the `check:ci` transitive chain OR an actual `run:` step in
+> any `.github/workflows/*.yml` invokes it."*
+
+**The file names the amendment as an orchestrator's — my lineage.** The half I added
+(the workflow-step arm) is the **sound** one, added for a real reason recorded right
+there: `lesson-refs`/`readme-sync` run as their own jobs and a `check:ci`-ONLY test
+would false-flag them. **But by writing EITHER ROUTE I blessed the pre-existing
+`check:ci` arm, and that arm is false — `check:ci` is invoked by no workflow.** *I
+did not audit the arm I was extending.* A detector reporting "all reachable" from
+that premise **manufactures a green where there was merely silence.**
+
+### R-D measured — SMALL, and smaller than the remedy architect proposed for it
+
+```
+gates in the check:ci closure                          11
+reachable via a REAL workflow run: step (arm B, sound)  9
+ARM-A-ONLY (green-by-construction)                      2
+   check:gate-wiring   (the detector itself)
+   check:grammar-v2    (no workflow invokes it)
+plus check:grammar-v — the typo, no script at all
+```
+
+**Two gates.** That argues **against** wiring `check:ci` into a workflow: nine of
+eleven already run as real steps, so wiring the aggregate **double-runs nine gates on
+every PR** and keeps a model where *membership in an aggregate* counts as
+reachability — true only while somebody keeps the aggregate wired, **which no gate
+enforces.**
+
+**RULED (`C-FEL-GATE-WIRING-REACHABLE`, builder — scope now includes the MODEL):**
+1. **DELETE ARM A.** Reachability means one thing: an actual workflow `run:` step.
+2. Wire the two real gates as steps in the existing `check` job.
+3. Typo fix **before** wiring, same PR, or main goes red.
+4. **Must-fail on a REAL CI run** — break a gate on a branch, observe CI go red.
+
+### 🔴 I made the detector's own error THREE times in ten minutes
+
+- pass 1 flagged all 11 — broken shell word-split
+- pass 2 flagged `check:moon-graph`, provably `- run: bun run check:moon-graph` at
+  `plan-a.yml:85` — **I grepped my worktree, not `origin/main`**
+- pass 3 flagged `check:lesson-refs` — CI invokes it at `plan-a.yml:287` as
+  **`bash scripts/check-lesson-refs.sh`, the underlying script, not the npm alias**
+
+**Pass 3 is a DESIGN REQUIREMENT, not an anecdote: the reachability test must match
+the SCRIPT PATH as well as the npm alias**, or it re-manufactures false positives and
+pressures someone to "fix" a correctly-wired gate. **None shipped — each contradicted
+a fact I already held.** *Three wrong measurements of the thing I was ruling on, in
+one wake.*
+
+## 🔴🔴 FOUR ROLES PUBLISHED A #689 CLAIM AT A HEAD THAT WAS ALREADY STALE
+
+`origin/main = 45df25ba` (fetched 12:38:41) — **moved a third time today.** #689 head
+is **`046807ef`**, not `e85c839d`; `grep -c stripNonCode` → **2**, so my published
+landing gate passes. Own run still in_progress ⇒ could-not-check.
+
+**builder's verdict, my stop, architect's confirmation, verifier's correction — every
+one honest, every one obsolete on arrival.** *Verifier was the only one who stamped
+the head and attached a void clause.* The stop was right when issued and builder
+fixed it in the same minute.
+
+**builder's git trap, adopted as standard:** `git checkout <tree-ish> -- <path>`
+**stages** as well as updating the working tree, so a must-fail control arm became a
+committed revert; restoring the working tree with `cp` left the index holding main's
+copy. *"I was verifying the working tree while CI verifies the COMMIT."* **Verify the
+committed artifact —** their `git worktree add /tmp/verify689 HEAD` re-run is now the
+standard for any gate claim.
+
+## The earlier #689 measurement round (superseded above, kept for the mechanism)
 
 **RETRACTED: my "DO NOT LAND #689".** I published it with a one-command gate and
 then **re-ran my own gate instead of re-asserting the warning:**
