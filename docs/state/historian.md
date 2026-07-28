@@ -362,14 +362,39 @@ by it, so open them yourself when auditing.
   goes conflicting silently when its base merges). **CHECK `gh pr view <your-PR> --json
   mergeable` at the START of each wake** — banked in `stack-base-merge-goes-conflicting.md`.
   I fed a dead (conflicting) branch for two wakes before catching it; do not repeat.
+- **THE SPLIT-OUT IS DONE (PR #676) — do not redo it.** The orchestrator ruled the
+  triage-queue correction must NOT stay hostage to #669: a live falsehood on main
+  (`triage-queue-mixed-products.md` still asserting "ROUTING STILL PENDING / founder
+  business fact") is a different urgency class than a new lesson. I put ONLY the corrected
+  file on a fresh branch off `origin/main` → `srmcguirt/triage-correction-0727`,
+  `d80c3276`, **draft PR #676, mergeable=MERGEABLE / CLEAN**, `check-lesson-refs` exit 0.
+  Gate note: the corrected file's bare-backtick ref to `a-contract-is-an-unverified-claim.md`
+  (not yet on main) is NOT a tracked citation form — the gate greps only the absolute
+  `docs/lessons/`-prefixed path form and the relative markdown-link form, NOT a filename in
+  plain backticks — so a fresh-off-main split passes without dragging in the #669-only
+  sibling files. Landing is the session's. (Meta-trap, banked: an EARLIER draft of THIS
+  bullet spelled the two grep patterns out with example filenames — those examples matched
+  form-1/form-2 and the gate then failed on the non-existent example file. Describing a
+  citation-checker in prose can itself emit citations. Name the forms; never illustrate
+  them with a literal path.)
+- **#669 was REBASED A SECOND TIME — main moved again under it.** After the first rebase,
+  `origin/main` advanced `41c37df6`→`b667bdcd` (8 more PRs landed: #656/#659/#661/#663/#666/#667/#668/#673
+  — the queue un-stuck). #669 went behind; I rebased onto current main (clean, 8 commits),
+  force-pushed → **`b11b36db`, mergeable=MERGEABLE / BLOCKED-because-draft**. This is the
+  recurrence the `stack-base-merge-goes-conflicting.md` rung is for: a remembered "it's
+  mergeable" is stale the moment main moves. Both #676 and #669 carry byte-identical
+  triage-file content (both from `c299fc02`), so whichever lands second is a no-op/no-conflict.
 - **#670 (`41c37df6`, merged 01:12Z): a draft `ci-ok` now WARNS, not FAILS.** RETIRE the
   old rule "a draft `ci-ok`=FAILURE is the FEL-437 guard doing its job" — dead on main.
   On a run AFTER 01:12Z a draft red is REAL (triage it); runs BEFORE it show the retired
   FAILURE. Always name WHICH run + its timestamp vs 01:12Z; a conclusion from a
   behaviour-changed run is a stale receipt. Marked resolved-and-changed in `absent-value-…`.
-- **Board arc (2026-07-27):** main at `41c37df6`; #657/#655/#660/#670 landed; then the
-  queue STOPPED at 01:12Z with ~13 PRs open (many green/verified). Landing is the
-  interactive session's; the rebase/twin/stale-branch hazards rise the longer green work sits.
+- **Board arc (2026-07-27):** main reached `41c37df6` (#670), the queue STOPPED at 01:12Z
+  with ~13 green PRs sitting — then UN-STUCK: main is now `b667bdcd`, having landed
+  #656/#659/#661/#663/#666/#667/#668/#673. So "the queue stopped at 01:12Z" was a
+  snapshot, not the arc; it resumed. Landing is the interactive session's; the
+  rebase/twin/stale-branch hazards rise the longer green work sits (this cost me a second
+  #669 rebase). Do not report a stale board figure — read `git rev-parse origin/main` fresh.
 - **The release is uncut and it is the ORCHESTRATOR's item, not mine.** Merged-but-
   unpublished on main (incl. #639/#640/#641/#653/#658/#664, #655 pending); publishing is
   outward-facing + irreversible, held for the founder. Tracked on
