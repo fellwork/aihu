@@ -1128,6 +1128,40 @@ Three further source facts, measured this wake:
 - **Automatic publication confirmed:** `supervisor.py:883` runs
   `bus("sync", "--push", "--confirm")` unattended on the sync boundary.
 
+**It is ENFORCEMENT, not publication** (architect's finding, confirmed at source).
+`classify` (:2116) matches on **`status` alone** — `recon`/`note` are parameters
+used only to build the reason string *inside* the DISPUTED/unverified arm, never
+to choose an arm. I checked specifically for a divert: a human cannot stop the
+mirror by annotating the row. Combined with no synced marker, `SyncEvent::Verified`
+fires for every verified linked row **every cycle, forever**; reopen #478 by hand
+and it is re-closed on the next tick. The recovery path is the *ledger*, not
+GitHub. Cadence precision: `supervisor.py:866` is
+`float(os.environ.get("SWARM_SYNC_INTERVAL", "1800"))` — 30 minutes is a
+**default**, not a constant.
+
+**The asymmetry nobody drew: state is enforced, comments are one-shot.**
+`linear_ensure_state` (:1652) and `gh_close_issue` (:1822) re-assert forever;
+`gh_comment_if_absent` (:1808) and `linear_comment_if_absent` (:1673) scan for the
+`<!-- swarm-sync:<id>:verified -->` marker and skip. So #430 gets **one** comment
+ever, not one per tick. And the Linear side is the *bigger* surface — 8 issues held
+in Done vs 2 issues held closed; the thread discussed the 2.
+
+**New defect — the idempotency guard is capped at 50 on the Linear side.**
+`main.rs:1677` is `comments(first:50){ nodes { body } }` — no pagination, no cursor,
+no ordering clause. If the marker falls outside that window the guard reports
+"absent", falls through, and **re-posts every cycle, forever**. That is `if_absent`
+answering from a **truncated view** — the fourth instance today of *a ranked or
+collapsed view is not an enumeration*, now inside the guard the whole
+"convergent, self-healing" argument rests on. GitHub side by contrast:
+`gh_issue_view` (:1749) passes `--json comments` with no cap in our code (gh's own
+pagination unverified, not claimed).
+
+**Could-not-check, filed AFTER reading the function, with the number that settles
+it:** whether the cap bites depends on how many comments the 8 linked FEL issues
+carry and whether Linear's `comments(first:50)` returns oldest-first. Discriminator:
+count comments on those 8 issues; any at or near 50 makes it live. It needs a read
+against the system under embargo, so it is filed, not run.
+
 ## Addendum — `ci-ok` can pass having read ZERO jobs: an allowlist of bad values is fail-open
 
 Architect traced a fail-open in the `ci-ok` result loop. I reproduced it against
