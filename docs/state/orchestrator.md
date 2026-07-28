@@ -62,6 +62,12 @@ origin/main  edba0c5a  fix(swarm): claim verbs are open, the format is what is v
 | **656** | DRAFT | FEL-EXTERNALS `/^node:/` in cli/app/adapter-vercel. **Ruled: mark ready** — a draft builds nothing, so its own acceptance is unobtainable. |
 | **655** | READY, MERGEABLE, **ci-ok green** | FEL-GH478 `<$slot>` fallback. Verified PASS both directions by verifier from a clean source-built compiler. Ready to land. |
 | **654** | DRAFT | GH-503 `__aihu_each` non-iterables. Premise correction inside: the TS18046 the contract demanded does not exist on main (fixed by #505). |
+| **666** | DRAFT | FEL-MOON-ROLLDOWN — `bunx` prefix on every bare `.bin` command across 6 `moon.yml`. **Accepted**; mark ready. Cold-cache proof + `dist` sha256 byte-identical to `bun run build`. |
+| **667** | DRAFT | **FEL-433, the paired filter fix — highest-stakes diff on the board**, it changes what CI runs on every PR. `code` split to its own step with `predicate-quantifier: every`; blanket `!**/*.md` → targeted doc-md exclusions so `skills/aihu/**.md` stays code. Mark ready; verifier dispatched. |
+
+**Every draft above shows `check=SKIPPED` + `ci-ok=FAILURE`.** That is the
+FEL-437 guard doing its job, not a defect — a draft built and tested nothing.
+Do not re-triage it; rule "mark ready" and move on.
 
 Merged this session: **#639** (FEL-439 docs), **#640** (FEL-440 registration as
 codegen input), **#641** (FEL-441 ref/onMount order), **#653**, **#658**
@@ -167,6 +173,41 @@ self-assessed disposition is exactly what must not be taken on trust.
 - **A `needs` edge pointing at an un-barred contract is a trap,** not
   sequencing — it blocks-on-needs the moment anyone claims. Same shape that
   stalled `C-SWARM-SCHEMA`.
+
+### Third wake, same day
+
+- **A `blocked` with no natural contract gets its OWN contract row.** I attached
+  the non-aihu routing question to `C-FEL-433` — the *paths-filter* contract —
+  because a blocked wants a contract and it was a convenient handle. Result:
+  verifier and historian both attached their responses there, tangling a product
+  routing decision into the thread of a PR a builder was actively shipping, and
+  **both spent a wake re-escalating a decision I had already executed.**
+  Re-filed as `C-SWARM-QUEUE-ROUTING` with a real bar. *A ruling nobody can find
+  is not a ruling — and I filed one where it could only be found in the wrong
+  place.*
+- **An escalation that CAN be split SHOULD be.** I sent the non-aihu item up
+  whole, so the half needing a founder business fact (the routing target) blocked
+  the half needing only a scope call (clean the queue). It sat a full wake. The
+  architect split it; the non-blocking half then took minutes. This is the
+  transferable lesson, banked in `docs/lessons/triage-queue-mixed-products.md`.
+- **`C-SWARM-SCHEMA` → build the `/state` VIEW-MODELS, defer the payload
+  mirror.** The architect's framing finding *is* the ruling: the payload schemas
+  (`Verdict`/`Blocked`/`Claim`) and the `/state` view-models are **two schema
+  sets**, and the contract conflated them. `/state` is the only one that crosses
+  into TypeScript — `useSwarm` receives it and never receives a payload
+  (`decide[]` is `{from,contract,ago,question}`, *not* the `Blocked` payload).
+  The payload side is already enforced in Rust at the boundary; mirroring it in
+  Zod would type a caller that does not exist. **Hazard named in the ruling:**
+  typing `/state` creates a cross-language contract with `~/.swarm/dashboard.py`
+  (outside any repo, so ungatable) that nothing enforces — so a parse failure
+  must be **loud and visible**, never a silent empty panel. An empty DECIDE
+  bucket meaning "schema drifted" is indistinguishable from "nothing to decide".
+- **Do not "fix" `reviews[].pr`** — it is the string `"PR #641"`, not a number.
+  That is `dashboard.py`'s surface; typing it honestly as a string is correct.
+- **#657 is FROZEN at `d3cf271e`.** It had grown to ~10 files across every wake,
+  which means *the entire session's durable memory existed only in an unmerged
+  draft.* A PR that keeps growing never gets reviewed. Further banking goes on a
+  fresh branch.
 
 ### Published vs repo — verified 2026-07-26 via `npm view <pkg> version`
 
@@ -294,6 +335,13 @@ than none.
 2. **Cut the release.** Everything is on main and unpublished; this session alone
    added #639/#640/#641/#653/#658/#664 with #655 ready to land. Outward-facing
    and irreversible, so no wake may cut it. Open since 2026-07-26.
+   **Split as of the third wake:** the *scope* half is decided and executed;
+   only the routing target remains, now on its own contract
+   `C-SWARM-QUEUE-ROUTING` (bar filed, blocked pending the answer). Its bar
+   **forbids keyword matching on titles** as the scoping key — it must be an
+   explicit tracker attribute — and carries an anti-row: a genuine aihu issue
+   that superficially resembles the excluded set must be KEPT. Misclassifying at
+   intake would silently drop real aihu work, which is worse than the noise.
 3. **`@state` model: is a bare `let x = 0` auto-reactive, or is
    `let x = state(0)` required?** The public authoring surface — what a person
    types in a `.aihu` file — so it is not an agent's to settle. **Non-blocking:**
@@ -350,13 +398,17 @@ way the `node:` allowlists and the `publish-all` PKGS array did).
 ## Queue shape — measured 2026-07-27, not estimated
 
 ```
-offered                           127 → 118   (13 non-aihu + C-GH-487 declined)
-  ...of which carry a bar          19 → 23    (all authored by the architect)
-claimed                             4 → 6
-no-claims                          14
-verified                            9 → 12    (three status moves, wake 1)
-declined                            0 → 15
+offered                     127 → 118 → 125   (13 non-aihu + C-GH-487 out;
+                                               then epic children + new contracts in)
+  ...of which carry a bar    19 → 23           (all authored by the architect)
+claimed                       4 → 3            (builder released 424/427 per ruling)
+no-claims                    14 → 16
+verified                      9 → 12           (three status moves, wake 1)
+declined                      0 → 16
 ```
+
+`offered` going **up** after a clearance is the healthy direction: the removals
+were un-barrable noise, the additions are barred, claimable work.
 
 The architect's own composition finding stands and is the reason "127 offered"
 overstates the work: after the reproducible-bug seam was drained (~21 barred),
@@ -525,6 +577,15 @@ all 13 open issues were unassigned and three of them were already done.
   Twice on 2026-07-27 (zurich, jerusalem) a twin left one staged; both were
   byte-identical to `origin/main` post-#658. Check
   `git diff --stat origin/main -- <file>` before preserving anything.
+- **Do not re-open the `!.claude/**` exclusion in `#667`.** I suspected it was
+  the same defect as the blanket `!**/*.md` (since `.claude/skills/swarm/swarm.ts`
+  is live executable TypeScript) and was about to rule it a blocker. Then I ran
+  the tool: `biome.json` `files.includes` carries `"!.claude"`, and
+  `bunx biome check .claude/skills/swarm/swarm.ts` → *"These paths were provided
+  but ignored"*. **Nothing in `check` covers `.claude/` at all**, so excluding it
+  loses nothing. My candidate blocker was wrong. This filter has now produced
+  three wrong readings from three readers, every one from reasoning about globs
+  instead of running a matcher — mine was nearly the fourth.
 - **Do not re-triage `#661`'s red `check`.** Ruled: not its diff, it merges.
   The cause is the missing `editor → compiler` moon edge (`C-FEL-411`); see the
   flapping-gate section above for the run id and the log line.
@@ -562,12 +623,22 @@ produced **three distinct consequence classes**, not three copies of one:
    where it was about someone's reputation. Corrected to all, since that is
    where the accusation went.
 
-The current rung is prose ("check your branch") — the weakest possible, and it
-depends on remembering. Recorded as retro incident 8 in
-`docs/lessons/promotion-rungs.md` (PR #657, HEAD `dfeaf047`). **Owner:
-orchestrator. Unbuilt.** Consequence class 3 is the argument that should
-finally get it built: shared identity on an unauthenticated channel means
-misconduct cannot be attributed *at all*.
+4. **Concurrent mutation, caught live** — builder hit a real `index.lock`
+   *mid-commit* on `C-FEL-433`, from another instance running git in the same
+   shared worktree at that moment. First incident where the hazard was **active
+   during** an operation rather than discovered after. They waited for it to
+   clear rather than force-removing it (force-removing would have corrupted the
+   other instance's commit), then **re-verified they were still on the right
+   branch** before committing. Bank the remedy as hard as the incident: the
+   re-verify-after-waiting step is the one people skip, and it is what turns a
+   survivable collision into a silent wrong-branch commit.
+
+**Four incidents, four distinct consequence classes, one root.** The current
+rung is prose ("check your branch") — the weakest possible, and it depends on
+remembering. Recorded as retro incident 8 in `docs/lessons/promotion-rungs.md`
+(PR #657, frozen at `d3cf271e`). **Owner: orchestrator. Unbuilt.** Consequence
+class 3 is the argument that should finally get it built: shared identity on an
+unauthenticated channel means misconduct cannot be attributed *at all*.
 
 ## Pointers
 
