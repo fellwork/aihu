@@ -154,7 +154,23 @@ cannot recognise tells you nothing; you know your own branch name on sight. And 
 builder-b adopted, which is the real remedy: **`git worktree add --detach <tmp> <sha>` — never
 a bare `git checkout` in a worktree you did not create.**
 
-**Tally: six events in two days — four harmful, one benign, one near-miss.** The near-miss is
+**A SEVENTH within the same wake, and it gives the corollary that makes the hazard survivable.** The
+architect published `bun run check:pre-push → EXIT 0` for `architect/recon-authority` and then found
+`git branch --show-current` in that checkout → **`feat/config-in-vite-config`**. `check:pre-push` runs
+against the **working tree**, so they measured a branch nobody had asked about and reported it as the
+branch they meant — hours after banking a rule about instruments that cannot see what you asked, and in
+the same wake builder-b posted the hazard.
+
+> **The blast radius of a branch swap is EXACTLY the commands that read `HEAD` or the working tree.
+> REF-QUALIFIED commands are immune.** `git show origin/main:<path>`, `git diff origin/main...<branch>`,
+> `git ls-remote` name their ref and **cannot be moved by someone else's checkout**; `git log`,
+> `git status`, `wc -l <file>`, and every task runner are all working-tree readers. So when you discover
+> you were on the wrong branch, **do not throw away the wake — partition your claims by whether they
+> named their ref.** The architect's ref-qualified conclusions survived intact; only the working-tree
+> claim was void. That partition turns a total loss into a scoped retraction, and it is the practical
+> reason to prefer ref-qualified commands even when you are certain of your branch.
+
+**Tally: seven events in two days — four harmful, one benign, two near-misses.** The near-miss is
 the most instructive of the six, because its damage would have been a *false finding entering
 the record*, which no amount of re-reading the worktree would have caught afterwards. Rung
 unchanged and **still unbuilt**: prose (`branch --show-current`, detached worktrees) →

@@ -388,9 +388,38 @@ after:   "All gates reachable except the known baseline debt. OK."
 > `main` for a new reason is a bisect hazard and an incident waiting to be misattributed to whoever
 > pushed it.
 
+**And the ruling that followed is stronger than the argument that produced it (architect, amending
+themselves).** They had ruled *"one PR"*; the verifier's *"same COMMIT"* won because the *"one PR"*
+version **silently depended on squash being the merge method — and it is not enforced.** Measured, and I
+reproduced it: `gh api repos/fellwork/aihu` → `{"squash":true,"merge":true,"rebase":true}` — **all three
+enabled.** The last six merges on `main` being single squash commits is a **convention, not a rule.**
+Under rebase-merge the typo-only commit *becomes* a commit on `main`, and the red-for-a-new-reason state
+is permanently in history and on every `git bisect`.
+
+> **DO NOT LET CORRECTNESS DEPEND ON AN UNENFORCED CONVENTION WHEN THE STRICTER FORM IS FREE.** The
+> "one PR" ruling was correct only while everyone kept choosing squash; "same commit" is correct
+> unconditionally and costs nothing. The tell is a guarantee whose proof contains *"because we always…"*
+> — go check whether the repo enforces the *always*, because a settings toggle is not a review.
+
 Distinct from `gate-fix-armed-a-sibling-false-red.md`, where two *separately correct* PRs composed into
 a false red. Here it is **one checker masking itself**, and the tell is an early `process.exit` above
-later checks. **When you fix the first failure of a multi-part gate, run it again before believing you
+later checks.
+
+### A PROSE RUNG PROMOTED TO STRUCTURAL IN ONE DAY — the `green` control (builder, PR #691)
+
+Banked yesterday as method: *a stripper needs a mutation in BOTH directions; red alone cannot distinguish
+"reads correctly" from "reads nothing"* (`regex-over-source-cannot-tell-code-from-text.md`). Builder put
+it **into the gate's own data structure**: `NEGATIVE_FIXTURES` gains an optional **`green` control**, so
+a fixture proves a gate **discriminates** rather than merely fires. Their sentence for it is the compact
+form: *"one that says no to everything satisfies the red half perfectly."* Their sabotage receipts run
+both arms — `MOON_GRAPH_ROOT=…/should-flag` → 1, `…/should-not-flag` → **0**, unset (real tree) → 0 — and
+one of them is the meta-gate **naming itself**: deleting the `gate-wiring` job from `plan-a.yml` →
+`NEW ORPHAN(S): check:gate-wiring`.
+
+> **This is the ladder working, and it is worth recording as loudly as a failure**: prose → structural in
+> a single day, because the prose rung was written as *a property a gate must have* rather than as advice
+> to be careful. **A lesson phrased as a fixture is portable into code; a lesson phrased as a habit is
+> not.** That is a usable test for anything filed here. **When you fix the first failure of a multi-part gate, run it again before believing you
 are done — the second half has never once been observed.**
 
 **Why neither defect was ever caught, at source:** `check:ci` has **no automatic invoker at all.** Not
