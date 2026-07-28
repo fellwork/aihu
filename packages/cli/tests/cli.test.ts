@@ -243,9 +243,13 @@ afterEach(() => {
 })
 
 describe('scaffoldApp', () => {
-  it('creates the 11 expected files (8 baseline + agent-tooling trio)', () => {
+  it('creates the 12 expected files (9 baseline + agent-tooling trio)', () => {
     const result = scaffoldApp('demo', tmpDir)
-    expect(result.created).toHaveLength(11)
+    // 12, not 11: pnpm-workspace.yaml joined the baseline. Current pnpm reads
+    // its settings from that file only, so without it the first `pnpm install`
+    // dies with ERR_PNPM_IGNORED_BUILDS (C-FEL-SCAFFOLD-PM-COMPAT).
+    expect(result.created).toHaveLength(12)
+    expect(result.created).toContain('pnpm-workspace.yaml')
     expect(result.created).toContain('AGENTS.md')
     expect(result.created).toContain('CLAUDE.md')
     expect(result.created).toContain('.mcp.json')
@@ -254,7 +258,7 @@ describe('scaffoldApp', () => {
 
   it('agentTooling: false drops exactly the coding-assistant trio', () => {
     const result = scaffoldApp('demo', tmpDir, { agentTooling: false })
-    expect(result.created).toHaveLength(8)
+    expect(result.created).toHaveLength(9)
     expect(result.created).not.toContain('AGENTS.md')
     expect(result.created).not.toContain('CLAUDE.md')
     expect(result.created).not.toContain('.mcp.json')
@@ -318,7 +322,7 @@ describe('scaffoldApp', () => {
     scaffoldApp('demo', tmpDir)
     const second = scaffoldApp('demo', tmpDir)
     expect(second.created).toHaveLength(0)
-    expect(second.skipped).toHaveLength(11)
+    expect(second.skipped).toHaveLength(12)
   })
 
   it('writes package.json with trustedDependencies on disk (FIX 1)', () => {
@@ -333,7 +337,7 @@ describe('scaffoldApp', () => {
 describe('scaffoldApp · template differentiation (FIX 3)', () => {
   it('minimal produces the baseline set (no layout, no extra pages)', () => {
     const result = scaffoldApp('demo', tmpDir, { template: 'minimal' })
-    expect(result.created).toHaveLength(11)
+    expect(result.created).toHaveLength(12)
     expect(result.created).not.toContain('src/layouts/default.aihu')
     expect(result.created).not.toContain('src/pages/about.aihu')
   })

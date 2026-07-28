@@ -34,7 +34,11 @@ import {
   agentViteConfig,
 } from './templates-agent.js'
 import { fullTemplateFiles } from './templates-full.js'
-import { agentToolingFiles, viteTemplateAgentsFacts } from './templates-tooling.js'
+import {
+  agentToolingFiles,
+  pnpmWorkspaceYaml,
+  viteTemplateAgentsFacts,
+} from './templates-tooling.js'
 
 // ---------------------------------------------------------------------------
 // Result types
@@ -164,18 +168,16 @@ export function appPackageJson(
       // the published tarball stays in place and `bun run build` dies with
       // ENOEXEC ("Unknown system error -8"). See FIX 1 (cli release readiness).
       trustedDependencies: ['@aihu/compiler'],
-      // pnpm's equivalent of `trustedDependencies`, and it is not optional:
-      // pnpm >=10 blocks ALL lifecycle scripts by default and — unlike bun,
-      // which blocks them silently — exits NON-ZERO with ERR_PNPM_IGNORED_BUILDS.
-      // So `pnpm install` on a fresh scaffold fails outright before the user can
-      // reach a build (run 30322552896: 4 of 4 pnpm cells died here, "Ignored
-      // build scripts: esbuild@0.25.12").
+      // NOTE: pnpm's counterpart to `trustedDependencies` is NOT here. Current
+      // pnpm does not read settings from package.json at all — it says so, out
+      // loud, and then ignores them:
       //
-      // Both entries are load-bearing for the same reason their bun counterpart
-      // is: `@aihu/compiler` postinstalls the correct-arch native binary, and
-      // vite's `esbuild` postinstalls its own. A blocked script leaves a
-      // wrong-arch binary in place, which surfaces much later as ENOEXEC.
-      pnpm: { onlyBuiltDependencies: ['@aihu/compiler', 'esbuild'] },
+      //   [WARN] The "pnpm" field in package.json is no longer read by pnpm.
+      //          The following keys were ignored: "pnpm.onlyBuiltDependencies".
+      //
+      // It lives in the emitted `pnpm-workspace.yaml` instead. See
+      // pnpmWorkspaceYaml() below for why that file ships even for a
+      // single-package scaffold.
       ...(packageManager ? { packageManager } : {}),
     },
     null,
@@ -841,6 +843,12 @@ export function scaffoldApp(
   const indexPage = template === 'docs' ? appDocsIndexAihu(name) : appIndexAihu(name, withCssEngine)
   const files: Array<readonly [string, string]> = [
     ['package.json', appPackageJson(name, pm, withCssEngine)],
+    // Emitted for every scaffold, not only `--pm pnpm`: bun, npm and yarn
+    // ignore the file outright, so one always-present copy costs nothing and
+    // means a user who scaffolds with bun and later runs `pnpm install` does
+    // not hit ERR_PNPM_IGNORED_BUILDS. Choosing per-PM would make the failure
+    // depend on which package manager the project was BORN with.
+    ['pnpm-workspace.yaml', pnpmWorkspaceYaml()],
     ['vite.config.ts', appViteConfig(name, withCssEngine, shadowMode)],
     ['tsconfig.json', appTsConfig()],
     ['index.html', appIndexHtml(name)],

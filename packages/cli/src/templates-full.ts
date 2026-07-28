@@ -23,7 +23,12 @@
  */
 
 import { agentModuleShim, agentPackageJson, agentTsConfig } from './templates-agent.js'
-import { type AgentsMdFacts, agentToolingFiles, vscodeFiles } from './templates-tooling.js'
+import {
+  type AgentsMdFacts,
+  agentToolingFiles,
+  pnpmWorkspaceYaml,
+  vscodeFiles,
+} from './templates-tooling.js'
 
 export { agentPackageJson as fullPackageJson, agentTsConfig as fullTsConfig }
 
@@ -1255,6 +1260,12 @@ export function fullTemplateFiles(
 ): Array<readonly [string, string]> {
   const files: Array<readonly [string, string]> = [
     ['package.json', agentPackageJson(name, pm)],
+    // Same reason as the `minimal`/`docs` scaffold: current pnpm reads its
+    // settings from this file only, and without `onlyBuiltDependencies` the
+    // first `pnpm install` fails with ERR_PNPM_IGNORED_BUILDS. Emitted for
+    // every package manager so the failure cannot depend on which one the
+    // project was born with.
+    ['pnpm-workspace.yaml', pnpmWorkspaceYaml()],
     ['vite.config.ts', fullViteConfig()],
     ['tsconfig.json', agentTsConfig()],
     ['index.html', fullIndexHtml(name)],

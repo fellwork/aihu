@@ -231,3 +231,44 @@ export function viteTemplateAgentsFacts(name: string): AgentsMdFacts {
     ],
   }
 }
+
+/**
+ * `pnpm-workspace.yaml` for a scaffolded app — settings, not workspaces.
+ *
+ * Shipped even though a scaffold is a SINGLE package and declares no workspace
+ * members, because current pnpm has moved its per-project settings out of
+ * package.json and this file is now their only home. The `pnpm` key we used to
+ * emit is not merely inert, it is announced as inert on every install:
+ *
+ *   [WARN] The "pnpm" field in package.json is no longer read by pnpm.
+ *          The following keys were ignored: "pnpm.onlyBuiltDependencies".
+ *
+ * Which is what made the first attempt at this fix look right and measure
+ * wrong: the key was emitted exactly as intended, and nothing read it. Run
+ * 30365123040 still failed 4 of 4 pnpm cells at `install` with the same
+ * ERR_PNPM_IGNORED_BUILDS as before the fix.
+ *
+ * `onlyBuiltDependencies` is the pnpm counterpart of the `trustedDependencies`
+ * emitted for bun, and it is not optional: pnpm >=10 blocks every lifecycle
+ * script by default and — unlike bun, which blocks them SILENTLY — exits
+ * non-zero, so `pnpm install` fails outright on a fresh scaffold before the
+ * user can reach a build. Both entries are load-bearing for the same reason
+ * their bun counterparts are: `@aihu/compiler` postinstalls the correct-arch
+ * native binary and vite's `esbuild` postinstalls its own; a blocked script
+ * leaves the wrong-arch binary in place to resurface later as ENOEXEC.
+ */
+export function pnpmWorkspaceYaml(): string {
+  return `# Settings, not workspaces. Current pnpm reads its per-project settings from
+# this file only — the "pnpm" key in package.json is ignored, and pnpm warns
+# that it is ignoring it. This file is why \`pnpm install\` works here.
+#
+# onlyBuiltDependencies is the pnpm equivalent of package.json's
+# trustedDependencies (bun): both @aihu/compiler and esbuild postinstall an
+# arch-specific native binary, and pnpm >=10 blocks lifecycle scripts by
+# default AND exits non-zero doing it, so without this the very first
+# \`pnpm install\` fails with ERR_PNPM_IGNORED_BUILDS.
+onlyBuiltDependencies:
+  - '@aihu/compiler'
+  - esbuild
+`
+}
