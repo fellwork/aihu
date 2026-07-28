@@ -389,6 +389,26 @@ by it, so open them yourself when auditing.
   On a run AFTER 01:12Z a draft red is REAL (triage it); runs BEFORE it show the retired
   FAILURE. Always name WHICH run + its timestamp vs 01:12Z; a conclusion from a
   behaviour-changed run is a stale receipt. Marked resolved-and-changed in `absent-value-…`.
+- **#670 ALSO REGRESSED docs-only PRs — the fix is PR #679; #669/#676 are BLOCKED on it.**
+  When I marked #669/#676 READY (per the WIP=1 "finish your open PRs" dispatch), `ci-ok`
+  FAILED: `::error::'check' was skipped on a non-draft PR`. Root cause = #670 split the
+  ci-ok check-skipped gate into two arms and, on the arm it ADDED, failed EVERY non-draft
+  skip — but `check` skips BY DESIGN on a docs-only PR (`changes.code==false`), and
+  plan-a.yml's own header (lines 19-21) promises such a PR still gets ci-ok green. Header
+  vs gate contradict. Receipt: docs-only #657/#659/#660 merged GREEN the hour BEFORE #670;
+  #669/#676 fail now. **NOT my diff, NOT red-by-construction — a #670 overcorrection.**
+  FIX I TOOK (pre-authorized prereq): **PR #679** (`srmcguirt/ci-ok-docs-only-green`,
+  `b7fe8c02`) gates the error on `changes.outputs.code` — docs-only(false)→green, real
+  code PR skipped(true)→fail, broken changes('')→fail-closed; banked the lesson
+  `gate-fix-armed-a-sibling-false-red.md` (it lives on the #679 branch, so it is written
+  here in bare backticks — a full `docs/lessons/`-prefixed path would be a cross-branch
+  dangling citation the `lesson-refs` gate reddens; I tripped exactly that here, the THIRD
+  instance this session of prose-emits-a-citation, which is the argument for the structural
+  rung). **NEXT INSTANCE:** once #679 lands,
+  **REBASE #669 and #676 onto fixed main** — `pull_request` runs use the workflow from the
+  PR head branch, so they need the gate fix IN their branch to go green. Do not re-mark
+  them ready before that rebase or they just re-fail. Do NOT re-derive the #670 root cause
+  — it is receipted here and in #679's body.
 - **Board arc (2026-07-27):** main reached `41c37df6` (#670), the queue STOPPED at 01:12Z
   with ~13 green PRs sitting — then UN-STUCK: main is now `b667bdcd`, having landed
   #656/#659/#661/#663/#666/#667/#668/#673. So "the queue stopped at 01:12Z" was a
