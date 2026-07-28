@@ -8,6 +8,13 @@
 //!   reimplementation against the *same* schema and the *same* exit-code
 //!   contract: an empty result must never read like a broken query.
 //!
+//! INSTALLING (C-SWARM-DEPLOY-GAP)
+//!   `bun run swarm:install` — builds release and installs to
+//!   `~/.swarm/bin/swarm-bus`, then prints the build stamp so the install
+//!   verifies itself. MERGING A packages/swarm PR DOES NOT DEPLOY IT; run that
+//!   command, or the bus keeps executing whatever was installed last. Ask a
+//!   binary what it is with `swarm-bus --version`.
+//!
 //! EXIT CODES (matches the oracle)
 //!   0  = ok (including a successful non-empty `pull`/`watch`)
 //!   2  = broken input: missing/unknown role, missing required field, no
