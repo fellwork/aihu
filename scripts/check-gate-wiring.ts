@@ -187,16 +187,29 @@ interface Baseline {
 const AGGREGATOR_WORKFLOW = '.github/workflows/plan-a.yml'
 const AGGREGATOR_JOB = 'ci-ok'
 
-/**
- * Jobs allowed in the aggregator's `needs:` WITHOUT a result-loop entry, because
- * they are consumed for their OUTPUTS rather than as a pass/fail gate.
- *
- * This list cannot be used to excuse a gate: an entry here is only accepted if
- * the aggregator actually reads `needs.<job>.outputs.` somewhere. Add a real
- * gate to it and the proof below fails, so the escape hatch cannot be widened
- * by editing this line alone.
- */
-const NEEDS_NOT_GATED = new Set(['changes'])
+// THE EXEMPTION IS DERIVED, NOT LISTED — and that distinction is the whole
+// design. `changes` sits in ci-ok's `needs:` without a result-loop entry, and
+// legitimately so: ci-ok consumes `needs.changes.outputs.code`. The obvious
+// encoding is a hand-maintained NEEDS_NOT_GATED set, which is what this file
+// carried first — and it is an ALLOWLIST, the same fail-open shape as the
+// `if bad then fail` loop this contract fixed in ci-ok itself. Its failure mode
+// is specific: add a job to `needs:`, forget to gate it, watch this check go
+// red, and "fix" it by appending the name to the list. The palette defect
+// re-entering through the checker's own escape hatch.
+//
+// So there is no list. The rule is:
+//
+//   for every job J in ci-ok's needs:
+//     J is read in the RESULT LOOP  ---OR---  ci-ok references needs.J.outputs.*
+//
+// The only way to silence this check is to actually consume the job's outputs —
+// a property the file must EXHIBIT, not a permission someone GRANTS. An
+// exemption that is a name is a hole; an exemption that is a property is a rule.
+//
+// OR, not XOR: a job can legitimately be BOTH gated AND export a value ci-ok
+// reads. XOR flags that correct arrangement as a violation (measured — it
+// false-reds `check` the moment anyone adds an output to it), and a false red is
+// exactly what gets "fixed" by reintroducing an exemption list.
 
 function readScripts(): Record<string, string> {
   return JSON.parse(readFileSync(join(REPO_ROOT, 'package.json'), 'utf8')).scripts ?? {}
@@ -416,18 +429,13 @@ function gatingProblems(aggregatorBlock: string): string[] {
   for (const job of needs) {
     const varName = loop.get(job)
     if (!varName) {
-      if (NEEDS_NOT_GATED.has(job)) {
-        // An exemption is only honoured if the job really is an outputs provider.
-        if (!outputsRead.has(job)) {
-          problems.push(
-            `${job}: exempted in NEEDS_NOT_GATED but ${AGGREGATOR_JOB} never reads needs.${job}.outputs.* — the exemption is for outputs providers, not for gates.`,
-          )
-        }
-        continue
+      // Not gated. Legitimate ONLY if this job is an outputs provider, and that
+      // is read off the file rather than off a list of names.
+      if (!outputsRead.has(job)) {
+        problems.push(
+          `${job}: in \`needs:\` but NEITHER read in ${AGGREGATOR_JOB}'s result loop NOR consumed via needs.${job}.outputs.* — it is WAITED on, not GATED on. It can fail while ${AGGREGATOR_JOB} reports success (the palette defect, #649).`,
+        )
       }
-      problems.push(
-        `${job}: in \`needs:\` but MISSING from ${AGGREGATOR_JOB}'s result loop — it is WAITED on, not GATED on. It can fail while ${AGGREGATOR_JOB} reports success (the palette defect, #649).`,
-      )
       continue
     }
     const boundTo = binding.get(varName)
@@ -546,10 +554,22 @@ function selfTest(): void {
   if (!gatingProblems(misbound).some((p) => p.includes('wrong job'))) {
     fail('mis-bound result var not flagged')
   }
-  // should-flag: an exemption that is NOT an outputs provider cannot buy silence
+  // should-flag: a job in needs: that is NEITHER gated NOR an outputs provider.
+  // Deleting the outputs reference is the only way to lose the exemption, which
+  // is the point — there is no list to add a name to.
   const fakeExempt = ok.replace('          CODE: ${{ needs.changes.outputs.code }}\n', '')
-  if (!gatingProblems(fakeExempt).some((p) => p.includes('NEEDS_NOT_GATED'))) {
-    fail('unproven NEEDS_NOT_GATED exemption not flagged')
+  if (!gatingProblems(fakeExempt).some((p) => p.startsWith('changes:'))) {
+    fail('un-derived exemption not flagged')
+  }
+  // should-NOT-flag: a job that is BOTH gated AND outputs-consumed. This is the
+  // OR-vs-XOR case; XOR calls a correct arrangement a violation, and that false
+  // red is what gets "fixed" by reintroducing an exemption list.
+  const bothGatedAndConsumed = ok.replace(
+    '          CODE: ${{ needs.changes.outputs.code }}',
+    '          CODE: ${{ needs.changes.outputs.code }}\n          X: ${{ needs.alpha.outputs.y }}',
+  )
+  if (gatingProblems(bothGatedAndConsumed).length) {
+    fail('a job both gated AND outputs-consumed was flagged (XOR instead of OR)')
   }
   // should-flag: the count guard's literal drifted from the loop it guards.
   // This is the ONLY thing separating scenario F (drop a pair AND decrement the
