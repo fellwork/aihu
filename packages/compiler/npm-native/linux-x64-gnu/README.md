@@ -34,7 +34,7 @@ npm install @aihu/compiler-native-linux-x64-gnu
 bun add @aihu/compiler-native-linux-x64-gnu
 ```
 
-<sub><i>Auto-generated against `@aihu/compiler-native-linux-x64-gnu@0.1.7`.</i></sub>
+<sub><i>Auto-generated against `@aihu/compiler-native-linux-x64-gnu@0.1.8`.</i></sub>
 
 <!-- END_AUTOGEN: install -->
 
@@ -45,12 +45,12 @@ bun add @aihu/compiler-native-linux-x64-gnu
 
 | | |
 |---|---|
-| **Version** | `0.1.7` |
+| **Version** | `0.1.8` |
 | **Tier** | platform — Platform-specific native binary distributor for `@aihu/compiler` |
 | **Published files** | 1 entries |
 | **License** | MIT |
 
-<sub><i>Auto-generated against `@aihu/compiler-native-linux-x64-gnu@0.1.7`.</i></sub>
+<sub><i>Auto-generated against `@aihu/compiler-native-linux-x64-gnu@0.1.8`.</i></sub>
 
 <!-- END_AUTOGEN: stats -->
 
@@ -62,7 +62,7 @@ bun add @aihu/compiler-native-linux-x64-gnu
 - [@aihu/compiler](../../README.md)
 - [Aihu framework root](../../../../README.md)
 
-<sub><i>Auto-generated against `@aihu/compiler-native-linux-x64-gnu@0.1.7`.</i></sub>
+<sub><i>Auto-generated against `@aihu/compiler-native-linux-x64-gnu@0.1.8`.</i></sub>
 
 <!-- END_AUTOGEN: see-also -->
 
@@ -73,6 +73,6 @@ bun add @aihu/compiler-native-linux-x64-gnu
 
 MIT — see [LICENSE](../../../../LICENSE).
 
-<sub><i>Auto-generated against `@aihu/compiler-native-linux-x64-gnu@0.1.7`.</i></sub>
+<sub><i>Auto-generated against `@aihu/compiler-native-linux-x64-gnu@0.1.8`.</i></sub>
 
 <!-- END_AUTOGEN: license -->
