@@ -43,6 +43,71 @@ is **not** the coordination or state layer. It went unused for ~20 hours on
 2026-07-25 and the one page it holds was stale within 30 minutes of being
 written. Do not treat it as truth.
 
+## 🔴 I RULED "REDUNDANT" FROM THE PROPERTY I COULD SEE — the parse DETECTS, it does not GATE
+
+**Builder's counter accepted, and their argument is better than my reasoning was.** I said
+the static parse made the runtime count guard redundant (a truncated loop is caught at PR
+time). **They produced the counter-case from production rather than asserting it:**
+
+```
+run 30401968909 — the parse WAS installed.  gate-wiring FAILURE.  ci-ok SUCCESS.
+job log: "NOT GATED — gate-wiring: in needs: but MISSING from ci-ok result loop"
+```
+
+***The parse detected and `ci-ok` went green anyway. The parse DETECTS; only the runtime
+guard REJECTS.*** **A detector whose failure nothing reads is the palette defect one level
+up — the exact defect this contract closes, reproduced by the defence I proposed against
+it.** *I ruled from the property I could see (it is caught) and skipped the adjacent one
+(does the catch gate).* **Class 2, committed by me in a ruling rather than a measurement.**
+
+**And they fixed what I objected to rather than arguing for the version I rejected** — the
+count literal is now **derived**: `:460` parses `-ne N` out of `ci-ok` and checks it against
+the loop the file already parses; `:463` flags a *missing* guard. **The two referents now
+live in different files.** Exemption is **earned**: `:419-423` honours `NEEDS_NOT_GATED` only
+if `ci-ok` really reads `needs.<job>.outputs.*`, with a self-test at `:550`.
+
+**Verifier's XOR objection does not apply to the shipped code** — `gatingProblems`
+(`:407-435`) consults the exemption **only when the job is absent from the loop**, so a job
+both gated *and* outputs-consuming passes. **Their M4 is right against architect's STATED
+predicate; the fix belongs in the queued contract's spec — OR, not XOR.**
+
+### My own read was wrong first, and my positive control caught it
+
+```
+bad jq slice → "0 success, 0 failure, 0 in-progress"   ← I nearly wrote "your head has no CI"
+.total_count → 17 · ci-ok success, gate-wiring success, check SKIPPED (draft), 0 in-progress
+```
+
+*Third contaminated read in three wakes; first one where the control fired before the
+sentence left my hands.*
+
+## ✅ THE DECIDE IS FINAL AND SUPERSEDES MY FOUR EARLIER FILINGS
+
+**Five revisions, each smaller AND more accurate:** 3 issues → 2 · "publication" →
+"enforcement" · "convergent" → *convergent for state, one-shot for comments* · plus the
+**are-they-fixed** half (verifier's) that made it answerable at all.
+
+**What "yes" authorises, complete:** 2 issues **held** closed (#478, #503) · 8 Linear issues
+**held** in Done — **all eight genuine, 0 of 8 already Done**, and **FEL-433/FEL-460 jump
+Backlog → Done** with no intermediate state · 1 comment on #430 (its *close* is a no-op) ·
+**11 of 19 rows never SELECTed at all.**
+
+**Architect's last clause is the sharpest thing added to the row:** `cmd_verify_merged`
+selects `status IN ('claimed','building','submitted','no-claims')` — **`verified` is
+deliberately absent, so nothing ever re-examines a verified row.** ***The enforcement is
+anchored to a fact checked exactly once.*** Revert #655 tomorrow and #478 is still re-closed
+every cycle. **The ledger records a HISTORICAL event (true forever); the mirror publishes it
+as a PRESENT-TENSE claim (which a revert falsifies).** *"Yes" means held until someone edits
+the ledger — not held while the fix is in main.*
+
+**One hazard resolved, reported so nobody holds on it:** verifier ran their own filed
+discriminator as a **read-only** Linear query — **max 9 comments of 50** across the 8 linked
+issues. **The `comments(first:50)` cap is latent, not live** (~5× headroom); it should still
+be paginated — *the correct paginated pattern is 100 lines away in the same file* — but it
+does not block. **A measurement that CONFIRMS the filed number is worth as much as one that
+corrects it; only reporting corrections is how a reviewer becomes an adversary rather than an
+instrument.**
+
 ## 🔴🔴🔴 THE MIRROR IS ENFORCEMENT, NOT PUBLICATION — the DECIDE changed KIND, not size
 
 Architect found it, verifier confirmed the asymmetry, **and I read both at source before
