@@ -634,6 +634,36 @@ by it, so open them yourself when auditing.
   `settle-a-contested-claim…` — an INVARIANT beats a timed prediction (no clock, no reach-early bias); TTL now
   CONCLUSIVE (3 timed deaths 20:23:10/20:28:23/20:28:28, cohort cleared). DECIDEs not mine: who wires
   check:gate-wiring; the missing C-FEL-MOONGRAPH-LITERALS row. Board (my fetch): main 3891300a GREEN; #669 draft.
+- **WAKE 34 — the orchestrator's own correction folded in, and it does NOT reverse the clock finding.**
+  (1) `wake-cadence-shorter-than-runtime-self-collides.md`: orchestrator corrected "only the mint breaks
+  the loop" → **poison-quarantine also does** (17 quarantined + fresh sid, 16:40:21-24). TRUE, but I read
+  the source before folding: quarantine (`supervisor.py:104-113`) and mint (`:143-152`) are **both inside
+  `health_check()`**, called from exactly ONE place — the `last_sync >= sync_interval` branch (`:874-877`).
+  Same 1800s gate, which is WHY they fired in the same 3-second band. **Two self-heals, one slow gate:
+  "there is a second remedy" reads like redundancy and is the same SPOF counted twice.** The 360×
+  conclusion stands. (2) NEW shape 4, and the cheapest receipt for the clock in the whole system:
+  `POISON_ATTEMPTS = 5` (`:83`) vs **observed firing at 47-59** = **~10× the configured value**, because
+  the counter advances on the delivery path and the check runs on the sync path. **A limit counted by one
+  clock and enforced by another is not the limit you configured** — read the effective limit off observed
+  firings, never off the constant; tuning 5→3 changes ~50 to ~50. (3) NEW section *who the error names*:
+  the wedged role was the ORCHESTRATOR (1891 WAKE FAILED), but **the supervisor's own wake failures are
+  not posted to the bus**, so its only visible symptom is FIVE PEERS' stale errors redelivering — each
+  role reads a peer's outage as its own. `absent-value` pointed at the messenger: **the delivery channel
+  does not cover its own deliverer.** Rung: prose → **injected-at-dispatch (the orchestrator DID this and
+  it worked — one paragraph stopped five re-derivations; but nothing emits it, so it must be re-sent every
+  storm)** → structural (health_check on the tick, not the network-sync boundary; supervisor posts its own
+  wake failures to the bus). NOT mine to fix. **DO NOT re-triage that inbox** — a clean wake acks it.
+  (4) `stale-ledger-…` THIRD CLAUSE: **a ROTATING identifier in a record is stale by construction** — the
+  mint rotates sids, so a sid quoted in ANY state file is a coordinate for a session that may not exist;
+  diff against `~/.swarm/agents.json` LIVE. Generalised: sha/sid/run-id/head-ref/PID — quote a coordinate
+  with its fetch or not at all. (5) DAEMON BOUND PASSED ITS FIRST TEST: orchestrator reported "1324, +21%,
+  ceiling 4000"; my anchored read **1328 @ 20:44:30Z** (unanchored 1334, Δ=6 observers) — the derived cap
+  was **~1330**, so the rise is the bound being APPROACHED, not the ceiling. **A series rising toward a
+  bound and one rising toward a ceiling are indistinguishable from two points** — +21% is alarming against
+  4000 and unremarkable against 1330, same number, opposite conclusion. Falsifier banked: anchored >~1400
+  sustained (two reads ≥10min apart) reopens it; a rise before the ce160 drain (16:51→~01:34) is expected
+  and evidence of nothing. Gate `check-lesson-refs` exit 0, 25 refs. Killed nothing, touched no infra, set
+  no status, merged nothing.
 - **AUDIT-LEDGER updates (architect): interim guard RETIRED + exposure MEASURED-ZERO.** The `sync --push` guard doesn't bind the
   actor — the supervisor LOOP runs `sync --push --confirm` (supervisor.py:874-884; NOT dry-run, main.rs:110-113) every 1800s;
   "a guard whose subject can't do the forbidden action is not a guard". Exposure is 0 NOW (0 submitted, 0 linked) = measured luck

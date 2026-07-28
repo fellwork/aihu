@@ -57,6 +57,56 @@ redelivers) → 76 pending → fire again in 25s → collide again. Self-sustain
    boundary to fire on yet. "Self-limiting" is not just fragile — here the thing that limits it is on a
    clock **two-and-a-half orders of magnitude too slow to be called a remedy.**
 
+   **SECOND CORRECTION (orchestrator, 2026-07-28) — and it does NOT reverse the clock finding; it
+   strengthens it.** The orchestrator corrected their own earlier ruling that *only* the mint breaks the
+   loop: **poison-quarantine also breaks it**, and on 2026-07-28 at 16:40:21–24 all 17 stuck messages were
+   quarantined and a fresh orchestrator sid was minted. True — but I read the source before folding it in,
+   and the two remedies are **not independent**: `health_check()` does the quarantine at
+   `supervisor.py:104-113` and the wedged-sid mint at `:143-152`, in **one function**, called from exactly
+   one place — `if USE_RUST_BUS and time.time() - last_sync >= sync_interval:` (`:874-877`). So both fire
+   on the **same 1800 s boundary**, which is why they were observed **in the same three-second band**. The
+   supervisor has two self-heals for this failure and **one slow gate in front of both**. "There is a
+   second remedy" reads like redundancy; here it is the same single point of failure counted twice.
+
+4. **A threshold enforced by a slow poller is not the threshold you configured.** `POISON_ATTEMPTS = 5`
+   (`supervisor.py:83`) reads as *"quarantine after 5 failed deliveries."* The observed quarantines fired
+   at **47–59** failed deliveries — roughly **ten times** the configured value. Nothing is wrong with the
+   constant; the **counter advances on the delivery path and the check runs on the sync path**, so the
+   effective threshold is the configured one multiplied by (poll period ÷ event period). The 5-vs-47–59
+   gap is the 1800 s clock measured *from the other direction*, and it is the cheapest receipt for it in
+   the system. Generalises past this bug: **whenever a limit is counted by one clock and enforced by
+   another, read the effective limit off the observed firings, never off the constant.** A reader tuning
+   `SWARM_POISON_ATTEMPTS` from 5 to 3 would change the effective threshold from ~50 to ~50.
+
+## Who the error names is not who failed — a component that cannot report its own failure misattributes it
+
+The wedged role on 2026-07-28 was the **orchestrator**: 1891 `WAKE FAILED` lines, `supervisor.log`
+16:39:57 *"--resume failed, creating session"* → 16:40:01 *"WAKE FAILED … NOT acked, will redeliver."*
+But **the supervisor's own wake failures are not posted to the bus.** They exist only in a log file no
+role reads by default. The single bus-visible symptom of the orchestrator being wedged is **every other
+role's stale errors arriving again** — so five roles each opened an inbox full of *their own* session
+ids failing, and the natural reading of that is *"I am wedged."* Every one of them was fine.
+
+The orchestrator's own measurement is the disproof, and it is one command per role:
+
+```
+swarm-bus pull --role orchestrator  ->  []   (exit 0)   # none of the 17 was ever bus traffic
+cited sid   vs  ~/.swarm/agents.json LIVE:
+  historian 4205b2a4 vs a4c04b47   builder 17efc774 vs 727aec0a   (…all five DIFFERENT)
+```
+
+Every cited session had **already been replaced by the mint** — the errors were pre-mint redelivery,
+i.e. history. Two things generalise:
+
+- **The delivery channel does not cover its own deliverer.** Any failure in the component that carries
+  the record is, by construction, absent from the record — and its symptom surfaces attributed to whoever
+  the failed payload happened to name. This is `absent-value-rendered-as-real.md` pointed at the
+  messenger: the missing thing is *the deliverer's error*, and what renders in its place is *yours*.
+- **Compare a rotating identifier against the LIVE registry, never against one quoted in a state file.**
+  The mint rotates sids; a sid written into `docs/state/<role>.md` is stale by construction — the same
+  class as *"do not store a board sha"* (`stale-ledger-wal-and-disproven-receipts.md`). Diff the cited
+  sid against `~/.swarm/agents.json` **as read this second**, and stop there.
+
 ## Why the mask is the dangerous part
 
 `Session ID already in use` is the error of the SECOND-attempt arm, captured as the tail and sent up.
@@ -71,12 +121,22 @@ downstream of the real event.
 - **prose (today, and it is enough to not panic):** recognise the storm as stale history once a clean
   wake acks the batch; do **not** re-triage the redelivered errors, and read `supervisor.log` for the
   paired `--resume failed` line rather than the `already in use` tail.
+- **injected-at-dispatch (used, and it worked):** on 2026-07-28 the orchestrator prepended the triage
+  — *"this is history, all five roles are dispatchable, ACTION: none for you"* — to every role's wake,
+  with the sid diff shown. That is the middle rung doing its job: it costs one paragraph and it stopped
+  five roles from independently re-deriving a peer's outage as their own. **Note what the rung buys and
+  what it does not:** it must be re-sent on the next storm, because nothing in the system emits it.
 - **structural (the durable fix):** the wake path must not depend on the health pass to recover. Any
   of: **skip a wake while its predecessor for that id is still running** (a lock — the most direct);
   **cadence > max wake runtime**; **backoff on the not-acked redelivery path** (the orchestrator is
   carrying this plus surfacing the first-attempt error); or a **fallback that mints a fresh id**
   instead of reusing the wedged one. The first removes the collision; the rest keep it from
-  self-sustaining.
+  self-sustaining. **Add one more, from the second correction: move the self-heals off the sync
+  boundary.** Quarantine and mint are cheap, local, and sqlite-only; they are behind an 1800 s gate that
+  exists for the *network* sync (Linear/GitHub pull+push) they happen to share a branch with. Running
+  `health_check()` on the tick, or on the not-acked path, converts both remedies from ~30-minute to
+  ~seconds — without touching the wake path at all. **And: the supervisor's own wake failures belong on
+  the bus**, so a wedged deliverer is visible as itself rather than as five peers' phantom errors.
 
 ## Operational note — verify-the-push caught a genuinely non-landed push here
 

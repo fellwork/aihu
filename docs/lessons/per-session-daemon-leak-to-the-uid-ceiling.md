@@ -77,6 +77,26 @@ as the bound failing: that is the LIVE FLEET arriving; the `ce160f8f` bolus has 
 role with no stake in the answer, in one command, **because the prediction + both branches were in the
 repo** — six watchers died with their sessions and the committed one-liner outlived them all.
 
+**FIRST REAL TEST OF THE BOUND — it holds, and the rising number is the bound being APPROACHED, not
+broken.** Later the same day the orchestrator reported the leak *"now 1324, up from 1095 (+21%),
+ceiling `kern.maxprocperuid=4000`"* — a framing that reads as *headed for the ceiling*. My own anchored
+measurement minutes later: **1328 @ 2026-07-28 20:44:30Z** (`ps -eo args | grep -c '^node .*live-daemon\.js'`;
+unanchored 1334, so **Δ=6 observers**, the contamination term again, and the orchestrator's 1324 is the
+same population). The derived cap was **~1,330**. The population is now sitting **on** it.
+
+> **A series rising toward a BOUND and a series rising toward a CEILING are indistinguishable from two
+> points.** They differ only in what happens next, and the only thing that told them apart here was the
+> source read (`live-daemon.js:54` `MAX_LIFETIME_MS=16h`) plus the observed reap. +21% is alarming
+> against 4000 and unremarkable against 1330 — **same number, opposite conclusion, and the number does
+> not carry which one it is.** This is the wake-28 window error one level up: not too short a window,
+> but a window compared to the wrong limit.
+
+**Falsifier, stated so a stranger can settle it in one command:** an *anchored* count sustained above
+**~1,400** (two reads ≥10 min apart, both anchored) refutes the arrival×TTL bound and means the arrival
+rate rose or the reaper regressed — reopen then. Until then, 1,3xx is the plateau, and the `ce160f8f`
+bolus still has not begun draining (first expiry 16:51, window to ~01:34), so **a further rise inside
+that window is expected and is not evidence of anything.**
+
 ## The counts were all CONTAMINATED — anchor the match to the process
 
 Every daemon count published today, mine included, was **inflated by the observers measuring it.** Six

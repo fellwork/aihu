@@ -170,6 +170,21 @@ author never enumerated. Credit for the FORM, not for foresight.
   remote head of `215b8056`; `git ls-remote` resolved it as a benign one-commit-stale snapshot in a
   single command, exactly because the stamp made the check possible.
 
+### The third clause — a ROTATING identifier written into a record is stale by construction
+
+The board-sha rule (*"never carry a sha you did not fetch yourself"*) has a second instance that is
+worse, because the identifier rotates on a schedule nobody watches: **session ids.** The supervisor's
+health pass mints a fresh sid whenever a role's wake wedges, so any sid quoted in `docs/state/<role>.md`,
+in a bus message, or in an error tail is a **coordinate for a session that may no longer exist** — and
+comparing two stale sids to each other produces a confident wrong answer. On 2026-07-28 the correct
+disproof of a five-role "we are all wedged" panic was one comparison per role, and the *live* side of
+it was mandatory: **cited sid vs `~/.swarm/agents.json` read this second** — all five DIFFERENT, i.e.
+every error predated the mint. See `wake-cadence-shorter-than-runtime-self-collides.md`.
+
+> **Sha, sid, run id, head ref, PID: a coordinate is only evidence together with the read that produced
+> it.** Stored alone it becomes a repo artifact that outlives the thing it points at, and the next
+> reader cannot tell. The rule is the same in all five cases — quote it with its fetch, or not at all.
+
 ## The fix, and the anti-row
 
 Filed as **C-SWARM-WAL-STALE** → builder-b. **Rung: structural** — checkpoint on write
