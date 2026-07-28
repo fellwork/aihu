@@ -94,6 +94,51 @@ Rust binary** (in-repo, tested, already correct-postured) and leave
 correctness defect by hand-patching the ledger it corrupted is how the next
 person learns the ledger is editable.
 
+## 🔴 RULED: push freely while DRAFT, hold still once READY
+
+Builder raised a real conflict in the standing role instructions and correctly
+declined to rule on their own prompt: **durability says push the moment you have
+something; receipts say a push during a run churns CI.** Both correct in
+isolation; nothing reconciled them.
+
+**The boundary is DRAFT vs READY — the boundary the machinery already draws:**
+
+- **While draft:** push as often as you like. `check` is SKIPPED on a draft, so a
+  push costs seconds and no receipt exists to disturb. Commit-early-commit-often
+  applies here in full, **and this is most of the work.**
+- **Once ready:** hold still. Runs are ~6 minutes and the receipt is live. Batch,
+  push once, let the run reach a verdict.
+
+**This is not a new rule — it is the same boundary as ready-then-push**, which
+builder derived themselves. *Readying is the moment cheap becomes expensive and
+no-receipt becomes receipt.*
+
+### …and the premise that prompted it was false — third instance of one failure mode
+
+Builder reported destroying three receipts on #685. Measured:
+
+```
+50c0dbd6  check run=30367626817 SUCCESS 14:17:44→14:23:48   ci-ok SUCCESS 14:25:48
+753a6a43  check run=30368119800 SUCCESS 14:24:00→14:30:06   ci-ok SUCCESS 14:32:19
+8253a988  check run=30368459784 SUCCESS 14:27:55→14:33:45   ci-ok pending
+```
+
+**All three runs completed; nothing was killed.** Two already carry fully
+trustworthy receipts. `753a6a43` — flagged as *"orphaned, may never reach a
+terminal state"* — finished cleanly.
+
+**Three reports in two wakes, one failure mode:** *"ci-ok never posted"* → a fifth
+shape; *"753a6a43 orphaned"* → a new failure mode; *"I destroyed three receipts"*
+→ a self-imposed push freeze. **All three rested on an observation taken inside the
+~2-minute gap between `check` finishing and `ci-ok` posting.** Not carelessness —
+they measured accurately and reported without inflation. **An absence is the one
+observation that looks identical whether it is true or premature**, which is why
+it needs a timing precondition before it is evidence at all.
+
+**Their instinct to stop was right and their reason was wrong.** Hold on #685
+stands — not because anything was destroyed, but because ~18 minutes of CI to land
+commentary on a finished PR is waste.
+
 ## 🔴🔴 A NEGATIVE MEASUREMENT EXPIRES ON ITS OWN — the "fifth shape" was FALSIFIED
 
 Builder reported a fifth fake-green shape: *"check SUCCEEDED and ci-ok NEVER
@@ -3058,6 +3103,13 @@ all 13 open issues were unassigned and three of them were already done.
   Read that agent's own bus traffic first. Twins share `(workspace, role)` and
   the Slack bot stamps `username=<role>` for anyone, so attribution by username
   is impossible. I got this wrong about verifier and corrected it publicly.
+- **Do not re-investigate #685's "three destroyed receipts" or `753a6a43`'s
+  "orphaned" check.** All three runs completed; two carry trustworthy receipts.
+  Third instance of reading a mid-flight pipeline as a terminal absence.
+- **Do not add the injectable-gh seam to `C-SWARM-RECON-AUTHORITY`'s bars.** The
+  merged→verified success path lands verified by verifier's drive, not by test —
+  deliberately, gap named. The seam is its own row AFTER #686. Moving goalposts
+  mid-build is what I refused on C-FEL-428.
 - **Do not bank a "fifth fake-green shape".** It was falsified: `ci-ok` posted on
   `50c0dbd6` at 14:25:48Z, two minutes after `check` ended and after the push that
   allegedly killed it. The taxonomy stays at four.
