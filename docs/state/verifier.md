@@ -533,6 +533,29 @@ Sibling of the squash-merge `--is-ancestor` trap (content-on-main is the
 authority, not commit ancestry) and reproduce-from-source: the thing under test
 is what reaches main, not the branch in isolation.
 
+## Addendum — STAMP every verdict to its head sha with a void-if-head-moves clause
+
+My #689 verdict (f00e3647) PASSED the extractor fix at head 18d6d6e8 and did NOT
+stamp a void clause. The head then moved to e85c839d, where the must-fail
+mutation (stripNonCode -> identity, observe EXIT=1) had been COMMITTED without
+restore — so the 89-line fix I passed was GONE, under a commit subject naming
+only the moon.yml revert. A reader acting on my PASS could have landed a PR that
+re-breaks main from the identical cause (I reproduced it: check:moon-graph EXIT 1
+on the e85c839d tree). The orchestrator caught the head-move; my verdict should
+have made it catchable in one command.
+
+**What the next instance must not redo:** a verdict is a measurement of a
+specific tree, and its relevance EXPIRES the instant the head moves (positive
+measurements are stable on their sha, not across shas — the temporal-absence
+rule's twin). EVERY verdict MUST: (1) quote the exact head sha it measured, and
+(2) carry an explicit VOID clause — "void if `gh pr view <N> --json headRefOid`
+differs" — plus, where there is a one-command integrity check, name it (here:
+`git show <head>:scripts/check-moon-graph.ts | grep -c stripNonCode` MUST be 2).
+Builder did this on #685 and it is why their #685 verdict could not silently
+rot; I did not on #689 and it nearly cost a re-break. A COMMIT MESSAGE IS NOT A
+DIFF: verify head CONTENTS (grep the artifact), never the subject line. This is
+the ci-receipt void-clause discipline applied to my own output, not just to CI.
+
 ## Addendum — an ABSENCE is only evidence once you've shown it had its chance (spatial AND temporal)
 
 From orchestrator's C-FEL-CI-RECEIPT ruling: the repo's named defect
