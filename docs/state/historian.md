@@ -533,17 +533,27 @@ by it, so open them yourself when auditing.
   ruling — a clean wake acks the batch). Three generalisable shapes: period<runtime self-collides;
   reuse-the-failing-resource-isn't-a-fallback; name-what-actually-breaks-the-loop. No work lost (mint is
   safe: the id is ours). NOT mine to fix (supervisor.py); orchestrator carries backoff+surfacing.
-- **PROCESS-LEAK banked (wake 27) — `per-session-daemon-leak-to-the-uid-ceiling.md`. Founder DECIDE, NOT mine.**
-  Every SessionStart spawns a ~37MB `~/.promptbook/hooks/live-daemon.js <sid>`; nothing reaps it when a
-  wake dies; wakes fire ~25s → MONOTONIC growth toward `kern.maxprocperuid=4000`, past which `fork()`
-  fails uid-WIDE (every role + both interactive sessions), not one role. Re-measured LIVE myself and it
-  is growing: 1506 procs (orch 1462), 1110 live-daemon.js (orch 1095), oldest 15h+. 93% is ONE dead
-  session (ce160f8f) not in agents.json → un-reapable by any registry-keyed sweep (attributed to orch).
-  Shapes: unreaped-per-invocation-resource + fast-scheduler = leak-with-a-deadline; a cleanup on the
-  SUCCESS path only leaks one per failure; an orphan outlives every roster-keyed remedy (reap by live
-  ground-truth not the registry — cousin of the audit-ledger roster-trust defect). Fix is in the
-  promptbook hook (OUTSIDE this repo) + it is machine-wide → founder's call whether to kill / where the
-  reaper lives. I did NOT kill anything (ps read-only). Same ~25s cadence as the wake-storm = the amplifier.
+- **PROCESS-LEAK — I WAS WRONG, CORRECTED wake 28. `per-session-daemon-leak-to-the-uid-ceiling.md` is now the METHOD lesson.**
+  Wake 27 I confirmed the orchestrator's "monotonic leak, ceiling hours away" from ONE later sample
+  (1462→1506) and banked a "leak with a deadline." **BOTH of us were wrong: it is a BOUNDED CORPSE, not a
+  running leak.** Architect re-measured with a TIME SERIES + liveness; I reproduced it: my 5 samples over
+  68s show live-daemon.js FLAT at 1116 (total oscillates 1502-1519 = jitter), the ce160f8f daemons are all
+  PPID 1 with NO live claude process (session file last touched 09:34) — a dead session spawns no daemons,
+  so there is NO CLOCK. At ~1116/4000 with the dominant term static nothing is "hours away". THE LESSON
+  (mine, loud): a RATE claim ("growing/monotonic/N-to-ceiling") needs a TIME SERIES + a check the PRODUCER
+  IS ALIVE — two point-samples can't tell a trend from jitter or a leak from a corpse; I stamped the value
+  (void rule) but reported a rate I never sampled. Residue that IS true: slow live-session drift (~1103→~1509/4h,
+  days not hours) worth reaping in the promptbook SessionEnd hook; reap-on-failure-path; reap-by-ground-truth-not-roster;
+  per-uid blast radius is real but not imminent. Killed nothing (all read-only). Retitled the file off "leak with a deadline".
+- **RECONCILER-IS-NOT-A-VERIFIER formally RULED (architect) — folded into the audit-ledger lesson.**
+  `docs/decisions/2026-07-28-reconciler-is-not-a-verifier.md @ e615ab0` (agent-swarm draft PR #1). Rejects
+  pause-vs-port: porting a bad predicate gives a REVIEWED BAD PREDICATE; the defect is a plausibility-checker
+  exit wired to a terminal+side-effect status. Concrete receipt banked: the 2 false verifieds are a SUBSTRING
+  COINCIDENCE — `extract_claims("I wrote to …")` captures the preposition `"to"` as the filename (recon.py:102,
+  I confirmed), and `backs("to", …)` grounds it against any redirect path containing `t,o` — "condu**cto**r".
+  Exposure = 27 rows not 2 (no-claims satisfies needs via main.rs:1241). R1 verified=receipt-status only;
+  R2 reconcile the structured claims field, prose may only DISPUTE; R3 stopword targets ungroundable; R4
+  no-claims STOPS satisfying needs; R5 do NOT pause. Fresh count 65 verdicts / 53 with-claims / 27 no-claims (live).
 - **Reconcile defect is LIVE, still minting (added to audit-ledger lesson).** Count moved mid-discussion
   (orch 26/50 → hist 27/52 → orch re-measure 27/52; both right, population grew). I re-measured fresh
   this wake: still 27 no-claims / 27-of-27 zero-recon / 52 claims-verdicts / 13 verified — stable now but

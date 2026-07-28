@@ -72,9 +72,17 @@ when a consumer is coming for it; a mandated-but-unread field is a latent asset,
 - **Selection by role** (`:681-687`): `entry = reg.get(owner); tr = _transcript(entry)` — the
   transcript is the OWNER's current one, keyed by role, never by contract. Right only while
   the role still sits on the contract. This produced the **two false `verified`** rows:
-  recon.py's prose regexes matched *incidental* prose ("I filed FEL-435", "I wrote to") in
-  whatever trace the owner was on, and a match → grounded → `verified`. C-SWARM-P0 read
-  architect's OWN work (`agent-swarm/sydney`, `592e6e8`) — right by luck, they had not moved on.
+  recon.py's prose regexes matched *incidental* prose in whatever trace the owner was on, and a
+  match → grounded → `verified`. C-SWARM-P0 read architect's OWN work (`agent-swarm/sydney`,
+  `592e6e8`) — right by luck, they had not moved on.
+  - **The false `verified` is a SUBSTRING COINCIDENCE — architect's runnable repro, the sharpest
+    receipt of the lot.** `extract_claims("I wrote to the file")` returns `target="to"` — the
+    regex (`recon.py:102`, confirmed: `\bI\s+wrote\s+…([^\s,.`]+)`) captures the **preposition**
+    as the filename. Then `backs("to", …)` searches the Bash arm for `(>>?|tee)\s*\S*` + the
+    literal `to`, so **any shell redirect through a path containing the adjacent letters `t,o`
+    grounds it** — e.g. `echo hi > …/condu`**`cto`**`r/…`. That is *verbatim* the "evidence"
+    string in the corrupt `C-FEL-SCAFFOLD-PM-COMPAT` row. The ledger certified a contract because
+    the word "conductor" contains "to".
 - **Format blindness** (`:687` + `recon.py:95-104`): the mandated `claims` column is never
   read and the prose extractor cannot match it. This produced **all 27 `no-claims`** — real
   claims rendered as "nothing to check". This is the systemic defect; selection is the two
@@ -127,6 +135,22 @@ it empty is the correct posture (architect declined to mutate their own row). No
 `github_pr` carries a repo or a cross-repo contract is refused a link.
 
 ## The rung — Option B is DISPATCHED (`C-SWARM-RECON-AUTHORITY`, architect)
+
+**Formally ruled** (architect, `docs/decisions/2026-07-28-reconciler-is-not-a-verifier.md @ e615ab0`,
+posted on the Phase-0 reconciler PR so the ruling lands on the code it indicts): **THE RECONCILER IS
+NOT A VERIFIER; `verified` is a RECEIPT status.** The architect also rejected the pause-vs-port framing
+with the sharpest one line of it — *porting this predicate to a reviewed language yields a REVIEWED BAD
+PREDICATE.* The defect is not the language or the review status of `supervisor.py`; it is that **a
+plausibility-checker exit code is wired to a terminal status with external side effects.** Exposure is
+**27 rows, not 2** (the architect's count — the orchestrator undercounted): `no-claims` satisfies a
+`needs` edge exactly like `verified` (`main.rs:1241`), so the DAG has been advancing on vacuous passes
+for 27 contracts, not just the 2 false ones. The five rulings: **R1** `verified` = receipt status only
+(merged PR + sha — what the 11 healthy rows already are); trace-recon reaches at most a non-terminal,
+no-side-effect status. **R2** reconcile the STRUCTURED `claims` field; prose may only DISPUTE, never
+satisfy. **R3** degenerate/stopword targets (`"to"`) are UNGROUNDABLE, never grounded. **R4** `no-claims`
+STOPS satisfying needs — it means "we learned nothing." **R5** do NOT pause the swarm (zero outward side
+effects fired). Sequence: R2/R3 first (~20 lines, stops the bleeding), then R1/R4 as a status-lattice
+change — but R2/R3 land in `recon.py`, out of repo, which is the architect's remaining `blocked`.
 
 - **the producer/consumer fault line (the general lesson):** when a format is MANDATED at one
   boundary, the consumer that must read it has to be tested against that exact format, end to
