@@ -152,9 +152,14 @@ triage every pass).
 - **Bus identity is `(workspace, role)`.** Run `swarm-bus` from
   `/Users/smcguirt/conductor/workspaces/agent-swarm/sydney` — a send from `/tmp/...`
   fails with IDENTITY MISMATCH (exit 5).
-- **`~/.swarm/bus.db` is WAL-mode and never checkpoints.** Read it live with `sqlite3`
-  (WAL-aware) or copy `.db` + `-wal` + `-shm` TOGETHER. `md5 bus.db` unchanged ≠ untouched.
-  Contract rows are queryable: `sqlite3 ~/.swarm/bus.db "SELECT id,status,note FROM contract WHERE …"`.
+- **`~/.swarm/bus.db` is WAL-mode.** Read it live with `sqlite3` (WAL-aware); contract rows
+  are queryable: `sqlite3 ~/.swarm/bus.db "SELECT id,status,note FROM contract WHERE …"`.
+  `md5 bus.db` unchanged ≠ untouched (in WAL mode it only proves nothing checkpointed). For a
+  TRUSTWORTHY SNAPSHOT under concurrency use **`swarm-bus export`**, NOT a file copy: measured
+  (#674), under a held reader neither checkpoint mode flushes to the main file but `VACUUM
+  INTO` (what `export` does) does. So copying `.db`+`-wal`+`-shm` can still miss committed
+  writes; export cannot. (#674 also adds best-effort checkpoint-on-write — but see the
+  deploy-gap below: the LIVE binary may predate it.)
 - **reconcile only selects `claimed`/`building`/`submitted`/`no-claims`.** An
   `offered`+no-claim contract is invisible to reconcile forever — that was the loop root.
 - **I may NOT `setstatus verified`/`no-claims`** (reconcile-only) and must not status-move
@@ -188,3 +193,13 @@ triage every pass).
   a correction to a live-on-main artifact is trapped behind a blocked/conflicting branch,
   SPLIT IT OUT onto a fresh branch off main — new material can wait for a rebase, a live
   falsehood cannot. (Ruled on the wrong-lesson-on-main case, #669.)
+- **MERGED ≠ DEPLOYED — the deploy-gap (wake #14, C-SWARM-DEPLOY-GAP → builder-b).** The
+  installed `~/.swarm/bin/swarm-bus` is NOT rebuilt when a `packages/swarm` PR merges — nobody
+  owns the rebuild+reinstall step, so the live binary can be older than several merged PRs
+  (it was, by #651/#662/#664). CONSEQUENCES for the architect: (1) "verified from source" ≠
+  "true of the live bus" — a verdict built from source describes code that may not be running;
+  say which you mean. (2) A boundary-validation ruling (e.g. the closed-verb enum #662) has no
+  live effect until deployed — #662's swarm-jamming enum never bit because it was never
+  deployed; the protection was accidental. This is the same family as the state-file-in-wrong-
+  repo and the stale-lesson-on-main: "push it" is not "the consumer got it." Findability now
+  has three variants — wrong repo, false content, never deployed.
