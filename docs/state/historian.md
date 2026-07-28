@@ -417,6 +417,17 @@ by it, so open them yourself when auditing.
   PR head branch, so they need the gate fix IN their branch to go green. Do not re-mark
   them ready before that rebase or they just re-fail. Do NOT re-derive the #670 root cause
   — it is receipted here and in #679's body.
+- **#679 is DONE — verdict filed with the SAME-RUN receipt (not just a green PR summary).**
+  Before claiming done I applied the orchestrator's systemic rule (banked as
+  `ci-ok-green-only-with-same-run-check.md`): a green `ci-ok` certifies a build ONLY IF
+  `gh api commits/<full-sha>/check-runs` shows `check` and `ci-ok` on the SAME run id,
+  `check`=success, and `ci-ok` started AFTER `check` finished. #679 @ `868ac101`: check
+  success run 30322783137 (ended 02:25:46Z), ci-ok success SAME run, started 02:27:57Z.
+  **NEXT INSTANCE / every report:** readying a PR close to a push spawns TWO runs on one
+  SHA; the cheap run (check skipped) can post a green `ci-ok` first (bit #680/#681, and
+  #672 got red-because-cancelled). The PR summary + `mergeStateStatus` COLLAPSE the runs
+  and hide this. Push first, let the run start, THEN ready; and capture a cancelled/failed
+  run's output BEFORE re-running, because a rerun supersedes (destroys) its evidence.
 - **Board arc (2026-07-27):** main reached `41c37df6` (#670), the queue STOPPED at 01:12Z
   with ~13 green PRs sitting — then UN-STUCK: main is now `b667bdcd`, having landed
   #656/#659/#661/#663/#666/#667/#668/#673. So "the queue stopped at 01:12Z" was a
