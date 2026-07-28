@@ -94,6 +94,57 @@ Rust binary** (in-repo, tested, already correct-postured) and leave
 correctness defect by hand-patching the ledger it corrupted is how the next
 person learns the ledger is editable.
 
+### 🔴🔴🔴 THE TRACE RECONCILE HAS NEVER ONCE CHECKED A CLAIM — 26 of 26
+
+Historian read their own row (I had asked all roles to), found a **weak** signal
+and reported it anyway. It was the systemic defect; my two loud rows were the
+anomalies.
+
+```sql
+SELECT count(*) FROM contract WHERE status='no-claims' AND recon NOT LIKE '%0 claims%';  -- 0
+SELECT count(*) FROM msg WHERE kind='verdict' AND claims IS NOT NULL AND claims != '';   -- 50
+```
+
+**All 26 `no-claims` rows carry the identical recon** — *"N tool calls in trace;
+0 claims; 0 flagged. (no completed-action claims extracted from the message)"* —
+across traces from 24 to 558 tool calls. **Zero exceptions.** Meanwhile 50
+verdicts carry a populated structured `claims` column.
+
+**Mechanism, read in both files:**
+
+- `supervisor.py:686` — `SELECT body FROM msg …` — **selects `body` only; the
+  `claims` column is never read.**
+- `recon.py:95-104` — `CLAIM_PATTERNS` are six English first-person prose
+  regexes: `\bI\s+(?:filed|opened|created)\s+([A-Z]{2,}-\d+)`, `\bI\s+pushed\b`,
+  `` \bI\s+ran\s+`…` ``, `\bI\s+wrote\b`, …
+
+**The bus MANDATES `--claims 'pushed:PR#N,ran:cargo test'` — a machine format the
+reconciler never reads, and could not parse if it did** (`pushed:PR#679@868ac101`
+never matches a regex requiring the literal words *"I pushed"*).
+
+**So the control CLAUDE.md describes as the thing agents may not do for
+themselves has never fired.** Total output of the trace path: **26 vacuous passes
++ 2 false positives.** And `no-claims` is terminal and satisfies a downstream
+`need` exactly as `verified` does — **26 rows unblocked downstream work on a check
+that structurally could not run.**
+
+**Same fault line as the claim-verb enum** (#662 rejected 5 of 6 real verbs,
+replaced by #664, my standing note that *the spec is what is wrong*) — but **do
+not confuse them**: that ruling stands and is not being re-litigated. This is one
+layer down: **the consumer never reads the field at all.**
+
+**Bound into `C-SWARM-RECON-AUTHORITY` as must-fail row 3** — sent as a message,
+**not a re-offer**, because architect has CLAIMED it and re-offering resets a
+claimed bar (the `C-FEL-READMESYNC-JOB` precedent). `no-claims` must be
+unreachable when the latest verdict's `claims` column is non-empty, **and still
+reachable when it is genuinely empty** — so the fix cannot be "never emit
+`no-claims`".
+
+**Healing scope amended: 26 unchecked + 2 false, and DO NOT MASS-REVERT.** Most
+of the 26 correspond to genuinely completed work with merged PRs. They are not
+*wrong*, they are *unchecked*. **`no-claims` currently means "we did not check",
+not "there was nothing to check."**
+
 ### 🔴🔴 I WAS WRONG ABOUT `supervisor.py` TWICE — because I never opened it
 
 **Read the file before characterising it to the founder.** I sent two escalation
@@ -2761,6 +2812,13 @@ all 13 open issues were unassigned and three of them were already done.
   Read that agent's own bus traffic first. Twins share `(workspace, role)` and
   the Slack bot stamps `username=<role>` for anyone, so attribution by username
   is impossible. I got this wrong about verifier and corrected it publicly.
+- **Do not read `no-claims` as "there was nothing to check".** It means *"we did
+  not check"* — 26 of 26 rows extracted zero claims because the reconciler reads
+  `body` prose and never the structured `claims` column. Amended into
+  `C-SWARM-RECON-AUTHORITY`; do not re-derive it.
+- **Do not amend a CLAIMED contract by re-offering it.** `offer` upserts
+  `status='offered'` and wipes the claim. Rule on the bus against the contract id
+  instead — the `C-FEL-READMESYNC-JOB` precedent.
 - **Do not characterise `~/.swarm/supervisor.py` without opening it.** I told the
   founder twice it was a guarantee-free heuristic. It has could-not-check posture
   at `:690`, `:716`, `:731`. The defect is role-scoped transcript selection at
