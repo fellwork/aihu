@@ -9,7 +9,7 @@ C-FEL-CI-RECEIPT open (#685), C-FEL-EXTERNALS record recovered (#656, merged).
 > was flagged to them and to team-lead (ts `1785087210.788909`); rename or delete
 > on request.
 
-## C-FEL-GATE-WIRING-REACHABLE — BUILT, awaiting verdict (PR #691)
+## C-FEL-GATE-WIRING-RUNS — BUILT, awaiting verdict (PR #691)
 
 **The FEL-428 meta-gate I shipped in #680 ran in NO WORKFLOW.**
 `grep -rn gate-wiring .github/` → nothing. Its only route was `check:ci`, and
@@ -18,70 +18,95 @@ workflow in this repo."* The gate that exists to forbid green-by-construction
 gates was one, and it scored **itself** reachable because its rule counted
 check:ci-chain membership — a fact about `package.json`, not about CI.
 
-I guessed the id (`C-FEL-GATE-WIRING-RUNS`) and `claim` → **exit 2, "no
-contract"**. The real row is **C-FEL-GATE-WIRING-REACHABLE**, minted and offered
-to builder at 16:59:58, sitting unclaimed. My note and the dispatch crossed.
-**Under squash the PR TITLE becomes main's permanent commit message**, and that
-message is the only durable link between landed code and the ledger row — a
-phantom id there can never be reconciled. Retitled before it could land.
+### The id churned twice; do not re-derive which one is real
 
-Shipped: `check:gate-wiring` as a **STEP in the existing `check` job**; the chain
-route made conditional on a workflow actually invoking `check:ci`; dangling `bun
-run` reference detection; `MOON_GRAPH_ROOT` fixture mode for check:moon-graph
-with should-flag/should-not-flag trees; `NEGATIVE_FIXTURES` gains an optional
-`green` control (red alone does not prove a gate DISCRIMINATES — one that says
-no to everything satisfies the red half).
+I guessed `C-FEL-GATE-WIRING-RUNS` → `claim` exit 2. The row was minted as
+`C-FEL-GATE-WIRING-REACHABLE`; I retitled to that. The orchestrator then MOVED
+the row back to `C-FEL-GATE-WIRING-RUNS` (REACHABLE = declined) so the PR title
+would not have to change again. **Final answer: `C-FEL-GATE-WIRING-RUNS`.**
+The reason it mattered: under squash the PR title becomes main's permanent
+commit message and the only durable link to the ledger row.
 
-**My own-job design was COUNTERMANDED and the reason is measured, not stylistic.**
-Own-job needs THREE coordinated edits (define job + ci-ok `needs:` + ci-ok's
-RESULT LOOP), and this repo has shipped 1+2-without-3 **twice**: the palette job
-(waited on, result never read, green on a red palette) and #649. Do not carry the
-gate that forbids green-by-construction on the mechanism with a two-incident
-history of producing it. `check` is already in `needs:` and already in the loop,
-so a step costs zero of the three. My always-on counter-argument does not survive
-`changes.code` = `**` minus docs: package.json and `.github/workflows/**` are
-both code, so every diff that can create an orphan already runs `check`.
+### REACHABILITY and GATING are two properties. Only the first existed.
 
-Sabotage receipts, unpiped `$?`: reintroduce the typo → 1 (DANGLING); delete the
-`check:gate-wiring` STEP → 1, and it names **itself**; make the green control red
-→ 1; wire grammar-v2 without decrementing the baseline → 1. Green:
-`check-gate-wiring.ts` → 0 (22 gates, 3 orphaned, baseline 3, 2 executed proofs),
-`check:lint` → 0, `typecheck` → 0.
+Reachability: *does some workflow invoke this gate.* Gating: *does its failure
+fail the PR.* `ci-ok` is the sole required status, and its own comment says
+"being in `needs` is NOT being gated on; only appearing in the loop below is."
 
-**The alias-only matcher mutation falsely flags THREE correctly-wired gates**, not
-one: `check:lesson-refs` (`bash scripts/check-lesson-refs.sh`), `check:emit-parses`
-and `check:stories` — every gate a workflow invokes by PATH rather than by npm
-alias. Reproducing it needs the self-test silenced too, because `selfTest()`'s
-`path-only reachability missed` case already catches the mutation first. Defence
-in depth, and worth knowing before you conclude the mutation "does nothing".
+`check-gate-wiring.ts` now asserts the second: every `ci-ok` `needs:` entry must
+appear in the RESULT LOOP **bound to its own job's `.result`**. The one exemption
+(`changes`) must PROVE it is an outputs provider — `NEEDS_NOT_GATED` is only
+honoured if ci-ok really reads `needs.<job>.outputs.*`, so the hatch cannot be
+widened by editing that line alone.
 
-**#689 is GUARDED, not weakened, by my fixture** — the orchestrator's constraint
-on (d). With `stripNonCode` sabotaged to identity: the REAL tree reproduces the
-original false edges (`plugin-agent-readiness → signals` AND builder-b's
-`cli → context`) → 1; and my should-not-flag tree ALSO goes red → 1, because its
-alpha carries a comment *and* a backtick template literal quoting an import of
-`@fixture/gamma`, which it does not depend on. Direction 2 (delete the real
-`- server` edge → still caught → 1) also still holds. A fixture that only
-exercised the false-positive direction would re-open green-by-blindness.
+### THE RECEIPT THAT MATTERS — the palette defect, reproduced in REAL CI
 
-### Two things that cost me time here
+Two pushes, identical except for **one line** in ci-ok's result loop. Same
+broken gate, same `needs:` entry:
 
-1. **`git push` "exit 0" is a LIE when piped.** `git push … | tail -3` reports
-   the pipeline's status; husky's pre-push (`check:lint && typecheck`) failed and
-   the background task still notified **exit code 0**. The remote was two commits
-   stale and I nearly claimed it pushed. **Verify with `git ls-remote`, always.**
-   Same family as the zsh `PIPESTATUS` trap already recorded below.
-2. **The obvious next step was the wrong one.** Wiring `check:grammar-v2` (which
-   had never run in CI either) turns main RED on **five FALSE positives** — every
-   hit a comment or a string DESCRIBING a retired form, including one warning
-   string telling users not to use them. Third instance of the #681/#689 class:
-   *a regex over raw source cannot tell code from text about code.* It is **not**
-   a `stripNonCode` reuse — that blanks template literals and preserves ordinary
-   strings, and this gate needs the OPPOSITE on both counts (a template literal
-   holding `.aihu` source is exactly the drift a GRAMMAR gate must catch), plus a
-   retired form in an `.aihu`/`.md` file IS a use. Separate contract. Baselined
-   with the full measurement instead — which PRINTS every run, unlike the dead
-   chain that was calling it reachable.
+```
+run 30401891270  loop entry PRESENT   gate-wiring failure   ci-ok FAILURE
+run 30401968909  loop entry REMOVED   gate-wiring failure   ci-ok SUCCESS   <-- the defect
+run 30401814745  baseline, unbroken   gate-wiring success   ci-ok success
+```
+
+Nobody in this repo had ever proven that direction; it was argued from two past
+incidents (palette, #649). It is now measured. And in run 2 the gate NAMED its
+own ungating in the CI log — while ci-ok, being ungated, reported green.
+
+**`gate-wiring` ran on a DRAFT PR in all three runs.** That is the whole
+own-job justification and it is now evidence, not argument.
+
+### Own-job was countermanded, then the countermand was withdrawn — on measurement
+
+Architect and orchestrator both ruled "step in `check`", because own-job needs
+three coordinated edits and this repo shipped 1+2-without-3 twice. I complied and
+reverted. Both then withdrew after reading the diff: I had done 3/3. **Do not
+re-litigate it, and do not "simplify" it back to a step** — a step in `check`
+carries `draft == false` and is invisible on every draft PR.
+
+**My own-job comment carried a FALSE premise and it was caught by the
+orchestrator, not by me:** I wrote that the `code` filter does not guarantee
+package.json / `.github/workflows`. Measured false — `code` is `**` minus
+.team, docs, .claude, state-*.md, READMEs, CHANGELOGs, .changeset, so both ARE
+code. Fixed in the file. A false premise in a workflow comment is the exact
+failure this contract is about.
+
+### Sabotage receipts, unpiped `$?`, all on head e73a6429
+
+```
+GATING (three directions, none previously provable here)
+  in needs:, missing from the loop            -> 1
+  in the loop, bound to another job's result  -> 1
+  runs a gate, absent from needs:             -> 1
+REACHABILITY / FIXTURE
+  reintroduce the check:grammar-v typo        -> 1  DANGLING
+  delete the gate-wiring job's run step       -> 1  it names ITSELF
+  green control red                           -> 1
+  wire grammar-v2 without decrementing        -> 1
+  MOON_GRAPH_ROOT should-flag / not-flag / unset -> 1 / 0 / 0
+GREEN
+  check-gate-wiring.ts / check:lint / typecheck  -> 0 / 0 / 0
+```
+
+### #689 is GUARDED by my fixture, not weakened
+
+With `stripNonCode` sabotaged to identity: the real tree reproduces the original
+false edges (`plugin-agent-readiness → signals`, `cli → context`), deleting the
+real `- server` edge is still caught, **and** my `should-not-flag` tree goes red —
+its alpha carries a comment *and* a backtick template literal quoting an import of
+`@fixture/gamma`, which it does not depend on. A fixture exercising only the
+false-positive direction is green-by-blindness.
+
+### check:grammar-v2 — baselined, APPROVED, and now its own contract
+
+Wiring it reds CI on **five FALSE positives**, all comments or strings that
+DESCRIBE a retired form. Third instance of the #681/#689 class. It is **not** a
+`stripNonCode` reuse — that blanks template literals and preserves ordinary
+strings, and a grammar gate needs the opposite on both counts; a retired form in
+an `.aihu`/`.md` file IS a use. Queued as **C-FEL-GRAMMAR-V2-LITERALS**, not
+mine. Baselining was ratified by both architect and orchestrator against the
+file's own advice, because it converts silence into debt that prints every run.
 
 ## C-FEL-434b — MERGED (PR #683, e7a1b7c2)
 
@@ -390,15 +415,24 @@ list. Stating it rather than silently skipping.
   grammar gate, reasons recorded in that same file.
 - Do **not** trust a piped `git push`'s exit code, or a background-task
   notification that reports one. `git ls-remote` is the only proof.
+- **Never `git reset --soft origin/main` to squash your own commits.** If your
+  branch is BEHIND, that stages the INVERSE of everything merged since — for me,
+  40 files of other people's work staged for deletion, looking exactly like my
+  own change set. The command succeeds and the output is well-formed. Reset
+  against the **literal fork-point sha**; `origin/main` is a moving coordinate.
+- Do **not** re-litigate own-job vs step for `gate-wiring`, and do not add a
+  fourth id for this work. Both are recorded above with the measurements that
+  settled them.
 
 ## Queue behind this
 
-1. **check-grammar-v2 code-vs-text** — the five false positives. Needs
-   per-file-type judgement (`.aihu`/`.md` hit = a real use; `.ts` comment or
-   string = not), NOT a `stripNonCode` reuse. Wiring it into `plan-a.yml` is one
-   line once the scanner is right, and doing so **forces** deleting
-   `check:grammar-v2` from `scripts/gate-wiring-baseline.json` in the same PR —
-   the gate goes red otherwise (proven, receipt in #691).
+1. **C-FEL-GRAMMAR-V2-LITERALS** — the five false positives, filed by the
+   orchestrator as its own contract, NOT mine. Needs per-file-type judgement
+   (`.aihu`/`.md` hit = a real use; `.ts` comment or string = not), NOT a
+   `stripNonCode` reuse. Wiring it into `plan-a.yml` is one line once the scanner
+   is right, and doing so **forces** deleting `check:grammar-v2` from
+   `scripts/gate-wiring-baseline.json` in the same PR — the gate goes red
+   otherwise (proven, receipt in #691).
 2. **C-FEL-GATE-FIXTURE-RAMP** — shrink `notYetProven` in batches. Now cheaper
    than it was: `NEGATIVE_FIXTURES` takes an optional `green` control, and
    `MOON_GRAPH_ROOT` is the worked example of giving a gate a fixture-scan mode
