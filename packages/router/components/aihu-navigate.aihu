@@ -1,0 +1,29 @@
+@state {
+  import { navigate } from '../src/index.ts'
+
+  /**
+   * `<navigate to replace>` — programmatic redirect on mount (RFC-A5-014).
+   *
+   * Renders nothing visible. On mount, calls `navigate(to)` with the chosen
+   * history mode. Used inline with `$if` for conditional redirects:
+   *
+   *     <navigate if={!user} to="/login" replace />
+   *
+   * Acceptance (§7): on mount, `history.pushState` (or `replaceState`) and
+   * router update triggered.
+   */
+  $prop: {
+    to: { type: string },
+    replace: { type: "boolean", default: "false" },
+  }
+
+  $lifecycle.mount {
+
+  void navigate(to, { replace })
+
+  }
+}
+
+@template {
+  <span hidden aria-hidden="true" data-aihu-navigate={to} />
+}

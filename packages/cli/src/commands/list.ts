@@ -18,10 +18,10 @@
 
 import { existsSync, readdirSync } from 'node:fs'
 import {
+  destBasename,
   type RegistryFs,
   RegistryResolveError,
   type ResolveRegistryDeps,
-  destBasename,
   realRegistryFs,
   resolveRegistry,
 } from '../registry-resolve.ts'

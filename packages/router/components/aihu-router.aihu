@@ -1,0 +1,56 @@
+@state {
+  import { effect } from '@aihu/signals'
+  import {
+
+  /**
+   * `<router>` — root router component (RFC-A5-011).
+   *
+   * Reads routes from the `virtual:aihu-routes` module created by the existing
+   * vite plugin, builds a `Router`, wraps it in a reactive route signal, and
+   * provides the `RouteContext` to all descendants.
+   *
+   * Acceptance (§7): renders matched route on mount; updates on popstate;
+   * 404 falls through to `<shield>`.
+   */
+  $prop: {
+    router: { type: RouterT },
+    viewTransitions: { type: "boolean", default: "false" },
+  }
+
+  current: sig.read,
+  bindRouteSignalWriter,
+
+  createRouteSignal,
+
+  provideRouteContext,
+
+  type RouteContextValue,
+
+  type Router as RouterT,
+
+  } from '../src/index.ts'
+
+  $lifecycle.mount {
+
+  const sig = createRouteSignal(router)
+
+  const ctx: RouteContextValue = {
+
+  router,
+
+  viewTransitions,
+
+  }
+
+  bindRouteSignalWriter(ctx, sig.write)
+
+  provideRouteContext(ctx)
+
+  return () => sig.dispose()
+
+  }
+}
+
+@template {
+  <slot />
+}

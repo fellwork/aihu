@@ -1,0 +1,60 @@
+@state {
+  import { computed } from '@aihu/signals'
+  import { createPrefetcher, navigate, useRoute, type PrefetchMode } from '../src/index.ts'
+
+  /**
+   * `<a href prefetch replace>` — accessible SPA navigation link
+   * (RFC-A5-012).
+   *
+   * Renders an `<a href>` and intercepts left-click navigation. Sets
+   * `aria-current="page"` on the active match. Supports `prefetch="hover"`
+   * and `prefetch="visible"` modes.
+   *
+   * Modifier-keyed clicks (Cmd/Ctrl/Shift/Alt) and non-left clicks fall
+   * through to the browser so "open in new tab" continues to work.
+   */
+  $prop: {
+    href: { type: string },
+    prefetch: { type: "PrefetchMode", default: "'none'" },
+    replace: { type: "boolean", default: "false" },
+  }
+
+  $action: {
+    onClick: (e: MouseEvent): void => {
+      // Honour modifier keys and non-primary clicks
+      if (e.defaultPrevented) return
+      if (e.button !== 0) return
+      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
+      e.preventDefault()
+      void navigate(href, { replace })
+    },
+  }
+
+  const currentRoute = computed(() => useRoute())
+
+  const ariaCurrent = computed(() =>
+
+  currentRoute() && currentRoute()!.pathname === href ? 'page' : null,
+
+  )
+
+  $lifecycle.mount {
+
+  const a = (ctx.element as HTMLElement).querySelector('a')
+
+  if (!a) return
+
+  const pf = createPrefetcher(prefetch ?? 'none')
+
+  pf.attach(a as HTMLAnchorElement, () => currentRoute())
+
+  return () => pf.detach(a as HTMLAnchorElement)
+
+  }
+}
+
+@template {
+  <a href={href} aria-current={ariaCurrent} on:click={onClick}>
+    <slot />
+  </a>
+}
