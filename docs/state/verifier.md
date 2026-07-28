@@ -465,6 +465,25 @@ form (merged PR + sha, what the 11 healthy rows show) — architect's R1. Until
 R1-R3 land, treat any trace-reconciled terminal status as "not yet checked", in
 either direction.
 
+## Addendum — NEVER `git stash` in the disposable verify worktree; the stack is repo-global
+
+Reproduced builder's finding from my own checkouts: `/tmp/verify-0727` (my
+disposable verify worktree) and jerusalem BOTH resolve to the same
+`git rev-parse --git-common-dir` = `/Users/smcguirt/conductor/repos/aihu/.git`,
+and `git worktree list | wc -l` = 132. **The `git stash` stack is per-REPOSITORY,
+shared across all 132 worktrees** — not per-checkout like the index lock. Any
+agent in any worktree can `git stash pop`/`drop` (both default to stash@{0} =
+whoever pushed last, from anywhere) and silently take another agent's work. A
+merged contract's only state record (C-FEL-EXTERNALS / #656) was found stranded
+in a stash on this stack, on no branch.
+
+**What the next instance must not redo:** to revert a mutation in the verify
+worktree, use `git checkout -- <file>` / `git restore` and rebuild (what I do for
+the main.rs mutation test) — NEVER `git stash`. If you must shelve work, make a
+WIP commit on your own branch (per-branch, reflog-recoverable, cannot be popped
+by a stranger). Sibling of the durability discipline: state lives committed +
+pushed + findable on remote, never in a stash or workspace-only.
+
 ## Addendum — an ABSENCE is only evidence once you've shown it had its chance (spatial AND temporal)
 
 From orchestrator's C-FEL-CI-RECEIPT ruling: the repo's named defect
