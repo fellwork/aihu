@@ -634,6 +634,63 @@ by it, so open them yourself when auditing.
   `settle-a-contested-claim…` — an INVARIANT beats a timed prediction (no clock, no reach-early bias); TTL now
   CONCLUSIVE (3 timed deaths 20:23:10/20:28:23/20:28:28, cohort cleared). DECIDEs not mine: who wires
   check:gate-wiring; the missing C-FEL-MOONGRAPH-LITERALS row. Board (my fetch): main 3891300a GREEN; #669 draft.
+- **WAKE 48 — THE DAEMON GUARD EXISTS AND EXCLUDES NOBODY; MY STEADY-STATE MODEL WAS THE WRONG SHAPE;
+  AND `ps -eo etimes` NEARLY MADE ME PUBLISH "THE LEAK STOPPED".** Branch `srmcguirt/retro-followup-0728`,
+  **PR #692 OPEN / non-draft / MERGEABLE, head `c4d2d755` verified by `git ls-remote`.** Two commits:
+  `6266f5bf` (the cut-off wake's 151 uncommitted lines — DISPUTED-mirrors-outward, the void-clause
+  integrity check, which-link-is-untested; they were sitting in the worktree unpushed) and `c4d2d755`
+  (this wake). Gate `check-lesson-refs` exit 0, 28 cited lessons.
+  (1) **⛔ RELOCATES THE DAEMON FIX AND CORRECTS EVERY PRIOR WAKE ON THAT FILE, INCLUDING MINE.** We all
+  reasoned from *"the spawn is unconditional"*. **It is not** — `session-start.js:32` returns early on
+  `isAgentWorktreeCwd`, and `:142` comments *"agent-worktree sessions already returned above, so this
+  never fires for them."* The predicate is `lib/language.js:111`
+  `/[/\\]\.claude[/\\]worktrees[/\\]/` — **Claude Code's built-in worktree path. This swarm lives at
+  `conductor/workspaces/<project>/<city>`, which it does not match**, so the guard falls through for
+  every role. Receipt is self-observed and free: **my own session `1f41a56a`, cwd
+  `conductor/workspaces/aihu/sarajevo`, has 2 live daemons (192 s / 169 s)** — the comment says it never
+  fires for me. **A guarded system whose predicate excludes nobody is harder to catch than an unguarded
+  one, because the guard reads as present in review.** Rung: structural and now FIRST — widen
+  `AGENT_WORKTREE_SEGMENT` (one line, restores intended behaviour), spawn guard second. **NOT MINE** —
+  `~/.promptbook`, outside this repo, rides the one-escalation-not-three.
+  (2) **⛔ MY OWN CORRECTION, TWICE OVER. The population is a SUM OF TERMINATED BURSTS, not a stationary
+  stream.** Nobody had bucketed **per session id** — I hadn't either. My read @ `2026-07-29T01:46:29Z`:
+  **872 daemons / 26 sids / `past_ttl_survivors` 0 / oldest 57585 s vs 57600 s TTL.** `ce160f8f` = 393
+  daemons emitted in a 3.79 h window that ended **12.2 h ago**, silent since; `4205b2a4` 55 in 3.40 h,
+  silent 8.6 h; `48c51a9e` 56 in 28 min, silent 5.1 h. Bins 0–2 h = **15/2/2 ⇒ ≈0.11/min**, against the
+  **0.98/min** my wake-36 steady state used. **`rate × TTL` is the steady state of a STATIONARY source;
+  the architect and I argued for two wakes about the PARAMETER of a model whose SHAPE neither of us
+  checked.** Wake 36 retired "a rate needs a series" (the age histogram IS the history) — true, and it
+  hid this: **a histogram summed across sources destroys the structure that shows the bursts.**
+  (3) **MY WAKE-36 PREDICTION IS HEADING FOR A LOW FALSIFICATION AND I RECORDED IT BEFORE THE DEADLINE.**
+  I committed to *"~950 ± 150 after 13:10Z 2026-07-29, falsified by >~1400"*. At 0.11/min steady state is
+  **~100**. **I bounded only the side where the leak got WORSE** — so a collapse to ~100 would have read
+  as "not falsified, alarm can stand down", the wrong lesson from a wrong model. **Restated two-sided:
+  anchored outside 100–1400 at 13:10Z with survivors 0 falsifies it either way**; a fresh multi-hundred
+  burst from one new sid is how the high side gets hit. **A one-sided falsifier is half a prediction and
+  the missing half is always the flattering one.**
+  (4) **THE WAKE-STORM AND THE DAEMON LEAK ARE ONE PIPELINE.** Orchestrator's triage (their measurement,
+  their processes SIGTERM'd before I could confirm — attributed, not claimed): 5 daemons tagged with the
+  dead sid `55ccffb6`, one per failed wake, no `claude` owning it. **Consistent with what I CAN see** —
+  this wake's batch carries ~2 daemons per role-session (`1f41a56a`/`50669875`/`7d3f60e3`/`062d35cd`/
+  `117e61fc` = 2 each, `4ac3d75a` = 4). A storm is a **burst source** emitting the structurally
+  un-reapable kind: session never started ⇒ never ends ⇒ no `SessionEnd`. **Counting a resource by its
+  clean-exit event misses every unit the failure path produces.** Their RULING (builder-b needs no fix,
+  self-healed, `50669875` live) — **do NOT re-triage; do not re-derive the storm root cause.**
+  (5) **13th instance of `well-formed-measurement-…`, and the FIRST where the tool ANNOUNCED its own
+  failure and I read past it.** `ps -eo etimes` **does not exist on Darwin**: it prints
+  `ps: etimes: keyword not found` **to stderr and runs anyway** with the remaining keywords, so column 1
+  became `node` (first word of `args`). `awk '$1<3600'` then compared **as a string** (`"node" < "3600"`
+  is false) ⇒ **"0 daemons younger than 1 h"**, i.e. *"the leak has stopped"* — one paragraph from being
+  banked. Tell I did catch: my min/max line printed `claude`/`node`. **Rule: if a command writes to
+  stderr, no conclusion from its stdout until that line is explained** (exit code is 0 — it does not save
+  you); **a rejected field does not abort the request, it silently re-indexes every field after it**;
+  sanity-check positional output against its own type. Third shell-mutation in four wakes (backticks in a
+  commit message, `:s` in a path, now this) — the class is **all three degrade into well-formed output
+  instead of an error**, not "shells are quirky".
+  (6) Killed nothing, touched no infra, set no status, merged nothing, posted no Slack. Registry-vs-reality
+  note from the orchestrator (`agents.json` says orchestrator cwd `aihu/main`, wake ran in
+  `aihu/little-rock`) **logged as their evidence, NOT promoted to a 7th row-8 event** — they explicitly
+  declined to assert a twin and I am not inflating it.
 - **WAKE 47 — THE DEMOTION PATH IS AN OUTWARD UN-PUBLICATION, AND "DRAFT UNTIL JUDGED" CANNOT BE
   SATISFIED. Mostly convergence; three genuinely new structural findings.**
   (1) **⛔ DEEPENS MY OWN "the demotion path is the real work" — it is WORSE than work.** I banked the
