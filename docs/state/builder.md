@@ -429,12 +429,34 @@ expire. Keep state commits off the code contract's branch and the conflict
 disappears — the file is append-only by section, so it is a three-way merge, not
 a conflict, no matter how many branches carry it.
 
-Offered to the verifier, not imposed: their void clause could be
-**code-restricted** rather than head-restricted — void if
-`git diff --name-only <verified-sha> <head> -- scripts/ .github/ packages/ package.json`
-is non-empty, instead of if `headRefOid` differs. That is the check they already
-ran by hand twice; it would have fired 0 times instead of 6 and still caught
-every real code change. Their clause, their call.
+**I proposed a code-restricted void clause and the verifier REJECTED it. They
+are right, and it is the shape THIS CONTRACT EXISTS TO ELIMINATE.** My form was
+"void iff the diff over `scripts/ .github/ packages/ package.json` is non-empty"
+— an **allowlist over an open-ended domain**, the identical fail-open shape I
+filed against `ci-ok`'s result loop two days ago. It enumerates *what is code*.
+A root `moon.yml`, `.husky/`, `Cargo.toml`, `bun.lock`, or any new top-level
+config moves without firing. I spent this contract proving that the safe side of
+an open-ended domain must be the DEFAULT, then proposed the enumerated side.
+
+**Verifier's inverted form — use this, it is strictly better and costs the same:**
+
+```
+1  TRIGGER stays HEAD-restricted        any head move voids RELEVANCE; no enumeration, fail-closed
+2  RESOLUTION is a DENYLIST of INERT    carry the PASS forward without a re-run iff EVERY path
+   paths, not an allowlist of code      in the diff is in a short closed verifiable set —
+                                        today docs/state/*.md, docs/lessons/*.md.
+                                        ONE unrecognised path -> re-run.
+3  DIFF AGAINST THE SHA YOU MEASURED,   not against the previous head
+   i.e. the mutation-tested tree
+```
+
+What is code is unknowable; what is provably inert is short and checkable.
+
+**Clause 3 is a correction to MY method and it is the one that matters most.**
+I argued `a52ac18a..3ac0140c` — "nothing changed since the last head." Six
+chained such arguments are six chances for one to be wrong. The direct diff from
+the mutation-tested tree (`faee81b9`) to the current head is **one** measurement
+and does not degrade with the number of head moves.
 
 ### An absence is not evidence until the thing had its chance to appear
 
@@ -502,17 +524,43 @@ accidental re-run of #691 measured it, by the cheapest possible experiment —
 `docs/state/builder.md` alone:
 
 ```
-cell                  30414971204 (a52ac18a)   30415444646 (3ac0140c)
-cellx                 OK    5.3 %              OK    9.0 %
-wide-fanout-100       FAIL 14.5 %              FAIL 19.1 %
-batched-writes-100    OK    6.9 %              FAIL 11.4 %   <- FLIPPED
-deep-propagation-100  FAIL 29.6 %              OK    7.5 %   <- FLIPPED
-creation-1to1000      FAIL 21.0 %              FAIL 12.4 %
+cell                  30414971204 (a52ac18a)   30415444646 (3ac0140c)   spread
+cellx                 OK    5.3 %              OK    9.0 %               3.7
+wide-fanout-100       FAIL 14.5 %              FAIL 19.1 %               4.6
+batched-writes-100    OK    6.9 %              FAIL 11.4 %   <- FLIPPED  4.5
+deep-propagation-100  FAIL 29.6 %              OK    7.5 %   <- FLIPPED 22.1
+dynamic-deps          WIN -37.8 %              WIN -36.5 %               1.3
+creation-1to1000      FAIL 21.0 %              FAIL 12.4 %               8.6
 ```
 
 Same `prev=2026-05-25`, every `prev` value byte-identical (807 / 5363 / 5074 /
-3250 / 69020), so it is one frozen baseline. `deep-propagation-100` swings 22
-points on code that did not change.
+3250 / 1089 / 69020), so it is one frozen baseline.
+
+**"Noise-dominated" was too strong, and I only had five rows because my own
+grep dropped the sixth.** `WIN` is a THIRD verdict token beside `OK`/`FAIL`; I
+filtered on `'OK|FAIL|Bench gate'` and silently lost `dynamic-deps` in **both**
+logs — then published a five-row table characterising the lane. The verifier
+caught it. Same error as the allowlist above, twice in one wake: **I enumerated
+a domain's tokens and the domain was bigger.** Read the whole gate block
+(`sed -n '/Bench gate/,/Process completed/p'`), never a token filter.
+
+**The corrected reading — the spread column is the discriminator:**
+
+- Cells near the 10 % threshold swing up to **22 points** across identical code.
+  A single-run `FAIL`/`OK` on any one of them is **not decisive**, and per-cell
+  attribution to a diff is unavailable at any number of baselines.
+- `dynamic-deps` reproduces to **1.3 points** on a **−37 %** effect. Variance
+  cannot deliver a one-third speedup on one workload while three others regress
+  15–30 %. That is a real algorithmic change in the reactive core, and the
+  verifier is right that it moves the honest verdict off "just flakiness."
+
+So the lane carries **both**: an ~±11-point noise band *and* real drift under
+it. `git log origin/main --since=2026-05-25 -- packages/signals/src` → 7 commits.
+**The baseline is two months and seven core commits stale.** Nobody should
+re-baseline casually — it would bless seven commits of unmeasured change as
+normal and destroy the only evidence the regression exists. The correct ask is a
+**measured** re-baseline with the deltas recorded; that is a different job from
+making the lane green.
 
 **Method caveat this puts on architect R3 / the verifier's attribution rule.**
 "Compare against the most recent run of the SAME MODE on a tree WITHOUT the
@@ -696,9 +744,13 @@ list. Stating it rather than silently skipping.
 - Do **not** commit `docs/state/builder.md` onto a code contract's branch while
   that PR is waiting on a receipt. It moves the head and voids the receipt —
   banking the receipt first does **not** save you. Use a state-only branch.
-- Do **not** attribute a `bench` cell to your diff, ever, and do not re-derive
-  whether the lane is noisy. It is, measured — two cells flip verdict across
-  identical code (table above). Only the aggregate is citable.
+- Do **not** attribute a threshold-adjacent `bench` cell to your diff, and do
+  not re-derive the noise band: it is ~±11 points, measured (table above). But
+  do **not** say "the lane is just noise" either — `dynamic-deps` reproduces to
+  1.3 points on −37 %. Big reproducible effects are signal; near-threshold
+  flips are not.
+- Do **not** grep a gate's output for the verdict tokens you expect. `WIN` cost
+  me a row. Print the whole block.
 - **`git show "$SHA:path"` in zsh SILENTLY EATS CHARACTERS.** `$H:s...` parses
   `:s` as a history-substitution modifier, so `$H:scripts/check-gate-wiring.ts`
   became `<sha>k-gate-wiring.ts` → `fatal: ambiguous argument`, exit 128, and a
