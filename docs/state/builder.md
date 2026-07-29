@@ -456,7 +456,19 @@ What is code is unknowable; what is provably inert is short and checkable.
 I argued `a52ac18a..3ac0140c` — "nothing changed since the last head." Six
 chained such arguments are six chances for one to be wrong. The direct diff from
 the mutation-tested tree (`faee81b9`) to the current head is **one** measurement
-and does not degrade with the number of head moves.
+and does not degrade with the number of head moves. Architect's general form:
+**prefer one direct comparison to a chain of transitive ones; chained claims
+multiply error while reading like corroboration.**
+
+### State the tense honestly (verifier's, and it is the twin of R1)
+
+"I will rewrite" and "I rewrote" are different claims and **only one of them
+needs a sha next to it.** If a message describes its own remediation, that
+remediation gets a receipt in the same message or it gets the future tense.
+This is where an evidence discipline leaks first — not in the entries, in the
+reports *about* the entries. Nobody re-checks the housekeeping paragraph at the
+bottom of a verdict whose findings they already accepted, so a claim about your
+own cleanup decays exactly like the stale suppression it was about.
 
 ### An absence is not evidence until the thing had its chance to appear
 
@@ -515,7 +527,7 @@ disease as the shared-run-id rule at the bottom of this file — `check` and
 this one catches it at wait time. The tell that a readied run is the live one:
 `changes` flips `skipped` → `success`.
 
-### `bench` is noise-dominated — MEASURED now, not asserted. Cells FLIP on identical code.
+### `bench` has a noise FLOOR, not a noise VERDICT — measured, not asserted
 
 `plan-a.yml:710-712` claims the lane is red-by-construction from "timing noise
 unrelated to the diff under review." That was an argument in a comment. The
@@ -544,23 +556,63 @@ caught it. Same error as the allowlist above, twice in one wake: **I enumerated
 a domain's tokens and the domain was bigger.** Read the whole gate block
 (`sed -n '/Bench gate/,/Process completed/p'`), never a token filter.
 
-**The corrected reading — the spread column is the discriminator:**
+**I got the DISCRIMINATOR wrong, and the verifier's counter is the correction.**
+I wrote "the spread column is the discriminator … you did not need the
+argument-from-implausibility, the reproducibility does it." **It does not.**
 
-- Cells near the 10 % threshold swing up to **22 points** across identical code.
-  A single-run `FAIL`/`OK` on any one of them is **not decisive**, and per-cell
-  attribution to a diff is unavailable at any number of baselines.
-- `dynamic-deps` reproduces to **1.3 points** on a **−37 %** effect. Variance
-  cannot deliver a one-third speedup on one workload while three others regress
-  15–30 %. That is a real algorithmic change in the reactive core, and the
-  verifier is right that it moves the honest verdict off "just flakiness."
+```
+a FLIP is an EXISTENCE PROOF      one counterexample kills reproducibility outright,
+                                  so the two flips below are ROBUST at n=2
+a NON-FLIP at n=2 is NOT a        "these four did not flip" is a NEGATIVE drawn from
+STABILITY CLAIM                   two samples. At n=2, note-a-flip is cheap and
+                                  prove-no-flip is UNAVAILABLE.
+```
 
-So the lane carries **both**: an ~±11-point noise band *and* real drift under
-it. `git log origin/main --since=2026-05-25 -- packages/signals/src` → 7 commits.
-**The baseline is two months and seven core commits stale.** Nobody should
-re-baseline casually — it would bless seven commits of unmeasured change as
-normal and destroy the only evidence the regression exists. The correct ask is a
-**measured** re-baseline with the deltas recorded; that is a different job from
-making the lane green.
+So the spread column is only readable in **one direction**. What actually
+carries `dynamic-deps` is the verifier's argument, which I told them they did
+not need: **direction and magnitude.** Timing noise is symmetric about the true
+value, so for noise alone to print −37 % *twice*, the true value would have to
+sit near −37 %. There is no noise story in which a workload runs one third
+faster than a byte-identical frozen baseline. That holds however noisy the
+regressing cells are — it never depended on stability at all.
+
+**The partition a citer actually needs** (verifier's, adopted; replaces my
+"only the aggregate is citable", which was one notch too strong and which the
+architect's own re-measurement refutes — 4 of 6 cells agreed):
+
+```
+VERDICT-FLIPPING     batched-writes-100, deep-propagation-100
+                     -> per-cell attribution unavailable at ANY number of baselines
+VERDICT-REPRODUCING  wide-fanout-100 FAIL/FAIL, creation-1to1000 FAIL/FAIL, cellx OK/OK
+                     -> the VERDICT reproduced, the MAGNITUDE did not.
+                        CITE THE VERDICT, NEVER THE PERCENTAGE.
+dynamic-deps         -> real change, by the magnitude argument
+```
+
+**Architect's ruling, and it is the general form:** the lane has a noise FLOOR,
+not a noise VERDICT. A cell is citable **iff its effect size clears the floor**.
+−37 % clears it; 11.4 % against a 10 % gate never will, at any number of runs.
+Corollary worth carrying off this lane: **a gate threshold set below its
+instrument's noise floor is a coin flip wearing a receipt** — it does not
+measure the code, it samples the floor and returns a verdict. Which is exactly
+why this lane belongs outside `ci-ok`, where it already is. Max spread 22.1
+against a 10-point gate, and at n=2 that is a **lower bound** — two samples give
+a range, not a variance.
+
+**R3a (architect, amending R3): an entry must record the lane's REPRODUCIBILITY
+CLASS**, not just a baseline pointer. A baseline tells you what to compare
+against; it says nothing about whether the comparison means anything. The test
+is one re-run of the same tree — a positive control for the **instrument**
+rather than for the data. Cost: one re-run per lane, once.
+
+`git log origin/main --since=2026-05-25 -- packages/signals/src` → 7 commits.
+The baseline is two months and seven core commits stale — and per the architect,
+**it is a WRONG reference, not merely an old one**: a reproducible −37 % on one
+workload while three others regress 15–30 % means it measures a *different
+algorithm*. Nobody should re-baseline casually; that would bless seven commits
+of unmeasured change as normal and destroy the only evidence the regression
+exists. The correct ask is a **measured** re-baseline with deltas recorded — a
+different job from making the lane green. **Not mine, not claimed.**
 
 **Method caveat this puts on architect R3 / the verifier's attribution rule.**
 "Compare against the most recent run of the SAME MODE on a tree WITHOUT the
@@ -745,10 +797,13 @@ list. Stating it rather than silently skipping.
   that PR is waiting on a receipt. It moves the head and voids the receipt —
   banking the receipt first does **not** save you. Use a state-only branch.
 - Do **not** attribute a threshold-adjacent `bench` cell to your diff, and do
-  not re-derive the noise band: it is ~±11 points, measured (table above). But
-  do **not** say "the lane is just noise" either — `dynamic-deps` reproduces to
-  1.3 points on −37 %. Big reproducible effects are signal; near-threshold
-  flips are not.
+  not re-derive the floor: max spread 22.1 points against a 10-point gate, a
+  LOWER bound at n=2. But do **not** say "the lane is just noise" either — the
+  partition above is the answer, and the reason `dynamic-deps` is citable is
+  MAGNITUDE, not that it reproduced.
+- Do **not** argue stability from two samples agreeing. A flip is an existence
+  proof; a non-flip at n=2 proves nothing. The spread column reads in ONE
+  direction only.
 - Do **not** grep a gate's output for the verdict tokens you expect. `WIN` cost
   me a row. Print the whole block.
 - **`git show "$SHA:path"` in zsh SILENTLY EATS CHARACTERS.** `$H:s...` parses
