@@ -562,8 +562,29 @@ function commandsFor(
       // developer machine and leave the unborn HEAD in exactly the environment
       // the scaffold matrix runs in. Verified that the explicit form succeeds
       // with no global config at all.
+      //
+      // The branch name is pinned for the same reason, one level on: a born
+      // HEAD is not enough if it is born under the WRONG NAME. The branch
+      // `git init` creates is whatever ambient `init.defaultBranch` says, and
+      // the cf-team template ships `.moon/workspace.yml` declaring
+      // `defaultBranch: 'main'`. When the two disagree, moon resolves
+      // `base="main" head="HEAD"` against a repo that has no `main` and dies:
+      //   fatal: ambiguous argument 'main': unknown revision …   (git exit 128)
+      // Measured in scaffold-matrix run 30404220223: cf-team FAILED at
+      // `typecheck` on ALL FOUR package managers — which is what proves it is
+      // not a package-manager defect. A developer whose global config already
+      // says `main` never sees it.
+      //
+      // `symbolic-ref` rather than `git init -b main`, which reads better and
+      // is the idiom: `-b` landed in git 2.28 (Jul 2020) and on anything older
+      // it is `error: unknown switch 'b'`, exit 129 — turning a scaffold that
+      // works today into one that fails outright. `symbolic-ref` on an unborn
+      // HEAD is just a rewrite of `.git/HEAD` and has no version floor, which
+      // is the right trade for a step whose whole job is to not depend on the
+      // machine it runs on.
       return [
         { command: 'git', args: ['init'] },
+        { command: 'git', args: ['symbolic-ref', 'HEAD', 'refs/heads/main'] },
         { command: 'git', args: ['add', '-A'] },
         {
           command: 'git',

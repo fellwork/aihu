@@ -355,17 +355,44 @@ describe('runPostInstall', () => {
     })
     expect(res.failures).toEqual([])
     expect(res.ran).toHaveLength(3)
-    // `git-init` is THREE commands, not one: `git init` alone leaves an unborn
+    // `git-init` is FOUR commands, not one: `git init` alone leaves an unborn
     // HEAD and anything that asks git about HEAD then exits 128 (FEL-431
-    // defect 5). Identity is passed explicitly so the commit cannot fail on a
-    // machine with no global git config — i.e. CI.
+    // defect 5), and it leaves the branch named by ambient
+    // `init.defaultBranch` rather than the `main` the cf-team template's moon
+    // config declares. Identity is passed explicitly so the commit cannot fail
+    // on a machine with no global git config — i.e. CI.
     expect(sp.calls.map((c) => `${c.command} ${c.args.join(' ')}`)).toEqual([
       'bun install',
       'git init',
+      'git symbolic-ref HEAD refs/heads/main',
       'git add -A',
       'git -c user.name=aihu -c user.email=scaffold@aihu.dev commit -m chore: initial aihu scaffold',
       'bun run check',
     ])
+  })
+
+  it('git-init pins the branch to main before the first commit', () => {
+    const m = manifestFixture()
+    const o = mergeOptions(m, { appName: 'demo', userOverrides: {} })
+    const sp = fakeSpawner()
+    runPostInstall({ manifest: m, options: o, targetDir: '/tmp/demo', spawner: sp })
+
+    // By SHAPE and relative ORDER, not by index — `git-init` is a multi-command
+    // step and every previous assertion in this file that keyed on a position
+    // silently retargeted when the step grew.
+    const git = sp.calls.filter((c) => c.command === 'git').map((c) => c.args.join(' '))
+    const pin = git.findIndex((a) => a === 'symbolic-ref HEAD refs/heads/main')
+    const commit = git.findIndex((a) => a.includes('commit'))
+    expect(
+      pin,
+      'without this, the branch is whatever ambient init.defaultBranch says, and ' +
+        'moon resolves base="main" against a repo with no `main` -> git exit 128',
+    ).toBeGreaterThanOrEqual(0)
+    expect(
+      pin,
+      'symbolic-ref only rewrites an UNBORN HEAD; after the first commit it would ' +
+        'orphan the commit instead of renaming the branch',
+    ).toBeLessThan(commit)
   })
 
   it('git-init leaves a repo with a real commit, not an unborn HEAD (FEL-431 d5)', () => {
