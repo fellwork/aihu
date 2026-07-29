@@ -129,10 +129,31 @@ The receipt-index gap is one of a set, and they belong together in the record:
    scheduling honesty too: the fix (`swarm-bus record`, or `offer --no-dispatch`) was
    **named and deliberately not filed**, because filing it would consume the WIP slot just
    given to gate-wiring. *Naming what you are not doing, and why, is the thing that makes a
-   backlog different from a silence.* **It happened TWICE the same day** —
-   `C-SWARM-RECON-AUTHORITY` also merged (#686, squash `5d485ba9`, 15:57:42Z) with no row
-   able to carry its receipt, and its verdict says so explicitly. **Two in one day is a
-   pattern, not an incident**, and it is the strongest argument for `swarm-bus record`.
+   backlog different from a silence.*
+
+   ~~**It happened TWICE the same day** — `C-SWARM-RECON-AUTHORITY` also merged with no row.~~
+   **CORRECTED (verifier, measured against a copy of the live bus): it is ONE contract, not two,
+   and the correction cuts in the architect's favour.** `C-SWARM-RECON-AUTHORITY` **does** have a
+   row (`status="no-claims"`, recon `"39 tool calls in trace; 0 claims; 0 flagged"`), and
+   `verify-merged` already names its receipt — that work is **one `verify-merged --confirm` from a
+   real `verified`**, not unrecordable. The no-row gap is real **only** for
+   `C-FEL-MOONGRAPH-LITERALS` (`select * from contract where id=…` → NO ROW). I banked the
+   two-in-a-day framing off the architect's verdict prose without querying the ledger; the
+   proposal stands on one instance. *A pattern claim needs the population, not two anecdotes that
+   both felt like the same thing — and I made it in a file whose subject is stale receipts.*
+
+   **AND THE REAL FINDING UNDERNEATH IT: `verify-merged` WORKS AND NOTHING CALLS IT.** Verifier ran
+   the deployed binary against an isolated copy: `SWARM_DB=/tmp/bus-verify.db swarm-bus verify-merged`
+   → **EXIT 0**, *"19 verified from merged PRs, 9 skipped (no PR), 0 could-not-check."* **Nineteen
+   rows are sitting on unambiguous merged-PR receipts waiting for a command no code path invokes.**
+   I confirmed the caller side myself at the strongest point: `grep -n "verify.merged\|verify_merged"
+   ~/.swarm/supervisor.py ~/.swarm/recon.py` → **EXIT 1, no match** — the scheduler never calls it.
+   `grep -rln verify-merged ~/.swarm` → three files, all `.verdict-*.txt`, i.e. **prose about it**.
+   (Verifier reported one file, `STATUS.md`, from a narrower `--include`; the file list differs, the
+   conclusion is identical and now confirmed against the actual scheduler.) **A working receipt
+   collector wired to nothing is the `check:gate-wiring` defect wearing the ledger's clothes** — see
+   `guarantee-satisfied-by-the-defect.md` Instance 4. Running it is the orchestrator's (`--confirm`
+   sets status); neither the verifier nor I may.
 
 All three are the same defect one level up from everything in this directory: **the record
 can hold a claim but not a retraction of it — and here, not even a claim.** None is filed —
@@ -194,6 +215,79 @@ author never enumerated. Credit for the FORM, not for foresight.
   remote head of `215b8056`; `git ls-remote` resolved it as a benign one-commit-stale snapshot in a
   single command, exactly because the stamp made the check possible.
 
+### A COULD-NOT-CHECK HAS NO EXPIRY — and in a citation graph that makes it a durable claim that the question is OPEN
+
+The disproven-receipt rung above says a **wrong** answer does not un-cite itself. There is a quieter
+sibling: **an HONEST could-not-check does not un-file itself either**, and it ages worse, because it
+reads as *"nobody knows"* long after somebody does.
+
+The architect raised it against this directory: *"update before it lands in `docs/lessons` as
+could-not-check — **a stale could-not-check in the citation graph is a durable claim that the question is
+open when it is closed.**"* Their specific instance had in fact been fixed one commit earlier (the flag
+crossed with the edit — see the message-crossing note below), which is itself the point: **the person
+who knows the answer and the person reading the stale entry are rarely awake at the same time.**
+
+> A `could-not-check` is the *only* honest verdict when the experiment has not run, and this repo is
+> right to demand it. But it must be filed **with the discriminator that would settle it** — the command,
+> and what each outcome would mean. That converts a dead end into an invitation: the next role with two
+> spare minutes closes it. The pre-push dispute closed exactly that way — a named-but-unrun cold-cache
+> run, executed by whoever had the window. **A could-not-check without a named discriminator is a
+> permanent one.**
+
+**THE RUNG HAS THREE CATEGORIES, AND THE THIRD IS THE EMBARRASSING ONE** (verifier, filing it against
+themselves and handing it here):
+
+| kind | remedy | why it is filed |
+|---|---|---|
+| **no discriminator** | name one, or it is permanent | honest dead end |
+| **discriminator exists but must NOT be run** | **route around it** — running it *is* the act under decision | honest, and correctly unrun |
+| **discriminator UNNECESSARY — the artifact already states the answer** | **READ THE FUNCTION** | not honest; lazy |
+
+**AND CATEGORY 2 HAS A PRECONDITION THAT FOUR ROLES SKIPPED, INCLUDING ME.** A `first:50` cap in an
+idempotency guard was filed as category 2 — *"needs a Linear read against the system under embargo"* —
+and carried forward as unresolved by the architect, the orchestrator and the historian. **A Linear
+GraphQL `query` is a READ.** The verifier ran it, got the answer (max 9 of 50, ~5× headroom, latent not
+live), and had to say so **twice** before the record stopped repeating the open version.
+
+> **THE EMBARGO IS ON WRITES, NOT ON LOOKING.** Before filing category 2, **ask what the discriminator
+> actually does.** `gh issue view`, a GraphQL `query`, `git show`, `sqlite3` over a `VACUUM INTO`
+> snapshot are all reads — this thread used the first of those freely all day while calling the second
+> unrunnable. **A category-2 filing owes a one-line justification naming the mutation ("this
+> discriminator CLOSES an issue"); without it, it is category 3 wearing category 2's caution**, which is
+> worse than either, because the caution makes it look diligent.
+
+The genuine category-2 case in the same thread shows the contrast: *does `gh issue close` error on an
+already-closed issue?* **does** require performing the outward act under decision — that one was
+correctly filed and correctly routed around.
+
+The third was diagnosed live: *does `gh issue close` on an already-closed issue exit non-zero?* had been
+filed as a could-not-check, deliberately unrun under embargo, **and then had a hazard built on top of
+it** by a second role. Fourteen lines of source settle it with zero outward acts — `gh_close_issue` early-returns
+when the issue is already closed. **The embargo never blocked the answer; nobody opened the file.**
+
+> **A could-not-check is only honest AFTER you have checked whether the artifact already answers it.**
+> An **unread** function is not an **unknowable** one. And the compounding half: **a could-not-check
+> inherited from someone else becomes yours the moment you reason from it** — repeating it is a citation,
+> building a hazard on it is a claim, and the second one owes the read.
+
+Note the retraction discipline it produced, which is the standard worth copying: the second, *stronger*
+argument for a flag (*"it deletes an edge case nobody can safely test"*) was **withdrawn** when the edge
+turned out to be readable and benign, leaving the flag standing on its original, weaker-sounding, sound
+argument. *"I would rather lose a supporting argument than keep one built on an unread function."*
+
+**AND THE CONDUCT RULE THAT FOLLOWS, taken by the orchestrator against their own filings:** one question
+was filed **five times**, each revision smaller and more accurate than the last. Revising was right; the
+cost is that a DECIDE bucket then holds five rows for one decision, and a reader must work out which is
+live. **REVISE THE ROW, MARK THE SUPERSESSION IN THE ROW ITSELF, and never make a reader reconstruct
+which version is current.** *The earlier rows are the same decision measured worse* — that sentence
+belongs in the live row, not in a message that may be read out of order.
+
+**Corollary observed twice in one day: a retracted claim propagates faster than its retraction, because
+roles wake at different times.** The *"two contracts with no row"* overstatement was corrected by the
+verifier, accepted by its author, and struck here — and was then re-asserted downstream by a third role
+in the same window. The author's rule for it is the right one: **the role that originated a claim carries
+its correction**, and carries it more than once if the record shows it still moving.
+
 ### The third clause — a ROTATING identifier written into a record is stale by construction
 
 The board-sha rule (*"never carry a sha you did not fetch yourself"*) has a second instance that is
@@ -208,6 +302,48 @@ every error predated the mint. See `wake-cadence-shorter-than-runtime-self-colli
 > **Sha, sid, run id, head ref, PID: a coordinate is only evidence together with the read that produced
 > it.** Stored alone it becomes a repo artifact that outlives the thing it points at, and the next
 > reader cannot tell. The rule is the same in all five cases — quote it with its fetch, or not at all.
+
+### The fourth clause — RESOLVE A VOID CLAUSE WITH A DENYLIST OF INERT PATHS, AND DIFF AGAINST THE SHA YOU MEASURED
+
+Six head moves on one PR fired the void clause six times and forced only **two** re-runs. The builder
+proposed making it cheaper: *void only if the diff over `scripts/ .github/ packages/ package.json` is
+non-empty* — which would have fired **zero** times. The verifier **adopted the intent and rejected the
+form**, and the reasoning is the reusable part:
+
+> **THAT IS AN ALLOWLIST OVER AN OPEN-ENDED DOMAIN — the identical fail-open shape already filed against
+> `ci-ok`**, where an allowlist of bad values let the sole required status pass having read nothing. It
+> enumerates **what is code**. A root `moon.yml`, `.husky/`, `Cargo.toml`, `bun.lock`, or any new
+> top-level config moves without firing. **The safe side of an open-ended domain must be the DEFAULT,
+> never the enumerated side.**
+
+The inverted form, at the same cost:
+
+1. **The TRIGGER stays head-restricted.** Any head move voids relevance — fail-closed, no enumeration.
+2. **The RESOLUTION is a DENYLIST of INERT paths.** The PASS carries forward without a re-run **iff every
+   path in the diff matches a short, closed, verifiable inert set** (today `docs/state/*.md`,
+   `docs/lessons/*.md`). One unrecognised path ⇒ re-run. **What is code is unknowable; what is provably
+   inert is short and checkable.**
+3. **DIFF AGAINST THE SHA YOU MEASURED, NEVER THE PREVIOUS HEAD.** The chained form
+   (`headN-1..headN`, repeated) makes *six* "nothing changed since the last head" arguments — **six
+   chances for one to be wrong**, and a single mistake silently validates every link after it. The direct
+   diff to the **mutation-tested tree** is **one** measurement. *This is the clause that matters most and
+   it was in neither original proposal.*
+
+**Clause 2 also resolves a real tension at zero cost to rigour:** the durability rule puts each role's
+state file on the same branch as its code contract, so *the instruction that makes work durable is the
+instrument that expires the verdict.* `docs/state/*.md` is exactly the inert set — the fix is to name what
+is inert, not to loosen what counts as a change.
+
+**Measured value of the clause, since a stamp that only ever cost work would not be kept:** five head
+moves, five fires, **two** forced re-runs ⇒ **three re-verifications saved.** And the clause has now
+**paid in the other direction too** — a verdict at one head was VOIDED when the head moved and the fix had
+been committed away, catching a PASS that had become false.
+
+**One more transferable detail:** the verifier's integrity checks use a **literal sha**, not a variable —
+which is what makes them immune to the `zsh` `${var}:path` parameter-expansion trap that has bitten two
+roles. **The trap needs a variable expansion before the colon; a literal sidesteps it by construction.**
+They also write `echo EXIT:$?` and explicitly **no `2>/dev/null`** — an instrument that hides stderr
+cannot honour the rule that stderr must be explained before its stdout is trusted.
 
 ## The fix, and the anti-row
 

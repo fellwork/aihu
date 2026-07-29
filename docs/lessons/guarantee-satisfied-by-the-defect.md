@@ -340,6 +340,16 @@ loop. Miss (1) and it never runs; miss (2) and it runs after the verdict; miss (
 and `ci-ok` is green anyway. Each is individually invisible, and *"it's in `package.json`"* clears none
 of the three.
 
+> **⚠ THE COUNTERMAND BELOW WAS WITHDRAWN THE SAME DAY — builder shipped all three clauses and the
+> own-job route STANDS (PR #691).** Read the block for the recidivism measurement, which is still true
+> and still the reason the risk was worth naming; do not read it as the live ruling. Verified by the
+> architect on the PR head: `:460 needs: [… , gate-wiring]`, `:488 GATE_WIRING_RESULT: ${{ needs.gate-wiring.result }}`,
+> `:510 for pair in … "gate-wiring:$GATE_WIRING_RESULT"` — **genuinely in the loop.** The architect's own
+> framing is the durable part: **a ruling whose premise is measured away should die**, and the risk was
+> retired *by execution and proof rather than by argument.* Always-on is strictly more coverage than the
+> step-in-`check` that the countermand preferred. **Recorded rather than deleted, because the reasoning
+> was sound on the evidence available and the correction is the more instructive half.**
+
 **And that bar has a MEASURED failure rate — which is what decided the vehicle (architect, on `642860f3`).**
 The three clauses are three *coordinated edits* (define the job + add to `needs:` + add its result to
 the loop), and **this repo has shipped 1+2-without-3 twice**: the `palette` job (waited on, result never
@@ -388,10 +398,416 @@ after:   "All gates reachable except the known baseline debt. OK."
 > `main` for a new reason is a bisect hazard and an incident waiting to be misattributed to whoever
 > pushed it.
 
+**And the ruling that followed is stronger than the argument that produced it (architect, amending
+themselves).** They had ruled *"one PR"*; the verifier's *"same COMMIT"* won because the *"one PR"*
+version **silently depended on squash being the merge method — and it is not enforced.** Measured, and I
+reproduced it: `gh api repos/fellwork/aihu` → `{"squash":true,"merge":true,"rebase":true}` — **all three
+enabled.** The last six merges on `main` being single squash commits is a **convention, not a rule.**
+Under rebase-merge the typo-only commit *becomes* a commit on `main`, and the red-for-a-new-reason state
+is permanently in history and on every `git bisect`.
+
+> **DO NOT LET CORRECTNESS DEPEND ON AN UNENFORCED CONVENTION WHEN THE STRICTER FORM IS FREE.** The
+> "one PR" ruling was correct only while everyone kept choosing squash; "same commit" is correct
+> unconditionally and costs nothing. The tell is a guarantee whose proof contains *"because we always…"*
+> — go check whether the repo enforces the *always*, because a settings toggle is not a review.
+
 Distinct from `gate-fix-armed-a-sibling-false-red.md`, where two *separately correct* PRs composed into
 a false red. Here it is **one checker masking itself**, and the tell is an early `process.exit` above
-later checks. **When you fix the first failure of a multi-part gate, run it again before believing you
+later checks.
+
+### A PROSE RUNG PROMOTED TO STRUCTURAL IN ONE DAY — the `green` control (builder, PR #691)
+
+Banked yesterday as method: *a stripper needs a mutation in BOTH directions; red alone cannot distinguish
+"reads correctly" from "reads nothing"* (`regex-over-source-cannot-tell-code-from-text.md`). Builder put
+it **into the gate's own data structure**: `NEGATIVE_FIXTURES` gains an optional **`green` control**, so
+a fixture proves a gate **discriminates** rather than merely fires. Their sentence for it is the compact
+form: *"one that says no to everything satisfies the red half perfectly."* Their sabotage receipts run
+both arms — `MOON_GRAPH_ROOT=…/should-flag` → 1, `…/should-not-flag` → **0**, unset (real tree) → 0 — and
+one of them is the meta-gate **naming itself**: deleting the `gate-wiring` job from `plan-a.yml` →
+`NEW ORPHAN(S): check:gate-wiring`.
+
+> **This is the ladder working, and it is worth recording as loudly as a failure**: prose → structural in
+> a single day, because the prose rung was written as *a property a gate must have* rather than as advice
+> to be careful. **A lesson phrased as a fixture is portable into code; a lesson phrased as a habit is
+> not.** That is a usable test for anything filed here. **When you fix the first failure of a multi-part gate, run it again before believing you
 are done — the second half has never once been observed.**
+
+**AND THE GAP THAT REMAINS IS EXACTLY THE CLAUSE WITH THE RECIDIVISM (architect, on #691).** The
+sabotage suite proves **clause 1** (delete the job → orphan, the gate naming itself) and **clause 2**
+(a YAML parse shows `needs`). **Clause 3 has no negative fixture.** Remove
+`"gate-wiring:$GATE_WIRING_RESULT"` from the result loop while leaving the job in `needs:`, and nothing
+built detects it — **verbatim the palette/#649 defect that `plan-a.yml:471-477` documents in its own
+comment as having happened twice.** Builder's own principle applies to builder's own gate: *red alone
+does not prove a gate discriminates.*
+
+> **The durable form, and it is the real prize: `check-gate-wiring.ts` answers REACHABILITY — "is every
+> gate invoked by a workflow" — and does not answer GATING — "is every job in `ci-ok`'s `needs:` also
+> READ in its result loop." Those are two different properties, and only the first exists.** A parse of
+> `plan-a.yml` asserting **`needs`-set == result-loop-set** closes the palette class *structurally*
+> instead of by comment, and it is the same shape as the gate already being built. **A comment that
+> records a recurrence is a candidate assertion: if you can state the invariant in prose precisely
+> enough to warn about it, you can usually parse for it.**
+
+**CONFIRMED BY MUTATION, AND IT IS TWO-SIDED (verifier, on the #691 merge tree).** The architect
+predicted the hole; the verifier ran it rather than agreeing with it — which is the difference between a
+prediction and a finding:
+
+```
+drop the loop entry, KEEP needs:   ->  check-gate-wiring EXIT 0, "All gates reachable … OK"   UNDETECTED
+drop from needs:, KEEP loop entry  ->  EXIT 0                                                 UNDETECTED
+```
+
+**Neither half of the `needs`/loop pair is checked against the other**, so it is not a one-sided hole.
+Stated honestly by the verifier and worth copying: the **non-detection** is measured; whether GitHub
+Actions itself rejects a `needs.gate-wiring.result` reference when the job is absent from `needs:` is
+**could-not-check** (Actions cannot be run locally) — but direction 1 needs no such caveat, because the
+loop simply never reads the result, which is the exact palette failure. **Not a blocker on #691**, which
+is strictly more coverage than the status quo; the `needs`-set == result-loop-set parse is a small
+follow-on contract.
+
+**And the both-directions bar was applied by a third role, unprompted, to two narrowings builder had
+introduced** — the clearest evidence yet that this rung transfers:
+
+- the dangling-`bun run` detector **skips trailing args**, so the verifier added
+  `"check:probe-args": "bun run check:definitely-not-a-script --flag value"` → **still caught, EXIT 1**,
+  args stripped correctly in the report. *The narrowing does not blind it.*
+- the `green` control is new, so they attacked **the other half**: replaced `check-moon-graph`'s
+  `process.exit(1)` with `exit(0)` — a gate that **cannot go red** → caught: *"NEGATIVE FIXTURE PASSED —
+  the gate did NOT reject its own red input (it cannot go red)"*, **EXIT 1.**
+
+> **A gate that cannot fail is now detectable by another gate.** That is the anti-green-by-blindness
+> property working *across* gates rather than within one, and it is the first time in this directory
+> that the green-by-construction class has been caught by machinery instead of by a person noticing.
+
+## `ci-ok` CAN PASS HAVING READ NOTHING — the result loop is an ALLOWLIST OF BAD VALUES, and it is live on `main`
+
+Chasing the verifier's named gap one level down, the architect found a **real defect nobody had**: the
+`ci-ok` result loop **fails open on an empty result.** This is the sole required status context that
+branch protection depends on.
+
+```yaml
+for pair in "check:$CHECK_RESULT" … "readme-sync:$README_SYNC_RESULT"; do
+  result="${pair#*:}"
+  if [ "$result" = "failure" ] || [ "$result" = "cancelled" ]; then fail=1; fi
+done
+```
+
+**That is an allowlist of BAD values, not a denylist of GOOD ones.** Misspell a binding at either end —
+the `env:` name or the pair list — and the pair expands to `gate-wiring:` with an **empty** result. Empty
+is neither `failure` nor `cancelled`, so **it matches nothing and the loop passes it.**
+
+**Verified by execution, three times, and the third is mine against `origin/main`'s own loop text** —
+extracted with `git show origin/main:.github/workflows/plan-a.yml`, not retyped from anyone's quote:
+
+| `check` result | current | proposed (`!= success && != skipped`) |
+|---|---|---|
+| `success` | fail=0 | fail=0 |
+| `skipped` | fail=0 | fail=0 |
+| `failure` | fail=1 | fail=1 |
+| `cancelled` | fail=1 | fail=1 |
+| **EMPTY** | **fail=0** | **fail=1** ← the defect |
+| `neutral` | fail=0 | fail=1 ← the accepted tradeoff, measured |
+
+**Direction 2 is the half that licenses the fix**: on all four real GitHub values the two loops are
+**behaviourally identical**. The inversion changes exactly the empty/unknown rows and nothing else — *an
+inversion that also moved a real row would be a regression wearing a fix's clothes.*
+
+**AND THE SCOPE IS NOT ONE JOB — IT IS ALL OF THEM.** The verifier's worst case, which I reproduced on
+`main` (six bindings there; seven in #691):
+
+```
+env -u CHECK_RESULT -u EXAMPLES_RESULT … -u README_SYNC_RESULT  sh loop-current.sh
+   ->  RESULT fail=0,  AND ZERO OUTPUT LINES
+same, proposed  ->  6 x ::error::,  RESULT fail=1
+```
+
+> **Drop or rename the `env:` block and the sole required status passes having checked NOTHING —
+> silently, with no error line and nothing in the log to notice.** It is not *"gate-wiring is exposed"*;
+> it is **`ci-ok` can go green with zero jobs read.** The vacuous-pass class — a gate that is green while
+> measuring nothing — rebuilt inside the one status branch protection depends on.
+
+**This is the palette family, THIRD VARIANT, and each variant is one notch harder to see:** palette was
+*in `needs`, never read*; #649 the same; this one is **read, but the read silently yields empty.** It is
+invisible to the human eye (the echo prints `gate-wiring:` with a trailing blank — it reads as
+formatting) **and structurally invisible to `check-gate-wiring.ts`**, which reasons about `package.json`
+scripts and workflow `run:` steps, not shell string semantics inside a YAML scalar. **A third clause of
+the wiring bar that the wiring checker cannot see.**
+
+> **THE GENERALISATION (verifier's, and it travels far past this file): any `if bad then fail` over an
+> OPEN-ENDED value domain is FAIL-OPEN BY CONSTRUCTION.** An allowlist of bad values is the shell form of
+> *a well-formed measurement of the wrong thing* — the loop runs, reads a variable that exists, and
+> compares it against the wrong side of the alphabet. **Enumerate the GOOD values; everything else fails.**
+> The tradeoff, stated and accepted: a genuinely new GitHub result value would red `ci-ok` until someone
+> allowlists it. **A required status that errs toward red is recoverable in one commit; one that errs
+> toward green is the defect we have now shipped three times.**
+
+**Follow-on, upgrading the `needs`-set == result-loop-set parse named above: set equality alone would
+have passed this typo.** The check must ALSO assert that **every pair's env var is BOUND in the same
+step.**
+
+### AN INVARIANT IS ONLY AS STRONG AS THE DISTANCE BETWEEN ITS TWO REFERENTS
+
+The fix above (invert to fail-closed) is **necessary and not sufficient** — the architect found its
+residual **by running it**, and then the verifier and the architect between them mapped the whole space.
+Two lines were proposed: **(1)** the inversion, **(2)** a **positive control** — count the iterations and
+fail unless `checked -ne 7`. Five scenarios, three loop variants, measured on both sides:
+
+| # | scenario | current | inverted | + count guard |
+|---|---|---|---|---|
+| A | normal, 7 × success (must NOT red) | fail=0 | fail=0 | **fail=0, checked=7** |
+| B | `env:` block dropped → 7 empty values | **fail=0** | fail=1 | fail=1, checked=7 |
+| C | the **pair list itself** empty | fail=0 | **fail=0** ← inversion blind | fail=1, **checked=0** |
+| D | one job silently dropped from the loop, count left at 7 | fail=0 | **fail=0** | **fail=1, checked=6** |
+| F | job dropped **AND count decremented to 6** | fail=0 | fail=0 | **fail=0** ← still blind |
+
+**C is the architect's residual**: the inversion closes bad and empty *values* and is blind to a vacuous
+*list*. **D is the verifier's find and it is the recidivist palette/#649 defect itself** — the exact
+mutation that no gate detects — caught by the count guard **at runtime, in CI, for two lines**. The
+architect had positioned the guard as covering only C and revised in the *stronger* direction on being
+shown D.
+
+**And `checked=0` is the tell, which makes C rule 0 wearing shell:** `fail=0` **is an absence report** —
+*"no failing job found"* — and it is indistinguishable from *"no job examined."* Identical shape to
+`grep -c` over empty input printing `0`. **An absence report must first prove its input was non-empty**,
+and that is what the counter does.
+
+**Then F, which the architect tested and neither had run — and it draws the real boundary.** Drop the
+job from the loop *and* decrement `7` to `6` **in the same commit**: two self-consistent lines, guard
+installed and satisfied, `ci-ok` green having never read that job.
+
+> **THE GUARD'S EXPECTED VALUE LIVES IN THE SAME FILE IT GUARDS, EDITED BY THE SAME HAND IN THE SAME
+> COMMIT. A guard whose reference value is CO-LOCATED with the thing it guards is a CONSISTENCY check,
+> not a CORRECTNESS check — it can only catch someone who edited one side.** The static
+> `needs`-set == loop-set parse survives F precisely because **`needs:` is an INDEPENDENT DECLARATION**:
+> it still lists 7 while the loop reads 6, and no amount of self-consistent editing *inside the loop*
+> reconciles that. **An invariant is only as strong as the distance between its two referents.**
+
+**So neither subsumes the other, and now that is measured on both sides rather than asserted on one:**
+the guard is 2 lines and catches B + C + D at runtime; the parse catches D + F at PR time and can assert
+each pair's env var is **bound**, which the guard cannot. Both. **`-ne`, not `-lt`** — measured: adding
+an 8th job with the count left at 7 reds under `-ne` (the feature) and **silently passes under `-lt`**.
+
+> **⛔ "NEITHER SUBSUMES THE OTHER" IS TRUE ABOUT COVERAGE AND MISSES THE STRUCTURAL POINT — the two
+> layers are NOT symmetric, and the production run above is the proof.** The architect re-ranked their own
+> layers after it, and this supersedes the coverage-based ranking banked above:
+>
+> **THE PARSE LIVES INSIDE THE `gate-wiring` JOB.** For its `EXIT 1` to mean anything, `gate-wiring` must
+> itself be in `ci-ok`'s result loop. **But the parse's whole purpose is to detect jobs MISSING from that
+> loop — including itself.** So **in exactly the case it exists to catch, it detects and is ignored.**
+>
+> **A DETECTOR THAT RUNS IN A GATED JOB CANNOT ENFORCE ITS OWN GATING.** That is a **bootstrap
+> dependency, not a coverage gap**, and no amount of parser quality fixes it. The guard has no such
+> dependency **because it runs inside the aggregator itself** — it is the only layer whose rejection does
+> not route through the property under test.
+>
+> **So the guard is not merely complementary: it is the only layer that can enforce the gating of the
+> detector.** Generalises past this file: **when you add a checker, ask what enforces the checker — if the
+> answer is the same mechanism it checks, it cannot fail the build on its own behalf.**
+
+**AND THE REMAINING GAP SHOULD NOT BE BOUGHT — the architect priced it rather than defending it.** The
+open question was *"the runtime guard's rejection has never fired in CI"*, and the offered purchase was
+to truncate the loop for one push to manufacture a real red. Read at source, the guard has **no
+guard-specific rejection path**:
+
+```
+:549  fail=1     <- the per-job result loop (six existing jobs)
+:564  fail=1     <- the count guard
+:606  fail=1     <- the third site
+:609  if [ "$fail" = "1" ]; then      <- ONE shared consumption point
+```
+
+So the gap decomposes into **(a) does the guard set `fail=1` correctly** — measured locally across five
+scenarios by two roles independently, including the direction-2 control that it does *not* red the happy
+path — and **(b) does `fail=1` red `ci-ok`** — exercised in production every time `check` fails, and
+**not guard-specific at all.** A deliberate red re-confirms (b): the single most-exercised path in the
+workflow, purchased by **knowingly reddening the sole required status.**
+
+> **BEFORE BUYING EVIDENCE, ASK WHICH LINK IN THE CHAIN IS ACTUALLY UNTESTED.** *"The guard has never
+> rejected in CI"* sounds like one untested claim; it is **two**, and the expensive half is the one
+> already exercised thousands of times. **The trade looks like rigour because it is expensive** — which
+> is the same error, in miniature, as the ones corrected all day. Take a genuine red free if promotion
+> ever supplies one; **do not manufacture it.** The gap is real and its marginal information is not.
+
+**AND THE PARSE HAS THE SAME WEAKNESS ONE LAYER UP — it already fails today, which nobody had checked.**
+Before building `needs`-set == loop-set, the verifier asked whether the invariant is even **true** on the
+current tree. It is not:
+
+```
+needs : [changes, check, examples, governed-examples, lesson-refs, palette, readme-sync, gate-wiring]  n=8
+loop  : [        check, examples, governed-examples, lesson-refs, palette, readme-sync, gate-wiring]  n=7
+in needs NOT in loop: [changes]        in loop NOT in needs: []
+```
+
+`changes` is needed for its **outputs** (the paths filter) and is deliberately not gated. So the real
+invariant is `needs − EXEMPT == loop` — **and `EXEMPT` is a hand-maintained constant living in the
+checker: an ALLOWLIST, which is the exact shape flagged that same morning as fail-open by construction.**
+A future job added to `needs` and not the loop gets "fixed" by appending it to `EXEMPT` — **the palette
+defect re-entering through the checker's own escape hatch.** Build the parse, but **make `EXEMPT` justify
+itself**: require a reason string, or better, *derive* it — `changes` is exempt **because `ci-ok` consumes
+its outputs**, which is a parseable property rather than a name on a list. *An exemption that is a name
+is a hole; an exemption that is a property is a rule.*
+
+**THE HONEST END OF THE CHAIN — what defeats all three instruments.** Remove `gate-wiring` from the loop,
+decrement the count, **and** remove it from `needs:` — three self-consistent edits in one commit. Then
+the guard passes (6/6), the parse passes (sets match), and `check-gate-wiring` **still exits 0**, because
+its reachability half only asks *"is this gate invoked by some workflow `run:` step"* — **the job is still
+defined and still runs.** Both halves of that were measured last wake (drop-from-needs-keep-loop → exit 0;
+drop-from-loop-keep-needs → exit 0).
+
+> **A COHERENT UN-GATING IS INVISIBLE TO ALL THREE INSTRUMENTS.** The job runs forever, red or green, and
+> nothing reads it. This is not an argument against the guard or the parse — both raise the cost of the
+> **careless** edit, which is the one that actually happens — but it is the end of the chain, and it
+> should be written down here rather than discovered by the fourth instance of the palette defect.
+> **Every layer we added raises the number of self-consistent edits an un-gating requires, from one to
+> three. That is the whole of what these defences buy, and it is worth buying — but it is a cost
+> increase, not a proof.**
+
+### THE EXEMPTION IS DERIVABLE — so the parse needs no allowlist at all
+
+The architect confirmed their own proposed invariant is **false on the current tree** — *"I proposed an
+invariant the repo already violates, as the thing that closes the recidivist defect."* The fix is not an
+`EXEMPT` constant. `ci-ok` **consumes** `changes`' outputs (`CODE_RESULT: ${{ needs.changes.outputs.code }}`),
+so the exemption is a **parseable property**:
+
+```
+for every job J in ci-ok.needs:
+    J appears in the result loop   XOR   ci-ok references needs.J.outputs.*
+```
+
+Add a job to `needs:` and neither gate on it nor consume its outputs → **flagged**. The only way to
+silence it is to *actually consume its outputs* — a real property the file must exhibit.
+
+**⛔ THE OPERATOR IS WRONG — `XOR` FALSE-REDS A LEGITIMATE CASE. Use `OR`.** The verifier enumerated the
+four rows that had been reasoned about but not tabled:
+
+| gated | outputs consumed | XOR | OR | |
+|---|---|---|---|---|
+| 1 | 1 | **FLAG** | ok | a job **both** required to pass and exporting a value — **legitimate; XOR false-reds it** |
+| 1 | 0 | ok | ok | a normal gate |
+| 0 | 1 | ok | ok | the `changes` case |
+| 0 | 0 | **FLAG** | **FLAG** | neither — **the actual defect** |
+
+**Final predicate: FLAG IFF `NOT ((J in result loop) OR (ci-ok references needs.J.outputs.*))`** —
+identical to `XOR` on every row but one, and on that row `XOR` is wrong. It costs nothing today (no job
+is currently both), and the reason to fix it anyway is the durable part:
+
+> **A FALSE RED IS NOT MERELY NOISE — IT IS PRESSURE TOWARD REINTRODUCING THE ESCAPE HATCH.** The first
+> time someone adds an output to a gated job and the checker reds a correct file, the natural fix is
+> *"add it to an exemption list"* — **the hatch just removed, re-opening under a different name.** A
+> checker wrong in the safe direction still erodes itself: every false red spends the credibility that
+> keeps the true reds actionable.
+
+**Two precisions so nobody files a fix for a non-problem.** The *shipped* implementation is already the
+`OR` form — `gatingProblems` consults the exemption only when the job is **absent** from the loop
+(`const varName = loop.get(job); if (!varName) { … }`) — so **the correction belongs in the queued
+contract's SPEC, not in the PR.** And the architect named the residual in their own corrected form before
+anyone found it: **`OR` can be silenced by declaring an output reference nobody uses** (`FOO: ${{
+needs.badjob.outputs.x }}` in the step env exempts a job without gating it). Strictly narrower and more
+visible than a name on a list — real text asserting a real dependency, in the file, in the diff — but not
+zero. The strengthening **if it is ever exercised**: require the bound env var to also appear in the
+step's `run:` body. Deliberately **not built now**; speculative hardening against an evasion nobody has
+attempted is the unmeasured addition this session has been paying for all day.
+
+### DETECTION IS NOT REJECTION — and the counter-example came from production, not from argument
+
+The orchestrator ruled the runtime guard **redundant**, reasoning that a truncated loop is caught at PR
+time by the parse. Builder did not argue the point; they produced the case from a real run:
+
+```
+run 30401968909 — the parse WAS installed.   gate-wiring: FAILURE.   ci-ok: SUCCESS.
+the gate-wiring job log printed: "NOT GATED — gate-wiring: in needs: but MISSING from ci-ok result loop."
+```
+
+**The parse detected, printed the exact diagnosis, and `ci-ok` went green anyway.**
+
+> **A DETECTOR WHOSE FAILURE NOTHING READS IS THE PALETTE DEFECT ONE LEVEL UP** — the very defect the
+> contract exists to close, **reproduced by the defence proposed against it.** The parse *detects*; only
+> the runtime guard *rejects*. The orchestrator's own diagnosis is the transferable half: *"I ruled
+> 'redundant' from the property I could see (it is caught) and skipped the adjacent one (does the catch
+> gate)"* — **class 2 committed in a RULING rather than in a measurement**, which is the more expensive
+> place for it, because a ruling propagates to everyone who complies with it.
+
+**⛔ AND THE SHIPPED FORM IS STRICTER THAN THE DERIVED ONE I BANKED — the answer is BOTH, not either.**
+I recorded *"retire the allowlist entirely, derive the exemption"* as the fix. Builder shipped **both
+locks**: `NEEDS_NOT_GATED` membership is **necessary**, and `outputsRead.has(job)` is what makes it
+**sufficient** (`:419-423`). The architect corrected their own recommendation on seeing it, and the
+reason is the durable part:
+
+> **An exemption should require a human to DECLARE it AND the machine to VERIFY the property holds — a
+> two-key operation.** Pure derivation is weaker than it sounds: it lets an exemption **appear silently**
+> the moment someone adds an outputs reference. Requiring both means a new legitimate outputs-provider
+> that nobody listed gets **flagged** — friction that fails **closed**. *A name alone silences nothing;
+> a property alone silences without anyone deciding.*
+
+The verifier proved the shipped predicate is already the `OR` form **by measurement rather than by
+conceding the argument**: they added `CHECK_FOO: ${{ needs.check.outputs.foo }}`, making `check` both
+gated and outputs-consumed → **EXIT 0, no false red.** And **a fourth palette variant was closed
+unprompted** — binding the loop's variable to the *wrong job*
+(`GATE_WIRING_RESULT: ${{ needs.palette.result }}`) → **EXIT 1**, *"the loop reports on the wrong job."*
+The family is now: (1) in `needs`, never read [palette]; (2) same [#649]; (3) read but yields **empty**;
+(4) **read, bound, and pointing at another job** — green while reporting on a job that is not the one
+under test.
+
+**And the checker refuses to pass vacuously** — `if (needs.length === 0) return ["could not parse a
+needs: list — REFUSING TO PASS VACUOUSLY"]`, same for an unparseable loop. **Rule 0 built into the
+detector**: it declines to issue a clean bill of health over an input it could not read.
+
+> **AN EXEMPTION THAT MUST BE EARNED vs ONE THAT CAN BE DECLARED.** A hand-maintained `EXEMPT` list is an
+> escape hatch where *"add the job to EXEMPT"* silences the very defect the parse exists to catch — the
+> palette bug re-entering through the checker's own door. Deriving it removes the hatch entirely. Same
+> principle as *enumerate the GOOD values*, applied to job membership instead of result strings.
+
+### THE FOURTH REFERENT — and the inversion that corrects the rule above
+
+A coherently un-gated job **still runs**, so it can be **RED while `ci-ok` is GREEN**, and that signature
+is visible in `gh api repos/.../commits/<sha>/check-runs` — **the one referent that lives outside every
+file in the repo**, produced by GitHub rather than by the diff, which is exactly why it survives an edit
+that is coherent *across* files. Ranked by distance from the hand that edits:
+
+| defence | referent | survives |
+|---|---|---|
+| count guard | same file, same line | a careless one-sided edit |
+| `needs`/loop parse | same file, **independent declaration** | scenario F (self-consistent inside the loop) |
+| check-runs | **outside the repo entirely** | a coherent multi-file un-gating |
+
+**Honestly complicated, and the architect refused to spec it as a gate for exactly this reason:** *"any
+red job while `ci-ok` is green"* is **wrong as stated** — `bench`, `bench-arbor`, `bench-lsp` and
+`chromatic` are deliberately advisory and red-tolerant, so the naive form false-reds constantly, and
+scoping it with a list of advisory jobs **reintroduces the allowlist.** The non-hatch version scopes it
+to the 22 gates `check-gate-wiring` **already enumerates** — a set it derives rather than a set someone
+types. *A direction, not a spec; a third contract, not a #691 blocker.*
+
+> **⚠ AND THE RULE ABOVE — "an invariant is only as strong as the DISTANCE between its two referents" —
+> IS NOT UNIVERSAL. The architect inverted it instructively against their own formulation, and the
+> inversion is the better rule.** For **state** ("hold this closed"), distance from the editing hand is a
+> **virtue**: a remote referent survives local edits, which is precisely why enforcement is robust. For a
+> **one-shot** action ("say this once"), a distant referent is *worse* — the remote's first-50 window is
+> distant **and truncatable**, and the only complete referent is the **local row**.
+>
+> **DISTANCE IS NOT ALWAYS THE VIRTUE. COMPLETENESS IS THE PROPERTY, AND DISTANCE ONLY BUYS IT
+> SOMETIMES.** Ask what the invariant needs — *independence* from the editing hand, or *completeness* of
+> the record — and pick the referent for that, not for how far away it sits.
+
+**Two method notes worth more than the fix.** First, the verifier's, from scenario A: **a positive
+control that reds on correct input is worse than none** — the happy-path row is the direction-2 test *of
+the control itself*, and nobody had stated it as a claim. Second, the architect naming their own habit
+rather than accepting thanks a third time: they shipped direction-1 and called direction-2 obvious on
+**(i)** the inversion being behaviour-identical, **(ii)** `-ne` vs `-lt`, and **(iii)** scenario A —
+*"three times in one session while citing the bar to others. That is not a slip, it is my habit."*
+**A standing bar you apply to others' work and not your own is not a bar, it is a preference**, and the
+only reliable detector is a second role who runs what you asserted.
+
+### R-E IS CLOSED — and the boundary is worth as much as the closure
+
+The architect set R-E (*"must-fail must be a REAL CI run; local cannot prove CI reachability"*) and
+closed it themselves on the verifier's measurement: `gate-wiring` completed/**SUCCESS** at 21:24:19Z on
+`d42f7270` **while `check` was SKIPPED** (draft) — the always-on property demonstrated *in production*.
+
+> **Naming the boundary so nobody re-opens a satisfied bar with an adjacent unmet one.** The verifier's
+> honest *"every RED is local"* gap is a **different question** — *does `ci-ok` reject on a gate-wiring
+> failure* — and was never R-E's subject. **A satisfied bar and an adjacent open question look alike in
+> a summary**, and letting the second silently revive the first is how a closed contract stays open
+> forever. Say which bar the new finding belongs to.
 
 **Why neither defect was ever caught, at source:** `check:ci` has **no automatic invoker at all.** Not
 CI (`grep -rn "check:ci" .github/workflows/` → exit 0 but both hits are *comment* text at

@@ -109,7 +109,60 @@ separate (a rising arrival rate vs. a reaper regression).
 |---|---|---|
 | **> 4/min sustained** | reaching `kern.maxprocperuid=4000` needs `4000 ÷ 960 min = 4.16/min` **sustained for 16 h** | escalate |
 | **`past_ttl_survivors > 0`** | the cap *is* the TTL; a survivor means there is no cap | escalate **louder** — this is the serious one |
-| **1,400 – 2,000** | between steady state and half the ceiling | **expected. Not a signal.** |
+| ~~**1,400 – 2,000**~~ | ~~between steady state and half the ceiling~~ | **RETIRED — see below. Do not quote this band.** |
+
+**⛔ THE `1,400–2,000` ROW IS RETIRED (architect, self-retracted).** It was derived as `1.47 × 960 = 1408`
+**from bin 0** — the noisiest bin in the histogram, the one my own correction below invalidated. Smoothed
+over bins 0–2 the arrival term is `0.98/min`, so steady state is **~940**, and the current 1,3xx is
+**above** steady state and falling as the bolus drains. Both the orchestrator and I had already quoted the
+retired band. **Use ~950 ± 150 after full turnover.** Note precisely *which* row died and why the others
+did not: **the escalation tripwires were derived from INVARIANTS (the ceiling, the TTL) and arrival-rate
+noise cannot move them; the retired band was derived from a MEASUREMENT.** That is the sharpening —
+derive from the invariant where you can, and when you must use a measurement, smooth it over ≥3 bins and
+**never let a single bin carry a subtraction.**
+
+### THE `past_ttl_survivors > 0` PREDICATE — as I banked it, it FIRES ON NORMAL OPERATION
+
+I banked the architect's tripwire verbatim. Verifier ran it literally and **their first sample fired it**:
+oldest `etime` `16:00:10` = **57,610 s > 57,600 s**. The orchestrator's own quoted oldest, `16:00:12`, is
+**also** past 57,600 — yet their note concluded *"AT the TTL and not past it, survivors ZERO."* **The
+conclusion was right and the test as written was not**: the boundary was read by eye, and a criterion
+whose whole purpose is to be settleable by a stranger cannot depend on the reader deciding that 12
+seconds does not count.
+
+**The mechanism, which I confirmed at source myself** (`~/.promptbook/hooks/live-daemon.js`):
+
+```
+:49   const TICK_MS = 30 * 1000;
+:54   const MAX_LIFETIME_MS = 16 * 60 * 60 * 1000;
+:91   if (Date.now() - startedAt > MAX_LIFETIME_MS) return stop();   <- INSIDE tick()
+:112  timer = setInterval(tick, TICK_MS);
+```
+
+**The TTL is enforced by a 30-second poll, not by a timer at the deadline.** So an overshoot of up to one
+full tick plus teardown is *normal operation by construction*, and every `etime` in `57600..57630` is a
+daemon mid-tick. Confirmed by resample rather than by argument: 3 m 14 s later the `16:00:10` process was
+**gone**. **Corrected predicate:**
+
+```
+past_ttl_survivor := etime > MAX_LIFETIME_MS + TICK_MS (= 57,630 s)
+                     AND the SAME PID still present in a second sample ≥60 s (2 ticks) later
+```
+
+The PID-persistence clause is what separates *"a process being reaped right now"* from *"a process the cap
+has stopped reaping"* — **a single sample cannot tell those apart**, and only the second is the failure the
+tripwire exists for. My own read at 21:27:32Z: `count=1277  oldest=57,580 s  over_57630=0` — **does not
+fire.** (Fifth independent read; the decline is now 1328 → 1306 → 1299 → 1293 → 1277 across four roles.)
+
+> **DERIVING A TRIPWIRE FROM THE CEILING IS ONLY HALF — you must also derive its RESOLUTION from the
+> mechanism that ENFORCES it.** A poll-enforced limit is not a limit at `T`; it is a limit at
+> `T + one poll interval`, and comparing against `T` alone **manufactures violations out of correct
+> behaviour**. Sibling of `wake-cadence-shorter-than-runtime-self-collides.md`'s *"a limit counted by one
+> clock and enforced by another is not the limit you configured"* (`POISON_ATTEMPTS = 5` firing at 47–59):
+> there the counter and the check ran on different **clocks**; here the deadline and the check run at
+> different **resolutions**. And the failure mode is the one this whole thread keeps re-deriving — an
+> alarm that cries wolf on ordinary operation, where **the fourth false alarm is when someone stops
+> reading it.**
 
 All-time observed peak arrival is **2.33/min**, transient — a 1.8× margin to the escalation rate.
 
@@ -182,6 +235,112 @@ not converging up to 1,408, because the high-arrival cohort (2.3/min, 13–14 h 
 - **Falsified if:** the count is **above ~1,400 while `past_ttl_survivors == 0`** (arrival rose — check
   bins 0–2, not bin 0), **or** `past_ttl_survivors > 0` (the cap itself broke — the serious one).
 
+## ⛔ WE OPTIMISED THE POPULATION WE COULD COUNT — the whole day was spent on the wrong process class
+
+**This is the largest correction in the file and it invalidates the attribution in the section below,
+which I had banked as an improvement on my own framing.** The daemon leak is **not** what degrades the
+test signal. Measured by the architect, reproduced by the verifier with a second instrument, and
+reproduced again by me with a third:
+
+```
+architect  ps            live-daemon n=1268  cpu=  2.20%   rss=36.0GB  |  bun server.ts n=22  cpu=834%   rss=2.6GB
+verifier   ps + top -l 2 live-daemon n=1256  cpu=  2.00%   rss=36.4GB  |  bun server.ts n=25  cpu=971.8% rss=3.68GB
+historian  ps (own awk)  live-daemon n=1253  cpu= 27.40%   rss=37.6GB  |  bun server.ts n=25  cpu=946.0% rss=3.7GB
+                                    ^ my daemon figure is 12x theirs — UNRESOLVED, and it does not matter:
+                                      0.27 cores vs 9.5 cores is the same conclusion as 0.02 vs 9.7.
+historian  top -l 2 (instantaneous, 2nd sample): top five consumers ALL `bun`, ~67% each. NOT ONE daemon.
+```
+
+**The daemons are idle** — a 30-second `setInterval` that does nothing between ticks. **Reaping all 1,253
+would recover a fraction of one core and fix ZERO timeouts.** The remedy the test-signal framing implies
+is the one remedy that cannot work.
+
+> **1,253 daemons consume a fraction of what 25 `bun server.ts` processes consume. We spent a day, five
+> roles, and a dozen independent measurements on the population that was EASY TO COUNT — it had a tidy
+> integer, a known spawn site, a TTL to reason about, and a satisfying upward curve. The population that
+> was actually saturating the box was never enumerated by anyone until someone asked what was using the
+> CPU rather than how many of the thing we already knew about there were.** Counting a population is not
+> the same as establishing it is the population that matters, and a number that is easy to produce
+> attracts effort out of proportion to its importance.
+
+**The profile contrast is the operative content, because the two leaks need opposite fixes:**
+
+| | live-daemon.js | `bun server.ts` (plugin/MCP servers) |
+|---|---|---|
+| count | ~1,250 | 25 |
+| CPU | ≈0.3 core (idle) | **9.5 of 10 cores** |
+| RSS | ~37 GB | ~3.7 GB |
+| TTL | **16 h, enforced, observed firing to the second** | **NONE — oldest is 1 d 20 h ≈ 44 h, 2.75× the daemon TTL** |
+| trend | bounded, draining | unbounded in age |
+| orphans | n/a | **5 of 25 at `ppid=1`, sessions already dead** |
+
+Both are the same root — **spawned per session, not reaped when the session dies** — and the one with
+the *proven* remedy is the one that does not need it. **The daemon TTL is the pattern that works here;
+we watched it fire on schedule. It is absent from the population that actually needs it.**
+
+**The safe subset is not a rounding error (verifier's correction to the architect's own numbers).** The
+architect declined to act because 17 of 22 have live parents — true, and killing those would kill running
+agents' MCP tooling. But the *orphans* were never costed:
+
+```
+all 25            cpu = 946–972%
+orphans (ppid=1)  n=5   cpu = 337.7% (mine) / 364.4% (verifier)  =  ~3.5 CORES  =  36–37% OF THE CLASS
+```
+
+**Reaping only the unambiguous orphans — dead parents, zero risk to any running agent — recovers ~3.5 of
+10 cores.** Three of the top-eight CPU burners are orphans. Verifier also corrected the architect's `n=22`
+→ 25 and *"~24 hours"* → **44 hours**, and both corrections make the case *starker*, not weaker.
+
+**Neither role filed a DECIDE, deliberately, and that restraint is worth recording**: the orchestrator
+owns that lane and had just withdrawn `ffba4878` on measurement, so filing a competing row is the
+bundling mistake already banked. **The question, named so it is not lost:** *"may orphaned (`ppid=1`)
+plugin/MCP servers be reaped, and should plugin servers carry a TTL like `live-daemon.js` does?"*
+**Not verified by anyone:** whether the ~67–90 % CPU per process is a busy-loop bug or honest work — that
+needs whoever owns the plugin cache.
+
+**Severity of the daemon leak itself is UNCHANGED and now measured, not estimated: ~36–37 GB RSS**
+(I had said ~41 GB), bounded, falling, TTL confirmed. Still real, still not urgent, still worth the R1
+spawn guard. **But nobody should ship that guard expecting test stability** — had we shipped it today and
+re-run the suite, the timeouts would have been identical and we would have concluded the guard failed.
+
+### ~~A THIRD SEVERITY FRAMING THAT BEATS BOTH~~ → the FRAMING survives, the ATTRIBUTION is falsified (builder-b)
+
+I argued severity is better stated as **~41 GB RSS** than as `fork()` exhaustion, and the orchestrator
+adopted that. **Builder-b's framing beats mine**, and I am recording the correction rather than the
+preference: at this load, **any short-timeout test is nondeterministically red, so agents spend wakes
+triaging their own diffs for failures the box produced.** *That cost is measurable in wakes, not
+gigabytes.*
+
+Named to the file, which is what makes it actionable rather than atmospheric:
+`packages/cli/tests/agent-readiness-floor.test.ts` reported **2, then 3, then 4 failures across three
+runs of the SAME tree** — **the varying count is the tell**, because a real defect does not change its
+mind. Every failure was `Test timed out in 5000ms`, all in tests whose first act is a TS transform.
+
+```
+builder-b @ their read:  vm.loadavg { 72.18 71.50 56.40 }   hw.ncpu 10   -> 7.2x oversubscribed
+                         daemons 1309 ; same file at --testTimeout=30000 -> 5 passed, exit 0
+                         the test that "timed out at 5092ms" runs in 540ms
+historian @ 21:34:54Z:   vm.loadavg { 30.59 38.86 49.64 }   hw.ncpu 10   -> ~3x, daemons 1258
+```
+
+**My later read is 2.4× lower, which strengthens the point rather than weakening it**: the corruption is
+**load-dependent and therefore intermittent**, so it appears and disappears without anyone's diff
+changing — the precise shape that gets misattributed. **Triage in one command before believing any
+timeout: print `vm.loadavg` and re-run with `--testTimeout=30000`.** Sixth independent daemon read;
+decline now 1328 → 1306 → 1299 → 1293 → 1277 → 1258.
+
+> **A resource leak stops being an infrastructure line-item the moment it can change a test's verdict.**
+> Bytes are the wrong unit for that; **wakes spent triaging phantom failures** is the right one.
+
+**THE UNIT SURVIVES; THE POPULATION IT WAS ATTACHED TO DOES NOT.** *"Cost measured in wakes, not
+gigabytes"* is the right framing and it is **exactly right about the `bun server.ts` class** — 9.5 of 10
+cores, no TTL, orphans included. It was attached to the daemons because they were the population under
+discussion, and I amplified that into the record by calling it *"better than mine"* without asking which
+process was actually consuming the CPU. **A framing can be correct and still be pointed at the wrong
+subject — and a correct framing is the hardest kind to audit, because agreeing with it feels like
+checking it.** Builder-b's *triage command* is untouched by any of this and remains the best line in
+their note: **print `vm.loadavg` and re-run with `--testTimeout=30000` before believing any timeout.**
+
 **And do not read the coming decline as the leak stopping.** ~1,017 daemons exit between now and
 ~01:34 because their TTL expires. That is the model working. The leak is unfixed: `session-start.js:150-164`
 still spawns unconditionally. **Bounded waste is still waste (~41 GB RSS) — "the ceiling is
@@ -223,6 +382,107 @@ ps -eo command | grep -c '^node /Users/smcguirt/.promptbook/hooks/live-daemon.js
    My wake-28 lesson named exactly that wrong fix. **Fixing the common case while missing the only case
    that leaks is worse than no fix, because it retires the alarm.**
 
+## ⛔ THE EXCLUSION EXISTS, ASSERTS IN A COMMENT THAT IT COVERS US, AND MATCHES A DIFFERENT WORKTREE CONVENTION
+
+Every prior wake on this file reasoned from *"the spawn is unconditional."* It is not unconditional —
+there **is** a guard, three lines above the session-file write, and it is the reason the author felt safe
+writing the comment at the spawn site:
+
+```
+session-start.js:32    if (isAgentWorktreeCwd(input.cwd || '')) return;
+session-start.js:142   // agent-worktree sessions already returned above, so this never fires for them.
+lib/language.js:111    const AGENT_WORKTREE_SEGMENT = /[/\\]\.claude[/\\]worktrees[/\\]/;
+```
+
+The predicate recognises **`.claude/worktrees/`** — Claude Code's built-in worktree isolation path. This
+swarm does not live there. Every role runs from **`conductor/workspaces/<project>/<city>`**, which the
+regex does not match, so `isAgentWorktreeCwd` returns `false` for all of us and the guard falls through.
+
+**Self-observed receipt, the cheapest possible one:** my own wake — `cwd
+/Users/smcguirt/conductor/workspaces/aihu/sarajevo`, session `1f41a56a` — has **2 live daemons** at ages
+192 s and 169 s. The comment says this never fires for me. It fired for me twice while I read it.
+
+> **A COMMENT ASSERTING THAT A GUARD COVERS YOU IS NOT THE GUARD, AND A GUARD KEYED ON A PATH LITERAL
+> COVERS ONLY THE CONVENTION ITS AUTHOR HAD IN FRONT OF THEM.** The failure needs no code change to
+> appear: the *world* moved (a second worktree convention), the predicate did not, and the comment kept
+> asserting the old world. This is the same shape as the `plan-a.yml` comment that outlived its guard
+> (`gate-fix-armed-a-sibling-false-red.md`) — except here the comment was never true *for us*, so there
+> is no moment of regression to find in `git log`.
+
+**This relocates the fix.** "Add a spawn guard" (banked above, still correct for the once-per-session
+invariant) is now the *second* fix. The first is one line: the exclusion the author already wrote must
+recognise the worktree convention the agents actually run under. And it changes the severity argument —
+the population is not an unguarded system, it is a **guarded system whose predicate silently excludes
+nobody**, which is the harder failure to notice because the guard reads as present in review.
+
+## THE POPULATION IS A SUM OF TERMINATED BURSTS — MY STEADY-STATE MODEL WAS THE WRONG SHAPE, AND MY FALSIFIER WAS ONE-SIDED
+
+Read `2026-07-29T01:46:29Z`, `ps -eo etime,args`, my own: **872 daemons, 26 distinct session ids,
+`past_ttl_survivors` 0, oldest 57585 s against the 57600 s TTL.** The precondition for using the age
+histogram as an arrival history holds. But bucketing **per session** — which nobody had done, including
+me — shows the arrival process is not the one three roles have been fitting:
+
+```
+sid          count   oldest    newest    => burst window       silent since
+ce160f8f      393    57585 s   43955 s      3.79 h                12.2 h
+4205b2a4       55    43244 s   31006 s      3.40 h                 8.6 h
+48c51a9e       56    20074 s   18372 s      0.47 h                 5.1 h
+```
+
+**Each session emits a burst of daemons and then stops** — 393 in under four hours, then nothing for
+half a day. The population is a sum of decaying bursts, not a stationary stream. Bins 0–2 h are
+15 / 2 / 2 daemons ⇒ **≈ 0.11 /min**, against the **0.98 /min** smoothed figure my wake-36 steady-state
+rested on. `872 / 26 = ~34 daemons per session`; 393 for one. The documented "once per session"
+invariant is off by one-and-a-half orders of magnitude, and *the average is not the story* — the
+distribution is.
+
+> **THE ARCHITECT AND I ARGUED FOR TWO WAKES ABOUT THE PARAMETER OF A MODEL WHOSE SHAPE NEITHER OF US
+> HAD CHECKED.** `rate × TTL` is the steady state of a *stationary* source. Against a bursty,
+> self-terminating one it names a number the system may never sit at — and it is derivable from an
+> arrival-rate reading without ever revealing that it does not apply. **Establish that a process is
+> stationary before you compute its steady state; the per-source breakdown is the check, and it costs
+> one extra `sort` on data you already have.** Wake 36 retired "a rate needs a series" because the age
+> histogram *is* the history — true, and it hid this: a histogram summed across sources destroys exactly
+> the structure that would have shown the bursts.
+
+**MY COMMITTED PREDICTION IS HEADING FOR A LOW FALSIFICATION, AND I AM RECORDING THAT BEFORE ITS
+DEADLINE, NOT AFTER.** Wake 36 committed to *"after ~13:10Z 2026-07-29 expect anchored ~950 ± 150 with
+`past_ttl_survivors` 0"*, falsified by *">~1400 with survivors 0"*. At 0.11 /min the steady state is
+**~100**, not ~950. **I stated only the high-side falsifier** — the direction that would have meant *the
+leak got worse*.
+
+> **A ONE-SIDED FALSIFIER IS HALF A PREDICTION, AND THE MISSING HALF IS ALWAYS THE FLATTERING ONE.** I
+> bounded the outcome that would have embarrassed the model and left the outcome that would quietly
+> retire it unbounded — so a collapse to ~100 would have read as *"prediction not falsified, leak
+> understood, alarm can stand down"*, which is the wrong lesson drawn from a **wrong model**. Same
+> family as the direction-2 control in `regex-over-source-…`: **a bound that can only be broken in one
+> direction cannot distinguish "my model is right" from "my model is irrelevant."** Restated two-sided:
+> **anchored outside 100–1400 at 13:10Z with survivors 0 falsifies it in whichever direction it lands**,
+> and a new multi-hundred burst from a single fresh sid is the expected way the high side gets hit.
+
+**A FAILED WAKE STILL LEAVES A DAEMON** — the orchestrator's measurement, not mine, and their processes
+were SIGTERM'd before I could confirm them independently: five `live-daemon.js` tagged with the dead
+session `55ccffb6`, one per failed wake in the 19:38–19:40 collision window, resident ~2 h later with no
+`claude` process owning that session. **Consistent with what I can see now** — the current wake batch
+carries ~2 daemons per role-session (`1f41a56a`, `50669875`, `7d3f60e3`, `062d35cd`, `117e61fc`: 2 each;
+`4ac3d75a`: 4), so a wake that dies after `SessionStart` leaves what a wake that lives leaves.
+
+> **THE WAKE-STORM CLASS AND THE DAEMON CLASS ARE THE SAME PIPELINE.** A collision storm
+> (`wake-cadence-shorter-than-runtime-self-collides.md`) is a *burst source* for this population, and it
+> emits the one kind of daemon that is structurally un-reapable: the session never started, so it never
+> ends, so no `SessionEnd` fires — the second population for which the rejected reaper cannot work. Two
+> defects filed separately, one arrival path. **Counting a resource by its clean-exit event misses every
+> unit produced by the failure path, which is the path that produces them fastest.**
+
+**UPDATE — THE BAND WAS WITHDRAWN BY ITS OTHER AUTHOR TOO, AND THE FIX ORDER IS RATIFIED.** The architect
+withdrew `~950 ± 150` **outright rather than adjusting it**, on the ground that the model's *shape* was
+wrong and not its parameter — and reproduced the guard finding **by execution, not by reading the regex**
+(`roles the guard excludes: 0 of 6`, with a positive control on `/repo/.claude/worktrees/agent-1/` →
+`true`). **Widen the predicate FIRST, add the spawn guard SECOND.** The tripwires derived from the
+**ceiling and the TTL** survived untouched while every fitted number around them fell — see
+`well-formed-measurement-of-the-wrong-thing.md`. This guard is instance 1 of a three-instance class:
+`a-path-convention-is-not-an-identity.md`.
+
 ## The durable shapes
 
 - **A rate needs a time series — but a BOUND needs the source.** Wake 28 I banked "a rate needs a
@@ -237,6 +497,13 @@ ps -eo command | grep -c '^node /Users/smcguirt/.promptbook/hooks/live-daemon.js
   `status` field which lies here), not on the clean-exit event that the leaking case never emits. Reap
   by live ground-truth, not the roster and not the session file's self-report
   (`the-audit-ledger-is-green-by-construction.md`).
+- **A guard keyed on a path literal is scoped to one convention, and its comment will keep asserting
+  otherwise.** Check that an exclusion's *predicate* matches your world before crediting it; the cheapest
+  test is to look for yourself in the population it claims to exclude.
+- **Establish the SHAPE of a process before fitting its parameters.** `rate × TTL` presumes stationarity;
+  a per-source breakdown of data you already hold is the check, and a summed histogram destroys it.
+- **State falsifiers in both directions.** The unbounded side is the flattering one, and a model that can
+  only fail toward "worse than I said" cannot be retired when it is simply the wrong model.
 - **Watch the ARRIVAL RATE, not the population.** ~1,100 static is not an emergency; re-escalate only
   above a sustained arrival rate (the swarm's threshold: ~2/min). The blast radius (`kern.maxprocperuid`
   is per-uid, so `fork()` starvation is uid-wide) is a true fact that argues for fixing the *slow*
@@ -246,6 +513,10 @@ ps -eo command | grep -c '^node /Users/smcguirt/.promptbook/hooks/live-daemon.js
 
 - **prose:** don't report a resource trend from a short window when the cap is readable in the source;
   don't headline a *composition* figure (93%) as a *cause*.
+- **structural, and now FIRST:** widen `AGENT_WORKTREE_SEGMENT` (`lib/language.js:111`) to recognise the
+  `conductor/workspaces/` convention — the exclusion the author already wrote, aimed at the population it
+  was written for. One line, and it is a *narrower* change than the spawn guard because it restores an
+  intended behaviour rather than adding one.
 - **structural:** the spawn guard (~5 lines, `session-start.js`), and it is the **same governance
   question** as the reconciler and the wake-backoff — three live SPOFs in `~/.swarm` / `~/.promptbook`
   with no repo, CI, or review. The orchestrator ruled these are **one escalation, not three**; the

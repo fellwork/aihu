@@ -154,12 +154,100 @@ cannot recognise tells you nothing; you know your own branch name on sight. And 
 builder-b adopted, which is the real remedy: **`git worktree add --detach <tmp> <sha>` — never
 a bare `git checkout` in a worktree you did not create.**
 
-**Tally: six events in two days — four harmful, one benign, one near-miss.** The near-miss is
+**A SEVENTH within the same wake, and it gives the corollary that makes the hazard survivable.** The
+architect published `bun run check:pre-push → EXIT 0` for `architect/recon-authority` and then found
+`git branch --show-current` in that checkout → **`feat/config-in-vite-config`**. `check:pre-push` runs
+against the **working tree**, so they measured a branch nobody had asked about and reported it as the
+branch they meant — hours after banking a rule about instruments that cannot see what you asked, and in
+the same wake builder-b posted the hazard.
+
+> **The blast radius of a branch swap is EXACTLY the commands that read `HEAD` or the working tree.
+> REF-QUALIFIED commands are immune.** `git show origin/main:<path>`, `git diff origin/main...<branch>`,
+> `git ls-remote` name their ref and **cannot be moved by someone else's checkout**; `git log`,
+> `git status`, `wc -l <file>`, and every task runner are all working-tree readers. So when you discover
+> you were on the wrong branch, **do not throw away the wake — partition your claims by whether they
+> named their ref.** The architect's ref-qualified conclusions survived intact; only the working-tree
+> claim was void. That partition turns a total loss into a scoped retraction, and it is the practical
+> reason to prefer ref-qualified commands even when you are certain of your branch.
+
+**Tally: seven events in two days — four harmful, one benign, two near-misses.** The near-miss is
 the most instructive of the six, because its damage would have been a *false finding entering
 the record*, which no amount of re-reading the worktree would have caught afterwards. Rung
 unchanged and **still unbuilt**: prose (`branch --show-current`, detached worktrees) →
 structural (**the supervisor pins each role's checkout per wake**). Six occurrences is now the
 argument.
+
+## A DEFECT IN LESSON-WRITING ITSELF: the rung written about the COMMAND, not the CLASS
+
+The historian's job is to bank rungs, so a defect in how a rung is phrased belongs here as much as any
+incident. The orchestrator diagnosed one against a lesson they carried:
+
+> *"I already carry `git diff main..branch` renders merged-since files as deletions; use
+> `git log main..branch` to see what the branch DID. I then used `git log main..branch` as if IT were
+> content-truthful. **The rung was written about the wrong command, not about the class.**"*
+
+The banked rung named a **bad command** and a **good command**. It did not name the **property** —
+*a two-dot range answers a question about SHAs* — so it protected against the one instance it was
+written from and **licensed the next one**, which arrived via a different command with the same defect.
+A squash merge severs sha-identity, so `git log main..branch` and `merge-base --is-ancestor` are exactly
+as content-blind as the diff the rung had condemned.
+
+> **A lesson pinned to a command generalises worse than one pinned to the class, and worst of all when
+> the command it recommends shares the defect it warns about.** Test for it when filing: *if the tool
+> changed but the property held, would this text still be right?* If it names commands and not
+> properties, it will license its own recurrence — and the author will feel protected, which is the part
+> that makes it expensive.
+
+Same axis as the day's other measurement finding, and they are the pair: **write the rung about the
+property; then, before believing a negative, check your instrument could have produced a positive**
+(`well-formed-measurement-of-the-wrong-thing.md`). Four hand-set thresholds were also filed in one day —
+three wrong about **where** and one wrong about **precision** (the `57600` TTL boundary) — the same
+class arriving on a new axis, which is what a class-phrased rung would have caught and a
+command-phrased one did not.
+
+## A CONVENTION THAT CANNOT BE SATISFIED — "draft until judged" suppresses the evidence it demands
+
+The swarm's convention is *draft until judged*; the judging standard is CI evidence. **On a draft,
+`check` is SKIPPED while `ci-ok` goes green by design** (`plan-a.yml:481-495`), so a draft's green
+carries **zero information**. Builder-b hit it exactly and applied the rule **against their own PR**
+before anyone asked — the hardest direction to apply it in — and then named the trap: *"draft until
+judged means it CANNOT ACCUMULATE CI EVIDENCE."*
+
+> **ONE MECHANISM SERVING TWO SEMANTICS.** `draft` currently means both *"I am still writing this"* and
+> *"do not run the expensive checks."* Those are different statements. **A convention that judges on CI
+> evidence while holding the work in the state that suppresses CI evidence can never be satisfied — a
+> status flag that means both "not finished" and "do not check" cannot express "finished, please
+> check."**
+
+**And `draft` is doing no protective work here**, which is what makes the resolution free: *readying is
+not landing*, the do-not-ready constraint was discharged with its receipt (#679, `43c47c46`), landing
+stays with the interactive session, and **branch protection plus a reviewer enforce "do not merge
+unreviewed work" independently of draft status.** So draft is only suppressing the evidence. **Use
+`draft` for "still writing" and ready-and-unmerged for "done, awaiting judgment."**
+
+This is the same shape as the sync mirror's two arms (`the-audit-ledger-is-green-by-construction.md`),
+where *enforce forever* and *say this once* shared one mechanism and one of them was wrong. **When a flag
+carries two meanings, the weaker meaning silently governs the case where they disagree** — and the case
+where they disagree is exactly the one you built the convention for.
+
+## AN EMPTY CONTRACT IS WORSE THAN NO CONTRACT — decline it, do not leave it looking claimable
+
+`C-FEL-CIOK-GATING-INVARIANT` was queued as the written form of a spec — and the architect measured every
+clause of it as **already shipped** in the PR (the gating parse, the double-locked exemption, the runtime
+guard, the refuse-to-pass-vacuously arm), leaving exactly one deferred item that had already been priced
+as *speculative hardening against an evasion nobody has attempted*.
+
+> **A contract whose entire spec is already in the tree should not be offered at all.** With `WIP=1`, an
+> offered-but-empty row is worse than no row: **a builder claims it, reads the spec, finds it
+> implemented, and spends the only lane discovering that.** Decline it with the reason in the recon —
+> *"SUPERSEDED: shipped in #691; residual is conditional and unscoped"* — so the parent **leaves the
+> queue declined rather than sitting there looking claimable.**
+
+**And record which way the causality ran**, because it is the good version of a thing that usually goes
+wrong: **the builder shipped the `OR` form before the note recommending it existed, and shipped it
+stricter than the spec asked.** The spec's only lasting contribution was an operator error that a
+reviewer caught. **The implementation led the design here, and the record should say so** — a design note
+written after the fact reads as though it directed the work unless someone states otherwise.
 
 ## The through-line
 

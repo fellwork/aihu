@@ -114,6 +114,30 @@ the argument here — one occurrence reads as an oversight, two reads as a missi
 Recording the second is the point; keeping only the first would understate it exactly the way the
 concurrent-instance tally would have (`promotion-rungs.md`, row 8).
 
+## Instance 5 — the row said `offered`, UNCLAIMED, while a draft PR was already fixing it
+
+The orchestrator amended the bar on `C-FEL-SCAFFOLD-CFTEAM-TYPECHECK` — rewrote the root cause, promoted
+the matrix arm to required, struck a stale acceptance clause — **on a contract that already had work in
+flight against it.** Draft PR `#696` had been open for ~50 minutes, fixing both defects and shipping a
+test. **Nothing in the ledger said so**, and the amendment nearly sent a builder to rebuild it.
+
+> **THE CLAIM IS SUPPOSED TO BE THE LOCK. AN UNCLAIMED ROW WITH AN OPEN PR MEANS THE LOCK WAS NEVER
+> TAKEN — so the ledger cannot warn you, and the PR list is the only place the work is visible.** Both
+> facts were one command apart and they were run in the wrong order: the contract row first, the open PRs
+> later. **Rule: before amending or re-offering any contract, `gh pr list --state open` and look for a PR
+> whose title matches the contract subject.**
+
+**This is not a criticism of pushing a draft early** — that is the durability rule working exactly as
+intended. **It is a gap in the claim discipline *around* it: the draft went up, the claim did not.** The
+two halves of "make your work visible" are load-bearing separately, and this repo's own rules reward one
+of them loudly and the other quietly.
+
+**And the orchestrator corrected their own novelty claim in the next message**, unprompted: they had
+called the two-`git init`-sites finding an *"orchestrator addition neither of you had"*; `#696` had it
+first, in better words. *"The finding is real and my must-fail bar stands. My claim to have found it does
+not."* **Attribution and validity are separate questions, and conceding one does not cost you the other**
+— which is what makes retracting the cheap half easy enough to actually do.
+
 ## The rung
 
 - **prose / discretionary (today):** the pre-build premise check is a good builder's

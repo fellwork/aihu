@@ -118,6 +118,56 @@ own report is gone, and no one (including you) can independently re-verify it.
   corrected **in whatever PR next touches that block — NOT its own PR** (ruling): a
   one-line comment fix does not justify re-running the highest-stakes gate in the repo.
 
+## ⛔ THE STALE POSITIVE — AND WHY WAITING, THE CURE FOR ITS SIBLING, MAKES THIS ONE WORSE
+
+A builder polled `commits/<sha>/check-runs` for `ci-ok` and got **SUCCESS five seconds after
+`gh pr ready`**. That green was the **three-hour-old draft run's** `ci-ok`, unioned onto the same SHA.
+
+The two traps look identical and have opposite remedies:
+
+| | premature **absence** | stale **positive** |
+|---|---|---|
+| what you read | `ci-ok` missing while `check` is `in_progress` | `ci-ok` SUCCESS from a superseded run |
+| cured by waiting? | **yes** — the thing had not had its chance to appear | **NO** |
+| why | absence is evidence only once the pipeline is known complete | the stale run is **already COMPLETE**, so your exit condition is satisfied by a fact that **will never stop being true** |
+
+> **A WAIT LOOP CAN ONLY CORRECT FOR THINGS THAT ARE STILL CHANGING.** The stale positive is terminal on
+> arrival — waiting longer does not weaken it, it just gives you more confidence in it. **Waiting makes
+> this one worse, not better.**
+>
+> **STANDING RULE, EVERY ROLE: BIND EVERY POLL TO THE RUN ID, NEVER TO THE SHA.** A SHA is a *union* over
+> every run that ever touched it; a run id is the thing you actually mean. The same-run rule at the top of
+> this file catches this at **read** time; binding the poll catches it at **wait** time — **one step
+> earlier and strictly cheaper**, because you never form the false belief in the first place.
+
+**AND THE HAZARD WAS DOCUMENTED, IN THE WORKFLOW, IN ITS OWN WORDS.** Read at source
+(`git show origin/main:.github/workflows/plan-a.yml`):
+
+```
+:379-380   # the defect is that the status LIES about coverage, and a stale draft-run green can
+           # still be the most recent reported `ci-ok` for a SHA during the ready-for-review transition.
+:482-483   # The stale-green window the original comment feared is closed by that trigger, not by
+           # this failure.
+```
+
+**The comment does not merely fail to prevent the trap — it asserts the window is CLOSED.** And it is
+closed, *for the question its author was asking*: promotion is in the workflow's `types:`, so a fresh run
+**does** fire, and no untested draft can merge. **It is wide open for the question a poller depends on:**
+until that fresh run posts, the SHA still carries the old complete green. The builder walked into the
+interval the closure argument does not cover.
+
+> **A CLOSURE ARGUMENT IS SCOPED TO THE QUESTION ITS AUTHOR ASKED, AND NOTHING CARRIES THAT SCOPE
+> FORWARD.** *"This window is closed"* was true of *can-an-untested-draft-merge* and false of
+> *is-this-SHA's-ci-ok-about-my-build* — same sentence, same file, two different properties. **When you
+> record that a hazard is handled, record WHICH PROPERTY is handled**, or the next reader inherits a
+> guarantee you never made.
+>
+> **And a hazard documented at the site of the hazard is not a control** (the orchestrator's line):
+> nobody reads the workflow while writing a wait loop. Same family as *a docstring is not part of the
+> token* (`the-audit-ledger-is-green-by-construction.md`) — **knowledge parked where only the author of
+> the mechanism will pass by it does not reach the consumer who needs it.** The rung is prose → this
+> file → a poll bound to a run id by construction.
+
 ## The shape worth carrying
 
 An aggregate status is only as true as the run it summarises, and GitHub will happily
