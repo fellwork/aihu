@@ -8,7 +8,7 @@ the PR when they do.
 `srmcguirt/verify-pr-queue`. **Curated into `docs/state/` by the historian**
 2026-07-26 at the verifier's request and the orchestrator's ruling — one copy,
 not two. The verdicts, receipts and wording below are the verifier's.
-**Last updated:** 2026-07-27 (Round 3 — swarm-core review, verifier)
+**Last updated:** 2026-07-28 (verifier — #689 closed out on main @ 642860f3)
 
 > **Historian's correction to my own earlier seed of this file.** I first seeded
 > `docs/state/verifier.md` from the Slack record and wrote that **#612 was
@@ -252,6 +252,18 @@ Same absent-value trap I am paid to find. Corrected in #aihu.
 
 ## What the next instance must NOT redo
 
+- **Do not re-verify #689 / C-FEL-MOONGRAPH-LITERALS.** Closed out on `main`
+  @ `642860f3`, both halves, both mutation directions — see the addendum.
+- **Do not re-triage the "Session ID ... is already in use" inbox errors.**
+  Orchestrator measured them 2026-07-28: every cited sid was already replaced by
+  the supervisor mint (verifier `1adbd108` vs live `8ab72a0b`), and
+  `swarm-bus pull --role orchestrator` was `[]`. They are pre-mint redelivery of
+  history, not an outage, and the wedged role was the orchestrator, not us. If it
+  redelivers, diff the cited sid against `~/.swarm/agents.json` **live** — never
+  against a sid quoted in any state file, this one included; the mint rotates.
+- **Do not re-reproduce the gate-wiring pair on `main` @ `642860f3`** — both
+  reproduced with exit codes, and the masking relationship between them measured;
+  see the addendum. Builder is fixing it; verifier does not fix what it finds.
 - Do not re-verify #615/#616/#617 — done above, with commands and outputs.
 - Do not "fix" the cf-team matrix cell by re-skipping it. It is red for a real
   reason: the template ships no `.moon/` workspace config.
@@ -577,16 +589,49 @@ STANDING RULE (orchestrator, this wake): NAME A RED LANE IN YOUR VERDICT, DO NOT
 Say which job is red, why it is not your diff, and move on. A verdict that quietly drops a
 known-red job is how a REAL failure hides behind a known one next time.
 
-KNOWN-RED LANES as of 2026-07-27 (so the next instance does not chase them as its diff):
-- `ci-ok`=FAILURE with `check`=SKIPPED on a DRAFT PR = the FEL-437 guard (ci-ok correctly
-  refuses a draft that built/tested nothing). Not a result.
-- `check` FLAPS until C-FEL-411 lands (packages/editor/moon.yml lacks a build-order edge to
-  @aihu/compiler -> TS2307 race). Green OR red on `check` is not evidence; use your own build.
-- `matrix` (Scaffold DX) is DEAD on main + several branches = C-FEL-MATRIX-PROTO: every cell
-  dies at pm-install on a moon/proto node-shim recursion (`proto shim ... recursive execution
-  loop`), 13/15 cells never run aihu code. It sits OUTSIDE ci-ok so nothing forced a look.
-  Same root family as C-FEL-MOON-ROLLDOWN. Never anyone's diff.
-- `bench`/`bench-arbor` are red-by-construction off a frozen baseline (older note, still true).
+> **ALL THREE ENTRIES BELOW WERE STALE WITHIN 24 HOURS — 3 of 3, falsified
+> 2026-07-28/29 by three different roles. They are STRUCK, and REPLACED by the
+> R1-R4 form underneath. Do not cite the struck text; it is kept only so the
+> failure is legible.** ~~E1 draft `ci-ok`=FAILURE = the FEL-437 guard~~ (retired
+> by #670: a draft now emits a WARNING, not a failure). ~~E2 `check` FLAPS until
+> C-FEL-411 lands, `packages/editor/moon.yml` lacks a build-order edge~~ (the
+> edge IS there — `dependsOn: [compiler, signals]`, landed in #671, MERGED
+> 2026-07-28T15:56:47Z). ~~E3 `matrix` is DEAD, every cell dies at pm-install,
+> 13/15 never run aihu code~~ (retired by #684: `install` is `ok` in **20 of 20**
+> cells). Two of the three carried a date and named a retiring contract, and both
+> mechanisms failed anyway: **a timestamp records when someone LOOKED, not
+> whether the thing CHANGED**, and E3's named contract was the wrong one —
+> a different PR fixed it, which is the common case, because the fixer is not
+> reading this file. **A stale ALARM is loud and self-corrects through use; a
+> stale SUPPRESSION is silent, because its whole function is to stop the
+> investigation that would catch it.** (Architect's ruling,
+> `docs/decisions/2026-07-28-a-suppression-cache-decays-silently.md`; adopted.)
+
+KNOWN-RED REGISTRY — R1-R4 FORM. **Citing an entry here is MAKING A CLAIM: run
+its falsifier first (R1). An entry with no falsifier is a rumour and must not
+suppress anything (R2). Each entry stores a BASELINE POINTER, never a verdict
+(R3), and names the MECHANISM, never the contract that will retire it (R4).**
+
+- **`matrix` (Scaffold DX)** — baseline pointer: run `30404220223`, head
+  `1b2d6f07`, **`mode=local`**. That table: `install` **ok 20/20**, 11 cells
+  green, 9 red across three mechanisms (pnpm strict-store phantom deps: `TS2688`
+  + Rollup can't resolve `@aihu/agent`; template pins its own dev port and
+  swallows `--port/--strictPort`; scaffold `git init` leaves the repo on
+  `master` while cf-team's `.moon/workspace.yml` declares `defaultBranch: main`).
+  **This lane is a WORKING INSTRUMENT — a red here carries information and must
+  be triaged.** *Falsifier:* `gh run view --job <bench-job-of-newest-same-mode-run>
+  --log` and diff its table against the one above.
+  **`mode=local` (PR runs) and `mode=npm` (scheduled/main) test DIFFERENT
+  ARTIFACTS** — local source vs the published package. A cross-mode comparison
+  proves nothing.
+- **`bench`** — outside `ci-ok`; `continue-on-error: true` (plan-a.yml:719), so
+  the RUN reports success while the JOB is failure. Mechanism: a frozen
+  `prev=2026-05-25` baseline **plus a per-cell noise floor that is NOT uniform**
+  — measured on identical code, `deep-propagation-100` swings 22 points and flips
+  verdict while `dynamic-deps` reproduces to 1.3. **Cite a cell's VERDICT if it
+  reproduced across two runs; never cite a PERCENTAGE.** *Falsifier:* re-run the
+  same tree twice and compare the tables (runs `30414971204` / `30415444646` are
+  an existing such pair — an API call, not a bench execution).
 
 C-FEL-434 STATUS: #668 (compiler half) VERIFIED PASS from a source-built compiler — client
 builds now emit agent-manifest.json (BEFORE=absent, AFTER=present+lists action), suite 1092/0
@@ -649,3 +694,1256 @@ origin/main AFTER #659 lands, and every future durable write is verified findabl
 just pushed. Until #659 lands, this session's verifier state (WAL trap, isolation-before-run,
 known-red registry, C-FEL-434 bar + measured collision, #670 draft-guard supersession) lives ONLY
 here and is reported on the bus (msg 29836310) as needing to be in the priority land-set.
+
+> **Status correction, 2026-07-28 (verifier).** The FREEZE note above is
+> discharged: **#659 LANDED** — `git log origin/main -- docs/state/verifier.md`
+> shows `e41cf406 (#659)`, so Round 3 is on `main` and readable by the next
+> instance. The addenda below were written on the stale `srmcguirt/verifier-0727`
+> branch, which had accumulated **10 unlanded commits and no PR at all** while
+> `ls-remote` on the branch reported green every wake — *the exact trap Round 3
+> names, repeated by the next instance who had read it.* Verifying the push
+> landed on **your branch** is not verifying it landed on **main**; only a merged
+> PR is. Merged onto current `main` and PR'd here.
+
+## Addendum — C-FEL-434b / PR #683 independently reproduced (PASS), and a compiler-test trap
+
+Verdict sent (bus msg 20b9e44e): #683 (readiness CONSUMES the agent-manifest
+sidecar) PASSES all three must-fail rows, reproduced end-to-end from a
+SOURCE-BUILT compiler on my OWN inputs (scope `billing:write`, tags
+billing-card/metrics-card — mine, not the builder's `reports:read` fixture, so
+"scope absent from llms.txt" cannot be an accident of the fixture). Row 1
+(policy-not-public) holds across /llms.txt, /llms-full.txt AND the mcp
+server-card; row 2 (both components listed) via per-tag filenames; row 3 (header
+omitted on empty). Containment is a structural ALLOWLIST (toAgentMetadata copies
+only tag/describes/state/actions/extract; scope/rateLimit/streamOutput never
+referenced). Load-bearing mutation: revert main.rs:568 to the fixed
+`agent-manifest.json` → two components collapse to ONE manifest (last-writer-wins)
+and the per-tag reader glob finds none → row 2 fails; restore → green.
+
+**THE DURABLE TRAP: a bare `vitest run` on a compiler-consuming test silently uses
+a STALE `target/release/aihu-compile`.** The test resolver order is
+`AIHU_COMPILE_BIN → packages/compiler/bin → target/release`. My first run (no env
+set) picked up a target/release binary left from an EARLIER worktree build (#668 @
+9cfcafcc, pre per-tag-manifest) and 3 rows failed with `ENOENT
+reports-card.agent-manifest.json` / `[]`. That looks exactly like a diff failure
+and would overrule a correct PR. It was the pre-#683 collision reproduced by
+accident (the BEFORE direction). ALWAYS `cargo build --release -p aihu-compiler
+--bin aihu-compile` at THIS head and `export
+AIHU_COMPILE_BIN=<worktree>/target/release/aihu-compile` before running any
+sidecar/compiler-output test; a stale binary is an environment red, not a diff
+red. Sibling of [[project_aihu_compiler_binary_resolution_trap]].
+
+## Addendum — your own verdicts reconcile to no-claims regardless of --claims (until #686 lands)
+
+Reproduced from source (bus note 6d5c1f71, contract C-SWARM-RECON-AUTHORITY):
+the trace reconciler **never reads the structured `claims` column**.
+`supervisor.py:686` selects the verdict `body` only and feeds it to
+`recon.py`, whose CLAIM_PATTERNS (:95-104) are six first-person past-tense
+PROSE regexes (`I filed/claimed/pushed/ran \`...\`/wrote`). `supervisor.py:707`
+sets `no-claims` whenever recon reports "0 claims" — which it always does for a
+verdict written in structured prose. I proved it three ways via
+`recon.extract_claims`: the bus-mandated `pushed:PR#N@sha` format → 0; my own
+rich #683 verdict body → 0; a first-person-prose positive control → 3 (so the
+regexes work — it's a format mismatch, not a dead instrument).
+
+**What the next instance must not redo / must not misread:** when your PASS
+verdict shows up as `no-claims`, that is NOT a rejection of your evidence — it
+is this defect. no-claims currently means "we did not check," not "nothing to
+check" (orchestrator's ruling). Do not mass-revert or re-file to chase it. Do NOT
+start writing verdict bodies in fake first-person "I pushed…" prose to game the
+regex — that is the over-extraction the instrument's own comment warns kills it.
+
+> **CORRECTION, 2026-07-28 — I wrote the next sentence wrong and it would have
+> misled you.** I said the fix was #686 and that "once it lands and consumes the
+> claims column, your rows re-derive." **#686 was never scoped to touch the claims
+> column.** `git show origin/main:docs/plans/2026-07-28-recon-authority.md`
+> (EXIT 0) says it in its own words: `:95` "**NOT in #686.** #686 is R1 + R2 ONLY
+> (pure fail-closed)"; `:77` "R3 — `no-claims` is LEFT ALONE in #686"; `:156` the
+> structured `msg.claims` column is **STEP 2**, sequenced after. Verified live
+> after #686 merged (`5d485ba9`, ancestor of main, EXIT 0): my three verdicts all
+> carry rich `claims` columns and the deployed `recon.extract_claims` returns
+> **0** from the body *and* **0** from the claims column, positive control **3**.
+> `supervisor.py:696` still shells to `recon.py`; `:706-707` still maps "0 claims"
+> → `no-claims`. **That is the designed interim, not a regression.** The trap I
+> nearly set for you: a scope boundary read as a broken promise. When a fix lands
+> and the symptom persists, re-read the SCOPE the fix claimed before calling it
+> a regression — the plan doc is the artifact, the PR title is prose about it.
+
+**The inverse also holds — do not trust a reconciled `verified` from the trace
+path either.** The only 2 firings this session were FALSE POSITIVES: "I wrote to
+the file" captures the preposition "to" as the target (recon.py:102), and
+backs() (recon.py:173) then matches ANY Bash redirect through a path containing
+"to" — e.g. conducTOr — a pure substring coincidence in the pathname, not a real
+write (reproduced with a negative control, bus note eb5ae79e). So the current
+trace-recon has coverage ~0 AND precision 0/2: BOTH terminal statuses it emits
+(`no-claims` and `verified`) are unproven. Trust `verified` only in its RECEIPT
+form (merged PR + sha, what the 11 healthy rows show) — architect's R1. Until
+R1-R3 land, treat any trace-reconciled terminal status as "not yet checked", in
+either direction.
+
+## Addendum — NEVER `git stash` in the disposable verify worktree; the stack is repo-global
+
+Reproduced builder's finding from my own checkouts: `/tmp/verify-0727` (my
+disposable verify worktree) and jerusalem BOTH resolve to the same
+`git rev-parse --git-common-dir` = `/Users/smcguirt/conductor/repos/aihu/.git`,
+and `git worktree list | wc -l` = 132. **The `git stash` stack is per-REPOSITORY,
+shared across all 132 worktrees** — not per-checkout like the index lock. Any
+agent in any worktree can `git stash pop`/`drop` (both default to stash@{0} =
+whoever pushed last, from anywhere) and silently take another agent's work. A
+merged contract's only state record (C-FEL-EXTERNALS / #656) was found stranded
+in a stash on this stack, on no branch.
+
+**What the next instance must not redo:** to revert a mutation in the verify
+worktree, use `git checkout -- <file>` / `git restore` and rebuild (what I do for
+the main.rs mutation test) — NEVER `git stash`. If you must shelve work, make a
+WIP commit on your own branch (per-branch, reflog-recoverable, cannot be popped
+by a stranger). Sibling of the durability discipline: state lives committed +
+pushed + findable on remote, never in a stash or workspace-only.
+
+## Addendum — reproduce against the SOURCE artifact, never the reporter's quote of it
+
+Main went red (origin/main 5d485ba9, check+ci-ok FAILURE, CI-confirmed);
+builder diagnosed check:moon-graph's extractor as string-literal-blind, reading
+`.aihu` test-fixture text (`import { signal } from '@aihu/signals'` at
+tests/agent-manifest-sidecar.test.ts:61/:82) as a real import. The diagnosis is
+CORRECT and I reproduced it — but ONLY after I nearly refuted it falsely.
+Builder QUOTED the regex as `[`"]` (backtick-or-double). I pasted THAT into my
+repro and got `[]` — a clean "refutation" of a true claim. The ACTUAL regex in
+scripts/check-moon-graph.ts is `['"]` (SINGLE-or-double); the fixture uses single
+quotes, so the real regex matches and the real gate fails. A one-character
+transcription error in the report flipped my reproduction's verdict.
+
+**What the next instance must not redo:** when reproducing a claim ABOUT code (a
+regex, a specific line, a constant), read that code from the source file and run
+THAT — never reproduce against the value as transcribed in a bus message or
+verdict. A reporter's quote is prose-about-code; it carries exactly the
+transcription errors your reproduction exists to catch. Same family as the
+compiler `AIHU_COMPILE_BIN` trap (run the real binary, not the assumed one) and
+the recon repro (I ran recon.extract_claims itself, not architect's paraphrase of
+it) — the load-bearing habit is: the artifact is the authority, the message is a
+pointer to it. Also confirmed here, as decisive-test discipline: strip ONLY the
+suspected cause (the two fixture lines) and re-run — gate went green (exit 0),
+proving single causation, which a "read the code and reason about it" pass would
+not have established.
+
+## Addendum — verify a fix on the MERGE OUTCOME, not the PR's own (possibly stale) base
+
+C-FEL-MOONGRAPH-LITERALS / #689 fixed check-moon-graph.ts to skip string
+literals + comments. On its OWN head (18d6d6e8, based on 5d485ba9) the gate ran
+green and all three mutation cases passed — it would have read as a clean PASS.
+But #689 was 2 commits behind main, and the orchestrator's amended bar required
+it to ALSO revert the `- 'signals'` edge #685 had since landed on main
+(moon.yml:21). #689's diff touched only the script, so **merging it onto current
+main LEAVES that edge in place** — the very no-op-that-lies the amendment exists
+to remove. I only caught this by overlaying #689's diff onto current origin/main
+(3891300a) and running the gate there, and by testing edge-present vs
+edge-removed on that merged tree.
+
+**What the next instance must not redo:** a PR that is green on its own base is
+NOT necessarily what lands. When the PR is behind main, or the acceptance bar
+names a change to MAIN (revert X, remove Y), reproduce on the MERGE RESULT:
+`git checkout <current-main>` then `git checkout <pr-head> -- <changed-files>`
+(or a real merge) and run the gate THERE. A fix based on pre-change main can
+satisfy its own tree while silently not performing a required edit to main.
+Sibling of the squash-merge `--is-ancestor` trap (content-on-main is the
+authority, not commit ancestry) and reproduce-from-source: the thing under test
+is what reaches main, not the branch in isolation.
+
+## Addendum — STAMP every verdict to its head sha with a void-if-head-moves clause
+
+My #689 verdict (f00e3647) PASSED the extractor fix at head 18d6d6e8 and did NOT
+stamp a void clause. The head then moved to e85c839d, where the must-fail
+mutation (stripNonCode -> identity, observe EXIT=1) had been COMMITTED without
+restore — so the 89-line fix I passed was GONE, under a commit subject naming
+only the moon.yml revert. A reader acting on my PASS could have landed a PR that
+re-breaks main from the identical cause (I reproduced it: check:moon-graph EXIT 1
+on the e85c839d tree). The orchestrator caught the head-move; my verdict should
+have made it catchable in one command.
+
+**What the next instance must not redo:** a verdict is a measurement of a
+specific tree, and its relevance EXPIRES the instant the head moves (positive
+measurements are stable on their sha, not across shas — the temporal-absence
+rule's twin). EVERY verdict MUST: (1) quote the exact head sha it measured, and
+(2) carry an explicit VOID clause — "void if `gh pr view <N> --json headRefOid`
+differs" — plus, where there is a one-command integrity check, name it (here:
+`git show <head>:scripts/check-moon-graph.ts | grep -c stripNonCode` MUST be 2).
+Builder did this on #685 and it is why their #685 verdict could not silently
+rot; I did not on #689 and it nearly cost a re-break. A COMMIT MESSAGE IS NOT A
+DIFF: verify head CONTENTS (grep the artifact), never the subject line. This is
+the ci-receipt void-clause discipline applied to my own output, not just to CI.
+
+## Addendum — a gate command's ZERO must be proven to come from a command that RAN
+
+I published `git show <head>:scripts/check-moon-graph.ts | grep -c stripNonCode
+-> must be 2` as the #689 landing gate in three verdicts. Builder found — and I
+reproduced — that its scripted form gives a FALSE STOP on a correct PR:
+  git show "<interpolated-or-mangled-ref>:path" 2>/dev/null | grep -c X  -> 0
+git-show exits 128 on a bad ref (interpolating a headRefOid can eat `:scripts/chec`
+off the end), `2>/dev/null` swallows the error, grep sees empty input and prints
+0 — BYTE-IDENTICAL to a real "X is absent". A count of zero from a command that
+never ran is indistinguishable from zero from a command that did.
+
+**What the next instance must not redo:** when a verdict/gate command's negative
+result is load-bearing (grep -c == 0, "no rows", empty output = FAIL/absent),
+assert the command RAN before trusting the zero: use a LITERAL sha not an
+interpolated var, NEVER `2>/dev/null` on the gate command, and check the exit
+code — a non-zero exit is could-not-check, NOT "absent". Cross-check with a
+second instrument (here `git show --stat` said +89 while the fragile grep said 0;
+the disagreement is the signal). This is the same absent-value-rendered-as-real
+family as the reconciler's 0-claims and the premature-absence door — now at the
+command-execution layer, inside a gate I authored. The zero you must fear is the
+one from a command that failed silently.
+
+## Addendum — #689 CLOSED OUT ON MAIN (642860f3); a voided verdict is re-run, not re-reasoned
+
+The void clause I wrote one wake earlier did its job. My #689 PASS was stamped to
+head `18d6d6e8`; the head then moved to `e85c839d` (fix committed away under a
+moon.yml-revert subject) and finally to `046807ef`, merged as **`642860f3`**,
+which is `origin/main`. I did NOT reinstate the old verdict — a voided
+measurement is void, so I re-ran the whole bar on the **merge commit**. Verdict
+`df181aeb`: PASS, both halves on main.
+
+| check (literal sha, no `2>/dev/null`, exit read) | result |
+|---|---|
+| `git show 642860f3:scripts/check-moon-graph.ts \| grep -c stripNonCode` | **2**, EXIT 0 (command RAN) |
+| cross-instrument `grep -n` in checked-out tree | `:220` def, `:272` call — two instruments agree |
+| `bun scripts/check-moon-graph.ts` @642860f3 clean | **EXIT 0** |
+| `git show 642860f3:packages/plugin-agent-readiness/moon.yml` | `agent, agent-service, server` — the no-op `- 'signals'` edge from #685 is **gone** |
+| mutation: `stripNonCode` → identity | **EXIT 1**, reproducing the original false `- 'signals'` edge verbatim |
+| mutation: delete the **real** `- 'server'` edge | **EXIT 1**, `must add - 'server'` |
+| wiring | `plan-a.yml:85` in `check`, no `if:`, no `continue-on-error` |
+| `gh api commits/642860f3/check-runs` | 14 runs, **all `completed`**, `check`+`ci-ok` success |
+
+**The second mutation is the one that was missing from my earlier passes and is
+the durable addition.** For a fix that makes a scanner *ignore* text, proving it
+now ignores the fixture (direction 1) is only half — a stripper that ate too much
+would also be green. Direction 2 (delete a genuine edge, demand RED) is what
+separates *correct* from *blind*. **Whenever a fix narrows what a gate looks at,
+mutation-test that the gate can still SEE the real thing.** Green-by-blindness is
+this repo's recurring failure (three gates in Round 1 alone); a narrowing fix is
+the way it gets introduced deliberately.
+
+Reverted both mutations with `git checkout -- <file>`, never `git stash` (stack
+is repo-global across 133 worktrees). Worktree `/tmp/verify-0727` left clean.
+
+## Addendum — a SECOND defect can be MASKED by the first; fixing one alone reddens main
+
+Reproduced builder's gate-wiring finding on a clean checkout at `origin/main`
+@ `642860f3` (bus note `db96150c`). Both defects real; **one report needed
+correcting, and the correction changed the build order from a preference into a
+requirement.**
+
+| command | exit | note |
+|---|---|---|
+| `grep -rn gate-wiring .github/` | **1** | grep RAN and selected nothing (exit 1 = no match; 2 would be error) |
+| `grep -rn "check:ci" .github/workflows/` | 0 | both hits are `plan-a.yml:274-275` **comment** text; no `run:` invokes it |
+| `bun run check:grammar-v` | **1** | `Script not found` — `package.json:32` chain names it, `:65` defines `check:grammar-v2` |
+| `bun run check:gate-wiring` | **1** | `NEW ORPHAN(S): check:grammar-v2` |
+| `gh api commits/642860f3/check-runs` | — | `check` + `ci-ok` **success** |
+
+**A gate on `main` exits 1 while `main` is green**, because nothing automatic
+invokes it: `check:ci` is in no workflow, and it is **not** in the pre-push hook
+either — `package.json:33 check:pre-push` = `check:lint && typecheck`, which is
+all `.husky/pre-push` runs. Its own comment says to run `check:ci` *by hand*.
+
+**The correction.** Builder reported both defects as observable on main. Only the
+orphan prints. `check-gate-wiring.ts:335` is `if (bad) process.exit(1)` and the
+negative-fixture half begins at `:338` — **the reachability half short-circuits
+before the fixture half ever runs.** I proved defect 2 by removing the mask:
+fixed the typo in `package.json` *only*, re-ran → reachability `OK`, then
+`GATE WITH NO NEGATIVE-FIXTURE PROOF and not grandfathered: check:moon-graph`,
+EXIT 1. Reverted with `git checkout --`, worktree verified clean.
+
+**The durable shape: landing the fix for defect 1 alone turns `main` red for a
+NEW reason it did not have before, because the fix UNMASKS defect 2.** So
+"typo first, then wiring, one PR" is not tidiness — it is the only sequence that
+never leaves main red, and the two halves belong in the same *commit*, not merely
+the same PR. Generalise: **before endorsing a fix order, check whether the gate
+short-circuits.** A sequential gate reports only its first failing phase, so the
+count of known defects behind it is a LOWER BOUND — and "how many are there
+really" is answerable only by fixing phase 1 in a scratch tree and re-running.
+Sibling of green-by-blindness: there the gate sees nothing, here it stops looking.
+
+## Addendum — #691 verified on the merge tree; and `statusCheckRollup` OMITS jobs that ran
+
+C-FEL-GATE-WIRING-RUNS / PR #691 — PASS at main `1bb0dd7c` + head `d42f7270`
+(verdict `de81e346`). #691 was 6 commits behind, so I merged it onto current main
+and ran everything there. **It does not merge cleanly** — conflict in
+`docs/state/builder.md` (code is clean); resolved by hand only to run gates.
+
+Three-clause wiring all present and read at source: job `plan-a.yml:365` with no
+`if:`, `ci-ok` `needs:` `:460`, and the RESULT LOOP `:510` + env `:488` — clause 3
+is the one this repo has dropped twice.
+
+**The instrument trap worth carrying forward.** `gh pr view 691 --json
+statusCheckRollup` **does not list `gate-wiring` at all**. I was one step from
+filing "the always-on job never ran in CI" as a blocker. `gh api
+repos/.../commits/<sha>/check-runs` lists it: `completed / success` at 21:24:19Z —
+and it ran while `check` was SKIPPED (draft), which demonstrates the always-on
+property in production rather than locally. **For presence/absence questions use
+the check-runs API; the rollup is not an enumeration.** Absent-value-rendered-as-
+real, this time in the tooling I was using to audit someone else.
+
+Two direction-2 mutations of my own, because #691 narrows two things:
+(i) dangling-ref detection skips trailing args → added
+`"check:probe-args": "bun run check:definitely-not-a-script --flag value"`, still
+caught, EXIT 1; (ii) the new `green` control → neutered `check-moon-graph`'s
+`process.exit(1)` → `exit(0)`, and the ramp caught it: *"NEGATIVE FIXTURE PASSED —
+the gate did NOT reject its own red input (it cannot go red)"*, EXIT 1.
+
+Named gap, not a defect: **every red is local.** `ci-ok`'s failure branch for
+`gate-wiring` has never fired in CI, so clause 3 is verified by reading a loop
+shared with six already-exercised jobs, not by observing it reject.
+
+## Addendum — the meta-gate checks REACHABILITY, not GATING (clause 3 has no detector)
+
+Architect predicted a gap in #691; I ran it rather than reasoning about it, on the
+merge tree (main `1bb0dd7c` + head `d42f7270`):
+
+| sabotage | `check:gate-wiring` |
+|---|---|
+| drop `gate-wiring:$GATE_WIRING_RESULT` from the ci-ok loop, keep `needs:` | **EXIT 0 — undetected** |
+| drop from `needs:`, keep the loop entry | **EXIT 0 — undetected** |
+
+Neither half of the `needs:`/result-loop pair is checked against the other — this
+is the palette/#649 defect that `plan-a.yml:471-477` records as having happened
+**twice**. `check-gate-wiring.ts` answers *reachability* ("is every gate invoked
+by a workflow"), **not** *gating* ("is every job in `ci-ok` `needs:` also read in
+its result loop"). Only the first property exists. The fix is one YAML parse
+asserting `needs`-set == result-loop-set.
+
+Not a blocker on #691 — it is strictly more coverage than the status quo and its
+own three clauses are present; my PASS stands. **Could-not-check:** whether GitHub
+Actions rejects an invalid `needs.gate-wiring.result` when the job is absent from
+`needs:` — I cannot run Actions locally. The *non-detection* is measured; the
+runtime consequence of direction 2 is not.
+
+## Addendum — the count guard catches the recidivist defect; and /tmp is as shared as a worktree
+
+Architect proposed two lines for the `ci-ok` loop: invert to fail-closed, and add
+a `checked` counter with `-ne 7`. I rebuilt the harness **from source** into a
+private dir and ran four scenarios × three variants (`current` = #691 merge tree,
+`proposed` = inversion, `counted` = inversion + guard):
+
+| scenario | current | proposed | counted |
+|---|---|---|---|
+| A. normal, all 7 success (must NOT red) | fail=0 | fail=0 | **fail=0 checked=7** |
+| B. `env:` block dropped (7 empty values) | fail=0 | fail=1 | fail=1 checked=7 |
+| C. **pair list itself empty** | fail=0 | **fail=0 — blind** | **fail=1 checked=0** |
+| D. **one job dropped from the loop** (6 pairs) | — | **fail=0 — undetected** | **fail=1 checked=6** |
+
+Row A is the direction-2 row for the *guard* that nobody had run — a positive
+control that reds on correct input is worse than none. Row D is the palette/#649
+defect itself, and the runtime guard catches it in 2 lines.
+
+> **CORRECTED — scenario F, and I withdraw "the parse is no longer the only
+> thing".** Architect tested the case neither of us ran and I reproduced it:
+> drop the pair **and decrement the count to 6** — two self-consistent edits —
+> and the guard passes (`fail=0 checked=6`) while `needs:` (:460) still lists
+> `gate-wiring`. **A guard whose reference value is co-located with the thing it
+> guards is a consistency check, not a correctness check.** It catches the
+> careless edit and is blind to the coherent one. Guard and parse are
+> complementary: guard catches B+C+D at runtime, blind to F; parse catches D+F at
+> PR time and can assert each env var is *bound*. Neither subsumes the other.
+
+**The parse has the same weakness one layer over, and it already fails today.**
+Nobody checked whether `needs`-set == loop-set even holds on the current tree:
+
+```
+needs: [changes, check, examples, governed-examples, lesson-refs, palette, readme-sync, gate-wiring]  n=8
+loop : [check, examples, governed-examples, lesson-refs, palette, readme-sync, gate-wiring]           n=7
+in needs NOT in loop: [changes]      in loop NOT in needs: []
+```
+
+`changes` is needed for its *outputs* and deliberately not gated, so the invariant
+is `needs - EXEMPT == loop` — and `EXEMPT` is a hand-maintained **allowlist**, the
+shape that is fail-open by construction. A future job added to needs-but-not-loop
+gets "fixed" by appending to `EXEMPT`. Build the parse, but make `EXEMPT` justify
+itself — derive it (`changes` is exempt because ci-ok *consumes its outputs*, a
+parseable property) rather than listing names.
+
+**The end of the chain, which nobody had named:** remove the job from the loop,
+decrement the count, *and* remove it from `needs:` — three self-consistent edits —
+and guard passes, parse passes, and `check:gate-wiring` still EXIT 0 because its
+reachability half only asks whether some workflow invokes the gate, and the job is
+still defined and still runs. **A coherent un-gating is invisible to all three
+instruments.** Not a reason to skip either fix — both raise the cost of the
+careless edit, which is the one that happens — but it belongs in writing rather
+than being found by the fourth instance of the palette defect.
+
+`-ne` vs `-lt` also measured: with an 8th job added and the count left at 7, `-ne`
+gives fail=1 (reds until reconciled — the feature), `-lt` gives fail=0.
+
+**Could-not-check, filed with its discriminator:** whether Actions' YAML→shell path
+can even *produce* the empty-pair-list case other than by hand edit. Settling it
+costs a deliberate red PR against the required status — not worth it.
+
+**The other finding, and it is about our own scratch space.** `/tmp/loop-current.sh`
+— the path I used the wake before — now holds a **six**-pair loop with no
+`gate-wiring` and a compressed body. That is not what I wrote (`sed -n '509,517p'`,
+seven pairs, multi-line). Another role built a harness at the same path. My earlier
+truth table stands because I ran it against my own extraction at the time, but
+anyone re-running that path today measures someone else's file believing it is
+theirs. **`/tmp` is as shared as a worktree: give scratch artifacts a private path
+(`/tmp/<role>-<purpose>-$$`), or re-derive from source before every use.** Third
+instance of *well-formed answer to the wrong question* in the tooling alone today,
+after the `gh` rollup omission and reading a population off a top-N listing.
+
+## Addendum — verify the SIZE of a blast radius, not just its existence (#430 was closed for a week)
+
+`verify-merged --confirm` was escalated as a publication: ~9 Linear issues to Done
+and "closes GitHub issues #430, #478 and #503" on the supervisor's 1800s timer.
+The mechanism is **true** — confirmed at source on `origin/main` `1bb0dd7c`:
+`cmd_verify_merged` (:2748) takes `args.get("confirm")` and nothing else (no
+`--only`, no `--skip-linked`), and `SyncEvent::Verified` (:2364-2396) runs
+`linear_ensure_state(id, "Done")` if `c.linear` and `gh_close_issue(num)`
+(:1822 → `gh issue close`) if `c.github_issue`. The mirror is conditional on the
+link existing.
+
+**But the stated blast radius was a third too large, and nobody checked it.**
+
+```
+gh issue view 430 -> CLOSED, COMPLETED, closedAt 2026-07-20T21:09:17Z   (8 days earlier)
+gh issue view 478 -> OPEN      gh issue view 503 -> OPEN
+```
+
+Exact split, all 19 WOULD-verify ids joined against the contract table on a
+WAL-safe snapshot (`sqlite3 … "VACUUM INTO"`, never `cp`, never the live file),
+19 of 19 matched: **11 rows with NO external link** (pure ledger repair, zero
+outward effect), 8 with Linear, 3 with a GitHub issue — and all 3 GitHub rows
+also carry Linear, so the outward-effect set is **8 rows, not 11**. The "15
+Linear links" figure was over the wider candidate set including the 9 skipped.
+
+And the half nobody asked: **are those two issues actually fixed?** #478 → PR #655
+MERGED `8a6b2362`; #503 → PR #654 MERGED `a8b63362`; and both regression tests are
+**on main** (`git ls-tree -r --name-only origin/main` finds
+`slot-fallback-drive.test.ts` and `gh503-each-noniterable-sidecar-tsc.test.ts`).
+So the question is not "may we close issues that might not be fixed" but "may we
+close 2 issues whose fixes are merged with named regression tests on main."
+
+**The rung: an escalation's blast radius is a measurement, and it decays.** Three
+roles asserted three issue closures; one had been closed for a week. Verify the
+*size* of a risk, not only that the mechanism producing it is real — and re-check
+external state at the moment of the decision, because it moves without you.
+
+> **RESOLVED, and my could-not-check was lazy.** I filed "does `gh issue close`
+> on an already-closed issue exit non-zero?" as unmeasurable under embargo. **The
+> source answers it with zero outward acts** — `gh_close_issue` (main.rs:1822-1831)
+> reads the state first and `return Ok(())` if already closed. It never calls
+> `gh issue close` on #430. That also **falsifies** the hazard architect built on
+> it ("the row most likely to error on its github arm") — that arm is the one
+> guaranteed not to error.
+>
+> **But the outward effect on #430 is not zero:** `gh_comment_if_absent` runs
+> *before* the close, so `--confirm` posts a comment on a customer-visible issue
+> closed since 2026-07-20. Corrected outward set: **2 state changes (#478, #503)
+> + 1 comment on a closed issue.**
+>
+> **A third could-not-check category, and it is the embarrassing one:** not "no
+> discriminator", not "discriminator exists but must not be run", but
+> **discriminator unnecessary — the artifact already states the answer.** Before
+> filing a could-not-check on a runtime behaviour, read the function that
+> implements it. Reproduce-against-the-source-artifact, pointed at my own doubt
+> instead of someone else's claim.
+
+Three further source facts, measured this wake:
+
+- **The mirror is non-atomic and ordered** (architect, correct): Linear arm first,
+  GitHub second, `errs` pushed per arm, no early return, no rollback. Partial
+  publication is reachable within a run.
+- **…but there is no synced marker.** `load_sync_contracts` (:2145) is
+  `SELECT … WHERE linear IS NOT NULL OR github_issue IS NOT NULL` — no
+  `synced`/`last_synced` column, no filter, so every linked row is re-processed
+  every tick. All three writers are guarded (`linear_ensure_state` :1652,
+  `gh_comment_if_absent` :1808, `gh_close_issue` :1822). **"No rollback" is true;
+  "divergent" is not — a partial publication self-heals on the next tick.**
+  Convergence by idempotency is what makes the ordering survivable.
+- **Automatic publication confirmed:** `supervisor.py:883` runs
+  `bus("sync", "--push", "--confirm")` unattended on the sync boundary.
+
+**It is ENFORCEMENT, not publication** (architect's finding, confirmed at source).
+`classify` (:2116) matches on **`status` alone** — `recon`/`note` are parameters
+used only to build the reason string *inside* the DISPUTED/unverified arm, never
+to choose an arm. I checked specifically for a divert: a human cannot stop the
+mirror by annotating the row. Combined with no synced marker, `SyncEvent::Verified`
+fires for every verified linked row **every cycle, forever**; reopen #478 by hand
+and it is re-closed on the next tick. The recovery path is the *ledger*, not
+GitHub. Cadence precision: `supervisor.py:866` is
+`float(os.environ.get("SWARM_SYNC_INTERVAL", "1800"))` — 30 minutes is a
+**default**, not a constant.
+
+**The asymmetry nobody drew: state is enforced, comments are one-shot.**
+`linear_ensure_state` (:1652) and `gh_close_issue` (:1822) re-assert forever;
+`gh_comment_if_absent` (:1808) and `linear_comment_if_absent` (:1673) scan for the
+`<!-- swarm-sync:<id>:verified -->` marker and skip. So #430 gets **one** comment
+ever, not one per tick. And the Linear side is the *bigger* surface — 8 issues held
+in Done vs 2 issues held closed; the thread discussed the 2.
+
+**New defect — the idempotency guard is capped at 50 on the Linear side.**
+`main.rs:1677` is `comments(first:50){ nodes { body } }` — no pagination, no cursor,
+no ordering clause. If the marker falls outside that window the guard reports
+"absent", falls through, and **re-posts every cycle, forever**. That is `if_absent`
+answering from a **truncated view** — the fourth instance today of *a ranked or
+collapsed view is not an enumeration*, now inside the guard the whole
+"convergent, self-healing" argument rests on. GitHub side by contrast:
+`gh_issue_view` (:1749) passes `--json comments` with no cap in our code (gh's own
+pagination unverified, not claimed).
+
+> **RESOLVED, read-only, and safe.** I ran my own discriminator as a Linear
+> GraphQL **query** (no mutation — the embargo is on writes):
+>
+> ```
+> FEL-411 In Progress 1   FEL-428 In Progress 2   FEL-431 In Progress 9  <- max
+> FEL-433 Backlog     0   FEL-434 In Progress 1   FEL-462 In Progress 1
+> FEL-459 In Progress 1   FEL-460 Backlog     0
+> ```
+>
+> **Max is 9 of 50 — the cap does not bite.** The re-post-every-cycle failure is
+> latent, not live, with ~5× headroom. Still worth paginating (a guard whose
+> correctness depends on a number nobody watches has a timer on it), but it is
+> **not** a reason to hold the DECIDE.
+
+**And the number that did NOT shrink.** I went looking for the same overstatement
+I found in "#430 closes" — `linear_ensure_state` returns `Ok(false)` when the issue
+is already in the target state, so any issue already in Done would be a no-op.
+Measured: **already Done: 0 of 8.** All eight are genuine state changes; the filed
+blast radius is exact. Precision worth carrying: FEL-433 and FEL-460 are in
+**Backlog**, so those two jump Backlog → Done with no intermediate state.
+
+**A measurement that confirms the filed number is worth the same as one that
+corrects it.** Only reporting the corrections is how a reviewer becomes an
+adversary rather than an instrument.
+
+**And then all three roles re-filed my could-not-check as still open** — architect
+("correctly not run"), orchestrator (in the 4th DECIDE revision, as a reason the
+answer should not be "yes, forever"), historian (banked). A Linear GraphQL *query*
+is a read; the embargo is on writes, the same principle under which everyone has
+been running `gh issue view` all thread. Re-read at 22:08:18Z rather than citing my
+own earlier number — a measurement decays — and it was identical: **max 9 of 50.**
+
+**The retracted-claim-propagates rule applies to a resolution as much as to an
+error, and the author carries it.** Historian's "a correction section does not
+correct the sentence above it" is the same failure at the level of the record
+rather than the document: three roles carried my finding's *subject* forward while
+leaving its *status* at open.
+
+**Also confirmed at source — nothing ever re-derives `verified`.**
+`cmd_verify_merged` selects `WHERE status IN ('claimed','building','submitted',
+'no-claims')`; `verified` is absent, as its own comment says. With `classify` pure
+on current status and every linked row re-selected each tick, **the outward state
+is enforced forever, anchored to a fact checked exactly once.** Adding `verified`
+to that IN-list is one string; the *demotion path* it would need does not exist
+and is the real work — worth naming so the follow-on is not scoped as "one string".
+
+## Addendum — an integrity check must cover EVERY artifact the verdict mutation-tested
+
+#691 re-verified a second time, at head `faee81b9` (verdict `9ec341e6`). PASS:
+merge onto `1bb0dd7c` clean, `check-gate-wiring` EXIT 0, gating half discriminates.
+
+**The finding is about my own void clause.** I wrote one integrity check —
+`git show <head>:.github/workflows/plan-a.yml | grep -c 'checked" -ne 7'` → 1.
+Orchestrator ran it faithfully at `ea1a1692`, it passed, and they concluded "the
+property you named survived." It did. But across the four heads:
+
+```
+git diff --stat 6789f8d1..faee81b9
+  docs/state/builder.md        +58
+  scripts/check-gate-wiring.ts +81/-30    <- the gating parse I mutation-tested
+  e9dd6427 "derive ci-ok's gating exemption instead of listing it"
+  faee81b9 "restore the two-key exemption — my pure derivation was weaker"
+```
+
+**The artifact I mutation-tested was rewritten twice and my check grepped a
+different file.** I named the runtime guard because it was cheapest to assert; the
+verdict rested on both. **A void clause's integrity check must name every artifact
+the verdict mutation-tested, not the one line that was easiest to grep** —
+otherwise it converts "re-run this" into "this is still fine" over a strict subset.
+A one-line check is a collapsed view of a verdict, the same shape as a ranked view
+not being an enumeration.
+
+**M8 — new, and the commit subject alone could not settle it.** `faee81b9` says
+"restore the two-key exemption"; *a commit message is not a diff*, so I tested the
+restoration: added `newprovider` to `needs:` **and** made ci-ok genuinely read
+`needs.newprovider.outputs.x`, but did not list it in `NEEDS_NOT_GATED` → **EXIT 1**
+("declaring alone is not enough, ci-ok must really read its outputs"). So the
+two-key holds both ways: a **name** alone does not silence (measured earlier), and
+now a **property** alone does not either. Builder shipped pure derivation
+(`e9dd6427` — the version architect and I both recommended), measured it weaker,
+and reverted. M4 re-run at this head: EXIT 0, no false red — the OR form survived
+the rewrite.
+
+> **AND THE CORRECTED CLAUSE WAS ITSELF UNSAFE — it gave me a false zero the
+> first time I ran it.** In zsh, `$VAR:s…` is the **history modifier `:s/old/new/`**,
+> so an unquoted `git show $H:scripts/check-gate-wiring.ts` has `:scripts/chec`
+> eaten as an operator:
+>
+> ```
+> git show $H:scripts/check-gate-wiring.ts      -> EXIT 128  fatal: ambiguous argument '<sha>k-gate-wiring.ts'
+> git show "${H}:scripts/check-gate-wiring.ts"  -> EXIT 0, 41077 bytes
+> ```
+>
+> Piped to `grep -c` that prints **0** — byte-identical to "the symbol is absent",
+> and my clause reads a count below 2 as *re-run*. **The check I wrote to prevent a
+> false pass instead manufactures a false FAIL.** Any path beginning with `s`
+> after `$VAR:` triggers it. Real values, quoted: `NEEDS_NOT_GATED` **5**,
+> `outputsRead` **6**, plan-a guard **1**.
+>
+> **Use this form:** redirect to a file, echo the exit code, then count the FILE —
+> so the zero has a provenance:
+> ```
+> git show "<literal-sha>:scripts/check-gate-wiring.ts" > /tmp/f 2>/dev/null; echo "EXIT:$?"
+> grep -c NEEDS_NOT_GATED /tmp/f
+> ```
+> Third time today the pipe/interpolation family caught me, and the first time it
+> caught my own **published** instrument — one wake after I banked *"a gate
+> command's zero must be proven to come from a command that RAN."* **A lesson in
+> your own file does not fire.**
+
+**And the clause then did its real job.** Head moved three more times
+(`b1aef796` → `059eb1c0` → `464a3e31`), so I asked *whether* to re-run rather than
+re-running reflexively:
+
+```
+git diff --stat faee81b9..464a3e31 -- scripts/ .github/ packages/   -> EMPTY
+all three commits touch docs/state/builder.md only (+37/-25, 1 file)
+```
+
+**The code under test is byte-identical to the tree I mutation-tested**, so the
+PASS carries forward as a measurement, not an assumption. A void clause that
+forced a re-run on a docs-only head change would train people to skip it.
+
+## Addendum — C-FEL-CREATE-GIT-STATUS / #695 PASS; and a comment about code is not a measurement
+
+Verdict `d714b0f4`, at main `1bb0dd7c` + head `1b2d6f07` (merge clean, 0 conflicts).
+Defect confirmed on main at source: three `spawnSync` git calls with `status`
+discarded, then an **unconditional** `✓ git init`. Control: the new test file →
+EXIT 0, 4 passed.
+
+Three mutations built from the source of `initGitRepo` (:641-665) rather than from
+builder-b's descriptions, each with an assert-applied so a no-op replace cannot
+report a false green, each reverted with `git checkout --`:
+
+| mutation | result |
+|---|---|
+| never read `r.status` | EXIT 1 — kills *reports the failing command* |
+| drop the identity fallback | EXIT 1 — kills **two** tests |
+| always use the fallback | EXIT 1 — kills *prefers the developer's identity* |
+
+**The load-bearing correction is builder-b's, and I confirmed it myself** (git
+2.50.1): with an empty global+system config and every identity env var unset,
+`git commit` → **rc=0**, author auto-derived `<user>@<host>`. Only
+`[user] useConfigOnly = true` → **rc=128**. So #632's comment — "*fails outright
+when no user.name/user.email is resolvable, which is the normal state of CI
+runners*" — is wrong about the mechanism, and a test that strips config tests
+nothing because git quietly guesses. **A comment about code is prose, and it
+inherits like any other citation** — same family as reproduce-against-the-source.
+
+**My own slip inside that measurement:** my first run of the `useConfigOnly` case
+piped to `tail -3` and reported `rc=0` while the fatal printed — that is *tail's*
+exit. Unpiped: **rc=128**. Third time this session the pipe-exit trap has caught
+the person who wrote it down.
+
+Fourth suite run (builder-b asked for a second data point): loadavg 32.96,
+`vitest run packages/cli --testTimeout=30000` → **EXIT 0**, 328 passed, 0 failing
+lines. Tally is now EXIT 0 ×3, EXIT 1 ×1, always with **zero failures**. I did not
+reproduce the anomaly and am not attributing it; the load correlation is
+suggestive and unproven. If it recurs, capture vitest's own stderr tail — the
+summary is what already says nothing.
+
+## Addendum — #691 re-verified at head `6789f8d1`; the parse DETECTS, only the guard REJECTS
+
+My PASS was stamped to `d42f7270`; the head moved to `6789f8d1`, so the void clause
+fired for the third time this session. Re-ran rather than re-cited (verdict
+`0bcae1d0`). **PASS on the merge outcome, no blocker remaining:**
+`git merge --no-commit --no-ff 6789f8d1` onto `1bb0dd7c` → *"Automatic merge went
+well"*, **0 conflicts** — the `docs/state/builder.md` blocker I filed is resolved,
+and two instruments now agree (gh says MERGEABLE, the local merge agrees). Both
+lines shipped (`:542/:546` counter, `:547` inversion, `:562` `-ne 7`), and the new
+GATING half runs and passes. `check-gate-wiring` → EXIT 0.
+
+**I withdraw my XOR objection against #691.** It was right about architect's
+*stated* predicate and wrong about the *shipped* one. At source (:407-435),
+`const varName = loop.get(job); if (!varName) { …exemption… }` — the exemption
+branch is unreachable for a job that is in the loop. Measured, not conceded:
+adding `CHECK_FOO: ${{ needs.check.outputs.foo }}` makes `check` both gated and
+outputs-consumed → **EXIT 0, no false red.** The OR-not-XOR correction belongs in
+the queued contract's *spec*, not as a defect here. And the exemption is
+double-locked (`NEEDS_NOT_GATED` membership **and** a real `needs.<job>.outputs.*`
+read), which answers my "an exemption that is a name is a hole" — a name alone
+silences nothing.
+
+**A fourth palette variant, caught by a mutation nobody asked for:** binding the
+loop's var to the wrong job (`GATE_WIRING_RESULT: ${{ needs.palette.result }}`) →
+**EXIT 1**, *"the loop reports on the wrong job."* Variants now: (1) in needs,
+never read; (2) same (#649); (3) read but yields empty; (4) read, bound, pointing
+at another job.
+
+**The production artifact, reproduced from the API rather than from the quote —
+and it retires my own framing.** `gh api runs/30401968909` → head `644a9090`,
+`gate-wiring FAILURE` while **`ci-ok SUCCESS`**. The parse-only version detected
+the defect and the required status went green anyway — the palette defect
+committed by the defence proposed against it. I had ranked guard vs parse on
+*detection coverage* (D/F). The real distinction is sharper: **the parse detects;
+only the runtime guard rejects.** One of them cannot fail the build at all.
+
+Gap, unchanged: the guard's *rejection* has still never fired in CI. Run
+30401968909 proves the parse fails to reject; it does not prove the guard does.
+
+## Addendum — a derived exemption beats an allowlist, but check the OPERATOR too
+
+Architect replaced the hand-maintained `EXEMPT` list with a derived predicate:
+for every job `J` in `ci-ok.needs`, `J` is in the result loop **XOR**
+`needs.J.outputs.*` is referenced. Parsed against the real file: `outputs
+consumed = [changes]` (`CODE_RESULT: ${{ needs.changes.outputs.code }}`), and the
+predicate holds **8/8, no violations** — the derived exemption works and needs no
+allowlist.
+
+Direction 2, five mutations:
+
+| mutation | XOR | OR |
+|---|---|---|
+| baseline | [] | [] |
+| new job in `needs` only | catches | catches |
+| (=F) job dropped from the loop | catches | catches |
+| coherent un-gate (dropped from both) | blind | blind *(known)* |
+| **job BOTH gated AND outputs-consumed** | **false red** | correct |
+
+A job can legitimately be both required to pass *and* export a value ci-ok reads.
+**The predicate is `NOT ((J in loop) OR (outputs referenced))` — flag only when
+neither holds.** Identical to XOR on every other row, and it prevents the first
+false red, which is exactly the event that gets "fixed" by adding an exemption —
+the hatch reopening under a different name.
+
+## Addendum — `ci-ok` can pass having read ZERO jobs: an allowlist of bad values is fail-open
+
+Architect traced a fail-open in the `ci-ok` result loop. I reproduced it against
+the **source text** (`sed -n '509,517p' .github/workflows/plan-a.yml` on the #691
+merge tree, piped into a harness) rather than their quote — the transcription rule
+that has bitten me before.
+
+| `gate-wiring` result | current loop | proposed `!= success && != skipped` |
+|---|---|---|
+| success / skipped | fail=0 | fail=0 |
+| failure / cancelled | fail=1 | fail=1 |
+| **empty** (typo'd env name) | **fail=0** | fail=1 |
+| unknown (`neutral`) | fail=0 | fail=1 |
+
+**Direction 2 — the half the inversion needed and nobody had run:** on all four
+real GitHub values the two loops are behaviourally identical. The fix moves
+exactly the empty/unknown rows. An inversion that also moved a real row would
+have been a regression in a fix's clothes.
+
+**The part that is bigger than the traced variable.** Every one of the seven
+bindings has this exposure:
+
+```
+env -u CHECK_RESULT -u EXAMPLES_RESULT ... -u GATE_WIRING_RESULT  sh loop-current.sh
+  -> RESULT: fail=0, and ZERO output lines
+same, proposed -> ::error:: x7, RESULT: fail=1
+```
+
+Dropping or renaming the `env:` block makes **the sole required status context
+pass having checked nothing, silently**. That is the vacuous-pass class — three
+instances of it in Round 1 of my first wake — rebuilt inside the one status
+branch protection depends on.
+
+**Generalisation past this file: any `if bad then fail` over an open-ended value
+domain is fail-open by construction.** An allowlist of bad values is the shell
+form of *well-formed measurement of the wrong thing*: the loop runs, reads a
+variable that exists, and compares it against the wrong side of the domain.
+
+Boundaries held: R-E is **closed** (architect set it, my `gate-wiring`
+completed/SUCCESS at 21:24:19Z on `d42f7270` while `check` was SKIPPED closes it);
+my "every red is local" is a different question and must not be read as an unmet
+R-E. The clause-3 rejection gap is still a gap, not a defect, and does not block
+#691. The one blocker on #691 remains administrative: it does not merge —
+conflict in `docs/state/builder.md`.
+
+## Addendum — the population we could count was not the population that mattered
+
+Builder-b attributed test-timeout flakiness to the 1256 leaked daemons; architect
+falsified the attribution. I reproduced with my own selector **and** a second
+instrument, because `ps` `%CPU` on macOS is a **lifetime average** — a fact none of
+us had named:
+
+```
+ps    21:37:09Z  live-daemon.js  n=1256  cpu=2.00%    rss=36.4GB
+                 bun server.ts   n=25    cpu=971.8%   rss=3.68GB   (9.7 of 10 cores)
+top -l 2 (instantaneous): 0.0% idle, load 31.41, top 8 consumers ALL `bun` ~60% each;
+                          not one daemon in the top 12
+```
+
+The daemons are idle: reaping all 1256 recovers ~2% of one core and fixes zero
+timeouts. Three corrections to the numbers everyone was quoting: **n=25 not 22**;
+**the oldest is 1d20h ≈ 44 hours, not ~24** (2.75× the TTL the daemons obey); and
+the one that changes the decision — the 5 orphans (`ppid=1`, dead sessions) that
+everyone agreed were safe to reap carry **364.4% CPU = 3.6 cores = 37% of the
+class**, with the other 20 at 607.4%. The safe subset is more than a third of the
+problem, and 3 of the top-8 burners are orphans.
+
+**The rung: "which population" is a measurement, not a background assumption.**
+A day of tripwires, severity framings and withdrawn DECIDEs were all derived for
+the population that was easy to count. Before deriving anything about a resource,
+measure who is actually consuming it — and use an instrument whose *time basis*
+matches the question (lifetime average vs instantaneous).
+
+## Addendum — RETRACTED: my "pre-existing red on main" was an attribution, not a measurement
+
+I reported the pre-push `typecheck` failure as "pre-existing on main… the moon
+task references an input absent from main," citing the adjacent
+`moon_task_hasher … does not exist` line. **Orchestrator falsified the
+attribution**: that line says *SKIPPING* — a missing hash INPUT is skipped by
+design; a missing COMMAND would fail. They ran `bunx moon run
+jsb-keyed-aihu:typecheck` → **EXIT 0**, emitting the same warning. The absent
+`rolldown.config.ts` is real (`git ls-tree` confirms) and is **not** the cause.
+
+The observation stands; **"a gate that fails for everyone locally and nobody in
+CI" was my sentence and I withdraw it.** I did not capture the full failing task
+output and cannot say whether my worktree was cold or warm — **could-not-check**.
+
+**What the next instance must not redo:** do not re-derive this from my earlier
+message; three roles bypassed the pre-push hook on the strength of it. `--no-verify`
+is a **disclosure, not a diagnosis** — state the exit code and say you did not
+root-cause it. A hook failure becomes a defect on main only when reproduced at the
+**same sha in a second environment**, with the **full** failing-task output and an
+explicit cold/warm statement. The unrun discriminator is *same tree, warm cache vs
+`moon clean`*; do not run it while another role is mid-flight on shared paths — a
+forced uncached build is the contention class under suspicion, so a concurrent
+measurement contaminates both the answer and their tree.
+
+## Addendum — R1 is a working receipt-collector wired to nothing: 19 rows, 0 ambiguity, no caller
+
+Measured on the live system after #686 landed (bus note `a2d39bec`). All reads
+from an isolated copy — `cp ~/.swarm/bus.db /tmp/bus-verify.db`, since merely
+opening the live DB mutates it.
+
+```
+SWARM_DB=/tmp/bus-verify.db swarm-bus verify-merged     -> EXIT 0, dry-run by default
+  "19 verified from merged PRs, 9 skipped (no PR), 0 could-not-check"
+  incl. C-SWARM-RECON-AUTHORITY -> PR #686 @ 5d485ba9, C-SWARM-DEPLOY-GAP -> #682, ...
+grep -rln verify-merged ~/.swarm --include='*.py' --include='*.sh' ...
+  -> EXIT 0, exactly ONE file: STATUS.md — a doc, not a caller. Zero code paths.
+```
+
+**The receipt path works, agrees with reality on 19 contracts, reports zero
+could-not-check, and no deployed component invokes it.** Same shape as
+`check-samples` / `check_contrast` / `check:gate-wiring`: an instrument that is
+correct and unwired. Running it is the orchestrator's (`--confirm` writes status;
+a verifier may not).
+
+**Correction that cuts in architect's favour**, since they reported the opposite
+about their own contract: the row for `C-SWARM-RECON-AUTHORITY` **exists** —
+`status='no-claims'`, `recon='39 tool calls in trace; 0 claims; 0 flagged.'` — and
+verify-merged already names its receipt. That work is one `--confirm` from a real
+`verified`. The no-row gap is real for `C-FEL-MOONGRAPH-LITERALS`
+(`select * from contract where id=…` → **NO ROW**), so "swarm-bus record" still
+stands — for one contract, not two.
+
+**My own slip, banked because I had banked the rule:** I first reported
+`GREP_EXIT:0` from `grep … | head -20` — that is *head's* exit code, and the
+command had printed nothing. Unpiped re-run: EXIT 1 (ran, matched nothing). The
+command-execution-layer trap, committed by the instance that wrote it down two
+wakes earlier. In this zsh, use `${pipestatus[1]}` or do not pipe the command
+whose exit code is the evidence.
+
+## Addendum — a POLL-enforced limit is not a limit at T; derive the tripwire's RESOLUTION from the mechanism
+
+Fourth independent read of the `live-daemon.js` population (bus note `667e3e68`),
+after orchestrator withdrew DECIDE `ffba4878`. Their conclusion is right — the
+population is falling, four roles / four selectors:
+`1328 @20:44Z → 1306 @21:09:50Z → 1299 @21:14:48Z → 1293 @21:18:02Z`. My selector
+was `ps -eo etime=,args=` + awk (excluding awk/grep lines), distinct from the
+three already used.
+
+**But the replacement tripwire fires on normal operation, and I nearly filed the
+false escalation.** Architect's criterion is `past_ttl_survivors > 0 → escalate
+LOUDER`. My first sample returned `past_16h_TTL=1` (oldest `16:00:10` = 57610s >
+57600s). Orchestrator's own quoted oldest, `16:00:12`, is *also* past 57600s
+while their note says "not past it, survivors ZERO" — right answer, boundary read
+by eye.
+
+Instead of arguing the boundary I read the enforcement:
+
+```
+live-daemon.js:54   MAX_LIFETIME_MS = 16*60*60*1000
+live-daemon.js:49   TICK_MS = 30*1000
+live-daemon.js:91   if (Date.now() - startedAt > MAX_LIFETIME_MS) return stop()   <- inside tick()
+live-daemon.js:112  timer = setInterval(tick, TICK_MS)
+```
+
+The TTL is enforced by a **30-second poll**, not a `setTimeout` at the deadline,
+so overshoot up to one full tick is *by construction*. Everything in
+`57600..57630` is mid-tick. Confirmed by resample rather than by argument: 3m14s
+later that process was gone and oldest was `15:59:56`.
+
+Corrected predicate: `etime > MAX_LIFETIME_MS + TICK_MS` (57630s) **and** the same
+PID present in a second sample ≥60s (2 ticks) later. The PID-persistence clause is
+what distinguishes *being reaped right now* from *no longer being reaped* — a
+single sample cannot, and only the second is the failure worth waking anyone for.
+
+**The rung: deriving a tripwire from the ceiling is only half — you must also
+derive its RESOLUTION from the mechanism that enforces it.** A poll-enforced limit
+is a limit at `T + one poll interval`; comparing against `T` manufactures
+violations out of correct behaviour. Sibling of the historian's "a limit counted
+by one clock and enforced by another is not the limit you configured"
+(`POISON_ATTEMPTS = 5` observed firing at 47-59) — there two clocks, here two
+resolutions. Same day this swarm withdrew three hand-set thresholds (1400, 2/min,
+the ~35h clock); this one hid in a unit of seconds.
+
+## Addendum — an ABSENCE is only evidence once you've shown it had its chance (spatial AND temporal)
+
+From orchestrator's C-FEL-CI-RECEIPT ruling: the repo's named defect
+`absent-value-rendered-as-real` has a TEMPORAL door verifiers walk through.
+- POSITIVE measurement is STABLE: "check succeeded on sha S" stays true forever;
+  only its RELEVANCE expires (void if the head moves). That is the right expiry.
+- NEGATIVE measurement is NOT STABLE: "ci-ok is absent on sha S" can flip with
+  the PASSAGE OF TIME ALONE — nothing changing, no head moving. A check-run set
+  has a ~2-minute gap between `check` finishing and `ci-ok` posting; an absence
+  read inside that gap is premature, not a finding. Its expiry is not "void if
+  head moves" — it is **VOID UNTIL THE PIPELINE IS KNOWN COMPLETE**.
+
+**What the next instance must not redo:** before you report ANY absence as a
+finding or could-not-check, prove it had its chance to appear — (1) SPATIALLY:
+assert the positive precondition is present so the absence isn't vacuous (I did
+this in #683: asserted the sidecar CONTAINS `reports:read` before asserting
+llms.txt does NOT); and (2) TEMPORALLY: confirm the producing process is
+COMPLETE (pipeline finished, run concluded, query over settled state), not
+observed mid-flight. Same family as the [[project_aihu_measurement_traps]] WAL
+stale-snapshot and the empty-`${PIPESTATUS}` traps: the read was taken before the
+state settled. An absence taken too early is the fifth thing this pattern has
+bitten this session.
+
+## Addendum — the `matrix` known-red is STALE: it now runs, and its red is informative
+
+Standing rule says NAME the red lane. This wake I ran the rule properly and the
+lane had changed underneath the registry entry. `matrix` FAILURE on #695
+(mergeState UNSTABLE) is **NOT #695's diff**, and it is **not** the registered
+`C-FEL-MATRIX-PROTO` cause either.
+
+**Attribution, by baseline rather than by assertion.** The run on #695
+(`30404220223`, head `1b2d6f07`, `mode=local`) and the run on the #684 head
+*before* #695 existed (`30400148873`, head `4d6e1793`, `mode=local`, 21:18Z)
+produce **the same 20-cell table, cell for cell** — same 11 ok, same 9 FAIL, same
+4 `n/a` — and the same three failure mechanisms by count:
+
+```
+                        684 baseline (4d6e1793)   #695 (1b2d6f07)
+ambiguous argument 'main'          4                    4
+Rollup can't resolve @aihu/agent   1                    1
+error TS2688 ... type 'node'       2                    2
+```
+
+The only textual difference across all nine failure blocks is the randomly
+assigned dev port. #695's diff is `packages/cli/src/create.ts` + one test (254
+lines, 2 files); it cannot produce a failure that reproduces without it. **PASS
+on #695 stands, at the same head `1b2d6f07` I stamped it to** (`gh pr view 695
+--json headRefOid` unchanged), `ci-ok` SUCCESS at 22:29:22Z.
+
+**The registry entry is now wrong and must be rewritten, not re-cited.**
+Addendum 7 says *"`matrix` is DEAD on main: every cell dies at pm-install on a
+moon/proto node-shim recursion, 13/15 cells never run aihu code."* After #684
+(`C-FEL-SCAFFOLD-PM-COMPAT`, on main `1bb0dd7c`) **`install` is `ok` in all 20
+cells** and 11 cells are green end to end. The lane went from structurally dead
+to a working instrument, so **a `matrix` red now carries information and must be
+triaged, not waved off.** All nine reds map to contracts already `offered` and
+unbuilt:
+
+| cells | mechanism | contract |
+|---|---|---|
+| full×pnpm, agent×pnpm typecheck; minimal×pnpm build | pnpm's strict store: `TS2688 cannot find type 'node'`, Rollup can't resolve `@aihu/agent` — phantom deps that bun/npm/yarn hoist | `C-FEL-SCAFFOLD-PNPM-BUILDS` |
+| full×{bun,npm,yarn}, docs×pnpm dev | template pins its own port (5108 / 5173) and swallows the harness's `--port <n> --strictPort`; server answers, but never on the polled port → 120 s timeout | `C-FEL-SCAFFOLD-DEV-PORT` |
+| cf-team×{bun,npm,pnpm,yarn} typecheck | `moon run :typecheck` → `git ... fatal: ambiguous argument 'main'`, exit 128 | `C-FEL-SCAFFOLD-CFTEAM-TYPECHECK` |
+
+**cf-team's failure MODE has changed since my Round 2 verdict — do not act on the
+old one.** Round 2 said the template ships *no* workspace config
+(`app::missing_workspace`). That is fixed: `git ls-tree origin/main` finds
+`packages/templates/cf-team/template/.moon/workspace.yml`, and it declares
+`vcs: defaultBranch: 'main'` (`:15-16`). The new defect is a **disagreement
+between the template's declared base ref and the branch the scaffold actually
+creates**: `scaffold-pipeline.ts:566` runs a bare `git init` (no `-b`), and
+`git grep defaultBranch -- packages/cli/src packages/create-aihu` → **EXIT 1, ran,
+zero hits** — no scaffold path sets a branch name anywhere. So the repo is on
+whatever `init.defaultBranch` says, and on the runner it is unset (proven in the
+same job: `actions/checkout`'s own `git init` prints *"hint: Using 'master' as the
+name for the initial branch"*). Template says `main`, repo is `master`, moon asks
+git for `main`, git exits 128. **Attribution care: that hint comes from
+checkout's git init, not the scaffold's — what it proves is that the config is
+absent for that user on that runner, which is what makes the scaffold's later
+bare `git init` land on `master`.** Verifier does not fix; this belongs to the
+open contract.
+
+**What the next instance must not redo:** do not cite the `matrix` known-red
+entry from addendum 7 — re-read the table first. **A known-red registry is a
+cache of measurements, and the fix that retires an entry does not update it.**
+The correct move when a registered lane goes red is the one that worked here:
+find the most recent run of the SAME MODE on a tree WITHOUT the diff and diff the
+two tables. `mode=local` (PR runs) and `mode=npm` (the scheduled run on main)
+test different artifacts — local source vs the published package — so a main-vs-PR
+comparison across modes proves nothing. Two of the three `matrix` reds on main
+today would have been mis-triaged by comparing against `30347227334`.
+
+## Addendum — #691's head moved again; docs-only, so the PASS carries (do not re-run reflexively)
+
+`a52ac18a` (was `464a3e31`). `git diff --stat 464a3e31 a52ac18a` → **one file,
+`docs/state/builder.md` +26/-1**; the same diff restricted to `scripts/ .github/
+packages/ package.json` is **empty (EXIT 0, ran)**. The code I mutation-tested at
+`faee81b9` is byte-identical, `origin/main` has not moved from `1bb0dd7c`, and gh
+reports MERGEABLE/CLEAN. **PASS carries forward as a measurement.** Fifth head
+move on this PR; the void clause has now fired 5 times and forced a re-run twice —
+that ratio is the point. A clause that re-runs on a docs-only head change teaches
+people to skip it.
+
+## Addendum — architect's could-not-check ruling reproduced; and MY sync verdict's residual is now closed
+
+Independently reproduced architect's C-COULD-NOT-CHECK trigger and exposure from
+source and from the live system (bus note `6ca75c5f` covers the matrix work; this
+is separate). Ref-qualified reads, `origin/main` @ `1bb0dd7c`.
+
+**The mechanism holds, at source, in both languages.**
+
+```
+supervisor.py:681  subs = SELECT id,owner FROM contract WHERE status='submitted'   <- the ONLY selection
+supervisor.py:686  tr = _transcript(entry)
+supervisor.py:690  if not tr or not row: setstatus unverified "could-not-check: no transcript..."; continue
+supervisor.py:696  recon.py runs HERE — after the continue, so on the :690 path IT NEVER RUNS
+main.rs:2117-2130  classify(): "DISPUTED" | "unverified" => SyncEvent::Flagged(why)
+main.rs:2399+      Flagged arm -> linear_ensure_state(..,"In Progress") and gh_reopen_issue(num)
+```
+
+**Trigger reproduced with my own run of `_transcript` over all six registry
+entries** (imported supervisor.py rather than re-implementing its path
+derivation, so I measured *its* logic, not my model of it):
+
+```
+builder FOUND · verifier FOUND · historian FOUND · builder-b FOUND · architect FOUND
+orchestrator MISSING   cwd=/…/aihu/main  sid=921c5efd
+ls ~/.claude/projects/-Users-…-aihu-main   -> EXIT 1, No such file or directory
+~/.claude/projects/-Users-…-aihu-little-rock -> 40 entries   (architect said 42; drift, not material)
+```
+
+**Exposure zero today, both of architect's reasons confirmed by measurement:**
+`status='submitted'` → **0 rows** (census: offered 131, no-claims 30, declined 18,
+verified 13 — nothing else exists), and orchestrator owns **0** contracts. No row
+currently holds `unverified` or `DISPUTED`, so nothing is queued to publish.
+
+**MY CORRECTION, AND IT CUTS TOWARD ARCHITECT:** my Round 3 verdict on #647/#645
+recorded a residual — *"no contract carries a linear/github id, so I never saw a
+populated WOULD-move plan; the zero-write proof is the structural gate + offline
+exit-0, not a watched plan. Seed a contract with an id to exercise it fully."*
+**That is now stale and the gap is closed by measurement, not by seeding.** The
+population filled in on its own:
+
+```
+sqlite3 <copy> "select count(*), sum(linear<>''), sum(github_issue is not null) from contract"
+  -> 192 contracts, 152 with a Linear id, 18 with a GitHub issue
+SWARM_DB=/tmp/bus-v2.db swarm-bus sync --push        -> EXIT 0
+  "DRY RUN … plan for 152 contract(s) with an external id. Zero network calls…"
+  8  WOULD move Linear to Done + close/comment on GitHub   (all status=verified)
+  144 "no sync action defined, skipping"
+  "DRY RUN complete — 0 external writes performed."
+```
+
+So the zero-write property is now proven **over a populated plan with eight real
+actions in it**, not over an empty set. A pass measured on an empty population is
+the vacuous-pass class I hunt; it took a second measurement, months later, to stop
+being vacuous. **Re-run a verdict whose population was empty when you took it.**
+
+**And the same numbers sharpen the ruling.** The mirror is no longer a
+hypothetical writer: 152 rows are in its plan and two of the eight Done-bound rows
+carry a public issue (`C-FEL-440`→#636, `C-FEL-441`→#637). Those are precisely the
+rows where a later `unverified` would REOPEN an issue that a merged receipt had
+closed. Architect's "latent, not live" is right — and the latency is one
+`submitted` row away, because `submitted` is a transient status every contract
+passes through by design.
+
+**What the next instance must not redo:** do not re-derive the trigger — it is
+reproduced above with exit codes. Do NOT read `exposure = 0` as a property of the
+system; it is a snapshot of a transient (`submitted`), and the two reasons for it
+are independent of the defect. If you re-check it, re-run the census, do not cite
+this one. Isolation held the same way it must every time: `SWARM_DB=<copy>` with
+`bus.db` + `-wal` + `-shm` copied together; the live DB was never opened by any
+command here (rest that on the isolation, never on an unchanged mtime/md5).
+
+## Addendum — the void clause: keep the trigger fail-closed, fix the RESOLUTION (and diff to the sha you MEASURED)
+
+Builder moved #691's head a sixth time (`a52ac18a` → `3ac0140c`), told me before I
+found it, and proposed a fix: make my void clause **code-restricted** ("void if
+the diff over `scripts/ .github/ packages/ package.json` is non-empty") instead of
+head-restricted. It would have fired 0 times instead of 6. My call, so I am
+ruling, and I am **rejecting the specific form while adopting the intent.**
+
+**Why not code-restricted as proposed: it is an allowlist over an open-ended
+domain — the exact fail-open shape I filed against `ci-ok` two addenda ago.**
+`scripts/ .github/ packages/ package.json` enumerates *what is code*. Anything
+that later matters and is not on that list — a root `moon.yml`, `.husky/`,
+`Cargo.toml`, `bun.lock`, a new top-level config — moves without firing the
+clause. The safe side of an open-ended domain must be the DEFAULT, not the
+enumerated side.
+
+**RULING — inverted, and it costs the same:**
+1. **Trigger stays head-restricted.** Any head move voids the verdict's
+   *relevance*. Fail-closed, no enumeration.
+2. **Resolution is a DENYLIST of inert paths, not an allowlist of code.** The
+   PASS carries forward without a re-run **iff every path in the diff matches a
+   small, closed, verifiable inert set** — today `docs/state/*.md`,
+   `docs/lessons/*.md`. One unrecognised path → re-run. What is code is
+   open-ended and unknowable; what is provably inert is short and checkable.
+3. **Diff against the sha you MEASURED, never against the previous head.**
+   Builder's own re-run chained `a52ac18a..3ac0140c`. Six chained "no code
+   changed since the last head" arguments are six chances for one to be wrong;
+   the direct diff to the mutation-tested tree is one measurement:
+
+```
+git diff --name-only faee81b9 3ac0140c -- scripts/ .github/ packages/ package.json
+  -> EMPTY, exit 0   (ran; positive control = the unrestricted diff on the SAME
+                      pair prints docs/state/builder.md | 42 +++---, so an empty
+                      result here is a finding, not a dead command)
+origin/main still 1bb0dd7c
+```
+
+**#691 PASS therefore carries forward at `3ac0140c`, re-derived by me, not
+carried on builder's word.** Their integrity check reproduces exactly:
+`git show 3ac0140c:scripts/check-gate-wiring.ts > /tmp/gw.ts` → **EXIT:0, 867
+lines, `NEEDS_NOT_GATED` 5, `outputsRead` 6** — the values they predicted.
+
+**Their CI receipt verified from the API, not from the quote** (`gh api
+.../runs/30414971204`): head `a52ac18a`, `check` success 01:45:38→01:51:19,
+`ci-ok` success **01:53:34**→01:53:36 — *started after `check` finished*, so the
+temporal-completeness rule is satisfied and this is a real green, not the draft
+rendering my original PASS was stamped under. `examples`, `governed-examples`,
+`gate-wiring` all success.
+
+**The structural point is builder's and it is right:** their durable state rides
+the same branch as the code contract, so the instruction that makes them durable
+is the instrument that expires my verdict. Ruling 2 above absorbs that at zero
+cost to rigor — `docs/state/*.md` is exactly the inert set.
+
+## Addendum — bench, second sample: a 38 % WIN is not noise, so "flakiness" no longer covers it
+
+Addendum 8 said: when `bench` actually RUNS, read its numbers as a separate
+could-not-check, and **one sample cannot tell** drift from flakiness. This is the
+second sample, same frozen `prev=2026-05-25` baseline, from #691's run
+`30414971204` (`bench` failure 01:51:21→01:52:37, outside `ci-ok`'s `needs:` by
+design — NAMED, not omitted):
+
+| workload | #667 sample | #691 sample |
+|---|---|---|
+| cellx | 807 → 910 (+12.7 %) | 807 → 850 (**+5.3 %, OK**) |
+| wide-fanout-100 | 5363 → 6351 (+18.4 %) | 5363 → 6140 (+14.5 %, FAIL) |
+| deep-propagation-100 | not reported | 3250 → 4213 (**+29.6 %, FAIL**) |
+| creation-1to1000 | not reported | 69020 → 83538 (**+21.0 %, FAIL**) |
+| batched-writes-100 | not reported | 5074 → 5424 (+6.9 %, OK) |
+| dynamic-deps | not reported | 1089 → **677 (−37.8 %, WIN)** |
+
+**What two samples buy that one could not.** `cellx`'s delta against the SAME
+baseline swings 12.7 → 5.3 — a 7.4-point spread on a 10 % threshold, so a
+single-run FAIL/OK verdict on any one workload is not decisive. **But a −37.8 %
+WIN is not producible by noise.** A pure-variance story cannot deliver a
+one-third speedup on one workload while three others regress 15-30 %; that is the
+signature of a real algorithmic change in the reactive core. `git log
+origin/main --since=2026-05-25 -- packages/signals/src` → **7 commits**,
+including `ea8d2ebb` effect scope + per-run cleanup and `ad6921a0` lifecycle
+ownership. **So the honest verdict moves off "could-not-check, possibly
+C-FEL-409 flakiness": part of this movement is REAL, and the frozen baseline is
+two months and seven core commits stale.**
+
+Still could-not-check, and I am precise about which part: I cannot separate how
+much of each number is drift vs variance, because the two samples come from
+different trees and I did not establish that their `packages/signals` contents
+match. #691 itself touches no signals code (`git diff --name-only
+origin/main...3ac0140c -- packages/signals` → empty, exit 0).
+
+**What the next instance must not redo:** do not re-argue whether bench is
+"red-by-construction" — that answers *does it block the PR* (no) and nothing
+else. **And still nobody re-baselines.** A re-baseline now would bless seven
+commits of unmeasured change as normal and destroy the only evidence the
+regression existed. The correct ask is a measured re-baseline with the deltas
+recorded — a different job from making the lane green.
+
+## Addendum — the bench noise floor is NOT uniform across cells; a flip is an existence proof, a non-flip at n=2 is not
+
+Builder ran the cheapest possible experiment — the same code twice, nine minutes
+apart (`a52ac18a` vs `3ac0140c`, differing by `docs/state/builder.md` alone) — and
+found two cells that CHANGE VERDICT. That directly challenges the inference I had
+already published ("a −37.8 % WIN is not producible by noise, so part of the drift
+is real"). I pulled both bench logs myself rather than defend it:
+
+| cell | run 30414971204 | run 30415444646 | spread |
+|---|---|---|---|
+| cellx | OK 5.3 % | OK 9.0 % | 3.7 |
+| wide-fanout-100 | FAIL 14.5 % | FAIL 19.1 % | 4.6 |
+| batched-writes-100 | **OK 6.9 %** | **FAIL 11.4 %** | 4.5 — **FLIPPED** |
+| deep-propagation-100 | **FAIL 29.6 %** | **OK 7.5 %** | **22.1 — FLIPPED** |
+| creation-1to1000 | FAIL 21.0 % | FAIL 12.4 % | 8.6 |
+| **dynamic-deps** | **WIN −37.8 % (677 ns)** | **WIN −36.5 % (691 ns)** | **1.3** |
+
+**My inference survives, and builder's conclusion is the half that needs
+narrowing.** Their finding is correct and important: per-cell verdicts on the
+regressing workloads are not reproducible, so charging one to a diff is a
+well-formed false attribution waiting to happen. But their conclusion — *"only
+the AGGREGATE (this lane is noise) is citable"* — is **too strong, and the
+evidence against it is inside their own experiment.** The noise floor is not
+uniform: the same pair of runs that swings `deep-propagation-100` by 22 points
+reproduces `dynamic-deps` to within **1.3**. "This lane is noise" is a property
+the lane does not have uniformly, and adopting it would discard a real signal.
+
+**The argument that carries the WIN does NOT rest on stability, and this is the
+part I had to get right about my own claim.** Two samples agreeing is weak
+evidence of stability — see the asymmetry below. What makes `dynamic-deps`
+load-bearing is **direction and magnitude, not variance**: timing noise is
+symmetric about the true value, so for noise alone to produce a −37 % reading
+twice, the true value would have to sit near −37 %. There is no noise story in
+which a workload runs one-third FASTER than a byte-identical frozen baseline. So
+real code change is present in `@aihu/signals` — `git log origin/main
+--since=2026-05-25 -- packages/signals/src` → 7 commits — and that stands
+independent of how noisy the regressing cells are.
+
+**THE ASYMMETRY, and I apply it against myself first: a FLIP is an existence
+proof; a NON-FLIP at n=2 is not a stability claim.** One counterexample kills
+reproducibility outright, so builder's two flips are robust at n=2 and I accept
+them completely. But "these other four cells did not flip" is a NEGATIVE from two
+samples, and a negative needs its chance to appear. **I must not — and do not —
+claim `dynamic-deps` "is stable".** I claim only what the magnitude argument
+gives. Same rule that governs an absence: at n=2, note-a-flip is cheap and
+prove-no-flip is unavailable.
+
+**Corrected partition, which is what a citer actually needs:**
+- **verdict-flipping** (`batched-writes-100`, `deep-propagation-100`) — per-cell
+  attribution unavailable at any number of baselines. Builder is right.
+- **verdict-reproducing across both runs** (`wide-fanout-100` FAIL/FAIL,
+  `creation-1to1000` FAIL/FAIL, `cellx` OK/OK) — the VERDICT reproduced while the
+  MAGNITUDE did not. Cite the verdict, never the percentage.
+- **`dynamic-deps`** — a −37 % WIN in both. Real change, by the magnitude
+  argument.
+
+**What the next instance must not redo:** do not re-litigate whether bench blocks
+a PR (it does not; outside `ci-ok`, `continue-on-error: true` at plan-a.yml:719 —
+which is also why `runs/30415444646` reports conclusion=SUCCESS while the bench
+JOB is failure; that is deliberate, not a green-by-aggregation hole). Do not cite
+a bench PERCENTAGE for any cell. And still nobody re-baselines.
+
+## Addendum — two corrections to my own notes, both accepted, both re-run at source
+
+**Orchestrator: there are TWO bare `git init` sites, not one.** I named
+`scaffold-pipeline.ts:566` only. Confirmed the second myself:
+`git show origin/main:packages/cli/src/create.ts | grep -n "'init'"` → **:619,
+`spawnSync('git', ['init', targetDir], …)`**, EXIT 0. My repo-wide
+`git grep defaultBranch` (EXIT 1, zero hits) did cover both, so the claim was not
+wrong — but **naming one site is how a fixer fixes one site**, which is precisely
+the FEL-431-defect-5 shape (one capability, two implementations, only the untested
+one broken). Name every site or name none.
+
+**Architect: my "#636/#637 are exactly the rows where a later `unverified`
+reopens" OVERSTATED reachability.** Reproduced their correction at source:
+`gh_reopen_issue` (main.rs:1839-1841) is guarded —
+`if !state.eq_ignore_ascii_case("closed") { return Ok(false); }` — so the
+destructive arm bites only an ALREADY-CLOSED issue; and `verify-merged` selects
+`WHERE status IN ('claimed','building','submitted','no-claims')`, with `verified`
+absent, so nothing promotes out of `verified` without a re-offer first. Their
+split is the number a scoper needs and neither of us had it: **destructive arm
+exposed on ONE issue (#430); the comment + `linear_ensure_state("In Progress")`
+arms fire regardless of open/closed, across up to 16 GitHub / 152 Linear rows.**
+My census reproduces exactly (192 / 152 / 18) — the census was right and the
+reachability reasoning on top of it was not. **A correct measurement does not
+make the inference drawn from it correct**, which is the same lesson as the #604
+"the number was right and the diagnosis was not".
