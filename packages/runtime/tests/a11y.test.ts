@@ -257,7 +257,19 @@ describe('createFocusTrap — RFC-A5-018', () => {
     expect(n).toBeTruthy()
 
     n.focus()
-    const ev = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true })
+    // `composed: true` matches a REAL keydown: the platform always dispatches
+    // UI events composed, so they cross shadow boundaries. It is required here
+    // because the trap listens on `document` in the capture phase (the shared
+    // `@aihu/primitives/focus-trap` architecture) rather than on the trap host
+    // itself — that is what makes its "focus escaped the container" guard a
+    // reachable state instead of dead code. The behavior asserted below is
+    // unchanged.
+    const ev = new KeyboardEvent('keydown', {
+      key: 'Tab',
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+    })
     n.dispatchEvent(ev)
 
     // Without the fix, `wire()` never finds the host (it keeps retrying via

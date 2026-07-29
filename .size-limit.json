@@ -29,7 +29,7 @@
     "path": "packages/runtime/dist/index.js",
     "limit": "4800 B",
     "gzip": true,
-    "ignore": ["@aihu/signals/lifecycle"]
+    "ignore": ["@aihu/signals/lifecycle", "@aihu/primitives/focus-trap"]
   },
   {
     "name": "@aihu/agent",
@@ -166,6 +166,13 @@
   {
     "name": "@aihu/primitives/dialog",
     "path": "packages/primitives/dist/dialog.js",
+    "limit": "4 KB",
+    "gzip": true,
+    "ignore": ["@aihu/signals", "@aihu/arbor", "@aihu/css-engine"]
+  },
+  {
+    "name": "@aihu/primitives/focus-trap",
+    "path": "packages/primitives/dist/focus-trap.js",
     "limit": "4 KB",
     "gzip": true,
     "ignore": ["@aihu/signals", "@aihu/arbor", "@aihu/css-engine"]

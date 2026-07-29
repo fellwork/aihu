@@ -16,6 +16,11 @@ export default defineConfig({
     collection: 'src/collection/index.ts',
     'roving-focus': 'src/roving-focus/index.ts',
     dialog: 'src/dialog/index.ts',
+    // The focus trap gets its OWN entry (not just `./dialog`) because
+    // @aihu/runtime's `<focusTrap>` adapter consumes it — importing `./dialog`
+    // there would drag the whole dialog primitive into runtime's single
+    // bundled dist for the sake of one factory. FEL-397 / fellwork/aihu#537.
+    'focus-trap': 'src/dialog/focus-trap.ts',
     tooltip: 'src/tooltip/index.ts',
     button: 'src/button/index.ts',
     separator: 'src/separator/index.ts',

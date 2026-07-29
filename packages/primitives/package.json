@@ -39,6 +39,10 @@
       "types": "./dist/dialog.d.ts",
       "import": "./dist/dialog.js"
     },
+    "./focus-trap": {
+      "types": "./dist/focus-trap.d.ts",
+      "import": "./dist/focus-trap.js"
+    },
     "./tooltip": {
       "types": "./dist/tooltip.d.ts",
       "import": "./dist/tooltip.js"

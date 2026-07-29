@@ -83,6 +83,7 @@ bun add @aihu/primitives
 | `./roving-focus` | `./dist/roving-focus.js` | `—` |
 | `./collection` | `./dist/collection.js` | `—` |
 | `./dialog` | `./dist/dialog.js` | `—` |
+| `./focus-trap` | `./dist/focus-trap.js` | `—` |
 | `./tooltip` | `./dist/tooltip.js` | `—` |
 | `./button` | `./dist/button.js` | `—` |
 | `./separator` | `./dist/separator.js` | `—` |

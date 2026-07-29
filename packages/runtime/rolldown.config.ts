@@ -34,5 +34,24 @@ export default defineConfig({
   // silently no-ops. (Workspace tests alias src, so only dist consumers hit
   // it.) Externalizing also stops double-shipping the bytes against the
   // size gate, which already lists `@aihu/context` as a peer/external.
-  external: ['@aihu/arbor', '@aihu/signals', '@aihu/signals/lifecycle', '@aihu/context'],
+  //
+  // '@aihu/primitives/focus-trap' is external for the same double-shipping
+  // reason, plus a measured one. It is the SINGLE focus-trap implementation
+  // (FEL-397 / fellwork/aihu#537); `a11y.ts`'s `<focusTrap>` helper is now a
+  // thin reactive adapter over it. Inlining it — and, transitively, the slice
+  // of `composed-tree.ts` it walks — measured **+829 B gz** on runtime's row
+  // (4.64 → 5.47 kB against a 4800 B limit), and an app that also uses
+  // `@aihu/primitives/dialog` would then ship the trap TWICE. Kept external,
+  // those bytes are counted exactly once, on their own
+  // `@aihu/primitives/focus-trap` row (1.31 kB / 4 KB) — per-package
+  // accounting as `.size-limit.README.md` intends, not a hidden cost. This is
+  // why `@aihu/primitives` is a real `dependencies` entry in package.json
+  // rather than a build-time-only import.
+  external: [
+    '@aihu/arbor',
+    '@aihu/signals',
+    '@aihu/signals/lifecycle',
+    '@aihu/context',
+    '@aihu/primitives/focus-trap',
+  ],
 })

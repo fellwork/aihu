@@ -259,4 +259,4 @@ export function defineDialog(prefix = 'aihu'): void {
   _definedPrefixes.add(prefix)
 }
 
-export { createFocusTrap, type FocusTrap } from './focus-trap.ts'
+export { createFocusTrap, type FocusTrap, type FocusTrapOptions } from './focus-trap.ts'

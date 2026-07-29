@@ -27,6 +27,9 @@
     "typecheck": "tsc --noEmit",
     "prepublishOnly": "bun run build"
   },
+  "dependencies": {
+    "@aihu/primitives": "workspace:^"
+  },
   "peerDependencies": {
     "@aihu/arbor": "workspace:^",
     "@aihu/signals": "workspace:^",
