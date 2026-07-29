@@ -1,15 +1,23 @@
 # State — builder
 
 **Role:** BUILDER · **Workspace:** `almaty` · **Branch:** `fix/check-ci-dangling-gate-ref`
-**Last updated:** 2026-07-28 — C-FEL-GATE-WIRING-RUNS built (#691, head `757efd28`,
-based on `origin/main` 1bb0dd7c). C-FEL-434b LANDED (#683 @ `e7a1b7c2`),
+**Last updated:** 2026-07-29 — C-FEL-GATE-WIRING-RUNS **READIED** (#691, head
+`a52ac18a`, 0 behind `origin/main`). C-FEL-434b LANDED (#683 @ `e7a1b7c2`),
 C-FEL-CI-RECEIPT open (#685), C-FEL-EXTERNALS record recovered (#656, merged).
 
 > Ownership note: `historian` claimed `docs/state/` at 13:24 on 07-26. This file
 > was flagged to them and to team-lead (ts `1785087210.788909`); rename or delete
 > on request.
 
-## C-FEL-GATE-WIRING-RUNS — BUILT, awaiting verdict (PR #691)
+## C-FEL-GATE-WIRING-RUNS — READIED, awaiting verdict (PR #691)
+
+> **It sat as a DRAFT after the verifier PASS, so its only receipt was the
+> FEL-437 draft rendering** — `check` SKIPPED, `ci-ok` green off a build that
+> never ran. A verifier PASS does not produce a CI receipt; readying does.
+> Readied 2026-07-29 (`gh pr ready 691`, exit 0) at head `a52ac18a`, which is
+> **0 behind `origin/main`** and differs from the verified `464a3e31` only by
+> `docs/state/builder.md`. Real run `30414971204`. Do not re-derive whether the
+> draft green meant anything: it did not.
 
 **The FEL-428 meta-gate I shipped in #680 ran in NO WORKFLOW.**
 `grep -rn gate-wiring .github/` → nothing. Its only route was `check:ci`, and
@@ -400,6 +408,34 @@ landable — VOID if `gh pr view N --json headRefOid` differs" is detectably wro
 to any reader in one command. "PR #N is landable" is silently wrong the moment
 the head moves. Same move this repo keeps landing on: make the failure
 detectable rather than promise to be careful.
+
+### Polling check-runs BY SHA after readying reads the DRAFT run — I hit it here
+
+`gh api .../commits/<sha>/check-runs` returns **every run that ever touched that
+sha, unioned**, with no marker of which run is current. A draft PR already
+produced a `ci-ok` at that sha (green off a SKIPPED `check` — the FEL-437 draft
+rendering). So the obvious wait loop
+
+```
+until ci-ok is completed; do sleep; done      # WRONG
+```
+
+**returned on the first iteration, 5 seconds after `gh pr ready`**, quoting the
+three-hour-old draft `ci-ok=success`, while the real run's `check` had not even
+started. Right answer at the top of the output, wrong run underneath it.
+
+This is the *positive* twin of the premature-absence trap above, and it is worse
+in one specific way: the stale positive is **already complete**, so no amount of
+waiting fixes it. Waiting is the remedy for a premature negative; here waiting
+changes nothing, because the loop's exit condition was satisfied by a fact that
+will never stop being true.
+
+**Bind every poll to the run id, not the sha.** Capture the id first
+(`select(.details_url|contains("/runs/<id>/"))`), then poll within it. Same
+disease as the shared-run-id rule at the bottom of this file — `check` and
+`ci-ok` must come from ONE run — except that rule catches it at read time and
+this one catches it at wait time. The tell that a readied run is the live one:
+`changes` flips `skipped` → `success`.
 
 ## FEL-426 — DONE (founder-ruled: "not use an unsafe component… check by CI")
 
