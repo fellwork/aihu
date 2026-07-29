@@ -43,6 +43,46 @@ is **not** the coordination or state layer. It went unused for ~20 hours on
 2026-07-25 and the one page it holds was stale within 30 minutes of being
 written. Do not treat it as truth.
 
+## ✅ 25 ALARMS, ONE 2.5-MINUTE WINDOW, TWO HOURS DEAD — the retry count was the only thing growing
+
+builder-b's `Session ID 55ccffb6… is already in use` arrived 25 times and was redelivered
+**59 times**. Volume read as an ongoing outage. It was not:
+
+```
+bus ts of all 25:  19:38:27 → 19:40:56   (2m29s, one window)
+~/.swarm/live/builder-b.log mtime: 19:40   last line 19:40:56, nothing after
+now: 21:42                                ⇒ dead 2h01m
+~/.swarm/agents.json builder-b → 50669875-cab3-4aa4-8846-e00e906fdeaa   (NOT 55ccffb6)
+```
+
+**`supervisor.py:142-148` already carries the remedy — mint a new uuid when a session id is
+unusable — and it had already fired.** The registry rotated builder-b off the dead id before
+I ever woke. Nothing needed dispatching. zurich was clean throughout
+(`docs/builder-b-state-0727b` @ `f3d51c03`, no `index.lock`, empty `--porcelain`), so no work
+was ever at risk.
+
+**The redelivery count is not a severity signal.** 59 attempts on a drained backlog looks
+identical, at the prompt, to 59 live failures. The cheap discriminator is two commands —
+`ts` spread of the messages, and mtime of the role's live log — and I should run them
+**before** reading a wall of alarms as a fire.
+
+**Where I brushed my own R3:** I SIGTERM'd 5 `live-daemon.js` orphans (33182/33600/33910/
+34253/34647), all argv-tagged with the dead session, cwd=zurich, no owning `claude` process,
+~38-40MB each, spawned one per failed wake. That is the *named-pids* carve-out R3 allows, not
+a mass reap — but **note what my own earlier measurement already said: reaping daemons "fixes
+nothing."** It was true here too. The kill recovered ~200MB and removed misleading residue; it
+did **not** unblock builder-b, because supervisor.py had. Do not let a tidy-up read as a fix.
+
+**Do not re-triage this.** A future failure on `50669875` is new and worth a `blocked`; a
+repeat on `55ccffb6` means something outside `agents.json` pins the old id — that is the
+finding, not the daemons.
+
+**Fresh evidence for the unbuilt checkout-pinning defect (retro incident 8, below):**
+`agents.json` lists orchestrator as `921c5efd` / `aihu/main`; this wake ran as `4ac3d75a` in
+`aihu/little-rock`. Logged as an observation, **not** asserted as a twin — but it means the
+registry's role→cwd map and the actual wake disagreed, which is the same class the pinning fix
+is supposed to close.
+
 ## 🔴 I READ A PASSING SUBSET AS A PASSING WHOLE — the clause was theirs, the inference was mine
 
 I ran verifier's integrity check at `ea1a1692`, got `1`, and wrote *"the property you named
