@@ -33,7 +33,19 @@
 import './code-editor.ts'
 import { DEFAULT_PRESET_ID, getPreset, PRESETS } from './presets.ts'
 
-const DEFAULT_SOURCE = getPreset(DEFAULT_PRESET_ID)?.source ?? PRESETS[0].source
+const DEFAULT_SOURCE = getPreset(DEFAULT_PRESET_ID)?.source ?? PRESETS[0]!.source
+
+/**
+ * `typescript` is ~1 MB gzipped — importing it statically blows the docs
+ * client-bundle budget (40 KB) even though only the playground page ever
+ * calls `stripTs`. Load it as its own chunk, on demand, the first time a
+ * preview actually renders.
+ */
+let stripTsPromise: Promise<typeof import('./strip-ts.ts')['stripTs']> | null = null
+function loadStripTs(): Promise<typeof import('./strip-ts.ts')['stripTs']> {
+  stripTsPromise ??= import('./strip-ts.ts').then((m) => m.stripTs)
+  return stripTsPromise
+}
 
 /**
  * Upper bound for the auto-grow iframe height (Layer B). Matches the
@@ -270,101 +282,6 @@ async function loadBundle(host: PlaygroundEmbed): Promise<string | null> {
  * All `import … from '@aihu/*'` lines are stripped because those packages are
  * already available via window.__aihu in the preview iframe.
  */
-function stripTs(js: string): string {
-  return stripParamAnnotations(
-    js
-      .replace(/^import type .+$/gm, '')
-      .replace(/^import .+ from ['"]@aihu\/[^'"]+['"];?$/gm, '')
-      // ` as [unknown as] Type` / `Type<Arg>` / `Type.Sub` — a single type
-      // reference, so the match can never run past the expression it annotates.
-      .replace(/ as (?:unknown as )*[A-Za-z_$][\w$.]*(?:<[^<>]*>)?/g, '')
-      .replace(/^export /gm, ''),
-  )
-}
-
-/**
- * Erase parameter type annotations from `function name(…)` declarations.
- *
- * Scans for each declaration header and rewrites only the text between its
- * parentheses, matched by depth so a parenthesised type (`cb: () => void`) or
- * a destructured default does not truncate the list. Within the list, each
- * top-level comma-separated parameter drops everything from its top-level `:`
- * up to a top-level `=` (so a default value survives) or the end.
- *
- * Only `function` declarations are touched: those are the sole shape the
- * compiler emits user-authored (and therefore possibly annotated) parameters
- * in — `action((e: Event) => …)` lowers to `function onInput(e: Event) {…}`.
- * Every arrow the compiler generates itself is untyped.
- */
-function stripParamAnnotations(js: string): string {
-  const header = /\bfunction\s+[A-Za-z_$][\w$]*\s*\(/g
-  let out = ''
-  let cursor = 0
-  let m: RegExpExecArray | null
-  while ((m = header.exec(js)) !== null) {
-    const open = m.index + m[0].length - 1
-    const close = matchingParen(js, open)
-    if (close < 0) continue
-    out += js.slice(cursor, open + 1) + stripAnnotationsInParams(js.slice(open + 1, close))
-    cursor = close
-    header.lastIndex = close
-  }
-  return out + js.slice(cursor)
-}
-
-/** Index of the `)` closing the `(` at `open`, or -1 if unbalanced. */
-function matchingParen(js: string, open: number): number {
-  let depth = 0
-  for (let i = open; i < js.length; i++) {
-    if (js[i] === '(') depth++
-    else if (js[i] === ')' && --depth === 0) return i
-  }
-  return -1
-}
-
-/** Split a parameter list on its top-level commas. */
-function splitParams(params: string): string[] {
-  const parts: string[] = []
-  let depth = 0
-  let start = 0
-  for (let i = 0; i < params.length; i++) {
-    const ch = params[i] as string
-    if ('([{'.includes(ch)) depth++
-    else if (')]}'.includes(ch)) depth--
-    else if (ch === ',' && depth === 0) {
-      parts.push(params.slice(start, i))
-      start = i + 1
-    }
-  }
-  parts.push(params.slice(start))
-  return parts
-}
-
-/**
- * Drop `: Type` from every top-level parameter in a parameter list.
- *
- * The annotation runs from the parameter's first top-level `:` to its default
- * (a top-level `=` that is not the `=>` of a function type) or to the end.
- */
-function stripAnnotationsInParams(params: string): string {
-  return splitParams(params)
-    .map((param) => {
-      let depth = 0
-      let colon = -1
-      let eq = -1
-      for (let i = 0; i < param.length; i++) {
-        const ch = param[i] as string
-        if ('([{'.includes(ch)) depth++
-        else if (')]}'.includes(ch)) depth--
-        else if (depth > 0) continue
-        else if (ch === ':' && colon < 0) colon = i
-        else if (ch === '=' && param[i + 1] !== '>' && colon >= 0 && eq < 0) eq = i
-      }
-      if (colon < 0) return param
-      return param.slice(0, colon) + (eq < 0 ? '' : ` ${param.slice(eq)}`)
-    })
-    .join(',')
-}
 
 /**
  * Build the full srcdoc HTML for the preview iframe.
@@ -733,13 +650,13 @@ export class PlaygroundEmbed extends HTMLElement {
       const elapsed = performance.now() - start
       this.setLatency(elapsed)
       this.setError(null)
-      this.postRender(result.js)
+      void this.postRender(result.js)
     } catch (err) {
       this.setError(err instanceof Error ? err.message : String(err))
     }
   }
 
-  private postRender(js: string): void {
+  private async postRender(js: string): Promise<void> {
     if (!this.bundle) {
       // Bundle not available: show compiled JS as text fallback. This doc
       // ships no height handshake, so the iframe must fill+scroll its pane.
@@ -748,6 +665,7 @@ export class PlaygroundEmbed extends HTMLElement {
       this.iframe.srcdoc = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>pre{margin:0;padding:8px;font-family:monospace;font-size:12px;white-space:pre-wrap}</style></head><body><pre>${safeJs}</pre></body></html>`
       return
     }
+    const stripTs = await loadStripTs()
     const processed = stripTs(js)
     this.iframe.srcdoc = buildPreviewDoc(this.bundle, processed)
   }
