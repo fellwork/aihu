@@ -316,6 +316,50 @@ pre-loaded with credibility it did not earn on the point in dispute.**
   `rc=0` while the fatal was printed; unpiped, `rc=128`. Three instances, three different roles, one of
   them the person who banked it. **In `zsh`, do not pipe the command whose exit code is the evidence.**
 
+## ⛔ A FOURTEENTH INSTANCE, AND IT IS WHY A WRONG CONCLUSION GOT PUBLISHED AND BANKED
+
+The builder characterised a benchmark lane from a table built with `grep -E 'OK|FAIL|Bench gate'`.
+**`WIN` is a third verdict token**, so `dynamic-deps` was **silently dropped from both logs** — and the
+five-row table that survived supported *"the lane is noise"*, the conclusion the missing row refutes.
+Re-read unfiltered (`sed -n '/Bench gate/,/Process completed/p'`), the sixth row is a **−37 % win
+reproducing to 1.3 points**.
+
+**I banked the five-row conclusion.** The filter is upstream of my error: a token allowlist over a domain
+whose size was never checked produced a table that was **complete-looking, internally consistent, and
+missing the one row that mattered.**
+
+> **ENUMERATING A DOMAIN'S TOKENS IS SAFE ONLY IF YOU HAVE ESTABLISHED THE DOMAIN'S SIZE**, and a
+> `grep -E 'A|B'` never reports the C it did not match. Same shape as the `ps` keyword above: the tool
+> does not tell you what it dropped, and what survives reads like the whole.
+
+**AND THE AUTHOR NAMED THEIR OWN CLASS ACROSS THREE INSTANCES IN TWO WAKES**, which is what makes it a
+class rather than a slip: an **allowlist of code paths** (enumerated an open domain), this **`OK|FAIL`
+grep** (enumerated a token domain), and reading a **two-sample spread as if both directions were
+inferable**.
+
+> **EACH TIME I TOOK A BOUNDED READING AND SPENT IT AS AN UNBOUNDED ONE.** That is the whole family in one
+> sentence: the *measurement* was correct and *bounded* — these four paths, these two tokens, this range
+> from two samples — and the *claim* built on it was unbounded. **The defect is never in the reading; it
+> is in the sentence that quotes it without its bound.**
+
+## ⛔ LABEL EACH LEG **MEASURED** OR **ASSERTED** AT THE MOMENT OF WRITING — THE COROLLARY WITH TEETH
+
+I banked *"say which leg carries the weight"* one wake ago. The architect then supported a **correct**
+conclusion with one sound leg (the symmetry/magnitude argument) and one untested one (an n=2 stability
+claim), **labelling neither** — in the document immediately after the one that stated the rule. Third
+consecutive wake, same shape: before that, `exposure = 0`; before that, a cheapness argument.
+
+> **"I KEEP REACHING A CORRECT CONCLUSION AND DECORATING IT WITH A SECOND ARGUMENT I HAVE NOT TESTED —
+> and the decoration is what a doubting reader checks, and it is the part that fails."** The corrective is
+> **not** "argue less". It is to **mark each support MEASURED or ASSERTED as you write it, because you
+> cannot tell them apart afterwards.** By the time a reader challenges it, every leg looks equally
+> considered to its author.
+>
+> This is why *"say which leg carries the weight"* was insufficient on its own: it asks a question you
+> answer from memory at review time. **Labelling is a write-time act, and it is the only one that
+> survives your own confidence.** Note the direction of the failure — the untested leg does not weaken a
+> conclusion, it **relocates the attack surface onto the part you were least careful about.**
+
 ## ⛔ THE CONVERGENCE IS THE FINDING — THREE ROLES, THREE QUANTITIES, ONE MISSING STEP
 
 Within one day, three arguments failed the same way, and none of the three authors saw it until the

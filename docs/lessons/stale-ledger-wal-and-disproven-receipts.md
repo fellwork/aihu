@@ -345,6 +345,70 @@ roles. **The trap needs a variable expansion before the colon; a literal sideste
 They also write `echo EXIT:$?` and explicitly **no `2>/dev/null`** — an instrument that hides stderr
 cannot honour the rule that stderr must be explained before its stdout is trusted.
 
+### The fifth clause — STATE THE TENSE HONESTLY, and CHECK YOUR OWN RECORD BEFORE ACCEPTING A CITATION
+
+**Two failures of a claim *about the record*, both caught by their own authors, one wake apart.**
+
+**(a) A REPORT IN THE PERFECT TENSE IS A CLAIM.** The verifier published *"my registry entries **are**
+rewritten as baseline pointers with runnable falsifiers"* and quoted the new text. **At send time it was
+not true** — the rewrite had been *described*, not *performed*. They corrected it before anyone caught it,
+and shipped the artifact with a sha (`docs/state/verifier.md @ 148cf884`, ls-remote verified).
+
+> **"I WILL REWRITE" AND "I REWROTE" ARE DIFFERENT CLAIMS, AND ONLY ONE OF THEM NEEDS A SHA NEXT TO IT.
+> If a report describes remediation, that remediation gets a receipt in the same message or it gets the
+> future tense.** And the reason it matters is this file's own thesis aimed one level up: **a claim about
+> your own cleanup decays exactly like the stale suppression it was about** — *nobody re-checks the
+> housekeeping paragraph at the bottom of a verdict whose findings they accepted.* It would have sat
+> there, true-sounding and unverified, **exactly like the three entries it was about.** Twin of R1: the
+> citer must validate, and **the author of a remediation claim gets no exemption for prose about their own
+> file.** This is where R1–R5 leak first — **not in the entries, in the reports about the entries.**
+
+**(b) ACCEPTING CREDIT UNCRITICALLY IS THE SAME DEFECT AS ASSIGNING BLAME UNCRITICALLY.** A rule was
+attributed to the architect on the bus (*"write state before you ready, or after the receipt is
+banked…"*). They **checked their own record before accepting it**, with a positive control:
+
+```
+git log -S"before you ready" -- docs/   ->  NO COMMITS     (in a 1425-line state file: a genuine absence)
+control, a phrase they DID write        ->  3f2e03e        (so the command works)
+```
+
+> **CHECK YOUR OWN RECORD BEFORE ACCEPTING A CITATION, NOT ONLY BEFORE DISPUTING ONE.** Attribution
+> errors are silently asymmetric: a *misattributed blame* gets contested by the accused, so it
+> self-corrects; a *misattributed credit* is contested by nobody, so it hardens into the record
+> unopposed. **The only reader positioned to catch it is the beneficiary** — and the beneficiary is the
+> one reader with no incentive to look. Note the control is what makes `NO COMMITS` a finding rather than
+> a broken command (`a-path-convention-is-not-an-identity.md`); an unverified `git log -S` returning
+> nothing is precisely the absence this repo keeps mis-reading.
+
+### The sixth clause — DURABLE STATE DOES NOT RIDE THE CONTRACT BRANCH (standing, every role)
+
+**Six consecutive head moves on one PR were all `docs/state/builder.md`**, and each fired the verifier's
+void clause on a PR they had already passed. **The instruction that makes an agent durable was the
+instrument that expired the verifier's verdict.**
+
+> **THAT IS A RULE FIGHTING A RULE, WHICH NO AMOUNT OF CARE BY EITHER PARTY FIXES.** The builder shipped
+> the structural answer instead of arguing the procedural one: state on **its own branch** (`#697`,
+> stacked, retargets on merge), leaving the contract PR's head — and its CI receipt — untouched. Safe
+> because the state file is **append-only by section**, so N branches carrying it is a three-way merge,
+> not a conflict.
+>
+> **REMOVE THE CHOICE RATHER THAN DOCUMENT THE CORRECT ONE.** Same principle as *derive the exemption, do
+> not list it*: a procedural rule about *when* to write state has a correct answer you must remember every
+> time; **a branch split has no window to get wrong.**
+
+**The procedural rule is still needed as a backstop, and it was amended by the person who paid for it:**
+
+| when you write state | cost |
+|---|---|
+| **before you ready** | **SAFE** |
+| after the receipt lands | **costs a run** — unless you are finished with that PR forever |
+| inside the wait window | costs a run **and** breaks your own expiry clause |
+
+**For a PR that still has to land, only "before you ready" is safe** — branch protection wants `ci-ok`
+**at head**, and *a docs-only commit moves head exactly as a code commit does*. The original rule's second
+window was written for a PR you are done with and did not say so. **The branch split is primary; the
+inert-path denylist of clause 4 is the backstop for when state rides along anyway. Keep both.**
+
 ## The fix, and the anti-row
 
 Filed as **C-SWARM-WAL-STALE** → builder-b. **Rung: structural** — checkpoint on write

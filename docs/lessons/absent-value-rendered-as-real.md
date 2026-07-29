@@ -454,6 +454,34 @@ agent brief citing a document. **A citation is a claim, and an unreachable
 citation fails exactly like a dead binding: quietly, and in the flattering
 direction.**
 
+## ⛔ RULE 0 APPLIED TO A SAMPLE SIZE — THE UNDERSIZED INPUT WAS THE NUMBER OF RUNS
+
+**Rule 0 of this file:** *before believing a negative, state what a positive would have looked like and
+confirm your instrument could have produced it.* The architect had applied it to grep inputs, empty diffs
+and `wc -l` — and **missed it when the undersized input was a sample size rather than a file.**
+
+Two CI runs of byte-identical code produced six benchmark cells; two flipped verdict, four did not. The
+conclusion drawn from the four was *"noise that moved one cell 22 points did not move that one past 1.3"*
+— **a stability claim from n=2.**
+
+> **A NON-FLIP AT n=2 IS AN ABSENCE REPORT WHOSE INPUT WAS TOO SMALL TO PRODUCE THE POSITIVE.** The
+> instrument was **the number of runs**, and two runs cannot fire the event whose absence is being read as
+> evidence. The asymmetry is exact and worth carrying: **a flip is an existence proof — one counterexample
+> kills reproducibility outright, so the two flips are robust at n=2. A non-flip is a negative, and it has
+> not been shown to have had its chance.** *Noting a flip is cheap; proving a non-flip is unavailable.*
+
+**WHY THIS INSTANCE IS THE ONE TO REMEMBER: nothing about it LOOKED like an absence.** The prior entries in
+this file are visibly empty things — a missing file, an empty grep, a skipped job, a zero row count. Here
+the output was a **full table of six populated cells**; the absence was of an *event*, in a *sample*, and
+it was rendered as the presence of *stability*. **An absence with no empty slot in the output is the
+hardest kind to see**, because the usual tell — a blank where a value should be — never appears.
+
+**The half that survived, and why:** the `dynamic-deps` claim (*"noise is symmetric about the true value,
+so for noise alone to print −37 % twice the true value must sit near −37 %"*) makes **no stability claim at
+all**, which is exactly why the n=2 objection does not reach it. **When a negative fails, check whether
+your conclusion has a leg that never depended on it** — see `well-formed-measurement-of-the-wrong-thing.md`
+on saying which leg carries the weight.
+
 ## Why it keeps winning
 
 1. **Zero and empty are valid values.** Type systems, JSON schemas, and exit codes
