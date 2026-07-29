@@ -19,7 +19,7 @@
     "LICENSE"
   ],
   "dependencies": {
-    "@aihu-plugin/data": "2.0.5"
+    "@aihu-plugin/data": "workspace:*"
   },
   "description": "[MOVED] This package has moved to @aihu-plugin/data.",
   "deprecated": "Moved to @aihu-plugin/data — install that instead.",

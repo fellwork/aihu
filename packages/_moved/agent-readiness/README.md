@@ -97,7 +97,7 @@ bun add @aihu/agent-readiness
 
 **Dependencies:**
 
-- `@aihu-plugin/agent-readiness` — `2.0.2`
+- `@aihu-plugin/agent-readiness` — `workspace:*`
 
 <sub><i>Auto-generated against `@aihu/agent-readiness@2.0.2`.</i></sub>
 
