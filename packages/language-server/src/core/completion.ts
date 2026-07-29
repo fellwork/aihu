@@ -10,9 +10,14 @@
  * editor-agnostic — the clean seam for a future Volar adoption).
  */
 
+import { COMPOSABLE_REGISTRY } from './composable-registry.ts'
+
 // CompletionItemKind.Snippet = 15, InsertTextFormat.Snippet = 2
 const SNIPPET_KIND = 15
 const SNIPPET_FORMAT = 2
+// CompletionItemKind.Function = 3, InsertTextFormat.PlainText = 1
+const FUNCTION_KIND = 3
+const PLAIN_FORMAT = 1
 
 export interface LspCompletionItem {
   label: string
@@ -119,6 +124,23 @@ export const STATE_MACRO_COMPLETIONS: LspCompletionItem[] = [
     insertText: 'bind:${1:value}={${2:signal}}',
   },
 ]
+
+/**
+ * `@aihu/use` composable completions, offered inside `@state` (FEL-342): the
+ * compiler auto-imports a bare `useMouse()`-style call (`use_registry.rs`),
+ * which previously meant no completion suggested the name existed at all,
+ * and TypeScript had no declaration for it until the sidecar's ambient decl
+ * landed — the two together made auto-import look like a red squiggle,
+ * invisible build magic instead of a feature.
+ */
+export const COMPOSABLE_COMPLETIONS: LspCompletionItem[] = COMPOSABLE_REGISTRY.map((entry) => ({
+  label: entry.name,
+  kind: FUNCTION_KIND,
+  insertTextFormat: PLAIN_FORMAT,
+  detail: `${entry.description} (auto-imported from ${entry.specifier})`,
+  sortText: `1_${entry.name}`,
+  insertText: `${entry.name}()`,
+}))
 
 /** Top-level block completions (triggered by '@' at top level). */
 export const BLOCK_COMPLETIONS: LspCompletionItem[] = [

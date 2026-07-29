@@ -12,7 +12,7 @@
  * the binary itself. The SAME order is used by the bin shim
  * (bin/aihu-compile.mjs) and the vite plugin (js/index.ts).
  */
-import { accessSync, constants, existsSync, statSync } from 'node:fs'
+import { accessSync, constants, statSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -104,30 +104,44 @@ export function isUsableExecutable(candidate: string): boolean {
  * Resolve the absolute path to the `aihu-compile` executable.
  *
  * Resolution order:
- *   1. The per-platform optionalDependency package (`@aihu/compiler-<platform>`)
+ *   1. Workspace dev build — `target/release|debug/` or the package-local
+ *      staged binary (`packages/compiler/bin/aihu-compile`). Only present in a
+ *      dev clone (`cargo build --release -p aihu-compile`) or a CI job that
+ *      stages one. Checked FIRST: see FEL-427 / #427 below.
+ *   2. The per-platform optionalDependency package (`@aihu/compiler-<platform>`)
  *      shipped to npm consumers — resolved via
  *      `createRequire(...).resolve('<pkg>/package.json')` so it works in both
- *      ESM and CJS and respects the consumer's node_modules layout.
- *   2. Dev fallback: the monorepo workspace `target/release|debug/` — only
- *      present in a dev clone with a Rust toolchain (`cargo build --release -p
- *      aihu-compile`). Kept so in-repo builds + tests work without publishing.
+ *      ESM and CJS and respects the consumer's node_modules layout. This is the
+ *      ONLY candidate a real npm consumer ever has, since none of the dev paths
+ *      exist outside this monorepo.
  *
- * If the current platform is SUPPORTED but neither path yields a binary, throws
- * a structured error pointing at the missing optionalDependency. If the
- * platform is UNSUPPORTED, the error lists the dev fallback so source builds
- * still have a clear remedy.
+ * If neither path yields a binary, throws a structured error pointing at the
+ * missing optionalDependency (platform supported) or the dev fallback (platform
+ * unsupported).
+ *
+ * ## Why dev build wins (#427)
+ *
+ * `@aihu/compiler`'s optionalDependencies are resolvable inside this very
+ * monorepo the moment `bun install` has run once — but the version actually
+ * fetched from the registry lags behind whatever the in-repo Rust source can
+ * do (per-platform packages are only republished on release, not on every
+ * commit). A dev machine or CI job that built `aihu-compile` fresh from HEAD
+ * therefore used to have its correct binary silently SHADOWED by an older
+ * published one that happened to already be sitting in `node_modules` — and
+ * that older binary doesn't error on a flag it doesn't recognize (e.g.
+ * `--sidecar-stdout`), it just ignores it and runs its default codegen path,
+ * so the caller gets a plausible-looking WRONG answer instead of a crash. That
+ * was the actual cause of `packages/tsc/tests/language-plugin.test.ts` failing
+ * intermittently depending on whether a given checkout had ever run `bun
+ * install`: the published `@aihu/compiler-darwin-arm64` sitting in
+ * `node_modules` predates `--sidecar-stdout` entirely, so it fell back to a
+ * normal `defineComponent(...)` transform instead of the `__aihu_template`
+ * type-check sidecar the fresh binary emits.
  */
 export function resolveCompilerBinary(): string {
   if (_binPath !== null) return _binPath
 
   // 0. `AIHU_COMPILE_BIN` — an explicit override, checked before everything else.
-  //
-  // Working ON the compiler means the freshly built `target/release/aihu-compile`
-  // must win over the PUBLISHED `@aihu/compiler-<platform>` package, which is
-  // resolvable in this very monorepo and would otherwise shadow it. That shadowing
-  // is quiet and nasty: an older binary silently ignores a flag it does not know
-  // and emits its normal output, so the caller gets a plausible-looking wrong
-  // answer rather than an error.
   const override = process.env.AIHU_COMPILE_BIN
   if (override) {
     if (!isUsableExecutable(override)) {
@@ -141,29 +155,9 @@ export function resolveCompilerBinary(): string {
 
   const descriptor = detectPlatform()
 
-  // 1. Per-platform optionalDependency package (the published-consumer path).
-  //
-  // Accept the candidate ONLY if it is a usable executable. A present-but-
-  // non-executable placeholder (the in-source stub that becomes resolvable once
-  // the per-platform packages are pinned in the lockfile) must NOT be returned —
-  // doing so spawns a non-executable file and fails with EACCES. In that case we
-  // deliberately fall THROUGH to the dev `target/` fallback below.
-  if (descriptor) {
-    const requireFn = createRequire(import.meta.url)
-    try {
-      const pkgJson = requireFn.resolve(`${descriptor.packageName}/package.json`)
-      const candidate = join(dirname(pkgJson), descriptor.binFile)
-      if (isUsableExecutable(candidate)) {
-        _binPath = candidate
-        return _binPath
-      }
-    } catch {
-      // Package not installed (optionalDependency skipped for this platform, or
-      // a partial install). Fall through to the dev/source path, then error.
-    }
-  }
-
-  // 2. Dev fallback: monorepo workspace target/. Only exists in a dev clone.
+  // 1. Workspace dev build. Only exists in a dev clone or a CI job that staged
+  // one — checked FIRST so it is never shadowed by an older published package
+  // (see the #427 note above).
   //
   // This module builds to packages/compiler/dist/resolve-binary.js, so the
   // workspace root is three levels up (dist → compiler → packages → root).
@@ -183,9 +177,30 @@ export function resolveCompilerBinary(): string {
     resolve(__dirname, '../bin', `aihu-compile${ext}`),
   ]
   for (const c of devCandidates) {
-    if (existsSync(c)) {
+    if (isUsableExecutable(c)) {
       _binPath = c
       return _binPath
+    }
+  }
+
+  // 2. Per-platform optionalDependency package (the published-consumer path).
+  //
+  // Accept the candidate ONLY if it is a usable executable. A present-but-
+  // non-executable placeholder (the in-source stub that becomes resolvable once
+  // the per-platform packages are pinned in the lockfile) must NOT be returned —
+  // doing so spawns a non-executable file and fails with EACCES.
+  if (descriptor) {
+    const requireFn = createRequire(import.meta.url)
+    try {
+      const pkgJson = requireFn.resolve(`${descriptor.packageName}/package.json`)
+      const candidate = join(dirname(pkgJson), descriptor.binFile)
+      if (isUsableExecutable(candidate)) {
+        _binPath = candidate
+        return _binPath
+      }
+    } catch {
+      // Package not installed (optionalDependency skipped for this platform, or
+      // a partial install).
     }
   }
 

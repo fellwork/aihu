@@ -1,0 +1,178 @@
+#!/usr/bin/env bun
+/**
+ * `gen:composable-registry` — regenerate the LSP's `@aihu/use` completion +
+ * hover table from the two things that are already the source of truth:
+ *
+ *   1. `packages/compiler/src/codegen/use_registry.rs` `USE_COMPOSABLES` —
+ *      the (bare call name, module specifier) pairs the compiler
+ *      auto-imports. This is the list of names the editor must offer.
+ *   2. Each composable's own leading JSDoc in
+ *      `packages/use/src/<...specifier-tail>/index.ts` — the one-line
+ *      description after the `` `name` — `` prefix, already hand-written and
+ *      maintained per FEL-342's ask for "hover docs (signature + one-line
+ *      purpose)".
+ *
+ * Run after editing either source (adding a composable via `gen:use`, or
+ * editing a composable's doc comment):
+ *
+ *   bun scripts/gen-composable-hover-registry.ts          # regenerate
+ *   bun scripts/gen-composable-hover-registry.ts --check  # CI: fail if stale
+ *
+ * Emits packages/language-server/src/core/composable-registry.ts — checked
+ * in (a real npm consumer of `@aihu/language-server` doesn't have
+ * `packages/use/src` on disk, so this can't be read at the LSP's runtime).
+ */
+import { spawnSync } from 'node:child_process'
+import { readFileSync, writeFileSync } from 'node:fs'
+import { basename, dirname, join, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
+const ROOT = resolve(__dirname, '..')
+// Overridable so check-gate-wiring.ts's negative-fixture proof can point this
+// at a fixture tree instead of the real repo (same shape as check-moon-graph.ts's
+// MOON_GRAPH_ROOT) — never set these by hand.
+const REGISTRY_RS = process.env.COMPOSABLE_REGISTRY_RS
+  ? resolve(ROOT, process.env.COMPOSABLE_REGISTRY_RS)
+  : join(ROOT, 'packages/compiler/src/codegen/use_registry.rs')
+const OUT_FILE = process.env.COMPOSABLE_REGISTRY_OUT
+  ? resolve(ROOT, process.env.COMPOSABLE_REGISTRY_OUT)
+  : join(ROOT, 'packages/language-server/src/core/composable-registry.ts')
+const USE_SRC_ROOT = process.env.COMPOSABLE_USE_SRC_ROOT
+  ? resolve(ROOT, process.env.COMPOSABLE_USE_SRC_ROOT)
+  : join(ROOT, 'packages/use/src')
+
+interface ComposableEntry {
+  name: string
+  specifier: string
+  description: string
+}
+
+function parseRegistry(): { name: string; specifier: string }[] {
+  const src = readFileSync(REGISTRY_RS, 'utf8')
+  const start = src.indexOf('pub(crate) const USE_COMPOSABLES')
+  const end = src.indexOf('\n];', start)
+  if (start === -1 || end === -1) {
+    throw new Error('could not locate USE_COMPOSABLES in use_registry.rs')
+  }
+  const body = src.slice(start, end)
+  const entries: { name: string; specifier: string }[] = []
+  for (const m of body.matchAll(/\(\s*"([^"]+)"\s*,\s*"([^"]+)"\s*\)/g)) {
+    const name = m[1]
+    const specifier = m[2]
+    if (name && specifier) entries.push({ name, specifier })
+  }
+  return entries
+}
+
+/**
+ * The leading doc comment's one-line purpose, e.g.
+ * `` `useMouse` — reactive mouse position: the reference SENSOR composable ``
+ * → "reactive mouse position: the reference SENSOR composable".
+ *
+ * The name — description dash may wrap across several `* `-prefixed lines
+ * before hitting a `(docs/plans/...)` citation or a blank line; join them,
+ * strip the citation, and cap length so a hover tooltip stays one line.
+ */
+function descriptionFor(specifier: string): string {
+  // specifier is `@aihu/use/<tail>` or `@aihu/use/<family>/<tail>`.
+  const tail = specifier.replace(/^@aihu\/use\//, '')
+  const srcFile = join(USE_SRC_ROOT, tail, 'index.ts')
+  let text: string
+  try {
+    text = readFileSync(srcFile, 'utf8')
+  } catch {
+    return ''
+  }
+  const blockMatch = text.match(/\/\*\*([\s\S]*?)\*\//)
+  if (!blockMatch?.[1]) return ''
+  const joined = blockMatch[1]
+    .split('\n')
+    .map((l) => l.replace(/^\s*\*\s?/, ''))
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  const m = joined.match(/`[\w$]+`\s*(?:\([^)]*\)\s*)?—\s*(.+)/)
+  if (!m?.[1]) return ''
+  let desc = m[1]
+    .replace(/\(docs\/plans\/[^)]*\)/g, '')
+    .replace(/\(§[^)]*\)/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+  // Cut at the first sentence boundary so the hover stays one line.
+  const period = desc.indexOf('. ')
+  if (period > 20) desc = desc.slice(0, period)
+  desc = desc.replace(/[.:,]$/, '').trim()
+  return desc.length > 140 ? `${desc.slice(0, 137)}...` : desc
+}
+
+function main(): void {
+  const check = process.argv.includes('--check')
+  let existing = ''
+  if (check) {
+    try {
+      existing = readFileSync(OUT_FILE, 'utf8')
+    } catch {
+      existing = ''
+    }
+  }
+  const raw = parseRegistry()
+  const entries: ComposableEntry[] = raw
+    .map(({ name, specifier }) => ({ name, specifier, description: descriptionFor(specifier) }))
+    .sort((a, b) => a.name.localeCompare(b.name))
+
+  const lines: string[] = []
+  lines.push('/**')
+  lines.push(' * packages/language-server/src/core/composable-registry.ts')
+  lines.push(' *')
+  lines.push(' * GENERATED — do not hand-edit. Source of truth:')
+  lines.push(' *   packages/compiler/src/codegen/use_registry.rs (names + specifiers)')
+  lines.push(" *   packages/use/src/<name>/index.ts (each composable's doc comment)")
+  lines.push(' *')
+  lines.push(' * Regenerate: bun scripts/gen-composable-hover-registry.ts')
+  lines.push(' * (FEL-342 / #427 follow-up — LSP composable-awareness)')
+  lines.push(' */')
+  lines.push('')
+  lines.push('export interface ComposableRegistryEntry {')
+  lines.push('  /** Bare call name, e.g. `useMouse`. */')
+  lines.push('  name: string')
+  lines.push('  /** Module specifier the compiler auto-imports, e.g. `@aihu/use/useMouse`. */')
+  lines.push('  specifier: string')
+  lines.push("  /** One-line purpose, extracted from the composable's doc comment. */")
+  lines.push('  description: string')
+  lines.push('}')
+  lines.push('')
+  lines.push('export const COMPOSABLE_REGISTRY: readonly ComposableRegistryEntry[] = [')
+  for (const e of entries) {
+    const desc = e.description.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
+    lines.push(`  { name: '${e.name}', specifier: '${e.specifier}', description: '${desc}' },`)
+  }
+  lines.push(']')
+  lines.push('')
+  const output = lines.join('\n')
+
+  // Biome's formatter (line wrapping, quote style) is the actual style this
+  // repo enforces via `check:lint` — write raw, then let it reformat, so the
+  // committed file always matches what `bun run check:lint` expects rather
+  // than this script's own guess at formatting.
+  writeFileSync(OUT_FILE, output)
+  spawnSync('bunx', ['biome', 'format', '--write', OUT_FILE], { stdio: 'inherit' })
+
+  if (check) {
+    const formatted = readFileSync(OUT_FILE, 'utf8')
+    const before = existing
+    if (before !== formatted) {
+      writeFileSync(OUT_FILE, before) // leave the tree as we found it
+      console.error(
+        `[gen-composable-registry] ${basename(OUT_FILE)} is stale — run: bun scripts/gen-composable-hover-registry.ts`,
+      )
+      process.exit(1)
+    }
+    console.log('[gen-composable-registry] up to date')
+    return
+  }
+
+  console.log(`[gen-composable-registry] wrote ${entries.length} entries to ${OUT_FILE}`)
+}
+
+main()

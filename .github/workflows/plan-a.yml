@@ -121,6 +121,13 @@ jobs:
       # full build+coverage run, to fail fast and cheaply on a forgotten
       # touch point.
       - run: bun run check:use-registry-parity
+      # LSP composable-registry parity (FEL-342) — packages/language-server's
+      # completion/hover table is GENERATED from the same USE_COMPOSABLES this
+      # repo just checked above, plus each composable's own doc comment. Same
+      # cheap, no-build-output shape as the guard above; catches a forgotten
+      # `bun run gen:composable-registry` after adding/renaming a composable
+      # or editing its doc comment.
+      - run: bun run check:composable-registry
         # Use the pinned local biome (node_modules/.bin via check:lint), NOT
         # `bunx biome`, which resolves its own latest copy and made CI flap when
         # biome 2.4.15 published mid-day (see PR pinning @biomejs/biome to 2.4.14).
