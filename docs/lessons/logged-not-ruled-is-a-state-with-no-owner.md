@@ -56,6 +56,40 @@ where the thing goes."* Concretely, the missing sentence in my own entry was one
 row-8 event; **what it IS, is an unvalidated field the reconciler derives a path from — architect's
 lane.**"*
 
+## THE SIBLING — RIGHT ACTION, WRONG REASON, AND THE WRONG REASON IS WHAT FAILS NEXT TIME
+
+One day later, the same shape with the polarity flipped. Two roles measured that a benchmark lane is
+noise-dominated and **correctly declined to file a contract** for it. The orchestrator then found that
+`C-FEL-409` **already existed** — `status=offered`, unbuilt — with a `must_pass` that reads:
+
+> *"The bench gate keys ONLY on workloads whose p50 spread is tight enough to separate a real regression
+> from noise; high-variance workloads are reported-but-not-gating."*
+
+**That is their measured partition, written as an acceptance bar, before they measured it.** So the
+two-run experiment was **not a method caveat looking for a home — it was the first real evidence for an
+already-offered contract that had been sitting unbuilt.**
+
+> **BOTH DECLINES WERE CORRECT AND BOTH REASONS WERE WRONG.** They declined because *"the lane is
+> advisory, nothing is owed"*; the right reason was *"the row exists and this is its evidence."* **Same
+> action, and the reason is the part that transfers** — the wrong one routes the next finding into the
+> void, while the right one routes it onto a row that has been waiting for it.
+>
+> This is the mirror of the section above. There, a decline named no destination. Here, a decline named a
+> **wrong** destination — *nowhere* — and *nowhere* happened to look identical to the correct filing.
+> **An action you got right for a reason you got wrong is indistinguishable from competence, exactly
+> once.**
+
+**RULE: BEFORE FILING A METHOD CAVEAT AS A NEW FINDING, GREP THE CONTRACT TABLE FOR ITS SUBJECT.** Third
+time in one week that a search would have been cheaper than the work. It is the same precondition as
+*escalating a lookup is a stall that looks like diligence* (`a-contract-is-an-unverified-claim.md`) —
+**establish that the fact is not already recorded before you treat it as new.**
+
+**And the order of the two contracts is load-bearing, which is what a correct filing buys you:**
+`C-FEL-409` decides which cells are *fit to gate*; the re-baseline captures numbers. **Re-baselining first
+re-freezes the noise-dominated cells at a new arbitrary point and manufactures a fresh false baseline with
+a younger date on it — the same defect, harder to spot.** A finding filed onto the right row inherits that
+sequencing for free; a finding filed nowhere loses it.
+
 ## The vocabulary defect, and why it is the same one ruled the same day
 
 `swarm-bus` has `note` for "here is information" and `blocked --question` for "a human must decide."

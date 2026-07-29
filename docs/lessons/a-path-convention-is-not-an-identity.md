@@ -73,6 +73,32 @@ hostile ambient config actually reached git* caught it.
 > unverified was that the *setup* took effect — and a path/environment convention is exactly the kind of
 > precondition that is assumed rather than observed.
 
+## ⛔ AND THE OBVIOUS CHECK IS THE WRONG ONE — DO NOT VALIDATE THE `cwd` FIELD
+
+The natural remedy for instance 2 is *"check that the registered `cwd` exists."* **It learns nothing.**
+`/Users/…/aihu/main` **is a real directory**; `ls` exits 0. What does not exist is the **derived project
+dir** — the slugged path instance 3 builds *from* that field.
+
+> **THE CHEAP-LOOKING CHECK IS THE WRONG ONE.** Validating the *input* string confirms a property nobody
+> was relying on; the failure lives in the **derivation**, and only the derived artifact can witness it.
+> When a value is trusted because something is *computed* from it, **check the computed thing** — a
+> plausible check on the raw field returns a confident green while the actual referent is missing.
+
+**Sequencing correction, and it inverts the fix for instance 3.** The ruling *"a role whose derived
+project dir does not exist is a supervisor-health fault — decline to write any status and alarm"* is right
+about the fault and **wrong about what is safe to do on detecting it today**:
+
+```
+supervisor.py:707   st = "no-claims" if vacuous else "verified"      <- the SOLE writer
+main.rs:1316        Some("verified") | Some("no-claims") => {}       <- inside cmd_ready's needs loop
+live: 30 rows carry no-claims
+```
+
+**A supervisor that declines to write status stops writing `no-claims` — which is what satisfies a `needs`
+edge — so the DAG stalls.** The health check must therefore land **after** the fix that stops `no-claims`
+satisfying a dependency, not before. **A guard that refuses to emit a vacuous pass is only safe once
+something downstream has stopped treating the vacuous pass as a receipt.**
+
 ## The rung
 
 - **prose:** never treat a path convention as an identity without a positive control; state the control's

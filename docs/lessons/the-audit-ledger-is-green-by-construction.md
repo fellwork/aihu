@@ -627,6 +627,23 @@ main.rs:1178        adjudicate_merged Err(reason)   -> ("unverified", "could-not
 *"do not check"*; a remote referent serving as both *enforcement* and *one-shot guard*; now `unverified`
 meaning both *could-not-check* and *finding*.
 
+**FOURTH INSTANCE, AND IT IS ONE `match` ARM AWAY IN THE SAME FILE: `no-claims`.** It means *"the
+instrument found nothing to check"* — written `if vacuous`, i.e. when the extractor pulled zero claims —
+**and** it means *"this dependency is satisfied"*:
+
+```
+supervisor.py:707   st = "no-claims" if vacuous else "verified"        <- the sole writer
+main.rs:1316        Some("verified") | Some("no-claims") => {}         <- cmd_ready's needs loop
+live: 30 rows carry no-claims
+```
+
+> **A VACUOUS PASS PROMOTED TO A DEPENDENCY EDGE.** `cmd_ready` treats *"we extracted nothing"* exactly
+> like *"a merged receipt cleared this"* — so the weakest possible evidence and the strongest are the same
+> token to the DAG. This is R4 (`no-claims` stops satisfying `needs`), still unbuilt, and its being unbuilt
+> **constrains the ORDER of everything else**: any guard that declines to emit a status on a health fault
+> stalls the DAG until R4 lands. **A defect that cannot be fixed first is not merely open — it is a
+> sequencing constraint on every fix that touches the same token.**
+
 **The trigger condition is LIVE, and the mechanism is a string that does not resolve.** On the `:690`
 path **`recon.py` never runs** — the status is written because `os.path.exists()` failed on a path
 derived from the registry's `cwd` field. The architect ran `supervisor.py`'s own `_transcript()` for all
