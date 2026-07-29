@@ -4,7 +4,27 @@
  * and exits non-zero if any workload regressed by more than the threshold on
  * the time or memory axes.
  *
- * Time:           p50 regression ≥ 10 % fails (existing).
+ * FITNESS (C-FEL-409). The time axis gates ONLY workloads whose measured
+ * run-to-run p50 spread is below the threshold it is judged against. A
+ * workload whose no-change spread exceeds 10 % cannot distinguish a 10 %
+ * regression from doing nothing; gating on it is a coin flip wearing a
+ * receipt. Unfit workloads are REPORTED (tagged `NOGATE`) and never counted.
+ *
+ * The classification is DERIVED here from `fitness.json`'s measured
+ * `spreadPct`, never read from it. The artifact stores measurements and
+ * provenance only, so there is no `class` string anyone can flip without
+ * falsifying the number under it. Regenerate with:
+ *   BENCH_FITNESS_OUT=fitness.json bun src/repeat.ts 7 <label>
+ * on the machine the gate runs on — spread is a property of the
+ * (workload × machine) pair, not of the workload.
+ *
+ * FAIL-CLOSED, all four directions (a gate that cannot read its own policy
+ * must not pass): a missing or unparseable artifact, a schema it does not
+ * recognise, a benched workload with no measurement, or a fitness set that
+ * leaves ZERO workloads gating — each exits non-zero. `0 regressions` out of
+ * `0 workloads examined` is an absence report, not a pass.
+ *
+ * Time:           p50 regression ≥ 10 % fails, FIT workloads only.
  * buildHeapDelta: per-graph heap regression ≥ 10 % fails (Round N+1).
  * peakMalloc:     transient peak regression ≥ 15 % fails (Round N+1; design §4.4).
  * disposeResidual: leak signal — informational, NOT gated (design §4.4).
@@ -53,6 +73,64 @@ interface Payload {
   cells: Cell[]
 }
 
+const FITNESS_SCHEMA_VERSION = 1
+
+interface FitnessMeasurement {
+  n: number
+  minP50: number
+  medianP50: number
+  maxP50: number
+  spreadPct: number
+}
+
+interface FitnessArtifact {
+  schemaVersion: number
+  label: string
+  n: number
+  measuredAt: string
+  provenance: Record<string, unknown>
+  workloads: Record<string, FitnessMeasurement>
+}
+
+/**
+ * Read the fitness artifact, or die. Every failure path here exits 1: the
+ * gate's whole job is to refuse to certify what it could not examine, and an
+ * unreadable policy is the case where it knows least.
+ */
+function loadFitness(): FitnessArtifact {
+  const path = new URL('../fitness.json', import.meta.url)
+  let raw: string
+  try {
+    raw = readFileSync(path, 'utf8')
+  } catch (err) {
+    console.error(
+      `Bench gate: cannot read fitness.json (${String(err)}).\n` +
+        'The gate does not know which workloads are fit to gate, so it cannot pass.\n' +
+        'Regenerate on the gate machine: BENCH_FITNESS_OUT=fitness.json bun src/repeat.ts 7 <label>',
+    )
+    process.exit(1)
+  }
+  let parsed: FitnessArtifact
+  try {
+    parsed = JSON.parse(raw) as FitnessArtifact
+  } catch (err) {
+    console.error(`Bench gate: fitness.json is not valid JSON (${String(err)}).`)
+    process.exit(1)
+  }
+  if (parsed.schemaVersion !== FITNESS_SCHEMA_VERSION) {
+    console.error(
+      `Bench gate: fitness.json schemaVersion ${String(parsed.schemaVersion)} — this gate understands ${FITNESS_SCHEMA_VERSION}. ` +
+        'Refusing to interpret an artifact written for a different reader.',
+    )
+    process.exit(1)
+  }
+  if (!parsed.workloads || typeof parsed.workloads !== 'object') {
+    console.error('Bench gate: fitness.json has no `workloads` map.')
+    process.exit(1)
+  }
+  return parsed
+}
+
 function parseResults(path: string): Payload {
   const md = readFileSync(path, 'utf8')
   const m = md.match(
@@ -93,6 +171,45 @@ if (injectTime !== 0 || injectMem !== 0) {
   }
 }
 
+const fitness = loadFitness()
+const fitThresholdPct = TIME_THRESHOLD * 100
+
+/**
+ * A workload gates iff its own no-change spread is smaller than the movement
+ * the gate calls a regression. Derived here, from the measurement — the
+ * artifact carries no verdict to disagree with.
+ */
+function isFit(workload: string): boolean {
+  const m = fitness.workloads[workload]
+  return m !== undefined && m.spreadPct < fitThresholdPct
+}
+
+// Every benched aihu workload must carry a measurement. A NEW workload with no
+// fitness entry is UNCLASSIFIED, not unfit: letting it default either way is
+// how a workload silently arrives ungated (default fit -> it gates on noise;
+// default unfit -> it never gates and nobody is told). Refuse instead.
+const benched = [...new Set(cur.cells.filter((c) => c.competitor === '@aihu/signals').map((c) => c.workload))]
+const unclassified = benched.filter((w) => fitness.workloads[w] === undefined)
+if (unclassified.length > 0) {
+  console.error(
+    `Bench gate: ${unclassified.length} benched workload(s) have no fitness measurement: ${unclassified.join(', ')}.\n` +
+      'A workload with no measured spread cannot be judged fit or unfit, so the gate refuses to guess.\n' +
+      'Regenerate on the gate machine: BENCH_FITNESS_OUT=fitness.json bun src/repeat.ts 7 <label>',
+  )
+  process.exit(1)
+}
+
+const fitWorkloads = benched.filter(isFit)
+if (fitWorkloads.length === 0) {
+  console.error(
+    'Bench gate: ZERO workloads are fit to gate — every measured spread is at or above ' +
+      `${fitThresholdPct.toFixed(0)} %.\n` +
+      'A gate with nothing to gate reports "no regressions" having examined nothing, which is an ' +
+      'absence report, not a pass. Refusing.',
+  )
+  process.exit(1)
+}
+
 let timeRegressions = 0
 let buildHeapRegressions = 0
 let peakMallocRegressions = 0
@@ -114,11 +231,17 @@ for (const cur_cell of cur.cells) {
     )
   } else {
     const delta = cur_cell.p50 / prev_cell.p50 - 1
-    const tag = delta > TIME_THRESHOLD ? 'FAIL' : delta < -0.05 ? 'WIN ' : 'OK  '
+    const fit = isFit(cur_cell.workload)
+    const spread = fitness.workloads[cur_cell.workload]?.spreadPct ?? Number.NaN
+    // Unfit workloads keep printing their delta — the number is still the
+    // best evidence anyone has that something moved. What they lose is the
+    // vote, not the voice.
+    const tag = !fit ? 'NOGATE' : delta > TIME_THRESHOLD ? 'FAIL' : delta < -0.05 ? 'WIN ' : 'OK  '
+    const suffix = fit ? '' : ` [reported, not gating — no-change spread ${spread.toFixed(1)} %]`
     timeLines.push(
-      `  ${tag} ${cur_cell.workload}: ${prev_cell.p50.toFixed(0)} → ${cur_cell.p50.toFixed(0)} ns (${(delta * 100).toFixed(1)} %)`,
+      `  ${tag} ${cur_cell.workload}: ${prev_cell.p50.toFixed(0)} → ${cur_cell.p50.toFixed(0)} ns (${(delta * 100).toFixed(1)} %)${suffix}`,
     )
-    if (delta > TIME_THRESHOLD) timeRegressions++
+    if (fit && delta > TIME_THRESHOLD) timeRegressions++
   }
 
   // ---- Memory axis ----
@@ -183,6 +306,13 @@ for (const cur_cell of cur.cells) {
 }
 
 console.log(`Bench gate · @aihu/signals · prev=${prev.date} cur=${cur.date}`)
+console.log(
+  `Time axis gates ${fitWorkloads.length}/${benched.length} workload(s) — fit = measured no-change ` +
+    `spread < ${fitThresholdPct.toFixed(0)} % (fitness.json: N=${fitness.n}, ${fitness.measuredAt}, ${fitness.label}).`,
+)
+console.log(`  gating: ${fitWorkloads.join(', ')}`)
+const unfit = benched.filter((w) => !isFit(w))
+if (unfit.length > 0) console.log(`  reported, not gating: ${unfit.join(', ')}`)
 console.log('\n[time / p50]')
 for (const line of timeLines) console.log(line)
 if (memoryLines.length > 0) {

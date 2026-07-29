@@ -5,7 +5,21 @@
  * stats. Lets us tell true regressions from JIT/GC noise.
  *
  * Usage: `bun bench/signals/src/repeat.ts [N=5] [label]`
+ *
+ * FITNESS ARTIFACT (C-FEL-409). Set `BENCH_FITNESS_OUT=<path>` and this also
+ * writes the machine-readable measurement `gate.ts` consumes to decide which
+ * workloads are fit to gate. It writes MEASUREMENTS ONLY — never a fit/unfit
+ * verdict. The gate derives the class from `spreadPct` against its own
+ * threshold, so the classification cannot be hand-edited in the artifact
+ * without also editing the number it is derived from.
+ *
+ * Run it WHERE THE GATE RUNS. Run-to-run spread is a property of the
+ * (workload × machine) pair, not of the workload: on a loaded dev box `cellx`
+ * measures ~25× its CI p50. A fitness artifact captured locally answers a
+ * question about a different instrument.
  */
+
+import { writeFileSync } from 'node:fs'
 
 import { measure } from 'mitata'
 
@@ -56,6 +70,8 @@ async function main(): Promise<void> {
   console.log(``)
   console.log(`| Workload | min p50 | median p50 | max p50 | spread% | median ops/s |`)
   console.log(`| --- | ---: | ---: | ---: | ---: | ---: |`)
+  const measured: Record<string, { n: number; minP50: number; medianP50: number; maxP50: number; spreadPct: number }> =
+    {}
   for (const wl of workloads) {
     process.stderr.write(`  ${wl.name} … `)
     const samples: Sample[] = []
@@ -71,6 +87,37 @@ async function main(): Promise<void> {
     console.log(
       `| ${wl.name} | ${fmtNs(minP50)} | ${fmtNs(medP50)} | ${fmtNs(maxP50)} | ${spread.toFixed(1)}% | ${fmtOps(medOps)} |`,
     )
+    measured[wl.name] = {
+      n: N,
+      minP50,
+      medianP50: medP50,
+      maxP50,
+      spreadPct: Number(spread.toFixed(2)),
+    }
+  }
+
+  const out = process.env.BENCH_FITNESS_OUT
+  if (out) {
+    // Measurements + provenance only. No `class` field: see the header — the
+    // gate derives fit/unfit from `spreadPct`, so there is nothing here to
+    // hand-edit that would not also falsify the number it came from.
+    const artifact = {
+      schemaVersion: 1,
+      label,
+      n: N,
+      measuredAt: new Date().toISOString().slice(0, 10),
+      provenance: {
+        platform: process.platform,
+        arch: process.arch,
+        cpus: process.env.BENCH_FITNESS_CPUS ?? 'unknown',
+        ci: process.env.GITHUB_ACTIONS === 'true',
+        runId: process.env.GITHUB_RUN_ID ?? null,
+        runnerImage: process.env.ImageOS ?? null,
+      },
+      workloads: measured,
+    }
+    writeFileSync(out, `${JSON.stringify(artifact, null, 2)}\n`)
+    process.stderr.write(`\nfitness artifact -> ${out}\n`)
   }
 }
 
