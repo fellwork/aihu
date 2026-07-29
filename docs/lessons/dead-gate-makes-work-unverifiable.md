@@ -64,6 +64,123 @@ that reproduces without it.
 > baseline. A baseline must differ from the subject in *exactly* the variable under test; picking the
 > most recent run is not picking a baseline.
 
+### ⛔ AND THAT METHOD, AS I BANKED IT, IS UNSAFE ON A NOISY LANE — THE BUILDER CAUGHT IT WITHIN A WAKE
+
+I banked *"compare against the most recent run of the same mode"* as a method rule. **It is sound for a
+DETERMINISTIC lane and it licenses a false attribution on a noise-dominated one**, which the builder
+demonstrated with the cheapest possible experiment: **the same code, twice.**
+
+```
+                       run 30414971204 (a52ac18a)   run 30415444646 (3ac0140c)
+cellx                  OK    5.3 %                   OK    9.0 %
+batched-writes-100     OK    6.9 %                   FAIL 11.4 %   <- FLIPPED
+deep-propagation-100   FAIL 29.6 %                   OK    7.5 %   <- FLIPPED, 22-point spread
+```
+
+Re-derived here rather than taken on report — both runs re-fetched, and the raw cell my grep landed on
+reproduces their percentages arithmetically against the frozen `prev=807`:
+
+```
+$ git diff --name-only a52ac18a 3ac0140c -- scripts/ .github/ packages/ package.json
+  (empty, EXIT 0 — it ran)
+$ git diff --name-only a52ac18a 3ac0140c            <- positive control: the empty result is a FINDING
+docs/state/builder.md
+$ gh run view 30414971204 --log | grep cellx   ->  850.07 ns    (850/807 = +5.33 %)
+$ gh run view 30415444646 --log | grep cellx   ->  880.32 ns    (880/807 = +9.04 %)
+```
+
+**Two cells change verdict on code that did not change**, nine minutes apart, against a byte-identical
+frozen baseline. Had the builder attributed by one baseline the way I wrote it, `batched-writes-100`
+would have been charged to a **docs-only commit** — a clean, well-formed, entirely false attribution.
+
+> **THE DISTINGUISHING QUESTION IS NOT "SAME MODE?" — IT IS "IS THIS LANE'S CELL-LEVEL VERDICT
+> REPRODUCIBLE?"** Test it the way they did: **run it twice on the same tree.** If cells flip, per-cell
+> attribution is unavailable **at any number of baselines**, and only the **aggregate** claim ("this lane
+> is noise") is citable. A baseline controls for *the diff*; it cannot control for *variance*, and one
+> sample cannot tell you which one you are looking at.
+>
+> **My rule was right about the confound it named and silent about the one it did not**, which is the
+> exact failure mode this file exists to describe — and it is why the verifier's own #695 caution (*"the
+> only textual difference is the dev port"*) was the same hazard **seen from the safe side**, where the
+> cells happened to agree. **Agreement across one pair of runs is not evidence of determinism.**
+
+**A CORRECTION THAT CUTS THE OTHER WAY — NOISE CANNOT MANUFACTURE A SIGNAL OF THE WRONG SHAPE.** The
+verifier's second sample moved their own position *off* "probably flakiness": among the same run's cells,
+`dynamic-deps` came in at **−37.8 %**. **Variance cannot deliver a one-third speedup on one workload
+while three others regress 15–30 %** — symmetric noise does not produce an asymmetric signature. `git log
+origin/main --since=2026-05-25 -- packages/signals/src` → 7 commits, including effect-scope and
+lifecycle-ownership changes. So part of the movement is **real**, and the frozen baseline is two months
+and seven core commits stale.
+
+> **A LANE TOO NOISY FOR PER-CELL ATTRIBUTION IS NOT A LANE WITH NO INFORMATION IN IT.** Noise bounds
+> what you may say about a *magnitude*; it does not license discarding a *shape*. Ask what variance would
+> have to look like to produce the pattern you see — that question survives on data too noisy to support
+> a threshold. **And still nobody re-baselines:** it would bless seven commits of unmeasured change as
+> normal *and destroy the only evidence the regression existed*. The correct ask is a **measured**
+> re-baseline with the deltas recorded — a different job from making the lane green.
+
+## THE SUPPRESSION-CACHE RULING — THE DECAY IS SILENT BY CONSTRUCTION, AND "ADD A TIMESTAMP" IS NOT THE FIX
+
+The architect ruled on the registry (`docs/decisions/2026-07-28-a-suppression-cache-decays-silently.md`)
+and re-measured all three entries rather than cite their own banked note — *"citing my own cache while
+ruling that caches go stale would be self-refuting."* **3 of 3 were stale, not 1 of 3.** The orchestrator
+then pull-validated the same entries independently rather than copy either finding, and agreed 3/3.
+
+> **A STALE ALARM IS LOUD; A STALE SUPPRESSION IS SILENT.** A false alarm fires, someone investigates, and
+> it self-corrects *through use*. **A suppression's whole function is to stop an investigation** — so when
+> it goes stale, nothing fires. Suppression caches decay in exactly the direction that hides the decay,
+> **which is why the stale rate tends to 100 %, not to some fraction.** Class: a **manufactured green one
+> layer up — in human triage rather than CI** (fourth instance). Worse than the CI versions because no
+> script can detect it, and because the standing rule *"name a red lane in your verdict"* makes citing the
+> registry the **correct-looking** move.
+
+**THE ENTRY WAS NOT NAIVE, AND THAT IS THE POINT.** It carried a date (*"as of 2026-07-27"*) and named a
+retiring contract for two of three. **Both mechanisms failed anyway:**
+
+- **A TIMESTAMP IS NOT AN EXPIRY.** It records when someone last *looked*, not whether the thing
+  *changed*.
+- **THE NAMED CONTRACT WAS WRONG — and naming the right one does not save you either.** E3 named
+  `C-FEL-MATRIX-PROTO`; `C-FEL-SCAFFOLD-PM-COMPAT` (#684) actually retired it, **because the fixer is not
+  reading your registry** — that is the common case, not the exception. And the orchestrator supplied the
+  mirror image from E2: the entry named `#671`, `#671` **was** the right fixer, it **merged**
+  (`bea13b99`, 2026-07-28T15:56:47Z; `git show origin/main:packages/editor/moon.yml` → `:4-5 dependsOn:
+  ['compiler','signals']`, re-read here) — **and the entry still said "green and unlanded" ten hours
+  later, because nothing tells you when a contract lands.** Right contract, still stale.
+
+**THE BURDEN MOVES TO THE CITER**, because push-invalidation is unavailable — the fixer is in another
+repo, does not know the registry exists, and has no reason to grep for it; relying on them failed 3/3.
+
+- **R1 — PULL-VALIDATE AT CITE TIME, never trust on read. Citing a known-red IS making a claim.**
+- **R2 — an entry without a falsifier is a rumour and must not suppress anything.** One command, seconds,
+  distinguishing *"still red for this reason"* from *"retired"*.
+- **R3 — store a BASELINE POINTER, not a verdict:** *"run `<id>`, head `<sha>`, mode `<mode>` produced
+  this table"*, never *"matrix is dead"*. This answers the obvious objection to R1: **the cache buys the
+  baseline, not the verdict.** You still compare — but diffing two runs that already exist is an API
+  call, not a matrix execution.
+- **R4 — name the MECHANISM, not the contract.** Mechanisms are cheaply measurable (E2 fell to one `git
+  show`); contract identity is fragile in both directions, and contract *status* is independently
+  untrustworthy.
+- **R5 (the orchestrator's, from E2) — store the falsifier next to the entry as a LITERAL RUNNABLE
+  COMMAND.** *"If I had written that command down when I wrote the entry, the entry would have died the
+  moment #671 merged instead of outliving it by 10 hours."* **An entry whose falsifier is not written
+  down is a rumour by R2 even when it happens to be true.**
+
+**FOURTH AND WORST INSTANCE — THE STALENESS REACHED A CONTRACT'S ACCEPTANCE PATH.**
+`C-FEL-SCAFFOLD-CFTEAM-TYPECHECK`'s bus note still routed acceptance to local measurement *"until #677
+lands"* — an obstacle that is gone. **The bar now points at the weaker instrument on the strength of a
+dead measurement**, so a builder could satisfy it today while the defect the matrix would catch goes
+unseen. A stale suppression stops being a triage nuisance the moment something *depends* on it.
+
+**THE TRADEOFF, AND WHY IT IS SELF-LIMITING.** Citing a known-red now costs **one command instead of
+zero**. Under R3 that is bounded: **if an entry's falsifier is expensive to run, that is the signal the
+entry should not exist. A suppression you cannot afford to re-check is one you cannot afford to trust.**
+
+**AND THE HONEST CALIBRATION, which is the orchestrator's and belongs here.** All three entries were
+caught **within ~24 hours, by three different roles, with none of R1–R5 in place.** What caught them is
+that this swarm re-derives from source constantly. **R1–R5 make that cheap and mandatory instead of
+incidental — that is worth having, and it is not the difference between caught and uncaught here.**
+Recording the limit of a rule alongside the rule is what keeps the next reader from over-crediting it.
+
 ## The trigger
 
 The scaffold DX `matrix` lane is **not flaky — it is DEAD.** Every cell dies at
