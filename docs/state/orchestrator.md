@@ -43,6 +43,67 @@ is **not** the coordination or state layer. It went unused for ~20 hours on
 2026-07-25 and the one page it holds was stale within 30 minutes of being
 written. Do not treat it as truth.
 
+## 📊 `bench` IS NOT "NOISE" — the noise floor is not uniform across cells, and the row already existed
+
+Builder re-ran the *same tree* nine minutes apart by accident (only `docs/state/builder.md`
+differed) and that settled a claim `plan-a.yml:710-712` had been *asserting in a comment*.
+**I pulled both logs myself; both their table and verifier's reproduce exactly:**
+
+| cell | run `30414971204` | run `30415444646` | |
+|---|---|---|---|
+| cellx | OK 5.3 % | OK 9.0 % | |
+| wide-fanout-100 | FAIL 14.5 % | FAIL 19.1 % | |
+| batched-writes-100 | OK 6.9 % | **FAIL 11.4 %** | **FLIPPED** |
+| deep-propagation-100 | FAIL 29.6 % | **OK 7.5 %** | **FLIPPED, 22 pts** |
+| creation-1to1000 | FAIL 21.0 % | FAIL 12.4 % | |
+| dynamic-deps | WIN −37.8 % (1089→677) | WIN −36.5 % (1089→691) | |
+
+Every `prev` byte-identical → same frozen baseline.
+
+**THE PARTITION replaces my old entry ("frozen baseline, red-by-construction"), which was
+true and useless.** Verifier's counter is UPHELD: *"the lane is noise"* is falsified by the
+very pair of runs that produced it — 22 points of swing on one cell, 1.3 on another.
+- **VERDICT-FLIPPING** — `batched-writes-100`, `deep-propagation-100`. Per-cell attribution
+  **unavailable at any number of baselines.**
+- **VERDICT-REPRODUCING** — `wide-fanout-100` FAIL/FAIL, `creation-1to1000` FAIL/FAIL,
+  `cellx` OK/OK. **Cite the VERDICT, never the PERCENTAGE** — the verdict reproduced, the
+  magnitude did not.
+- **REAL CHANGE** — `dynamic-deps` −37 % twice.
+- **Falsifier for this entry:** re-run any one tree twice and diff the two tables.
+
+**Verifier's asymmetry, which is the part that generalizes: A FLIP IS AN EXISTENCE PROOF; A
+NON-FLIP AT n=2 IS NOT A STABILITY CLAIM.** One counterexample kills reproducibility, so the
+two flips are robust at n=2; *"the other four didn't flip"* is a negative drawn from two
+samples. Note-a-flip is cheap, prove-no-flip is unavailable.
+
+**R3 gains a precondition** (builder's, accepted): *"same mode, tree without the diff"* is
+sound for a **deterministic** lane. Here a single baseline would have charged
+`batched-writes-100` to a **docs-only commit** — a clean, well-formed, entirely false
+attribution. Ask **"is this lane's cell-level verdict reproducible?"** first; one re-run of
+the same tree answers it.
+
+**AND THE THING NEITHER OF THEM CHECKED — `C-FEL-409` ALREADY EXISTS**, `offered`, owner
+`builder`, and its `must_pass` reads: *"The bench gate keys ONLY on workloads whose p50 spread
+is tight enough to separate a real regression from noise; high-variance workloads are
+reported-but-not-gating."* **That is their partition, written as an acceptance bar, before
+they measured it.** Both correctly declined to file a contract — for the wrong reason ("the
+lane is advisory, nothing is owed") when the right one was "the row exists and this is its
+evidence." **Before filing a method caveat as a new finding, grep the contract table for its
+subject.**
+
+**RE-BASELINE — THE STOP IS REFINED, NOT REVERSED.** Minted
+`C-FEL-BENCH-REBASELINE-MEASURED`, **needs `C-FEL-409`**. The STOP was always against
+re-baselining *to make the lane green* — that blesses unmeasured change as normal and destroys
+the only evidence a regression existed. A **measured** re-baseline whose deliverable is the
+**delta table** preserves exactly what the forbidden one destroys. Owed because
+`git log origin/main --since=2026-05-25 -- packages/signals/src` → **7 commits**, incl.
+`514336da` reactive-core hardening (#413), `ea8d2ebb` effect scope, `18e5f6dd` component root
+→ effect scope, `ad6921a0` lifecycle ownership (#549). **The core was rebuilt under a frozen
+baseline.** Verifier's magnitude argument carries it *without any stability claim*: there is
+no noise story in which a workload runs one third faster, twice.
+**Order is load-bearing — 409 first.** Re-baselining before fitness is decided re-freezes the
+noise-dominated cells at a new arbitrary point: the same defect with a younger date on it.
+
 ## 🔴 MY KNOWN-RED REGISTRY WAS 3-FOR-3 STALE — a suppression decays in the direction that hides it
 
 Architect ruled it, verifier found the first instance, and **I applied it by
@@ -182,13 +243,37 @@ spent writing up the very trap they were standing in.**
 
 > **STANDING RULE: writing your state file is a push.** "Holding still" that carves out
 > `docs/state/<role>.md` is not holding still — the CI trigger does not read your diff before
-> it decides to run. Write state **before** you ready, or **after** the receipt is banked and
-> you are done with the PR. Never inside the window you are waiting on. This is the mirror of
-> the rule that made that file mandatory in every surface: mandatory-to-write is not
-> free-to-write-whenever.
+> it decides to run. This is the mirror of the rule that made that file mandatory in every
+> surface: mandatory-to-write is not free-to-write-whenever.
 
-Note the near-miss shape: a green obtained by 26 seconds of margin reads *identical* to a
-green obtained safely. Do not bank "it worked out" as "the cadence was fine."
+**AMENDED 2026-07-29 — MY SECOND WINDOW WAS WRONG, AND THE PERSON WHO PAID FOR IT SAID SO.**
+I wrote "write state before you ready, **or after the receipt is banked** and you are done
+with the PR." Builder took the second window with a poll whose exit condition *was* `ci-ok`
+completed — so the receipt was banked before they pushed. **Not the 26 seconds of luck I
+implied.** It cost a run anyway, because branch protection wants `ci-ok` **at head** and a
+docs-only commit moves head exactly as a code commit does.
+
+| window | cost |
+|---|---|
+| **before you ready** | **SAFE** |
+| after the receipt lands | **costs a run**, unless you are finished with that PR forever |
+| inside the wait window | costs a run **and** breaks your own expiry clause |
+
+**For a PR that still has to land, only "before you ready" is safe.**
+
+**AND THE STRUCTURAL FIX, WHICH SUPERSEDES THE RULE RATHER THAN OBEYING IT — STANDING FOR
+EVERY ROLE: DURABLE STATE DOES NOT RIDE THE CONTRACT BRANCH.** Builder built it (`#697`,
+`docs/builder-state-0729` @ `d43473eb`, stacked on `#691`; `#691` head unmoved at `3ac0140c`,
+`#697` CLEAN and separate). Six consecutive head moves on `#691` were all
+`docs/state/builder.md`, each firing the verifier's void clause on a PR they had already
+passed. **The instruction that makes an agent durable was the instrument that expired the
+verifier's verdict — a rule fighting a rule, which no amount of care by either party fixes.**
+Move the file off the branch and the conflict stops existing. Safe because the file is
+append-only by section: N branches carrying it is a three-way merge, not a conflict
+(`#685`/`#691` already proved it).
+
+Near-miss shape still worth keeping: a green obtained with 26 seconds of margin reads
+*identical* to a green obtained safely.
 
 ## ✅ 25 ALARMS, ONE 2.5-MINUTE WINDOW, TWO HOURS DEAD — the retry count was the only thing growing
 
@@ -4925,6 +5010,37 @@ now measured across two wakes and it is the number the founder needs.
 
 ## WHAT THE NEXT INSTANCE MUST NOT REDO
 
+- **A DECLINE MUST NAME A DESTINATION.** Historian's rule, aimed at me and accepted. I closed
+  a triage with *"unrelated observation, logged not ruled."* Historian declined it too, in
+  writing. Architect then ruled it: the entry point to an unattended outward write. **Neither
+  of our restraints was wrong** — what neither of us did was ask what the observation was the
+  entry point *to*. "Not a twin" is a rejection of one **filing**, not a **routing** decision,
+  and from the inside those feel identical because both end in correctly not writing something
+  down. **Not fixable by being less careful.** Reader rule: **"logged not ruled" is UNCLAIMED,
+  not settled** — it is the one line in a message that still needs an owner.
+- **Do not re-derive the `bench` two-run experiment or re-open "is the lane just noise".**
+  Ruled above with both tables pulled by me. The partition stands; `C-FEL-409` is its home.
+- **Do not mint a bench contract.** `C-FEL-409` (offered, builder) already carries the exact
+  bar, and `C-FEL-BENCH-REBASELINE-MEASURED` is minted behind it. **Do not invert that order.**
+- **Do not re-sweep the templates for the placeholder leak.** I enumerated all five: **11
+  hits, all `cf-team`, zero elsewhere.** It is a cf-team *data* defect, not a template-engine
+  defect. `C-FEL-TEMPLATE-PLACEHOLDER-LEAK` is minted, one row (both TS2307s are in
+  `main.ts`, two lines apart — splitting them makes each unmeasurable).
+- **Do not read `#696`'s red `matrix` as a regression.** cf-team 0/4 is the placeholder defect
+  it neither introduced nor claims to fix; `matrix` is outside `ci-ok`. builder-b's run chain
+  (`30404220223 → 30415446060 → 30416020813`, git-128 4/4→0, TS2688 4/4→0, failure moved to
+  TS2307) is the point: **a failure that moves down the stack as each layer is removed is the
+  strongest evidence a fix worked that this repo produces.**
+- **Do not trust `gh pr checks` or a sha-keyed rollup for `ci-ok`.** `#696` had a *completed*
+  draft-run `ci-ok=SUCCESS` (run `30416018947`, `check=SKIPPED`) sitting on its head while the
+  real run (`30416193310`) was still building. The stale positive **never clears by waiting**.
+  Bind every poll to the RUN ID.
+- **Do not cite my old "bench is red-by-construction" one-liner.** Superseded by the partition
+  above. Cite the **verdict** for reproducing cells, never the percentage.
+- **Do not tell anyone the second window of the push-cadence rule is safe.** Amended above —
+  "after the receipt lands" costs a run unless you are done with the PR forever. And **durable
+  state does not ride the contract branch** (`#697`); that is the fix, the denylist is the
+  backstop.
 - **Do not cite a known-red entry without running its falsifier.** R1–R4 at the
   top of this file are adopted process, and they apply to me first. Three of my
   own entries were stale on 2026-07-29.
