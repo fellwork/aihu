@@ -322,6 +322,54 @@ describe('createFocusTrap — RFC-A5-018', () => {
     expect(c.matches(':focus')).toBe(false)
   })
 
+  it('includes a focusable sitting inside a nested shadow root in the Tab cycle (#537)', async () => {
+    // Regression for fellwork/aihu#537: `focusables()` built its list with
+    // plain `host.querySelectorAll`, which only ever sees light-DOM
+    // descendants — a focusable living inside an OPEN shadow root nested
+    // under the trap host was silently excluded from the cycle, so Tab from
+    // the last *visible* focusable escaped the trap instead of wrapping to
+    // whatever came after the shadow-nested one.
+    const node = createFocusTrap(true, true, null, () => {
+      return {
+        kind: 'branch',
+        tag: 'div',
+        attrs: null,
+        children: [
+          { kind: 'branch', tag: 'button', attrs: { id: 'first' }, children: [] } as Branch,
+          { kind: 'branch', tag: 'div', attrs: { id: 'leaf-host' }, children: [] } as Branch,
+        ],
+      } as Branch
+    })
+    const host = materialize(node)
+    document.body.appendChild(host)
+
+    const leafHost = host.querySelector('#leaf-host') as HTMLDivElement
+    const leafShadow = leafHost.attachShadow({ mode: 'open' })
+    const nested = document.createElement('button')
+    nested.id = 'nested'
+    leafShadow.appendChild(nested)
+
+    vi.useRealTimers()
+    await tick()
+    vi.useFakeTimers()
+
+    const first = host.querySelector('#first') as HTMLButtonElement
+    first.focus()
+    const ev = new KeyboardEvent('keydown', {
+      key: 'Tab',
+      shiftKey: true,
+      bubbles: true,
+      cancelable: true,
+    })
+    first.dispatchEvent(ev)
+
+    // Without the fix, `nested` is invisible to focusables() and the trap
+    // considers `first` both the first and last focusable, so Shift+Tab
+    // wraps straight back to `first` instead of `nested`.
+    expect(ev.defaultPrevented).toBe(true)
+    expect(leafShadow.activeElement).toBe(nested)
+  })
+
   it.skip('returns focus to trigger when active=false (requires browser focus model)', () => {
     // Focus return depends on real focus events crossing shadow boundaries
     // and a reactive `active` toggle observable to the trap. Skipped in

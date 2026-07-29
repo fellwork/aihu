@@ -117,6 +117,24 @@ function _deepQuerySelector<T extends Element = HTMLElement>(
 }
 
 /**
+ * Shadow-DOM-aware `querySelectorAll`: recurses into OPEN shadow roots to
+ * enumerate focusables across composed boundaries (#537).
+ */
+function _deepQuerySelectorAll<T extends Element = HTMLElement>(
+  root: ParentNode,
+  selector: string,
+): T[] {
+  const results: T[] = Array.from(root.querySelectorAll<T>(selector))
+  for (const el of Array.from(root.querySelectorAll('*'))) {
+    const shadow = (el as HTMLElement).shadowRoot
+    if (shadow) {
+      results.push(..._deepQuerySelectorAll<T>(shadow, selector))
+    }
+  }
+  return results
+}
+
+/**
  * Shadow-DOM-aware `document.activeElement`: plain `document.activeElement`
  * stops at the outermost OPEN shadow host — it never drills in to the
  * actually-focused leaf inside that host's shadow tree — so a trap wired
@@ -164,7 +182,7 @@ export function createFocusTrap(
       setTimeout(wire, 0)
       return
     }
-    const focusables = (): HTMLElement[] => Array.from(host.querySelectorAll<HTMLElement>(_Q))
+    const focusables = (): HTMLElement[] => _deepQuerySelectorAll<HTMLElement>(host, _Q)
     const sync = (): void => {
       const a = isActive()
       if (a === lastActive) return
