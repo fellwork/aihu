@@ -43,6 +43,48 @@ is **not** the coordination or state layer. It went unused for ~20 hours on
 2026-07-25 and the one page it holds was stale within 30 minutes of being
 written. Do not treat it as truth.
 
+## ⚠️ WRITING YOUR STATE FILE IS A PUSH — #691 banked a real green and voided it 26 seconds later
+
+`C-FEL-GATE-WIRING-RUNS` / `#691`. Builder readied the PR out of draft at `a52ac18a` and told
+me they were "holding still per the push-cadence ruling." The run landed **fully green** —
+and it is a *real* receipt, not a draft rendering:
+
+```
+run 30414971204  event=pull_request  headSha=a52ac18a  conclusion=success
+  check   success  01:45:38 -> 01:51:19     341s of actual build (a SKIPPED check is 0s)
+  ci-ok   success  01:53:34 -> 01:53:36     same run id, started 2m15s AFTER check finished
+  examples / governed-examples / gate-wiring / palette / lesson-refs / readme-sync  all success
+```
+
+All three of builder's pre-ready claims verified independently, not taken on trust:
+`git ls-remote` (heads and `refs/pull/691/head` agree), `rev-list --left-right --count
+origin/main...a52ac18a` → `0 20`, `merge-base --is-ancestor faee81b9 a52ac18a` → yes, and
+`git diff --name-only faee81b9..a52ac18a` → `docs/state/builder.md` **only**. Zero code drift
+under the verifier PASS. Readying was the right call and I ratified it.
+
+**The one red is `bench`, and it is the frozen baseline, not the diff.** Log verbatim:
+`prev=2026-05-25 cur=2026-07-29`, FAIL `wide-fanout-100` 14.5 %, `deep-propagation-100`
+29.6 %, `creation-1to1000` 21.0 %. #691's surface is `plan-a.yml` + `scripts/check-*.ts` +
+moon-graph fixtures + `gate-wiring-baseline.json` + `package.json`; **nothing under
+`packages/signals`.** `bench` is outside `ci-ok`. Named, ruled "merges", moved on.
+
+**Then the finding.** `ci-ok` posted at `01:53:36`. At `01:54:02` — **26 seconds later** —
+builder pushed `3ac0140c`, a docs-only 39+/3- update to `docs/state/builder.md` titled
+*"#691 readied; the stale-draft-run poll trap"*. Head moved, their own stated expiry
+condition fired on them, branch protection wants `ci-ok` **at head**, and run `30415444646`
+started from scratch at `01:55:52`. **~8 more minutes of build bought with a docs delta,
+spent writing up the very trap they were standing in.**
+
+> **STANDING RULE: writing your state file is a push.** "Holding still" that carves out
+> `docs/state/<role>.md` is not holding still — the CI trigger does not read your diff before
+> it decides to run. Write state **before** you ready, or **after** the receipt is banked and
+> you are done with the PR. Never inside the window you are waiting on. This is the mirror of
+> the rule that made that file mandatory in every surface: mandatory-to-write is not
+> free-to-write-whenever.
+
+Note the near-miss shape: a green obtained by 26 seconds of margin reads *identical* to a
+green obtained safely. Do not bank "it worked out" as "the cadence was fine."
+
 ## ✅ 25 ALARMS, ONE 2.5-MINUTE WINDOW, TWO HOURS DEAD — the retry count was the only thing growing
 
 builder-b's `Session ID 55ccffb6… is already in use` arrived 25 times and was redelivered
@@ -4778,6 +4820,23 @@ now measured across two wakes and it is the number the founder needs.
 
 ## WHAT THE NEXT INSTANCE MUST NOT REDO
 
+- **Do not re-verify #691's `a52ac18a` green.** `check` success 341s, `ci-ok`
+  success, **same run id `30414971204`**, `ci-ok` started 2m15s after `check`
+  finished. It passes the shared-run-id test on all three legs and it is a real
+  receipt, not a draft rendering. It is simply **no longer at head** — builder
+  pushed `3ac0140c` (docs-only) 26 seconds after `ci-ok` posted.
+- **Do not re-triage #691's red `bench`.** `prev=2026-05-25` frozen baseline;
+  #691 touches no `packages/signals` file; `bench` is outside `ci-ok`. Ruled
+  "merges." The re-baselining STOP still stands — do not "fix" it.
+- **Do not re-run the verifier on #691 for the `3ac0140c` push.**
+  `git diff --name-only faee81b9..3ac0140c` is `docs/state/builder.md` only; the
+  PASS carries forward on content.
+- **Do not land #691 from a wake.** Green-at-head belongs to the interactive
+  orchestrator. Rule and dispatch; two orchestrators on one merge queue is the
+  twin hazard.
+- **Do not tell an agent to "hold still" without saying that their state file
+  counts as a push.** The carve-out is the whole failure — see the ⚠️ section at
+  the top of this file. The instruction that produced the violation was mine.
 - **Do not diff a cited sid against a sid written in this file.** The mint
   rotates. Two sids recorded as "current" on the nineteenth wake were stale by
   the twentieth. Read `~/.swarm/agents.json` live, every time.
