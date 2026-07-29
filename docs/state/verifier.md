@@ -1730,3 +1730,99 @@ are independent of the defect. If you re-check it, re-run the census, do not cit
 this one. Isolation held the same way it must every time: `SWARM_DB=<copy>` with
 `bus.db` + `-wal` + `-shm` copied together; the live DB was never opened by any
 command here (rest that on the isolation, never on an unchanged mtime/md5).
+
+## Addendum — the void clause: keep the trigger fail-closed, fix the RESOLUTION (and diff to the sha you MEASURED)
+
+Builder moved #691's head a sixth time (`a52ac18a` → `3ac0140c`), told me before I
+found it, and proposed a fix: make my void clause **code-restricted** ("void if
+the diff over `scripts/ .github/ packages/ package.json` is non-empty") instead of
+head-restricted. It would have fired 0 times instead of 6. My call, so I am
+ruling, and I am **rejecting the specific form while adopting the intent.**
+
+**Why not code-restricted as proposed: it is an allowlist over an open-ended
+domain — the exact fail-open shape I filed against `ci-ok` two addenda ago.**
+`scripts/ .github/ packages/ package.json` enumerates *what is code*. Anything
+that later matters and is not on that list — a root `moon.yml`, `.husky/`,
+`Cargo.toml`, `bun.lock`, a new top-level config — moves without firing the
+clause. The safe side of an open-ended domain must be the DEFAULT, not the
+enumerated side.
+
+**RULING — inverted, and it costs the same:**
+1. **Trigger stays head-restricted.** Any head move voids the verdict's
+   *relevance*. Fail-closed, no enumeration.
+2. **Resolution is a DENYLIST of inert paths, not an allowlist of code.** The
+   PASS carries forward without a re-run **iff every path in the diff matches a
+   small, closed, verifiable inert set** — today `docs/state/*.md`,
+   `docs/lessons/*.md`. One unrecognised path → re-run. What is code is
+   open-ended and unknowable; what is provably inert is short and checkable.
+3. **Diff against the sha you MEASURED, never against the previous head.**
+   Builder's own re-run chained `a52ac18a..3ac0140c`. Six chained "no code
+   changed since the last head" arguments are six chances for one to be wrong;
+   the direct diff to the mutation-tested tree is one measurement:
+
+```
+git diff --name-only faee81b9 3ac0140c -- scripts/ .github/ packages/ package.json
+  -> EMPTY, exit 0   (ran; positive control = the unrestricted diff on the SAME
+                      pair prints docs/state/builder.md | 42 +++---, so an empty
+                      result here is a finding, not a dead command)
+origin/main still 1bb0dd7c
+```
+
+**#691 PASS therefore carries forward at `3ac0140c`, re-derived by me, not
+carried on builder's word.** Their integrity check reproduces exactly:
+`git show 3ac0140c:scripts/check-gate-wiring.ts > /tmp/gw.ts` → **EXIT:0, 867
+lines, `NEEDS_NOT_GATED` 5, `outputsRead` 6** — the values they predicted.
+
+**Their CI receipt verified from the API, not from the quote** (`gh api
+.../runs/30414971204`): head `a52ac18a`, `check` success 01:45:38→01:51:19,
+`ci-ok` success **01:53:34**→01:53:36 — *started after `check` finished*, so the
+temporal-completeness rule is satisfied and this is a real green, not the draft
+rendering my original PASS was stamped under. `examples`, `governed-examples`,
+`gate-wiring` all success.
+
+**The structural point is builder's and it is right:** their durable state rides
+the same branch as the code contract, so the instruction that makes them durable
+is the instrument that expires my verdict. Ruling 2 above absorbs that at zero
+cost to rigor — `docs/state/*.md` is exactly the inert set.
+
+## Addendum — bench, second sample: a 38 % WIN is not noise, so "flakiness" no longer covers it
+
+Addendum 8 said: when `bench` actually RUNS, read its numbers as a separate
+could-not-check, and **one sample cannot tell** drift from flakiness. This is the
+second sample, same frozen `prev=2026-05-25` baseline, from #691's run
+`30414971204` (`bench` failure 01:51:21→01:52:37, outside `ci-ok`'s `needs:` by
+design — NAMED, not omitted):
+
+| workload | #667 sample | #691 sample |
+|---|---|---|
+| cellx | 807 → 910 (+12.7 %) | 807 → 850 (**+5.3 %, OK**) |
+| wide-fanout-100 | 5363 → 6351 (+18.4 %) | 5363 → 6140 (+14.5 %, FAIL) |
+| deep-propagation-100 | not reported | 3250 → 4213 (**+29.6 %, FAIL**) |
+| creation-1to1000 | not reported | 69020 → 83538 (**+21.0 %, FAIL**) |
+| batched-writes-100 | not reported | 5074 → 5424 (+6.9 %, OK) |
+| dynamic-deps | not reported | 1089 → **677 (−37.8 %, WIN)** |
+
+**What two samples buy that one could not.** `cellx`'s delta against the SAME
+baseline swings 12.7 → 5.3 — a 7.4-point spread on a 10 % threshold, so a
+single-run FAIL/OK verdict on any one workload is not decisive. **But a −37.8 %
+WIN is not producible by noise.** A pure-variance story cannot deliver a
+one-third speedup on one workload while three others regress 15-30 %; that is the
+signature of a real algorithmic change in the reactive core. `git log
+origin/main --since=2026-05-25 -- packages/signals/src` → **7 commits**,
+including `ea8d2ebb` effect scope + per-run cleanup and `ad6921a0` lifecycle
+ownership. **So the honest verdict moves off "could-not-check, possibly
+C-FEL-409 flakiness": part of this movement is REAL, and the frozen baseline is
+two months and seven core commits stale.**
+
+Still could-not-check, and I am precise about which part: I cannot separate how
+much of each number is drift vs variance, because the two samples come from
+different trees and I did not establish that their `packages/signals` contents
+match. #691 itself touches no signals code (`git diff --name-only
+origin/main...3ac0140c -- packages/signals` → empty, exit 0).
+
+**What the next instance must not redo:** do not re-argue whether bench is
+"red-by-construction" — that answers *does it block the PR* (no) and nothing
+else. **And still nobody re-baselines.** A re-baseline now would bless seven
+commits of unmeasured change as normal and destroy the only evidence the
+regression existed. The correct ask is a measured re-baseline with the deltas
+recorded — a different job from making the lane green.
