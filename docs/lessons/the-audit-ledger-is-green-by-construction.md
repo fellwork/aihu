@@ -588,6 +588,84 @@ correct instrument existed and would repair 19 rows properly, so hand-editing wa
 promotion path has no reverse, and a false `DISPUTED` left in place is a loaded gun pointed at the first
 person who adds a `--linear` link.**
 
+### ⛔ A COULD-NOT-CHECK MUST NOT PUBLISH OUTWARD — AND IT SHARES A TOKEN WITH A FINDING, SO IT DOES
+
+Architect's ruling, `docs/decisions/2026-07-28-a-could-not-check-must-not-publish.md`. The previous
+section established that `DISPUTED` mirrors outward through no `--reconciled` guard. **It is not alone in
+that arm.** Every citation below re-read by me at `origin/main` `1bb0dd7c`:
+
+```rust
+main.rs:2120   "DISPUTED" | "unverified" => { … SyncEvent::Flagged(why) }
+main.rs:2145   _ => SyncEvent::NoOp,          <- the vocabulary ALREADY EXISTS (offered/no-claims/declined)
+```
+
+And **every producer of `unverified`, in both languages, is a could-not-check** — three sites, and the
+supervisor's own module docstring says so in words:
+
+```
+supervisor.py:665   "unverified  — trace unreadable: could-not-check, NEVER silently 'verified'"
+supervisor.py:690   no transcript / no verdict body -> --status unverified --recon "could-not-check: …"
+supervisor.py:731   recon exit N                    -> --status unverified --recon "could-not-check (recon exit N)"
+main.rs:1178        adjudicate_merged Err(reason)   -> ("unverified", "could-not-check: {reason}")
+```
+
+> **THE PRODUCER DOCUMENTED THE SEMANTICS CORRECTLY AND THE CONSUMER'S `match` ARM LOST THEM.** This is
+> the part that generalises past this system. Nobody was confused: `:665` names the meaning exactly, and
+> names the failure it exists to prevent. But **a docstring is not part of the token** — the consumer
+> pattern-matches on the six characters, and `"DISPUTED" | "unverified"` puts a statement about the
+> *instrument* into the arm reserved for a finding about the *work*.
+>
+> **DURABLE RULE: COULD-NOT-CHECK NEEDS ITS OWN VOCABULARY.** If it shares a token with a finding, some
+> consumer downstream eventually acts on it **as** a finding — and *the consumer that acts is rarely the
+> one you had in mind when you chose the token*. Rung: prose (say it) → **structural (a distinct status,
+> and the `_ => NoOp` arm it belongs in already exists — could-not-check was simply never put in it)**.
+> Generalised design rule: **when you add a status or a flag, the question is not "what does it mean" but
+> "what will every consumer's `match` do with it." A token is a contract with consumers you have not
+> met.**
+
+**Third instance of one-mechanism-two-semantics**, now a class: `draft` meaning both *"unfinished"* and
+*"do not check"*; a remote referent serving as both *enforcement* and *one-shot guard*; now `unverified`
+meaning both *could-not-check* and *finding*.
+
+**The trigger condition is LIVE, and the mechanism is a string that does not resolve.** On the `:690`
+path **`recon.py` never runs** — the status is written because `os.path.exists()` failed on a path
+derived from the registry's `cwd` field. The architect ran `supervisor.py`'s own `_transcript()` for all
+six roles: five FOUND, `orchestrator` MISSING, its derived project dir *never having existed* (real
+sessions live under `-Users-…-aihu-little-rock/`, 42 entries). **A path string that does not resolve
+reopens a published issue.** Not overclaimed: supervisor *wakes* are self-consistent (`:400` reads the
+cwd, `:355` spawns there); it is **interactive** sessions — opened wherever a human opened them — that
+the registry never learns about. **The registry `cwd` is an unvalidated assertion**, which is the fourth
+face of `stale-ledger-…`'s rotating-coordinate clause: not stale, *never validated*.
+
+**SECOND RULING — `_transcript()` is rule 0 sitting in the reconciler's trace loader.** It fails toward
+`None` for two indistinguishable reasons: *the agent did no work*, and *we looked in the wrong place*.
+**A role whose derived project dir does not exist is a SUPERVISOR-HEALTH fault, not a contract verdict**
+— decline to write any status and alarm, the same refuse-to-pass-vacuously discipline
+`check-gate-wiring.ts` already ships.
+
+**RULED:** `unverified` → `NoOp`; **`DISPUTED` KEEPS `Flagged`.** The line is exact and worth copying:
+`DISPUTED` = recon exit 1 = *a claim with no matching tool call* = **a finding about the work**, so
+reopening is defensible. `unverified` = *the check did not run* = **a fact about the instrument**, which
+must not publish. **Rejected: splitting by arm** (suppress only `gh_reopen_issue`, keep Linear *In
+Progress*) — doubles the mirror vocabulary and still lets a could-not-check write outward.
+
+**Two pieces of intellectual honesty in the ruling, recorded because they are the reusable part.**
+(1) **"This is a design change, not a bug fix, and I say so"** — `:2419-2433` documents the reopen as
+FEATURE 3 and `:3087`/`:3102` are tests *asserting exactly what is removed*. The argument is made **on
+the feature's own premise**: the closure rests on a **merged receipt**, and an unreadable transcript is
+not evidence that a PR unmerged. **Beating a feature on its own premise is a stronger move than
+outweighing it**, and it is what makes deleting a documented behaviour reviewable rather than
+high-handed. (2) **Scope priced past the visible half** — *"~10-15 lines; `:3072`/`:3087`/`:3102`/`:3123`
+encode the old behaviour and must be INVERTED; **the tests are the work**"* — offered with *"I have
+mis-priced by the visible half twice."* **A one-line diff whose tests assert the opposite is not a
+one-line change**; the count that matters is *what asserts the current behaviour*, not what implements
+it.
+
+**Exposure is ZERO, twice over** (`submitted` = 0, the only status reconcile selects; and `orchestrator`
+owns 0 contracts) — **latent, not live**, so **no DECIDE was filed and nobody should hold one.** In-repo,
+reviewable, revertible, and it *reduces* outward writes ⇒ dispatchable, not founder-shaped. The
+`supervisor.py` half stays a hot edit to the live SPOF and **do-not-edit-hot still stands.**
+
 ### THE DEMOTION PATH IS NOT A STATUS WRITE — IT IS AN OUTWARD UN-PUBLICATION
 
 I banked *"the demotion path is the real work"* and stopped there. The architect went and read what a
