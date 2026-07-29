@@ -14,6 +14,7 @@ import {
   MARKED,
   PENDING,
   pruneDeps,
+  QUEUED,
   type Read,
   RUNNING,
   STALE,
@@ -166,7 +167,7 @@ export function computed<T>(
       const added = linkAdd(node, observer)
       if (added && (observer.flags & EFFECT) !== 0) node.hasEffectSub = true
     }
-    if (!node.hasCached || node.flags & (STALE | PENDING)) {
+    if (!node.hasCached || (node.flags & (STALE | PENDING | QUEUED)) !== 0) {
       node.cached = node.recompute()
       node.hasCached = true
     }
