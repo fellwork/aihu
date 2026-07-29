@@ -188,7 +188,9 @@ function isFit(workload: string): boolean {
 // fitness entry is UNCLASSIFIED, not unfit: letting it default either way is
 // how a workload silently arrives ungated (default fit -> it gates on noise;
 // default unfit -> it never gates and nobody is told). Refuse instead.
-const benched = [...new Set(cur.cells.filter((c) => c.competitor === '@aihu/signals').map((c) => c.workload))]
+const benched = [
+  ...new Set(cur.cells.filter((c) => c.competitor === '@aihu/signals').map((c) => c.workload)),
+]
 const unclassified = benched.filter((w) => fitness.workloads[w] === undefined)
 if (unclassified.length > 0) {
   console.error(

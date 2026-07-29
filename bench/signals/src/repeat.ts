@@ -70,8 +70,10 @@ async function main(): Promise<void> {
   console.log(``)
   console.log(`| Workload | min p50 | median p50 | max p50 | spread% | median ops/s |`)
   console.log(`| --- | ---: | ---: | ---: | ---: | ---: |`)
-  const measured: Record<string, { n: number; minP50: number; medianP50: number; maxP50: number; spreadPct: number }> =
-    {}
+  const measured: Record<
+    string,
+    { n: number; minP50: number; medianP50: number; maxP50: number; spreadPct: number }
+  > = {}
   for (const wl of workloads) {
     process.stderr.write(`  ${wl.name} … `)
     const samples: Sample[] = []

@@ -6,10 +6,21 @@
 # be produced HERE, on the same runner class that runs `bench`, or it answers a
 # question about a different instrument.
 #
-# Deliberately `workflow_dispatch` only. This is not a per-PR check: it measures
-# the RUNNER, and nothing in a PR diff changes the runner. Re-run it when the
+# Mostly `workflow_dispatch`: this is not a per-PR check, because it measures
+# the RUNNER and nothing in a PR diff changes the runner. Re-run it when the
 # runner image changes, when a workload is added, or when a gate verdict is
 # disputed — and commit the artifact it uploads.
+#
+# The one automatic trigger is narrow ON PURPOSE: a PR that edits the
+# MEASURING INSTRUMENT (repeat.ts) or this workflow re-measures, because a
+# fitness artifact produced by a different instrument is not comparable to the
+# one in the repo. Editing a workload, or packages/signals, does NOT trigger it
+# — those change what is measured, not how noisy the machine is.
+#
+# NOTE for anyone adding the first fitness artifact on a fresh branch:
+# `workflow_dispatch` is only dispatchable once this file is on the DEFAULT
+# branch. That is why the paths trigger below exists at all — without it the
+# very first measurement is unreachable from the PR that introduces it.
 #
 # It does NOT write fitness.json into the repo itself. A job that both measures
 # fitness and installs its own measurement could quietly widen what is exempt
@@ -17,6 +28,10 @@
 name: Bench fitness — which workloads can gate
 
 on:
+  pull_request:
+    paths:
+      - 'bench/signals/src/repeat.ts'
+      - '.github/workflows/bench-fitness.yml'
   workflow_dispatch:
     inputs:
       n:
