@@ -637,6 +637,60 @@ by it, so open them yourself when auditing.
   `settle-a-contested-claim…` — an INVARIANT beats a timed prediction (no clock, no reach-early bias); TTL now
   CONCLUSIVE (3 timed deaths 20:23:10/20:28:23/20:28:28, cohort cleared). DECIDEs not mine: who wires
   check:gate-wiring; the missing C-FEL-MOONGRAPH-LITERALS row. Board (my fetch): main 3891300a GREEN; #669 draft.
+- **WAKE 49 — I DROPPED THE OBSERVATION THE ARCHITECT RULED, AND I WAS CARRYING A STALE KNOWN-RED.**
+  Branch `srmcguirt/retro-followup-0728`, PR #692. Commits `74b00c5d` + `82735299`, remote-verified.
+  Gate `check-lesson-refs` exit 0, **30** cited lessons. Killed nothing, touched no infra, set no
+  status, merged nothing, filed no DECIDE, posted no Slack.
+  (1) **⛔ MY CORRECTION, AND IT IS THE MAIN OUTPUT OF THIS WAKE. New lesson
+  `logged-not-ruled-is-a-state-with-no-owner.md`.** The orchestrator closed their triage with
+  *"unrelated observation, logged not ruled … recording as evidence, not asserting a twin"* (registry
+  `cwd` = `aihu/main`, wake ran in `aihu/little-rock`). **I explicitly declined it too** — wake-48 entry,
+  *"NOT promoted to a 7th row-8 event … I am not inflating it."* Both restraints were CORRECT. **The
+  architect then ruled it: it is the entry point to an unattended outward write** — the registry `cwd`
+  is what `_transcript()` derives a path from; the path fails to resolve ⇒ `unverified` ⇒ a **reopened
+  public GitHub issue + a Linear ticket pulled out of Done.** **DECLINING TO MIS-FILE IS NOT ROUTING.**
+  Not fixable by being less careful — the discipline that produced the restraint produced the drop; the
+  corrective is that **a decline must name a destination** ("not a row-8 event; what it IS is an
+  unvalidated field the reconciler derives a path from — architect's lane"). **Vocabulary defect, and it
+  is the SAME ONE the architect ruled the same day pointed the other way:** could-not-check shares a
+  token with a *finding* ⇒ consumers **over-act**; could-not-rule shares `note` with *FYI* ⇒ consumers
+  **under-act**. One root, opposite directions, which is why they do not look related. Reader rule:
+  **"logged not ruled" is UNCLAIMED, not settled.**
+  (2) **⛔ I WAS CARRYING A STALE KNOWN-RED — `matrix` IS NO LONGER DEAD.** My own state file and
+  `dead-gate-makes-work-unverifiable.md` both asserted "red-by-construction (run 30318406544)". After
+  **#684** (`origin/main` `1bb0dd7c`, verified by `git log -1`) install passes in **all 20 cells, 11
+  green end to end** — a **working instrument**, so a `matrix` red now **carries information and must be
+  triaged.** Both corrected. **A KNOWN-RED REGISTRY IS A CACHE OF MEASUREMENTS WITH NO INVALIDATION
+  HOOK** — the event that should expire it (a merged fix) is invisible to it, so it decays in the
+  DANGEROUS direction, and it misleads the reader who is being most diligent. **Second direction of the
+  disproven-receipt rung**: there a *method* was disproven and nothing propagated backward; here a
+  *defect was fixed* and nothing propagated forward. Same missing edge. Rung: stamp every known-red with
+  its run id + head (the void rule applies to REGISTRIES, not just verdicts) → citation graph (unbuilt).
+  (3) **TRIAGE METHOD banked (verifier's, into the same file): attribute a `matrix` red BY BASELINE, IN
+  THE SAME MODE.** `mode=local` (PR runs) = local source; `mode=npm` (scheduled on main) = the published
+  package — **different artifacts, so a cross-mode baseline proves nothing** (two of one day's three
+  reds would have been mis-triaged). Runs 30404220223 (`1b2d6f07`) vs 30400148873 (`4d6e1793`) give the
+  same 20-cell table cell-for-cell; I re-fetched both (`Scaffold DX matrix`, failure, pull_request).
+  **The nine reds map to contracts ALREADY OFFERED — nothing new is owed.** cf-team has a **NEW** root
+  cause (bare `git init` ⇒ `master` vs template's `vcs.defaultBranch: main`); **its brief still describes
+  the OLD one** — do not act on the round-2 mechanism.
+  (4) **COULD-NOT-CHECK ruling folded into `the-audit-ledger-…`, all citations re-read by me at
+  `origin/main` 1bb0dd7c.** `main.rs:2120` `"DISPUTED" | "unverified" => Flagged`; all three producers of
+  `unverified` are could-not-check (`supervisor.py:690`/`:731`, `main.rs:1178`) and **`supervisor.py:665`
+  SAYS SO in its own docstring**. **THE PRODUCER DOCUMENTED THE SEMANTICS AND THE CONSUMER'S `match` ARM
+  LOST THEM — a docstring is not part of the token.** `_ => NoOp` already exists. RULED `unverified` →
+  `NoOp`, **`DISPUTED` KEEPS `Flagged`** (a finding about the WORK vs a fact about the INSTRUMENT).
+  Exposure **0 twice over**, latent not live, **no DECIDE and nobody should hold one.** Two reusable
+  moves recorded: **beating a documented FEATURE on its own premise** (closure rests on a merged receipt;
+  an unreadable transcript is not evidence a PR unmerged) and **pricing past the visible half** — 1 line
+  but `:3072/:3087/:3102/:3123` assert the OLD behaviour, **the tests are the work.** NOT MINE: the
+  `classify()` edit, the hot `supervisor.py` half (do-not-edit-hot stands).
+  (5) Verifier's void clause on #695 did NOT fire (head still `1b2d6f07`) and **I ran their integrity
+  check verbatim: `EXIT:0`, `grep -c FALLBACK_IDENTITY` = 2** — reproduces. Note they wrote it with
+  **`echo EXIT:$?` and explicitly "no `2>/dev/null`"**: my wake-48 stderr rule applied by another role
+  within hours, inside the instrument it protects. Also: **5 head moves, void clause fired 5×, forced a
+  re-run twice** — 3 re-verifications SAVED; that ratio is why a stamp that only ever cost work would not
+  be kept.
 - **WAKE 48 — THE DAEMON GUARD EXISTS AND EXCLUDES NOBODY; MY STEADY-STATE MODEL WAS THE WRONG SHAPE;
   AND `ps -eo etimes` NEARLY MADE ME PUBLISH "THE LEAK STOPPED".** Branch `srmcguirt/retro-followup-0728`,
   **PR #692 OPEN / non-draft / MERGEABLE, head `c4d2d755` verified by `git ls-remote`.** Two commits:
