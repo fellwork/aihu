@@ -94,15 +94,71 @@ frozen baseline. Had the builder attributed by one baseline the way I wrote it, 
 would have been charged to a **docs-only commit** — a clean, well-formed, entirely false attribution.
 
 > **THE DISTINGUISHING QUESTION IS NOT "SAME MODE?" — IT IS "IS THIS LANE'S CELL-LEVEL VERDICT
-> REPRODUCIBLE?"** Test it the way they did: **run it twice on the same tree.** If cells flip, per-cell
-> attribution is unavailable **at any number of baselines**, and only the **aggregate** claim ("this lane
-> is noise") is citable. A baseline controls for *the diff*; it cannot control for *variance*, and one
-> sample cannot tell you which one you are looking at.
+> REPRODUCIBLE?"** Test it the way they did: **run it twice on the same tree.** A baseline controls for
+> *the diff*; it cannot control for *variance*, and one sample cannot tell you which one you are looking
+> at. ~~If cells flip, per-cell attribution is unavailable at any number of baselines, and only the
+> **aggregate** claim ("this lane is noise") is citable.~~ **← STRUCK. See the correction immediately
+> below: the aggregate half is FALSIFIED by the very experiment that produced it.**
 >
 > **My rule was right about the confound it named and silent about the one it did not**, which is the
 > exact failure mode this file exists to describe — and it is why the verifier's own #695 caution (*"the
 > only textual difference is the dev port"*) was the same hazard **seen from the safe side**, where the
 > cells happened to agree. **Agreement across one pair of runs is not evidence of determinism.**
+
+### ⛔ CORRECTION — "ONLY THE AGGREGATE IS CITABLE" IS FALSIFIED BY THE SAME PAIR OF RUNS THAT PRODUCED IT
+
+I banked the builder's conclusion verbatim, including the half they themselves retracted within the wake.
+**The verifier countered, three roles ratified, and the builder superseded their own note.** The full
+table — all six cells, no token filter, and every one of the four roles who pulled the logs got the same
+numbers:
+
+| cell | run 30414971204 (`a52ac18a`) | run 30415444646 (`3ac0140c`) | spread |
+|---|---|---|---|
+| cellx | OK 5.3 % | OK 9.0 % | 3.7 |
+| wide-fanout-100 | FAIL 14.5 % | FAIL 19.1 % | 4.6 |
+| batched-writes-100 | OK 6.9 % | **FAIL 11.4 %** | 4.5 **FLIPPED** |
+| deep-propagation-100 | FAIL 29.6 % | **OK 7.5 %** | **22.1 FLIPPED** |
+| creation-1to1000 | FAIL 21.0 % | FAIL 12.4 % | 8.6 |
+| **dynamic-deps** | **WIN −37.8 %** | **WIN −36.5 %** | **1.3** |
+
+> **THE NOISE FLOOR IS NOT UNIFORM ACROSS CELLS.** The same pair of runs that swings
+> `deep-propagation-100` by **22 points** reproduces `dynamic-deps` to within **1.3**. So *"this lane is
+> noise"* is a property the lane **does not have uniformly**, and adopting it **discards a real signal** —
+> **the mirror-image error of the one the builder correctly guarded against, and equally expensive.**
+> Guarding against a false positive by asserting a blanket negative is not caution; it is the same
+> unbounded claim pointed the other way.
+
+**RULED (architect's general form): THE LANE HAS A NOISE *FLOOR*, NOT A NOISE *VERDICT*. A cell is citable
+iff its effect size clears the floor.** And the corollary that transfers off this lane entirely:
+
+> **A GATE THRESHOLD SET BELOW ITS INSTRUMENT'S NOISE FLOOR IS A COIN FLIP WEARING A RECEIPT.** It does
+> not measure the code; it samples the floor and returns a verdict. Max spread **22.1 against a 10-point
+> gate** — and at n=2 that is a **lower bound**, because two samples give a *range*, not a variance.
+
+**THE OPERATIONAL PARTITION — what a citer actually needs** (the verifier's, adopted verbatim by the
+architect, the orchestrator, and the builder; it replaces both "the lane is noise" and my banked version):
+
+- **VERDICT-FLIPPING** — `batched-writes-100`, `deep-propagation-100` → **cite nothing.** Per-cell
+  attribution unavailable at any number of baselines.
+- **VERDICT-REPRODUCING** — `wide-fanout-100`, `creation-1to1000`, `cellx` → **CITE THE VERDICT, NEVER THE
+  PERCENTAGE.** The verdict reproduced; the magnitude did not.
+- **MAGNITUDE-CARRIED** — `dynamic-deps` → real, **by symmetry, independent of any stability claim.**
+
+**AND THE ASYMMETRY THAT MAKES THE PARTITION SOUND AT n=2** — the sharpest thing in the thread, and the
+verifier applied it against their own claim first:
+
+> **A FLIP IS AN EXISTENCE PROOF; A NON-FLIP AT n=2 IS NOT A STABILITY CLAIM.** One counterexample kills
+> reproducibility outright, so the two flips are **robust at n=2**. But *"the other four did not flip"* is
+> a **negative drawn from two samples**, and a negative must be shown to have had its chance to fire.
+> **At n=2, noting a flip is cheap and proving a non-flip is unavailable.** Whoever extends this needs
+> more runs for the stable side and **none** for the flipped side.
+
+**Note what this does NOT touch: the `dynamic-deps` argument never rested on stability.** Noise is
+symmetric about the true value, so **for noise alone to print −37 % twice, the true value would have to
+sit near −37 %.** That holds no matter how noisy the regressing cells are — which is precisely why it
+survives the n=2 objection. The builder had offered *"the spread column is the discriminator — you did not
+need the argument-from-implausibility"* and then retracted it: **the spread column reads in one direction
+only**, so that was a *weaker* foundation offered as an upgrade.
 
 **A CORRECTION THAT CUTS THE OTHER WAY — NOISE CANNOT MANUFACTURE A SIGNAL OF THE WRONG SHAPE.** The
 verifier's second sample moved their own position *off* "probably flakiness": among the same run's cells,
