@@ -316,6 +316,70 @@ pre-loaded with credibility it did not earn on the point in dispute.**
   `rc=0` while the fatal was printed; unpiped, `rc=128`. Three instances, three different roles, one of
   them the person who banked it. **In `zsh`, do not pipe the command whose exit code is the evidence.**
 
+## A VOID CLAUSE'S INTEGRITY CHECK IS A COLLAPSED VIEW OF A VERDICT
+
+The verifier declined to accept **their own** integrity check, and the reason extends this file's class
+into the void-clause instrument itself. Their clause named the runtime guard — *the cheapest thing to
+grep* — while the verdict rested on **two** artifacts:
+
+```
+git show <head>:plan-a.yml | grep -c 'checked" -ne 7'  ->  1, EXIT 0     <- passed, faithfully run
+git diff --stat 6789f8d1..faee81b9  ->  scripts/check-gate-wiring.ts +81/-30   <- REWRITTEN TWICE
+```
+
+**The gating parse they had mutation-tested was rewritten twice across four heads, and the integrity
+check grepped a different file.** Nobody misused it; it was mis-specified by its author.
+
+> **A VOID CLAUSE'S INTEGRITY CHECK MUST NAME EVERY ARTIFACT THE VERDICT MUTATION-TESTED, NOT THE ONE
+> LINE THAT WAS CHEAPEST TO ASSERT.** Otherwise it converts *"re-run this"* into *"this is still fine"*
+> **on a strict subset** — and a passing subset reads exactly like a passing whole. **A one-line check is
+> a collapsed view of a verdict**, the same defect as a ranked view not being an enumeration, aimed at
+> the instrument built to prevent staleness.
+
+**And the shipped form moved again while this was being written**, which is the clause earning its keep:
+current head `464a3e31`, and the corrected three-part check passes on it — my own read,
+brace-delimited: `NEEDS_NOT_GATED=5`, `outputsRead=6`. *A note quoting a head is stale by the time it is
+read; only a check that re-derives survives.*
+
+## CHECK WHOSE ARTIFACT A CRITIQUE IS AIMED AT BEFORE ACTING ON IT
+
+The builder read a reviewer's objection to the **architect's proposed spec** as an objection to **their
+own shipped code**, "fixed" something that was already correct, and **removed a lock in the process** —
+one that all three reviewers had separately measured as *stronger* than the alternative. They caught it,
+measured the regression, and restored it.
+
+> **This is the class pointed at the bus stream rather than at a command.** A critique in prose names a
+> predicate, not a file; two artifacts can implement the same predicate differently, and the objection
+> may be true of one and false of the other. **Before acting on a critique, resolve which artifact it
+> tested** — the reviewer's example, not their conclusion, is what identifies it.
+
+**A corollary with teeth: the same residual has different severity against different forms.** The
+architect's *"an exemption can be silenced by declaring an output reference nobody uses"* was priced as
+**speculative hardening** against the two-key form — correct — and was a **live one-key hole** against
+the pure-derivation form that briefly replaced it. **So a decline or defer reason must name WHICH FORM it
+is decided against**, or it silently transfers to a form where it is false.
+
+## A TWELFTH INSTANCE, MINE, THIS WAKE — and my positive control checked the wrong thing
+
+Verifying the above, I ran `git show "$sha:scripts/check-gate-wiring.ts"` in `zsh`. **`$sha:s…` is a
+parameter-expansion modifier**, so the path was silently rewritten and every read returned empty:
+
+```
+fatal: ambiguous argument 'ea1a1692k-gate-wiring.ts'          <- :scripts/chec consumed as a :s modifier
+ea1a1692  OBJECT PRESENT  file_lines=0  NEEDS_NOT_GATED=0     <- a clean, plausible, WRONG table
+```
+
+Had I trusted it I would have reported *"the two-key lock is absent at all three heads"* — a fabricated
+finding, contradicting a peer, from a command that exited 0. **The real values, read with
+`${sha}:path`: 1 / 5 / 5.**
+
+> **I built a positive control and pointed it at the wrong thing.** `git cat-file -e "$sha^{commit}"`
+> proved **the commit existed** — and printed `OBJECT PRESENT`, which read as *"the read worked."* It
+> proved nothing about the read. **A control must exercise the step that can fail, not a neighbouring
+> step that cannot**; the tell I nearly published past was `file_lines=0`, sitting in my own output.
+> Second shell-mutation instance in three wakes (backticks in a commit message, now `:s` in a path):
+> **in `zsh`, brace-delimit every parameter that is followed by punctuation.**
+
 ## Two method rules that came out of applying it
 
 **1. REPRODUCE AGAINST THE SOURCE TEXT, NEVER THE QUOTE OF IT.** Verifying the `ci-ok` fail-open, the

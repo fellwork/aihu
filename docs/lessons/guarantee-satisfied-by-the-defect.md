@@ -604,6 +604,30 @@ an 8th job with the count left at 7 reds under `-ne` (the feature) and **silentl
 > detector.** Generalises past this file: **when you add a checker, ask what enforces the checker — if the
 > answer is the same mechanism it checks, it cannot fail the build on its own behalf.**
 
+**AND THE REMAINING GAP SHOULD NOT BE BOUGHT — the architect priced it rather than defending it.** The
+open question was *"the runtime guard's rejection has never fired in CI"*, and the offered purchase was
+to truncate the loop for one push to manufacture a real red. Read at source, the guard has **no
+guard-specific rejection path**:
+
+```
+:549  fail=1     <- the per-job result loop (six existing jobs)
+:564  fail=1     <- the count guard
+:606  fail=1     <- the third site
+:609  if [ "$fail" = "1" ]; then      <- ONE shared consumption point
+```
+
+So the gap decomposes into **(a) does the guard set `fail=1` correctly** — measured locally across five
+scenarios by two roles independently, including the direction-2 control that it does *not* red the happy
+path — and **(b) does `fail=1` red `ci-ok`** — exercised in production every time `check` fails, and
+**not guard-specific at all.** A deliberate red re-confirms (b): the single most-exercised path in the
+workflow, purchased by **knowingly reddening the sole required status.**
+
+> **BEFORE BUYING EVIDENCE, ASK WHICH LINK IN THE CHAIN IS ACTUALLY UNTESTED.** *"The guard has never
+> rejected in CI"* sounds like one untested claim; it is **two**, and the expensive half is the one
+> already exercised thousands of times. **The trade looks like rigour because it is expensive** — which
+> is the same error, in miniature, as the ones corrected all day. Take a genuine red free if promotion
+> ever supplies one; **do not manufacture it.** The gap is real and its marginal information is not.
+
 **AND THE PARSE HAS THE SAME WEAKNESS ONE LAYER UP — it already fails today, which nobody had checked.**
 Before building `needs`-set == loop-set, the verifier asked whether the invariant is even **true** on the
 current tree. It is not:

@@ -525,6 +525,69 @@ practice): adding `verified` to that `IN`-list so the merged-receipt check re-ru
 real work.** *Naming which half is a token and which half is a design problem is how an estimate stays
 honest.*
 
+### ⛔ `DISPUTED` MIRRORS OUTWARD AND IS **NOT** GUARDED — the destructive direction has LESS protection than the constructive one
+
+This corrects the R1 ruling this swarm acted on all day, and the architect corrected it against
+themselves after the orchestrator found the incident. The published claim was *"`verified` and
+`no-claims` are the two statuses with external side effects"*, with the tradeoff *"fail direction = NOT
+DONE, which is conservative."* **Two different sets were conflated:**
+
+```
+REQUIRES --reconciled : {verified, no-claims}      :1093 — and only `verified` mirrors
+MIRRORS OUTWARD       : {verified -> Done + close,  DISPUTED/unverified -> In Progress + REOPEN}
+                        :2399 linear_ensure_state(identifier, "In Progress")
+                        :2425 let reopened = gh_reopen_issue(num)?
+```
+
+**So `DISPUTED` publishes outward and passes through no `--reconciled` guard at all.** The *destructive*
+outward action is less protected than the constructive one — the inverse of what any safety design would
+choose.
+
+> **A CONSERVATIVE DEFAULT IS ONLY CONSERVATIVE IF THE DEFAULT IS INACTION. WHERE BOTH DIRECTIONS
+> PUBLISH, THERE IS NO SAFE DIRECTION TO FAIL IN — THERE IS ONLY A CHOICE OF WHICH LIE TO BROADCAST.**
+> *"Fail toward not-done"* is sound for an **inward ledger** and false for an **outward mirror**, where
+> "not done" is itself an assertion: it reopens a customer-visible issue and drags a ticket out of Done,
+> unattended, on the timer. The ruling argued the safety of the tradeoff from **absence**; the system
+> implements it as an **assertion**.
+
+**R6, new and stricter than what it replaces: no trace-derived predicate may write ANY status that
+mirrors outward — in either direction.** *"Non-terminal"* was never the right test; **the right test is
+"does it mirror."** `DISPUTED` is non-terminal **and** it publishes.
+
+**And the self-diagnosis is the part that generalises:** *"Two of my own measurements, in one file,
+contradicting each other, and I held both."* The Flagged arm had been read **the previous wake** while
+pricing the demotion path, and was never connected to the two-statuses claim. **Measurements do not
+collide on their own — nothing in a notebook cross-checks page 3 against page 9.**
+
+### THE INCIDENT THAT PROVED IT — `DISPUTED` written onto the best-evidenced contract in the repo, from an English phrase
+
+```
+C-FEL-GATE-WIRING-RUNS  | DISPUTED  | recon: FLAG wrote that "I wrote that"  <- no backing tool call
+                                      160 tool calls in trace; 1 claims; 1 flagged
+C-FEL-CREATE-GIT-STATUS | no-claims | 162 tool calls in trace; 0 claims — while the work is IN FLIGHT
+```
+
+A prose regex matched the words *"wrote that"* inside a message, failed to find a tool call backing that
+phrase, and stamped **DISPUTED** onto the contract carrying four sabotage CI runs, a re-run verifier
+PASS, a fourth palette variant caught unprompted, and this repo's first production reproduction of the
+#649 defect. **The claim extractor is reading English and scoring it as a ledger verdict.**
+
+**Three-for-three, and every one would have been prevented by R3** (ungroundable degenerate extractions
+— *"I wrote that"* is the same shape as `target=to` grounding against a path containing *"condu-cto-r"*):
+`C-SWARM-RECON-AUTHORITY` (no-claims from a 39-call fragment of a session that died),
+`C-FEL-GATE-WIRING-RUNS` (DISPUTED from a phrase), `C-FEL-CREATE-GIT-STATUS` (no-claims over live work).
+**Nothing fired outward only because both rows were minted without `--linear`/`--github-issue`. That is
+luck with a timer standing over it — the third time that sentence has been written about this system in
+one day.**
+
+**The repair, and the line drawn in it, are worth copying**: `setstatus` to `claimed` / `offered` — both
+**non-terminal AND `NoOp`-mapped**, restoring the state the *agent* actually established — and an
+explicit refusal to touch `verified`/`no-claims`, which need `--reconciled` and are never the
+orchestrator's. **The asymmetry with `C-SWARM-RECON-AUTHORITY` is principled, not convenient:** there the
+correct instrument existed and would repair 19 rows properly, so hand-editing was refused; **here the
+promotion path has no reverse, and a false `DISPUTED` left in place is a loaded gun pointed at the first
+person who adds a `--linear` link.**
+
 ### THE DEMOTION PATH IS NOT A STATUS WRITE — IT IS AN OUTWARD UN-PUBLICATION
 
 I banked *"the demotion path is the real work"* and stopped there. The architect went and read what a
