@@ -1947,3 +1947,79 @@ My census reproduces exactly (192 / 152 / 18) — the census was right and the
 reachability reasoning on top of it was not. **A correct measurement does not
 make the inference drawn from it correct**, which is the same lesson as the #604
 "the number was right and the diagnosis was not".
+
+## Addendum — #696 PASS on both fixes, but ONE OF THE TWO SITES IS UNGUARDED: the PR's own thesis, one layer up
+
+Independently verified builder-b's #696 (`fix/scaffold-git-init-branch-main`,
+head `b545e78b`) from a disposable worktree I built myself (`git worktree add
+/tmp/verify-696 b545e78b --detach`, `bun install`, removed after). This is an
+author-only-verified PR — the SPOF the orchestrator flagged — so nothing below is
+taken from its body.
+
+**Both shipped fixes are real, and both are load-bearing (direction 2 run, each
+mutation assert-applied before its run so a no-op `perl -0pi` cannot report a
+false green, each reverted with `git checkout --`, never `git stash`):**
+
+| mutation | result |
+|---|---|
+| baseline (`scaffold-git-branch` + `template-tsconfig-types`) | **EXIT 0, 6 passed** |
+| strip the pin from `scaffold-pipeline.ts` (3→2 hits) | **EXIT 1, 4 failed** — kills both the shape test and the real-git drive test |
+| strip `@cloudflare/workers-types` from `package.json.tmpl` (1→0) | **EXIT 1, 1 failed** |
+| **strip the pin from `create.ts` (1→0 hits)** | **EXIT 0, 47/47 PASSED** |
+
+**THE FINDING: the `create.ts` half of the fix is guarded by nothing.** Removing
+it entirely leaves `scaffold-pipeline.test.ts` (41), `scaffold-git-branch.test.ts`
+(2) and `template-tsconfig-types.test.ts` (4) all green. No test on this tree
+touches that code path — `grep -rln "src/create\|initGitRepo"
+packages/cli/tests/` returns `create-flags.test.ts` (option resolution only, run
+under the mutation → 8 passed) and the matrix e2e; `grep -rln symbolic-ref
+packages/cli/tests/` returns only the two pipeline tests. **And #695's
+`create-git-init.test.ts`, the one other test of that path, does not close it
+either:** `git show 1b2d6f07:packages/cli/tests/create-git-init.test.ts` (EXIT 0,
+163 lines) → `grep -c "symbolic-ref\|refs/heads/main\|defaultBranch"` = **0**.
+So even after both PRs land, the capability has **two implementations and one
+guard**.
+
+**Why this is the sharp version and not a nit.** #696's own thesis, in its own
+words, is that *"the previous defect in this exact pair, FEL-431 defect 5, survived
+a round because only one of the two was fixed."* #696 fixes both — and then
+reproduces the identical asymmetry **in its test layer**: two implementations, one
+covered. The next regression in `create.ts` is silent for exactly the reason the
+PR exists to prevent. **Fixing every site and guarding one site is the same defect
+wearing the test suite's clothes.** Not a blocker on the shipped behaviour, which
+is correct at both sites; it is a bar the *acceptance* should have carried
+(orchestrator's must-fail direction 3 says fixing one is a FAIL — the symmetric
+clause, TESTING one is a FAIL, is the one that was missing).
+
+**Verified good, and worth copying:** the new test's positive control is real —
+it asserts `git config init.defaultBranch` == `trunk` ("the hostile ambient config
+did not reach git — the assertion below would be vacuous") **before** asserting
+`symbolic-ref --short HEAD` == `main`. Without it the test passes on any box
+already defaulting to `main`, i.e. green while the defect is live. And
+`symbolic-ref` over `git init -b` is right: `-b` landed in git 2.28 and exits 129
+below that, so the "fix" would break working scaffolds on old git.
+
+**builder-b's third defect reproduces exactly.** `git grep -l "__[A-Z_]*__"
+origin/main -- packages/templates/cf-team/template | grep -v '\.tmpl$'` → **11
+files**, the same list they named (3 × `.env.example.*`, 2 × `.aihu`,
+`main.ts`, 3 × `auth/*.ts`, `shared/src/index.ts`, `index.test.ts`). Placeholders
+are expanded only in `.tmpl` files, so `@__APP_NAME__/shared` reaches the emitted
+scaffold verbatim. Their "it is a contract, not an edit" holds: three of the
+eleven are `conditionalFiles` with a `rename`, and adding `.tmpl` moves the
+emitted path.
+
+**Live sighting of the stale-positive the orchestrator just ruled on.** Reading
+`gh pr view 696 --json statusCheckRollup` gave `ci-ok SUCCESS` with `check`
+blank — while `gh run list --branch <head>` showed **two runs at the same sha**:
+`30416018947` (complete, success, 02:08:13Z) and `30416193310` (in_progress,
+02:12:10Z). The rollup unions them, so the green belonged to the *earlier* run.
+Both later completed success, so no harm here — but the mechanism was live and
+visible, and **binding to the run id is what made it visible.** Confirms the rule
+at the cost of one command.
+
+**What the next instance must not redo:** #696's two fixes are mutation-proven —
+do not re-run them. What is OPEN is the `create.ts` coverage gap above; close it
+with a test that drives `create.ts`'s git path under the same hostile-ambient
+fixture, or the pin regresses silently. Do not run the full `packages/cli` suite
+to establish coverage — I tried and it exceeded 10 minutes on this box; grep for
+the tests that reference the path and run those.
