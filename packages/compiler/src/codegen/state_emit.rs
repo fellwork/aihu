@@ -1100,34 +1100,54 @@ pub(crate) fn emit_state_macro_code(
                             // called once; if the returned object has
                             // `hostConnected`/`hostDisconnected` methods they are
                             // wired into onMount/onCleanup respectively.
-                            let factory_raw = match crate::parser::state_macros::meta_get(entry, "value") {
-                                Some(f) => f.trim(),
-                                None => continue,
-                            };
-                            let factory_owned;
-                            let factory: &str = if entry.wrapper {
-                                factory_owned = rewrite_wrapper_code(
-                                    factory_raw,
-                                    &wrapper_targets,
-                                    &mut needs_state_upd_helper,
-                                    &mut needs_prop_upd_helper,
-                                );
-                                &factory_owned
-                            } else {
-                                factory_raw
-                            };
+                            // If a `mount:` callback is provided, it is wired into onMount.
                             let name = &entry.name;
-                            lines.push(format!(
-                                "{indent}const {name} = (() => {{\n\
-                                 {indent}  const _ctrl = ({factory})()\n\
-                                 {indent}  if (typeof _ctrl.hostConnected === 'function') onMount(() => _ctrl.hostConnected())\n\
-                                 {indent}  if (typeof _ctrl.hostDisconnected === 'function') onCleanup(() => _ctrl.hostDisconnected())\n\
-                                 {indent}  return _ctrl\n\
-                                 {indent}}})()",
-                                indent = indent,
-                                name = name,
-                                factory = factory,
-                            ));
+                            if let Some(factory_raw) = crate::parser::state_macros::meta_get(entry, "value") {
+                                let factory_trimmed = factory_raw.trim();
+                                let factory_owned;
+                                let factory: &str = if entry.wrapper {
+                                    factory_owned = rewrite_wrapper_code(
+                                        factory_trimmed,
+                                        &wrapper_targets,
+                                        &mut needs_state_upd_helper,
+                                        &mut needs_prop_upd_helper,
+                                    );
+                                    &factory_owned
+                                } else {
+                                    factory_trimmed
+                                };
+                                lines.push(format!(
+                                    "{indent}const {name} = (() => {{\n\
+                                     {indent}  const _ctrl = ({factory})()\n\
+                                     {indent}  if (typeof _ctrl.hostConnected === 'function') onMount(() => _ctrl.hostConnected())\n\
+                                     {indent}  if (typeof _ctrl.hostDisconnected === 'function') onCleanup(() => _ctrl.hostDisconnected())\n\
+                                     {indent}  return _ctrl\n\
+                                     {indent}}})()",
+                                    indent = indent,
+                                    name = name,
+                                    factory = factory,
+                                ));
+                            } else if let Some(mount_raw) = crate::parser::state_macros::meta_get(entry, "mount") {
+                                let mount_trimmed = mount_raw.trim();
+                                let mount_owned;
+                                let mount_fn: &str = if entry.wrapper {
+                                    mount_owned = rewrite_wrapper_code(
+                                        mount_trimmed,
+                                        &wrapper_targets,
+                                        &mut needs_state_upd_helper,
+                                        &mut needs_prop_upd_helper,
+                                    );
+                                    &mount_owned
+                                } else {
+                                    mount_trimmed
+                                };
+                                lines.push(format!(
+                                    "{indent}const {name} = onMount(({mount_fn}));",
+                                    indent = indent,
+                                    name = name,
+                                    mount_fn = mount_fn,
+                                ));
+                            }
                         }
                         CollectionKind::Form => {
                             // D5 — $form wiring is emitted by emit_form_wiring()

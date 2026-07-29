@@ -430,3 +430,24 @@ fn b5_no_context_no_overhead() {
         "SFC without $context must not emit __aihu_ctx_provide: {js}"
     );
 }
+
+// ─── AC #9 — $controller with mount: key lowers to onMount (Issue #498) ──────
+
+#[test]
+fn b5_controller_mount_key_lowers_to_onmount() {
+    let src = r#"@state {
+  $controller: {
+    scrollCtrl: { mount: (host) => setupObserver(host) },
+  }
+}
+@template {
+  <div></div>
+}"#;
+    let js = compile_fixture(src, "x-b5-ctrl-mount");
+
+    assert!(
+        js.contains("const scrollCtrl = onMount(((host) => setupObserver(host)));"),
+        "expected onMount lowering for $controller mount: key: {js}"
+    );
+}
+
