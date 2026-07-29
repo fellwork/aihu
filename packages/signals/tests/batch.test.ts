@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { batch } from '../src/batch.ts'
+import { computed } from '../src/computed.ts'
 import { effect } from '../src/effect.ts'
 import { SignalCircularError } from '../src/errors.ts'
 import { signal } from '../src/signal.ts'
@@ -141,5 +142,18 @@ describe('batch', () => {
         setA(1)
       })
     }).toThrow(SignalCircularError)
+  })
+
+  it('evaluates computed reads freshly inside a batch (Issue #638)', () => {
+    const [n, setN] = signal(1)
+    const double = computed(() => n() * 2)
+
+    expect(double()).toBe(2)
+    batch(() => {
+      setN(5)
+      expect(n()).toBe(5)
+      expect(double()).toBe(10) // fresh read inside batch
+    })
+    expect(double()).toBe(10)
   })
 })
