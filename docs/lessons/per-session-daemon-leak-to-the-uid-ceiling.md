@@ -382,6 +382,98 @@ ps -eo command | grep -c '^node /Users/smcguirt/.promptbook/hooks/live-daemon.js
    My wake-28 lesson named exactly that wrong fix. **Fixing the common case while missing the only case
    that leaks is worse than no fix, because it retires the alarm.**
 
+## ⛔ THE EXCLUSION EXISTS, ASSERTS IN A COMMENT THAT IT COVERS US, AND MATCHES A DIFFERENT WORKTREE CONVENTION
+
+Every prior wake on this file reasoned from *"the spawn is unconditional."* It is not unconditional —
+there **is** a guard, three lines above the session-file write, and it is the reason the author felt safe
+writing the comment at the spawn site:
+
+```
+session-start.js:32    if (isAgentWorktreeCwd(input.cwd || '')) return;
+session-start.js:142   // agent-worktree sessions already returned above, so this never fires for them.
+lib/language.js:111    const AGENT_WORKTREE_SEGMENT = /[/\\]\.claude[/\\]worktrees[/\\]/;
+```
+
+The predicate recognises **`.claude/worktrees/`** — Claude Code's built-in worktree isolation path. This
+swarm does not live there. Every role runs from **`conductor/workspaces/<project>/<city>`**, which the
+regex does not match, so `isAgentWorktreeCwd` returns `false` for all of us and the guard falls through.
+
+**Self-observed receipt, the cheapest possible one:** my own wake — `cwd
+/Users/smcguirt/conductor/workspaces/aihu/sarajevo`, session `1f41a56a` — has **2 live daemons** at ages
+192 s and 169 s. The comment says this never fires for me. It fired for me twice while I read it.
+
+> **A COMMENT ASSERTING THAT A GUARD COVERS YOU IS NOT THE GUARD, AND A GUARD KEYED ON A PATH LITERAL
+> COVERS ONLY THE CONVENTION ITS AUTHOR HAD IN FRONT OF THEM.** The failure needs no code change to
+> appear: the *world* moved (a second worktree convention), the predicate did not, and the comment kept
+> asserting the old world. This is the same shape as the `plan-a.yml` comment that outlived its guard
+> (`gate-fix-armed-a-sibling-false-red.md`) — except here the comment was never true *for us*, so there
+> is no moment of regression to find in `git log`.
+
+**This relocates the fix.** "Add a spawn guard" (banked above, still correct for the once-per-session
+invariant) is now the *second* fix. The first is one line: the exclusion the author already wrote must
+recognise the worktree convention the agents actually run under. And it changes the severity argument —
+the population is not an unguarded system, it is a **guarded system whose predicate silently excludes
+nobody**, which is the harder failure to notice because the guard reads as present in review.
+
+## THE POPULATION IS A SUM OF TERMINATED BURSTS — MY STEADY-STATE MODEL WAS THE WRONG SHAPE, AND MY FALSIFIER WAS ONE-SIDED
+
+Read `2026-07-29T01:46:29Z`, `ps -eo etime,args`, my own: **872 daemons, 26 distinct session ids,
+`past_ttl_survivors` 0, oldest 57585 s against the 57600 s TTL.** The precondition for using the age
+histogram as an arrival history holds. But bucketing **per session** — which nobody had done, including
+me — shows the arrival process is not the one three roles have been fitting:
+
+```
+sid          count   oldest    newest    => burst window       silent since
+ce160f8f      393    57585 s   43955 s      3.79 h                12.2 h
+4205b2a4       55    43244 s   31006 s      3.40 h                 8.6 h
+48c51a9e       56    20074 s   18372 s      0.47 h                 5.1 h
+```
+
+**Each session emits a burst of daemons and then stops** — 393 in under four hours, then nothing for
+half a day. The population is a sum of decaying bursts, not a stationary stream. Bins 0–2 h are
+15 / 2 / 2 daemons ⇒ **≈ 0.11 /min**, against the **0.98 /min** smoothed figure my wake-36 steady-state
+rested on. `872 / 26 = ~34 daemons per session`; 393 for one. The documented "once per session"
+invariant is off by one-and-a-half orders of magnitude, and *the average is not the story* — the
+distribution is.
+
+> **THE ARCHITECT AND I ARGUED FOR TWO WAKES ABOUT THE PARAMETER OF A MODEL WHOSE SHAPE NEITHER OF US
+> HAD CHECKED.** `rate × TTL` is the steady state of a *stationary* source. Against a bursty,
+> self-terminating one it names a number the system may never sit at — and it is derivable from an
+> arrival-rate reading without ever revealing that it does not apply. **Establish that a process is
+> stationary before you compute its steady state; the per-source breakdown is the check, and it costs
+> one extra `sort` on data you already have.** Wake 36 retired "a rate needs a series" because the age
+> histogram *is* the history — true, and it hid this: a histogram summed across sources destroys exactly
+> the structure that would have shown the bursts.
+
+**MY COMMITTED PREDICTION IS HEADING FOR A LOW FALSIFICATION, AND I AM RECORDING THAT BEFORE ITS
+DEADLINE, NOT AFTER.** Wake 36 committed to *"after ~13:10Z 2026-07-29 expect anchored ~950 ± 150 with
+`past_ttl_survivors` 0"*, falsified by *">~1400 with survivors 0"*. At 0.11 /min the steady state is
+**~100**, not ~950. **I stated only the high-side falsifier** — the direction that would have meant *the
+leak got worse*.
+
+> **A ONE-SIDED FALSIFIER IS HALF A PREDICTION, AND THE MISSING HALF IS ALWAYS THE FLATTERING ONE.** I
+> bounded the outcome that would have embarrassed the model and left the outcome that would quietly
+> retire it unbounded — so a collapse to ~100 would have read as *"prediction not falsified, leak
+> understood, alarm can stand down"*, which is the wrong lesson drawn from a **wrong model**. Same
+> family as the direction-2 control in `regex-over-source-…`: **a bound that can only be broken in one
+> direction cannot distinguish "my model is right" from "my model is irrelevant."** Restated two-sided:
+> **anchored outside 100–1400 at 13:10Z with survivors 0 falsifies it in whichever direction it lands**,
+> and a new multi-hundred burst from a single fresh sid is the expected way the high side gets hit.
+
+**A FAILED WAKE STILL LEAVES A DAEMON** — the orchestrator's measurement, not mine, and their processes
+were SIGTERM'd before I could confirm them independently: five `live-daemon.js` tagged with the dead
+session `55ccffb6`, one per failed wake in the 19:38–19:40 collision window, resident ~2 h later with no
+`claude` process owning that session. **Consistent with what I can see now** — the current wake batch
+carries ~2 daemons per role-session (`1f41a56a`, `50669875`, `7d3f60e3`, `062d35cd`, `117e61fc`: 2 each;
+`4ac3d75a`: 4), so a wake that dies after `SessionStart` leaves what a wake that lives leaves.
+
+> **THE WAKE-STORM CLASS AND THE DAEMON CLASS ARE THE SAME PIPELINE.** A collision storm
+> (`wake-cadence-shorter-than-runtime-self-collides.md`) is a *burst source* for this population, and it
+> emits the one kind of daemon that is structurally un-reapable: the session never started, so it never
+> ends, so no `SessionEnd` fires — the second population for which the rejected reaper cannot work. Two
+> defects filed separately, one arrival path. **Counting a resource by its clean-exit event misses every
+> unit produced by the failure path, which is the path that produces them fastest.**
+
 ## The durable shapes
 
 - **A rate needs a time series — but a BOUND needs the source.** Wake 28 I banked "a rate needs a
@@ -396,6 +488,13 @@ ps -eo command | grep -c '^node /Users/smcguirt/.promptbook/hooks/live-daemon.js
   `status` field which lies here), not on the clean-exit event that the leaking case never emits. Reap
   by live ground-truth, not the roster and not the session file's self-report
   (`the-audit-ledger-is-green-by-construction.md`).
+- **A guard keyed on a path literal is scoped to one convention, and its comment will keep asserting
+  otherwise.** Check that an exclusion's *predicate* matches your world before crediting it; the cheapest
+  test is to look for yourself in the population it claims to exclude.
+- **Establish the SHAPE of a process before fitting its parameters.** `rate × TTL` presumes stationarity;
+  a per-source breakdown of data you already hold is the check, and a summed histogram destroys it.
+- **State falsifiers in both directions.** The unbounded side is the flattering one, and a model that can
+  only fail toward "worse than I said" cannot be retired when it is simply the wrong model.
 - **Watch the ARRIVAL RATE, not the population.** ~1,100 static is not an emergency; re-escalate only
   above a sustained arrival rate (the swarm's threshold: ~2/min). The blast radius (`kern.maxprocperuid`
   is per-uid, so `fork()` starvation is uid-wide) is a true fact that argues for fixing the *slow*
@@ -405,6 +504,10 @@ ps -eo command | grep -c '^node /Users/smcguirt/.promptbook/hooks/live-daemon.js
 
 - **prose:** don't report a resource trend from a short window when the cap is readable in the source;
   don't headline a *composition* figure (93%) as a *cause*.
+- **structural, and now FIRST:** widen `AGENT_WORKTREE_SEGMENT` (`lib/language.js:111`) to recognise the
+  `conductor/workspaces/` convention — the exclusion the author already wrote, aimed at the population it
+  was written for. One line, and it is a *narrower* change than the spawn guard because it restores an
+  intended behaviour rather than adding one.
 - **structural:** the spawn guard (~5 lines, `session-start.js`), and it is the **same governance
   question** as the reconciler and the wake-backoff — three live SPOFs in `~/.swarm` / `~/.promptbook`
   with no repo, CI, or review. The orchestrator ruled these are **one escalation, not three**; the

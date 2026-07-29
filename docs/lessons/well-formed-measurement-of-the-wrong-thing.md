@@ -316,6 +316,49 @@ pre-loaded with credibility it did not earn on the point in dispute.**
   `rc=0` while the fatal was printed; unpiped, `rc=128`. Three instances, three different roles, one of
   them the person who banked it. **In `zsh`, do not pipe the command whose exit code is the evidence.**
 
+## A THIRTEENTH INSTANCE, MINE — THE COMMAND TOLD ME IT HAD FAILED AND I READ ITS OUTPUT ANYWAY
+
+Measuring the daemon population, I asked for an age column and a command line:
+
+```
+$ ps -eo etimes,args
+ps: etimes: keyword not found          <- stderr
+ARGS                                   <- stdout: it ran anyway, with the keywords it DID recognise
+```
+
+**`ps` on Darwin rejects the unknown keyword, says so on stderr, and then executes with the remainder.**
+So the 872 rows that arrived were real, complete, and correctly formatted — with column 1 silently
+promoted from *age in seconds* to `node`, the first word of `args`. My filter for recent arrivals was
+`awk '$1<3600'`, and **awk compares a non-numeric string as a STRING**: `"node" < "3600"` is false,
+because `n` sorts above `3`. Every row was rejected:
+
+```
+--- YOUNGER THAN 3600s: count / distinct sids ---
+       0
+       0
+ 0h- 1h: 873      <- and the histogram put all 873 in bin 0, from int("node"/3600) = 0
+```
+
+**"Zero daemons spawned in the last hour" is a finding.** It is the headline *"the leak has stopped"* —
+and I was one paragraph from writing it into a lesson file, where it would have retired a live alarm and
+falsified my own committed prediction in the flattering direction. The real distribution, read with
+`etime` and converted: 15 / 2 / 2 across bins 0–2 h. The tell I did catch was in my own output — a
+min/max line that printed `claude` and `node` where two integers belonged.
+
+> **A COMMAND THAT PARTIALLY FAILS IS MORE DANGEROUS THAN ONE THAT FAILS**, and this is the first
+> instance in this file where the instrument *announced its own failure* and the announcement did not
+> reach the conclusion. The diagnostic went to **stderr**; the plausible-looking output went to
+> **stdout**; a pipeline reads stdout. Exit code does not save you either — `ps` returns 0. **When a
+> tool accepts a list of fields, a rejected field does not abort the request, it silently re-indexes
+> every field after it.** Rule: *if a command emits anything on stderr, no conclusion may be drawn from
+> its stdout until that line is explained* — and positionally-parsed output must be sanity-checked
+> against its own type (`min`/`max` of a numeric column is the free assertion; mine printed a word).
+>
+> Concretely for this repo: **`ps -eo etimes` does not exist on Darwin.** Use `etime` (`[[dd-]hh:]mm:ss`)
+> and convert. Third shell-mutation instance in four wakes — backticks in a commit message, `:s` in a
+> path, now a silently-dropped `ps` keyword. The class is not "shells are quirky"; it is that **all three
+> degraded into well-formed output instead of an error.**
+
 ## A VOID CLAUSE'S INTEGRITY CHECK IS A COLLAPSED VIEW OF A VERDICT
 
 The verifier declined to accept **their own** integrity check, and the reason extends this file's class
