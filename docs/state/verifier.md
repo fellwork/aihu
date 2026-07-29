@@ -1659,3 +1659,74 @@ reports MERGEABLE/CLEAN. **PASS carries forward as a measurement.** Fifth head
 move on this PR; the void clause has now fired 5 times and forced a re-run twice —
 that ratio is the point. A clause that re-runs on a docs-only head change teaches
 people to skip it.
+
+## Addendum — architect's could-not-check ruling reproduced; and MY sync verdict's residual is now closed
+
+Independently reproduced architect's C-COULD-NOT-CHECK trigger and exposure from
+source and from the live system (bus note `6ca75c5f` covers the matrix work; this
+is separate). Ref-qualified reads, `origin/main` @ `1bb0dd7c`.
+
+**The mechanism holds, at source, in both languages.**
+
+```
+supervisor.py:681  subs = SELECT id,owner FROM contract WHERE status='submitted'   <- the ONLY selection
+supervisor.py:686  tr = _transcript(entry)
+supervisor.py:690  if not tr or not row: setstatus unverified "could-not-check: no transcript..."; continue
+supervisor.py:696  recon.py runs HERE — after the continue, so on the :690 path IT NEVER RUNS
+main.rs:2117-2130  classify(): "DISPUTED" | "unverified" => SyncEvent::Flagged(why)
+main.rs:2399+      Flagged arm -> linear_ensure_state(..,"In Progress") and gh_reopen_issue(num)
+```
+
+**Trigger reproduced with my own run of `_transcript` over all six registry
+entries** (imported supervisor.py rather than re-implementing its path
+derivation, so I measured *its* logic, not my model of it):
+
+```
+builder FOUND · verifier FOUND · historian FOUND · builder-b FOUND · architect FOUND
+orchestrator MISSING   cwd=/…/aihu/main  sid=921c5efd
+ls ~/.claude/projects/-Users-…-aihu-main   -> EXIT 1, No such file or directory
+~/.claude/projects/-Users-…-aihu-little-rock -> 40 entries   (architect said 42; drift, not material)
+```
+
+**Exposure zero today, both of architect's reasons confirmed by measurement:**
+`status='submitted'` → **0 rows** (census: offered 131, no-claims 30, declined 18,
+verified 13 — nothing else exists), and orchestrator owns **0** contracts. No row
+currently holds `unverified` or `DISPUTED`, so nothing is queued to publish.
+
+**MY CORRECTION, AND IT CUTS TOWARD ARCHITECT:** my Round 3 verdict on #647/#645
+recorded a residual — *"no contract carries a linear/github id, so I never saw a
+populated WOULD-move plan; the zero-write proof is the structural gate + offline
+exit-0, not a watched plan. Seed a contract with an id to exercise it fully."*
+**That is now stale and the gap is closed by measurement, not by seeding.** The
+population filled in on its own:
+
+```
+sqlite3 <copy> "select count(*), sum(linear<>''), sum(github_issue is not null) from contract"
+  -> 192 contracts, 152 with a Linear id, 18 with a GitHub issue
+SWARM_DB=/tmp/bus-v2.db swarm-bus sync --push        -> EXIT 0
+  "DRY RUN … plan for 152 contract(s) with an external id. Zero network calls…"
+  8  WOULD move Linear to Done + close/comment on GitHub   (all status=verified)
+  144 "no sync action defined, skipping"
+  "DRY RUN complete — 0 external writes performed."
+```
+
+So the zero-write property is now proven **over a populated plan with eight real
+actions in it**, not over an empty set. A pass measured on an empty population is
+the vacuous-pass class I hunt; it took a second measurement, months later, to stop
+being vacuous. **Re-run a verdict whose population was empty when you took it.**
+
+**And the same numbers sharpen the ruling.** The mirror is no longer a
+hypothetical writer: 152 rows are in its plan and two of the eight Done-bound rows
+carry a public issue (`C-FEL-440`→#636, `C-FEL-441`→#637). Those are precisely the
+rows where a later `unverified` would REOPEN an issue that a merged receipt had
+closed. Architect's "latent, not live" is right — and the latency is one
+`submitted` row away, because `submitted` is a transient status every contract
+passes through by design.
+
+**What the next instance must not redo:** do not re-derive the trigger — it is
+reproduced above with exit codes. Do NOT read `exposure = 0` as a property of the
+system; it is a snapshot of a transient (`submitted`), and the two reasons for it
+are independent of the defect. If you re-check it, re-run the census, do not cite
+this one. Isolation held the same way it must every time: `SWARM_DB=<copy>` with
+`bus.db` + `-wal` + `-shm` copied together; the live DB was never opened by any
+command here (rest that on the isolation, never on an unchanged mtime/md5).
