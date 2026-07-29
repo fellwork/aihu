@@ -1,9 +1,13 @@
 # State — builder
 
 **Role:** BUILDER · **Workspace:** `almaty` · **Branch:** `fix/check-ci-dangling-gate-ref`
-**Last updated:** 2026-07-29 — C-FEL-GATE-WIRING-RUNS **READIED** (#691, head
-`a52ac18a`, 0 behind `origin/main`). C-FEL-434b LANDED (#683 @ `e7a1b7c2`),
+**Last updated:** 2026-07-29 — C-FEL-GATE-WIRING-RUNS **GREEN AT HEAD, RULED
+MERGEABLE** (#691 @ `3ac0140c`). C-FEL-434b LANDED (#683 @ `e7a1b7c2`),
 C-FEL-CI-RECEIPT open (#685), C-FEL-EXTERNALS record recovered (#656, merged).
+
+> **This file is on its own branch now** (`docs/builder-state-0729`, off
+> `3ac0140c`). Reason in "Writing your state file IS a push" below: while a code
+> PR is waiting on a receipt, committing here moves ITS head and re-voids it.
 
 > Ownership note: `historian` claimed `docs/state/` at 13:24 on 07-26. This file
 > was flagged to them and to team-lead (ts `1785087210.788909`); rename or delete
@@ -18,6 +22,22 @@ C-FEL-CI-RECEIPT open (#685), C-FEL-EXTERNALS record recovered (#656, merged).
 > **0 behind `origin/main`** and differs from the verified `464a3e31` only by
 > `docs/state/builder.md`. Real run `30414971204`. Do not re-derive whether the
 > draft green meant anything: it did not.
+
+### The receipt — BOTH heads carry one; orchestrator ruled it MERGES
+
+```
+head        run          check                        ci-ok                   ordering
+a52ac18a    30414971204  success 01:45:38->01:51:19   success 01:53:34->:36   +2m15s
+3ac0140c    30415444646  success 01:56:06->02:01:51   success 02:04:06->:09   +2m15s
+```
+
+Both satisfy all three legs of the shared-run-id rule. `examples`,
+`governed-examples`, `gate-wiring` success in both. `mergeStateStatus` is
+**UNSTABLE, not BLOCKED** — that is the non-required `bench` red, which is the
+mergeable state and not a blocker.
+
+**The interactive orchestrator lands it. Not builder.** Two orchestrators on one
+merge queue is the twin hazard. Do not land your own PR here.
 
 **The FEL-428 meta-gate I shipped in #680 ran in NO WORKFLOW.**
 `grep -rn gate-wiring .github/` → nothing. Its only route was `check:ci`, and
@@ -380,6 +400,42 @@ A push does **not** kill an in-flight run — measured, a `check` ran straight
 through a later push to SUCCESS. Hold after READY for the CI-cost reason, not
 because pushing destroys anything.
 
+### Writing your state file IS a push — and only ONE of the two safe windows is real
+
+Orchestrator's rule, 2026-07-29: *"'Holding still' that excludes
+`docs/state/<role>.md` is not holding still — the CI trigger does not read your
+diff before it decides to run. Write state BEFORE you ready, or AFTER the
+receipt is banked and you are done with the PR."*
+
+**The second window does not work, and I proved it by taking it.** I waited —
+my poll's exit condition *was* `ci-ok` completed — banked the receipt at
+`a52ac18a`, and only then pushed the state commit. It cost a full re-run anyway:
+branch protection wants `ci-ok` **at head**, and a docs-only commit moves head
+exactly as a code commit does. So:
+
+```
+before you ready          safe
+after the receipt lands   COSTS A RUN unless you are finished with the PR forever
+inside the wait window    costs a run AND breaks your own stated expiry clause
+```
+
+For a PR that still has to land, **only "before you ready" avoids the cost.**
+
+**Structural fix, applied here rather than argued:** this file now lives on its
+own branch. Six consecutive head moves on #691 were all `docs/state/builder.md`,
+and each one fired the verifier's void clause on a PR they had already passed.
+The instruction that makes me durable was the instrument that made their verdict
+expire. Keep state commits off the code contract's branch and the conflict
+disappears — the file is append-only by section, so it is a three-way merge, not
+a conflict, no matter how many branches carry it.
+
+Offered to the verifier, not imposed: their void clause could be
+**code-restricted** rather than head-restricted — void if
+`git diff --name-only <verified-sha> <head> -- scripts/ .github/ packages/ package.json`
+is non-empty, instead of if `headRefOid` differs. That is the check they already
+ran by hand twice; it would have fired 0 times instead of 6 and still caught
+every real code change. Their clause, their call.
+
 ### An absence is not evidence until the thing had its chance to appear
 
 **A positive measurement is stable; a negative one is not.** "X passed on sha S"
@@ -436,6 +492,43 @@ disease as the shared-run-id rule at the bottom of this file — `check` and
 `ci-ok` must come from ONE run — except that rule catches it at read time and
 this one catches it at wait time. The tell that a readied run is the live one:
 `changes` flips `skipped` → `success`.
+
+### `bench` is noise-dominated — MEASURED now, not asserted. Cells FLIP on identical code.
+
+`plan-a.yml:710-712` claims the lane is red-by-construction from "timing noise
+unrelated to the diff under review." That was an argument in a comment. The
+accidental re-run of #691 measured it, by the cheapest possible experiment —
+**the same code twice**, nine minutes apart, trees differing by
+`docs/state/builder.md` alone:
+
+```
+cell                  30414971204 (a52ac18a)   30415444646 (3ac0140c)
+cellx                 OK    5.3 %              OK    9.0 %
+wide-fanout-100       FAIL 14.5 %              FAIL 19.1 %
+batched-writes-100    OK    6.9 %              FAIL 11.4 %   <- FLIPPED
+deep-propagation-100  FAIL 29.6 %              OK    7.5 %   <- FLIPPED
+creation-1to1000      FAIL 21.0 %              FAIL 12.4 %
+```
+
+Same `prev=2026-05-25`, every `prev` value byte-identical (807 / 5363 / 5074 /
+3250 / 69020), so it is one frozen baseline. `deep-propagation-100` swings 22
+points on code that did not change.
+
+**Method caveat this puts on architect R3 / the verifier's attribution rule.**
+"Compare against the most recent run of the SAME MODE on a tree WITHOUT the
+diff" is sound for a **deterministic** lane. On a noise-dominated one a single
+baseline is not enough: attributing by one baseline here would have charged
+`batched-writes-100` to a docs-only commit — a clean, well-formed, entirely
+false attribution. The question is not "same mode?" but **"is this lane's
+cell-level verdict REPRODUCIBLE?"**, and the test is one re-run of the same
+tree. If cells flip, per-cell attribution is unavailable at *any* number of
+baselines and only the aggregate ("this lane is noise") is citable.
+
+Do **not** file a contract for the flip: the lane is already advisory. `bench`
+carries `continue-on-error: true` (`plan-a.yml:719`, reasoned at :708-718), so
+`gh api .../runs/<id>` reports **conclusion=success while the bench JOB is
+failure**. That is deliberate, not a green-by-aggregation hole — check :719
+before reporting it as one.
 
 ## FEL-426 — DONE (founder-ruled: "not use an unsafe component… check by CI")
 
@@ -597,6 +690,15 @@ list. Stating it rather than silently skipping.
   grammar gate, reasons recorded in that same file.
 - Do **not** trust a piped `git push`'s exit code, or a background-task
   notification that reports one. `git ls-remote` is the only proof.
+- Do **not** poll `commits/<sha>/check-runs` for a conclusion. It unions every
+  run that ever touched the sha, so a draft run's completed `ci-ok` satisfies
+  your wait loop instantly and forever. **Bind the poll to the run id.**
+- Do **not** commit `docs/state/builder.md` onto a code contract's branch while
+  that PR is waiting on a receipt. It moves the head and voids the receipt —
+  banking the receipt first does **not** save you. Use a state-only branch.
+- Do **not** attribute a `bench` cell to your diff, ever, and do not re-derive
+  whether the lane is noisy. It is, measured — two cells flip verdict across
+  identical code (table above). Only the aggregate is citable.
 - **`git show "$SHA:path"` in zsh SILENTLY EATS CHARACTERS.** `$H:s...` parses
   `:s` as a history-substitution modifier, so `$H:scripts/check-gate-wiring.ts`
   became `<sha>k-gate-wiring.ts` → `fatal: ambiguous argument`, exit 128, and a
