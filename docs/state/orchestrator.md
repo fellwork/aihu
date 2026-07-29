@@ -43,6 +43,111 @@ is **not** the coordination or state layer. It went unused for ~20 hours on
 2026-07-25 and the one page it holds was stale within 30 minutes of being
 written. Do not treat it as truth.
 
+## 🔴 MY KNOWN-RED REGISTRY WAS 3-FOR-3 STALE — a suppression decays in the direction that hides it
+
+Architect ruled it, verifier found the first instance, and **I applied it by
+re-measuring every entry rather than copying their conclusions** — citing someone
+else's cache while ruling that caches go stale is the same defect in a hat.
+All three struck in the anti-row list below, with receipts. Summary of the class:
+
+| entry | what it said | what killed it |
+|---|---|---|
+| `matrix` | dead at `pm-install` | `#684` merged → **20/20 install cells pass** |
+| `check` flaps | missing `editor→compiler` moon edge | `#671` merged `bea13b99` → the edge is there |
+| draft `ci-ok` | the FEL-437 guard | `#670` → it is a **warning**, not a failure |
+
+**The asymmetry is the whole ruling: a stale ALARM is loud, a stale SUPPRESSION
+is silent.** A false alarm fires, someone investigates, it self-corrects through
+use. A suppression's entire *function* is to stop an investigation — so when it
+goes stale, nothing fires. That is why the stale rate tends to 100 % rather than
+to some fraction. Worse here than the CI fake-greens: **no script can detect it**,
+and the standing "name the red lane in your verdict" rule makes citing the
+registry the correct-*looking* move.
+
+**Why "add a timestamp" is not the fix, and this is the non-obvious part.** These
+entries were not naive. They carried a date, and two of three named the contract
+they were waiting on. Both mechanisms failed anyway:
+- **A timestamp is not an expiry.** It records when someone last *looked*, not
+  whether the thing *changed*.
+- **Naming the contract does not save you either** — and the `#671` row proves the
+  strong form. It named the *right* contract. `#671` merged at 15:56:47Z and the
+  row still read "green and unlanded" ten hours later. **Nothing tells an entry
+  when its own fixer ships.** (Architect's version — "a different contract may fix
+  it" — is the weaker case; `matrix` was retired by `#684`, not by the
+  `C-FEL-MATRIX-PROTO` it named.)
+
+**ADOPTED AS STANDING PROCESS — push-invalidation is unavailable, so the burden
+moves to the CITER:**
+- **R1 — pull-validate at cite time.** Citing a known-red *is making a claim*.
+- **R2 — an entry without a falsifier is a rumour and must not suppress anything.**
+- **R3 — store a baseline pointer, never a verdict.** "run `<id>`, head `<sha>`,
+  mode `<mode>` produced this table", not "matrix is dead". The cache buys the
+  *baseline*, not the verdict — you still compare, but diffing two runs that
+  already exist is an API call, not a matrix execution.
+- **R4 — name the mechanism, not the contract.** Mechanisms are cheaply
+  measurable (the moon edge fell to one `git show`).
+- **RATIFIED:** compare against the most recent run of the **same mode** on a tree
+  **without** the diff. `mode=local` (PR) and `mode=npm` (scheduled/main) test
+  different artifacts — a cross-mode main-vs-PR comparison proves nothing.
+- **MY ADDITION:** *write the falsifier down, as a literal runnable command, next
+  to the entry.* R3 stores what you compare against; this stores how you kill it.
+  Had I written `git show origin/main:packages/editor/moon.yml` beside that row,
+  it would have died the hour `#671` merged instead of outliving it by ten.
+
+**Self-limiting, which is the answer to "R1 costs a command":** if an entry's
+falsifier is expensive to run, that is the signal the entry should not exist. A
+suppression you cannot afford to re-check is one you cannot afford to trust.
+
+**Where I temper architect's framing:** all three were caught inside ~24 hours by
+three different roles with *none* of R1–R4 in place. What caught them is that this
+swarm re-derives from source constantly. R1–R4 make that cheap and mandatory
+instead of incidental — genuinely worth having, but they are not the difference
+between caught and uncaught here.
+
+## ✅ RULED — a could-not-check must not publish outward (`unverified` → `NoOp`)
+
+Architect's ruling, verifier reproduced it, I verified the parts neither
+re-derived. **APPROVED and dispatchable; the sequencing gate is cleared.**
+
+`main.rs:2120` `"DISPUTED" | "unverified" => Flagged` → `:2405`
+`linear_ensure_state(.., "In Progress")` + `:2425` `gh_reopen_issue(num)`. On
+`supervisor.py:690` **recon never runs** — the status is written by an
+`os.path.exists()` failing on a path derived from the registry `cwd`. **A path
+string that does not resolve reopens a published issue.**
+
+- **DISPUTED keeps `Flagged`** — a finding about the WORK. **`unverified` →
+  `NoOp`** — a fact about the INSTRUMENT. `classify()` already has `_ => NoOp`;
+  could-not-check was just never put in the vocabulary.
+- **The tests are the work.** ~10–15 lines, and `:3072/:3087/:3102/:3123` must be
+  **inverted, not deleted** — an inverted test says "this must not publish"; a
+  deleted one says nothing and the next refactor puts the reopen back.
+- **It is a design change and architect said so unprompted.** That disclosure is
+  what makes it dispatchable rather than founder-shaped: in-repo, reviewable,
+  revertible, and it *reduces* outward writes. Nobody holds a DECIDE.
+- **Exposure is 0 today** — census `offered 131 / no-claims 30 / declined 18 /
+  verified 13`, **no `submitted` row exists**, and orchestrator owns 0 contracts.
+  But `submitted` is a **transient every contract passes through by design**, so
+  exposure 0 is a snapshot, not a property. Re-run the census; do not cite this.
+
+**The registry-`cwd` positive control is MINE and I am HOLDING it.**
+`_transcript()` fails toward `None` for two indistinguishable reasons — the agent
+did no work, and we looked in the wrong place. That is rule 0 in the reconciler's
+trace loader. **Sharpening for whoever builds it: do NOT check the `cwd`.** The
+registry's `/…/aihu/main` **is a real directory** (`ls` → exit 0); a cwd-existence
+check passes and learns nothing. The thing that does not exist is the **derived
+project dir**. Held because `supervisor.py` is a hot edit to the live SPOF, and
+because it is the only writer of `no-claims` (30 rows) that `cmd_ready` depends
+on — declining to write status before the Rust promotion path exists stalls the
+DAG rather than failing closed.
+
+**DURABLE RULE — could-not-check needs its own vocabulary.** If it shares a token
+with a finding, some consumer downstream eventually acts on it *as* a finding, and
+the consumer that acts is rarely the one you had in mind when you chose the token.
+Third instance (`draft` = unfinished + do-not-check; remote referent = enforcement
++ one-shot guard; now `unverified`). **And: the registry `cwd` is an unvalidated
+assertion** — sound for supervisor wakes only (`:400` reads it, `:355` spawns
+there); interactive sessions run wherever a human opened them and it never learns.
+
 ## ⚠️ WRITING YOUR STATE FILE IS A PUSH — #691 banked a real green and voided it 26 seconds later
 
 `C-FEL-GATE-WIRING-RUNS` / `#691`. Builder readied the PR out of draft at `a52ac18a` and told
@@ -4820,6 +4925,29 @@ now measured across two wakes and it is the number the founder needs.
 
 ## WHAT THE NEXT INSTANCE MUST NOT REDO
 
+- **Do not cite a known-red entry without running its falsifier.** R1–R4 at the
+  top of this file are adopted process, and they apply to me first. Three of my
+  own entries were stale on 2026-07-29.
+- **Do not amend or re-offer a contract before running `gh pr list --state
+  open`.** I amended `C-FEL-SCAFFOLD-CFTEAM-TYPECHECK` while `#696` was already
+  open against it. The row read `offered`/unclaimed, so **the ledger could not
+  warn me** — an unclaimed contract with an open PR means the lock was never
+  taken, and the PR list is the only place that work is visible. Both facts were
+  one command apart and I ran them in the wrong order.
+- **Do not re-claim the two-`git init`-sites finding as mine.** `#696` (created
+  01:55:37Z, ~50 min before my message) already fixed both and says so better
+  than I did. Corrected on the bus. The *bar* stands; the attribution does not.
+- **Do not rebuild `C-FEL-SCAFFOLD-CFTEAM-TYPECHECK` from scratch.** `#696` is
+  the work: `symbolic-ref` (not `git init -b`, which has a git-2.28 version floor
+  and returns exit 129 on older git), plus a real-git test under a **hostile**
+  ambient `init.defaultBranch=trunk` **with a positive control** proving the
+  hostile config reached git. Bank that last idea: **a test without a positive
+  control on its own preconditions is a rumour about the environment** — R2
+  applied to test setup.
+- **Do not re-verify the amended `C-FEL-SCAFFOLD-CFTEAM-TYPECHECK` row.** Re-offer
+  succeeded, `needs=C-FEL-SCAFFOLD-PM-COMPAT` **explicitly re-passed** (a re-offer
+  without `--needs` silently CLEARS it — `main.rs` says so in its own comment),
+  and the stored text was read back unmangled.
 - **Do not re-verify #691's `a52ac18a` green.** `check` success 341s, `ci-ok`
   success, **same run id `30414971204`**, `ci-ok` started 2m15s after `check`
   finished. It passes the shared-run-id test on all three legs and it is a real
@@ -5070,10 +5198,22 @@ now measured across two wakes and it is the number the founder needs.
   carries a STALE, unbuildable surface (no way to amend a claimed bar); the
   ruling is on the bus — lazy `rolldown` import, surface amended to include
   `scripts/sync-readme.ts` for that decoupling only.
-- **Do not re-triage a red `matrix` (Scaffold DX) on any PR.** It is dead at
-  `pm-install` on a proto/node shim collision, red on `main` and five other
-  branches, and outside `ci-ok`. See the seventh-wake section. Name it in the
-  verdict, rule "merges", move on.
+- ~~**Do not re-triage a red `matrix` (Scaffold DX) on any PR.** It is dead at
+  `pm-install` on a proto/node shim collision.~~ **STRUCK 2026-07-29 — FALSIFIED,
+  AND IT WAS TELLING EVERY TRIAGER TO IGNORE A WORKING INSTRUMENT.** `#684`
+  (`C-FEL-SCAFFOLD-PM-COMPAT`, merged 21:27:49Z) retired it. Pull-validated by me,
+  not cited: `gh run view 30404220223 --log`, grep of install results →
+  **5 pass bun, 5 npm, 5 pnpm, 5 yarn = 20/20**; the printed table reads
+  `ok  ok  FAIL` (scaffold ok, install ok, then the real failure). Mechanism
+  counts in that log: `ambiguous argument 'main'` ×4, `TS2688` ×2.
+  **REPLACEMENT ENTRY, in R3 form — a baseline pointer, not a verdict:**
+  > `matrix` baseline: **run `30404220223`, head `1b2d6f07`, mode=local** → 11 ok
+  > / 9 FAIL. Compare a new red against THAT, cell for cell. Same-mode only —
+  > `mode=local` (PR) and `mode=npm` (scheduled/main) test different artifacts.
+  > **Falsifier:** if the new table differs from that one in any cell, the red is
+  > NOT covered by this entry and must be triaged.
+  > The 9 map to `C-FEL-SCAFFOLD-PNPM-BUILDS` (3), `-DEV-PORT` (4),
+  > `-CFTEAM-TYPECHECK` (4, and `#696` is the fix). Nothing new is owed.
 - **Do not read the bus by `cp ~/.swarm/bus.db` alone, and do not cite its md5
   as proof of anything.** See the stale-ledger section above — that copy is two
   wakes behind and has no `declined` rows at all.
@@ -5088,9 +5228,15 @@ now measured across two wakes and it is the number the founder needs.
   loses nothing. My candidate blocker was wrong. This filter has now produced
   three wrong readings from three readers, every one from reasoning about globs
   instead of running a matcher — mine was nearly the fourth.
-- **Do not re-triage `#661`'s red `check`.** Ruled: not its diff, it merges.
-  The cause is the missing `editor → compiler` moon edge (`C-FEL-411`); see the
-  flapping-gate section above for the run id and the log line.
+- ~~**Do not re-triage `#661`'s red `check`.** The cause is the missing
+  `editor → compiler` moon edge (`C-FEL-411`).~~ **STRUCK 2026-07-29 — THE
+  MECHANISM WAS REAL AND IS NOW FIXED AND MERGED.**
+  `git show origin/main:packages/editor/moon.yml` → `:4-5 dependsOn: compiler,
+  signals`. `git log -1` on that path → `bea13b99` *"…close the editor→compiler
+  race (FEL-411) (#671)"*; `gh pr view 671` → **MERGED 2026-07-28T15:56:47Z**.
+  **Falsifier for anyone re-adding it:** `git show
+  origin/main:packages/editor/moon.yml | grep -A2 dependsOn`. A red `check` on
+  this shape today is a NEW defect — triage it.
 - **Do not re-decide the non-aihu 13 or re-add them to the queue.** Declined
   with reasons in each contract's recon; the Linear issues are untouched.
 - **Do not accuse an agent of channel misconduct from a second-hand report.**
@@ -5104,6 +5250,8 @@ now measured across two wakes and it is the number the founder needs.
   merged→verified success path lands verified by verifier's drive, not by test —
   deliberately, gap named. The seam is its own row AFTER #686. Moving goalposts
   mid-build is what I refused on C-FEL-428.
+  **GATE SPENT 2026-07-29:** `gh pr view 686` → **MERGED 2026-07-28T15:57:42Z**.
+  "After #686" no longer holds anything back. Do not cite it as a blocker.
 - **Do not bank a "fifth fake-green shape".** It was falsified: `ci-ok` posted on
   `50c0dbd6` at 14:25:48Z, two minutes after `check` ended and after the push that
   allegedly killed it. The taxonomy stays at four.
@@ -5115,9 +5263,12 @@ now measured across two wakes and it is the number the founder needs.
   on one PR is the evidence.
 - **Do not re-triage #685's FEL-411 red.** It belongs to `4112f541`, superseded.
   Measure the head that exists.
-- **Do not re-triage a `TS2307 Cannot find module '@aihu/compiler'` in
-  `editor:typecheck`.** It is `C-FEL-411`, #671 fixes it, and #671 is green and
-  unlanded. Name it, rule "not the diff", move on.
+- ~~**Do not re-triage a `TS2307 Cannot find module '@aihu/compiler'` in
+  `editor:typecheck`.** #671 fixes it and is green and unlanded.~~ **STRUCK
+  2026-07-29 — #671 MERGED at 15:56:47Z, ~10 hours before I re-read this row.**
+  Same falsifier as above. This is the purest instance of the decay: the entry
+  named the *right* contract, and nothing told it when that contract landed.
+  **An entry naming the fix it waits for does not expire when the fix ships.**
 - **Do not re-dispatch `C-FEL-CE-TAGS`.** It belongs to the interactive
   orchestrator, who stood it down deliberately at 14:03:15Z.
 - **Do not ship R5's `no-claims` guard inside #686.** Design yes, enforcement no —
