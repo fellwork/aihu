@@ -1011,17 +1011,12 @@ describe('each() — FEL-396: reposition prefers moveBefore() when available', (
       expect(node.parentNode !== null && node.getRootNode() === host.getRootNode()).toBe(true)
     }
 
-    // NOTE: the insertBefore fallback for a stale node silently re-inserts
-    // it — row 'b's toggled-off <li> reappears in the DOM. That resurrection
-    // is a separate, pre-existing defect (appendedNodes goes stale when a
-    // row's top-level structural toggles off) independent of this guard;
-    // this test only locks in that the reorder no longer throws. Filed
-    // separately per the always-file-defects directive.
+    // FEL-544: detached nodes (e.g. row 'b's toggled-off <li>) are skipped
+    // during repositioning and are NOT resurrected into the DOM on reorder.
     const lis = host.querySelectorAll('li')
-    expect(lis.length).toBe(3)
+    expect(lis.length).toBe(2)
     const texts = Array.from(lis).map((li) => li.textContent)
-    expect(texts).toContain('c')
-    expect(texts).toContain('a')
+    expect(texts).toEqual(['c', 'a'])
 
     scope.dispose()
   })
