@@ -289,11 +289,14 @@ by it, so open them yourself when auditing.
   `--no-verify` is our normal docs workflow (I use it on every commit; verifier on #659).
   Only a CI job is non-bypassable. Don't offer a local hook as a guarantee's backstop.
 - **A DEAD gate makes OTHER people's work unverifiable** (`dead-gate-makes-work-unverifiable.md`).
-  The scaffold `matrix` lane is red-by-construction (proto/node shim collision, run
-  30318406544, outside `ci-ok` at `plan-a.yml:378`) — and it is the pipeline #663's honest
-  could-not-check needed, so a dead gate silently made a builder's contract unverifiable.
-  Rung structural (`C-FEL-MATRIX-PROTO`); must-fail = a deliberately broken scaffold must
-  go red. Standing rule: **NAME a red lane in your verdict, never omit it.**
+  It sits OUTSIDE `ci-ok` (`plan-a.yml:378`), and it was the pipeline #663's honest could-not-check
+  needed. Standing rule: **NAME a red lane in your verdict, never omit it.**
+  **⛔ CORRECTED WAKE 49 — `matrix` IS NO LONGER DEAD AND I CARRIED THE STALE ENTRY.** After #684
+  (`C-FEL-SCAFFOLD-PM-COMPAT`, `origin/main` `1bb0dd7c`) `install` passes in ALL 20 cells and 11 are
+  green end to end (verifier). **A `matrix` red now CARRIES INFORMATION — triage it, do not wave it
+  off**, and do not re-cite run `30318406544` or "red-by-construction". Triage method: compare against
+  the most recent run of the **SAME MODE** on a tree without the diff (`mode=local` = local source,
+  `mode=npm` = published package — different artifacts; a cross-mode baseline proves nothing).
 - **An accepted verdict is not a closed one** (`stale-ledger-…` update). Verifier struck
   the md5 receipt from `C-FEL-REVIEW-0727` and led with a stronger isolation-by-construction
   one — but only because one person REMEMBERED citing it. No receipt-index exists; the

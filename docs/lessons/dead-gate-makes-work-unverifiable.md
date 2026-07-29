@@ -7,6 +7,63 @@
 verifiable question into a permanent could-not-check on a *different* contract, whose
 owner paid the cost unaware.
 
+## ⛔ READ THIS FIRST — THE DIAGNOSIS BELOW IS RETIRED, AND THE FACT THAT IT SURVIVED IS THE SECOND LESSON
+
+**`matrix` is no longer dead. As of `#684` (`C-FEL-SCAFFOLD-PM-COMPAT`, on `origin/main` at
+`1bb0dd7c`), `install` succeeds in ALL 20 CELLS and 11 are green end to end.** The lane went from
+*structurally dead* to a **working instrument** — so **a `matrix` red now carries information and MUST be
+triaged, not waved off.** Everything below this banner is the 2026-07-27 state, kept because the
+*reasoning* is still good; the *verdict* is not. Reported by the verifier, and the retiring commit is the
+current tip of `origin/main`:
+
+```
+$ git log origin/main --format='%h|%s' -1
+1bb0dd7c|fix(cli): make a fresh scaffold installable on all four package managers (C-FEL-SCAFFOLD-PM-COMPAT) (#684)
+```
+
+> **A KNOWN-RED REGISTRY IS A CACHE OF MEASUREMENTS, AND THE FIX THAT RETIRES AN ENTRY DOES NOT UPDATE
+> IT.** Every "known red, ignore it" note is a measurement with no invalidation hook: the event that
+> should expire it — *a merged fix* — is invisible to the note. So the entry decays in the **dangerous**
+> direction. A dead gate makes work unverifiable (this file's thesis); **a gate wrongly *recorded* as
+> dead makes a real failure invisible**, and it does so to the reader who is being most diligent, because
+> the whole point of the registry is to be consulted before triaging.
+>
+> This is the **second direction** of `stale-ledger-wal-and-disproven-receipts.md`'s
+> disproven-receipt rung. There, a *method* was disproven and no mechanism propagated the correction
+> backward to the verdicts citing it. Here, a *defect was fixed* and no mechanism propagated it forward
+> to the notes citing it. **Same missing edge, both directions: nothing links a claim to the evidence it
+> rests on.** Rung: prose (stamp every known-red entry with the run id and head it was measured at —
+> `stale-ledger`'s void rule applies to registries, not just verdicts) → structural (a citation graph;
+> named and still unbuilt).
+>
+> **I carried the stale entry myself.** `docs/state/historian.md` asserted *"the scaffold `matrix` lane
+> is red-by-construction"* with a run id from 2026-07-27, and I would have handed that to the next role
+> that asked. Corrected in the same commit as this banner.
+
+### AND THE METHOD FOR TRIAGING THE NEXT ONE — ATTRIBUTE BY BASELINE, IN THE SAME MODE
+
+The verifier cleared `#695` of a `matrix` red **without re-running anything**, by comparing it to the
+most recent run of the **same mode** on a tree **without** the diff:
+
+```
+run 30404220223  head 1b2d6f07  (#695)          mode=local
+run 30400148873  head 4d6e1793  (#684 head, before #695 existed)  mode=local
+=> SAME 20-cell table, cell for cell: 11 ok, 9 FAIL, 4 n/a; same three mechanisms by count
+   (ambiguous argument main 4v4 · Rollup cannot resolve @aihu/agent 1v1 · TS2688 type node 2v2)
+   only textual difference across all nine failure blocks: the randomly assigned dev port
+```
+
+Both runs re-fetched here: `gh run view <id> --json name,headSha,conclusion,event` → *Scaffold DX
+matrix*, `failure`, `pull_request`, on those exact heads. A diff touching 2 files cannot cause a failure
+that reproduces without it.
+
+> **COMPARE AGAINST THE MOST RECENT RUN OF THE *SAME MODE* ON A TREE WITHOUT THE DIFF.** `mode=local`
+> (PR runs) builds from **local source**; `mode=npm` (the scheduled run on main) exercises the
+> **published package**. They test different artifacts, so a main-vs-PR comparison across modes proves
+> nothing — **two of one day's three `matrix` reds would have been mis-triaged** against a `mode=npm`
+> baseline. A baseline must differ from the subject in *exactly* the variable under test; picking the
+> most recent run is not picking a baseline.
+
 ## The trigger
 
 The scaffold DX `matrix` lane is **not flaky — it is DEAD.** Every cell dies at
