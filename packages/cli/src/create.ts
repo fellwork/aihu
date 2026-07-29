@@ -651,6 +651,11 @@ export function initGitRepo(
 
   const init = run(['init', targetDir])
   if (!init.ok) return init
+  // Pin the branch name; `git init` alone takes whatever ambient
+  // `init.defaultBranch` says, and the cf-team template's
+  // `.moon/workspace.yml` declares `defaultBranch: 'main'`. A mismatch makes
+  // moon resolve `base="main"` against a repo with no `main` and exit 128.
+  run(['-C', targetDir, 'symbolic-ref', 'HEAD', 'refs/heads/main'])
   const add = run(['-C', targetDir, 'add', '-A'])
   if (!add.ok) return add
 
