@@ -43,6 +43,64 @@ is **not** the coordination or state layer. It went unused for ~20 hours on
 2026-07-25 and the one page it holds was stale within 30 minutes of being
 written. Do not treat it as truth.
 
+## 🔴🔴 THE DAG IS ADVANCED BY A PARSER THAT IGNORES THE FIELD BUILT TO CARRY THE EVIDENCE
+
+Architect handed the sequencing question back to me and was right that my earlier answer
+("a Rust promotion path in general") named the wrong constraint. Going after *why* the
+`no-claims` edge is load-bearing found something neither of us had. **All numbers measured by
+me on an isolated `VACUUM INTO` snapshot.**
+
+```
+86 verdict messages exist.  74 POPULATE THE STRUCTURED msg.claims COLUMN  (86%)
+git show origin/main:packages/swarm/src/main.rs | grep -n 'SELECT.*claims'   ->  ZERO HITS
+supervisor.py:687   SELECT body FROM msg WHERE contract=? AND kind='verdict'   <- PROSE
+                    -> recon.py extract_claims(), a regex over free text
+supervisor.py:707   st = "no-claims" if vacuous else "verified"
+main.rs:1316        Some("verified") | Some("no-claims") => {}     <- cmd_ready needs loop
+30 rows carry no-claims.  15 contracts declare needs.
+```
+
+The column is **written** by `cmd_send`, **validated** by `validate_claims` (`:611`), **created**
+by `ensure_column` (`:529`) — and **never selected by anything**. **The agents are not the
+problem: 74 of 86 filled the field in correctly. The reconciler reads a different one.**
+
+**And the worked example is the contract about this exact subject** — it was the first row I
+opened, I did not go hunting for the irony:
+
+```
+C-SWARM-RECON-AUTHORITY   status=no-claims   github_pr=EMPTY
+recon: "39 tool calls in trace; 0 claims; 0 flagged.
+        (no completed-action claims extracted from the message)"
+its own verdict msg: claims = merged:PR#686,sha:5d485ba9,pushed:…,ran:check:pre-push
+#686 MERGED 2026-07-28T15:57:42Z
+```
+
+**Four structured claims including a merged PR, extracted as zero.** The contract that exists
+to fix the reconciler was terminated by the defect it names, with its merged evidence sitting
+one column away.
+
+**WHY THE FIX IS NOT "FIX THE EXTRACTOR" — which is where I would have sent someone yesterday.**
+`git ls-tree -r --name-only origin/main | grep -E 'recon.py|supervisor.py'` → **nothing.
+They are not in this repo.** A fix there is hot, unreviewable, uncovered by CI, and violates
+do-not-edit-hot. But `main.rs` **already has** the objective-evidence path: `verify-merged` →
+`adjudicate_merged` against `contract.github_pr`, landing `unverified` (could-not-check)
+rather than `verified` with no merged same-repo receipt. **That machinery is built, in-repo,
+tested, merged, and starved of one input.** Minted `C-SWARM-CLAIMS-COLUMN-UNREAD` (architect):
+propagate `merged:PR#N` from `msg.claims` into `contract.github_pr`. **One verb made
+actionable**, not a general claims interpreter — `must_fail` direction 3 forbids widening.
+
+> **SEQUENCING RULED — this supersedes my own "the extractor must land first":**
+> `C-SWARM-CLAIMS-COLUMN-UNREAD` → **R4** (`no-claims` stops satisfying `needs`) → the
+> **supervisor-health check**. Land R4 first and **15 needs-declaring rows freeze**. Land this
+> first and the legitimate ones promote on *merged evidence*, so R4 then removes only a
+> privilege nothing needs. That is the difference between a guard that fails **closed** and one
+> that fails **stalled**.
+
+**Fourth one-token-two-semantics instance** (architect's count), one match arm from
+`unverified` in the same file: `no-claims` means both *"the instrument found nothing to
+check"* and *"this dependency is satisfied."* (draft / remote referent / `unverified` /
+`no-claims`.)
+
 ## 📊 `bench` IS NOT "NOISE" — the noise floor is not uniform across cells, and the row already existed
 
 Builder re-ran the *same tree* nine minutes apart by accident (only `docs/state/builder.md`
@@ -5010,6 +5068,33 @@ now measured across two wakes and it is the number the founder needs.
 
 ## WHAT THE NEXT INSTANCE MUST NOT REDO
 
+- **Do not re-measure the claims-column gap or re-derive its sequencing.** Numbers and the
+  worked example are in the 🔴🔴 section, taken from an isolated snapshot.
+  `C-SWARM-CLAIMS-COLUMN-UNREAD` → R4 → health check. **Do not invert it.**
+- **Do not send anyone to fix `recon.py` or `supervisor.py`.** They are **not in this repo** —
+  `git ls-tree` finds neither. Un-PR-able, unreviewable, uncovered by CI. Feed the Rust
+  adjudicator instead.
+- **Do not re-offer `C-FEL-409` — it is now `claimed` by builder.** Amendment went on the bus
+  against the contract id, which is the sanctioned path for a claimed row (`offer` upserts
+  `status='offered'` and wipes the claim). Its `must_fail` — *"replay two identical-code runs
+  and the gate flips red on noise alone"* — **is already satisfied** by runs `30414971204` /
+  `30415444646`. Builder ran it by accident and reported it as a method caveat. **Tell them to
+  cite it, not re-run it.**
+- **Do not write the 22.1-point spread into a policy as if it were a variance.** It is the
+  **max delta-spread against a 10-point gate at n=2 — a LOWER BOUND**, not sigma. And the n=2
+  caveat cuts against the *fit* side: "deep-propagation is unfit" is robust at n=2;
+  "dynamic-deps is fit" is **not established** by two samples.
+- **Do not re-triage `#696`.** Green at head — `check` **and** `ci-ok` both SUCCESS in run
+  `30416193310`. Its red `matrix` (run `30416193313`) is the placeholder defect builder-b
+  filed and I minted; outside `ci-ok`; not their diff. `UNSTABLE` is that red, not a blocker.
+- **The push-cadence rule is MINE, not architect's.** Builder mis-attributed it; architect
+  declined the credit and checked with a positive control before saying so. Keep their
+  standard: **accepting credit uncritically is the same defect as assigning blame
+  uncritically** — and I am the one on this bus who already made the second mistake.
+- **`gh pr list --state open` answers the rule in BOTH directions** (builder's extension,
+  better than my rule). I wrote it to stop me amending a row with work in flight; the same
+  command asks *is there work in flight with no row?* — which is what `#697` was. **The claim
+  is the lock; a draft PR with no claim is invisible to the ledger both ways.**
 - **A DECLINE MUST NAME A DESTINATION.** Historian's rule, aimed at me and accepted. I closed
   a triage with *"unrelated observation, logged not ruled."* Historian declined it too, in
   writing. Architect then ruled it: the entry point to an unattended outward write. **Neither
