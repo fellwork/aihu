@@ -1826,3 +1826,91 @@ else. **And still nobody re-baselines.** A re-baseline now would bless seven
 commits of unmeasured change as normal and destroy the only evidence the
 regression existed. The correct ask is a measured re-baseline with the deltas
 recorded — a different job from making the lane green.
+
+## Addendum — the bench noise floor is NOT uniform across cells; a flip is an existence proof, a non-flip at n=2 is not
+
+Builder ran the cheapest possible experiment — the same code twice, nine minutes
+apart (`a52ac18a` vs `3ac0140c`, differing by `docs/state/builder.md` alone) — and
+found two cells that CHANGE VERDICT. That directly challenges the inference I had
+already published ("a −37.8 % WIN is not producible by noise, so part of the drift
+is real"). I pulled both bench logs myself rather than defend it:
+
+| cell | run 30414971204 | run 30415444646 | spread |
+|---|---|---|---|
+| cellx | OK 5.3 % | OK 9.0 % | 3.7 |
+| wide-fanout-100 | FAIL 14.5 % | FAIL 19.1 % | 4.6 |
+| batched-writes-100 | **OK 6.9 %** | **FAIL 11.4 %** | 4.5 — **FLIPPED** |
+| deep-propagation-100 | **FAIL 29.6 %** | **OK 7.5 %** | **22.1 — FLIPPED** |
+| creation-1to1000 | FAIL 21.0 % | FAIL 12.4 % | 8.6 |
+| **dynamic-deps** | **WIN −37.8 % (677 ns)** | **WIN −36.5 % (691 ns)** | **1.3** |
+
+**My inference survives, and builder's conclusion is the half that needs
+narrowing.** Their finding is correct and important: per-cell verdicts on the
+regressing workloads are not reproducible, so charging one to a diff is a
+well-formed false attribution waiting to happen. But their conclusion — *"only
+the AGGREGATE (this lane is noise) is citable"* — is **too strong, and the
+evidence against it is inside their own experiment.** The noise floor is not
+uniform: the same pair of runs that swings `deep-propagation-100` by 22 points
+reproduces `dynamic-deps` to within **1.3**. "This lane is noise" is a property
+the lane does not have uniformly, and adopting it would discard a real signal.
+
+**The argument that carries the WIN does NOT rest on stability, and this is the
+part I had to get right about my own claim.** Two samples agreeing is weak
+evidence of stability — see the asymmetry below. What makes `dynamic-deps`
+load-bearing is **direction and magnitude, not variance**: timing noise is
+symmetric about the true value, so for noise alone to produce a −37 % reading
+twice, the true value would have to sit near −37 %. There is no noise story in
+which a workload runs one-third FASTER than a byte-identical frozen baseline. So
+real code change is present in `@aihu/signals` — `git log origin/main
+--since=2026-05-25 -- packages/signals/src` → 7 commits — and that stands
+independent of how noisy the regressing cells are.
+
+**THE ASYMMETRY, and I apply it against myself first: a FLIP is an existence
+proof; a NON-FLIP at n=2 is not a stability claim.** One counterexample kills
+reproducibility outright, so builder's two flips are robust at n=2 and I accept
+them completely. But "these other four cells did not flip" is a NEGATIVE from two
+samples, and a negative needs its chance to appear. **I must not — and do not —
+claim `dynamic-deps` "is stable".** I claim only what the magnitude argument
+gives. Same rule that governs an absence: at n=2, note-a-flip is cheap and
+prove-no-flip is unavailable.
+
+**Corrected partition, which is what a citer actually needs:**
+- **verdict-flipping** (`batched-writes-100`, `deep-propagation-100`) — per-cell
+  attribution unavailable at any number of baselines. Builder is right.
+- **verdict-reproducing across both runs** (`wide-fanout-100` FAIL/FAIL,
+  `creation-1to1000` FAIL/FAIL, `cellx` OK/OK) — the VERDICT reproduced while the
+  MAGNITUDE did not. Cite the verdict, never the percentage.
+- **`dynamic-deps`** — a −37 % WIN in both. Real change, by the magnitude
+  argument.
+
+**What the next instance must not redo:** do not re-litigate whether bench blocks
+a PR (it does not; outside `ci-ok`, `continue-on-error: true` at plan-a.yml:719 —
+which is also why `runs/30415444646` reports conclusion=SUCCESS while the bench
+JOB is failure; that is deliberate, not a green-by-aggregation hole). Do not cite
+a bench PERCENTAGE for any cell. And still nobody re-baselines.
+
+## Addendum — two corrections to my own notes, both accepted, both re-run at source
+
+**Orchestrator: there are TWO bare `git init` sites, not one.** I named
+`scaffold-pipeline.ts:566` only. Confirmed the second myself:
+`git show origin/main:packages/cli/src/create.ts | grep -n "'init'"` → **:619,
+`spawnSync('git', ['init', targetDir], …)`**, EXIT 0. My repo-wide
+`git grep defaultBranch` (EXIT 1, zero hits) did cover both, so the claim was not
+wrong — but **naming one site is how a fixer fixes one site**, which is precisely
+the FEL-431-defect-5 shape (one capability, two implementations, only the untested
+one broken). Name every site or name none.
+
+**Architect: my "#636/#637 are exactly the rows where a later `unverified`
+reopens" OVERSTATED reachability.** Reproduced their correction at source:
+`gh_reopen_issue` (main.rs:1839-1841) is guarded —
+`if !state.eq_ignore_ascii_case("closed") { return Ok(false); }` — so the
+destructive arm bites only an ALREADY-CLOSED issue; and `verify-merged` selects
+`WHERE status IN ('claimed','building','submitted','no-claims')`, with `verified`
+absent, so nothing promotes out of `verified` without a re-offer first. Their
+split is the number a scoper needs and neither of us had it: **destructive arm
+exposed on ONE issue (#430); the comment + `linear_ensure_state("In Progress")`
+arms fire regardless of open/closed, across up to 16 GitHub / 152 Linear rows.**
+My census reproduces exactly (192 / 152 / 18) — the census was right and the
+reachability reasoning on top of it was not. **A correct measurement does not
+make the inference drawn from it correct**, which is the same lesson as the #604
+"the number was right and the diagnosis was not".
