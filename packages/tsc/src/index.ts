@@ -131,15 +131,19 @@ export function run(options: RunOptions = {}): number {
   let errors = diagnostics.filter((d) => d.category === ts.DiagnosticCategory.Error).length
 
   if (unchecked.length > 0) {
-    const reason = getUncompilableReason(unchecked[0] ?? '')
+    const fileList = unchecked
+      .map((f) => {
+        const rel = relative(cwd, f)
+        const reason = getUncompilableReason(f)
+        return reason ? `  ${rel}:\n    ${reason.split('\n')[0]}` : `  ${rel}`
+      })
+      .join('\n')
+
     console.error(
       `\n${unchecked.length} .aihu file(s) could not be compiled, so nothing in them was ` +
         `type-checked:\n` +
-        unchecked.map((f) => `  ${relative(cwd, f)}`).join('\n') +
-        (reason
-          ? `\n\nFirst compile error (from @aihu/compiler):\n  ${reason.split('\n')[0]}`
-          : '') +
-        `\n\nIf these files build fine with \`aihu build\` but fail here, @aihu-tsc is resolving a ` +
+        fileList +
+        `\n\nIf these files build fine with \`aihu build\` but fail here, @aihu/tsc is resolving a ` +
         `different @aihu/compiler than your app. Pin @aihu/tsc and @aihu/compiler to the same ` +
         `version — see apps/docs/src/content/docs/migration.md (Type-checking after migration).`,
     )
