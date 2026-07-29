@@ -61,6 +61,10 @@ bun add @aihu/runtime
 <!-- BEGIN_AUTOGEN: deps -->
 <!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
 
+**Dependencies:**
+
+- `@aihu/primitives` — `workspace:^`
+
 **Peer dependencies:**
 
 - `@aihu/arbor` — `workspace:^`

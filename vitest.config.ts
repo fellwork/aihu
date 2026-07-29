@@ -116,6 +116,14 @@ export default defineConfig({
       // @aihu/primitives + the css-engine progressive shim it reuses (tooltip's
       // position() source import). Aliased to src so primitives tests run
       // without a prior dist build of either package.
+      // Order matters: the subpath alias must precede the package alias (same
+      // pattern as '@aihu/runtime/ssr' above) or '@aihu/primitives/focus-trap'
+      // resolves as '<index.ts>/focus-trap'. @aihu/runtime's `<focusTrap>`
+      // adapter imports this subpath (FEL-397 dedup).
+      '@aihu/primitives/focus-trap': new URL(
+        './packages/primitives/src/dialog/focus-trap.ts',
+        import.meta.url,
+      ).pathname,
       '@aihu/primitives': new URL('./packages/primitives/src/index.ts', import.meta.url).pathname,
       '@aihu/css-engine/runtime/progressive': new URL(
         './packages/css-engine/src/runtime/progressive.ts',

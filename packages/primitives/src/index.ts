@@ -50,6 +50,7 @@ export {
   defineDialog,
   dialogContext,
   type FocusTrap,
+  type FocusTrapOptions,
 } from './dialog/index.ts'
 export type { DomContext } from './dom-context.ts'
 // Shared DOM-walk context (Option C — self-contained, does NOT import

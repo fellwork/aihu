@@ -13,6 +13,7 @@
 
 import type { Branch } from '@aihu/arbor'
 import { branch } from '@aihu/arbor'
+import { createFocusTrap as _createTrap } from '@aihu/primitives/focus-trap'
 
 // ─── sr-only + skip-link CSS ──────────────────────────────────────────────────
 
@@ -76,9 +77,6 @@ export function _resetAnnounceForTests(): void {
 
 // ─── <focusTrap> — RFC-A5-018 ────────────────────────────────────────────────
 
-const _Q =
-  'a[href],button:not([disabled]),[tabindex]:not([tabindex="-1"]),input:not([disabled]),select:not([disabled]),textarea:not([disabled])'
-
 let _trapSeq = 0
 
 /**
@@ -90,15 +88,15 @@ let _trapSeq = 0
  * for arbitrarily nested shadow trees) when a direct match isn't found in the
  * current root. Closed shadow roots are unavoidably invisible here (same
  * documented limitation as `@aihu/primitives/composed-tree.ts`'s
- * `composedQuerySelector`, the canonical multi-consumer version of this same
- * rule) — this is a deliberately minimal, single-selector inline kept local
- * to `@aihu/runtime` rather than a `@aihu/primitives` dependency: the a11y
- * primitives here are budgeted at ~800 B total (see file header), and
- * `composed-tree.ts`'s tabbable-detection machinery (`queryTabbables`,
- * `composedActiveElement`, `walkComposedTree`, etc.) needed for its full
- * generality would blow that on its own, on top of `@aihu/runtime`'s
- * whole-package 4500 B size-limit gate it is already close to (see
- * `.size-limit.json` / `bun run size`).
+ * `composedQuerySelector`).
+ *
+ * Deliberately kept local rather than imported: this is a search DOWN FROM
+ * `document` for a host that may not exist yet (hence `wire()`'s retry loop),
+ * which happens BEFORE there is any container to hand to the primitives trap.
+ * `@aihu/primitives/focus-trap` — the one place the actual trapping logic
+ * lives (FEL-397) — exposes only the trap factory, not the composed-tree
+ * substrate, and runtime imports that subpath ONLY, so it never pulls in the
+ * dialog primitive or the primitives barrel.
  */
 function _deepQuerySelector<T extends Element = HTMLElement>(
   root: ParentNode,
@@ -117,50 +115,32 @@ function _deepQuerySelector<T extends Element = HTMLElement>(
 }
 
 /**
- * Shadow-DOM-aware `querySelectorAll`: recurses into OPEN shadow roots to
- * enumerate focusables across composed boundaries (#537).
- */
-function _deepQuerySelectorAll<T extends Element = HTMLElement>(
-  root: ParentNode,
-  selector: string,
-): T[] {
-  const results: T[] = Array.from(root.querySelectorAll<T>(selector))
-  for (const el of Array.from(root.querySelectorAll('*'))) {
-    const shadow = (el as HTMLElement).shadowRoot
-    if (shadow) {
-      results.push(..._deepQuerySelectorAll<T>(shadow, selector))
-    }
-  }
-  return results
-}
-
-/**
- * Shadow-DOM-aware `document.activeElement`: plain `document.activeElement`
- * stops at the outermost OPEN shadow host — it never drills in to the
- * actually-focused leaf inside that host's shadow tree — so a trap wired
- * inside a shadow root would otherwise compare Tab's "current focus" against
- * the wrong element and never fire. Recurses through nested shadow roots'
- * own `.activeElement` (mirrors `@aihu/primitives/composed-tree.ts`'s
- * `composedActiveElement`, kept local here for the same budget reason as
- * `_deepQuerySelector` above).
- */
-function _deepActiveElement(): HTMLElement | null {
-  if (typeof document === 'undefined') return null
-  let active: Element | null = document.activeElement
-  while (active !== null && active.shadowRoot !== null) {
-    const inner: Element | null = active.shadowRoot.activeElement
-    if (inner === null) break
-    active = inner
-  }
-  return active as HTMLElement | null
-}
-
-/**
  * Focus-trap boundary. Renders `<div data-aihu-focustrap="N">` containing
  * `childFn()`. While `active` is truthy, Tab cycles within the host's
  * focusable descendants. `active` may be a boolean or `() => boolean`
- * (signal-ref). On Tab keydown, the trap re-checks `active` so reactive
+ * (signal-ref); the trap re-checks it on every `focusin`, so reactive
  * toggling needs no subscription.
+ *
+ * This is a THIN REACTIVE ADAPTER, not a focus-trap implementation
+ * (FEL-397 / fellwork/aihu#537). Everything about actually trapping focus —
+ * composed-tree tabbable enumeration and ordering, the Tab/Shift+Tab edge
+ * wrap, the escape guard, initial focus, focus restore — lives in the single
+ * shared implementation at `@aihu/primitives/focus-trap`. All this function
+ * owns is (a) locating the emitted host element once it lands in the DOM and
+ * (b) mapping the compiler's reactive `active` flag onto `activate()` /
+ * `deactivate()`.
+ *
+ * Delegating also FIXES the escape guard rather than merely symmetrizing it.
+ * The old local implementation bound `keydown` to `host` itself and tested
+ * `!e.composedPath().includes(host)` — which can never be true: a
+ * `composedPath()` IS the event's propagation path, and a listener only runs
+ * when its own node is on that path, so `host` is always a member. That guard
+ * was unreachable in BOTH directions, so adding the missing forward-Tab copy
+ * of it would have been a no-op. The primitives implementation binds
+ * `keydown` on `document` in the CAPTURE phase, where it observes keydowns
+ * that originate anywhere — including outside the container — so its
+ * `composedContains(container, current)` check is a genuinely reachable,
+ * genuinely distinguishable "focus escaped the trap" state.
  */
 export function createFocusTrap(
   active: boolean | (() => boolean),
@@ -172,7 +152,6 @@ export function createFocusTrap(
   const sub = childFn()
   const isActive = (): boolean => (typeof active === 'function' ? active() : active)
 
-  let prevFocus: HTMLElement | null = null
   let lastActive = false
 
   const wire = (): void => {
@@ -182,52 +161,14 @@ export function createFocusTrap(
       setTimeout(wire, 0)
       return
     }
-    const focusables = (): HTMLElement[] => _deepQuerySelectorAll<HTMLElement>(host, _Q)
+    const trap = _createTrap(host, { initialFocus, returnFocus })
     const sync = (): void => {
       const a = isActive()
       if (a === lastActive) return
       lastActive = a
-      if (a) {
-        prevFocus = _deepActiveElement()
-        const init = initialFocus ? host.querySelector<HTMLElement>(initialFocus) : focusables()[0]
-        init?.focus()
-      } else if (returnFocus && prevFocus) {
-        prevFocus.focus()
-        prevFocus = null
-      }
+      if (a) trap.activate()
+      else trap.deactivate()
     }
-    host.addEventListener('keydown', (e: KeyboardEvent) => {
-      if (e.key !== 'Tab' || !isActive()) return
-      const items = focusables()
-      if (!items.length) {
-        e.preventDefault()
-        return
-      }
-      const first = items[0]
-      const last = items[items.length - 1]
-      const t = _deepActiveElement()
-      // `host.contains(t)` is shadow-blind: `Node.contains()` walks light-DOM
-      // tree order only, so when `t` is the deep leaf inside a nested OPEN
-      // shadow root (the DA4-expected composition — a shadow-mode leaf
-      // component sitting inside this trap), a genuinely-in-bounds focus
-      // reads as "escaped" and gets wrongly yanked to `last`. `e` reached
-      // this listener by bubbling (composed) up through however many shadow
-      // boundaries separate `t` from `host`, so `e.composedPath()` reflects
-      // the true composed ancestry and correctly reports containment where
-      // `host.contains()` cannot. (`focusables()` above is still light-DOM-only
-      // — see the follow-up filed for full shadow-aware enumeration — so this
-      // fixes the wrongful-yank direction; it does not yet make `first`/`last`
-      // resolve to a focusable living inside a nested shadow root.)
-      if (e.shiftKey) {
-        if (t === first || !e.composedPath().includes(host)) {
-          e.preventDefault()
-          last?.focus()
-        }
-      } else if (t === last) {
-        e.preventDefault()
-        first?.focus()
-      }
-    })
     sync()
     document.addEventListener('focusin', sync)
   }
