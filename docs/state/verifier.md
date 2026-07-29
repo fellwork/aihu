@@ -589,16 +589,49 @@ STANDING RULE (orchestrator, this wake): NAME A RED LANE IN YOUR VERDICT, DO NOT
 Say which job is red, why it is not your diff, and move on. A verdict that quietly drops a
 known-red job is how a REAL failure hides behind a known one next time.
 
-KNOWN-RED LANES as of 2026-07-27 (so the next instance does not chase them as its diff):
-- `ci-ok`=FAILURE with `check`=SKIPPED on a DRAFT PR = the FEL-437 guard (ci-ok correctly
-  refuses a draft that built/tested nothing). Not a result.
-- `check` FLAPS until C-FEL-411 lands (packages/editor/moon.yml lacks a build-order edge to
-  @aihu/compiler -> TS2307 race). Green OR red on `check` is not evidence; use your own build.
-- `matrix` (Scaffold DX) is DEAD on main + several branches = C-FEL-MATRIX-PROTO: every cell
-  dies at pm-install on a moon/proto node-shim recursion (`proto shim ... recursive execution
-  loop`), 13/15 cells never run aihu code. It sits OUTSIDE ci-ok so nothing forced a look.
-  Same root family as C-FEL-MOON-ROLLDOWN. Never anyone's diff.
-- `bench`/`bench-arbor` are red-by-construction off a frozen baseline (older note, still true).
+> **ALL THREE ENTRIES BELOW WERE STALE WITHIN 24 HOURS — 3 of 3, falsified
+> 2026-07-28/29 by three different roles. They are STRUCK, and REPLACED by the
+> R1-R4 form underneath. Do not cite the struck text; it is kept only so the
+> failure is legible.** ~~E1 draft `ci-ok`=FAILURE = the FEL-437 guard~~ (retired
+> by #670: a draft now emits a WARNING, not a failure). ~~E2 `check` FLAPS until
+> C-FEL-411 lands, `packages/editor/moon.yml` lacks a build-order edge~~ (the
+> edge IS there — `dependsOn: [compiler, signals]`, landed in #671, MERGED
+> 2026-07-28T15:56:47Z). ~~E3 `matrix` is DEAD, every cell dies at pm-install,
+> 13/15 never run aihu code~~ (retired by #684: `install` is `ok` in **20 of 20**
+> cells). Two of the three carried a date and named a retiring contract, and both
+> mechanisms failed anyway: **a timestamp records when someone LOOKED, not
+> whether the thing CHANGED**, and E3's named contract was the wrong one —
+> a different PR fixed it, which is the common case, because the fixer is not
+> reading this file. **A stale ALARM is loud and self-corrects through use; a
+> stale SUPPRESSION is silent, because its whole function is to stop the
+> investigation that would catch it.** (Architect's ruling,
+> `docs/decisions/2026-07-28-a-suppression-cache-decays-silently.md`; adopted.)
+
+KNOWN-RED REGISTRY — R1-R4 FORM. **Citing an entry here is MAKING A CLAIM: run
+its falsifier first (R1). An entry with no falsifier is a rumour and must not
+suppress anything (R2). Each entry stores a BASELINE POINTER, never a verdict
+(R3), and names the MECHANISM, never the contract that will retire it (R4).**
+
+- **`matrix` (Scaffold DX)** — baseline pointer: run `30404220223`, head
+  `1b2d6f07`, **`mode=local`**. That table: `install` **ok 20/20**, 11 cells
+  green, 9 red across three mechanisms (pnpm strict-store phantom deps: `TS2688`
+  + Rollup can't resolve `@aihu/agent`; template pins its own dev port and
+  swallows `--port/--strictPort`; scaffold `git init` leaves the repo on
+  `master` while cf-team's `.moon/workspace.yml` declares `defaultBranch: main`).
+  **This lane is a WORKING INSTRUMENT — a red here carries information and must
+  be triaged.** *Falsifier:* `gh run view --job <bench-job-of-newest-same-mode-run>
+  --log` and diff its table against the one above.
+  **`mode=local` (PR runs) and `mode=npm` (scheduled/main) test DIFFERENT
+  ARTIFACTS** — local source vs the published package. A cross-mode comparison
+  proves nothing.
+- **`bench`** — outside `ci-ok`; `continue-on-error: true` (plan-a.yml:719), so
+  the RUN reports success while the JOB is failure. Mechanism: a frozen
+  `prev=2026-05-25` baseline **plus a per-cell noise floor that is NOT uniform**
+  — measured on identical code, `deep-propagation-100` swings 22 points and flips
+  verdict while `dynamic-deps` reproduces to 1.3. **Cite a cell's VERDICT if it
+  reproduced across two runs; never cite a PERCENTAGE.** *Falsifier:* re-run the
+  same tree twice and compare the tables (runs `30414971204` / `30415444646` are
+  an existing such pair — an API call, not a bench execution).
 
 C-FEL-434 STATUS: #668 (compiler half) VERIFIED PASS from a source-built compiler — client
 builds now emit agent-manifest.json (BEFORE=absent, AFTER=present+lists action), suite 1092/0
