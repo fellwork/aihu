@@ -316,6 +316,79 @@ pre-loaded with credibility it did not earn on the point in dispute.**
   `rc=0` while the fatal was printed; unpiped, `rc=128`. Three instances, three different roles, one of
   them the person who banked it. **In `zsh`, do not pipe the command whose exit code is the evidence.**
 
+## ⛔ THE CONVERGENCE IS THE FINDING — THREE ROLES, THREE QUANTITIES, ONE MISSING STEP
+
+Within one day, three arguments failed the same way, and none of the three authors saw it until the
+findings were laid side by side:
+
+| role | the quantity | the argument built on it | what was never established |
+|---|---|---|---|
+| historian | daemon arrival rate | steady state = `rate × TTL` ⇒ *"expect ~950"* | the source is **non-stationary** (a sum of terminated bursts) |
+| architect | `submitted` = 0 | *"exposure is zero, therefore latent"* | `submitted` is a **transient** every contract passes through by design |
+| both | a tripwire (~1400 / ~2/min) | *"alarm above this"* | the number was **read off where the value was sitting** |
+
+> **NOBODY CHARACTERIZED THE DYNAMICS OF THE QUANTITY BEFORE REASONING FROM ITS VALUE.** Every one of the
+> three numbers was correctly measured. **The defect is one level up from the measurement** — it is that a
+> value was handed to an argument whose validity depends on how the value *behaves over time*, and nobody
+> checked. This is the whole file's class applied to a quantity rather than to a command: a **well-formed
+> measurement of the right thing, feeding the wrong kind of claim.**
+
+**THE RULE, THE ARCHITECT'S, AND IT IS THE REUSABLE FORM: BEFORE A MEASURED QUANTITY MAY CARRY A SAFETY
+ARGUMENT, CLASSIFY IT.**
+
+- **INVARIANT** (a cap, a TTL, a hard limit) — licenses a **durable** claim.
+- **STATE** — licenses a claim **plus a named watcher**.
+- **TRANSIENT** — **licenses nothing.** Quoting one *"publishes a timestamp with the units filed off."*
+
+*"I measured a clock and called it a distance."* `submitted = 0` says **"nothing is mid-flight at this
+instant"**, not **"this cannot happen"** — and `submitted` is a state every contract enters *by design*,
+so the latency to exposure is **one row**, not a margin.
+
+**AND THE CORROBORATION IS THAT THE INVARIANT-DERIVED CLAIMS DID NOT MOVE — TWICE NOW.** When the
+daemon model collapsed, the tripwires derived from the **ceiling** and the **TTL** (`>4.16/min`,
+`past_ttl_survivors > 0`) were **untouched**, while every measurement-derived number around them fell —
+for the second time. **"Derive the threshold from the invariant that would be violated" is a load-bearing
+habit, not an aphorism**, and this is the receipt: the same event that destroys the fitted numbers leaves
+the derived ones standing.
+
+**A COROLLARY WORTH MORE THAN THE RULE — SAY WHICH LEG CARRIES THE WEIGHT.** The architect's conclusion
+(*"not a DECIDE, dispatchable"*) had been offered on two supports: **exposure = 0** and
+**dispatchability**. Only the second was load-bearing. Had the conclusion been rested on the first it
+would now be wrong — and the correction would have looked like the conclusion collapsing, rather than one
+redundant support being withdrawn.
+
+> **A CONCLUSION OFFERED ON TWO REASONS IS NOT TWICE AS SAFE; IT IS AMBIGUOUS ABOUT WHICH ONE IT NEEDS.**
+> State which support is load-bearing, so that when one fails the reader knows whether the conclusion
+> falls with it. **Redundant justification is a liability at correction time** — it converts "I withdraw a
+> number" into "I withdraw the ruling."
+
+**THE SAME DEFECT ONE LEVEL DOWN, AND THE RULE IT PRODUCED.** The verifier's own residual on `#647`/`#645`
+— *"no contract carries a linear/github id, so I never saw a populated plan"* — went stale **because the
+population filled in on its own**: 192 contracts, 152 with a Linear id, 18 with a GitHub issue, and a
+dry-run plan now containing **eight real WOULD-move actions** (still `0 external writes`). The zero-write
+property is now proven over a **populated** plan instead of an empty set.
+
+> **RE-RUN A VERDICT WHOSE POPULATION WAS EMPTY WHEN YOU TOOK IT — NOBODY GETS TOLD WHEN THE SET FILLS
+> UP.** A pass measured on an empty population is the **vacuous-pass** class; it takes a *second*
+> measurement, later, to stop being vacuous. Note this is the transient rule with the sign flipped:
+> there, a quantity that was zero *now* licensed a safety claim; here, a quantity that was zero *then*
+> made a proof vacuous. **Same missing question — how does this number move? — reached from opposite
+> directions.**
+
+**AND A RE-MEASUREMENT THAT MOVED BOTH WAYS, RECORDED IN BOTH DIRECTIONS.** Checking the exposure split
+rather than accepting the correction, the architect read `gh_reopen_issue` at source — confirmed here:
+
+```rust
+main.rs:1838-1847   let state = …;  if !state.eq_ignore_ascii_case("closed") { return Ok(false); }
+```
+
+So the **destructive** arm bites only an **already-closed** issue: of 18 GitHub rows, 15 are open and one
+(`#430`) is closed ⇒ **the reopen-effective set today is ONE issue.** But the **comment** arm and
+`linear_ensure_state("In Progress")` fire **regardless** ⇒ up to 16 GitHub / 152 Linear rows.
+**The destructive arm is exposed narrowly; the noisy arms broadly** — a split neither party had, and the
+number a scoper actually needs. **Reporting the half that weakens your own correction alongside the half
+that strengthens it is what makes a re-measurement worth more than a concession.**
+
 ## A THIRTEENTH INSTANCE, MINE — THE COMMAND TOLD ME IT HAD FAILED AND I READ ITS OUTPUT ANYWAY
 
 Measuring the daemon population, I asked for an age column and a command line:

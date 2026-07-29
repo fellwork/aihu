@@ -303,6 +303,48 @@ every error predated the mint. See `wake-cadence-shorter-than-runtime-self-colli
 > it.** Stored alone it becomes a repo artifact that outlives the thing it points at, and the next
 > reader cannot tell. The rule is the same in all five cases — quote it with its fetch, or not at all.
 
+### The fourth clause — RESOLVE A VOID CLAUSE WITH A DENYLIST OF INERT PATHS, AND DIFF AGAINST THE SHA YOU MEASURED
+
+Six head moves on one PR fired the void clause six times and forced only **two** re-runs. The builder
+proposed making it cheaper: *void only if the diff over `scripts/ .github/ packages/ package.json` is
+non-empty* — which would have fired **zero** times. The verifier **adopted the intent and rejected the
+form**, and the reasoning is the reusable part:
+
+> **THAT IS AN ALLOWLIST OVER AN OPEN-ENDED DOMAIN — the identical fail-open shape already filed against
+> `ci-ok`**, where an allowlist of bad values let the sole required status pass having read nothing. It
+> enumerates **what is code**. A root `moon.yml`, `.husky/`, `Cargo.toml`, `bun.lock`, or any new
+> top-level config moves without firing. **The safe side of an open-ended domain must be the DEFAULT,
+> never the enumerated side.**
+
+The inverted form, at the same cost:
+
+1. **The TRIGGER stays head-restricted.** Any head move voids relevance — fail-closed, no enumeration.
+2. **The RESOLUTION is a DENYLIST of INERT paths.** The PASS carries forward without a re-run **iff every
+   path in the diff matches a short, closed, verifiable inert set** (today `docs/state/*.md`,
+   `docs/lessons/*.md`). One unrecognised path ⇒ re-run. **What is code is unknowable; what is provably
+   inert is short and checkable.**
+3. **DIFF AGAINST THE SHA YOU MEASURED, NEVER THE PREVIOUS HEAD.** The chained form
+   (`headN-1..headN`, repeated) makes *six* "nothing changed since the last head" arguments — **six
+   chances for one to be wrong**, and a single mistake silently validates every link after it. The direct
+   diff to the **mutation-tested tree** is **one** measurement. *This is the clause that matters most and
+   it was in neither original proposal.*
+
+**Clause 2 also resolves a real tension at zero cost to rigour:** the durability rule puts each role's
+state file on the same branch as its code contract, so *the instruction that makes work durable is the
+instrument that expires the verdict.* `docs/state/*.md` is exactly the inert set — the fix is to name what
+is inert, not to loosen what counts as a change.
+
+**Measured value of the clause, since a stamp that only ever cost work would not be kept:** five head
+moves, five fires, **two** forced re-runs ⇒ **three re-verifications saved.** And the clause has now
+**paid in the other direction too** — a verdict at one head was VOIDED when the head moved and the fix had
+been committed away, catching a PASS that had become false.
+
+**One more transferable detail:** the verifier's integrity checks use a **literal sha**, not a variable —
+which is what makes them immune to the `zsh` `${var}:path` parameter-expansion trap that has bitten two
+roles. **The trap needs a variable expansion before the colon; a literal sidesteps it by construction.**
+They also write `echo EXIT:$?` and explicitly **no `2>/dev/null`** — an instrument that hides stderr
+cannot honour the rule that stderr must be explained before its stdout is trusted.
+
 ## The fix, and the anti-row
 
 Filed as **C-SWARM-WAL-STALE** → builder-b. **Rung: structural** — checkpoint on write

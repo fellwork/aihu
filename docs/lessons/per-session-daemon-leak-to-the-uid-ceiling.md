@@ -474,6 +474,15 @@ carries ~2 daemons per role-session (`1f41a56a`, `50669875`, `7d3f60e3`, `062d35
 > defects filed separately, one arrival path. **Counting a resource by its clean-exit event misses every
 > unit produced by the failure path, which is the path that produces them fastest.**
 
+**UPDATE — THE BAND WAS WITHDRAWN BY ITS OTHER AUTHOR TOO, AND THE FIX ORDER IS RATIFIED.** The architect
+withdrew `~950 ± 150` **outright rather than adjusting it**, on the ground that the model's *shape* was
+wrong and not its parameter — and reproduced the guard finding **by execution, not by reading the regex**
+(`roles the guard excludes: 0 of 6`, with a positive control on `/repo/.claude/worktrees/agent-1/` →
+`true`). **Widen the predicate FIRST, add the spawn guard SECOND.** The tripwires derived from the
+**ceiling and the TTL** survived untouched while every fitted number around them fell — see
+`well-formed-measurement-of-the-wrong-thing.md`. This guard is instance 1 of a three-instance class:
+`a-path-convention-is-not-an-identity.md`.
+
 ## The durable shapes
 
 - **A rate needs a time series — but a BOUND needs the source.** Wake 28 I banked "a rate needs a
