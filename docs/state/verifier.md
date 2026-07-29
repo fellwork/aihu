@@ -1579,3 +1579,83 @@ observed mid-flight. Same family as the [[project_aihu_measurement_traps]] WAL
 stale-snapshot and the empty-`${PIPESTATUS}` traps: the read was taken before the
 state settled. An absence taken too early is the fifth thing this pattern has
 bitten this session.
+
+## Addendum — the `matrix` known-red is STALE: it now runs, and its red is informative
+
+Standing rule says NAME the red lane. This wake I ran the rule properly and the
+lane had changed underneath the registry entry. `matrix` FAILURE on #695
+(mergeState UNSTABLE) is **NOT #695's diff**, and it is **not** the registered
+`C-FEL-MATRIX-PROTO` cause either.
+
+**Attribution, by baseline rather than by assertion.** The run on #695
+(`30404220223`, head `1b2d6f07`, `mode=local`) and the run on the #684 head
+*before* #695 existed (`30400148873`, head `4d6e1793`, `mode=local`, 21:18Z)
+produce **the same 20-cell table, cell for cell** — same 11 ok, same 9 FAIL, same
+4 `n/a` — and the same three failure mechanisms by count:
+
+```
+                        684 baseline (4d6e1793)   #695 (1b2d6f07)
+ambiguous argument 'main'          4                    4
+Rollup can't resolve @aihu/agent   1                    1
+error TS2688 ... type 'node'       2                    2
+```
+
+The only textual difference across all nine failure blocks is the randomly
+assigned dev port. #695's diff is `packages/cli/src/create.ts` + one test (254
+lines, 2 files); it cannot produce a failure that reproduces without it. **PASS
+on #695 stands, at the same head `1b2d6f07` I stamped it to** (`gh pr view 695
+--json headRefOid` unchanged), `ci-ok` SUCCESS at 22:29:22Z.
+
+**The registry entry is now wrong and must be rewritten, not re-cited.**
+Addendum 7 says *"`matrix` is DEAD on main: every cell dies at pm-install on a
+moon/proto node-shim recursion, 13/15 cells never run aihu code."* After #684
+(`C-FEL-SCAFFOLD-PM-COMPAT`, on main `1bb0dd7c`) **`install` is `ok` in all 20
+cells** and 11 cells are green end to end. The lane went from structurally dead
+to a working instrument, so **a `matrix` red now carries information and must be
+triaged, not waved off.** All nine reds map to contracts already `offered` and
+unbuilt:
+
+| cells | mechanism | contract |
+|---|---|---|
+| full×pnpm, agent×pnpm typecheck; minimal×pnpm build | pnpm's strict store: `TS2688 cannot find type 'node'`, Rollup can't resolve `@aihu/agent` — phantom deps that bun/npm/yarn hoist | `C-FEL-SCAFFOLD-PNPM-BUILDS` |
+| full×{bun,npm,yarn}, docs×pnpm dev | template pins its own port (5108 / 5173) and swallows the harness's `--port <n> --strictPort`; server answers, but never on the polled port → 120 s timeout | `C-FEL-SCAFFOLD-DEV-PORT` |
+| cf-team×{bun,npm,pnpm,yarn} typecheck | `moon run :typecheck` → `git ... fatal: ambiguous argument 'main'`, exit 128 | `C-FEL-SCAFFOLD-CFTEAM-TYPECHECK` |
+
+**cf-team's failure MODE has changed since my Round 2 verdict — do not act on the
+old one.** Round 2 said the template ships *no* workspace config
+(`app::missing_workspace`). That is fixed: `git ls-tree origin/main` finds
+`packages/templates/cf-team/template/.moon/workspace.yml`, and it declares
+`vcs: defaultBranch: 'main'` (`:15-16`). The new defect is a **disagreement
+between the template's declared base ref and the branch the scaffold actually
+creates**: `scaffold-pipeline.ts:566` runs a bare `git init` (no `-b`), and
+`git grep defaultBranch -- packages/cli/src packages/create-aihu` → **EXIT 1, ran,
+zero hits** — no scaffold path sets a branch name anywhere. So the repo is on
+whatever `init.defaultBranch` says, and on the runner it is unset (proven in the
+same job: `actions/checkout`'s own `git init` prints *"hint: Using 'master' as the
+name for the initial branch"*). Template says `main`, repo is `master`, moon asks
+git for `main`, git exits 128. **Attribution care: that hint comes from
+checkout's git init, not the scaffold's — what it proves is that the config is
+absent for that user on that runner, which is what makes the scaffold's later
+bare `git init` land on `master`.** Verifier does not fix; this belongs to the
+open contract.
+
+**What the next instance must not redo:** do not cite the `matrix` known-red
+entry from addendum 7 — re-read the table first. **A known-red registry is a
+cache of measurements, and the fix that retires an entry does not update it.**
+The correct move when a registered lane goes red is the one that worked here:
+find the most recent run of the SAME MODE on a tree WITHOUT the diff and diff the
+two tables. `mode=local` (PR runs) and `mode=npm` (the scheduled run on main)
+test different artifacts — local source vs the published package — so a main-vs-PR
+comparison across modes proves nothing. Two of the three `matrix` reds on main
+today would have been mis-triaged by comparing against `30347227334`.
+
+## Addendum — #691's head moved again; docs-only, so the PASS carries (do not re-run reflexively)
+
+`a52ac18a` (was `464a3e31`). `git diff --stat 464a3e31 a52ac18a` → **one file,
+`docs/state/builder.md` +26/-1**; the same diff restricted to `scripts/ .github/
+packages/ package.json` is **empty (EXIT 0, ran)**. The code I mutation-tested at
+`faee81b9` is byte-identical, `origin/main` has not moved from `1bb0dd7c`, and gh
+reports MERGEABLE/CLEAN. **PASS carries forward as a measurement.** Fifth head
+move on this PR; the void clause has now fired 5 times and forced a re-run twice —
+that ratio is the point. A clause that re-runs on a docs-only head change teaches
+people to skip it.
