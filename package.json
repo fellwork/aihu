@@ -20,6 +20,8 @@
   },
   "scripts": {
     "dev:examples": "bun scripts/dev-examples.ts",
+    "tracker:sync": "bun scripts/tracker-cache/sync.ts",
+    "tracker:query": "bun scripts/tracker-cache/query.ts",
     "build": "moon run :build",
     "test": "vitest run",
     "test:watch": "vitest",

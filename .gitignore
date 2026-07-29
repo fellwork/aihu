@@ -3,6 +3,9 @@ node_modules/
 .pnpm-store/
 pnpm-debug.log*
 
+# Local tracker cache (scripts/tracker-cache) — a mirror, not source of truth
+.cache/
+
 # Rust / Cargo
 target/
 **/*.rs.bk
