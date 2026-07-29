@@ -637,6 +637,89 @@ by it, so open them yourself when auditing.
   `settle-a-contested-claim…` — an INVARIANT beats a timed prediction (no clock, no reach-early bias); TTL now
   CONCLUSIVE (3 timed deaths 20:23:10/20:28:23/20:28:28, cohort cleared). DECIDEs not mine: who wires
   check:gate-wiring; the missing C-FEL-MOONGRAPH-LITERALS row. Board (my fetch): main 3891300a GREEN; #669 draft.
+- **WAKE 50 — THE METHOD I BANKED LAST WAKE IS UNSAFE ON A NOISY LANE, AND THREE ROLES MADE ONE ERROR.**
+  Branch `srmcguirt/retro-followup-0728`, PR #692. Commits `3dc6514b`, `a385978d`, `1353e65a`,
+  remote-verified. Gate exit 0, **33** cited lessons. Killed nothing, touched no infra, set no status,
+  merged nothing, filed no DECIDE, claimed nothing, posted no Slack.
+  (1) **⛔ CORRECTION TO WHAT I BANKED ONE WAKE AGO — builder caught it.** I banked "compare against the
+  most recent run of the SAME MODE on a tree without the diff" as a method rule. **Sound for a
+  DETERMINISTIC lane; it LICENSES A FALSE ATTRIBUTION on a noise-dominated one.** Builder ran the same
+  code twice (9 min apart, trees differing by `docs/state/builder.md` alone): `batched-writes-100`
+  6.9%→11.4% and `deep-propagation-100` 29.6%→7.5% **FLIP VERDICT**. **I re-derived it myself** — the
+  code-restricted diff is EMPTY (exit 0, ran) with a positive control printing `docs/state/builder.md`,
+  and my own `gh run view … | grep cellx` gives **850.07 ns vs 880.32 ns**, which against the frozen
+  `prev=807` is exactly their +5.3% / +9.0%. **THE DISTINGUISHING QUESTION IS NOT "SAME MODE?" BUT "IS
+  THE CELL-LEVEL VERDICT REPRODUCIBLE?" — test by running twice on the same tree.** If cells flip,
+  per-cell attribution is unavailable at ANY number of baselines; only the AGGREGATE is citable.
+  **A baseline controls for the diff, never for variance.** My rule was right about the confound it named
+  and silent about the one it did not — and the verifier's #695 case was the same hazard seen from the
+  SAFE side. **Agreement across one pair of runs is not evidence of determinism.**
+  (2) **BUT NOISE CANNOT MANUFACTURE A SIGNAL OF THE WRONG SHAPE** (verifier, moved their own position).
+  `dynamic-deps` **−37.8%** while three cells regress 15-30% — symmetric variance cannot produce an
+  asymmetric signature; 7 commits to `packages/signals/src` since the baseline. **Part of the movement is
+  REAL and the baseline is 2 months + 7 core commits stale.** Ask what variance would have to look like
+  to produce the pattern you see — that survives on data too noisy for a threshold. **STILL DO NOT
+  RE-BASELINE** (blesses unmeasured change AND destroys the only evidence); the ask is a MEASURED
+  re-baseline with deltas recorded.
+  (3) **SUPPRESSION-CACHE RULING deepened (architect ruled, orchestrator applied; 3 of 3 stale, not 1).**
+  **A STALE ALARM IS LOUD; A STALE SUPPRESSION IS SILENT** — its function is to stop an investigation, so
+  the decay rate tends to **100%, not a fraction.** "Add a timestamp" is NOT the fix: **a timestamp
+  records when someone LOOKED, not whether the thing CHANGED**; and the named contract was wrong (E3
+  named MATRIX-PROTO, #684 retired it) **while naming the RIGHT one fails too** — E2 named #671, #671
+  merged `bea13b99` 15:56Z, entry still said "green and unlanded" 10h later. **R1** pull-validate at cite
+  time (citing a known-red IS a claim) · **R2** no falsifier ⇒ rumour · **R3** store a BASELINE POINTER
+  not a verdict (the cache buys the baseline, not the verdict) · **R4** name the MECHANISM not the
+  contract · **R5 (orchestrator)** store the falsifier as a LITERAL RUNNABLE COMMAND. Self-limiting: **a
+  suppression you cannot afford to re-check is one you cannot afford to trust.** 4th instance = the
+  staleness reached a CONTRACT'S ACCEPTANCE PATH. **Honest calibration recorded (orchestrator's): all 3
+  were caught in ~24h by 3 roles with NONE of R1-R5 — they make it cheap and mandatory, not the
+  difference between caught and uncaught.**
+  (4) **NEW LESSON `a-path-convention-is-not-an-identity.md` — architect named the class, I banked it.**
+  Three subsystems derive a fact about a SESSION from an unvalidated PATH STRING, each failing **silently
+  toward "no match"**: the daemon spawn guard, `agents.json.cwd` (an ASSERTION, not an observation), and
+  `_transcript()` slugging that same field. **A GUARD WHOSE PREDICATE MATCHES NOBODY IS HARDER TO CATCH
+  THAN NO GUARD AT ALL** — it reads as PRESENT in review. Architect reproduced my finding **by execution**
+  (0 of 6 excluded; positive control `.claude/worktrees/agent-1/` → true). **The positive control is what
+  makes "0 of 6" a FINDING and not a broken test.** Extended one level down with builder-b's #696: a test
+  that leaves ambient `init.defaultBranch` alone **passes on any box already defaulting to main while the
+  defect is live** ⇒ **a test without a positive control on its own PRECONDITIONS is a rumour about the
+  environment.**
+  (5) **THE CONVERGENCE (into `well-formed-measurement-…`) — three roles, three quantities, ONE missing
+  step.** Me: steady state on a NON-STATIONARY source. Architect: a safety margin from a TRANSIENT
+  (*"I measured a clock and called it a distance"*). Both: tripwires read off where the value sat.
+  **NOBODY CHARACTERIZED THE DYNAMICS BEFORE REASONING FROM THE VALUE.** Rule: classify a quantity before
+  it carries a safety argument — **INVARIANT** licenses a durable claim, **STATE** a claim + a named
+  watcher, **TRANSIENT licenses NOTHING.** Corroboration: the ceiling/TTL-derived tripwires survived
+  untouched **twice** while every fitted number fell. Corollary: **SAY WHICH LEG CARRIES THE WEIGHT** —
+  redundant justification is a liability at correction time (it turns "I withdraw a number" into "I
+  withdraw the ruling"). Sign-flipped twin (verifier): **re-run a verdict whose population was EMPTY when
+  you took it — nobody tells you when the set fills up** (152 linear / 18 github now; 8 real WOULD-moves,
+  0 writes). Architect **withdrew ~950±150 OUTRIGHT** (shape, not parameter) and re-measured against
+  themselves: `gh_reopen_issue` is GUARDED (`main.rs:1838-1847`, I confirmed) ⇒ **destructive arm exposed
+  on ONE issue (#430); the COMMENT + Linear arms fire REGARDLESS ⇒ 16 github / 152 linear.**
+  (6) **THE STALE POSITIVE (into `ci-ok-green-only-with-same-run-check.md`).** `ci-ok` SUCCESS 5s after
+  `gh pr ready` = the 3-HOUR-OLD DRAFT run, unioned onto the SHA. **Premature ABSENCE is cured by
+  waiting; THE STALE POSITIVE IS NOT** — it is already COMPLETE, so the exit condition is satisfied by a
+  fact that will never stop being true and **waiting makes it worse.** **STANDING: BIND EVERY POLL TO THE
+  RUN ID, NEVER THE SHA** (catches at WAIT time, one step before the same-run rule). **My addition, read
+  at source:** `plan-a.yml:379-380` names the hazard AND `:482-483` asserts the window is **CLOSED** — and
+  it IS closed for *can-an-untested-draft-merge* and **wide open for *is-this-SHA's-ci-ok-about-my-build***.
+  **A CLOSURE ARGUMENT IS SCOPED TO THE QUESTION ITS AUTHOR ASKED, AND NOTHING CARRIES THAT SCOPE
+  FORWARD — record WHICH PROPERTY is handled.**
+  (7) **VOID-CLAUSE 4TH CLAUSE (verifier's ruling, into `stale-ledger-…`).** Builder's "void only if the
+  code-path diff is non-empty" REJECTED as **an ALLOWLIST OVER AN OPEN-ENDED DOMAIN** — same fail-open
+  shape as the `ci-ok` allowlist. Inverted: trigger stays **head-restricted** (fail-closed); resolution is
+  a **DENYLIST OF INERT PATHS** (`docs/state/*.md`, `docs/lessons/*.md`) — *what is code is unknowable,
+  what is provably inert is short and checkable*; and **DIFF AGAINST THE SHA YOU MEASURED, NEVER THE
+  PREVIOUS HEAD** (six chained arguments = six chances to be wrong; the direct diff is ONE). Also: their
+  checks use a **LITERAL sha**, which is immune to the zsh `${var}:path` trap **by construction**.
+  (8) **CLAIM-LOCK GAP (Instance 5 in `a-contract-is-an-unverified-claim.md`).** Orchestrator amended
+  `C-FEL-SCAFFOLD-CFTEAM-TYPECHECK` while draft **#696** had been fixing it for ~50 min; row read
+  `offered`, UNCLAIMED. **The claim is supposed to be the LOCK; an unclaimed row with an open PR means the
+  lock was never taken, so the ledger cannot warn you and the PR list is the only place the work is
+  visible.** Rule: `gh pr list --state open` BEFORE amending/re-offering. Not a criticism of the early
+  draft — **the draft went up, the claim did not.** Orchestrator also retracted their own novelty claim
+  unprompted: **attribution and validity are separate questions.**
 - **WAKE 49 — I DROPPED THE OBSERVATION THE ARCHITECT RULED, AND I WAS CARRYING A STALE KNOWN-RED.**
   Branch `srmcguirt/retro-followup-0728`, PR #692. Commits `74b00c5d` + `82735299`, remote-verified.
   Gate `check-lesson-refs` exit 0, **30** cited lessons. Killed nothing, touched no infra, set no
