@@ -233,6 +233,17 @@ jobs:
       # @aihu/server/native boundary). Blocks the @aihu/app@0.1.8-class leak
       # before publish. See investigation 4a796a8f-0f2b-4865-a498-73cf11b6f04c.
       - run: bun run check:runtime-purity
+      # check:grammar-v2 is deliberately NOT a step here yet, and the reason is
+      # recorded in scripts/gate-wiring-baseline.json rather than left to be
+      # rediscovered. Short version: it had never run in CI (its only route was
+      # `check:ci`, which no workflow invokes), and the moment you run it, it is
+      # RED on five FALSE positives — comments and strings that DESCRIBE the
+      # retired forms, including one warning string that tells users not to use
+      # them. Third instance of the #681/#689 class: a regex over raw source
+      # cannot tell code from text about code. Fixing that needs per-file-type
+      # judgement (a retired form in an .aihu file IS a use), so it is its own
+      # contract. Listed as KNOWN-ORPHAN DEBT until then — which at least prints
+      # on every run, unlike the dead chain that was hiding it.
 
   # ---------------------------------------------------------------------
   # DO NOT add a `name:` to this job.
@@ -351,6 +362,52 @@ jobs:
           bun-version: '1.3.8'
       - run: bun scripts/sync-readme.ts --check
 
+  gate-wiring:
+    # The FEL-428 meta-gate: every check:* gate must be invoked by some CI path,
+    # and its red path must have been EXECUTED and observed to exit non-zero.
+    #
+    # THIS JOB IS THE POINT (C-FEL-GATE-WIRING-RUNS). #680 shipped the meta-check
+    # into `check:ci` only, and `check:ci` is invoked by no workflow in this repo
+    # — the lesson-refs comment above already said so. So `grep -rn gate-wiring
+    # .github/` returned nothing and the gate that exists to forbid
+    # green-by-construction gates was one. It scored ITSELF reachable because its
+    # rule counted check:ci-chain membership, a fact about package.json rather
+    # than about CI. That rule is now conditional on a workflow actually invoking
+    # check:ci, so THIS JOB is what makes it honest — delete it and the
+    # meta-check reports itself an orphan (proven; that is a negative fixture).
+    #
+    # WHY ITS OWN JOB AND NOT A STEP IN `check`, corrected. My first version of
+    # this comment said the `code` filter does not guarantee package.json /
+    # .github/workflows. THAT WAS FALSE and it was measured false: `code` is
+    # `**` minus .team, docs, .claude, state-*.md, READMEs, CHANGELOGs and
+    # .changeset, so both ARE code. A false premise in a workflow comment is the
+    # exact failure this contract is about, so it is corrected rather than
+    # quietly dropped.
+    #
+    # The TRUE reason is the OTHER half of `check`'s `if:` — `draft == false`.
+    # A step in `check` is invisible on every draft PR, and agents are instructed
+    # to push a draft the moment they make an edit, so a wiring regression would
+    # go unseen for the entire life of the branch it was introduced on. This job
+    # carries no `if:` and no path filter: it runs on drafts too.
+    #
+    # Own-job costs THREE coordinated edits — this job, ci-ok's `needs:`, and
+    # ci-ok's RESULT LOOP — and this repo has shipped 1+2-without-3 twice (the
+    # palette job; #649). That risk is why a step was ruled first. It is now
+    # closed IN CODE, not by this comment: check-gate-wiring.ts asserts every job
+    # in ci-ok's `needs:` also appears in the result loop, bound to its own
+    # result. Drop the loop entry below and the gate goes red.
+    #
+    # Cheap like lesson-refs/readme-sync — reads text, spawns its own negative
+    # fixtures (~2s), needs bun + the repo but NO `bun install`, no build, no Rust.
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.3.8'
+      - run: bun run check:gate-wiring
+
   ci-ok:
     # Single stable REQUIRED status for branch protection. Always runs (even
     # when `check` / `examples` / `governed-examples` are skipped — e.g. a
@@ -412,7 +469,7 @@ jobs:
     # resolves every needed job to a terminal state (success/failure/
     # cancelled/skipped) before evaluating this job's `if: always()`, which
     # then runs regardless of what that state was.
-    needs: [changes, check, examples, governed-examples, lesson-refs, palette, readme-sync]
+    needs: [changes, check, examples, governed-examples, lesson-refs, palette, readme-sync, gate-wiring]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -436,6 +493,15 @@ jobs:
           # loop below, not just here: being in `needs` is being WAITED on, not
           # gated on (the palette bug above, and #649, both proved that).
           README_SYNC_RESULT: ${{ needs.readme-sync.result }}
+          # gate-wiring is always-on (no if:, no path filter) like readme-sync,
+          # so it is never `skipped` on a real event. It MUST appear in the loop
+          # below, not merely here: being in `needs` is being WAITED on, not
+          # gated on. That distinction is now MACHINE-CHECKED — check:gate-wiring
+          # parses this job and fails if any `needs:` entry is missing from the
+          # loop or bound to the wrong job's result. Deleting the loop entry
+          # while leaving this line is the palette/#649 defect, and it is the one
+          # direction nobody in this repo had ever proven until now.
+          GATE_WIRING_RESULT: ${{ needs.gate-wiring.result }}
           # `true` only for a pull_request event whose PR is a draft. For push
           # and workflow_dispatch, `github.event.pull_request` is null and this
           # evaluates to `false` — so the draft rule below can never fire on a
@@ -454,16 +520,49 @@ jobs:
           echo "lesson-refs:        $LESSON_REFS_RESULT"
           echo "palette:            $PALETTE_RESULT"
           echo "readme-sync:        $README_SYNC_RESULT"
+          echo "gate-wiring:        $GATE_WIRING_RESULT"
           echo "draft PR:           $IS_DRAFT"
           fail=0
-          for pair in "check:$CHECK_RESULT" "examples:$EXAMPLES_RESULT" "governed-examples:$GOVERNED_EXAMPLES_RESULT" "lesson-refs:$LESSON_REFS_RESULT" "palette:$PALETTE_RESULT" "readme-sync:$README_SYNC_RESULT"; do
+          # FAIL-CLOSED, and the inversion is the whole point. This loop used to
+          # read `if result = failure OR cancelled then fail=1` — an ALLOWLIST OF
+          # BAD VALUES over an open-ended domain, which is fail-open by
+          # construction. Misspell a var here or in the `env:` block above and
+          # the pair expands to `<job>:` with an EMPTY result; empty is neither
+          # "failure" nor "cancelled", so it matched nothing and PASSED. Drop the
+          # whole `env:` block and ci-ok — the SOLE required status — went green
+          # having read NOTHING, with zero error lines to notice. Measured on
+          # main, not theorised: 7 vars unset -> fail=0, 0 output lines.
+          #
+          # `needs.<job>.result` yields exactly {success, failure, cancelled,
+          # skipped}, so the two forms are behaviour-identical on every real
+          # value (truth table run, all four). Only empty/unknown moves, and it
+          # now moves to RED. A required status that errs toward red is one
+          # commit from fixed; one that errs toward green is the defect this
+          # repo has now shipped three times (palette, #649, this).
+          checked=0
+          for pair in "check:$CHECK_RESULT" "examples:$EXAMPLES_RESULT" "governed-examples:$GOVERNED_EXAMPLES_RESULT" "lesson-refs:$LESSON_REFS_RESULT" "palette:$PALETTE_RESULT" "readme-sync:$README_SYNC_RESULT" "gate-wiring:$GATE_WIRING_RESULT"; do
             name="${pair%%:*}"
             result="${pair#*:}"
-            if [ "$result" = "failure" ] || [ "$result" = "cancelled" ]; then
+            checked=$((checked + 1))
+            if [ "$result" != "success" ] && [ "$result" != "skipped" ]; then
               echo "::error::Required job '$name' did not pass (result=$result)."
               fail=1
             fi
           done
+          # POSITIVE CONTROL. The inversion above fixes bad VALUES and is blind to
+          # a vacuous LIST: empty the `for pair in ...` contents and fail=0 with
+          # zero iterations — the same green, the same silence. `fail=0` is an
+          # ABSENCE REPORT ("no failing job found") and is indistinguishable from
+          # "no job examined" unless the input is proven non-empty.
+          #
+          # `-ne`, not `-lt`, deliberately: adding an 8th job without updating
+          # this count goes RED until someone reconciles needs: / the loop / this
+          # number. That friction is the feature — it makes the triple explicit
+          # instead of conventional.
+          if [ "$checked" -ne 7 ]; then
+            echo "::error::ci-ok examined $checked jobs, expected 7 — the result loop is truncated or a job was added without updating this count."
+            fail=1
+          fi
           # FEL-437 — a draft skipped the build, so "skipped is allowed" must not
           # silently read as a pass. Announced as a WARNING, not a failure.
           #

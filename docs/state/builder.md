@@ -1,14 +1,268 @@
 # State — builder
 
-**Role:** BUILDER · **Workspace:** `almaty`
-**Last updated:** 2026-07-28 — C-FEL-434b LANDED (#683 @ `e7a1b7c2`),
+**Role:** BUILDER · **Workspace:** `almaty` · **Branch:** `fix/check-ci-dangling-gate-ref`
+**Last updated:** 2026-07-29 — C-FEL-GATE-WIRING-RUNS **READIED** (#691, head
+`a52ac18a`, 0 behind `origin/main`). C-FEL-434b LANDED (#683 @ `e7a1b7c2`),
 C-FEL-CI-RECEIPT open (#685), C-FEL-EXTERNALS record recovered (#656, merged).
 
 > Ownership note: `historian` claimed `docs/state/` at 13:24 on 07-26. This file
 > was flagged to them and to team-lead (ts `1785087210.788909`); rename or delete
 > on request.
 
-## C-FEL-434b — BUILT, awaiting verdict (PR #683)
+## C-FEL-GATE-WIRING-RUNS — READIED, awaiting verdict (PR #691)
+
+> **It sat as a DRAFT after the verifier PASS, so its only receipt was the
+> FEL-437 draft rendering** — `check` SKIPPED, `ci-ok` green off a build that
+> never ran. A verifier PASS does not produce a CI receipt; readying does.
+> Readied 2026-07-29 (`gh pr ready 691`, exit 0) at head `a52ac18a`, which is
+> **0 behind `origin/main`** and differs from the verified `464a3e31` only by
+> `docs/state/builder.md`. Real run `30414971204`. Do not re-derive whether the
+> draft green meant anything: it did not.
+
+**The FEL-428 meta-gate I shipped in #680 ran in NO WORKFLOW.**
+`grep -rn gate-wiring .github/` → nothing. Its only route was `check:ci`, and
+`plan-a.yml` already said in its own words: *"`check:ci` is invoked by no
+workflow in this repo."* The gate that exists to forbid green-by-construction
+gates was one, and it scored **itself** reachable because its rule counted
+check:ci-chain membership — a fact about `package.json`, not about CI.
+
+### The id churned twice; do not re-derive which one is real
+
+I guessed `C-FEL-GATE-WIRING-RUNS` → `claim` exit 2. The row was minted as
+`C-FEL-GATE-WIRING-REACHABLE`; I retitled to that. The orchestrator then MOVED
+the row back to `C-FEL-GATE-WIRING-RUNS` (REACHABLE = declined) so the PR title
+would not have to change again. **Final answer: `C-FEL-GATE-WIRING-RUNS`.**
+The reason it mattered: under squash the PR title becomes main's permanent
+commit message and the only durable link to the ledger row.
+
+### REACHABILITY and GATING are two properties. Only the first existed.
+
+Reachability: *does some workflow invoke this gate.* Gating: *does its failure
+fail the PR.* `ci-ok` is the sole required status, and its own comment says
+"being in `needs` is NOT being gated on; only appearing in the loop below is."
+
+`check-gate-wiring.ts` now asserts the second: every `ci-ok` `needs:` entry must
+appear in the RESULT LOOP **bound to its own job's `.result`**, unless it is
+exempt under BOTH keys — see "The exemption is TWO-KEY" below.
+
+### THE RECEIPT THAT MATTERS — the palette defect, reproduced in REAL CI
+
+Two pushes, identical except for **one line** in ci-ok's result loop. Same
+broken gate, same `needs:` entry:
+
+```
+run 30401891270  loop entry PRESENT   gate-wiring failure   ci-ok FAILURE
+run 30401968909  loop entry REMOVED   gate-wiring failure   ci-ok SUCCESS   <-- the defect
+run 30401814745  baseline, unbroken   gate-wiring success   ci-ok success
+```
+
+Nobody in this repo had ever proven that direction; it was argued from two past
+incidents (palette, #649). It is now measured. And in run 2 the gate NAMED its
+own ungating in the CI log — while ci-ok, being ungated, reported green.
+
+**`gate-wiring` ran on a DRAFT PR in all three runs.** That is the whole
+own-job justification and it is now evidence, not argument.
+
+### Own-job vs step changed position THREE times. Live tree = OWN-JOB.
+
+Sequence, so nobody re-derives it: I built own-job → architect + orchestrator
+countermanded to a step → I complied → **both withdrew** on reading the diff (I
+had done all 3 clauses) → I restored own-job and proved it → orchestrator then
+ruled "the step stands, keep what is in your tree", written while my pushed head
+was still the step version.
+
+**The deciding fact arrived after that ruling and it was theirs, not mine:** the
+step's whole stated advantage was "zero edits to ci-ok — the single
+highest-blast-radius line in the repo." The fail-closed inversion below, ruled in
+by all three roles, edits that exact loop **either way**. So the step no longer
+buys what it was chosen for, while own-job demonstrably runs on drafts (four CI
+runs) and its three-clause risk is now closed in code. Flagged to the
+orchestrator rather than decided by me; reverting is one command if they hold.
+
+### Own-job was countermanded, then the countermand was withdrawn — on measurement
+
+Architect and orchestrator both ruled "step in `check`", because own-job needs
+three coordinated edits and this repo shipped 1+2-without-3 twice. I complied and
+reverted. Both then withdrew after reading the diff: I had done 3/3. **Do not
+re-litigate it, and do not "simplify" it back to a step** — a step in `check`
+carries `draft == false` and is invisible on every draft PR.
+
+**My own-job comment carried a FALSE premise and it was caught by the
+orchestrator, not by me:** I wrote that the `code` filter does not guarantee
+package.json / `.github/workflows`. Measured false — `code` is `**` minus
+.team, docs, .claude, state-*.md, READMEs, CHANGELOGs, .changeset, so both ARE
+code. Fixed in the file. A false premise in a workflow comment is the exact
+failure this contract is about.
+
+### Sabotage receipts, unpiped `$?`, all on head e73a6429
+
+```
+GATING (three directions, none previously provable here)
+  in needs:, missing from the loop            -> 1
+  in the loop, bound to another job's result  -> 1
+  runs a gate, absent from needs:             -> 1
+REACHABILITY / FIXTURE
+  reintroduce the check:grammar-v typo        -> 1  DANGLING
+  delete the gate-wiring job's run step       -> 1  it names ITSELF
+  green control red                           -> 1
+  wire grammar-v2 without decrementing        -> 1
+  MOON_GRAPH_ROOT should-flag / not-flag / unset -> 1 / 0 / 0
+GREEN
+  check-gate-wiring.ts / check:lint / typecheck  -> 0 / 0 / 0
+```
+
+### ci-ok FAILED OPEN, and it was on main, not on my branch
+
+The result loop read `if result = failure OR cancelled then fail=1`. **An
+allowlist of BAD values over an open-ended domain is fail-open by construction.**
+Misspell a var in the loop or in the `env:` block and the pair expands to
+`<job>:` with an EMPTY result — neither "failure" nor "cancelled" — so it matched
+nothing and PASSED. Drop the whole `env:` block and `ci-ok`, the sole required
+status, went green having read **nothing**, with zero error lines.
+
+Two lines, and the second is **not** redundant: the inversion fixes bad VALUES
+and is blind to a vacuous LIST. Empty the `for pair in ...` contents and `fail=0`
+with zero iterations — same green, same silence. `fail=0` is an ABSENCE REPORT,
+indistinguishable from "no job examined" until the input is proven non-empty.
+
+```
+CHECK=      current-main    proposed
+success     0 err=0         0 err=0
+skipped     0 err=0         0 err=0
+failure     1 err=1         1 err=1
+cancelled   1 err=1         1 err=1
+neutral     0 err=0         1 err=1   <- accepted tradeoff, not in the domain
+EMPTY       0 err=0         1 err=1   <- the defect
+UNSET       0 err=0         1 err=1   <- the defect
+env: block dropped   0 err=0  ->  1 err=7
+pair list emptied    0 err=0  ->  1 err=1   <- only the count guard closes this
+```
+
+`-ne`, not `-lt`: adding an 8th job without updating the count goes RED until
+someone reconciles needs: / loop / count.
+
+**The literal is DERIVED, not hand-maintained** — `check-gate-wiring.ts` parses
+ci-ok's `[ "$checked" -ne N ]` and asserts N equals the loop's pair count. That
+was the orchestrator's objection to the guard ("if it comes back it should be
+DERIVED, not a magic number") and it is the right objection: architect's own
+diagnosis is that **a guard whose reference value sits in the file it guards is a
+CONSISTENCY check, not a CORRECTNESS one** — it catches only the person who
+edited one side. The two referents now live in different files.
+
+**Do not delete the guard as redundant with the parse.** The parse makes
+`check:gate-wiring` red, i.e. it makes the *gate-wiring job* red — but in the
+exact scenario it detects (a job dropped from the result loop) ci-ok no longer
+reads that job, so **ci-ok itself stays green**. Production receipt: run
+`30401968909`, gate-wiring failure + ci-ok SUCCESS. The parse DETECTS; only the
+runtime guard REJECTS. Neither subsumes the other.
+
+**A harness lesson I paid for in this same measurement.** My first truth table
+varied `GATE_WIRING_RESULT` and reported main as `fail=0` on *every* value,
+including `failure` — which reads as "main never catches anything." False.
+`gate-wiring` is not in main's loop at all (it is my addition), so varying it
+could not move main. The harness ran perfectly and answered about a variable the
+subject never reads. **Vary something present in BOTH sides, or you are
+measuring your own diff against nothing.**
+
+### The full sabotage matrix — including the three nobody had a detector for
+
+```
+A  untouched                                         -> 0   no false red
+D  drop pair from loop, count left at 7              -> 1
+F  drop pair AND decrement count (2 self-consistent) -> 1
+F+ F AND drop from needs: (3 self-consistent)        -> 1   reported as "defeats
+                                                            all three" — measured
+                                                            against a head that
+                                                            predates the parse
+G  count guard deleted entirely                      -> 1
+H  count literal drifts, loop unchanged              -> 1
+I  loop entry mis-bound to another job's result      -> 1
+J  reintroduce the check:grammar-v typo              -> 1
+K  delete the gate-wiring run step                   -> 1   names ITSELF
+```
+
+### The exemption is TWO-KEY. Do not "simplify" it to a pure derivation.
+
+`changes` sits in ci-ok's `needs:` without a result-loop entry, legitimately —
+ci-ok consumes `needs.changes.outputs.code`. Exempting it takes **both**:
+
+```
+KEY 1  the job is DECLARED in NEEDS_NOT_GATED      (a human act)
+KEY 2  ci-ok really reads needs.<job>.outputs.*    (a machine-verified property)
+```
+
+**I deleted key 1 last wake and had to put it back.** My reasoning was that any
+allowlist is the fail-open shape this contract fixed in ci-ok's own loop. Wrong,
+and measurably so:
+
+```
+pure derivation   add a job to needs: + one unused `FOO: ${{ needs.x.outputs.y }}`  -> 0  SILENTLY EXEMPT
+two-key           same mutation                                                     -> 1
+```
+
+Pure derivation lets an exemption **appear** the moment someone adds an outputs
+reference — one key, no declaration. And the hazard I thought I was closing does
+not exist against the two-key form: appending a name cannot silence a real gate,
+because key 2 still fails. A new legitimate outputs-provider that nobody declared
+is FLAGGED — friction that fails **closed**, the right direction for an exemption.
+
+Three roles had independently measured the two-key form as stronger than the
+pure derivation *before* I deleted it. I read a critique of architect's proposed
+**spec** as a critique of my **shipped code** and "fixed" something that was
+already correct. Check whose artifact a critique is aimed at before acting on it.
+
+Both keys now carry their own negative fixture, which neither form had before:
+
+```
+KEY 1  outputs consumed but job never declared   -> 1   the pure-form hole
+KEY 2  declared but ci-ok never reads outputs    -> 1
+OR     a job BOTH gated AND outputs-consumed     -> 0   no false red
+M1     in needs:, neither gated nor declared     -> 1
+```
+
+**OR, not XOR.** A job may legitimately be both gated *and* export a value ci-ok
+reads. The exemption branch is only reached when the job is absent from the loop,
+so that arrangement never consults the list. XOR would flag it, and a false red
+is pressure to widen the exemption — the hatch re-opening under another name.
+
+### Verifier PASS at `faee81b9`; the corrected void clause re-run at my head
+
+Their first integrity check named only `checked" -ne 7` in plan-a.yml — a strict
+SUBSET of what the verdict rested on, while the artifact that was actually
+rewritten twice was `check-gate-wiring.ts` (+81/-30 across those heads). They
+caught it themselves and widened it. **A one-line integrity check is a collapsed
+view of a verdict**, and it converts "re-run this" into "this is still fine".
+
+Corrected clause, run by me at head `464a3e31` (docs-only since `faee81b9`):
+
+```
+plan-a.yml          grep -c 'checked" -ne 7'   -> 1   (must be 1)
+check-gate-wiring   grep -c NEEDS_NOT_GATED    -> 5   (must be >=2)
+check-gate-wiring   grep -c outputsRead        -> 6   (must be >=2)
+positive control    wc -l of the extracted file -> 867
+check:gate-wiring                              -> EXIT 0
+```
+
+### #689 is GUARDED by my fixture, not weakened
+
+With `stripNonCode` sabotaged to identity: the real tree reproduces the original
+false edges (`plugin-agent-readiness → signals`, `cli → context`), deleting the
+real `- server` edge is still caught, **and** my `should-not-flag` tree goes red —
+its alpha carries a comment *and* a backtick template literal quoting an import of
+`@fixture/gamma`, which it does not depend on. A fixture exercising only the
+false-positive direction is green-by-blindness.
+
+### check:grammar-v2 — baselined, APPROVED, and now its own contract
+
+Wiring it reds CI on **five FALSE positives**, all comments or strings that
+DESCRIBE a retired form. Third instance of the #681/#689 class. It is **not** a
+`stripNonCode` reuse — that blanks template literals and preserves ordinary
+strings, and a grammar gate needs the opposite on both counts; a retired form in
+an `.aihu`/`.md` file IS a use. Queued as **C-FEL-GRAMMAR-V2-LITERALS**, not
+mine. Baselining was ratified by both architect and orchestrator against the
+file's own advice, because it converts silence into debt that prints every run.
+
+## C-FEL-434b — MERGED (PR #683, e7a1b7c2)
 
 agent-readiness now CONSUMES the compiler's agent-meta sidecars, so a
 **client-target** build lists its `@agent` components in `llms.txt`. Before this,
@@ -154,6 +408,34 @@ landable — VOID if `gh pr view N --json headRefOid` differs" is detectably wro
 to any reader in one command. "PR #N is landable" is silently wrong the moment
 the head moves. Same move this repo keeps landing on: make the failure
 detectable rather than promise to be careful.
+
+### Polling check-runs BY SHA after readying reads the DRAFT run — I hit it here
+
+`gh api .../commits/<sha>/check-runs` returns **every run that ever touched that
+sha, unioned**, with no marker of which run is current. A draft PR already
+produced a `ci-ok` at that sha (green off a SKIPPED `check` — the FEL-437 draft
+rendering). So the obvious wait loop
+
+```
+until ci-ok is completed; do sleep; done      # WRONG
+```
+
+**returned on the first iteration, 5 seconds after `gh pr ready`**, quoting the
+three-hour-old draft `ci-ok=success`, while the real run's `check` had not even
+started. Right answer at the top of the output, wrong run underneath it.
+
+This is the *positive* twin of the premature-absence trap above, and it is worse
+in one specific way: the stale positive is **already complete**, so no amount of
+waiting fixes it. Waiting is the remedy for a premature negative; here waiting
+changes nothing, because the loop's exit condition was satisfied by a fact that
+will never stop being true.
+
+**Bind every poll to the run id, not the sha.** Capture the id first
+(`select(.details_url|contains("/runs/<id>/"))`), then poll within it. Same
+disease as the shared-run-id rule at the bottom of this file — `check` and
+`ci-ok` must come from ONE run — except that rule catches it at read time and
+this one catches it at wait time. The tell that a readied run is the live one:
+`changes` flips `skipped` → `success`.
 
 ## FEL-426 — DONE (founder-ruled: "not use an unsafe component… check by CI")
 
@@ -308,12 +590,61 @@ list. Stating it rather than silently skipping.
 - Do **not** re-litigate the FEL-434b addressing scheme or re-read
   `extract-read-policy.ts` to answer "why is my scoped component filtered out" —
   both answers are recorded above.
+- Do **not** re-derive whether `check:grammar-v2`'s five hits are real. They are
+  **not** — all five are comments/strings, listed with line numbers in
+  `scripts/gate-wiring-baseline.json`. And do **not** "fix" it by importing
+  `stripNonCode` from `check-moon-graph.ts`: its two rules are backwards for a
+  grammar gate, reasons recorded in that same file.
+- Do **not** trust a piped `git push`'s exit code, or a background-task
+  notification that reports one. `git ls-remote` is the only proof.
+- **`git show "$SHA:path"` in zsh SILENTLY EATS CHARACTERS.** `$H:s...` parses
+  `:s` as a history-substitution modifier, so `$H:scripts/check-gate-wiring.ts`
+  became `<sha>k-gate-wiring.ts` → `fatal: ambiguous argument`, exit 128, and a
+  `grep -c` over the empty result printed **0**. Read naively that says the
+  symbol is gone. Use `"${H}:path"` — braces stop the modifier. Three roles hit
+  this in one day. Always pair the read with a positive control (`wc -l` the
+  extracted file); a non-zero `git show` exit is could-not-check, never absent.
+- **Never `git reset --soft origin/main` to squash your own commits.** If your
+  branch is BEHIND, that stages the INVERSE of everything merged since — for me,
+  40 files of other people's work staged for deletion, looking exactly like my
+  own change set. The command succeeds and the output is well-formed. Reset
+  against the **literal fork-point sha**; `origin/main` is a moving coordinate.
+- Do **not** re-litigate own-job vs step for `gate-wiring` from first
+  principles — the position changed three times and every change was the
+  orchestrator's or architect's, never mine. The live tree is **own-job**, and
+  the deciding fact is recorded below. Do not add a fourth id for this work.
+- Do **not** "simplify" ci-ok's loop back to `if failure or cancelled`. That is
+  the fail-open form, measured. And do not delete the `checked -ne 7` guard as
+  redundant — the inversion does not cover a truncated pair list.
 
 ## Queue behind this
 
-1. **C-FEL-GATE-FIXTURE-RAMP** — shrink `notYetProven` in batches.
-2. **C-FEL-CIOK-CANCELLED-MSG** — fold into the next PR that touches
-   `plan-a.yml`'s `ci-ok` block; do not open a PR just for it.
+1. **C-FEL-GRAMMAR-V2-LITERALS** — the five false positives, filed by the
+   orchestrator as its own contract, NOT mine. Needs per-file-type judgement
+   (`.aihu`/`.md` hit = a real use; `.ts` comment or string = not), NOT a
+   `stripNonCode` reuse. Wiring it into `plan-a.yml` is one line once the scanner
+   is right, and doing so **forces** deleting `check:grammar-v2` from
+   `scripts/gate-wiring-baseline.json` in the same PR — the gate goes red
+   otherwise (proven, receipt in #691).
+2. **C-FEL-CIOK-GATING-INVARIANT** — queued by the orchestrator, **but check
+   whether it still has content before dispatching anyone.** Its spec was "parse
+   ci-ok, assert every `needs:` job is read in the result loop, with the
+   exemption derived rather than listed, and each pair's env var BOUND." All
+   three clauses shipped in #691 and are proven by the matrix above. What may
+   remain is the third referent: a *coherent* un-gating (drop from loop +
+   decrement count + drop from `needs:`) is invisible to the guard, the parse and
+   the reachability half, because the job is still defined and still runs. The
+   only referent that survives it lives outside every file in the repo — the CI
+   run's own job conclusions, where a coherently un-gated job is RED while ci-ok
+   is GREEN. Scope it to the 22 gates this script already DERIVES; a hand-typed
+   list of advisory jobs (bench/chromatic are red-tolerant) rebuilds the hatch.
+3. **C-FEL-GATE-FIXTURE-RAMP** — shrink `notYetProven` in batches. Now cheaper
+   than it was: `NEGATIVE_FIXTURES` takes an optional `green` control, and
+   `MOON_GRAPH_ROOT` is the worked example of giving a gate a fixture-scan mode
+   without changing what it asserts.
+4. **C-FEL-CIOK-CANCELLED-MSG** — fold into the next PR that touches
+   `plan-a.yml`'s `ci-ok` block; do not open a PR just for it. #691 touches that
+   block but is already carrying a disclosure of its own; do not stack it there.
 
 Older queue (`.tastemaker/check_contrast.py`, FEL-423) predates 07-28; confirm
 with the orchestrator before picking either up. `#609` and FEL-391 went to
