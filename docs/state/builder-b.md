@@ -1,11 +1,23 @@
 # State — builder-b
 
 **Role:** BUILDER-B · **Workspace:** `zurich`
-**Base:** `origin/main` @ `642860f3` (rebased 2026-07-28, 0 behind)
-**Last updated:** 2026-07-28. Seven PRs merged, two open — #655 (FEL-GH478)
-and #684 (C-FEL-SCAFFOLD-PM-COMPAT, at `ca33c813`, rebased, **DRAFT → READY**;
-the `check:moon-graph` red that was blocking it is **gone** — #689 landed the
-comment-stripping fix and my comments needed no rewording, see 17).
+**Base:** `origin/main` @ `1bb0dd7c` (2026-07-28)
+**Last updated:** 2026-07-29. **Nine PRs merged, three open** — **#678** (this
+file — the single state PR; #693 was merged into it and closed, see 32), **#695**
+(READY, `create.ts` git-init, see 33–35), and **#696** (READY at `b545e78b`,
+the cf-team scaffold, see 38–40). #655 (FEL-GH478) has **MERGED** since the
+last update; the line above claiming it open was stale within a wake.
+NO CONTRACT EXISTS for #695 or #696 — `swarm-bus claim --id
+C-FEL-CREATE-GIT-STATUS` → exit 2; both disclosed on the bus, mints requested.
+**#684 (C-FEL-SCAFFOLD-PM-COMPAT) MERGED** 2026-07-28T21:27:49Z, merge commit
+`1bb0dd7c`, from head `4d6e1793` — the exact sha pushed and verified on the
+remote, so nothing landed unmeasured. Verified *on main*, not on the branch:
+`git grep -n allowBuilds origin/main -- packages/cli` → the emitted key at
+`src/templates-tooling.ts:287`, the golden agreeing at
+`tests/legacy-snapshot.golden/pnpm-workspace.yaml:13`, and
+`/^allowBuilds:$/m` asserted at `tests/scaffold-pnpm-builds.test.ts:79,147`;
+all four file lists emit `pnpm-workspace.yaml`. The `check` job ran (not
+skipped) and was green on that head.
 
 > Ownership: `docs/state/` is historian's. This file exists because the
 > orchestrator asked each role to write one before standing down.
@@ -274,15 +286,227 @@ shells out to `tsc --strict`; a full `bun run test packages/compiler` right
 after a cargo build reports it failed. It passes 4/4 in isolation. Re-run the
 file alone before reporting a red.
 
-**A red `ci-ok` on a draft is FEL-437 working, not a defect** — my own fix. The
-draft-time run reports `ci-ok failure` with `check` skipped; mark the PR ready
-and the re-run supersedes it. Do not debug it, and do not report the draft run
-as the PR's verdict.
+**~~A red `ci-ok` on a draft is FEL-437 working, not a defect~~ — SUPERSEDED
+2026-07-27 by #670 (`41c37df6`, merged 01:12Z).** A draft now emits a
+`::warning::` that says explicitly "NOT evidence of a pass"; it does **not**
+fail `ci-ok`. So on any run produced **after 01:12Z, a red `ci-ok` on a draft
+means something real** — triage it, do not wave it off as my old guard.
+Transition hazard: runs that PREDATE #670 still show the retired FAILURE, so a
+draft red is ambiguous for a while — name which run and its timestamp when you
+report one. This paragraph was left standing for several wakes after it became
+false; a durable file is exactly where a superseded rule does the most damage,
+because it arrives pre-trusted.
 
 **Gate currency is the needs-list, not the behind-count.** A PR can be 0 behind
 and still remove a required job from `ci-ok`'s `needs`. Diff the line directly,
 and assert both sides are non-empty first — two failed `git show` calls make
 `diff` succeed and report IDENTICAL.
+
+---
+
+## 2026-07-27 (later) — the moon graph, the WAL, and a dead lane
+
+Four contracts, one theme: **a gate that cannot fail, or that fails for reasons
+unrelated to your diff, carries no information.**
+
+**C-FEL-MOON-ROLLDOWN (#666, merged `70775ea9`).** moon runs a bare `command:`
+through bash **without `node_modules/.bin` on PATH**; `bun run` adds it. So
+`rolldown -c` died at exit 127 on a cold cache while the sibling `bunx tsc`
+tasks were fine — `bunx` resolves the local binary itself. Fix: prefix the bare
+`.bin` commands with `bunx`. **This fix is UNGATED**: nothing in CI runs
+`moon run <task>` on a cold cache, so nothing stops the next `moon.yml` from
+adding a bare command tomorrow. Instances closed, class open.
+
+**C-FEL-411 (#671).** `packages/editor/moon.yml` said `dependsOn: [signals]`
+while its tests import `@aihu/compiler`, so `editor:typecheck` could be
+scheduled before `compiler:build` — TS2307, intermittently. The guard
+(`scripts/check-moon-graph.ts`) **derives** required edges from what each
+package actually imports rather than comparing against a hand-list, because a
+hand-list drifts exactly the way the `node:` allowlists and the publish-all
+`PKGS` array did. Cycle-safe: an import that would close a cycle is reported
+INFORMATIONAL, never demanded — the three deliberate lazy-import cycle-breakers
+survive. 56 missing edges / 19 packages. **Landing order: #666 BEFORE #671**,
+because #671 alone converts an intermittently-red lane into a
+deterministically-red one (every newly-ordered cold `compiler:build` hits 127).
+#666 has since merged, so that constraint is satisfied.
+
+**C-SWARM-WAL-STALE (#674).** `~/.swarm/bus.db` is WAL-mode and swarm-bus never
+checkpointed, so a `cp` of the main file alone was hours stale. Shipped both:
+checkpoint-on-write (best-effort — it swallows `SQLITE_BUSY`, because the write
+already committed and failing the command afterwards would report a lie in the
+other direction) **and** `swarm-bus export` (`VACUUM INTO`).
+
+> **The discovery, measured not argued: under a HELD READER neither
+> `wal_checkpoint(PASSIVE)` nor `(TRUNCATE)` can backfill the main file — but
+> `VACUUM INTO` can.** `cp`=1 vs live=6; `export`=6=live. So `export` is the
+> *guarantee* and checkpoint is the *optimisation*. If you ever need a
+> trustworthy copy of the bus, use `export`, never `cp`.
+>
+> Corollary already biting elsewhere: **`md5 ~/.swarm/bus.db` unchanged is NOT
+> evidence the bus was untouched.** In WAL mode it proves only that nothing
+> checkpointed.
+
+**C-FEL-MATRIX-PROTO (#677).** Every cell of the Scaffold DX matrix died at
+`pm-install` with `proto::commands::run::fallback_loop`, before any aihu code
+ran (2/15 passing).
+
+**The contract's stated cause was wrong, and my own first attempt proved it.**
+The dispatch said the cause was `actions/setup-node@v4` adding a *second* node
+store alongside proto's. I built exactly that fix — delete `setup-node` — and
+its own run falsified it:
+
+| | run | node winning PATH | `fallback_loop` | SUMMARY |
+|---|---|---|---|---|
+| baseline | 30318406544 | `/opt/hostedtoolcache/…` (shim) | yes | 2/15, all at pm-install |
+| attempt 1: delete `setup-node` | 30321617019 | `/usr/local/bin/node` (shim) | yes ×8 | 2/15, npm still at install |
+| attempt 2: proto **then** `setup-node` | 30322552896 | real node v22.23.1 | **0** | **6/20** |
+
+Deleting `setup-node` **moved** the collision instead of removing it. So the
+cause is not "two stores" — it is that **the winning `node` on PATH is a proto
+shim at all**. proto refuses to exec a shim rather than recurse, and it bites
+every child a package manager spawns: esbuild's `sh -c node install.js`, `vite`,
+and yarn's own `#!/usr/bin/env node` launcher.
+
+Fix: `setup-toolchain` **first** (moon stays on PATH for the cf-team cell), then
+`setup-node` **last**, so a real node binary is prepended ahead of proto's shims.
+The ordering is counter-intuitive and is commented in the workflow with both run
+ids and both collision paths.
+
+> Attempt 1 was not wasted and I would build it again. It moved yarn from dying
+> at install to install+typecheck passing, and that movement is what isolated
+> the residual. **A wrong hypothesis that relocates a failure has told you
+> something; one that changes nothing has not.**
+
+**A step can pass while achieving nothing.** `npm install --global pnpm yarn`
+ran under *proto's* npm, printed `added 2 packages in 3s`, and left
+`pnpm --version` **empty** — the globals went to a prefix never exported onto
+PATH. So the pnpm row said SKIP for the whole life of the lane and the grid was
+15 cells wide instead of 20. Same absent-value shape as everything else here.
+
+**The lane now produces signal, and the residual failures are real defects**
+(out of scope for that contract — reported, not fixed): pnpm ×4
+`ERR_PNPM_IGNORED_BUILDS` (templates declare no `pnpm.onlyBuiltDependencies`);
+yarn ×4 `Cannot find package '@aihu/store' imported from @aihu/app/dist`.
+
+> **CORRECTION — I diagnosed that last one wrong, and the wrong fix is the
+> tempting one.** I reported it as "`@aihu/app` imports `@aihu/store` without
+> declaring it." It **does** declare it. Verified at source:
+> `packages/app/package.json` has `dependencies: {}` and lists `@aihu/store`
+> (with `arbor`, `router`, `runtime`, `server`, `signals`) under
+> **`peerDependencies`**. **Yarn 1 does not auto-install peers**, unlike npm 7+
+> and pnpm — which is exactly why *only* the yarn column fails.
+>
+> So the fix is **NOT** to move `@aihu/store` into `@aihu/app`'s
+> `dependencies`: that risks a duplicate store instance and is the wrong layer.
+> The **scaffold template** must declare the peers the generated app needs.
+>
+> My instinct that this rhymed with the FEL-391 residual (`@aihu/use` cannot
+> import `@aihu/reactive` — packaging, not doctrine) was reasonable and the
+> mechanism turned out to be different. Recording the miss rather than editing
+> the sentence: "same shape as a thing I already know" is a fast way to a
+> confident wrong answer, and a missing dep and an uninstalled peer look
+> identical from the error message alone.
+
+### Verified-from-source ≠ true of the live bus
+
+The installed `~/.swarm/bin/swarm-bus` predates three merged `packages/swarm`
+PRs. Merging a `packages/swarm` PR changes nothing about the binary you
+actually run; nobody owns the rebuild+reinstall step. #662 shipped a closed
+verb enum that would have jammed the swarm and never did — **the protection was
+accidental, a deployment gap made it moot.** Filed as C-SWARM-DEPLOY-GAP.
+
+---
+
+## 2026-07-29 — three defects stacked in one cell, and the vacuous test
+
+**#696**, contract-less, taken off #695's own matrix evidence. cf-team FAILED
+at `typecheck` on **all four package managers** (run `30404220223`, a 9/20
+grid). All four is what proves it is not a PM defect — the same reasoning as
+item 14, arrived at from the other direction.
+
+**Each fix removed its target completely and revealed the next one. That is
+what a right hypothesis looks like, and it is the same instrument as the wrong
+one in C-FEL-MATRIX-PROTO: read the DELTA, not the pass count.** Three
+dispatched runs, `mode=local -f template=cf-team`:
+
+| run | under test | `git exit 128` | `TS2688` | grid |
+|---|---|---|---|---|
+| 30404220223 | before | **4/4 cells** | hidden behind it | 0/4 |
+| 30415446060 | + fix 1 | **0** | 4/4 cells | 0/4 |
+| 30416020813 | + fix 1+2 | 0 | **0** | 0/4 |
+
+The grid column never moved. **A summary count is not a measurement of your
+change** — three times here it said 0/4 while the thing I fixed went to zero.
+
+1. **`git init` leaves the repo on the MACHINE's branch, and the template
+   declares a different one.** cf-team ships `.moon/workspace.yml` with
+   `defaultBranch: 'main'`; `git init` creates whatever ambient
+   `init.defaultBranch` names. moon then resolves `base="main" head="HEAD"`
+   against a repo with no `main` → `fatal: ambiguous argument 'main'`, exit 128.
+   Fixed in **both** implementations — `scaffold-pipeline.ts` and `create.ts` —
+   because item 33 is the record of what happens when only one is fixed.
+   `git symbolic-ref HEAD refs/heads/main`, **not** `git init -b main`: `-b`
+   landed in git 2.28 (Jul 2020) and is `error: unknown switch 'b'`, exit 129,
+   on anything older. It must run **before** the first commit or it orphans
+   that commit instead of renaming the branch.
+2. **A tsconfig `types` entry is a hard requirement that nothing installs.**
+   cf-team's root tsconfig names `@cloudflare/workers-types` and no manifest
+   declares it → `TS2688`, whole program fails, and tsc never says the cause is
+   a missing dependency. The guard walks whatever tsconfigs the templates ship,
+   so it asserts the class.
+
+### The mutation result to carry: a test that is green *because of your own box*
+
+Run per-mutation (item 34's procedure), recording which test each kills:
+
+```
+drop the symbolic-ref command                      -> 4 tests fail
+drop the devDependency                             -> exactly the workers-types case (1 of 4)
+drop symbolic-ref AND set the test's ambient
+  config to `main` instead of `trunk`              -> the property test PASSES
+```
+
+**That third row is the finding.** Written the obvious way, the acceptance is
+**green on any developer box that already defaults to `main`, while the defect
+is live** — and this box does default to `main`, so my own first probe of the
+mechanism (`git init` in `/tmp`, read the branch) reported `main` and was
+*evidence for the wrong conclusion*. Only the positive control caught it:
+`expect(git(dir,'config','init.defaultBranch').out, 'the hostile ambient config
+did not reach git — the assertion below would be vacuous').toBe('trunk')`.
+
+**Generalisation worth more than the fix: when the property under test can be
+satisfied by the ENVIRONMENT rather than by your code, the test must make the
+environment hostile AND assert that it succeeded in doing so.** Otherwise it is
+the empty-and-green class wearing an assertion. Every trap in this file that
+cost a wake — the SKIPping matrix cell, `npm install --global` printing `added
+2 packages`, the pnpm-10 key that is indistinguishable from no file at all —
+is this same shape. This is the first one where **I wrote the test myself and
+it would have shipped green.**
+
+Second-order, and cheap: my first mutation attempt was a `perl -0pi` whose
+escaping did not match, so it changed nothing and the suite passed. I caught it
+only because the harness asserts the mutation APPLIED (item 35) — `wc -l`
+before/after, abort if equal. **Keep that assertion; a no-op mutation reports a
+confident green and looks exactly like a killed one that survived.**
+
+### Still red, reported not fixed — the third layer
+
+Run `30416020813` leaves cf-team at:
+
+```
+src/main.ts(10,27): error TS2307: Cannot find module '@__APP_NAME__/shared'
+src/main.ts(12,44): error TS2307: Cannot find module '@aihu-plugin/agent-readiness'
+```
+
+`@__APP_NAME__` reached the emitted scaffold **verbatim**. Placeholders expand
+only in `.tmpl` files and **11 files** in that template carry placeholders
+without the suffix (`apps/web/src/main.ts`, both `.aihu` SFCs, the three
+`auth/*.ts`, the three `.env.example.*`, `packages/shared/src/index.ts` and its
+test). It is **not** a rename: three are `conditionalFiles` with a `rename`
+field, so `template.config.js` moves with them and the legacy-snapshot golden
+may need a refresh. Separately, `@aihu-plugin/agent-readiness` is a real
+package here but is absent from `apps/web/package.json.tmpl`'s dependencies.
+Reported on the bus as a proposed contract; **not** folded into #696.
 
 ---
 
@@ -369,14 +593,13 @@ and assert both sides are non-empty first — two failed `git show` calls make
    produced the numbers. Unset `AIHU_COMPILE_BIN` = the published addon.
 9. Do not re-derive the slot fallback shape. `slot()` is a terminal leaf;
    fallback requires `branch('slot', …, [b()])`. Both directions are covered by
-   `packages/compiler/tests/slot-fallback-drive.test.ts`.
 10. **Do not post to Slack.** Founder ruling 2026-07-27: the bus
    (`~/.swarm/bin/swarm-bus`) is the only channel the reconciler, console and
    Linear/GitHub sync read. Slack-only work did not happen, in ledger terms.
 11. Do not set your own contract status to `verified` / `no-claims`. That is
-   the supervisor's reconcile pass. `no-claims` on a contract you own means
-   your claims were not extractable — send the verdict again with `--claims`
-   in `key:value` shorthand and `--pr`, do not argue about it in prose.
+    the supervisor's reconcile pass. `no-claims` on a contract you own means
+    your claims were not extractable — send the verdict again with `--claims`
+    in `key:value` shorthand and `--pr`, do not argue about it in prose.
 12. **`@aihu/app` declares NO runtime `dependencies` — every import it makes is
    a `peerDependency`.** Verified at source 2026-07-28: `dependencies` is
    literally absent from `packages/app/package.json`; the peers are `arbor`,
@@ -607,12 +830,48 @@ and assert both sides are non-empty first — two failed `git show` calls make
    ```
    The A2A test that "timed out at 5092 ms" completes in **540 ms** once past the
    first import: the budget is eaten by transform/collect, not by assertions.
-   So **the daemon leak (DECIDE `ffba4878`) has crossed out of the RSS column and
-   into correctness of the test signal** — that is a sharper severity statement
-   than either ~41 GB RSS or fork() exhaustion, and it is the one that costs
-   agent-wakes. Before reporting any red, print `vm.loadavg` and re-run with
+   Before reporting any red, print `vm.loadavg` and re-run with
    `--testTimeout=30000`; a red that survives that is real, a red that does not
-   is the box.
+   is the box. **That triage command is the part that survives, and it is
+   untouched.**
+
+   ~~So the daemon leak (DECIDE `ffba4878`) has crossed out of the RSS column
+   and into correctness of the test signal — a sharper severity statement than
+   either ~41 GB RSS or fork() exhaustion.~~
+   **STRUCK 2026-07-29. THE OBSERVATION WAS RIGHT AND THE ATTRIBUTION WAS
+   WRONG, AND I AM THE ONE WHO PUT IT ON MAIN.** Architect found it; four roles
+   measured it; I then measured it myself rather than citing them, because a
+   citation and a reproduction look identical in prose:
+   ```
+   ps, 22:16:22Z, my own selector
+     live-daemon.js  n=1216  cpu=  4.30%  rss=36.3GB   <- 0.04 of one core. IDLE.
+     bun server.ts   n=  21  cpu=894.80%  rss= 2.5GB   <- ~9 of 10 cores
+     orphans ppid=1  n=   5  cpu=354.90%              <- 3.5 cores, 40% of the class
+   top -l 2, SECOND sample (instantaneous — `ps` %CPU is a LIFETIME AVERAGE,
+   which none of us named while three roles argued off ps output):
+     the top 11 consumers are ALL `bun`. NOT ONE daemon appears.
+   ```
+   Reaping every one of the 1216 daemons would recover ~4% of a single core and
+   fix **nothing**. The remedy my framing implied is the one remedy that cannot
+   work.
+   **The lesson is not "I was wrong about a number", it is HOW the wrong number
+   won an argument:** the daemons had a tidy integer, a known spawn site, a TTL
+   to reason about and a satisfying decay curve. The saturator had none of those
+   and was never enumerated by anybody, for a whole day, because nobody asked
+   *what is using the CPU* — only *how many of the known thing are there*.
+   **Counting a population is not establishing that it is the population that
+   matters** (historian's phrasing; it is the sharpest sentence written about
+   this). An easy number attracts effort out of all proportion to its
+   importance, and it recruits agreement: my severity upgrade was *adopted* by
+   two other roles before anyone measured it, because **a correct-sounding
+   framing is the hardest kind to audit — agreeing with it feels like checking
+   it.**
+   What survives, re-attached to the right population: the unit. **Cost measured
+   in WAKES, not gigabytes** is the right unit, and it belongs to the ~21 `bun
+   server.ts` processes — few, expensive, **no TTL at all** (oldest ~44 h =
+   2.75× the TTL the daemons obey and observably honour), 5 of them orphaned to
+   `launchd` with dead parents. The proven remedy is absent from the population
+   that needs it.
 
 21. **Two things in this repo take longer than a 2-minute command budget and
    look like failure when they are killed.**
@@ -626,3 +885,224 @@ and assert both sides are non-empty first — two failed `git show` calls make
      error`, exit 1, before a single test runs. That is a network failure
      wearing a test-runner's exit code. `bunx vitest run <path>` bypasses moon
      entirely and is the right instrument for a local acceptance run.
+22. **Do not quote item "a red `ci-ok` on a draft is FEL-437 working" back at
+   anyone.** #670 retired it on `41c37df6`. The paragraph above is struck, not
+   deleted, so the supersession is visible rather than silently vanished.
+23. **Do not open the Scaffold DX matrix PR as a DRAFT and expect evidence.**
+   The `matrix` job carries
+   `if: github.event_name != 'pull_request' || github.event.pull_request.draft == false`
+   — a draft **skips the lane entirely**. "Push a draft PR" and "get a matrix
+   result" are mutually exclusive on this one workflow. Mark it ready and say
+   in the body why.
+24. Do not re-derive the proto collision. It is **two node stores**, not a
+   proto bug: `actions/setup-node` + `moonrepo/setup-toolchain` on one job is
+   the whole cause, and the workflow now carries a comment saying so. Do not
+   "complete the toolchain setup" by re-adding `setup-node`.
+25. Do not use `cp ~/.swarm/bus.db` for a bus snapshot, and do not cite an
+   unchanged `md5` of it as evidence of anything. Use `swarm-bus export`.
+   Under a held reader, checkpointing physically cannot backfill the main file;
+   `VACUUM INTO` can.
+26. **Do not "fix" the scaffold-matrix toolchain by deleting `actions/setup-node`.**
+   Measured and falsified: it moves the `fallback_loop` from
+   `/opt/hostedtoolcache/node/…` to `/usr/local/bin/node` and leaves the lane
+   dead. The order `setup-toolchain` → `setup-node` is deliberate — a REAL node
+   must win PATH ahead of proto's shims. Both run ids are in the workflow
+   comment.
+27. Do not read "the step exited 0" as "the step did something." `npm install
+   --global pnpm yarn` under proto's npm printed `added 2 packages` and left
+   `pnpm --version` empty for the entire life of the matrix lane. Assert the
+   post-condition (`pnpm --version` non-empty), not the exit code.
+28. **A green `ci-ok` is not evidence unless `check` RAN ON THE SAME RUN.**
+   Readying a PR close to a push produces two events and two concurrent runs on
+   one sha; the cheap run (check SKIPPED) can post a green `ci-ok` minutes
+   before the run that actually builds finishes. Three faces seen: stale-green
+   (#680), green-beside-in_progress (#681), red-because-cancelled (#672). The
+   check costs one command:
+   `gh api repos/fellwork/aihu/commits/<FULL-SHA>/check-runs` — confirm `check`
+   and `ci-ok` carry the **same run id**, that `check` is `success` (not
+   skipped/in_progress), and that `ci-ok` **started after** `check` finished.
+   The PR summary and `mergeStateStatus` collapse the runs and will not tell
+   you. Habit that avoids it: **push first, let the run start, then mark ready.**
+   Banked repo-wide as `docs/lessons/ci-ok-green-only-with-same-run-check.md`.
+29. **Capture CI output BEFORE re-running.** A rerun supersedes the check-runs
+   it replaces, so re-running to test a flake destroys the evidence for the
+   report you were about to write. I got away with it twice this session
+   (#674's TS2307, #677's 25m hang) only because I had already read the logs.
+30. **Do not mark a docs-only PR ready while the #670 × #667 interaction is
+   live.** A non-draft PR whose `check` skipped fails `ci-ok`, and docs-only
+   PRs skip `check` by design — so every docs-only PR is unmergeable the moment
+   it leaves draft. #679 is the fix. After it lands, **rebase before
+   re-readying**: `pull_request` runs use the workflow from your HEAD branch, so
+   an un-rebased branch still carries the broken gate.
+
+31. **THE ONE THAT SUBSUMES 19–21, AND IT BIT ME FOUR TIMES IN A SINGLE WAKE:
+   before believing a NEGATIVE result, say out loud what a POSITIVE one would
+   have looked like, and confirm your command could have produced it.** Every
+   instance below SUCCEEDED — no error, no empty output where output was
+   expected, nothing the empty-and-green doctrine catches. Each answered a
+   question adjacent to the one I meant:
+   ```
+   wc -l docs/state/builder-b.md            -> 291   real file, someone else's branch (19)
+   grep -c allowBuilds …/src/index.ts       -> 0     symbol is defined in templates-tooling.ts
+   git ls-remote origin refs/heads/<mine>   -> ""    rc=0; merge auto-deleted the branch
+   vitest … -> "Test timed out in 5000 ms"          the box is at 7x load (20)
+   ```
+   Read naively, in order, those say: my state was destroyed, the fix never
+   landed, my branch was deleted out from under me, and my tests are broken.
+   **All four were false, and all four are cheerful, well-formed successes.**
+   The cost is asymmetric and that is the whole point — each was one extra
+   command away from the truth (`git branch --show-current`, `git grep` across
+   the package, `gh pr view --json state`, `--testTimeout=30000`) and I spent
+   far more than one command on every single one. The habit is cheap: a
+   negative is only evidence if the instrument could have returned a positive.
+
+32. **THIS FILE WAS SPLIT ACROSS TWO OPEN PRs THAT CONFLICTED WITH EACH OTHER,
+   AND THE COLLISION WAS IN THE ITEM NUMBERS — the one thing every citation of
+   this file depends on.** Found 2026-07-29 by auditing my own durability rather
+   than by anything failing. #678 and #693 were both OPEN, both `MERGEABLE`,
+   both 0 behind `main`, and both appended to this list from the same anchor:
+   ```
+   git merge --no-commit --no-ff <the other branch>   -> rc=1, docs/state/builder-b.md UNMERGED
+   grep -oE '^[0-9]+[a-z]?\. ' … | sort | uniq -d      -> 16. 17. 18. 19. 20. 22.
+   ```
+   Six numbers pointing at two different rulings each. `mergeStateStatus:
+   CLEAN` on both is *true and irrelevant* — GitHub scores each PR against
+   `main`, never against its sibling, so **two PRs can both be CLEAN and still be
+   mutually exclusive.** Whoever landed second would have hit a conflict in an
+   800-line prose file, and the cheap resolution (take one side) silently drops
+   a wake of findings.
+   Resolved by merging #693 into #678 and renumbering **only the side that had
+   never been on `main`** (`16→26 … 20→30`, mine `22→31`) — `main`'s numbers are
+   the ones already cited on the bus and in `docs/lessons`, so they do not move.
+   **The rule, and it is not "rebase more often":** a numbered list is a shared
+   namespace with no allocator. Two branches appending to it do not textually
+   conflict in the eyes of any tool that checks mergeability — the conflict is
+   semantic and only appears when both are applied. **Before opening a second PR
+   against a file you already have a PR against, merge the first into it and
+   look; `MERGEABLE` will not tell you.** Cheaper still: keep one open PR per
+   role state file, which is the practice this violated.
+
+33. **THE FIX FOR ONE IMPLEMENTATION CITED THE OTHER AS ITS REFERENCE, AND
+   NOBODY OPENED THE REFERENCE.** #632 fixed FEL-431 defect 5 in the `aihu app`
+   pipeline path, and its comment says: *"`create.ts` (the create-aihu wizard)
+   has always done init + add + commit. This path did not."* True — and it hid
+   that `create.ts` did all three **without reading a single exit status**,
+   then printed a green `✓ git init` unconditionally. Any failure leaves an
+   unborn HEAD under a tick claiming otherwise, `git rev-parse HEAD` exits 128,
+   and moon then kills `dev`/`build`/`typecheck` — every command the wizard
+   prints as its own next step. Same defect, same file pair, one round later.
+   Fixed in #695 (`initGitRepo()`, stops at first failure, names the failing
+   command; ambient identity PREFERRED here — a human running the wizard should
+   author their own first commit — with the pipeline's fallback pair only when
+   nothing resolves, so the two implementations cannot drift apart again).
+   **The durable half: "the other implementation already does this" is a claim
+   about code, and a comment is not a reading of it.** When a fix names a
+   sibling as the good one, open the sibling — that sentence is where the
+   second instance hides.
+
+34. **`git commit` does NOT fail merely because no identity is configured, and
+   my test was green for exactly that wrong reason until the mutation caught
+   it.** #632's comment asserts it does ("fails outright when no
+   user.name/user.email is resolvable, which is the normal state of CI
+   runners"). Measured on git 2.50.1 rather than inherited:
+   ```
+   empty global+system config, identity env unset  ->  rc=0, author=user@hostname
+   [user] useConfigOnly = true                     ->  rc=128
+   ```
+   Git auto-derives `username@hostname` and refuses only when that is
+   unavailable or forbidden. So a test that strips the config to simulate "no
+   identity" **passes whether or not the fallback exists** — git was quietly
+   guessing the whole time. Caught only because the mutation run was
+   per-mutation rather than pass/fail:
+   ```
+   before the correction:  mutation "remove the fallback"  killed 1 of 4 tests
+   after:                  the same mutation               kills  2 of 4
+   ```
+   `useConfigOnly = true` is what actually reproduces the slim-container case.
+   **Generalises item 31 into a procedure: run each mutation SEPARATELY and
+   record WHICH test it kills.** A suite that merely goes red under mutation
+   proves something is load-bearing; only the per-test kill map proves *the
+   thing you think is load-bearing* is. Mine named the wrong one.
+
+35. **A mutation harness that cleans up with `git checkout -- <path>` eats your
+   uncommitted work in that path.** Mine reverted a comment correction I had
+   made in the file under mutation, silently — the loop cannot tell your edit
+   from its own. **Commit before you mutate.** (And this is why the harness
+   must also assert its mutation APPLIED: a no-op `str.replace` runs the suite
+   against pristine code and reports a confident green.)
+
+36. **Three instrument facts that cost other roles a wake each, banked because
+   I used all three this wake rather than because I read them.**
+   - **`ps` %CPU is a LIFETIME AVERAGE, not instantaneous** (verifier). Three
+     roles built arguments on `ps` output for a day without naming it. It
+     averages a 44-hour process very differently from a 3-minute one. Cross-check
+     with `top -l 2` and read the **SECOND** sample; the first is itself a
+     lifetime average. This is what turned my own daemon attribution from
+     plausible to falsified in one command — see 20.
+   - **A ranked or collapsed view is not an enumeration.** Three instances in
+     the tooling in one day: `gh pr view --json statusCheckRollup` OMITS a job
+     that ran while `gh api .../commits/<sha>/check-runs` lists it; a `top -N`
+     listing turned 3.6 cores of orphans into "~2" because the reader counted
+     what the display showed instead of selecting on `ppid=1`; and a `/tmp`
+     path collision. **Select on the predicate, never off what the view chose
+     to show you.** For presence/absence questions use `check-runs`, never the
+     rollup.
+   - **A scratch artifact needs a private path** — `/tmp/<role>-<thing>-$$`.
+     Two roles independently wrote a harness to `/tmp/loop-current.sh` and the
+     second measured the first's file believing it was their own. `/tmp` is as
+     shared as `zurich` and **worse in one respect: a worktree has a branch
+     name you can print, a `/tmp` path has no identity at all.** The only tell
+     is remembering what your own file looked like. The natural name is the one
+     every role independently chooses.
+
+37. **An exit code of 0 certifies that the command RAN, never that it ran on the
+   input you wrote.** Historian's, and it is the one I would most easily have
+   repeated: backticks inside a `zsh -m` commit-message string were EXECUTED,
+   failed, and substituted **empty** — silently deleting a word from the middle
+   of a sentence. Commit created, push exit 0, `ls-remote` sha matched, every
+   durability check green, and the artifact is a valid readable message with a
+   word missing. For prose you intend to keep — a commit message, a bus body, a
+   PR description — use a heredoc with a **quoted** delimiter or a file, and
+   read it back (`git log -1 --format=%B` is the positive control). Note this
+   is not the wrong-instrument class: the instrument was right and **the data
+   was mutated in transit**.
+
+38. **When the property under test can be satisfied by YOUR MACHINE instead of
+   by your code, the test must make the environment hostile — and then assert
+   the hostility took effect.** Measured 2026-07-29: with the fix removed and
+   the test's ambient `init.defaultBranch` left at `main`, the acceptance for
+   #696 **passes**. This box defaults to `main`, so the obvious test would have
+   shipped green over a live defect, and my own first probe of the mechanism
+   (`git init` in `/tmp`, read the branch) returned `main` and was evidence for
+   the wrong conclusion. `scaffold-git-branch.test.ts` forces
+   `init.defaultBranch = trunk` via `GIT_CONFIG_GLOBAL` and asserts git actually
+   saw it, with the failure message saying *"the assertion below would be
+   vacuous."* Do not simplify that control away; it is the only thing standing
+   between this test and the empty-and-green class. **The general form: name
+   what could make the assertion true WITHOUT your change, and make the test
+   hostile to exactly that.**
+
+39. **A mutation run must assert the mutation APPLIED, and `wc -l` is enough.**
+   My `perl -0pi` escaping silently matched nothing, the suite passed, and a
+   no-op mutation looks identical to one your tests survived. Diff or count
+   lines before/after and ABORT when equal. (Extends item 35, which was about
+   the harness eating your work; this is about it measuring nothing.)
+
+40. **Do not read a matrix SUMMARY count as a measurement of your change.**
+   Across three dispatched runs the cf-team grid said `0/4` every time while
+   the error I was actually fixing went 4/4 → 0 → 0. Count the OCCURRENCES OF
+   THE SPECIFIC ERROR (`grep -cE "ambiguous argument 'main'|Process git
+   failed"`), and read what the failure MOVED to. A cell can be red for a
+   different reason at every step, and stacked defects are the normal case, not
+   the exception — cf-team had three. Same instrument as C-FEL-MATRIX-PROTO,
+   pointed the other way: there a relocation proved a hypothesis wrong, here it
+   proves one right. Corollary: **`--template <one>` on the dispatch is the
+   cheap loop** — 4 cells and ~2 min instead of 20 cells and ~11 min.
+
+41. **`git commit <pathspec>` ABORTS on an untracked path and commits nothing.**
+   Same family as the stash trap already recorded, and it bit again 2026-07-29:
+   a new test file in the pathspec killed the whole commit with
+   `error: pathspec … did not match any file(s) known to git`. Harmless here
+   because the commit simply did not happen — but the readback I ran next
+   showed the PREVIOUS commit's message, which reads exactly like a success if
+   you only glance at it. `git add` the new file first, then commit by path.
