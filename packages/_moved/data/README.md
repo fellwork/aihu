@@ -97,7 +97,7 @@ bun add @aihu/data
 
 **Dependencies:**
 
-- `@aihu-plugin/data` — `2.0.5`
+- `@aihu-plugin/data` — `workspace:*`
 
 <sub><i>Auto-generated against `@aihu/data@2.0.5`.</i></sub>
 
