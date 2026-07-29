@@ -2,11 +2,13 @@
 
 **Role:** BUILDER-B · **Workspace:** `zurich`
 **Base:** `origin/main` @ `1bb0dd7c` (2026-07-28)
-**Last updated:** 2026-07-29. **Eight PRs merged, three open** — #655
-(FEL-GH478), **#678** (this file — the single state PR; #693 was merged into it
-and closed, see 32), and **#695** (draft, `create.ts` git-init, see 33–35;
-NO CONTRACT EXISTS for it — `swarm-bus claim --id C-FEL-CREATE-GIT-STATUS`
-→ exit 2, disclosed on the bus, mint requested).
+**Last updated:** 2026-07-29. **Nine PRs merged, three open** — **#678** (this
+file — the single state PR; #693 was merged into it and closed, see 32), **#695**
+(READY, `create.ts` git-init, see 33–35), and **#696** (READY at `b545e78b`,
+the cf-team scaffold, see 38–40). #655 (FEL-GH478) has **MERGED** since the
+last update; the line above claiming it open was stale within a wake.
+NO CONTRACT EXISTS for #695 or #696 — `swarm-bus claim --id
+C-FEL-CREATE-GIT-STATUS` → exit 2; both disclosed on the bus, mints requested.
 **#684 (C-FEL-SCAFFOLD-PM-COMPAT) MERGED** 2026-07-28T21:27:49Z, merge commit
 `1bb0dd7c`, from head `4d6e1793` — the exact sha pushed and verified on the
 remote, so nothing landed unmeasured. Verified *on main*, not on the branch:
@@ -412,6 +414,99 @@ PRs. Merging a `packages/swarm` PR changes nothing about the binary you
 actually run; nobody owns the rebuild+reinstall step. #662 shipped a closed
 verb enum that would have jammed the swarm and never did — **the protection was
 accidental, a deployment gap made it moot.** Filed as C-SWARM-DEPLOY-GAP.
+
+---
+
+## 2026-07-29 — three defects stacked in one cell, and the vacuous test
+
+**#696**, contract-less, taken off #695's own matrix evidence. cf-team FAILED
+at `typecheck` on **all four package managers** (run `30404220223`, a 9/20
+grid). All four is what proves it is not a PM defect — the same reasoning as
+item 14, arrived at from the other direction.
+
+**Each fix removed its target completely and revealed the next one. That is
+what a right hypothesis looks like, and it is the same instrument as the wrong
+one in C-FEL-MATRIX-PROTO: read the DELTA, not the pass count.** Three
+dispatched runs, `mode=local -f template=cf-team`:
+
+| run | under test | `git exit 128` | `TS2688` | grid |
+|---|---|---|---|---|
+| 30404220223 | before | **4/4 cells** | hidden behind it | 0/4 |
+| 30415446060 | + fix 1 | **0** | 4/4 cells | 0/4 |
+| 30416020813 | + fix 1+2 | 0 | **0** | 0/4 |
+
+The grid column never moved. **A summary count is not a measurement of your
+change** — three times here it said 0/4 while the thing I fixed went to zero.
+
+1. **`git init` leaves the repo on the MACHINE's branch, and the template
+   declares a different one.** cf-team ships `.moon/workspace.yml` with
+   `defaultBranch: 'main'`; `git init` creates whatever ambient
+   `init.defaultBranch` names. moon then resolves `base="main" head="HEAD"`
+   against a repo with no `main` → `fatal: ambiguous argument 'main'`, exit 128.
+   Fixed in **both** implementations — `scaffold-pipeline.ts` and `create.ts` —
+   because item 33 is the record of what happens when only one is fixed.
+   `git symbolic-ref HEAD refs/heads/main`, **not** `git init -b main`: `-b`
+   landed in git 2.28 (Jul 2020) and is `error: unknown switch 'b'`, exit 129,
+   on anything older. It must run **before** the first commit or it orphans
+   that commit instead of renaming the branch.
+2. **A tsconfig `types` entry is a hard requirement that nothing installs.**
+   cf-team's root tsconfig names `@cloudflare/workers-types` and no manifest
+   declares it → `TS2688`, whole program fails, and tsc never says the cause is
+   a missing dependency. The guard walks whatever tsconfigs the templates ship,
+   so it asserts the class.
+
+### The mutation result to carry: a test that is green *because of your own box*
+
+Run per-mutation (item 34's procedure), recording which test each kills:
+
+```
+drop the symbolic-ref command                      -> 4 tests fail
+drop the devDependency                             -> exactly the workers-types case (1 of 4)
+drop symbolic-ref AND set the test's ambient
+  config to `main` instead of `trunk`              -> the property test PASSES
+```
+
+**That third row is the finding.** Written the obvious way, the acceptance is
+**green on any developer box that already defaults to `main`, while the defect
+is live** — and this box does default to `main`, so my own first probe of the
+mechanism (`git init` in `/tmp`, read the branch) reported `main` and was
+*evidence for the wrong conclusion*. Only the positive control caught it:
+`expect(git(dir,'config','init.defaultBranch').out, 'the hostile ambient config
+did not reach git — the assertion below would be vacuous').toBe('trunk')`.
+
+**Generalisation worth more than the fix: when the property under test can be
+satisfied by the ENVIRONMENT rather than by your code, the test must make the
+environment hostile AND assert that it succeeded in doing so.** Otherwise it is
+the empty-and-green class wearing an assertion. Every trap in this file that
+cost a wake — the SKIPping matrix cell, `npm install --global` printing `added
+2 packages`, the pnpm-10 key that is indistinguishable from no file at all —
+is this same shape. This is the first one where **I wrote the test myself and
+it would have shipped green.**
+
+Second-order, and cheap: my first mutation attempt was a `perl -0pi` whose
+escaping did not match, so it changed nothing and the suite passed. I caught it
+only because the harness asserts the mutation APPLIED (item 35) — `wc -l`
+before/after, abort if equal. **Keep that assertion; a no-op mutation reports a
+confident green and looks exactly like a killed one that survived.**
+
+### Still red, reported not fixed — the third layer
+
+Run `30416020813` leaves cf-team at:
+
+```
+src/main.ts(10,27): error TS2307: Cannot find module '@__APP_NAME__/shared'
+src/main.ts(12,44): error TS2307: Cannot find module '@aihu-plugin/agent-readiness'
+```
+
+`@__APP_NAME__` reached the emitted scaffold **verbatim**. Placeholders expand
+only in `.tmpl` files and **11 files** in that template carry placeholders
+without the suffix (`apps/web/src/main.ts`, both `.aihu` SFCs, the three
+`auth/*.ts`, the three `.env.example.*`, `packages/shared/src/index.ts` and its
+test). It is **not** a rename: three are `conditionalFiles` with a `rename`
+field, so `template.config.js` moves with them and the legacy-snapshot golden
+may need a refresh. Separately, `@aihu-plugin/agent-readiness` is a real
+package here but is absent from `apps/web/package.json.tmpl`'s dependencies.
+Reported on the bus as a proposed contract; **not** folded into #696.
 
 ---
 
@@ -971,3 +1066,43 @@ accidental, a deployment gap made it moot.** Filed as C-SWARM-DEPLOY-GAP.
    read it back (`git log -1 --format=%B` is the positive control). Note this
    is not the wrong-instrument class: the instrument was right and **the data
    was mutated in transit**.
+
+38. **When the property under test can be satisfied by YOUR MACHINE instead of
+   by your code, the test must make the environment hostile — and then assert
+   the hostility took effect.** Measured 2026-07-29: with the fix removed and
+   the test's ambient `init.defaultBranch` left at `main`, the acceptance for
+   #696 **passes**. This box defaults to `main`, so the obvious test would have
+   shipped green over a live defect, and my own first probe of the mechanism
+   (`git init` in `/tmp`, read the branch) returned `main` and was evidence for
+   the wrong conclusion. `scaffold-git-branch.test.ts` forces
+   `init.defaultBranch = trunk` via `GIT_CONFIG_GLOBAL` and asserts git actually
+   saw it, with the failure message saying *"the assertion below would be
+   vacuous."* Do not simplify that control away; it is the only thing standing
+   between this test and the empty-and-green class. **The general form: name
+   what could make the assertion true WITHOUT your change, and make the test
+   hostile to exactly that.**
+
+39. **A mutation run must assert the mutation APPLIED, and `wc -l` is enough.**
+   My `perl -0pi` escaping silently matched nothing, the suite passed, and a
+   no-op mutation looks identical to one your tests survived. Diff or count
+   lines before/after and ABORT when equal. (Extends item 35, which was about
+   the harness eating your work; this is about it measuring nothing.)
+
+40. **Do not read a matrix SUMMARY count as a measurement of your change.**
+   Across three dispatched runs the cf-team grid said `0/4` every time while
+   the error I was actually fixing went 4/4 → 0 → 0. Count the OCCURRENCES OF
+   THE SPECIFIC ERROR (`grep -cE "ambiguous argument 'main'|Process git
+   failed"`), and read what the failure MOVED to. A cell can be red for a
+   different reason at every step, and stacked defects are the normal case, not
+   the exception — cf-team had three. Same instrument as C-FEL-MATRIX-PROTO,
+   pointed the other way: there a relocation proved a hypothesis wrong, here it
+   proves one right. Corollary: **`--template <one>` on the dispatch is the
+   cheap loop** — 4 cells and ~2 min instead of 20 cells and ~11 min.
+
+41. **`git commit <pathspec>` ABORTS on an untracked path and commits nothing.**
+   Same family as the stash trap already recorded, and it bit again 2026-07-29:
+   a new test file in the pathspec killed the whole commit with
+   `error: pathspec … did not match any file(s) known to git`. Harmless here
+   because the commit simply did not happen — but the readback I ran next
+   showed the PREVIOUS commit's message, which reads exactly like a success if
+   you only glance at it. `git add` the new file first, then commit by path.
