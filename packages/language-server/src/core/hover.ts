@@ -9,6 +9,26 @@
  * future Volar virtual-code hover provider.
  */
 
+import { COMPOSABLE_REGISTRY } from './composable-registry.ts'
+
+const COMPOSABLE_BY_NAME = new Map(COMPOSABLE_REGISTRY.map((e) => [e.name, e]))
+
+/**
+ * Hover markdown for a bare `@aihu/use` composable call (FEL-342). The
+ * compiler auto-imports these — see `compileSidecar`'s ambient
+ * `declare const useMouse: (...args: any[]) => any;` — so this is the only
+ * place a real signature/description ever surfaces to the author.
+ */
+function composableHover(name: string): string | null {
+  const entry = COMPOSABLE_BY_NAME.get(name)
+  if (!entry) return null
+  return [
+    `**\`${entry.name}\`** _(auto-imported from \`${entry.specifier}\`)_`,
+    '',
+    entry.description || 'A `@aihu/use` composable.',
+  ].join('\n')
+}
+
 const HOVER_TABLE: Record<string, string> = {
   $prop: [
     '**aihu macro: `$prop`**',
@@ -656,9 +676,22 @@ export function getMacroAtPosition(lineText: string, character: number): string 
       return `$${m[1]!}`
     }
   }
+  // A bare `@aihu/use` composable call — `useMouse()`, `useToggle()`, etc.
+  // (FEL-342). Checked last: every other form above is a `$`/`<`/`:`-marked
+  // aihu keyword, so a plain identifier call can only be this.
+  const composableRe = /\b[\w$]+(?=\()/g
+  while ((m = composableRe.exec(lineText)) !== null) {
+    if (
+      COMPOSABLE_BY_NAME.has(m[0]) &&
+      character >= m.index &&
+      character <= m.index + m[0].length
+    ) {
+      return m[0]
+    }
+  }
   return null
 }
 
 export function getHoverContent(macro: string): string | null {
-  return HOVER_TABLE[macro] ?? null
+  return HOVER_TABLE[macro] ?? composableHover(macro)
 }

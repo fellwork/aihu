@@ -156,6 +156,26 @@ const NEGATIVE_FIXTURES: Record<string, Fixture> = {
       env: { MOON_GRAPH_ROOT: 'scripts/fixtures/moon-graph/should-not-flag' },
     },
   },
+  // FEL-342 — the LSP composable-registry generator's --check mode. Same
+  // env-override shape as check:moon-graph: point it at a 2-entry fixture
+  // `USE_COMPOSABLES` and a hand-written "committed" output missing one
+  // entry (red) vs. matching exactly (green).
+  'check:composable-registry': {
+    cmd: ['bun', 'scripts/gen-composable-hover-registry.ts', '--check'],
+    env: {
+      COMPOSABLE_REGISTRY_RS: 'scripts/fixtures/composable-registry/use_registry.rs',
+      COMPOSABLE_REGISTRY_OUT: 'scripts/fixtures/composable-registry/expected-mismatch.ts',
+      COMPOSABLE_USE_SRC_ROOT: 'scripts/fixtures/composable-registry/nonexistent-src',
+    },
+    green: {
+      cmd: ['bun', 'scripts/gen-composable-hover-registry.ts', '--check'],
+      env: {
+        COMPOSABLE_REGISTRY_RS: 'scripts/fixtures/composable-registry/use_registry.rs',
+        COMPOSABLE_REGISTRY_OUT: 'scripts/fixtures/composable-registry/expected-match.ts',
+        COMPOSABLE_USE_SRC_ROOT: 'scripts/fixtures/composable-registry/nonexistent-src',
+      },
+    },
+  },
 }
 
 interface Baseline {

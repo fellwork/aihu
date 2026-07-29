@@ -16,9 +16,14 @@ export {
 } from './code-action.ts'
 export {
   BLOCK_COMPLETIONS,
+  COMPOSABLE_COMPLETIONS,
   type LspCompletionItem,
   STATE_MACRO_COMPLETIONS,
 } from './completion.ts'
+export {
+  COMPOSABLE_REGISTRY,
+  type ComposableRegistryEntry,
+} from './composable-registry.ts'
 export {
   type AihuDiagnostic,
   type CompileResult,

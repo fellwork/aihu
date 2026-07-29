@@ -27,7 +27,7 @@ import type { LanguagePlugin, LanguageServicePlugin } from '@volar/language-serv
 import ts from 'typescript'
 import type { URI } from 'vscode-uri'
 import { buildMigrateFix, MIGRATE_CODES } from './code-action.ts'
-import { BLOCK_COMPLETIONS, STATE_MACRO_COMPLETIONS } from './completion.ts'
+import { BLOCK_COMPLETIONS, COMPOSABLE_COMPLETIONS, STATE_MACRO_COMPLETIONS } from './completion.ts'
 import { compileWithDiagnostics } from './diagnostics.ts'
 import { getBlockContext, getHoverContent, getMacroAtPosition } from './hover.ts'
 
@@ -120,7 +120,10 @@ export function createAihuLanguageServicePlugin(): LanguageServicePlugin {
           const lines = document.getText().split('\n')
           const ctx = getBlockContext(lines, position.line)
           if (ctx === 'state') {
-            return { isIncomplete: false, items: STATE_MACRO_COMPLETIONS as any }
+            return {
+              isIncomplete: false,
+              items: [...STATE_MACRO_COMPLETIONS, ...COMPOSABLE_COMPLETIONS] as any,
+            }
           }
           if (ctx === 'template') {
             return { isIncomplete: false, items: [] }
