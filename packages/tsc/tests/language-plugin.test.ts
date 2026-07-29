@@ -31,7 +31,7 @@ describe('the .aihu file reaches TypeScript as virtual TS', () => {
     // noise, and a passing run would mean nothing.
     const vc = virtualCodeFor(SFC)
     const text = vc?.snapshot.getText(0, vc.snapshot.getLength()) ?? ''
-    expect(text).toContain('__aihu_template')
+    expect(text).toContain('defineComponent')
     expect(text).not.toContain('@state {')
   })
 
