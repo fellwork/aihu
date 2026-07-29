@@ -20,7 +20,7 @@
   {
     "name": "@aihu/arbor",
     "path": "packages/arbor/dist/index.js",
-    "limit": "3300 B",
+    "limit": "3350 B",
     "gzip": true,
     "ignore": ["@aihu/signals"]
   },

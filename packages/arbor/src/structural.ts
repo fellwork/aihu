@@ -395,15 +395,24 @@ function _reconcileEach(
     // of a bare insertBefore — a reorder of an UNCHANGED (same key, same
     // value — see the FEL-395 tear-down above) scope must not destroy the
     // state of any custom element it contains.
-    if ((s.pos as number) < 0) {
+    const repos = (s.pos as number) < 0
+    if (repos) {
       if (s.anchor !== ref) _moveNode(par, s.anchor, ref)
       else ref = s.anchor.nextSibling
-      for (const nd of nl) nd === ref ? (ref = nd.nextSibling) : _moveNode(par, nd, ref)
+    }
+    // A row's stale nl entries (detached by a bare-structural child that
+    // toggled off — FEL-544) are skipped here rather than moved/counted, so
+    // they neither get re-inserted nor stand in as this row's trailing anchor.
+    let last: globalThis.Node = s.anchor
+    for (const nd of nl) {
+      if (nd.parentNode !== par) continue
+      if (repos) nd === ref ? (ref = nd.nextSibling) : _moveNode(par, nd, ref)
+      last = nd
     }
     // The index this pass just gave the row IS the DOM order the next
     // reconcile runs its subsequence against.
     s.pos = i
-    ref = (nl[nl.length - 1] ?? s.anchor).nextSibling
+    ref = last.nextSibling
   }
 }
 
