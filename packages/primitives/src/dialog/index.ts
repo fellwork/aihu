@@ -11,6 +11,7 @@
 
 import { effect, type Read, signal } from '@aihu/signals'
 import { createDomContext, injectValue, provideContext } from '../dom-context.ts'
+import { createCounter } from '../id.ts'
 import { createFocusTrap, type FocusTrap } from './focus-trap.ts'
 
 export interface DialogContextValue {
@@ -28,8 +29,8 @@ export interface DialogContextValue {
 
 export const dialogContext = createDomContext<DialogContextValue>('dialog')
 
-let _idSeq = 0
-const uid = (p: string): string => `aihu-${p}-${(_idSeq += 1)}`
+const _nextSeq = createCounter()
+const uid = (p: string): string => `aihu-${p}-${_nextSeq()}`
 
 export class AihuDialogRoot extends HTMLElement {
   static readonly observedAttributes = ['open', 'modal']
