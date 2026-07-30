@@ -158,43 +158,40 @@ describe('css-engine hook — present (e2e)', () => {
     },
   )
 
-  it.runIf(cssCoreBin)(
-    'light mode emits tokens at :root, not :host (LDF §10 step 2)',
-    async () => {
-      // A layout-shaped id triggers DA4's implicit page/layout light default
-      // (no @route block needed — `_isLayoutFile`'s default `src/layouts/`
-      // path match, `index.ts:1377`, is the simplest way to hit
-      // `impliedShadowDefault === 'light'` without fabricating a full @route
-      // SFC).
-      const tmp = mkdtempSync(join(tmpdir(), 'aihu-css-hook-light-'))
-      try {
-        const plugin = aihuCompilerPlugin()
-        const transform = plugin.transform as unknown as TransformFn
-        const res = await transform.call(
-          {},
-          SFC_WITH_UTILITIES_AND_STYLE,
-          join(tmp, 'src', 'layouts', 'app.aihu'),
-        )
-        if (res == null) throw new Error('plugin returned no result')
-        const out = res.code
-        // Light mode (Bug 6) routes utility CSS through a virtual `.css`
-        // import (id prefixed with a NUL char, `VIRTUAL_UTILITY_PREFIX`)
-        // instead of inlining it in the module body — resolve it via the
-        // plugin's own `load` hook rather than grepping `out` directly. Avoid
-        // embedding a raw NUL byte in this source file: match the stable
-        // `virtual:aihu-utility/<hash>.css` suffix and prepend `\0` ourselves.
-        const virtualIdMatch = out.match(/(virtual:aihu-utility\/[^"' ]+)["']/)
-        expect(virtualIdMatch).not.toBeNull()
-        const virtualCss = await plugin.load!(`\0${virtualIdMatch![1]}`)
-        expect(virtualCss).toContain('--color-primary:')
-        expect(virtualCss).toContain(':root {')
-        expect(virtualCss).not.toContain(':host {')
-        expect(out).not.toContain(':host {')
-      } finally {
-        rmSync(tmp, { recursive: true, force: true })
-      }
-    },
-  )
+  it.runIf(cssCoreBin)('light mode emits tokens at :root, not :host (LDF §10 step 2)', async () => {
+    // A layout-shaped id triggers DA4's implicit page/layout light default
+    // (no @route block needed — `_isLayoutFile`'s default `src/layouts/`
+    // path match, `index.ts:1377`, is the simplest way to hit
+    // `impliedShadowDefault === 'light'` without fabricating a full @route
+    // SFC).
+    const tmp = mkdtempSync(join(tmpdir(), 'aihu-css-hook-light-'))
+    try {
+      const plugin = aihuCompilerPlugin()
+      const transform = plugin.transform as unknown as TransformFn
+      const res = await transform.call(
+        {},
+        SFC_WITH_UTILITIES_AND_STYLE,
+        join(tmp, 'src', 'layouts', 'app.aihu'),
+      )
+      if (res == null) throw new Error('plugin returned no result')
+      const out = res.code
+      // Light mode (Bug 6) routes utility CSS through a virtual `.css`
+      // import (id prefixed with a NUL char, `VIRTUAL_UTILITY_PREFIX`)
+      // instead of inlining it in the module body — resolve it via the
+      // plugin's own `load` hook rather than grepping `out` directly. Avoid
+      // embedding a raw NUL byte in this source file: match the stable
+      // `virtual:aihu-utility/<hash>.css` suffix and prepend `\0` ourselves.
+      const virtualIdMatch = out.match(/(virtual:aihu-utility\/[^"' ]+)["']/)
+      expect(virtualIdMatch).not.toBeNull()
+      const virtualCss = await plugin.load!(`\0${virtualIdMatch![1]}`)
+      expect(virtualCss).toContain('--color-primary:')
+      expect(virtualCss).toContain(':root {')
+      expect(virtualCss).not.toContain(':host {')
+      expect(out).not.toContain(':host {')
+    } finally {
+      rmSync(tmp, { recursive: true, force: true })
+    }
+  })
 
   it.runIf(cssCoreBin)('keeps the authored @style block — emitted exactly once (#2)', async () => {
     const out = await runPlugin(SFC_WITH_UTILITIES_AND_STYLE, 'x-widget')
