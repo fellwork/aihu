@@ -261,11 +261,18 @@ describe('#436 — named slots + default fallback (Shadow-DOM parity)', () => {
 
 describe('LDF §10 step 4 — data-aihu-slotted marker on projected nodes', () => {
   // The marker lets `light_scope.rs`'s `::slotted()` lowering
-  // (`[data-aihu-slotted]`) target exactly the nodes real Shadow DOM's
-  // `::slotted()` would have matched — every top-level node this module
-  // actually reparents from the caller into the layout, and nothing else
-  // (a slot's own fallback content is the component's OWN authored markup,
-  // not projected content, and must not be marked).
+  // (`[data-aihu-slotted]`) target every top-level node this module
+  // reparents from the caller into the layout. This is a deliberate
+  // SUPERSET of what real Shadow DOM's `::slotted()` would match: in real
+  // Shadow DOM, a child whose `slot=` matches no placeholder (or every
+  // child, when the layout has no `<slot>` at all) is unassigned and
+  // doesn't render at all, so `::slotted()` never sees it. aihu's
+  // light-DOM emulation instead preserve-not-drops those nodes onto the
+  // host (see the "preserve-not-drop" tests above) — leaving them
+  // unmarked would make them unstylable by `::slotted()` while still being
+  // visible, which is worse than the marker being slightly too broad. A
+  // slot's own fallback content is the component's OWN authored markup,
+  // not projected content, and must not be marked either way.
   it('marks a default-slot child', () => {
     const Cmp = defineComponent(() => branch('div', { class: 'layout' }, [slot()]))
     defineElement('x-slotmark-a', Cmp, { shadowMode: 'light' })

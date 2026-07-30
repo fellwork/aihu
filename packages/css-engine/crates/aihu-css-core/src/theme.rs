@@ -302,23 +302,47 @@ mod tests {
 
         // Only the scalar this recipe body actually references is emitted —
         // same tree-shake `emit_used_tokens` already applies to colors.
-        let out = registry.emit_used_tokens(".btn { border: var(--border) solid; }", TokenScope::Light);
-        assert!(out.contains("--border: 1px;"), "expected --border in:\n{out}");
-        assert!(!out.contains("--size-field"), "unreferenced token leaked:\n{out}");
-        assert!(!out.contains("--depth"), "unreferenced token leaked:\n{out}");
+        let out =
+            registry.emit_used_tokens(".btn { border: var(--border) solid; }", TokenScope::Light);
+        assert!(
+            out.contains("--border: 1px;"),
+            "expected --border in:\n{out}"
+        );
+        assert!(
+            !out.contains("--size-field"),
+            "unreferenced token leaked:\n{out}"
+        );
+        assert!(
+            !out.contains("--depth"),
+            "unreferenced token leaked:\n{out}"
+        );
     }
 
     #[test]
     fn d4_border_scalar_does_not_false_positive_on_color_border() {
-        // `--border` (the scalar) must not be considered "referenced" merely
-        // because `--color-border` appears in the body — `var_is_referenced`'s
-        // trailing-boundary guard is what prevents this collision.
+        // `--color-border` does not actually contain `--border` as a
+        // substring (only a single hyphen precedes "border" there), so this
+        // pairing can't exercise `var_is_referenced`'s trailing-boundary
+        // guard. What CAN produce a same-prefix collision is a longer
+        // custom property that genuinely starts with the shorter name: e.g.
+        // if `--border-radius` existed, unguarded `body.contains("--border")`
+        // would false-positive on it. Exercise that directly.
         let registry = ThemeRegistry::with_aihu_defaults();
         let out = registry.emit_used_tokens(
-            ".x { border-color: var(--color-border); }",
+            ".x { border-radius: var(--border-radius-does-not-exist); }",
             TokenScope::Light,
         );
-        assert!(out.contains("--color-border:"), "expected --color-border in:\n{out}");
-        assert!(!out.contains("\n  --border:"), "scalar --border falsely matched:\n{out}");
+        assert!(
+            !out.contains("--border:"),
+            "scalar --border falsely matched a longer name sharing its prefix:\n{out}"
+        );
+
+        // The positive case: a genuine `var(--border)` reference DOES emit it.
+        let out2 =
+            registry.emit_used_tokens(".x { border: var(--border) solid; }", TokenScope::Light);
+        assert!(
+            out2.contains("--border: 1px;"),
+            "expected --border in:\n{out2}"
+        );
     }
 }

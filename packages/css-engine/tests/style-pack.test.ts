@@ -54,12 +54,32 @@ const EXPECTED_BRAND_TOKENS = [
   '--radius-md',
 ]
 
+// D4 §3.2/§3.4 non-color scalars the recipe layer (Slice 4) will reference
+// directly via `var(--border)` etc. — kept separate from EXPECTED_BRAND_TOKENS
+// since these aren't part of the `is_brand_token` bg-/text-/border- utility
+// path, but must still exist in both shipped packs for Phase 6 recipes to
+// resolve against.
+const EXPECTED_D4_SCALAR_TOKENS = [
+  '--size-selector',
+  '--size-field',
+  '--border',
+  '--depth',
+  '--noise',
+]
+
 describe('@aihu/css-engine — aihu-default style pack', () => {
   const css = readPack('aihu-default.css')
 
   it('declares the expected brand + radius token set', () => {
     const tokens = declaredTokens(css)
     for (const name of EXPECTED_BRAND_TOKENS) {
+      expect(tokens.has(name), `aihu-default.css must declare ${name}`).toBe(true)
+    }
+  })
+
+  it('declares the D4 non-color scalar tokens the recipe layer needs', () => {
+    const tokens = declaredTokens(css)
+    for (const name of EXPECTED_D4_SCALAR_TOKENS) {
       expect(tokens.has(name), `aihu-default.css must declare ${name}`).toBe(true)
     }
   })
