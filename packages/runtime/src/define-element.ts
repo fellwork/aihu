@@ -22,13 +22,20 @@ function wrapClass(
   mode: ShadowMode,
   name: string,
   enableHydration: boolean,
+  lightScopeId?: string,
 ): typeof HTMLElement {
   // DA4 (#437): the mode is BINARY. `'shadow'` attaches an OPEN root — open
   // is the only browser mode aihu can use, because composition and hydration
   // read `this.shadowRoot` (a closed root nulls it and would be misdetected
   // as light DOM). `'light'` attaches nothing, so `this.shadowRoot === null`
   // is an unambiguous light-DOM detection.
-  if (mode === 'light' && !enableHydration) return Ctor
+  //
+  // The fast path below skips wrapping entirely for the common non-hydrated
+  // light case — EXCEPT when `lightScopeId` is set (light-DOM leaf flip,
+  // LDF §10 step 3): stamping `data-a` needs a constructor override, so a
+  // scoped component must always be wrapped even though it neither attaches
+  // a shadow root nor hydrates.
+  if (mode === 'light' && !enableHydration && !lightScopeId) return Ctor
   const attachShadow = mode === 'shadow'
 
   class Wrapped extends Ctor {
@@ -39,9 +46,21 @@ function wrapClass(
       if (attachShadow) {
         this.attachShadow({ mode: 'open' })
       }
+      // NOT here: the Custom Elements spec forbids mutating attributes
+      // inside a custom element constructor (an element's attributes must
+      // be empty at construction time) — browsers throw `NotSupportedError`
+      // on `setAttribute` this early. `data-a` is stamped in
+      // `connectedCallback` instead, below.
     }
 
     connectedCallback(): void {
+      // Idempotent: a server-rendered element already carries `data-a` from
+      // `ssr_string_emit.rs`'s `root_scope_attr` (same value, by construction
+      // — both read the SAME compiler-computed `lightScopeId`), so this is a
+      // no-op re-stamp on hydration and the real stamp for client-only mounts.
+      if (lightScopeId) {
+        this.setAttribute('data-a', lightScopeId)
+      }
       if (enableHydration && _hydrateFn !== null) {
         const state = (globalThis as Record<string, unknown>).__aihu_state__ as
           | Record<string, unknown>
@@ -123,7 +142,12 @@ export function defineElement(
   // `{ shadowMode: 'light' }` from the compiler plugin (DA4 #437).
   const mode: ShadowMode = options?.shadowMode ?? 'shadow'
   const enableHydration = options?.hydrate === true
-  const Wrapped = wrapClass(Ctor, mode, name, enableHydration)
+  // Only meaningful in light mode — see the doc comment on
+  // `DefineOptions.lightScopeId`. A shadow-mode component ignores it even if
+  // present (shouldn't happen: `_injectShadowMode` only ever sets it
+  // alongside `shadowMode: 'light'`), rather than trusting caller intent.
+  const lightScopeId = mode === 'light' ? options?.lightScopeId : undefined
+  const Wrapped = wrapClass(Ctor, mode, name, enableHydration, lightScopeId)
   // D5 — must be stamped BEFORE define(); the definition algorithm reads it
   // off the constructor there and never looks again.
   if (options?.formAssociated) {

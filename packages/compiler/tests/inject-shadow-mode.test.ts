@@ -52,4 +52,17 @@ describe('_injectShadowMode', () => {
     expect(out).toContain('const [count, setCount] = signal(0)')
     expect(out).toContain("branch('span'")
   })
+
+  it('folds lightScopeId into the SAME options object as shadowMode (LDF §10 step 3)', () => {
+    const out = _injectShadowMode(COMPILED_STATIC, 'light', 'a1b2c3d4')
+    expect(out).toContain("}), { shadowMode: 'light', lightScopeId: 'a1b2c3d4' })")
+    // Exactly one options object — not two independent injections colliding.
+    expect(out.match(/\{ shadowMode:/g)).toHaveLength(1)
+  })
+
+  it('omits lightScopeId entirely when not provided (shadow mode)', () => {
+    const out = _injectShadowMode(COMPILED_STATIC, 'shadow')
+    expect(out).toContain("{ shadowMode: 'shadow' })")
+    expect(out).not.toContain('lightScopeId')
+  })
 })

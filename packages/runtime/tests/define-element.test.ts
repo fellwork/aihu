@@ -139,4 +139,54 @@ describe('defineElement — Task 21 spec tests', () => {
     shadow.remove()
     light.remove()
   })
+
+  it('stamps data-a on the element when shadowMode is light and lightScopeId is set (LDF §10 step 3)', () => {
+    class T11 extends HTMLElement {}
+    defineElement('x-t11', T11, { shadowMode: 'light', lightScopeId: 'a1b2c3d4' })
+    const el = document.createElement('x-t11')
+    document.body.appendChild(el)
+    expect(el.getAttribute('data-a')).toBe('a1b2c3d4')
+    expect(el.shadowRoot).toBeNull()
+    el.remove()
+  })
+
+  it('does not stamp data-a when lightScopeId is absent (LDF §10 step 3)', () => {
+    class T12 extends HTMLElement {}
+    defineElement('x-t12', T12, { shadowMode: 'light' })
+    const el = document.createElement('x-t12')
+    document.body.appendChild(el)
+    expect(el.hasAttribute('data-a')).toBe(false)
+    el.remove()
+  })
+
+  it('ignores lightScopeId in shadow mode — never stamps data-a on a shadow host', () => {
+    // Defensive: `_injectShadowMode` only ever sets lightScopeId alongside
+    // `shadowMode: 'light'`, but defineElement must not trust that blindly.
+    class T13 extends HTMLElement {}
+    defineElement('x-t13', T13, { shadowMode: 'shadow', lightScopeId: 'a1b2c3d4' })
+    const el = document.createElement('x-t13')
+    document.body.appendChild(el)
+    expect(el.hasAttribute('data-a')).toBe(false)
+    expect(el.shadowRoot).toBeInstanceOf(ShadowRoot)
+    el.remove()
+  })
+
+  it('a lightScopeId component still wraps even though the light+non-hydrated fast path normally skips wrapping', () => {
+    // Regression: wrapClass's fast path (`mode === 'light' && !enableHydration
+    // → return Ctor unwrapped`) must not bypass the data-a stamp — verified
+    // via connectedCallback still firing AND data-a being present, proving
+    // Wrapped's constructor (not the bare Ctor) actually ran.
+    const spy = vi.fn()
+    class T14 extends HTMLElement {
+      connectedCallback() {
+        spy()
+      }
+    }
+    defineElement('x-t14', T14, { shadowMode: 'light', lightScopeId: 'deadbeef' })
+    const el = document.createElement('x-t14')
+    document.body.appendChild(el)
+    expect(el.getAttribute('data-a')).toBe('deadbeef')
+    expect(spy).toHaveBeenCalledTimes(1)
+    el.remove()
+  })
 })

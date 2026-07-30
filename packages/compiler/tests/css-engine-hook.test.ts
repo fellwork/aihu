@@ -232,6 +232,39 @@ describe('css-engine hook — present (e2e)', () => {
     expect(out).toContain('.p-4 { padding: 1rem; }')
     expect(out).toContain('adoptedStyleSheets = [__style__]')
   })
+
+  it.runIf(cssCoreBin)(
+    'the DOM-stamped data-a id and the CSS @scope id are byte-identical (LDF §10 step 3)',
+    async () => {
+      // The whole design depends on this: define-element.ts's runtime stamp
+      // and light_scope.rs's @scope selector must agree on the id WITHOUT
+      // either side recomputing it — both read the SAME `lightScopeId`
+      // computed once in the transform hook.
+      const tmp = mkdtempSync(join(tmpdir(), 'aihu-css-hook-scope-id-'))
+      try {
+        const plugin = aihuCompilerPlugin()
+        const transform = plugin.transform as unknown as TransformFn
+        const res = await transform.call(
+          {},
+          SFC_WITH_UTILITIES_AND_STYLE,
+          join(tmp, 'src', 'layouts', 'app.aihu'),
+        )
+        if (res == null) throw new Error('plugin returned no result')
+        const out = res.code
+
+        const optsMatch = out.match(/lightScopeId: '([0-9a-f]{8})'/)
+        expect(optsMatch).not.toBeNull()
+        const domId = optsMatch![1]!
+
+        const virtualIdMatch = out.match(/(virtual:aihu-utility\/[^"' ]+)["']/)
+        expect(virtualIdMatch).not.toBeNull()
+        const virtualCss = await plugin.load!(`\0${virtualIdMatch![1]}`)
+        expect(virtualCss).toContain(`@scope ([data-a="${domId}"])`)
+      } finally {
+        rmSync(tmp, { recursive: true, force: true })
+      }
+    },
+  )
 })
 
 describe('css-engine hook — absent (no-op, backward compatible)', () => {

@@ -134,21 +134,39 @@ export interface AihuCompilerPluginOptions {
 }
 
 /**
- * Inject `{ shadowMode: '...' }` as the third argument to the emitted
+ * Inject `{ shadowMode: '...' }` (and, for light mode, `lightScopeId: '...'`
+ * in the SAME options object) as the third argument to the emitted
  * `defineElement('tag', defineComponent(...))` call. The compiler emits
  * exactly two arguments today; this rewrites the closing of the
  * defineElement call to include the options object. Idempotent — leaves
  * code untouched when the closer is not in the expected shape.
  *
+ * `lightScopeId` is folded into this SAME regex operation rather than a
+ * second independent injection pass, deliberately: it is only ever set when
+ * `mode === 'light'` (see the call site, `index.ts`'s `transform` hook), so
+ * every call that needs it ALSO needs a shadowMode injection at the exact
+ * same spot — a second pass would just re-match (and fight) the text this
+ * one already rewrote. Stamps `data-a` on the root element at runtime
+ * (light-DOM leaf flip, LDF §10 step 3) — `packages/runtime/src/
+ * define-element.ts`'s `wrapClass` reads `options.lightScopeId`.
+ *
  * @internal
  */
-export function _injectShadowMode(code: string, mode: 'light' | 'shadow'): string {
+export function _injectShadowMode(
+  code: string,
+  mode: 'light' | 'shadow',
+  lightScopeId?: string,
+): string {
   // Match the trailing `))` that closes `defineElement(tag, defineComponent(setup))`.
   // The compiler always emits this exact two-paren close as the final tokens of
   // the defineElement call — we anchor on it and append the options object.
   // biome-ignore lint/correctness/noEmptyCharacterClassInRegex: [^] is valid JS — matches any char including newlines
   const re = /(defineElement\(\s*['"][^'"]+['"]\s*,\s*defineComponent\([^]*\))\s*\)/
-  const replaced = code.replace(re, (_m, inner: string) => `${inner}, { shadowMode: '${mode}' })`)
+  const scopeIdField = lightScopeId ? `, lightScopeId: '${lightScopeId}'` : ''
+  const replaced = code.replace(
+    re,
+    (_m, inner: string) => `${inner}, { shadowMode: '${mode}'${scopeIdField} })`,
+  )
   return replaced
 }
 
@@ -1475,8 +1493,20 @@ export function aihuCompilerPlugin(options?: AihuCompilerPluginOptions): VitePlu
         )?.[1] as 'light' | 'shadow' | undefined
         const impliedShadowDefault = perFileShadowDefault ?? (isLayout ? 'light' : undefined)
         const effectiveShadow = perFileShadow ?? shadowMode ?? impliedShadowDefault
+
+        // Light-DOM leaf flip prep (LDF §10 step 1/3): a deterministic scope
+        // id for this component's `data-a` attribute, only when it actually
+        // resolved to light mode. `undefined` in the shadow case — mirrors
+        // `SfcAst.light_scope_id: Option<String>` being `None` on the Rust
+        // side. Computed BEFORE the shadowMode injection below so it can
+        // ride in the SAME injected options object (`_injectShadowMode`'s
+        // doc comment explains why one merged injection, not two).
+        const lightScopeId = effectiveShadow === 'light' ? _lightScopeId(rawId) : undefined
+
         let compiled =
-          effectiveShadow != null ? _injectShadowMode(result.code, effectiveShadow) : result.code
+          effectiveShadow != null
+            ? _injectShadowMode(result.code, effectiveShadow, lightScopeId)
+            : result.code
         // Light-DOM: the authored `@style` block compiled to a per-instance
         // `host.adoptedStyleSheets` assignment, but a light-DOM host has no
         // shadow root so that setter is a no-op. Redirect the module-level
@@ -1484,14 +1514,6 @@ export function aihuCompilerPlugin(options?: AihuCompilerPluginOptions): VitePlu
         // CSS reaches the global cascade alongside the css-engine utility CSS.
         if (effectiveShadow === 'light') compiled = _globalizeAuthoredStyle(compiled)
         if (isLayout) compiled = _passivizeOutlet(compiled)
-
-        // Light-DOM leaf flip prep (LDF §10 step 1): a deterministic scope id
-        // for this component's `data-a` attribute, only when it actually
-        // resolved to light mode. `undefined` in the shadow case — mirrors
-        // `SfcAst.light_scope_id: Option<String>` being `None` on the Rust
-        // side. Not yet consumed for selector scoping (that's step 3); this
-        // just threads the value through so step 3 has it to consume.
-        const lightScopeId = effectiveShadow === 'light' ? _lightScopeId(rawId) : undefined
 
         // ── css-engine hook (optional, lazy, no circular dep) ──────────────
         // @aihu/css-engine depends on @aihu/compiler (for its AST), so the
