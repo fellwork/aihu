@@ -21,6 +21,26 @@ with them.
 
 ## Regeneration log
 
+### 2026-07-30 — `@aihu/agent` joins the dependency list (scaffold DX-matrix)
+
+- **Why it moved:** the compiler unconditionally emits `import {
+  registerAgentMetadata } from '@aihu/agent'` for any component with an
+  `$action` block, and the scaffolded counter component always has one.
+  `@aihu/agent` was only reachable transitively (via `@aihu/server`), which
+  bun/npm/yarn's hoisted `node_modules` papered over but pnpm's strict
+  per-package resolution did not — `minimal × pnpm` failed the DX-matrix
+  `build` step with an unresolved Rollup import. Added `@aihu/agent` as a
+  direct dependency in `appPackageJson` (`packages/cli/src/index.ts`).
+- **Regenerated:** 2026-07-30, from emitter at commit `e44f491b` (branch
+  `lint-cleanup-and-dx-matrix-fixes`), by deleting the directory and running
+  the harness twice; this README was restored afterward per the warning
+  above (`rm -rf` had taken it with the rest of the tree). Verified
+  byte-identical by a full harness run (`bunx vitest run
+  packages/cli/tests/legacy-snapshot.test.ts --config vitest.gates.config.ts`
+  → 1 passed).
+- **Diff vs previous golden:** exactly one added line in `package.json` —
+  `"@aihu/agent": "latest"`. No other file changed.
+
 ### 2026-07-28 — pnpm build-allow + the transitive peer closure (C-FEL-SCAFFOLD-PM-COMPAT)
 
 - **Why it moved:** two already-committed scaffold changes had never been

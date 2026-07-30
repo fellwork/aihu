@@ -428,9 +428,16 @@ function probePm(pm: Pm): PmInfo {
   return { pm, available: true, version, major: Number.parseInt(version.split('.')[0] ?? '0', 10) }
 }
 
-/** `<pm> run <script> -- <extra>`, with yarn's arg-forwarding difference honoured. */
+/**
+ * `<pm> run <script> -- <extra>`, with yarn's and pnpm's arg-forwarding
+ * differences honoured: neither strips a literal `--` before forwarding it
+ * to the script the way npm/bun do — pnpm forwards it as a literal `"--"`
+ * argv token (so the child sees `vite -- --port N`, which vite/cac parses as
+ * end-of-flags, silently ignoring the port), and yarn classic has the same
+ * issue in the other direction. Both need `extra` appended with no `--`.
+ */
 function pmRunArgs(pm: Pm, script: string, extra: readonly string[] = []): string[] {
-  if (pm === 'yarn') return ['run', script, ...extra]
+  if (pm === 'yarn' || pm === 'pnpm') return ['run', script, ...extra]
   return extra.length > 0 ? ['run', script, '--', ...extra] : ['run', script]
 }
 
