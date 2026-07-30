@@ -53,6 +53,11 @@ concurrency:
   group: scaffold-matrix-${{ github.ref }}
   cancel-in-progress: true
 
+# Least-privilege floor (CodeQL: Workflow does not contain permissions). No
+# job here pushes commits, comments, or writes releases/packages — read-only
+# GITHUB_TOKEN covers checkout + the actions used.
+permissions:
+  contents: read
 jobs:
   matrix:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false

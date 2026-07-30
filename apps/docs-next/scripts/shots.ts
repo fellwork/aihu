@@ -7,7 +7,7 @@ import { mkdir, readFile } from 'node:fs/promises'
  * widths in both light and dark themes. Output → `.design-review/`.
  */
 import { createServer } from 'node:http'
-import { extname, join } from 'node:path'
+import { extname, join, sep } from 'node:path'
 import { chromium } from '@playwright/test'
 
 const ROOT = new URL('..', import.meta.url).pathname
@@ -25,12 +25,22 @@ const MIME: Record<string, string> = {
   '.png': 'image/png',
 }
 
+/** True when `candidate` is DIST itself or a path genuinely inside it — the
+ * path-traversal guard `join()` alone doesn't provide (`join(DIST, '../..')`
+ * normalizes but can still resolve outside DIST). `req.url` is
+ * network-provided (CodeQL js/path-injection); this server only ever runs
+ * locally against our own build output, but the check is cheap and the
+ * pattern shouldn't be copy-pasted without it. */
+function isWithinDist(candidate: string): boolean {
+  return candidate === DIST || candidate.startsWith(DIST + sep)
+}
+
 function resolveFile(urlPath: string): string | null {
   let p = decodeURIComponent(urlPath.split('?')[0] ?? '')
   if (p.endsWith('/')) p = p.slice(0, -1)
   const candidates = [join(DIST, p), join(DIST, p, 'index.html'), join(DIST, `${p}.html`)]
   for (const c of candidates) {
-    if (existsSync(c) && extname(c)) return c
+    if (isWithinDist(c) && existsSync(c) && extname(c)) return c
   }
   if (p === '' || p === '/') return join(DIST, 'index.html')
   return null

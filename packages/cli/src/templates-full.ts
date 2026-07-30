@@ -807,7 +807,14 @@ export function fullServerTs(): string {
     '// ── The model player. Local first: the defaults point at Ollama, which needs',
     '// no key. Any OpenAI-compatible /chat/completions endpoint works; a key (for',
     '// hosted providers) lives in .env — gitignored — and only ever in THIS process.',
-    "const MODEL_BASE_URL = (process.env.MODEL_BASE_URL ?? 'http://localhost:11434/v1').replace(/\\/+$/, '')",
+    // A `\\/+$/`-anchored regex here would be a ReDoS on a pathological env
+    // var (CodeQL js/polynomial-redos) — a plain trailing-slash trim instead.
+    'function stripTrailingSlashes(s: string): string {',
+    '  let end = s.length',
+    "  while (end > 0 && s[end - 1] === '/') end--",
+    '  return s.slice(0, end)',
+    '}',
+    "const MODEL_BASE_URL = stripTrailingSlashes(process.env.MODEL_BASE_URL ?? 'http://localhost:11434/v1')",
     "const MODEL_NAME = process.env.MODEL_NAME ?? 'llama3.2'",
     'const MODEL_API_KEY = process.env.MODEL_API_KEY',
     '',

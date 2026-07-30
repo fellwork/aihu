@@ -24,6 +24,14 @@ import { readFileSync } from 'node:fs'
 import { dirname, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+/** Escape every regex-special char, not just `$` — the identifiers this
+ * escapes (getter/setter/binding names) never actually contain a
+ * backslash, but a full escape removes the ambiguity CodeQL's
+ * js/incomplete-sanitization flags in the `$`-only version. */
+function escapeRegex(literal: string): string {
+  return literal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../../../../..')
 const BIN = resolve(ROOT, 'target/release/aihu-compile')
 
@@ -168,7 +176,7 @@ for (const f of files) {
   const stillTupled = new Set(baselinePairs(newSrc).map(([g]) => g))
   for (const [g, s] of pairs) {
     if (stillTupled.has(g)) continue
-    a = a.replace(new RegExp(`(?<![\\w$])${s.replace(/\$/g, '\\$')}(?![\\w$])`, 'g'), `__${g}_set`)
+    a = a.replace(new RegExp(`(?<![\\w$])${escapeRegex(s)}(?![\\w$])`, 'g'), `__${g}_set`)
   }
   // Normalization 3 — reactive-binding read calls. The wrapper dialect's
   // §4.2 read-rewrite splices `()` onto bare reads in @state-scope code —
@@ -191,7 +199,7 @@ for (const f of files) {
     let out = t
     for (const name of reactive) {
       out = out.replace(
-        new RegExp(`(?<![\\w$])(?<!(?<!\\.)\\.)${name.replace(/\$/g, '\\$')}\\s*\\(\\s*\\)`, 'g'),
+        new RegExp(`(?<![\\w$])(?<!(?<!\\.)\\.)${escapeRegex(name)}\\s*\\(\\s*\\)`, 'g'),
         name,
       )
     }
@@ -208,7 +216,7 @@ for (const f of files) {
     /__([A-Za-z_$][\w$]*)_set\(\s*(?:\(\s*([A-Za-z_$][\w$]*)\s*(?::[^)]*)?\)|([A-Za-z_$][\w$]*))\s*=>\s*([^{][^)]*)\)/g,
     (_m, g: string, p1: string | undefined, p2: string | undefined, expr: string) => {
       const param = p1 ?? p2!
-      const sub = expr.replace(new RegExp(`\\b${param.replace(/\$/g, '\\$')}\\b`, 'g'), () => {
+      const sub = expr.replace(new RegExp(`\\b${escapeRegex(param)}\\b`, 'g'), () => {
         // The migrated source reads the state bare; emitted output reads the
         // getter call — which normalization 3 has already collapsed to `g`.
         return g

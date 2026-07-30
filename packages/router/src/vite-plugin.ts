@@ -132,9 +132,19 @@ export function componentTagFor(name: string): string {
   return out
 }
 
+/** Strip the file extension off the LAST path segment, e.g. `a/b.aihu` →
+ * `a/b`. Plain string ops, not a `\.[^/]+$/`-style regex — that shape is
+ * vulnerable to catastrophic backtracking on pathological input with no
+ * matching extension (CodeQL js/polynomial-redos): the engine retries the
+ * greedy `[^/]+` match at every position where `\.` could start. */
+function stripExtension(rel: string): string {
+  const lastSlash = Math.max(rel.lastIndexOf('/'), rel.lastIndexOf('\\'))
+  const lastDot = rel.lastIndexOf('.')
+  return lastDot > lastSlash ? rel.slice(0, lastDot) : rel
+}
+
 function segs(rel: string): RouteSegment[] {
-  const parts = rel
-    .replace(/\.[^/]+$/, '')
+  const parts = stripExtension(rel)
     .replace(/\\/g, '/')
     .split('/')
     .filter(Boolean)

@@ -269,6 +269,17 @@ function _extractElementTag(code: string): string | null {
   return m ? (m[1] ?? null) : null
 }
 
+/** Strip trailing `/` characters via a plain scan, not a `\/+$/`-anchored
+ * regex — that shape is vulnerable to catastrophic backtracking on a long
+ * run of slashes with no match (CodeQL js/polynomial-redos): the greedy `+`
+ * backtracks one character at a time at EVERY starting offset before
+ * failing, an O(n²) blowup (measured: ~45s on 200k slashes). */
+function trimTrailingSlashes(s: string): string {
+  let end = s.length
+  while (end > 0 && s.charCodeAt(end - 1) === 47 /* '/' */) end--
+  return s.slice(0, end)
+}
+
 /**
  * Is `rawId` a layout SFC (a `.aihu` file under the configured layouts dir)?
  * Root-independent: matches the `<layoutsDir>/` segment anywhere in the path,
@@ -276,10 +287,7 @@ function _extractElementTag(code: string): string | null {
  * @internal
  */
 export function _isLayoutFile(rawId: string, layoutsDir: string): boolean {
-  const ld = layoutsDir
-    .replace(/\\/g, '/')
-    .replace(/^\.?\//, '')
-    .replace(/\/+$/, '')
+  const ld = trimTrailingSlashes(layoutsDir.replace(/\\/g, '/').replace(/^\.?\//, ''))
   if (!ld) return false
   return rawId.replace(/\\/g, '/').includes(`/${ld}/`)
 }

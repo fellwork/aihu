@@ -40,6 +40,16 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+/** Escape every regex-special character so a CLI-provided name (composable
+ * name, size-limit row name, use-registry call name) is matched LITERALLY —
+ * not interpreted as regex syntax. Without this, a name containing `.`/`*`/
+ * etc. silently false-positive-matches (`use.Map` would match `useXMap`) or
+ * throws on unbalanced `(`/`[`. CodeQL flags the unescaped construction as
+ * `js/regex-injection`. */
+function escapeRegex(literal: string): string {
+  return literal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
 // ---------- families.json ----------
 
 export interface FamilyDef {
@@ -195,7 +205,7 @@ function findBarrelInsertionOffset(src: string, name: string): number {
 
 /** CORE barrel patch — unchanged behavior, used only when `--family` is absent. */
 export function patchBarrel(barrelSrc: string, name: string): { text: string; changed: boolean } {
-  const alreadyPresent = new RegExp(`from '\\./${name}/index\\.ts'`).test(barrelSrc)
+  const alreadyPresent = new RegExp(`from '\\./${escapeRegex(name)}/index\\.ts'`).test(barrelSrc)
   if (alreadyPresent) return { text: barrelSrc, changed: false }
 
   const pascal = pascalSuffix(name)
@@ -225,7 +235,7 @@ export function patchFamilyBarrel(
     familyBarrelSrc ??
     `/**\n * \`@aihu/use/${family}\` — family aggregate barrel (namespace-wave0).\n` +
       ` * Re-exports every ${family} member for the bare \`@aihu/use/${family}\` entry.\n */\n`
-  const alreadyPresent = new RegExp(`from '\\./${name}/index\\.ts'`).test(base)
+  const alreadyPresent = new RegExp(`from '\\./${escapeRegex(name)}/index\\.ts'`).test(base)
   if (alreadyPresent) return { text: base, changed: false, created: false }
 
   const pascal = pascalSuffix(name)
@@ -431,7 +441,7 @@ export function patchSizeLimit(
   limit: string,
   ignore: string[],
 ): { text: string; changed: boolean } {
-  if (new RegExp(`"name": "${rowName.replace(/\//g, '\\/')}"`).test(src)) {
+  if (new RegExp(`"name": "${escapeRegex(rowName)}"`).test(src)) {
     return { text: src, changed: false }
   }
 
@@ -467,7 +477,7 @@ export function patchUseRegistryRs(
   callName: string,
   subpath: string,
 ): { text: string; changed: boolean } {
-  const alreadyPresent = new RegExp(`\\("${callName}",`).test(src)
+  const alreadyPresent = new RegExp(`\\("${escapeRegex(callName)}",`).test(src)
   if (alreadyPresent) return { text: src, changed: false }
 
   const marker = 'USE_COMPOSABLES: &[(&str, &str)] = &['

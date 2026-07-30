@@ -319,6 +319,14 @@ function findBlock(source: string, name: string): BlockSpan | null {
 
 // ─── Write / read detection (the nature + reactivity heuristics) ────────────
 
+/** Escape every regex-special char, not just `$` — `name`/`getter`/`setter`
+ * here are always JS/TS identifiers, so backslash never actually appears,
+ * but a full escape is one line and removes the ambiguity CodeQL's
+ * js/incomplete-sanitization flags in the `$`-only version. */
+function escapeRegex(literal: string): string {
+  return literal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
 /**
  * Does `code` WRITE `name`? Assignment (plain or compound) or update
  * expression. `==`/`===`/`=>`/`<=`/`>=`/`!=` never match: the operator char
@@ -326,7 +334,7 @@ function findBlock(source: string, name: string): BlockSpan | null {
  * `==`/`=>` after a bare `=`.
  */
 function writesName(code: string, name: string): boolean {
-  const esc = name.replace(/\$/g, '\\$')
+  const esc = escapeRegex(name)
   const re = new RegExp(
     `\\b${esc}\\s*(\\+\\+|--|(?:\\+|-|\\*|/|%|\\*\\*|&&|\\|\\||\\?\\?|&|\\||\\^|<<|>>>?)?=(?![=>]))`,
   )
@@ -334,13 +342,13 @@ function writesName(code: string, name: string): boolean {
 }
 
 function readsName(code: string, name: string): boolean {
-  const esc = name.replace(/\$/g, '\\$')
+  const esc = escapeRegex(name)
   return new RegExp(`\\b${esc}\\b`).test(code)
 }
 
 /** Template two-way bindings (`bind:value={name}`) WRITE their target. */
 function bindWrites(templateText: string, name: string): boolean {
-  const esc = name.replace(/\$/g, '\\$')
+  const esc = escapeRegex(name)
   return new RegExp(`\\bbind:[\\w-]+=\\{\\s*${esc}\\s*\\}`).test(templateText)
 }
 
@@ -936,7 +944,7 @@ function findTuples(body: string, offset: number): TuplePair[] {
 /** All indexes of `name(` call heads in `text` (word-boundary). */
 function callSites(text: string, name: string): number[] {
   const out: number[] = []
-  const esc = name.replace(/\$/g, '\\$')
+  const esc = escapeRegex(name)
   const re = new RegExp(`(?<![\\w$.])${esc}\\s*\\(`, 'g')
   let m: RegExpExecArray | null = re.exec(text)
   while (m !== null) {
@@ -974,7 +982,7 @@ function rewriteSetterCall(
       )
       rhs = `(${arg})(${getter})`
     } else {
-      const esc = param.replace(/\$/g, '\\$')
+      const esc = escapeRegex(param)
       rhs = bodyExpr.replace(new RegExp(`\\b${esc}\\b`, 'g'), getter)
     }
   } else {
@@ -1020,7 +1028,7 @@ function migrateTuplesIn(
     const { getter, setter } = pair
     // Guard: setter referenced as a VALUE (not a call) anywhere → keep pair.
     if (setter) {
-      const esc = setter.replace(/\$/g, '\\$')
+      const esc = escapeRegex(setter)
       const valueUse = new RegExp(`(?<![\\w$.'"\`])${esc}(?![\\w$]|\\s*\\()`)
       const outsideDecl = stripSpan(text, pair.declStart, pair.declEnd)
       if (valueUse.test(outsideDecl)) {
@@ -1049,7 +1057,7 @@ function migrateTuplesIn(
 
     // 2. Getter reads `x()` → `x` (whole file; empty-arg calls only).
     {
-      const esc = getter.replace(/\$/g, '\\$')
+      const esc = escapeRegex(getter)
       // Reject member reads (`obj.x()`) but allow spread (`...x()`): the
       // preceding dot only blocks when it is not itself part of `...`.
       text = text.replace(
@@ -1061,7 +1069,7 @@ function migrateTuplesIn(
     // 3. The declaration itself. Re-locate it (upstream edits shifted spans
     //    only AFTER the decl, but re-find defensively).
     {
-      const esc = getter.replace(/\$/g, '\\$')
+      const esc = escapeRegex(getter)
       const declRe = new RegExp(
         `(?:const|let)\\s*\\[\\s*${esc}\\s*(?:,\\s*[A-Za-z_$][\\w$]*\\s*)?\\]\\s*=\\s*signal(<[^\\n]*?>)?\\(`,
       )
@@ -1177,7 +1185,7 @@ export function migrateStateWrappers(
       ].map((m) => m[1] ?? '')
       for (const name of propNames) {
         if (!name) continue
-        const esc = name.replace(/\$/g, '\\$')
+        const esc = escapeRegex(name)
         text = text.replace(
           new RegExp(`(?<![\\w$])(?<!(?<!\\.)\\.)${esc}\\s*\\(\\s*\\)`, 'g'),
           name,
