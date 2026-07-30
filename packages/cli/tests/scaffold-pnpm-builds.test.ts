@@ -6,6 +6,14 @@ import { fileURLToPath } from 'node:url'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { type AppTemplate, scaffoldApp } from '../src/index.ts'
 
+/** Escape every regex-special char — REQUIRED_BUILDS below is a fixed
+ * literal array, but the full escape (vs. the [/@]-only version this
+ * replaces) removes the ambiguity CodeQL's js/incomplete-sanitization
+ * flags. */
+function escapeRegex(literal: string): string {
+  return literal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
 /**
  * C-FEL-SCAFFOLD-PM-COMPAT — every scaffold must ship a `pnpm-workspace.yaml`
  * carrying the **v11** build-allow spelling.
@@ -79,7 +87,7 @@ describe('every scaffold unblocks pnpm lifecycle scripts', () => {
       expect(yaml).toMatch(/^allowBuilds:$/m)
       for (const pkg of REQUIRED_BUILDS) {
         expect(yaml, `${template} does not allow builds for ${pkg}`).toMatch(
-          new RegExp(`^\\s+'?${pkg.replace(/[/@]/g, '\\$&')}'?:\\s*true$`, 'm'),
+          new RegExp(`^\\s+'?${escapeRegex(pkg)}'?:\\s*true$`, 'm'),
         )
       }
 
@@ -146,7 +154,7 @@ describe('every scaffold unblocks pnpm lifecycle scripts', () => {
     expect(yaml).toMatch(/^packages:$/m)
     expect(yaml).toMatch(/^allowBuilds:$/m)
     for (const pkg of REQUIRED_BUILDS) {
-      expect(yaml).toMatch(new RegExp(`^\\s+'?${pkg.replace(/[/@]/g, '\\$&')}'?:\\s*true$`, 'm'))
+      expect(yaml).toMatch(new RegExp(`^\\s+'?${escapeRegex(pkg)}'?:\\s*true$`, 'm'))
     }
     expect(yaml).not.toMatch(/onlyBuiltDependencies:/)
   })

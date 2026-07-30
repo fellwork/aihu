@@ -65,8 +65,17 @@ export function setBuildFlag(outputDir: string, key: string, value: unknown): vo
   const filePath = join(dir, 'build-flags.json')
   const root = readJson<Record<string, unknown>>(filePath, {})
 
-  // Walk dot-notation segments and deep-merge.
+  // Walk dot-notation segments and deep-merge. `key` is a public API
+  // parameter (exported function) — reject __proto__/constructor/prototype
+  // segments so a future caller can't pollute Object.prototype across the
+  // process (CodeQL js/prototype-pollution-utility). Every CURRENT caller
+  // passes a hardcoded literal ('magna.untyped'), but the guard costs
+  // nothing and the contract itself accepts an arbitrary string.
+  const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
   const segments = key.split('.')
+  if (segments.some((seg) => UNSAFE_KEYS.has(seg))) {
+    throw new Error(`setBuildFlag: unsafe key segment in "${key}"`)
+  }
   let cursor: Record<string, unknown> = root
 
   for (let i = 0; i < segments.length - 1; i++) {

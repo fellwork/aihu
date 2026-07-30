@@ -23,6 +23,11 @@ on:
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
+# Least-privilege floor (CodeQL: Workflow does not contain permissions). No
+# job here pushes commits, comments, or writes releases/packages — read-only
+# GITHUB_TOKEN covers checkout + the actions used.
+permissions:
+  contents: read
 jobs:
   check:
     # Skip CI on draft PRs to keep the inner Builder loop cheap.

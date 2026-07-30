@@ -43,6 +43,11 @@ on:
         required: false
         default: 'ci-fitness'
 
+# Least-privilege floor (CodeQL: Workflow does not contain permissions). No
+# job here pushes commits, comments, or writes releases/packages — read-only
+# GITHUB_TOKEN covers checkout + the actions used.
+permissions:
+  contents: read
 jobs:
   fitness:
     runs-on: ubuntu-latest

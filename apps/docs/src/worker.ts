@@ -250,6 +250,19 @@ const webmcpManifest = {
 
 const webmcpHandler: RouteHandler = (_req) => json(webmcpManifest)
 
+/** Strip leading/trailing `/` from a request pathname via a plain scan, not
+ * `/^\/+|\/+$/`-anchored regexes — that shape is vulnerable to catastrophic
+ * backtracking on a long run of slashes with no match (CodeQL
+ * js/polynomial-redos), and `url.pathname` here is attacker-controlled
+ * request input to an edge worker. */
+function stripSlashes(s: string): string {
+  let start = 0
+  let end = s.length
+  while (start < end && s.charCodeAt(start) === 47 /* '/' */) start++
+  while (end > start && s.charCodeAt(end - 1) === 47 /* '/' */) end--
+  return s.slice(start, end)
+}
+
 const sitemapHandler: RouteHandler = (_req) => {
   const xml = generateSitemapXml({ pages: sitemapPages })
   return new Response(xml, {
@@ -372,7 +385,7 @@ export default {
     // but never served, LCP never improves). `/` keeps the root index.html.
     const isHtmlNav =
       request.method === 'GET' && (request.headers.get('Accept') ?? '').includes('text/html')
-    const normalizedPath = url.pathname.replace(/^\/+/, '').replace(/\/+$/, '')
+    const normalizedPath = stripSlashes(url.pathname)
     const looksLikeFile = /\.[a-z0-9]+$/i.test(normalizedPath)
     if (isHtmlNav && normalizedPath !== '' && !looksLikeFile) {
       try {

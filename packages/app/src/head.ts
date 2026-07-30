@@ -14,6 +14,43 @@ function escapeText(value: string): string {
   return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
 
+/** Escape a string for literal use inside a `new RegExp(...)` pattern. */
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+/**
+ * Find the first `<meta ...>` tag (case-insensitive, self-closing `/>` or
+ * bare `>`) whose full text satisfies `pred`.
+ *
+ * Deliberately scans tag boundaries with ONE unambiguous `[^>]*` run per
+ * tag, then tests `pred` against just that bounded substring — never a
+ * nested `\s+[^>]*attr[^>]*` shape over the WHOLE document. The latter is
+ * vulnerable to catastrophic backtracking (CodeQL js/polynomial-redos):
+ * `\s` is a subset of `[^>]`, so a run of repeated whitespace with no
+ * matching closing tag lets the engine try exponentially many ways to
+ * split that run between the two quantifiers before failing.
+ */
+function findMetaTag(html: string, pred: (tag: string) => boolean): string | null {
+  const tagRe = /<meta\b[^>]*>/gi
+  let m: RegExpExecArray | null
+  while ((m = tagRe.exec(html)) !== null) {
+    if (pred(m[0])) return m[0]
+  }
+  return null
+}
+
+/** Whether a (bounded, single-tag) string has `attr="value"` (any quote style, any case). */
+function metaAttrEquals(tag: string, attr: string, value: string): boolean {
+  const re = new RegExp(`\\b${attr}\\s*=\\s*["']${escapeRegex(value)}["']`, 'i')
+  return re.test(tag)
+}
+
+/** Whether a (bounded, single-tag) string has the named attribute at all. */
+function metaHasAttr(tag: string, attr: string): boolean {
+  return new RegExp(`\\b${attr}\\s*=`, 'i').test(tag)
+}
+
 /**
  * Transform a built index.html, applying the app-level <head> config.
  *
@@ -47,8 +84,9 @@ export function applyHeadConfig(html: string, head: HeadConfig | undefined): str
   // charset → <meta charset>
   if (head.charset !== undefined) {
     const tag = `<meta charset="${escapeAttr(head.charset)}">`
-    if (/<meta\s+[^>]*charset\s*=\s*["'][^"']*["'][^>]*>/i.test(out)) {
-      out = out.replace(/<meta\s+[^>]*charset\s*=\s*["'][^"']*["'][^>]*>/i, tag)
+    const found = findMetaTag(out, (t) => metaHasAttr(t, 'charset'))
+    if (found) {
+      out = out.replace(found, tag)
     } else {
       inject.push(tag)
     }
@@ -57,9 +95,9 @@ export function applyHeadConfig(html: string, head: HeadConfig | undefined): str
   // viewport → <meta name="viewport">
   if (head.viewport !== undefined) {
     const tag = `<meta name="viewport" content="${escapeAttr(head.viewport)}">`
-    const viewportRe = /<meta\s+[^>]*name\s*=\s*["']viewport["'][^>]*>/i
-    if (viewportRe.test(out)) {
-      out = out.replace(viewportRe, tag)
+    const found = findMetaTag(out, (t) => metaAttrEquals(t, 'name', 'viewport'))
+    if (found) {
+      out = out.replace(found, tag)
     } else {
       inject.push(tag)
     }
@@ -77,12 +115,9 @@ export function applyHeadConfig(html: string, head: HeadConfig | undefined): str
     const tag = `<meta ${attrs}>`
 
     if (key && keyVal !== undefined) {
-      const re = new RegExp(
-        `<meta\\s+[^>]*${key}\\s*=\\s*["']${keyVal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}["'][^>]*>`,
-        'i',
-      )
-      if (re.test(out)) {
-        out = out.replace(re, tag)
+      const found = findMetaTag(out, (t) => metaAttrEquals(t, key, keyVal))
+      if (found) {
+        out = out.replace(found, tag)
         continue
       }
     }
