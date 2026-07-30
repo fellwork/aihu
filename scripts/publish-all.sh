@@ -70,13 +70,10 @@ PKGS=(
   "seo"               # @aihu/seo SSR/meta helpers; depends on @aihu/plugin + @aihu/server + @aihu-plugin/agent-readiness (must follow them)
   "cli"
   "create-aihu"       # `npm create aihu` entry point; thin delegator — depends on @aihu/cli (must follow it)
-  # templates/cf-team was REMOVED 2026-07-26 while FEL-431 is open: a scaffolded
-  # cf-team cannot dev, build or typecheck. The package is marked private, and a
-  # private package left in this array fails check-publish-manifest as STALE --
-  # publish-all has no private handling, so it would also redden the release job.
-  # Restore this entry AND unset private together when FEL-431 closes.
-  # NOTE: no quoted package names in this comment; the manifest parser reads any
-  # quoted string in this block as an entry.
+  "templates/cf-team" # @aihu/templates-cf-team — RESTORED (#717 fixed FEL-431: cf-team
+                       # can now dev/build/typecheck across all 4 package managers).
+                       # Unset `private` alongside restoring this entry — see
+                       # docs/lessons for the removal history.
   "compiler"
   "css-engine"        # build-time CSS engine; depends on @aihu/compiler (must follow it)
   "primitives"        # headless UI primitives; depends on css-engine + signals + arbor (must follow them)
