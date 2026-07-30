@@ -3,4 +3,5 @@ language: typescript
 layer: library
 
 dependsOn:
+  - 'app'
   - 'compiler'

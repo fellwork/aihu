@@ -1,5 +1,6 @@
+import { existsSync } from 'node:fs'
 import { cp, writeFile as fsWriteFile, mkdir } from 'node:fs/promises'
-import { dirname, resolve as resolvePath } from 'node:path'
+import { dirname, join, resolve as resolvePath } from 'node:path'
 // Build-time sub-plugin imports. These are devDependencies of @aihu/app and
 // are marked external in rolldown.config.ts — they are never bundled.
 import { aihuCompilerPlugin, compileRouteMeta } from '@aihu/compiler'
@@ -10,6 +11,7 @@ import type { Plugin, PluginOption, ResolvedConfig } from 'vite'
 import type { AdapterContext, CreateHandlerSourceOptions } from './adapter.ts'
 import type { AihuConfig } from './config.ts'
 import { validateAihuConfig } from './config.ts'
+import { ENTRY_RESOLVED_ID, ENTRY_SOURCE, ENTRY_VIRTUAL_ID, injectEntryScript } from './entry.ts'
 import { applyHeadConfig } from './head.ts'
 import { AIHU_CONFIG_PLUGIN, type AihuModuleApi, type AihuPluginApi } from './load-config.ts'
 import { prerenderClose } from './prerender.ts'
@@ -104,8 +106,10 @@ function buildAdapterContext(
  *   [0] aihuCompilerPlugin (enforce:'pre') — transforms .aihu SFCs
  *   [1] viteRouterIntegration — serves virtual:aihu-routes + virtual:aihu-layouts
  *   [2] aihu-agent-readiness (opt-in) or no-op
- *   [3] aihu-head (injects config.app.head into index.html <head>)
- *   [4..n] user plugins from config.plugins
+ *   [3] aihu-entry — serves virtual:aihu-entry (createApp() with no options) and
+ *       injects its <script> tag into index.html when no src/main.ts exists
+ *   [4] aihu-head (injects config.app.head into index.html <head>)
+ *   [5..n] user plugins from config.plugins
  *   [n+1] aihu-vite-passthrough (merges config.vite into Vite's resolved config)
  *   [n+2] aihu-adapter (adapter.adapt() on closeBundle, build mode only)
  *
@@ -187,6 +191,32 @@ export function viteAihuPlugin(config?: AihuConfig): PluginOption[] {
   } else {
     // Stable no-op so plugin-inspector shows a meaningful entry
     agentPlugin = { name: 'aihu-agent-readiness-disabled' }
+  }
+
+  // Virtual client entry — see packages/app/src/entry.ts for the full
+  // rationale and the escape-hatch contract.
+  let entryRoot = process.cwd()
+  const entryPlugin: Plugin = {
+    name: 'aihu-entry',
+    configResolved(rc) {
+      entryRoot = rc.root
+    },
+    resolveId(id) {
+      return id === ENTRY_VIRTUAL_ID ? ENTRY_RESOLVED_ID : null
+    },
+    load(id) {
+      return id === ENTRY_RESOLVED_ID ? ENTRY_SOURCE : null
+    },
+    transformIndexHtml: {
+      // Run before Vite's core HTML processing (which resolves <script> src
+      // attributes into the module graph) so an injected tag is picked up as
+      // a build entry the same way an authored one would be.
+      order: 'pre',
+      handler(html: string): string {
+        const hasUserEntry = existsSync(join(entryRoot, 'src/main.ts'))
+        return injectEntryScript(html, hasUserEntry)
+      },
+    },
   }
 
   // Head injection — applies config.app.head into the built index.html <head>.
@@ -295,6 +325,7 @@ export function viteAihuPlugin(config?: AihuConfig): PluginOption[] {
     }) as unknown as Plugin,
     viteRouterIntegration(routerOpts) as unknown as Plugin,
     agentPlugin,
+    entryPlugin,
     headPlugin,
     ...((config?.plugins ?? []) as Plugin[]),
     passthroughPlugin,

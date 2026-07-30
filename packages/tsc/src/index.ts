@@ -51,6 +51,14 @@ export interface RunOptions {
   /** Report implicit-`any` inside .aihu files too. */
   strictTemplates?: boolean
   cwd?: string
+  /**
+   * Build target threaded to `compileSidecar` (`--target`) — sourced from the
+   * project's `vite.config.ts` (`AihuConfig.compiler.target`) by the CLI
+   * entry (`bin/aihu-tsc.mjs`) via `loadTscProjectConfig()`, since `run()`
+   * itself is synchronous. See `compileSidecar`'s doc comment in
+   * `@aihu/compiler` for why this affects type-check accuracy.
+   */
+  target?: 'client' | 'server' | 'universal'
 }
 
 export function run(options: RunOptions = {}): number {
@@ -92,7 +100,10 @@ export function run(options: RunOptions = {}): number {
     // #486 step 4 — `--strict-templates` turns the sidecar's attribute/
     // component-prop check layer on; default-off keeps the virtual code
     // byte-identical to the previous surface.
-    createAihuLanguagePlugin(tsModule, { strictTemplates: options.strictTemplates ?? false }),
+    createAihuLanguagePlugin(tsModule, {
+      strictTemplates: options.strictTemplates ?? false,
+      ...(options.target ? { target: options.target } : {}),
+    }),
   ])
 
   const host = ts.createCompilerHost(parsed.options)
@@ -187,3 +198,4 @@ function formatDiagnostics(diagnostics: readonly ts.Diagnostic[], cwd: string): 
 
 export type { AihuLanguagePluginOptions, AihuVirtualCode } from './language-plugin.ts'
 export { buildMappings, createAihuLanguagePlugin, getUncompilableFiles } from './language-plugin.ts'
+export { loadTscProjectConfig } from './load-project-config.ts'

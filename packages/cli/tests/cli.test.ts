@@ -243,22 +243,26 @@ afterEach(() => {
 })
 
 describe('scaffoldApp', () => {
-  it('creates the 12 expected files (9 baseline + agent-tooling trio)', () => {
+  it('creates the 11 expected files (8 baseline + agent-tooling trio)', () => {
     const result = scaffoldApp('demo', tmpDir)
-    // 12, not 11: pnpm-workspace.yaml joined the baseline. Current pnpm reads
-    // its settings from that file only, so without it the first `pnpm install`
-    // dies with ERR_PNPM_IGNORED_BUILDS (C-FEL-SCAFFOLD-PM-COMPAT).
-    expect(result.created).toHaveLength(12)
+    // 11, not 12: src/main.ts is no longer scaffolded — viteAihuPlugin's
+    // aihu-entry sub-plugin injects a virtual equivalent (see
+    // appMainTs's doc comment for the escape hatch). pnpm-workspace.yaml is
+    // still part of the baseline: current pnpm reads its settings from that
+    // file only, so without it the first `pnpm install` dies with
+    // ERR_PNPM_IGNORED_BUILDS (C-FEL-SCAFFOLD-PM-COMPAT).
+    expect(result.created).toHaveLength(11)
     expect(result.created).toContain('pnpm-workspace.yaml')
     expect(result.created).toContain('AGENTS.md')
     expect(result.created).toContain('CLAUDE.md')
     expect(result.created).toContain('.mcp.json')
+    expect(result.created).not.toContain('src/main.ts')
     expect(result.skipped).toHaveLength(0)
   })
 
   it('agentTooling: false drops exactly the coding-assistant trio', () => {
     const result = scaffoldApp('demo', tmpDir, { agentTooling: false })
-    expect(result.created).toHaveLength(9)
+    expect(result.created).toHaveLength(8)
     expect(result.created).not.toContain('AGENTS.md')
     expect(result.created).not.toContain('CLAUDE.md')
     expect(result.created).not.toContain('.mcp.json')
@@ -293,14 +297,15 @@ describe('scaffoldApp', () => {
     expect(existsSync(join(tmpDir, 'demo', 'rolldown.config.ts'))).toBe(false)
   })
 
-  it('writes index.html with an outlet div (not a custom-element root)', () => {
+  it('writes index.html with an outlet div and no hardcoded entry script (not a custom-element root)', () => {
     // `createApp()` looks up `document.getElementById('outlet')`; an
     // index.html with `<demo-root>` instead of `<div id="outlet">` boots to
-    // a hard error.
+    // a hard error. No <script> tag: viteAihuPlugin's aihu-entry sub-plugin
+    // injects one pointing at virtual:aihu-entry when src/main.ts is absent.
     scaffoldApp('demo', tmpDir)
     const html = readFileSync(join(tmpDir, 'demo', 'index.html'), 'utf8')
     expect(html).toContain('id="outlet"')
-    expect(html).toContain('./src/main.ts')
+    expect(html).not.toContain('<script')
   })
 
   it('writes src/pages/index.aihu', () => {
@@ -313,16 +318,16 @@ describe('scaffoldApp', () => {
     expect(existsSync(join(tmpDir, 'demo', 'index.html'))).toBe(true)
   })
 
-  it('writes src/main.ts', () => {
+  it('does NOT write src/main.ts (virtual entry covers the default case)', () => {
     scaffoldApp('demo', tmpDir)
-    expect(existsSync(join(tmpDir, 'demo', 'src', 'main.ts'))).toBe(true)
+    expect(existsSync(join(tmpDir, 'demo', 'src', 'main.ts'))).toBe(false)
   })
 
   it('skips existing files on re-run', () => {
     scaffoldApp('demo', tmpDir)
     const second = scaffoldApp('demo', tmpDir)
     expect(second.created).toHaveLength(0)
-    expect(second.skipped).toHaveLength(12)
+    expect(second.skipped).toHaveLength(11)
   })
 
   it('writes package.json with trustedDependencies on disk (FIX 1)', () => {
@@ -337,7 +342,7 @@ describe('scaffoldApp', () => {
 describe('scaffoldApp · template differentiation (FIX 3)', () => {
   it('minimal produces the baseline set (no layout, no extra pages)', () => {
     const result = scaffoldApp('demo', tmpDir, { template: 'minimal' })
-    expect(result.created).toHaveLength(12)
+    expect(result.created).toHaveLength(11)
     expect(result.created).not.toContain('src/layouts/default.aihu')
     expect(result.created).not.toContain('src/pages/about.aihu')
   })

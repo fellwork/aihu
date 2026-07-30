@@ -21,6 +21,32 @@ with them.
 
 ## Regeneration log
 
+### 2026-07-30 — `src/main.ts` no longer scaffolded (virtual client entry)
+
+- **Why it moved:** `viteAihuPlugin()` gained an `aihu-entry` sub-plugin
+  (`packages/app/src/vite-plugin.ts` + `packages/app/src/entry.ts`) that
+  injects `<script type="module" src="virtual:aihu-entry">` into
+  `index.html` and serves `virtual:aihu-entry` (byte-identical to the old
+  `src/main.ts` content: `import { createApp } from '@aihu/app/client';
+  createApp()`) whenever no real `src/main.ts` exists on disk. `appMainTs`/
+  `appIndexHtml` (`packages/cli/src/index.ts`) stopped emitting the file and
+  its `<script>` tag for the `minimal`/`docs` templates — a project that
+  needs `createApp(options)` (`provide`, `outletId`, a non-default `head`)
+  still writes a real `src/main.ts`, which makes the virtual entry step
+  aside entirely (full eject, not a partial override).
+- **Regenerated:** 2026-07-30, from emitter at commit `f88cdf02`, by
+  deleting the directory and running the harness twice; this README was
+  restored afterward per the warning above. Verified byte-identical by a
+  full harness run (`bunx vitest run
+  packages/cli/tests/legacy-snapshot.test.ts --config vitest.gates.config.ts`
+  → 1 passed).
+- **Diff vs previous golden:** `src/main.ts` removed; `index.html` lost its
+  `<script type="module" src="./src/main.ts"></script>` line;
+  `AGENTS.md`'s project-map table dropped the now-stale `src/main.ts` row
+  and updated the `index.html` row to describe the injected virtual entry
+  (`viteTemplateAgentsFacts` in `packages/cli/src/templates-tooling.ts`).
+  No other file changed.
+
 ### 2026-07-30 — `@aihu/agent` joins the dependency list (scaffold DX-matrix)
 
 - **Why it moved:** the compiler unconditionally emits `import {
