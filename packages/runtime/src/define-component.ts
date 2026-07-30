@@ -270,6 +270,15 @@ function _slotNameOfChild(c: ChildNode): string {
   return ''
 }
 
+/** LDF §10 step 4 — mark a reparented top-level projected node so
+ * `light_scope.rs`'s `::slotted()` lowering (`[data-aihu-slotted]`) can
+ * target it. Only element nodes can carry an attribute; text/comment nodes
+ * are skipped (there is no lowered selector that could match them anyway —
+ * `::slotted()` in real Shadow DOM only ever matches elements). */
+function _markSlotted(c: ChildNode): void {
+  if (c.nodeType === 1 /* ELEMENT_NODE */) (c as Element).setAttribute('data-aihu-slotted', '')
+}
+
 function _projectLightDomSlot(host: HTMLElement, children: ChildNode[]): void {
   if (children.length === 0) return
   const slots = Array.from(host.querySelectorAll('slot'))
@@ -277,7 +286,10 @@ function _projectLightDomSlot(host: HTMLElement, children: ChildNode[]): void {
     // No slot in the layout — reattach the children to the host so they remain
     // observable (no errors, no data loss). This preserves the prior behavior
     // of plain custom elements that simply contained children.
-    for (const c of children) host.appendChild(c)
+    for (const c of children) {
+      _markSlotted(c)
+      host.appendChild(c)
+    }
     return
   }
 
@@ -301,6 +313,7 @@ function _projectLightDomSlot(host: HTMLElement, children: ChildNode[]): void {
     if (assigned !== undefined && assigned.length > 0) {
       // Assigned nodes win — replace the slot with them; the slot's own
       // children (its fallback content) are discarded.
+      for (const c of assigned) _markSlotted(c)
       slotEl.replaceWith(...assigned)
       byName.delete(name)
     } else {
@@ -313,7 +326,10 @@ function _projectLightDomSlot(host: HTMLElement, children: ChildNode[]): void {
   // Children whose `slot=` name matched no placeholder do not render in real
   // Shadow DOM; preserve-not-drop them onto the host (mirrors the no-slot path).
   for (const bucket of byName.values()) {
-    for (const c of bucket) host.appendChild(c)
+    for (const c of bucket) {
+      _markSlotted(c)
+      host.appendChild(c)
+    }
   }
 }
 

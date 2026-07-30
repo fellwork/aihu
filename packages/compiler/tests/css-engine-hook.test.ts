@@ -100,6 +100,25 @@ const SFC_WITH_UTILITIES_AND_STYLE = `@template {
   .box { color: red; }
 }`
 
+// LDF §10 step 4 — a leaf pinned to light DOM (`$shadow: 'light'`) authoring
+// `:host`/`::slotted()`/`::part()` in its own `@style` block. Real leaves
+// aren't flipped by default yet (step 8, out of scope) — the `$shadow` pin is
+// the existing per-file escape hatch (extends_shadow_macros.rs) that lets
+// this phase verify the lowering table end-to-end through the actual
+// compiler + css-engine pipeline, not just against synthetic StyleSheet ASTs.
+const SFC_LEAF_LIGHT_WITH_HOST_SLOTTED_PART = `@state {
+  $shadow: 'light'
+}
+@template {
+  <div><slot></slot></div>
+}
+
+@style {
+  :host { color: var(--color-primary); }
+  ::slotted(button) { color: red; }
+  ::part(icon) { width: 1rem; }
+}`
+
 const SFC_UTILITIES_ONLY = `@template {
   <div class="flex p-4"><span class="text-lg">hi</span></div>
 }`
@@ -260,6 +279,46 @@ describe('css-engine hook — present (e2e)', () => {
         expect(virtualIdMatch).not.toBeNull()
         const virtualCss = await plugin.load!(`\0${virtualIdMatch![1]}`)
         expect(virtualCss).toContain(`@scope ([data-a="${domId}"])`)
+      } finally {
+        rmSync(tmp, { recursive: true, force: true })
+      }
+    },
+  )
+
+  it.runIf(cssCoreBin)(
+    'a $shadow-pinned light leaf lowers :host/::slotted()/::part() end-to-end through the real pipeline (LDF §10 step 4)',
+    async () => {
+      const tmp = mkdtempSync(join(tmpdir(), 'aihu-css-hook-leaf-light-'))
+      try {
+        const plugin = aihuCompilerPlugin()
+        const transform = plugin.transform as unknown as TransformFn
+        const res = await transform.call(
+          {},
+          SFC_LEAF_LIGHT_WITH_HOST_SLOTTED_PART,
+          join(tmp, 'x-leaf-light.aihu'),
+        )
+        if (res == null) throw new Error('plugin returned no result')
+        const out = res.code
+
+        // The $shadow pin, not a page/layout default, is what routes this
+        // leaf to the light-DOM CSS path — confirm both fire.
+        expect(out).toContain("shadowMode: 'light'")
+        const optsMatch = out.match(/lightScopeId: '([0-9a-f]{8})'/)
+        expect(optsMatch).not.toBeNull()
+        const domId = optsMatch![1]!
+
+        const virtualIdMatch = out.match(/(virtual:aihu-utility\/[^"' ]+)["']/)
+        expect(virtualIdMatch).not.toBeNull()
+        const virtualCss = await plugin.load!(`\0${virtualIdMatch![1]}`)
+
+        expect(virtualCss).toContain(`@scope ([data-a="${domId}"]) to ([data-a])`)
+        // :host → :scope
+        expect(virtualCss).toMatch(/:scope\s*\{[^}]*color:\s*var\(--color-primary\)/)
+        // ::slotted(button) → :is(button)[data-aihu-slotted] — the exact
+        // marker `_projectLightDomSlot` stamps on projected top-level nodes.
+        expect(virtualCss).toContain(':is(button)[data-aihu-slotted]')
+        // ::part(icon) → [part~="icon"] (space-separated token match, not `=`).
+        expect(virtualCss).toContain('[part~="icon"]')
       } finally {
         rmSync(tmp, { recursive: true, force: true })
       }
