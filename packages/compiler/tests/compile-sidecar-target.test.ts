@@ -28,12 +28,27 @@ describe('compileSidecar({ target })', () => {
     expect(withoutTarget).toBe(withUniversal)
   })
 
-  it("a bogus target surfaces the binary's own CLI validation error — proof the flag reaches it", () => {
-    // @ts-expect-error deliberately invalid, to prove --target is actually
-    // forwarded to the binary (which rejects it) rather than silently no-op'd
-    // on the JS side.
-    expect(() => compileSidecar(SOURCE, 'x.aihu', { target: 'bogus' })).toThrow(
-      /unknown --target|expected: client\|server\|universal/,
-    )
+  it('a bogus target is rejected by the binary — proof the flag reaches it', () => {
+    // The binary parses --target BEFORE it ever reads stdin (packages/
+    // compiler/src/bin/main.rs), so an invalid value makes it exit
+    // immediately without consuming the piped `input`. That races
+    // execFileSync's own stdin write against the child's early exit: on a
+    // fast/loaded runner (observed on Linux CI, not locally) Node can see
+    // the write fail with EPIPE before the child's stderr/exit-code even
+    // come back, instead of the clean "unknown --target" message. Both
+    // outcomes are consequences of the SAME underlying rejection — the flag
+    // reaching the binary and being validated — so either is accepted here
+    // rather than pinning to one and being flaky on the other.
+    let threw: unknown
+    try {
+      // @ts-expect-error deliberately invalid, to prove --target is actually
+      // forwarded to the binary (which rejects it) rather than silently
+      // no-op'd on the JS side.
+      compileSidecar(SOURCE, 'x.aihu', { target: 'bogus' })
+    } catch (err) {
+      threw = err
+    }
+    expect(threw, 'expected compileSidecar to throw on an invalid target').toBeDefined()
+    expect(String(threw)).toMatch(/unknown --target|expected: client\|server\|universal|EPIPE/)
   })
 })
