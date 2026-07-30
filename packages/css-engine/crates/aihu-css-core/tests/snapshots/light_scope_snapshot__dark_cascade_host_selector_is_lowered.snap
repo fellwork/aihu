@@ -13,7 +13,7 @@ expression: "compile_sfc_scoped(&light(\".btn { @apply dark:bg-surface; }\")).un
 /* authored @style (scoped) */
 @scope ([data-a="a1b2c3d4"]) to ([data-a]) {
 .btn {
-  :scope:is([data-theme="dark"]) &, :root.dark & {
+  :scope:is([data-theme="dark"]) &, :root.dark &, :root[data-theme="dark"] & {
     background-color: var(--color-surface);
   }
 }

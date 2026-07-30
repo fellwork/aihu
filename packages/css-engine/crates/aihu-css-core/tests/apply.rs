@@ -140,6 +140,11 @@ fn dark_variant_cascade_in_apply() {
     );
     assert!(css.contains(r#":host([data-theme="dark"])"#), "{css}");
     assert!(css.contains(":root.dark"), "{css}");
+    // D4 §4 dual-keyed convention (Founder decision #3, `DARK_SELECTOR` in
+    // `define-style-pack.ts`) — an app that sets `data-theme="dark"` on
+    // `<html>` with no `.dark` class must still activate `dark:` variants,
+    // or the shipped packs' own tokens and this cascade would disagree.
+    assert!(css.contains(r#":root[data-theme="dark"]"#), "{css}");
     insta::assert_snapshot!(css);
 }
 

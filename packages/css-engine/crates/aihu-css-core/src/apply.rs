@@ -188,17 +188,20 @@ fn expand_rule(
 
 /// Build the Firefox-safe dark-cascade node for a resolved variant rule. Mirrors
 /// the gate the emitter uses (`emit_token`): the rule applies only under
-/// `:host([data-theme="dark"])` or `:root.dark`. The nested `&` in the resolved
-/// selector is expanded against each gate prefix.
+/// `:host([data-theme="dark"])`, `:root.dark`, or `:root[data-theme="dark"]`
+/// (D4 §4's dual-keyed convention — see `emit_token`'s doc comment for why the
+/// third branch exists). The nested `&` in the resolved selector is expanded
+/// against each gate prefix.
 fn dark_cascade_node(rule: StyleRule) -> StyleNode {
     // `rule.selector` is the resolved selector starting from `&` (e.g. `&` for a
-    // bare `dark:`, or `&:hover` for `dark:hover:`). Compose the two gated
+    // bare `dark:`, or `&:hover` for `dark:hover:`). Compose the three gated
     // selectors by substituting the host/root prefix for the leading `&`.
     let sel = rule.selector;
     let host = sel.replacen('&', ":host([data-theme=\"dark\"]) &", 1);
-    let root = sel.replacen('&', ":root.dark &", 1);
+    let root_class = sel.replacen('&', ":root.dark &", 1);
+    let root_attr = sel.replacen('&', ":root[data-theme=\"dark\"] &", 1);
     StyleNode::Rule(StyleRule {
-        selector: format!("{host}, {root}"),
+        selector: format!("{host}, {root_class}, {root_attr}"),
         declarations: rule.declarations,
         applies: Vec::new(),
         nested: Vec::new(),

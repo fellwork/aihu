@@ -87,9 +87,13 @@ fn wc_native_variants() {
 
 #[test]
 fn standard_variants() {
-    insta::assert_snapshot!(compile_sfc_scoped(&sfc(
+    let css = compile_sfc_scoped(&sfc(
         "hover:bg-primary focus:text-accent dark:bg-surface md:p-8 [&>div]:text-primary md:hover:bg-primary"
-    )).unwrap());
+    )).unwrap();
+    // D4 §4 dual-keyed convention (Q: emit.rs's dark cascade must agree with
+    // DARK_SELECTOR's `.dark, [data-theme="dark"]` on :root, not just :root.dark).
+    assert!(css.contains(r#":root[data-theme="dark"]"#), "{css}");
+    insta::assert_snapshot!(css);
 }
 
 #[test]

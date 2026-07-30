@@ -188,15 +188,20 @@ fn emit_token(token: &str, theme: &ThemeRegistry, prog: &ProgressiveRegistry) ->
 
     let rule = if dark_cascade {
         // Firefox-safe dark cascade: gate the rule on the consumer's dark flag
-        // (a `data-theme="dark"` host attr or a `.dark` root class) rather than
-        // the host-context pseudo (unsupported in Firefox). Consumer contract:
-        // set `data-theme="dark"` on the host element OR add `.dark` to :root,
-        // and define the dark token values there. The dark variant's rule then
-        // only applies under those scopes.
+        // (a `data-theme="dark"` host attr, a `.dark` root class, or
+        // `data-theme="dark"` on `:root` itself — D4 §4's dual-keyed
+        // convention, `DARK_SELECTOR` in `define-style-pack.ts`) rather than
+        // the host-context pseudo (unsupported in Firefox). Without the third
+        // `:root[data-theme="dark"]` branch, an app that opts into the
+        // shipped packs' OWN documented convention (`data-theme="dark"` on
+        // `<html>`, no `.dark` class) would see its pack tokens correctly
+        // flip but every `dark:` utility/`@apply dark:` variant silently stay
+        // on its light value — the two dark-mode mechanisms would disagree.
         format!(
             "/* dark cascade (Firefox-safe; see decision-firefox-host-context-workaround) */\n\
              :host([data-theme=\"dark\"]) {selector}, \
-             :root.dark {selector} {{ {body} }}\n"
+             :root.dark {selector}, \
+             :root[data-theme=\"dark\"] {selector} {{ {body} }}\n"
         )
     } else {
         format!("{selector} {{ {body} }}\n")
