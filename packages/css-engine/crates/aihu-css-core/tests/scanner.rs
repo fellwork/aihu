@@ -63,14 +63,18 @@ fn empty_template_yields_empty_set() {
 }
 
 #[test]
-fn skips_component_node_class_attrs_edge_e10() {
-    // A macroElement (component) node owns its own shadow scope; its class
-    // attrs must not be compiled into the parent sheet.
+fn scans_component_node_class_attrs_d4_5_4_1() {
+    // D4 §5.4·1 — corrected from the old edge-E10 "always skip" rule: a
+    // macroElement's OWN class attr is now scanned like any Element's, since
+    // under the light-DOM leaf flip a call-site class (`<user-card
+    // class="btn">`) is a real attribute on the child's light-DOM host and
+    // needs SOME component's scan to have picked up the token, or its CSS
+    // (utility or recipe) never gets emitted at all.
     let json = r#"{
       "tag":"Parent","astVersion":1,"style":null,"meta":{"name":"Parent"},
       "template":[
         {"kind":"macroElement","name":"UserCard","attrs":[
-          {"kind":"static","name":"class","value":"should-not-appear"}
+          {"kind":"static","name":"class","value":"btn"}
         ],"children":[
           {"kind":"element","tag":"span","attrs":[
             {"kind":"static","name":"class","value":"slotted-content"}
@@ -79,7 +83,7 @@ fn skips_component_node_class_attrs_edge_e10() {
       ]}"#;
     let ast = parse_ast(json).unwrap();
     let set = scan_ast(&ast);
-    assert!(!set.contains("should-not-appear"), "component class must be skipped (E10)");
+    assert!(set.contains("btn"), "component class attr must now be scanned (D4 §5.4·1)");
     assert!(set.contains("slotted-content"), "child HTML element class should still scan");
 }
 

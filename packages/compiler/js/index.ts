@@ -134,21 +134,39 @@ export interface AihuCompilerPluginOptions {
 }
 
 /**
- * Inject `{ shadowMode: '...' }` as the third argument to the emitted
+ * Inject `{ shadowMode: '...' }` (and, for light mode, `lightScopeId: '...'`
+ * in the SAME options object) as the third argument to the emitted
  * `defineElement('tag', defineComponent(...))` call. The compiler emits
  * exactly two arguments today; this rewrites the closing of the
  * defineElement call to include the options object. Idempotent — leaves
  * code untouched when the closer is not in the expected shape.
  *
+ * `lightScopeId` is folded into this SAME regex operation rather than a
+ * second independent injection pass, deliberately: it is only ever set when
+ * `mode === 'light'` (see the call site, `index.ts`'s `transform` hook), so
+ * every call that needs it ALSO needs a shadowMode injection at the exact
+ * same spot — a second pass would just re-match (and fight) the text this
+ * one already rewrote. Stamps `data-a` on the root element at runtime
+ * (light-DOM leaf flip, LDF §10 step 3) — `packages/runtime/src/
+ * define-element.ts`'s `wrapClass` reads `options.lightScopeId`.
+ *
  * @internal
  */
-export function _injectShadowMode(code: string, mode: 'light' | 'shadow'): string {
+export function _injectShadowMode(
+  code: string,
+  mode: 'light' | 'shadow',
+  lightScopeId?: string,
+): string {
   // Match the trailing `))` that closes `defineElement(tag, defineComponent(setup))`.
   // The compiler always emits this exact two-paren close as the final tokens of
   // the defineElement call — we anchor on it and append the options object.
   // biome-ignore lint/correctness/noEmptyCharacterClassInRegex: [^] is valid JS — matches any char including newlines
   const re = /(defineElement\(\s*['"][^'"]+['"]\s*,\s*defineComponent\([^]*\))\s*\)/
-  const replaced = code.replace(re, (_m, inner: string) => `${inner}, { shadowMode: '${mode}' })`)
+  const scopeIdField = lightScopeId ? `, lightScopeId: '${lightScopeId}'` : ''
+  const replaced = code.replace(
+    re,
+    (_m, inner: string) => `${inner}, { shadowMode: '${mode}'${scopeIdField} })`,
+  )
   return replaced
 }
 
@@ -818,6 +836,20 @@ export function _foldCssEngineStyles(compiledCode: string, css: string): string 
 export const VIRTUAL_UTILITY_PREFIX = '\0virtual:aihu-utility/'
 
 /**
+ * djb2-style stable hash over a file id. Shared by `_hashIdForUtilityCss`
+ * (virtual-CSS module keying) and `_lightScopeId` (the `data-a` scope id) so
+ * the two id-derived-from-hash use sites can't drift onto different hash
+ * functions.
+ */
+function _hashId(id: string): number {
+  let h = 5381
+  for (let i = 0; i < id.length; i++) {
+    h = ((h * 33) ^ id.charCodeAt(i)) >>> 0
+  }
+  return h
+}
+
+/**
  * Stable short hash for keying the virtual-CSS module per source-SFC id.
  *
  * djb2-style; collisions are tolerable here because (a) each entry stores its
@@ -830,11 +862,22 @@ export const VIRTUAL_UTILITY_PREFIX = '\0virtual:aihu-utility/'
  * @internal
  */
 export function _hashIdForUtilityCss(id: string): string {
-  let h = 5381
-  for (let i = 0; i < id.length; i++) {
-    h = ((h * 33) ^ id.charCodeAt(i)) >>> 0
-  }
-  return h.toString(36)
+  return _hashId(id).toString(36)
+}
+
+/**
+ * Deterministic 8-hex-char scope id for a light-DOM component's `data-a`
+ * attribute (light-DOM leaf flip, LDF §10 step 1 / step 3). Same underlying
+ * hash as `_hashIdForUtilityCss`, reformatted to a fixed-width hex string —
+ * the `[data-a="<id>"]` marker format LDF §11 Q4 ratifies is a hex string,
+ * and a fixed width keeps every stamped attribute the same byte length.
+ * Hashes the query-stripped file id (stable per file path across builds),
+ * not file content — matches `_hashIdForUtilityCss`'s existing contract.
+ *
+ * @internal
+ */
+export function _lightScopeId(id: string): string {
+  return _hashId(id).toString(16).padStart(8, '0')
 }
 
 /**
@@ -892,6 +935,14 @@ export interface SfcAst {
   template: SfcNode[] | null
   /** SFC-level metadata. */
   meta: SfcMeta
+  /**
+   * The compiler-assigned light-DOM scope id for this component's `data-a`
+   * attribute, present only when it resolved to `shadowMode: 'light'`
+   * (light-DOM leaf flip, LDF §10 step 1). Absent (not just `undefined`, the
+   * key itself omitted on the wire) for shadow-mode components — additive,
+   * mirrors `aihu-css-core`'s `SfcAst.light_scope_id: Option<String>`.
+   */
+  lightScopeId?: string
 }
 
 export interface SfcStyleBlock {
@@ -1233,7 +1284,7 @@ export function _injectAutoWiring(code: string): string {
  * @internal
  */
 interface CssEngineModule {
-  compileSfc(source: string, id?: string): string
+  compileSfc(source: string, id?: string, lightScopeId?: string): string
 }
 
 // Memoised resolution of the optional `@aihu/css-engine` peer. `undefined`
@@ -1275,7 +1326,11 @@ const _CSS_ENGINE_SPECIFIER = '@aihu/css-engine'
  *
  * @internal
  */
-async function _maybeCompileUtilityCss(source: string, id: string): Promise<string> {
+async function _maybeCompileUtilityCss(
+  source: string,
+  id: string,
+  lightScopeId?: string,
+): Promise<string> {
   if (_cssEngine === null) return ''
   // Ensure css-engine's bundled `compileToAst` spawns the SAME compiler
   // binary this plugin uses (it has no compiler binary of its own). Set
@@ -1310,7 +1365,7 @@ async function _maybeCompileUtilityCss(source: string, id: string): Promise<stri
     }
   }
   try {
-    return _cssEngine.compileSfc(source, id)
+    return _cssEngine.compileSfc(source, id, lightScopeId)
   } catch (err) {
     // A css-engine compile failure is non-fatal: fall back to the no-op
     // path (utility classes don't emit) rather than aborting the build.
@@ -1438,8 +1493,20 @@ export function aihuCompilerPlugin(options?: AihuCompilerPluginOptions): VitePlu
         )?.[1] as 'light' | 'shadow' | undefined
         const impliedShadowDefault = perFileShadowDefault ?? (isLayout ? 'light' : undefined)
         const effectiveShadow = perFileShadow ?? shadowMode ?? impliedShadowDefault
+
+        // Light-DOM leaf flip prep (LDF §10 step 1/3): a deterministic scope
+        // id for this component's `data-a` attribute, only when it actually
+        // resolved to light mode. `undefined` in the shadow case — mirrors
+        // `SfcAst.light_scope_id: Option<String>` being `None` on the Rust
+        // side. Computed BEFORE the shadowMode injection below so it can
+        // ride in the SAME injected options object (`_injectShadowMode`'s
+        // doc comment explains why one merged injection, not two).
+        const lightScopeId = effectiveShadow === 'light' ? _lightScopeId(rawId) : undefined
+
         let compiled =
-          effectiveShadow != null ? _injectShadowMode(result.code, effectiveShadow) : result.code
+          effectiveShadow != null
+            ? _injectShadowMode(result.code, effectiveShadow, lightScopeId)
+            : result.code
         // Light-DOM: the authored `@style` block compiled to a per-instance
         // `host.adoptedStyleSheets` assignment, but a light-DOM host has no
         // shadow root so that setter is a no-op. Redirect the module-level
@@ -1457,7 +1524,7 @@ export function aihuCompilerPlugin(options?: AihuCompilerPluginOptions): VitePlu
         // import throws and we no-op (utility classes simply don't emit —
         // the pre-hook behaviour). This keeps css-engine an opt-in enhancement
         // with zero dependency cycle.
-        const utilityCss = await _maybeCompileUtilityCss(code, rawId)
+        const utilityCss = await _maybeCompileUtilityCss(code, rawId, lightScopeId)
         if (utilityCss) {
           if (effectiveShadow === 'light') {
             // Bug 6 — no shadow root → `host.adoptedStyleSheets` is a no-op.

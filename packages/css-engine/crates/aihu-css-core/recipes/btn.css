@@ -1,0 +1,49 @@
+/* daisyUI `btn` — transcribed in spirit (not vendored byte-for-byte) per
+   docs/plans/2026-07-26-option-4-daisyui-design.md §6.2's worked example.
+   Interactivity (press states, disabled semantics) is @aihu/primitives'
+   AihuButton (D4 §6.1 step 4); this recipe is appearance only. */
+
+.btn {
+  @apply inline-flex items-center justify-center gap-1.5 px-4 text-sm font-semibold text-center select-none transition-colors disabled:pointer-events-none disabled:opacity-50;
+  height: var(--size-field);
+  border-radius: var(--radius-md);
+  border: var(--border) solid transparent;
+  background-color: var(--color-neutral);
+  color: var(--color-neutral-foreground);
+
+  &:hover {
+    background-color: color-mix(in oklab, var(--color-neutral) 90%, black);
+  }
+}
+
+/* `.btn:hover`'s (0,2,0) specificity would otherwise beat `.btn-primary`'s
+   (0,1,0) within the same layer (D4 Q5 governs recipe-vs-utility layering,
+   not intra-recipe specificity) — every variant needs its OWN `&:hover`,
+   same as `.btn`'s base color-mix darkening, or the base hover wins on
+   `class="btn btn-primary"` and every variant hovers as if it were the
+   neutral default. */
+.btn-primary {
+  background-color: var(--color-primary);
+  color: var(--color-primary-foreground);
+
+  &:hover {
+    background-color: color-mix(in oklab, var(--color-primary) 90%, black);
+  }
+}
+
+.btn-ghost {
+  background-color: transparent;
+  border-color: transparent;
+
+  &:hover {
+    background-color: color-mix(in oklab, var(--color-neutral) 10%, transparent);
+  }
+}
+
+.btn-sm {
+  @apply h-8 px-3 text-xs;
+}
+
+.btn-lg {
+  @apply h-10 px-8;
+}

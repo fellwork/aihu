@@ -24,8 +24,14 @@ import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { transform } from '../js/index.ts'
+
+// Each test spawns a real `tsc` process (~1.3-1.5s in isolation), which can
+// exceed vitest's 5000ms default under full-suite concurrent CPU load —
+// a known flake, not a real failure (see vite-build-utility-css.e2e.test.ts
+// for the same pattern with subprocess vite builds).
+vi.setConfig({ testTimeout: 20_000 })
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const repoRoot = resolve(__dirname, '../../..')

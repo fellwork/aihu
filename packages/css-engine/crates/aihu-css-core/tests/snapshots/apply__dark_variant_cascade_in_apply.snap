@@ -4,7 +4,7 @@ assertion_line: 143
 expression: css
 ---
 .panel {
-  :host([data-theme="dark"]) &, :root.dark & {
+  :host([data-theme="dark"]) &, :root.dark &, :root[data-theme="dark"] & {
     background-color: var(--color-surface);
   }
 }

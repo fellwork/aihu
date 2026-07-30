@@ -35,12 +35,9 @@ import {
   type FormControlContextValue,
   formControlContext,
 } from '../form-control/index.ts'
+import { createIdSequence } from '../id.ts'
 
-let _idCounter = 0
-function nextId(): string {
-  _idCounter += 1
-  return `aihu-label-${_idCounter}`
-}
+const nextId = createIdSequence('aihu-label')
 
 export class AihuLabel extends HTMLElement {
   static readonly observedAttributes = ['for']

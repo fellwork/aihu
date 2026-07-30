@@ -231,6 +231,27 @@ impl Emitter {
 
     // ── path attr / markers ──────────────────────────────────────────────────
 
+    /// `data-a="<id>"` on the ROOT element only, driven by a runtime
+    /// `__opts.lightScopeId` value (light-DOM leaf flip, LDF §10 step 3).
+    /// The scope id can't be a Rust-compile-time literal: whether this
+    /// component ends up in light mode depends on the plugin-global
+    /// `shadowMode` config, decided only in the JS layer (`index.ts`'s
+    /// `transform` hook, after Rust codegen already ran) — so Rust emits an
+    /// always-present conditional runtime read instead, the same way
+    /// `__opts.hydratable` (`__h`) is already runtime-driven despite being
+    /// decided outside Rust. Present in BOTH variants (`self.expr`, not
+    /// `self.expr_h`) — the CSS `@scope([data-a="…"])` selector must match
+    /// regardless of hydration mode. `lightScopeId` is a compiler-generated
+    /// hex string, never user data, so no escaping helper is needed.
+    fn root_scope_attr(&mut self, path: &P) {
+        if path.base.is_none() && path.tail == "0" {
+            self.expr(
+                "(__opts.lightScopeId ? ' data-a=\"' + __opts.lightScopeId + '\"' : '')"
+                    .to_string(),
+            );
+        }
+    }
+
     /// ` data-aihu-path="…"` (hydratable only). Static paths contain only
     /// `[0-9.]` and the words `conditional`/`true`/`list` — attr-safe, folded
     /// verbatim; dynamic paths escape at runtime (list keys are arbitrary).
@@ -601,6 +622,7 @@ impl Emitter {
             self.emit_anchor_href(attrs, sm);
             self.lit(" data-aihu-link=\"\"");
             // onClick is a function attr — never serialized.
+            self.root_scope_attr(path);
             self.path_attr(path);
             self.lit(">");
             self.emit_children(children, path, sm, sn);
@@ -660,6 +682,7 @@ impl Emitter {
 
         self.lit(&format!("<{}", rendered_tag));
         self.emit_attr_list(&filtered, sm, sn);
+        self.root_scope_attr(path);
         self.path_attr(path);
         self.lit(">");
         if let Some(raw_html) = html_expr {

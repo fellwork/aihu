@@ -39,11 +39,24 @@ pub fn expand_apply(
     scope: SfcStyleScope,
     theme: &ThemeRegistry,
 ) -> Result<String, CompileError> {
+    Ok(expand_apply_sheet(style_content, scope, theme)?.to_css())
+}
+
+/// As [`expand_apply`], but returns the expanded [`StyleSheet`] AST instead of
+/// rendering it to a string — the light-DOM selector-rewrite pass (LDF §10
+/// step 3, `light_scope.rs`) needs the AST, since it must run AFTER `@apply`
+/// expansion (which synthesizes `:host(...)`/`::slotted(...)`/`::part(...)`
+/// text at arbitrary nesting depth) but BEFORE rendering.
+pub fn expand_apply_sheet(
+    style_content: &str,
+    scope: SfcStyleScope,
+    theme: &ThemeRegistry,
+) -> Result<StyleSheet, CompileError> {
     let mut sheet = parse_style(style_content).map_err(|e| CompileError::StyleParse {
         detail: e.to_string(),
     })?;
     expand_sheet(&mut sheet, scope, theme)?;
-    Ok(sheet.to_css())
+    Ok(sheet)
 }
 
 /// Expand `@apply` across every node in a parsed sheet, in place.
@@ -175,17 +188,20 @@ fn expand_rule(
 
 /// Build the Firefox-safe dark-cascade node for a resolved variant rule. Mirrors
 /// the gate the emitter uses (`emit_token`): the rule applies only under
-/// `:host([data-theme="dark"])` or `:root.dark`. The nested `&` in the resolved
-/// selector is expanded against each gate prefix.
+/// `:host([data-theme="dark"])`, `:root.dark`, or `:root[data-theme="dark"]`
+/// (D4 §4's dual-keyed convention — see `emit_token`'s doc comment for why the
+/// third branch exists). The nested `&` in the resolved selector is expanded
+/// against each gate prefix.
 fn dark_cascade_node(rule: StyleRule) -> StyleNode {
     // `rule.selector` is the resolved selector starting from `&` (e.g. `&` for a
-    // bare `dark:`, or `&:hover` for `dark:hover:`). Compose the two gated
+    // bare `dark:`, or `&:hover` for `dark:hover:`). Compose the three gated
     // selectors by substituting the host/root prefix for the leading `&`.
     let sel = rule.selector;
     let host = sel.replacen('&', ":host([data-theme=\"dark\"]) &", 1);
-    let root = sel.replacen('&', ":root.dark &", 1);
+    let root_class = sel.replacen('&', ":root.dark &", 1);
+    let root_attr = sel.replacen('&', ":root[data-theme=\"dark\"] &", 1);
     StyleNode::Rule(StyleRule {
-        selector: format!("{host}, {root}"),
+        selector: format!("{host}, {root_class}, {root_attr}"),
         declarations: rule.declarations,
         applies: Vec::new(),
         nested: Vec::new(),

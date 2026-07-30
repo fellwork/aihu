@@ -34,6 +34,14 @@ pub struct SfcAst {
     /// AST schema version — bumped on any breaking shape change.
     #[serde(rename = "astVersion")]
     pub ast_version: u32,
+    /// The compiler-assigned light-DOM scope id (8 hex chars) for this
+    /// component's `data-a` attribute, present only when the compiler resolved
+    /// this SFC to `shadowMode: 'light'` (light-DOM leaf flip, LDF §10 step 1).
+    /// `None` means shadow mode — today's only behavior — so this field is
+    /// additive and does not bump `SUPPORTED_AST_VERSION`. Unused by `emit.rs`
+    /// until the selector-rewrite pass (LDF §10 step 3) consumes it.
+    #[serde(default, rename = "lightScopeId")]
+    pub light_scope_id: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]

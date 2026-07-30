@@ -258,3 +258,105 @@ describe('#436 — named slots + default fallback (Shadow-DOM parity)', () => {
     host.remove()
   })
 })
+
+describe('LDF §10 step 4 — data-aihu-slotted marker on projected nodes', () => {
+  // The marker lets `light_scope.rs`'s `::slotted()` lowering
+  // (`[data-aihu-slotted]`) target every top-level node this module
+  // reparents from the caller into the layout. This is a deliberate
+  // SUPERSET of what real Shadow DOM's `::slotted()` would match: in real
+  // Shadow DOM, a child whose `slot=` matches no placeholder (or every
+  // child, when the layout has no `<slot>` at all) is unassigned and
+  // doesn't render at all, so `::slotted()` never sees it. aihu's
+  // light-DOM emulation instead preserve-not-drops those nodes onto the
+  // host (see the "preserve-not-drop" tests above) — leaving them
+  // unmarked would make them unstylable by `::slotted()` while still being
+  // visible, which is worse than the marker being slightly too broad. A
+  // slot's own fallback content is the component's OWN authored markup,
+  // not projected content, and must not be marked either way.
+  it('marks a default-slot child', () => {
+    const Cmp = defineComponent(() => branch('div', { class: 'layout' }, [slot()]))
+    defineElement('x-slotmark-a', Cmp, { shadowMode: 'light' })
+
+    const host = document.createElement('x-slotmark-a')
+    host.innerHTML = '<h1>a</h1>'
+    document.body.appendChild(host)
+
+    const h1 = host.querySelector('h1') as HTMLElement
+    expect(h1.hasAttribute('data-aihu-slotted')).toBe(true)
+
+    host.remove()
+  })
+
+  it('marks a named-slot child', () => {
+    const Cmp = defineComponent(() => branch('div', { class: 'layout' }, [slot('foo')]))
+    defineElement('x-slotmark-b', Cmp, { shadowMode: 'light' })
+
+    const host = document.createElement('x-slotmark-b')
+    host.innerHTML = '<span slot="foo">named</span>'
+    document.body.appendChild(host)
+
+    const span = host.querySelector('span') as HTMLElement
+    expect(span.hasAttribute('data-aihu-slotted')).toBe(true)
+
+    host.remove()
+  })
+
+  it('marks children reattached via the no-slot-in-layout fallback path', () => {
+    const Cmp = defineComponent(() => branch('div', { class: 'no-slot' }, []))
+    defineElement('x-slotmark-c', Cmp, { shadowMode: 'light' })
+
+    const host = document.createElement('x-slotmark-c')
+    host.innerHTML = '<span>orphan</span>'
+    document.body.appendChild(host)
+
+    const span = host.querySelector('span') as HTMLElement
+    expect(span.hasAttribute('data-aihu-slotted')).toBe(true)
+
+    host.remove()
+  })
+
+  it('marks a child whose slot= name matches no placeholder (preserve-not-drop path)', () => {
+    const Cmp = defineComponent(() => branch('div', { class: 'layout' }, [slot('foo')]))
+    defineElement('x-slotmark-d', Cmp, { shadowMode: 'light' })
+
+    const host = document.createElement('x-slotmark-d')
+    host.innerHTML = '<p>orphan</p>'
+    document.body.appendChild(host)
+
+    const p = host.querySelector('p') as HTMLElement
+    expect(p.hasAttribute('data-aihu-slotted')).toBe(true)
+
+    host.remove()
+  })
+
+  it("does NOT mark a slot's own fallback content (not projected — the component's own markup)", () => {
+    const Cmp = defineComponent(() =>
+      branch('div', { class: 'layout' }, [
+        branch('slot', { name: 'x' }, [branch('span', { class: 'fb' }, [leaf('DEFAULT')])]),
+      ]),
+    )
+    defineElement('x-slotmark-e', Cmp, { shadowMode: 'light' })
+
+    const host = document.createElement('x-slotmark-e')
+    document.body.appendChild(host)
+
+    const fb = host.querySelector('span.fb') as HTMLElement
+    expect(fb.hasAttribute('data-aihu-slotted')).toBe(false)
+
+    host.remove()
+  })
+
+  it('does not mark projected nodes under shadowMode: "shadow" (no carve-and-reinsert)', () => {
+    const Cmp = defineComponent(() => branch('div', { class: 'layout' }, [slot()]))
+    defineElement('x-slotmark-f', Cmp, { shadowMode: 'shadow' })
+
+    const host = document.createElement('x-slotmark-f')
+    host.innerHTML = '<h1>a</h1>'
+    document.body.appendChild(host)
+
+    const h1 = host.querySelector('h1') as HTMLElement
+    expect(h1.hasAttribute('data-aihu-slotted')).toBe(false)
+
+    host.remove()
+  })
+})

@@ -1,0 +1,32 @@
+/* daisyUI `badge` — transcribed in spirit (not vendored) per
+   docs/plans/2026-07-26-option-4-daisyui-design.md §6 (proof recipe, Slice 4).
+   The state variants are exactly why D4 §3.4 (E1) added info/success/warning
+   to the brand contract — this recipe couldn't exist without them. */
+
+.badge {
+  @apply inline-flex items-center justify-center px-2 text-xs font-medium;
+  height: var(--size-selector);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-neutral);
+  color: var(--color-neutral-foreground);
+}
+
+.badge-info {
+  background-color: var(--color-info);
+  color: var(--color-info-foreground);
+}
+
+.badge-success {
+  background-color: var(--color-success);
+  color: var(--color-success-foreground);
+}
+
+.badge-warning {
+  background-color: var(--color-warning);
+  color: var(--color-warning-foreground);
+}
+
+.badge-error {
+  background-color: var(--color-destructive);
+  color: var(--color-destructive-foreground);
+}

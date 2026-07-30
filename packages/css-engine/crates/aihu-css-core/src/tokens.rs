@@ -1359,6 +1359,19 @@ fn is_brand_token(name: &str) -> bool {
             | "ring"
             | "destructive"
             | "destructive-foreground"
+            // D4 §3.4 (E1 + E2, founder-ratified) — semantic-state + filled-
+            // surface tokens so `bg-info`/`text-success`/`border-neutral`/…
+            // resolve. `neutral` is bare-word here (→ `var(--color-neutral)`);
+            // the pre-existing `neutral-500`-style shade form is a DISTINCT
+            // path through `is_palette_token`, not this function.
+            | "info"
+            | "info-foreground"
+            | "success"
+            | "success-foreground"
+            | "warning"
+            | "warning-foreground"
+            | "neutral"
+            | "neutral-foreground"
     )
 }
 

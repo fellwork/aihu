@@ -1,29 +1,18 @@
 ---
 source: packages/css-engine/crates/aihu-css-core/tests/scoped_snapshot.rs
-expression: "compile_sfc_scoped(&sfc(\"hover:bg-primary focus:text-accent dark:bg-surface md:p-8 [&>div]:text-primary md:hover:bg-primary\"))"
+assertion_line: 90
+expression: "compile_sfc_scoped(&sfc(\"hover:bg-primary focus:text-accent dark:bg-surface md:p-8 [&>div]:text-primary md:hover:bg-primary\")).unwrap()"
 ---
+@layer aihu.reset, aihu.tokens, aihu.components, aihu.utilities;
 :host {
   --color-accent: #c8543a;
-  --color-accent-foreground: #faf8f4;
-  --color-background: #faf8f4;
-  --color-border: #ddd9d2;
-  --color-destructive: #a8432b;
-  --color-destructive-foreground: #faf8f4;
-  --color-foreground: #1a1d24;
-  --color-muted: #5a5a55;
-  --color-muted-foreground: #8a8880;
   --color-primary: #1a1d24;
-  --color-primary-foreground: #faf8f4;
-  --color-ring: #c8543a;
-  --color-secondary: #5a5a55;
-  --color-secondary-foreground: #faf8f4;
   --color-surface: #faf8f4;
-  --color-surface-foreground: #1a1d24;
 }
 *, ::before, ::after { border-style: solid; border-width: 0; }
 .\[&>div\]\:text-primary>div { color: var(--color-primary); }
 /* dark cascade (Firefox-safe; see decision-firefox-host-context-workaround) */
-:host([data-theme="dark"]) .dark\:bg-surface, :root.dark .dark\:bg-surface { background-color: var(--color-surface); }
+:host([data-theme="dark"]) .dark\:bg-surface, :root.dark .dark\:bg-surface, :root[data-theme="dark"] .dark\:bg-surface { background-color: var(--color-surface); }
 .focus\:text-accent:focus { color: var(--color-accent); }
 .hover\:bg-primary:hover { background-color: var(--color-primary); }
 @media (min-width: 48rem) {

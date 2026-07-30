@@ -86,14 +86,37 @@ async function runPlugin(
   }
 }
 
+// `bg-primary` (a brand-token-referencing utility) is load-bearing for test
+// #1's `:host` token assertion below — theme tokens are now tree-shaken to
+// only what's referenced (light-DOM leaf flip prep, LDF §10 step 2 / D4 §8
+// Slice 2), so a fixture with no color utility emits no token block at all.
 const SFC_WITH_UTILITIES_AND_STYLE = `@template {
-  <div class="flex gap-2 p-4">
+  <div class="flex gap-2 p-4 bg-primary">
     <span class="text-lg">hi</span>
   </div>
 }
 
 @style {
   .box { color: red; }
+}`
+
+// LDF §10 step 4 — a leaf pinned to light DOM (`$shadow: 'light'`) authoring
+// `:host`/`::slotted()`/`::part()` in its own `@style` block. Real leaves
+// aren't flipped by default yet (step 8, out of scope) — the `$shadow` pin is
+// the existing per-file escape hatch (extends_shadow_macros.rs) that lets
+// this phase verify the lowering table end-to-end through the actual
+// compiler + css-engine pipeline, not just against synthetic StyleSheet ASTs.
+const SFC_LEAF_LIGHT_WITH_HOST_SLOTTED_PART = `@state {
+  $shadow: 'light'
+}
+@template {
+  <div><slot></slot></div>
+}
+
+@style {
+  :host { color: var(--color-primary); }
+  ::slotted(button) { color: red; }
+  ::part(icon) { width: 1rem; }
 }`
 
 const SFC_UTILITIES_ONLY = `@template {
@@ -132,12 +155,62 @@ describe('css-engine hook — present (e2e)', () => {
       expect(out).toContain('.gap-2 { gap: 0.5rem; }')
       expect(out).toContain('.p-4 { padding: 1rem; }')
       expect(out).toContain('.text-lg { font-size: 1.125rem')
+      expect(out).toContain('.bg-primary { background-color: var(--color-primary); }')
 
-      // :host theme tokens come through too (proof the FULL scoped sheet folds).
+      // :host theme tokens come through too (proof the FULL scoped sheet
+      // folds) — only the referenced one, tokens are tree-shaken (LDF §10
+      // step 2 / D4 §8 Slice 2).
       expect(out).toContain(':host {')
       expect(out).toContain('--color-primary:')
     },
   )
+
+  it.runIf(cssCoreBin)(
+    'shadow mode omits unreferenced tokens (tree-shake, LDF §10 step 2)',
+    async () => {
+      // SFC_UTILITIES_ONLY has no color utility — no token is referenced, so
+      // no :host block should be emitted at all (pre-flip this unconditionally
+      // dumped all 16 brand tokens regardless of use).
+      const out = await runPlugin(SFC_UTILITIES_ONLY, 'x-plain-tokens')
+      expect(out).not.toContain(':host {')
+      expect(out).not.toContain('--color-primary')
+    },
+  )
+
+  it.runIf(cssCoreBin)('light mode emits tokens at :root, not :host (LDF §10 step 2)', async () => {
+    // A layout-shaped id triggers DA4's implicit page/layout light default
+    // (no @route block needed — `_isLayoutFile`'s default `src/layouts/`
+    // path match, `index.ts:1377`, is the simplest way to hit
+    // `impliedShadowDefault === 'light'` without fabricating a full @route
+    // SFC).
+    const tmp = mkdtempSync(join(tmpdir(), 'aihu-css-hook-light-'))
+    try {
+      const plugin = aihuCompilerPlugin()
+      const transform = plugin.transform as unknown as TransformFn
+      const res = await transform.call(
+        {},
+        SFC_WITH_UTILITIES_AND_STYLE,
+        join(tmp, 'src', 'layouts', 'app.aihu'),
+      )
+      if (res == null) throw new Error('plugin returned no result')
+      const out = res.code
+      // Light mode (Bug 6) routes utility CSS through a virtual `.css`
+      // import (id prefixed with a NUL char, `VIRTUAL_UTILITY_PREFIX`)
+      // instead of inlining it in the module body — resolve it via the
+      // plugin's own `load` hook rather than grepping `out` directly. Avoid
+      // embedding a raw NUL byte in this source file: match the stable
+      // `virtual:aihu-utility/<hash>.css` suffix and prepend `\0` ourselves.
+      const virtualIdMatch = out.match(/(virtual:aihu-utility\/[^"' ]+)["']/)
+      expect(virtualIdMatch).not.toBeNull()
+      const virtualCss = await plugin.load!(`\0${virtualIdMatch![1]}`)
+      expect(virtualCss).toContain('--color-primary:')
+      expect(virtualCss).toContain(':root {')
+      expect(virtualCss).not.toContain(':host {')
+      expect(out).not.toContain(':host {')
+    } finally {
+      rmSync(tmp, { recursive: true, force: true })
+    }
+  })
 
   it.runIf(cssCoreBin)('keeps the authored @style block — emitted exactly once (#2)', async () => {
     const out = await runPlugin(SFC_WITH_UTILITIES_AND_STYLE, 'x-widget')
@@ -178,6 +251,79 @@ describe('css-engine hook — present (e2e)', () => {
     expect(out).toContain('.p-4 { padding: 1rem; }')
     expect(out).toContain('adoptedStyleSheets = [__style__]')
   })
+
+  it.runIf(cssCoreBin)(
+    'the DOM-stamped data-a id and the CSS @scope id are byte-identical (LDF §10 step 3)',
+    async () => {
+      // The whole design depends on this: define-element.ts's runtime stamp
+      // and light_scope.rs's @scope selector must agree on the id WITHOUT
+      // either side recomputing it — both read the SAME `lightScopeId`
+      // computed once in the transform hook.
+      const tmp = mkdtempSync(join(tmpdir(), 'aihu-css-hook-scope-id-'))
+      try {
+        const plugin = aihuCompilerPlugin()
+        const transform = plugin.transform as unknown as TransformFn
+        const res = await transform.call(
+          {},
+          SFC_WITH_UTILITIES_AND_STYLE,
+          join(tmp, 'src', 'layouts', 'app.aihu'),
+        )
+        if (res == null) throw new Error('plugin returned no result')
+        const out = res.code
+
+        const optsMatch = out.match(/lightScopeId: '([0-9a-f]{8})'/)
+        expect(optsMatch).not.toBeNull()
+        const domId = optsMatch![1]!
+
+        const virtualIdMatch = out.match(/(virtual:aihu-utility\/[^"' ]+)["']/)
+        expect(virtualIdMatch).not.toBeNull()
+        const virtualCss = await plugin.load!(`\0${virtualIdMatch![1]}`)
+        expect(virtualCss).toContain(`@scope ([data-a="${domId}"])`)
+      } finally {
+        rmSync(tmp, { recursive: true, force: true })
+      }
+    },
+  )
+
+  it.runIf(cssCoreBin)(
+    'a $shadow-pinned light leaf lowers :host/::slotted()/::part() end-to-end through the real pipeline (LDF §10 step 4)',
+    async () => {
+      const tmp = mkdtempSync(join(tmpdir(), 'aihu-css-hook-leaf-light-'))
+      try {
+        const plugin = aihuCompilerPlugin()
+        const transform = plugin.transform as unknown as TransformFn
+        const res = await transform.call(
+          {},
+          SFC_LEAF_LIGHT_WITH_HOST_SLOTTED_PART,
+          join(tmp, 'x-leaf-light.aihu'),
+        )
+        if (res == null) throw new Error('plugin returned no result')
+        const out = res.code
+
+        // The $shadow pin, not a page/layout default, is what routes this
+        // leaf to the light-DOM CSS path — confirm both fire.
+        expect(out).toContain("shadowMode: 'light'")
+        const optsMatch = out.match(/lightScopeId: '([0-9a-f]{8})'/)
+        expect(optsMatch).not.toBeNull()
+        const domId = optsMatch![1]!
+
+        const virtualIdMatch = out.match(/(virtual:aihu-utility\/[^"' ]+)["']/)
+        expect(virtualIdMatch).not.toBeNull()
+        const virtualCss = await plugin.load!(`\0${virtualIdMatch![1]}`)
+
+        expect(virtualCss).toContain(`@scope ([data-a="${domId}"]) to ([data-a])`)
+        // :host → :scope
+        expect(virtualCss).toMatch(/:scope\s*\{[^}]*color:\s*var\(--color-primary\)/)
+        // ::slotted(button) → :is(button)[data-aihu-slotted] — the exact
+        // marker `_projectLightDomSlot` stamps on projected top-level nodes.
+        expect(virtualCss).toContain(':is(button)[data-aihu-slotted]')
+        // ::part(icon) → [part~="icon"] (space-separated token match, not `=`).
+        expect(virtualCss).toContain('[part~="icon"]')
+      } finally {
+        rmSync(tmp, { recursive: true, force: true })
+      }
+    },
+  )
 })
 
 describe('css-engine hook — absent (no-op, backward compatible)', () => {

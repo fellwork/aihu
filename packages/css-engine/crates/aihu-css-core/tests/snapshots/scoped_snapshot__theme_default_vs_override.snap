@@ -1,47 +1,20 @@
 ---
 source: packages/css-engine/crates/aihu-css-core/tests/scoped_snapshot.rs
+assertion_line: 142
 expression: "format!(\"--- default ---\\n{default}\\n--- override ---\\n{overridden}\")"
 ---
 --- default ---
+@layer aihu.reset, aihu.tokens, aihu.components, aihu.utilities;
 :host {
-  --color-accent: #c8543a;
-  --color-accent-foreground: #faf8f4;
-  --color-background: #faf8f4;
-  --color-border: #ddd9d2;
-  --color-destructive: #a8432b;
-  --color-destructive-foreground: #faf8f4;
-  --color-foreground: #1a1d24;
-  --color-muted: #5a5a55;
-  --color-muted-foreground: #8a8880;
   --color-primary: #1a1d24;
-  --color-primary-foreground: #faf8f4;
-  --color-ring: #c8543a;
-  --color-secondary: #5a5a55;
-  --color-secondary-foreground: #faf8f4;
-  --color-surface: #faf8f4;
-  --color-surface-foreground: #1a1d24;
 }
 *, ::before, ::after { border-style: solid; border-width: 0; }
 .bg-primary { background-color: var(--color-primary); }
 
 --- override ---
+@layer aihu.reset, aihu.tokens, aihu.components, aihu.utilities;
 :host {
-  --color-accent: #c8543a;
-  --color-accent-foreground: #faf8f4;
-  --color-background: #faf8f4;
-  --color-border: #ddd9d2;
-  --color-destructive: #a8432b;
-  --color-destructive-foreground: #faf8f4;
-  --color-foreground: #1a1d24;
-  --color-muted: #5a5a55;
-  --color-muted-foreground: #8a8880;
   --color-primary: oklch(0.55 0.18 28);
-  --color-primary-foreground: #faf8f4;
-  --color-ring: #c8543a;
-  --color-secondary: #5a5a55;
-  --color-secondary-foreground: #faf8f4;
-  --color-surface: #faf8f4;
-  --color-surface-foreground: #1a1d24;
 }
 *, ::before, ::after { border-style: solid; border-width: 0; }
 .bg-primary { background-color: var(--color-primary); }

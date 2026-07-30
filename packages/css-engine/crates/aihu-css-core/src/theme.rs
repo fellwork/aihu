@@ -100,12 +100,53 @@ impl ThemeRegistry {
 
     /// Emit a `:host { --token: value; … }` block for every registered token,
     /// so utilities referencing `var(--color-*)` resolve inside the shadow root.
+    ///
+    /// Kept for existing callers; delegates to [`Self::emit_used_tokens`] with
+    /// [`TokenScope::Shadow`] and no usage filter (emits every registered
+    /// token, matching this function's pre-flip behavior byte-for-byte).
     pub fn emit_host_tokens(&self) -> String {
-        if self.tokens.is_empty() {
+        self.emit_tokens_for(&self.tokens, TokenScope::Shadow)
+    }
+
+    /// Emit only the tokens actually referenced in `body`, scoped to `:host`
+    /// (shadow) or `:root` (light) per `scope` (light-DOM leaf flip prep, LDF
+    /// §10 step 2 / D4 §8 Slice 2).
+    ///
+    /// Fixes a live bug: a light-DOM component (page/layout, today; leaves
+    /// once the flip lands) has no shadow root, so a `:host { --x: y }` block
+    /// matches nothing — `var(--x)` silently fails to resolve anywhere in the
+    /// document. `TokenScope::Light` emits `:root` instead, which the light
+    /// tree's utilities/authored rules can actually see.
+    ///
+    /// Also tree-shakes: [`Self::with_aihu_defaults`] unconditionally seeds
+    /// all `AIHU_BRAND_TOKENS`, so unfiltered emission (the old
+    /// `emit_host_tokens` behavior) always emitted all of them regardless of
+    /// whether a given component's CSS references them. This filters to only
+    /// the names `body` actually contains a `var(--name)`-style reference to.
+    pub fn emit_used_tokens(&self, body: &str, scope: TokenScope) -> String {
+        let used: BTreeMap<String, String> = self
+            .tokens
+            .iter()
+            .filter(|(name, _)| var_is_referenced(body, name))
+            .map(|(name, value)| (name.clone(), value.clone()))
+            .collect();
+        self.emit_tokens_for(&used, scope)
+    }
+
+    /// Shared emission body for [`Self::emit_host_tokens`] and
+    /// [`Self::emit_used_tokens`] — one token map, one selector, same
+    /// formatting either way.
+    fn emit_tokens_for(&self, tokens: &BTreeMap<String, String>, scope: TokenScope) -> String {
+        if tokens.is_empty() {
             return String::new();
         }
-        let mut out = String::from(":host {\n");
-        for (name, value) in &self.tokens {
+        let selector = match scope {
+            TokenScope::Shadow => ":host",
+            TokenScope::Light => ":root",
+        };
+        let mut out = String::from(selector);
+        out.push_str(" {\n");
+        for (name, value) in tokens {
             out.push_str("  ");
             out.push_str(name);
             out.push_str(": ");
@@ -115,6 +156,40 @@ impl ThemeRegistry {
         out.push_str("}\n");
         out
     }
+}
+
+/// Whether an emitted token block targets a shadow root (`:host`) or the flat
+/// light-DOM tree (`:root`). Light-DOM leaf flip prep (LDF §10 step 2 / D4 §8
+/// Slice 2) — see [`ThemeRegistry::emit_used_tokens`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TokenScope {
+    Shadow,
+    Light,
+}
+
+/// Whether `body` contains a reference to custom property `name` (e.g. does
+/// `body` reference `--color-primary`). A plain `body.contains(name)` would
+/// false-positive on `--color-primary` when only the DISTINCT sibling token
+/// `--color-primary-foreground` is actually used (a real collision shape in
+/// `AIHU_BRAND_TOKENS`: every color has a `-foreground` pair). Guards the
+/// trailing boundary — the character immediately after a match must not
+/// continue a custom-property identifier (`[a-zA-Z0-9_-]`). No token in this
+/// table is a *suffix* of another, so a leading-boundary check is unneeded.
+fn var_is_referenced(body: &str, name: &str) -> bool {
+    let mut rest = body;
+    while let Some(pos) = rest.find(name) {
+        let after = &rest[pos + name.len()..];
+        let boundary_ok = after
+            .chars()
+            .next()
+            .map(|c| !(c.is_alphanumeric() || c == '-' || c == '_'))
+            .unwrap_or(true);
+        if boundary_ok {
+            return true;
+        }
+        rest = after;
+    }
+    false
 }
 
 /// Extract the body of every `@theme { ... }` directive from a style-block
@@ -173,6 +248,16 @@ fn parse_theme_declarations(body: &str) -> Vec<(String, String)> {
 /// aihu brand tokens, extracted from `apps/docs/style.css` (light theme). Maps
 /// the design-system names to the utility token names the table references
 /// (`--color-primary`, `--color-accent`, `--color-surface`, …).
+///
+/// D4 §3.4 / §3.2 (E1 + E2, founder-ratified): `info`/`success`/`warning`/
+/// `neutral` (+ `-foreground`) extend the semantic-state palette daisyUI-style
+/// recipes need but the original terracotta-only contract couldn't express —
+/// values match `packs.ts`'s `aihuDefault.tokens` light values exactly (and
+/// are verified against `.tastemaker/style-lock.md`'s contrast table, kept in
+/// sync by PR #608). The five non-color scalars below them (`--size-selector`,
+/// `--size-field`, `--border`, `--depth`, `--noise`) are aihu-native defaults
+/// for the same recipes (D4 §3.2) — transcribed in spirit, not vendored
+/// byte-for-byte from daisyUI's own token algebra.
 const AIHU_BRAND_TOKENS: &[(&str, &str)] = &[
     ("--color-primary", "#1a1d24"),
     ("--color-primary-foreground", "#faf8f4"),
@@ -190,4 +275,83 @@ const AIHU_BRAND_TOKENS: &[(&str, &str)] = &[
     ("--color-ring", "#c8543a"),
     ("--color-destructive", "#a8432b"),
     ("--color-destructive-foreground", "#faf8f4"),
+    ("--color-info", "#3d5a75"),
+    ("--color-info-foreground", "#faf8f4"),
+    ("--color-success", "#3f6f4f"),
+    ("--color-success-foreground", "#faf8f4"),
+    ("--color-warning", "#945f0e"),
+    ("--color-warning-foreground", "#faf8f4"),
+    ("--color-neutral", "#363c47"),
+    ("--color-neutral-foreground", "#faf8f4"),
+    ("--size-selector", "1.25rem"),
+    ("--size-field", "2.25rem"),
+    ("--border", "1px"),
+    ("--depth", "1"),
+    ("--noise", "0"),
+    // Radius scale (matches `packs.ts`'s shared-contract values exactly).
+    // Added alongside the D4 Slice 4 recipe channel: `recipes/*.css` (`.btn`,
+    // `.card`, `.badge`) reference these directly, and without a registry
+    // entry they'd only resolve when a consuming app happens to have loaded
+    // a shipped style-pack CSS bundle — silently square-cornered otherwise.
+    ("--radius-sm", "4px"),
+    ("--radius-md", "8px"),
+    ("--radius-lg", "12px"),
+    ("--radius-pill", "999px"),
 ];
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn d4_scalar_tokens_are_seeded_and_tree_shake_like_colors() {
+        let registry = ThemeRegistry::with_aihu_defaults();
+        assert_eq!(registry.get("--border"), Some("1px"));
+        assert_eq!(registry.get("--size-field"), Some("2.25rem"));
+
+        // Only the scalar this recipe body actually references is emitted —
+        // same tree-shake `emit_used_tokens` already applies to colors.
+        let out =
+            registry.emit_used_tokens(".btn { border: var(--border) solid; }", TokenScope::Light);
+        assert!(
+            out.contains("--border: 1px;"),
+            "expected --border in:\n{out}"
+        );
+        assert!(
+            !out.contains("--size-field"),
+            "unreferenced token leaked:\n{out}"
+        );
+        assert!(
+            !out.contains("--depth"),
+            "unreferenced token leaked:\n{out}"
+        );
+    }
+
+    #[test]
+    fn d4_border_scalar_does_not_false_positive_on_color_border() {
+        // `--color-border` does not actually contain `--border` as a
+        // substring (only a single hyphen precedes "border" there), so this
+        // pairing can't exercise `var_is_referenced`'s trailing-boundary
+        // guard. What CAN produce a same-prefix collision is a longer
+        // custom property that genuinely starts with the shorter name: e.g.
+        // if `--border-radius` existed, unguarded `body.contains("--border")`
+        // would false-positive on it. Exercise that directly.
+        let registry = ThemeRegistry::with_aihu_defaults();
+        let out = registry.emit_used_tokens(
+            ".x { border-radius: var(--border-radius-does-not-exist); }",
+            TokenScope::Light,
+        );
+        assert!(
+            !out.contains("--border:"),
+            "scalar --border falsely matched a longer name sharing its prefix:\n{out}"
+        );
+
+        // The positive case: a genuine `var(--border)` reference DOES emit it.
+        let out2 =
+            registry.emit_used_tokens(".x { border: var(--border) solid; }", TokenScope::Light);
+        assert!(
+            out2.contains("--border: 1px;"),
+            "expected --border in:\n{out2}"
+        );
+    }
+}

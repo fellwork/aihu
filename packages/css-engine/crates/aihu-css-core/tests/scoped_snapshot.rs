@@ -87,9 +87,13 @@ fn wc_native_variants() {
 
 #[test]
 fn standard_variants() {
-    insta::assert_snapshot!(compile_sfc_scoped(&sfc(
+    let css = compile_sfc_scoped(&sfc(
         "hover:bg-primary focus:text-accent dark:bg-surface md:p-8 [&>div]:text-primary md:hover:bg-primary"
-    )).unwrap());
+    )).unwrap();
+    // D4 §4 dual-keyed convention (Q: emit.rs's dark cascade must agree with
+    // DARK_SELECTOR's `.dark, [data-theme="dark"]` on :root, not just :root.dark).
+    assert!(css.contains(r#":root[data-theme="dark"]"#), "{css}");
+    insta::assert_snapshot!(css);
 }
 
 #[test]
@@ -142,4 +146,76 @@ fn theme_default_vs_override() {
     insta::assert_snapshot!(format!(
         "--- default ---\n{default}\n--- override ---\n{overridden}"
     ));
+}
+
+// D4 §6, Slice 4 — the recipe channel wired end-to-end through the same
+// `compile_sfc_scoped` entry every other class-scan test in this file uses.
+#[test]
+fn recipe_classes_fold_into_the_layer_aihu_components_channel() {
+    let css = compile_sfc_scoped(&sfc("btn btn-primary p-8")).unwrap();
+    assert!(css.contains("@layer aihu.components {"), "{css}");
+    assert!(css.contains(".btn {"), "{css}");
+    assert!(css.contains(".btn-primary {"), "{css}");
+    // Never scanned — tree-shaken out, same discipline as tokens/utilities.
+    assert!(!css.contains(".btn-ghost"), "{css}");
+    // D4 Q5: the recipe's own `.btn` has no `padding` declaration to collide
+    // with, but the unlayered `.p-8` utility rule must still be present and
+    // OUTSIDE the `@layer aihu.components` block — that's what makes
+    // `class="btn p-8"` resolve padding from the utility, not a recipe.
+    assert!(css.contains(".p-8 { padding: 2rem; }"), "{css}");
+    let open = css.find("@layer aihu.components {").unwrap();
+    let brace_start = css[open..].find('{').unwrap() + open;
+    let mut depth = 0i32;
+    let mut close = None;
+    for (i, b) in css.as_bytes()[brace_start..].iter().enumerate() {
+        match b {
+            b'{' => depth += 1,
+            b'}' => {
+                depth -= 1;
+                if depth == 0 {
+                    close = Some(brace_start + i);
+                    break;
+                }
+            }
+            _ => {}
+        }
+    }
+    let layer_close = close.expect("unbalanced @layer aihu.components block");
+    assert!(
+        css[layer_close..].contains(".p-8"),
+        "the .p-8 utility rule must be emitted OUTSIDE the components layer:\n{css}"
+    );
+    assert!(
+        !css[open..layer_close].contains(".p-8"),
+        "the .p-8 utility rule must NOT be inside the components layer:\n{css}"
+    );
+}
+
+#[test]
+fn no_recipe_classes_used_emits_no_components_layer() {
+    let css = compile_sfc_scoped(&sfc("flex p-4")).unwrap();
+    assert!(!css.contains("aihu.components {"), "{css}");
+}
+
+#[test]
+fn recipe_variant_has_its_own_hover_not_the_base_neutral_hover() {
+    // Regression (Opus review of #187dbf57): `.btn:hover`'s (0,2,0)
+    // specificity would otherwise beat `.btn-primary`'s (0,1,0) in the same
+    // layer, so `class="btn btn-primary"` hovered as neutral instead of a
+    // darker primary. Each variant now carries its own `&:hover`.
+    let css = compile_sfc_scoped(&sfc("btn btn-primary")).unwrap();
+    assert!(
+        css.contains("color-mix(in oklab, var(--color-primary) 90%, black)"),
+        "btn-primary must darken ITS OWN color on hover, not the base neutral:\n{css}"
+    );
+}
+
+#[test]
+fn recipe_radius_tokens_tree_shake_into_the_token_block() {
+    // Regression (Opus review of #187dbf57): --radius-* previously existed
+    // only in the shipped style-pack CSS, not the Rust ThemeRegistry, so a
+    // component using `.btn`/`.card`/`.badge` with no pack loaded rendered
+    // square-cornered with no signal anything was wrong.
+    let css = compile_sfc_scoped(&sfc("btn")).unwrap();
+    assert!(css.contains("--radius-md: 8px;"), "{css}");
 }

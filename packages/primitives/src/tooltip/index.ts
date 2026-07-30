@@ -17,6 +17,7 @@
 import { type Placement, position } from '@aihu/css-engine/runtime/progressive'
 import { effect, type Read, signal } from '@aihu/signals'
 import { createDomContext, injectValue, provideContext } from '../dom-context.ts'
+import { createIdSequence } from '../id.ts'
 
 export interface TooltipCoords {
   x: number
@@ -42,8 +43,7 @@ export interface TooltipContextValue {
 
 export const tooltipContext = createDomContext<TooltipContextValue>('tooltip')
 
-let _idSeq = 0
-const uid = (): string => `aihu-tooltip-${(_idSeq += 1)}`
+const uid = createIdSequence('aihu-tooltip')
 
 export class AihuTooltipRoot extends HTMLElement {
   static readonly observedAttributes = ['open', 'open-delay', 'close-delay', 'placement']

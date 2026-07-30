@@ -188,15 +188,20 @@ fn emit_token(token: &str, theme: &ThemeRegistry, prog: &ProgressiveRegistry) ->
 
     let rule = if dark_cascade {
         // Firefox-safe dark cascade: gate the rule on the consumer's dark flag
-        // (a `data-theme="dark"` host attr or a `.dark` root class) rather than
-        // the host-context pseudo (unsupported in Firefox). Consumer contract:
-        // set `data-theme="dark"` on the host element OR add `.dark` to :root,
-        // and define the dark token values there. The dark variant's rule then
-        // only applies under those scopes.
+        // (a `data-theme="dark"` host attr, a `.dark` root class, or
+        // `data-theme="dark"` on `:root` itself — D4 §4's dual-keyed
+        // convention, `DARK_SELECTOR` in `define-style-pack.ts`) rather than
+        // the host-context pseudo (unsupported in Firefox). Without the third
+        // `:root[data-theme="dark"]` branch, an app that opts into the
+        // shipped packs' OWN documented convention (`data-theme="dark"` on
+        // `<html>`, no `.dark` class) would see its pack tokens correctly
+        // flip but every `dark:` utility/`@apply dark:` variant silently stay
+        // on its light value — the two dark-mode mechanisms would disagree.
         format!(
             "/* dark cascade (Firefox-safe; see decision-firefox-host-context-workaround) */\n\
              :host([data-theme=\"dark\"]) {selector}, \
-             :root.dark {selector} {{ {body} }}\n"
+             :root.dark {selector}, \
+             :root[data-theme=\"dark\"] {selector} {{ {body} }}\n"
         )
     } else {
         format!("{selector} {{ {body} }}\n")
@@ -273,9 +278,83 @@ pub fn emit_with_progressive(
     out
 }
 
-/// Compile a full SFC AST to scoped CSS: theme tokens (`:host`-level custom
-/// props) + scanned utility rules + the folded authored `@style` block.
-pub fn emit_sfc_scoped(ast: &SfcAst) -> Result<String, CompileError> {
+/// The canonical `@layer` order, published as public API (LDF §4 / §11 Q5,
+/// resolved in D4's favor): `aihu.components` sits below `aihu.utilities` in
+/// the cascade, so a future `class="btn p-8"` resolves `padding` from the
+/// utility, not the recipe (D4 §8 Slice 4 depends on this exact ordering).
+///
+/// Reset/tokens/utilities rules stay unlayered, which in the CSS cascade
+/// always outranks ANY layered rule regardless of declaration order (spec:
+/// unlayered beats layered, always). `aihu.components` is the one layer with
+/// real content — the recipe channel (D4 Slice 4, [`crate::recipes`]) — so
+/// `class="btn p-8"` resolves `padding` from the unlayered utility rule, not
+/// the layered recipe rule, regardless of which one this preamble's `@layer`
+/// statement or the emitted CSS lists first. Safe to repeat verbatim across
+/// every component/shadow-root — identical `@layer` statement lists don't
+/// reorder or conflict with each other.
+pub const LAYER_PREAMBLE: &str = "@layer aihu.reset, aihu.tokens, aihu.components, aihu.utilities;\n";
+
+/// The six independently-emittable channels of an SFC's compiled CSS
+/// (light-DOM leaf flip prep, LDF §10 step 1-2 / D4 §8 Slice 2 and Slice 4).
+/// Splitting these out lets later passes — mode-aware token emission (LDF
+/// §10 step 2), the light-DOM selector-rewrite pass (LDF §10 step 3), the
+/// recipe channel (D4 Slice 4) — operate on the right channel directly
+/// instead of re-parsing a concatenated string.
+///
+/// [`ScopedCssChannels::concat`] reproduces today's single-string
+/// concatenation order (plus the new leading `layer_preamble`, LDF §10
+/// step 2) — the four pre-existing channels change no emitted CSS by
+/// themselves.
+#[derive(Debug, Clone, Default)]
+pub struct ScopedCssChannels {
+    /// The `@layer` order declaration — see [`LAYER_PREAMBLE`].
+    pub layer_preamble: String,
+    /// `:host`/`:root` theme custom-property block.
+    pub tokens: String,
+    /// The one-time preflight border reset.
+    pub reset: String,
+    /// The daisyUI-style recipe channel (D4 §6, Slice 4) — tree-shaken
+    /// `.btn`/`.card`/`.badge`-style rules the scanned utility set actually
+    /// references, wrapped in `@layer aihu.components`. See
+    /// [`crate::recipes::compile_recipes`].
+    pub components: String,
+    /// Scanned utility-class rules (variant-resolved).
+    pub utilities: String,
+    /// The folded authored `@style` block (scoped + `$global`).
+    pub authored: String,
+}
+
+impl ScopedCssChannels {
+    /// Concatenate in emission order: layer preamble, tokens, reset,
+    /// components, utilities, authored.
+    pub fn concat(&self) -> String {
+        let mut out = String::with_capacity(
+            self.layer_preamble.len()
+                + self.tokens.len()
+                + self.reset.len()
+                + self.components.len()
+                + self.utilities.len()
+                + self.authored.len(),
+        );
+        out.push_str(&self.layer_preamble);
+        out.push_str(&self.tokens);
+        out.push_str(&self.reset);
+        out.push_str(&self.components);
+        out.push_str(&self.utilities);
+        out.push_str(&self.authored);
+        out
+    }
+}
+
+/// Compile a full SFC AST to its four CSS channels: theme tokens
+/// (`:host`-level custom props), the preflight reset, scanned utility rules,
+/// and the folded authored `@style` block.
+///
+/// `ast.light_scope_id` currently only selects the token channel's `:host`
+/// vs. `:root` selector (LDF §10 step 2). Selector-level scoping of the
+/// reset/utilities/authored channels themselves is the light-DOM
+/// selector-rewrite pass's job (LDF §10 step 3) — not yet wired in here.
+pub fn emit_sfc_scoped_channels(ast: &SfcAst) -> Result<ScopedCssChannels, CompileError> {
     let mut theme = ThemeRegistry::with_aihu_defaults();
 
     // Parse @theme directives from the authored style block first so utilities
@@ -290,66 +369,142 @@ pub fn emit_sfc_scoped(ast: &SfcAst) -> Result<String, CompileError> {
     let result = scan(ast);
     let prog = ProgressiveRegistry::with_builtins();
 
-    // Build the rule body first — preflight + scanned utilities + folded
-    // `@style` — so we can discover which palette `--color-*` tokens it
-    // references and register them before emitting the `:host` token block.
-    let mut body = String::new();
-
     // Preflight border reset (Tailwind v4 parity). Browsers default
     // `border-style: none`, so a bare `.border { border-width: 1px }` paints
     // nothing. Emit a single one-time rule so every border utility renders a
     // visible solid line. This is one rule per sheet (not per token), so the
     // size impact is negligible; the matching utility wins by specificity.
-    body.push_str("*, ::before, ::after { border-style: solid; border-width: 0; }\n");
+    let reset = "*, ::before, ::after { border-style: solid; border-width: 0; }\n".to_string();
 
     // Scanned utility rules (scoped) — progressive prefixes routed via `prog`.
-    body.push_str(&emit_with_progressive(
-        &result,
-        &theme,
-        &prog,
-        OutputMode::Scoped,
-    ));
+    let utilities = emit_with_progressive(&result, &theme, &prog, OutputMode::Scoped);
+
+    // Recipe channel (D4 §6, Slice 4) — tree-shaken against the same scanned
+    // utility set (a recipe class like `btn` is scanned exactly like any
+    // other class, per `scanner.rs`; `compile_recipes` just resolves it
+    // against `recipes/*.css` instead of the Tailwind utility table).
+    let components = crate::recipes::compile_recipes(&result.utilities, &theme)?;
 
     // Fold the authored @style block (minus @theme directives), expanding any
     // `@apply` directives first (Task 1.4). Base utilities inline as
     // declarations; variant tokens lift to nested `&…` rules on the recipe's
     // own selector. Unknown utilities / illegal `$global` variants hard-error.
+    let mut authored = String::new();
     if let Some(style) = &ast.style {
         let stripped = strip_theme_blocks(&style.content)?;
         if !stripped.trim().is_empty() {
-            let authored = crate::apply::expand_apply(&stripped, style.scope, &theme)?;
-            let authored = authored.trim();
-            if !authored.is_empty() {
-                match style.scope {
-                    // Scoped: it already lives in the shadow <style>; pass through.
-                    SfcStyleScope::Scoped => {
-                        body.push_str("/* authored @style (scoped) */\n");
-                        body.push_str(authored);
-                        body.push('\n');
+            // Always go through the AST (never the plain-string
+            // `expand_apply`), on EVERY path — the `@keyframes $global name`
+            // escape hatch (`light_scope::strip_global_keyframe_markers`)
+            // must run regardless of mode/scope, or the marker survives as
+            // literal (invalid) CSS text and the browser drops the whole
+            // at-rule. Only `SfcStyleScope::Scoped` + light mode gets the
+            // FULL rewrite (`:host`/`::slotted`/`::part`/`@scope` lowering,
+            // which also handles its own keyframe stripping+renaming); every
+            // other combination just strips the marker and renders as-is.
+            let mut sheet = crate::apply::expand_apply_sheet(&stripped, style.scope, &theme)?;
+            match style.scope {
+                // Scoped: it already lives in the shadow <style>; pass through
+                // (shadow mode) — or, in light mode, run the light-DOM
+                // selector-rewrite pass (LDF §10 step 3) before folding, since
+                // `:host`/`::slotted`/`::part`/plain-class isolation only work
+                // inside a real shadow tree.
+                SfcStyleScope::Scoped => {
+                    let expanded = match &ast.light_scope_id {
+                        Some(id) => crate::light_scope::scope_authored_sheet(
+                            sheet,
+                            crate::light_scope::ScopeId(id),
+                        ),
+                        None => {
+                            crate::light_scope::strip_global_keyframe_markers(&mut sheet);
+                            sheet.to_css()
+                        }
+                    };
+                    let expanded = expanded.trim();
+                    if !expanded.is_empty() {
+                        authored.push_str("/* authored @style (scoped) */\n");
+                        authored.push_str(expanded);
+                        authored.push('\n');
                     }
-                    // Global ($global): passed through unscoped (edge E6). The
-                    // compiler hoists this out of the shadow root.
-                    SfcStyleScope::Global => {
-                        body.push_str("/* authored @style ($global — unscoped) */\n");
-                        body.push_str(authored);
-                        body.push('\n');
+                }
+                // Global ($global): passed through unscoped (edge E6) in
+                // EITHER mode — it already opts out of scoping, so the
+                // light-DOM rewrite pass has nothing to do here. The compiler
+                // hoists this out of the shadow root.
+                SfcStyleScope::Global => {
+                    crate::light_scope::strip_global_keyframe_markers(&mut sheet);
+                    let expanded = sheet.to_css();
+                    let expanded = expanded.trim();
+                    if !expanded.is_empty() {
+                        authored.push_str("/* authored @style ($global — unscoped) */\n");
+                        authored.push_str(expanded);
+                        authored.push('\n');
                     }
                 }
             }
         }
     }
 
-    // Register the palette tokens the body references (Tailwind ships the full
-    // palette in its default theme) so `var(--color-amber-200)` resolves at
-    // `:host`. Only the referenced tokens are added — not all 286.
-    crate::tokens::register_used_palette(&body, &mut theme);
+    // Register the palette tokens the reset+components+utilities+authored
+    // channels reference (Tailwind ships the full palette in its default
+    // theme) so `var(--color-amber-200)` resolves at `:host`/`:root`. Only
+    // the referenced tokens are added — not all 286. `components` is
+    // included here too: a recipe rule pulled in by this SFC (e.g.
+    // `.badge-info` referencing `var(--color-info)`) must make that token
+    // tree-shake IN for this component even if nothing else in its own body
+    // references it.
+    let mut referenced =
+        String::with_capacity(reset.len() + components.len() + utilities.len() + authored.len());
+    referenced.push_str(&reset);
+    referenced.push_str(&components);
+    referenced.push_str(&utilities);
+    referenced.push_str(&authored);
+    crate::tokens::register_used_palette(&referenced, &mut theme);
 
-    // Theme tokens at :host (now incl. used palette) so var(--color-*) resolves
-    // inside the shadow root, then the rule body.
-    let mut out = theme.emit_host_tokens();
-    out.push_str(&body);
+    // Theme tokens (now incl. used palette), scoped to :host (shadow) or
+    // :root (light) per whether the compiler resolved this SFC to light-DOM
+    // mode (LDF §10 step 2 — fixes the live bug where a light-mode
+    // component's tokens were emitted as a `:host {}` block that matches
+    // nothing, since a light-DOM host has no shadow root).
+    let token_scope = if ast.light_scope_id.is_some() {
+        crate::theme::TokenScope::Light
+    } else {
+        crate::theme::TokenScope::Shadow
+    };
+    let tokens = theme.emit_used_tokens(&referenced, token_scope);
+    // Light mode's `:root` token block competes in the SAME global cascade as
+    // every app-authored `:root {}`/`.dark {}` rule (both are unlayered,
+    // (0,1,0) specificity — the winner would otherwise come down to
+    // stylesheet SOURCE ORDER, which is fragile and can silently flip which
+    // value wins e.g. across a dark-mode toggle). Wrap in the `aihu.tokens`
+    // layer (already declared in `LAYER_PREAMBLE`) so any unlayered
+    // app-authored token declaration unconditionally wins regardless of
+    // order. Shadow mode's `:host {}` has no such collision — it only ever
+    // affects that one shadow tree — so it stays unlayered/unwrapped.
+    let tokens = if matches!(token_scope, crate::theme::TokenScope::Light) && !tokens.is_empty() {
+        format!("@layer aihu.tokens {{\n{tokens}}}\n")
+    } else {
+        tokens
+    };
 
-    Ok(out)
+    Ok(ScopedCssChannels {
+        layer_preamble: LAYER_PREAMBLE.to_string(),
+        tokens,
+        reset,
+        components,
+        utilities,
+        authored,
+    })
+}
+
+/// Compile a full SFC AST to scoped CSS: theme tokens (`:host`-level custom
+/// props) + scanned utility rules + the folded authored `@style` block.
+///
+/// Thin wrapper over [`emit_sfc_scoped_channels`] that concatenates the four
+/// channels in today's order — kept for existing callers that want one
+/// string.
+pub fn emit_sfc_scoped(ast: &SfcAst) -> Result<String, CompileError> {
+    emit_sfc_scoped_channels(ast).map(|c| c.concat())
 }
 
 /// Remove `@theme { ... }` blocks from style content (they become host tokens,

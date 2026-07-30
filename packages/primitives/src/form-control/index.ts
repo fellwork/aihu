@@ -19,6 +19,7 @@
 import { effect, type Read, signal } from '@aihu/signals'
 import { composedQuerySelector, composedQuerySelectorAll } from '../composed-tree.ts'
 import { createDomContext, provideContext } from '../dom-context.ts'
+import { createIdSequence } from '../id.ts'
 
 export { attachHiddenInput, type HiddenInputOptions } from './hidden-input.ts'
 
@@ -33,11 +34,7 @@ export interface FormControlContextValue {
 
 export const formControlContext = createDomContext<FormControlContextValue>('form-control')
 
-let _idCounter = 0
-function nextId(): string {
-  _idCounter += 1
-  return `aihu-fc-${_idCounter}`
-}
+const nextId = createIdSequence('aihu-fc')
 
 export class AihuFormControl extends HTMLElement {
   static readonly observedAttributes = ['disabled', 'required', 'invalid', 'name', 'control-id']

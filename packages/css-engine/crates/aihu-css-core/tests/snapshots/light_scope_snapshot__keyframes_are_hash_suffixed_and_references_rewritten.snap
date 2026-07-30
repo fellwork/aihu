@@ -1,0 +1,22 @@
+---
+source: packages/css-engine/crates/aihu-css-core/tests/light_scope_snapshot.rs
+assertion_line: 102
+expression: "compile_sfc_scoped(&light(\"@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } } .card { animation: fade-in 1s ease; animation-name: fade-in; }\")).unwrap()"
+---
+@layer aihu.reset, aihu.tokens, aihu.components, aihu.utilities;
+*, ::before, ::after { border-style: solid; border-width: 0; }
+/* authored @style (scoped) */
+@keyframes fade-in-a1b2c3d4 {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@scope ([data-a="a1b2c3d4"]) to ([data-a]) {
+.card {
+  animation: fade-in-a1b2c3d4 1s ease;
+  animation-name: fade-in-a1b2c3d4;
+}
+}

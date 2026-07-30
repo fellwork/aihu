@@ -83,6 +83,12 @@ pub fn hash_ast(ast: &SfcAst, theme_version: u64) -> u64 {
 fn hash_sfc(ast: &SfcAst, h: &mut impl Hasher) {
     ast.tag.hash(h);
     ast.ast_version.hash(h);
+    // Included pre-emptively: unused by `emit_sfc_scoped` today (light-DOM
+    // leaf flip prep, LDF §10 step 1), but once the selector-rewrite pass
+    // (step 3) branches on it, a stale cache entry keyed without it would
+    // serve shadow-mode CSS for a component the compiler just flipped to
+    // light, or vice versa.
+    ast.light_scope_id.hash(h);
     match &ast.style {
         Some(s) => {
             1u8.hash(h);

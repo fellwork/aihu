@@ -1,0 +1,13 @@
+---
+source: packages/css-engine/crates/aihu-css-core/tests/tokens.rs
+assertion_line: 28
+expression: "css(&[\"bg-info\", \"text-info-foreground\", \"bg-success\",\n\"text-success-foreground\", \"bg-warning\", \"text-warning-foreground\",\n\"bg-neutral\", \"text-neutral-foreground\",])"
+---
+.bg-info { background-color: var(--color-info); }
+.text-info-foreground { color: var(--color-info-foreground); }
+.bg-success { background-color: var(--color-success); }
+.text-success-foreground { color: var(--color-success-foreground); }
+.bg-warning { background-color: var(--color-warning); }
+.text-warning-foreground { color: var(--color-warning-foreground); }
+.bg-neutral { background-color: var(--color-neutral); }
+.text-neutral-foreground { color: var(--color-neutral-foreground); }

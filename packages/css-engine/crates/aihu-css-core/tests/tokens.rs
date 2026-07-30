@@ -21,6 +21,23 @@ fn category_colors() {
 }
 
 #[test]
+fn d4_semantic_state_tokens_resolve() {
+    // D4 §3.4 (E1 + E2, founder-ratified) — info/success/warning/neutral
+    // brand tokens resolve through the same bg-/text-/border- utility path
+    // as the original terracotta contract.
+    insta::assert_snapshot!(css(&[
+        "bg-info",
+        "text-info-foreground",
+        "bg-success",
+        "text-success-foreground",
+        "bg-warning",
+        "text-warning-foreground",
+        "bg-neutral",
+        "text-neutral-foreground",
+    ]));
+}
+
+#[test]
 fn category_spacing() {
     insta::assert_snapshot!(css(&[
         "p-4", "px-2", "py-8", "m-0", "mt-1", "gap-2", "p-0.5"

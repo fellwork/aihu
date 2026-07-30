@@ -25,6 +25,26 @@ describe('@aihu/css-engine — compileSfc end-to-end (AST → scoped CSS)', () =
     expect(css).toContain('--color-primary')
   })
 
+  it('emits tokens at :root instead of :host when compiled with a lightScopeId (LDF §10 step 2)', () => {
+    const source = `@template {
+  <button class="bg-primary p-4">Go</button>
+}`
+    const css = compileSfc(source, 'Button.aihu', 'a1b2c3d4')
+    expect(css).toContain('background-color: var(--color-primary)')
+    expect(css).toContain(':root {')
+    expect(css).toContain('--color-primary')
+    expect(css).not.toContain(':host {')
+  })
+
+  it('tree-shakes unreferenced brand tokens — no color utility means no token block at all', () => {
+    const source = `@template {
+  <div class="flex p-4"><span>hi</span></div>
+}`
+    const css = compileSfc(source, 'Plain.aihu')
+    expect(css).not.toContain(':host {')
+    expect(css).not.toContain('--color-primary')
+  })
+
   it('defers (does not drop) reactive class bindings — extracts literals, flags identifiers', () => {
     // Form B: class={cn('shadow-md', size)} → the string literal 'shadow-md'
     // is a real utility and IS compiled; `size` is a runtime identifier that

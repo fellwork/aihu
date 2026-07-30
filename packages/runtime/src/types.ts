@@ -37,6 +37,15 @@ export interface DefineOptions {
    * so assigning the static afterwards is silently ignored.
    */
   formAssociated?: boolean
+  /**
+   * Light-DOM leaf flip (LDF §10 step 3) — the compiler-computed 8-hex-char
+   * scope id this component's authored CSS is `@scope`d to
+   * (`aihu-css-core`'s `light_scope.rs`). `define-element.ts`'s `wrapClass`
+   * stamps it as `data-a="<id>"` on the element itself at construction time,
+   * ONLY when `shadowMode` is `'light'` — a shadow-mode component has no use
+   * for it (shadow DOM already provides real scoping).
+   */
+  lightScopeId?: string
 }
 
 /**
