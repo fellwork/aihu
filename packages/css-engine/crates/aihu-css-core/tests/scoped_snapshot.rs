@@ -192,3 +192,26 @@ fn no_recipe_classes_used_emits_no_components_layer() {
     let css = compile_sfc_scoped(&sfc("flex p-4")).unwrap();
     assert!(!css.contains("aihu.components {"), "{css}");
 }
+
+#[test]
+fn recipe_variant_has_its_own_hover_not_the_base_neutral_hover() {
+    // Regression (Opus review of #187dbf57): `.btn:hover`'s (0,2,0)
+    // specificity would otherwise beat `.btn-primary`'s (0,1,0) in the same
+    // layer, so `class="btn btn-primary"` hovered as neutral instead of a
+    // darker primary. Each variant now carries its own `&:hover`.
+    let css = compile_sfc_scoped(&sfc("btn btn-primary")).unwrap();
+    assert!(
+        css.contains("color-mix(in oklab, var(--color-primary) 90%, black)"),
+        "btn-primary must darken ITS OWN color on hover, not the base neutral:\n{css}"
+    );
+}
+
+#[test]
+fn recipe_radius_tokens_tree_shake_into_the_token_block() {
+    // Regression (Opus review of #187dbf57): --radius-* previously existed
+    // only in the shipped style-pack CSS, not the Rust ThemeRegistry, so a
+    // component using `.btn`/`.card`/`.badge` with no pack loaded rendered
+    // square-cornered with no signal anything was wrong.
+    let css = compile_sfc_scoped(&sfc("btn")).unwrap();
+    assert!(css.contains("--radius-md: 8px;"), "{css}");
+}

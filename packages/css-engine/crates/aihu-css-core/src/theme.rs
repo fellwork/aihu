@@ -288,6 +288,15 @@ const AIHU_BRAND_TOKENS: &[(&str, &str)] = &[
     ("--border", "1px"),
     ("--depth", "1"),
     ("--noise", "0"),
+    // Radius scale (matches `packs.ts`'s shared-contract values exactly).
+    // Added alongside the D4 Slice 4 recipe channel: `recipes/*.css` (`.btn`,
+    // `.card`, `.badge`) reference these directly, and without a registry
+    // entry they'd only resolve when a consuming app happens to have loaded
+    // a shipped style-pack CSS bundle — silently square-cornered otherwise.
+    ("--radius-sm", "4px"),
+    ("--radius-md", "8px"),
+    ("--radius-lg", "12px"),
+    ("--radius-pill", "999px"),
 ];
 
 #[cfg(test)]

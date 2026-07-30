@@ -16,14 +16,28 @@
   }
 }
 
+/* `.btn:hover`'s (0,2,0) specificity would otherwise beat `.btn-primary`'s
+   (0,1,0) within the same layer (D4 Q5 governs recipe-vs-utility layering,
+   not intra-recipe specificity) — every variant needs its OWN `&:hover`,
+   same as `.btn`'s base color-mix darkening, or the base hover wins on
+   `class="btn btn-primary"` and every variant hovers as if it were the
+   neutral default. */
 .btn-primary {
   background-color: var(--color-primary);
   color: var(--color-primary-foreground);
+
+  &:hover {
+    background-color: color-mix(in oklab, var(--color-primary) 90%, black);
+  }
 }
 
 .btn-ghost {
   background-color: transparent;
   border-color: transparent;
+
+  &:hover {
+    background-color: color-mix(in oklab, var(--color-neutral) 10%, transparent);
+  }
 }
 
 .btn-sm {
