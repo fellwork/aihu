@@ -30,14 +30,8 @@ import { createInterface } from 'node:readline'
 import { fileURLToPath } from 'node:url'
 import type { AppTemplate, CssChoice, PkgManager, ShadowChoice } from './index.js'
 import { scaffoldApp } from './index.js'
-import { printNextSteps, scaffoldFromTemplatePackage } from './scaffold-pipeline.js'
-import {
-  type CatalogEntry,
-  formatTemplateCatalog,
-  type KnownTemplate,
-  selectableTemplates,
-  selectTemplate,
-} from './templates-registry.js'
+import { scaffoldFromTemplatePackage } from './scaffold-pipeline.js'
+import { formatTemplateCatalog, type KnownTemplate, selectTemplate } from './templates-registry.js'
 
 // ─── Colour helpers (no deps) ────────────────────────────────────────────────
 

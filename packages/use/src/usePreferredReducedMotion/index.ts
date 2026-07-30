@@ -29,7 +29,7 @@ import { useMediaQuery } from '../useMediaQuery/index.ts'
  * from a hypothetical future third value without a breaking rename. */
 export type ReducedMotionPreference = 'reduce' | 'no-preference'
 
-export type UsePreferredReducedMotionOptions = {}
+export type UsePreferredReducedMotionOptions = Record<string, never>
 
 export interface UsePreferredReducedMotionReturn {
   /** Reactive getter — read as `{preference()}` in templates (parens

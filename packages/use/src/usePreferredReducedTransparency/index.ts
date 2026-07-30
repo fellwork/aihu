@@ -19,7 +19,7 @@ import { useMediaQuery } from '../useMediaQuery/index.ts'
 /** The `prefers-reduced-transparency` media-feature's value vocabulary. */
 export type ReducedTransparencyPreference = 'reduce' | 'no-preference'
 
-export type UsePreferredReducedTransparencyOptions = {}
+export type UsePreferredReducedTransparencyOptions = Record<string, never>
 
 export interface UsePreferredReducedTransparencyReturn {
   /** Reactive getter — read as `{preference()}` in templates (parens

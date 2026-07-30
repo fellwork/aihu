@@ -38,9 +38,14 @@ export function agentPackageJson(name: string, pm = 'bun'): string {
       private: true,
       type: 'module',
       scripts: {
-        // Two processes: the Bun capability-bridge server + Vite.
+        // Two processes: the Bun capability-bridge server + Vite. `-P` +
+        // `{@}` (concurrently's passthrough-arguments mode) forward any args
+        // after `--` into the vite sub-command — e.g. `bun run dev -- --port
+        // N --strictPort` — instead of silently swallowing them at
+        // concurrently's own CLI-parsing layer. Without this, extra argv
+        // never reaches vite and it always binds the hardcoded default port.
         server: 'bun server.ts',
-        dev: 'concurrently "bun run server" "vite --port 5108"',
+        dev: 'concurrently -P "bun run server" "vite --port 5108 {@}" --',
         build: 'vite build',
         preview: 'vite preview',
         typecheck: 'tsc --noEmit',
@@ -77,6 +82,12 @@ export function agentPackageJson(name: string, pm = 'bun'): string {
         // on every `Bun.serve` callback parameter. Must stay in step with the
         // `types: ['node', 'bun']` entry in agentTsConfig().
         '@types/bun': '^1.1.0',
+        // `types: ['node', 'bun']` in agentTsConfig() resolves fine under
+        // bun/npm/yarn's hoisted node_modules (pulled in transitively), but
+        // pnpm's strict per-package resolution needs it declared directly —
+        // otherwise `pnpm run typecheck` fails with TS2688 "Cannot find type
+        // definition file for 'node'".
+        '@types/node': '^20.0.0',
         '@types/ws': '^8.5.12',
         concurrently: '^9.0.0',
         typescript: '^5.0.0',

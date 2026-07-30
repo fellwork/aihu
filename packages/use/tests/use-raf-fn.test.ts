@@ -68,12 +68,11 @@ describe('@aihu/use/useRafFn', () => {
 
   it('pause() called from inside the callback stops the loop for good', () => {
     let ticks = 0
-    let isActiveRef: (() => boolean) | undefined
     const { isActive, pause } = useRafFn(() => {
       ticks += 1
       if (ticks === 2) pause()
     })
-    isActiveRef = isActive
+    const isActiveRef = isActive
 
     vi.advanceTimersToNextFrame() // tick 1
     vi.advanceTimersToNextFrame() // tick 2 — calls pause() from inside
