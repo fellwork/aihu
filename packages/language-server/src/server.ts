@@ -21,6 +21,8 @@
  *
  * See: .context/m2/a4/round-1/architect-brief-volar-refactor.md §6.1
  */
+
+import { loadTscProjectConfig } from '@aihu/tsc'
 import {
   createConnection,
   createTypeScriptProject,
@@ -28,11 +30,32 @@ import {
 } from '@volar/language-server/node'
 import ts from 'typescript'
 import { create as createTypeScriptServices } from 'volar-service-typescript'
+import { URI } from 'vscode-uri'
 import {
   createAihuLanguagePlugin,
   createAihuLanguageServicePlugin,
   withAihuDiagnosticParity,
 } from './core/volar-plugin.ts'
+
+/**
+ * Best-effort workspace-root resolution from `InitializeParams` — `rootUri`
+ * is the pre-3.16 field, `workspaceFolders[0]` the modern one; either may be
+ * absent (a client that opens a single loose file, not a folder). Returns
+ * `undefined` rather than throwing so a client that gives us neither still
+ * gets a working server, just without config-sourced `target`.
+ */
+function workspaceRoot(params: {
+  rootUri?: string | null
+  workspaceFolders?: ReadonlyArray<{ uri: string }> | null
+}): string | undefined {
+  const uri = params.workspaceFolders?.[0]?.uri ?? params.rootUri ?? undefined
+  if (!uri) return undefined
+  try {
+    return URI.parse(uri).fsPath
+  } catch {
+    return undefined
+  }
+}
 
 /**
  * Create and wire the test seam for integration / unit tests.
@@ -59,7 +82,17 @@ export function startServer(): void {
   const connection = createConnection()
   const server = createVolarServer(connection)
 
-  connection.onInitialize((params) => {
+  connection.onInitialize(async (params) => {
+    // Read the workspace's vite.config.ts (AihuConfig.compiler.target) so the
+    // editor's diagnostics match `aihu-tsc`'s — without this, the language
+    // server always type-checked against the compiler's `universal` default
+    // regardless of what the project actually configured. Best-effort: never
+    // blocks initialize, and a client that gave us no workspace root (or a
+    // project with no vite.config.ts) falls back to the previous behavior
+    // exactly (see loadTscProjectConfig's own doc comment).
+    const root = workspaceRoot(params)
+    const { target } = root ? await loadTscProjectConfig(root) : {}
+
     // #486 step 5 — the TypeScript project consumes the SAME
     // compileSidecar-backed language plugin `aihu-tsc` runs, so template
     // expressions get real TS hover/completion/diagnostics in the editor and
@@ -68,7 +101,7 @@ export function startServer(): void {
     const result = server.initialize(
       params,
       createTypeScriptProject(ts, undefined, () => ({
-        languagePlugins: [createAihuLanguagePlugin()],
+        languagePlugins: [createAihuLanguagePlugin(target ? { target } : undefined)],
       })),
       [
         ...createTypeScriptServices(ts).map(withAihuDiagnosticParity),

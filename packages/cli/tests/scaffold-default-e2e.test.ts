@@ -38,7 +38,6 @@ describe.skipIf(!RUN_E2E)('default scaffold e2e', () => {
       'vite.config.ts',
       'tsconfig.json',
       'index.html',
-      'src/main.ts',
       'src/pages/index.aihu',
       '.vscode/extensions.json',
       '.vscode/settings.json',
@@ -46,6 +45,11 @@ describe.skipIf(!RUN_E2E)('default scaffold e2e', () => {
     for (const f of want) {
       expect(result.created).toContain(f)
     }
+    // src/main.ts is deliberately NOT scaffolded — viteAihuPlugin's
+    // aihu-entry sub-plugin injects a virtual equivalent (see appMainTs's
+    // doc comment for the escape hatch), and this real `bun run build` below
+    // is exactly what proves the injected entry actually builds.
+    expect(result.created).not.toContain('src/main.ts')
 
     const projectDir = join(parentDir, 'my-app')
 

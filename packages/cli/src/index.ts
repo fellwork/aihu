@@ -335,17 +335,32 @@ export function appTsConfig(): string {
   )}\n`
 }
 
-/** src/main.ts entry point for a new aihu app. */
+/**
+ * src/main.ts entry point for a new aihu app.
+ *
+ * NOT written by `scaffoldApp` by default — `viteAihuPlugin`'s `aihu-entry`
+ * sub-plugin (packages/app/src/vite-plugin.ts) now injects a virtual
+ * equivalent (`virtual:aihu-entry`) into `index.html` whenever no real
+ * `src/main.ts` is present, so a fresh scaffold never needs this file. Kept
+ * exported, and still generates byte-identical content, as the ESCAPE HATCH:
+ * a project that needs `createApp(options)` (e.g. `provide`, `outletId`, a
+ * non-default `head`) writes this file for real, which makes the virtual
+ * entry step aside entirely (see `aihu-entry`'s `transformIndexHtml` hook).
+ */
 export function appMainTs(_name: string): string {
   return `import { createApp } from '@aihu/app/client'\n\ncreateApp()\n`
 }
 
-/** index.html for a new aihu application.
+/**
+ * index.html for a new aihu application.
  *
- * Vite serves `./src/main.ts` directly in dev and rewrites the script src
- * to the hashed build asset on `vite build`. `<div id="outlet"></div>` is
- * the mount target `createApp()` looks up by default (see
- * `@aihu/app/client#outletId`); without it `createApp()` throws on boot.
+ * No `<script>` tag: `viteAihuPlugin`'s `aihu-entry` sub-plugin injects one
+ * pointing at `virtual:aihu-entry` (dev and build) when `src/main.ts` is
+ * absent, and steps aside once a real `src/main.ts` exists — see
+ * `appMainTs`'s doc comment for the escape-hatch contract this depends on.
+ * `<div id="outlet"></div>` is the mount target `createApp()` looks up by
+ * default (see `@aihu/app/client#outletId`); without it `createApp()`
+ * throws on boot.
  */
 export function appIndexHtml(name: string): string {
   return `<!doctype html>
@@ -357,7 +372,6 @@ export function appIndexHtml(name: string): string {
   </head>
   <body>
     <div id="outlet"></div>
-    <script type="module" src="./src/main.ts"></script>
   </body>
 </html>
 `
@@ -755,8 +769,8 @@ export function pluginIndex(name: string): string {
  *
  * v0.2.x: Vite + `viteAihuPlugin()`, v1 `@state` / `@template` / `@style`
  * syntax. Produces: package.json, vite.config.ts, tsconfig.json, index.html,
- *   src/main.ts, src/pages/index.aihu, .vscode/extensions.json,
- *   .vscode/settings.json
+ *   src/pages/index.aihu, .vscode/extensions.json, .vscode/settings.json
+ * (no src/main.ts — see appMainTs's doc comment)
  */
 export function scaffoldApp(
   name: string,
@@ -850,10 +864,13 @@ export function scaffoldApp(
     return writeFiles(root, files)
   }
 
-  // Shared base for the vite-only templates (minimal | docs): the historical
-  // 8-file set plus the agent-tooling trio (AGENTS.md / CLAUDE.md / .mcp.json,
-  // opt out with agentTooling: false). The legacy-snapshot golden gates this
-  // output; intentional changes here require a deliberate golden refresh.
+  // Shared base for the vite-only templates (minimal | docs): a 7-file set
+  // (src/main.ts is no longer scaffolded — viteAihuPlugin's aihu-entry
+  // sub-plugin injects a virtual equivalent; see appMainTs's doc comment for
+  // the escape hatch) plus the agent-tooling trio (AGENTS.md / CLAUDE.md /
+  // .mcp.json, opt out with agentTooling: false). The legacy-snapshot golden
+  // gates this output; intentional changes here require a deliberate golden
+  // refresh.
   const indexPage = template === 'docs' ? appDocsIndexAihu(name) : appIndexAihu(name, withCssEngine)
   const files: Array<readonly [string, string]> = [
     ['package.json', appPackageJson(name, pm, withCssEngine)],
@@ -866,7 +883,6 @@ export function scaffoldApp(
     ['vite.config.ts', appViteConfig(name, withCssEngine, shadowMode)],
     ['tsconfig.json', appTsConfig()],
     ['index.html', appIndexHtml(name)],
-    ['src/main.ts', appMainTs(name)],
     ['src/pages/index.aihu', indexPage],
     ['.vscode/extensions.json', appVscodeExtensions()],
     ['.vscode/settings.json', appVscodeSettings()],

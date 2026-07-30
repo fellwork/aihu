@@ -224,6 +224,7 @@ function createVirtualCode(
   try {
     generated = compileSidecar(source, fileName, {
       strictTemplates: options?.strictTemplates ?? false,
+      ...(options?.target ? { target: options.target } : {}),
     })
     uncompilable.delete(fileName)
     uncompilableReasons.delete(fileName)
@@ -257,6 +258,15 @@ export interface AihuLanguagePluginOptions {
    * byte-identical to the pre-#486 surface.
    */
   strictTemplates?: boolean
+  /**
+   * Build target threaded to `compileSidecar` (`--target`) — see its own doc
+   * comment in `@aihu/compiler` for why this affects type-check accuracy.
+   * Sourced from the project's `vite.config.ts` (`AihuConfig.compiler.target`)
+   * by `run()`/the language server's project-config loader; a caller with no
+   * config to read leaves this unset and gets the binary's own default
+   * (`universal`).
+   */
+  target?: 'client' | 'server' | 'universal'
 }
 
 /**

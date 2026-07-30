@@ -1026,6 +1026,23 @@ export function compileSidecar(
      * to the pre-#486 sidecar.
      */
     strictTemplates?: boolean
+    /**
+     * Build target threaded to the compiler binary (`--target`), same flag
+     * `transform()` passes. Defaults to the binary's own default
+     * (`universal`) when omitted.
+     *
+     * This is NOT cosmetic: `--target` changes what `compile_full_with_options`
+     * produces (packages/compiler/src/bin/main.rs), which `sidecar_ts` is
+     * derived from — e.g. a `target: 'client'` build elides server-only
+     * artifacts. A caller that never passes this always type-checks against
+     * the `universal` surface regardless of the project's actual configured
+     * target, which can pass tsc on code the real build would elide or
+     * reject. `islands`/`shadowMode` are deliberately NOT parameters here:
+     * both are applied as JS-side post-processing on the RUNTIME JS output
+     * (see `transform()`), never touch `sidecar_ts`, and have no bearing on
+     * type-check accuracy.
+     */
+    target?: 'client' | 'server' | 'universal'
   },
 ): string {
   const stem = id ? basename(id, '.aihu') : 'Component'
@@ -1035,6 +1052,9 @@ export function compileSidecar(
   }
   if (options?.strictTemplates) {
     args.push('--strict-templates')
+  }
+  if (options?.target) {
+    args.push('--target', options.target)
   }
   return execFileSync(resolveBinPath(), args, {
     input: source,

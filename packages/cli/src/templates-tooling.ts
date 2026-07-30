@@ -225,9 +225,13 @@ export function viteTemplateAgentsFacts(name: string): AgentsMdFacts {
     ],
     map: [
       ['src/pages/*.aihu', 'Pages — file path is the route; @route names the custom-element tag'],
-      ['src/main.ts', 'Entry: createApp() mounts the router into #outlet'],
       ['vite.config.ts', 'viteAihuPlugin (compiler + router) and the agent-readiness pass'],
-      ['index.html', 'Document shell and <head> defaults'],
+      [
+        'index.html',
+        'Document shell and <head> defaults — no <script> tag: viteAihuPlugin injects one at ' +
+          'virtual:aihu-entry (createApp() mounting the router into #outlet). Add a real ' +
+          'src/main.ts only if you need createApp(options) — it takes over automatically.',
+      ],
     ],
   }
 }

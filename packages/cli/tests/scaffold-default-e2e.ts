@@ -49,13 +49,17 @@ try {
       'vite.config.ts',
       'tsconfig.json',
       'index.html',
-      'src/main.ts',
       'src/pages/index.aihu',
       '.vscode/extensions.json',
       '.vscode/settings.json',
     ]
     for (const f of want) {
       if (!result.created.includes(f)) throw new Error(`expected file not emitted: ${f}`)
+    }
+    // src/main.ts is deliberately NOT scaffolded — viteAihuPlugin's
+    // aihu-entry sub-plugin injects a virtual equivalent.
+    if (result.created.includes('src/main.ts')) {
+      throw new Error('src/main.ts should not be scaffolded (virtual entry covers it)')
     }
   })
 

@@ -42,10 +42,16 @@ export type { AihuVirtualCode }
  *
  * Thin URI-typed instantiation of the shared `@aihu/tsc` plugin, so the
  * editor and the CLI consume one type-check surface. `strictTemplates`
- * defaults off, matching `aihu-tsc` without `--strict-templates`.
+ * defaults off, matching `aihu-tsc` without `--strict-templates`. `target`
+ * defaults unset (the compiler's own `universal` default) unless the caller
+ * read it from the workspace's `vite.config.ts` — see `server.ts`'s
+ * `onInitialize`, which is the only place with a workspace root to read from.
  */
-export function createAihuLanguagePlugin(): LanguagePlugin<URI, AihuVirtualCode> {
-  return createSharedAihuLanguagePlugin<URI>(ts)
+export function createAihuLanguagePlugin(options?: {
+  strictTemplates?: boolean
+  target?: 'client' | 'server' | 'universal'
+}): LanguagePlugin<URI, AihuVirtualCode> {
+  return createSharedAihuLanguagePlugin<URI>(ts, options)
 }
 
 // ---------------------------------------------------------------------------
