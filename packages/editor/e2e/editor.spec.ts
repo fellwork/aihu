@@ -5,10 +5,10 @@
 
 import { expect, type Page, test } from '@playwright/test'
 
-// biome-ignore lint/suspicious/noExplicitAny: harness window surface
 const h =
   (page: Page) =>
   (fn: string, ...args: unknown[]) =>
+    // biome-ignore lint/suspicious/noExplicitAny: harness window surface
     page.evaluate(([f, a]) => (window as any).__editor[f as string](...(a as unknown[])), [
       fn,
       args,

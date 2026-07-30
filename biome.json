@@ -83,7 +83,8 @@
     {
       "includes": [
         "packages/vscode-aihu/server/completion.ts",
-        "packages/language-server/src/core/completion.ts"
+        "packages/language-server/src/core/completion.ts",
+        "scripts/check-gate-wiring.ts"
       ],
       "linter": {
         "rules": {
@@ -94,7 +95,17 @@
       }
     },
     {
-      "includes": ["apps/docs/**"],
+      "includes": ["apps/docs-next/src/data/api/generated/**"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noTemplateCurlyInString": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["apps/docs/**", "apps/docs-next/**"],
       "linter": {
         "rules": {
           "style": {

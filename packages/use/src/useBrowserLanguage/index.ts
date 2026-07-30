@@ -25,7 +25,7 @@ import { signal } from '@aihu/signals'
 import { defaultNavigator, defaultWindow, isClient } from '../shared/index.ts'
 import { useEventListener } from '../useEventListener/index.ts'
 
-export type UseBrowserLanguageOptions = {}
+export type UseBrowserLanguageOptions = Record<string, never>
 
 export interface UseBrowserLanguageReturn {
   /** Reactive getter — read as `{language()}` in templates (parens

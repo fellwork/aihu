@@ -31,7 +31,6 @@ class FakeScreenOrientation extends EventTarget {
 
 describe('@aihu/use/useOrientation — screen.orientation path', () => {
   afterEach(() => {
-    // biome-ignore lint: test-installed stub cleanup
     delete (window.screen as { orientation?: unknown }).orientation
   })
 

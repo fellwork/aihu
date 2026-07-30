@@ -19,7 +19,7 @@ import { signal } from '@aihu/signals'
 import { defaultNavigator, defaultWindow, isClient } from '../shared/index.ts'
 import { useEventListener } from '../useEventListener/index.ts'
 
-export type UsePreferredLanguagesOptions = {}
+export type UsePreferredLanguagesOptions = Record<string, never>
 
 export interface UsePreferredLanguagesReturn {
   /** Reactive getter — read as `{languages()}` in templates (parens

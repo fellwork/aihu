@@ -2,15 +2,16 @@
  * __APP_NAME__ — Cloudflare Workers entry.
  *
  * Scaffolded by @aihu/templates-cf-team on __SCAFFOLD_DATE__.
- * The app's root SFC lives in `./aihu-app.aihu`; the runtime mounts it on the
- * client side. This module exposes the Workers `fetch` handler that the
- * Cloudflare adapter wires up at build time.
+ * The app's root SFC lives in `./aihu-app.aihu` and is mounted CLIENT-SIDE
+ * only, referenced directly from `index.html` — never imported here. This
+ * file is bundled for the Workers runtime (by wrangler's own esbuild step,
+ * pointed at this file via `main` in wrangler.toml), which has no `.aihu`
+ * loader; a `.aihu` import in this module would fail to bundle.
  */
 
 import { appStatus } from '@__APP_NAME__/shared'
 import { createRequestRouter, defineRoute, defineRoutes, json } from '@aihu/server'
 import { createAgentReadinessRoutes } from '@aihu-plugin/agent-readiness'
-import './aihu-app.aihu'
 
 // Agent-readiness endpoints — served automatically on every aihu app.
 // Configure name, endpoint, and llmsSections in aihu.config.ts under `agent:`.

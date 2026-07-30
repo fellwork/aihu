@@ -111,6 +111,14 @@ export function appPackageJson(
         // them (e.g. `import { signal } from '@aihu/signals'`); pinning them
         // here keeps version drift visible at `bun outdated`.
         '@aihu/app': 'latest',
+        // The compiler unconditionally emits `import { registerAgentMetadata }
+        // from '@aihu/agent'` for any component with an `$action` block — and
+        // the scaffolded counter component always has one. `@aihu/agent` is a
+        // real `dependencies` entry of `@aihu/server`, so bun/npm/yarn's
+        // hoisted `node_modules` resolve the transitive import anyway; pnpm's
+        // strict per-package resolution does not expose it, so `pnpm run
+        // build` fails with an unresolved import unless it is listed here too.
+        '@aihu/agent': 'latest',
         '@aihu/arbor': 'latest',
         // Peer of `@aihu/runtime`, which is why it is easy to miss: it is not a
         // peer of `@aihu/app`, so satisfying app's own list is not enough.

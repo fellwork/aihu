@@ -476,10 +476,7 @@ function emitConfigFirstDecl(
   if (!cfgInline.includes('\n') && decl.length + cfgInline.length <= 98) {
     return `${decl}\n${INDENT}${INDENT}${cfgInline},\n${INDENT}${INDENT}${fn})`
   }
-  const lines = [
-    `${decl}`,
-    `${INDENT}${INDENT}{ ${cfgParts.join(',\n' + INDENT + INDENT + '  ')} },`,
-  ]
+  const lines = [`${decl}`, `${INDENT}${INDENT}{ ${cfgParts.join(`,\n${INDENT}${INDENT}  `)} },`]
   lines.push(`${INDENT}${INDENT}${fn})`)
   return lines.join('\n')
 }
@@ -537,7 +534,7 @@ function migrateStateMacrosBody(
       m = re.exec(body)
     }
   }
-  const reactiveReadCorpus = templateText + '\n' + derivationText
+  const reactiveReadCorpus = `${templateText}\n${derivationText}`
 
   const out: string[] = []
   let i = 0
@@ -1102,7 +1099,7 @@ function migrateTuplesIn(
   if (!/\bsignal\s*[(<]/.test(text)) {
     text = text.replace(
       /^([ \t]*)import\s*\{([^}]*)\}\s*from\s*'@aihu\/signals'\s*;?\s*\n/m,
-      (full, ws: string, names: string) => {
+      (_full, ws: string, names: string) => {
         const kept = names
           .split(',')
           .map((s) => s.trim())

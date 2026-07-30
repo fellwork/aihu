@@ -381,7 +381,7 @@ describe('runPostInstall', () => {
     // step and every previous assertion in this file that keyed on a position
     // silently retargeted when the step grew.
     const git = sp.calls.filter((c) => c.command === 'git').map((c) => c.args.join(' '))
-    const pin = git.findIndex((a) => a === 'symbolic-ref HEAD refs/heads/main')
+    const pin = git.indexOf('symbolic-ref HEAD refs/heads/main')
     const commit = git.findIndex((a) => a.includes('commit'))
     expect(
       pin,

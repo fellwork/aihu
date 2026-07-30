@@ -63,7 +63,6 @@ if (mode === 'client') {
           if (done) break
           buf += decoder.decode(value, { stream: true })
           let sep
-          // biome-ignore lint/suspicious/noAssignInExpressions: SSE frame scanner
           while ((sep = buf.indexOf('\n\n')) !== -1) {
             const frame = buf.slice(0, sep)
             buf = buf.slice(sep + 2)

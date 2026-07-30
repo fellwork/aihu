@@ -47,20 +47,28 @@ export const config = {
   conditionalFiles: [
     { path: 'apps/web/src/components/live-counter.aihu', when: 'starter === "live-counter"' },
     { path: '.mcp.json', when: 'agentSurface !== "none"' },
-    { path: 'apps/web/src/agent/aihu-expose.aihu', when: 'agentSurface !== "none"' },
+    { path: 'apps/web/src/agent/aihu-expose.aihu.tmpl', when: 'agentSurface !== "none"' },
     // Per-auth-provider conditional file sets (§13 Q3 propagation):
-    { path: 'apps/web/src/auth/better-auth.ts', when: 'auth === "better-auth"' },
-    { path: 'apps/web/src/auth/kinde.ts', when: 'auth === "kinde"' },
-    { path: 'apps/web/src/auth/supabase.ts', when: 'auth === "supabase"' },
+    { path: 'apps/web/src/auth/better-auth.ts.tmpl', when: 'auth === "better-auth"' },
+    { path: 'apps/web/src/auth/kinde.ts.tmpl', when: 'auth === "kinde"' },
+    { path: 'apps/web/src/auth/supabase.ts.tmpl', when: 'auth === "supabase"' },
     // F-5b: rename provider-specific .env.example files to .env.example so
     // .gitignore patterns work and developer expectations are met.
     {
-      path: 'apps/web/.env.example.better-auth',
+      path: 'apps/web/.env.example.better-auth.tmpl',
       when: 'auth === "better-auth"',
       rename: '.env.example',
     },
-    { path: 'apps/web/.env.example.kinde', when: 'auth === "kinde"', rename: '.env.example' },
-    { path: 'apps/web/.env.example.supabase', when: 'auth === "supabase"', rename: '.env.example' },
+    {
+      path: 'apps/web/.env.example.kinde.tmpl',
+      when: 'auth === "kinde"',
+      rename: '.env.example',
+    },
+    {
+      path: 'apps/web/.env.example.supabase.tmpl',
+      when: 'auth === "supabase"',
+      rename: '.env.example',
+    },
   ],
   placeholders: [
     'APP_NAME',

@@ -13,5 +13,12 @@ tasks:
     command: 'bun run vite build'
   test:
     command: 'bun run vitest run'
+  # `deps` matters here, not just documentation: this project's tsconfig
+  # references `../../packages/shared`, resolved against its EMITTED
+  # `dist/index.d.ts` — without an explicit ordering dependency moon runs
+  # sibling `typecheck` tasks concurrently, and this one can start reading
+  # that file before `shared:typecheck` has finished writing it (TS6305).
   typecheck:
     command: 'bun run tsc --noEmit'
+    deps:
+      - 'shared:typecheck'

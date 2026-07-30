@@ -77,7 +77,7 @@ function scopeAppend(s: EffectScopeImpl, f: () => void): ScopeRec {
  * (`runWithScope` against a scope that was stopped mid-await). */
 export function _scopeAdd(f: () => void): ScopeRec | null {
   const s = _currentScope
-  return s !== null && s.active ? scopeAppend(s, f) : null
+  return s?.active ? scopeAppend(s, f) : null
 }
 
 /** @internal — swap-remove `rec` from its owning scope's list. No-op while
@@ -241,7 +241,7 @@ export function runWithoutScope<T>(fn: () => T): T {
  */
 export function onScopeDispose(fn: () => void): void {
   const s = _currentScope
-  if (s !== null && s.active) scopeAppend(s, fn)
+  if (s?.active) scopeAppend(s, fn)
   else if (__DEV__)
     console.warn('[aihu/signals] onScopeDispose() called with no active effect scope')
 }

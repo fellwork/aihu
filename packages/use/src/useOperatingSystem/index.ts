@@ -31,7 +31,7 @@ import { defaultNavigator, isClient } from '../shared/index.ts'
  * NOT the same claim as "detection failed"; treat it as "unclassified". */
 export type OperatingSystem = 'windows' | 'macos' | 'linux' | 'android' | 'ios' | 'unknown'
 
-export type UseOperatingSystemOptions = {}
+export type UseOperatingSystemOptions = Record<string, never>
 
 export interface UseOperatingSystemReturn {
   /** Best-effort getter — read as `{os()}` in templates (parens required).

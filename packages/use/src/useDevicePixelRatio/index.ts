@@ -56,7 +56,6 @@ export function useDevicePixelRatio(): UseDevicePixelRatioReturn {
     if (typeof media.removeEventListener === 'function') {
       media.removeEventListener('change', update)
     } else {
-      // biome-ignore lint: legacy MediaQueryList fallback (deprecated removeListener API)
       media.removeListener(update)
     }
     media = undefined
@@ -68,7 +67,6 @@ export function useDevicePixelRatio(): UseDevicePixelRatioReturn {
     if (typeof media.addEventListener === 'function') {
       media.addEventListener('change', update)
     } else {
-      // biome-ignore lint: legacy MediaQueryList fallback (deprecated addListener API)
       media.addListener(update)
     }
   }

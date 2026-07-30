@@ -61,7 +61,6 @@ describe('@aihu/use/usePerformanceObserver', () => {
 
   it('unsupported (no global PerformanceObserver): registers nothing, stop() is a no-op', () => {
     vi.unstubAllGlobals()
-    // biome-ignore lint: deliberately deleting the test's own stub to simulate an unsupported runtime
     delete (globalThis as { PerformanceObserver?: unknown }).PerformanceObserver
     const callback = vi.fn()
     const { stop } = usePerformanceObserver(callback, { entryTypes: ['mark'] })

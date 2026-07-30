@@ -11,5 +11,10 @@ tasks:
     command: 'noop'
   test:
     command: 'bun run vitest run'
+  # No `--noEmit`: this package's tsconfig sets `noEmit: false` +
+  # `emitDeclarationOnly: true` so `dist/index.d.ts` gets written — apps/web
+  # consumes this package via a project reference, which resolves against
+  # that emitted declaration file, not the source. `--noEmit` on the command
+  # line overrides the tsconfig option and silently skips writing it.
   typecheck:
-    command: 'bun run tsc --noEmit'
+    command: 'bun run tsc'

@@ -38,7 +38,6 @@ export const STATE_MACRO_COMPLETIONS: LspCompletionItem[] = [
     sortText: '0_$prop',
     insertText: [
       '$prop: {',
-      // biome-ignore lint/suspicious/noTemplateCurlyInString: VS Code snippet format uses ${N:placeholder} syntax
       "  ${1:name}: { default: ${2:undefined}, describe: '${3:description}' },",
       '}',
     ].join('\n'),
@@ -49,7 +48,6 @@ export const STATE_MACRO_COMPLETIONS: LspCompletionItem[] = [
     insertTextFormat: SNIPPET_FORMAT,
     detail: 'v2 collection-form computed declarations',
     sortText: '0_$computed',
-    // biome-ignore lint/suspicious/noTemplateCurlyInString: VS Code snippet format uses ${N:placeholder} syntax
     insertText: ['$computed: {', '  ${1:name}: () => ${2:expression},', '}'].join('\n'),
   },
   {
@@ -58,7 +56,6 @@ export const STATE_MACRO_COMPLETIONS: LspCompletionItem[] = [
     insertTextFormat: SNIPPET_FORMAT,
     detail: 'v2 collection-form action declarations',
     sortText: '0_$action',
-    // biome-ignore lint/suspicious/noTemplateCurlyInString: VS Code snippet format uses ${N:placeholder} syntax
     insertText: ['$action: {', '  ${1:name}: (${2:args}) => { ${3:body} },', '}'].join('\n'),
   },
   {
@@ -67,7 +64,6 @@ export const STATE_MACRO_COMPLETIONS: LspCompletionItem[] = [
     insertTextFormat: SNIPPET_FORMAT,
     detail: 'v2 collection-form resource declarations',
     sortText: '0_$resource',
-    // biome-ignore lint/suspicious/noTemplateCurlyInString: VS Code snippet format uses ${N:placeholder} syntax
     insertText: ['$resource: {', '  ${1:name}: () => ${2:fetchExpr()},', '}'].join('\n'),
   },
   {
@@ -76,7 +72,6 @@ export const STATE_MACRO_COMPLETIONS: LspCompletionItem[] = [
     insertTextFormat: SNIPPET_FORMAT,
     detail: 'v2 anonymous effect declaration',
     sortText: '0_$effect',
-    // biome-ignore lint/suspicious/noTemplateCurlyInString: VS Code snippet format uses ${N:placeholder} syntax
     insertText: ['$effect: () => {', '  ${1:body}', '}'].join('\n'),
   },
   {
@@ -87,9 +82,7 @@ export const STATE_MACRO_COMPLETIONS: LspCompletionItem[] = [
     sortText: '0_$lifecycle',
     insertText: [
       '$lifecycle: {',
-      // biome-ignore lint/suspicious/noTemplateCurlyInString: VS Code snippet format uses ${N:placeholder} syntax
       '  mount: () => { ${1:initBody} },',
-      // biome-ignore lint/suspicious/noTemplateCurlyInString: VS Code snippet format uses ${N:placeholder} syntax
       '  dispose: () => { ${2:cleanupBody} },',
       '}',
     ].join('\n'),
@@ -100,7 +93,6 @@ export const STATE_MACRO_COMPLETIONS: LspCompletionItem[] = [
     insertTextFormat: SNIPPET_FORMAT,
     detail: 'typed custom event declarations',
     sortText: '0_$emit',
-    // biome-ignore lint/suspicious/noTemplateCurlyInString: VS Code snippet format uses ${N:placeholder} syntax
     insertText: ['$emit: {', '  ${1:eventName}: (payload: ${2:PayloadType}) => void', '}'].join(
       '\n',
     ),
@@ -111,7 +103,6 @@ export const STATE_MACRO_COMPLETIONS: LspCompletionItem[] = [
     insertTextFormat: SNIPPET_FORMAT,
     detail: 'event listener directive (template, grammar v2)',
     sortText: '0_on:',
-    // biome-ignore lint/suspicious/noTemplateCurlyInString: VS Code snippet format uses ${N:placeholder} syntax
     insertText: 'on:${1:click}={${2:handler}}',
   },
   {
@@ -120,7 +111,6 @@ export const STATE_MACRO_COMPLETIONS: LspCompletionItem[] = [
     insertTextFormat: SNIPPET_FORMAT,
     detail: 'two-way binding directive (template, grammar v2)',
     sortText: '0_bind:',
-    // biome-ignore lint/suspicious/noTemplateCurlyInString: VS Code snippet format uses ${N:placeholder} syntax
     insertText: 'bind:${1:value}={${2:signal}}',
   },
 ]

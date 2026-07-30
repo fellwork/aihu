@@ -27,7 +27,7 @@ import { useMediaQuery } from '../useMediaQuery/index.ts'
 /** The `prefers-contrast` media-feature's value vocabulary. */
 export type ContrastPreference = 'more' | 'less' | 'custom' | 'no-preference'
 
-export type UsePreferredContrastOptions = {}
+export type UsePreferredContrastOptions = Record<string, never>
 
 export interface UsePreferredContrastReturn {
   /** Reactive getter — read as `{preference()}` in templates (parens

@@ -53,7 +53,6 @@ export function useMediaQuery(
   if (typeof mql.addEventListener === 'function') {
     mql.addEventListener('change', handler)
   } else {
-    // biome-ignore lint: legacy MediaQueryList fallback (deprecated addListener API)
     mql.addListener(handler)
   }
 
@@ -64,7 +63,6 @@ export function useMediaQuery(
     if (typeof mql.removeEventListener === 'function') {
       mql.removeEventListener('change', handler)
     } else {
-      // biome-ignore lint: legacy MediaQueryList fallback (deprecated removeListener API)
       mql.removeListener(handler)
     }
   }
