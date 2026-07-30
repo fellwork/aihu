@@ -1,5 +1,83 @@
 # @aihu/cli
 
+## 1.1.2
+
+### Patch Changes
+
+- [#717](https://github.com/fellwork/aihu/pull/717) [`44698e0`](https://github.com/fellwork/aihu/commit/44698e0e7085bf40939a8543f4df751386bf7d2d) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Fix four scaffold DX-matrix failures found via the CI matrix that exercises every built-in template across bun/npm/pnpm/yarn:
+
+  - `cf-team`: several source files (`main.ts`, the auth provider modules, the
+    `.env.example.*` files, both `.aihu` files, and the `shared` package's
+    `index.ts`/`index.test.ts`) contained `__APP_NAME__`-style placeholders but
+    weren't named `*.tmpl`, so the scaffold pipeline copied them verbatim
+    instead of substituting — every scaffolded app failed typecheck with
+    `Cannot find module '@__APP_NAME__/shared'`. Renamed to `.tmpl` so
+    substitution runs.
+  - `minimal`/`docs`: the compiler unconditionally emits `import {
+registerAgentMetadata } from '@aihu/agent'` for any component with an
+    `$action` block (the scaffolded counter always has one), but `@aihu/agent`
+    was never listed in the scaffolded `package.json` — only reachable
+    transitively via `@aihu/server`. bun/npm/yarn's hoisted `node_modules`
+    papered over this; pnpm's strict resolution failed the build. Added
+    `@aihu/agent` as a direct dependency.
+  - `full`/`agent`: the `dev` script hardcoded `vite --port 5108` inside a
+    `concurrently` sub-command with no argv forwarding, so
+    `bun run dev -- --port N --strictPort` never reached vite and dev-server
+    probes timed out. Switched to concurrently's `-P`/`{@}` passthrough-
+    arguments mode so forwarded args reach the vite sub-command.
+  - `full`/`agent`/`cf-team`: `pnpm run typecheck` failed with `error TS2688:
+Cannot find type definition file for 'node'` — `@types/node` was missing
+    from the scaffolded `devDependencies` (only reachable via hoisting under
+    bun/npm/yarn). Added it directly to the `agent`/`full` template and to
+    `cf-team`'s `apps/web` and `packages/shared` workspace members.
+  - `cf-team`: fixing the placeholder substitution above unmasked several
+    deeper, pre-existing gaps once typecheck could actually run —
+    `@aihu-plugin/agent-readiness` was imported but never declared as a
+    dependency; `packages/shared`'s moon task independently hardcoded
+    `tsc --noEmit` (moon tasks bypass `package.json` scripts entirely), which
+    silently skipped writing the `dist/index.d.ts` that `apps/web`'s project
+    reference needs, and there was no `deps:` ordering between the two
+    `typecheck` tasks so they could race even after that was fixed; and
+    `apps/web` had no `vite.config.ts`, no `index.html`, and no `vite`
+    dependency at all — the client build was never wired up. Added the missing
+    dependency, fixed the moon task graph, added a client-only
+    `vite.config.ts` + `index.html` (mirroring `examples/cf-adapter`'s
+    working pattern), and pointed `wrangler.toml`'s `main` at the Workers
+    entry's TS source directly (wrangler bundles it with its own esbuild step)
+    instead of a `vite build`-produced file that nothing ever emitted. Removed
+    a dead `import './aihu-app.aihu'` from the Workers entry — a `.aihu` file
+    has no place in a wrangler-bundled server module, and the component is
+    already mounted client-side via `index.html`.
+  - The scaffold DX-matrix harness itself (`packages/cli/tests/
+scaffold-matrix-e2e.ts`) passed `--port N --strictPort` to every package
+    manager the same way, but pnpm forwards the literal `--` separator into
+    the child process argv unlike npm/bun (confirmed empirically) — so vite
+    saw `-- --port N` and kept its default port, timing out every
+    `<template> × pnpm · dev` cell. Added pnpm to the existing yarn special
+    case in `pmRunArgs`.
+
+- [#715](https://github.com/fellwork/aihu/pull/715) [`9bba4bb`](https://github.com/fellwork/aihu/commit/9bba4bbf177bcd266502ab9181e91478f1710704) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Fix ReDoS-vulnerable regex patterns and a prototype-pollution gap found by CodeQL code scanning.
+
+  - `@aihu/app`: `applyHeadConfig`'s `<meta>`-tag matching no longer uses a
+    `\s+[^>]*attr...[^>]*` nested-quantifier regex over the whole `index.html`
+    string (catastrophic backtracking on pathological/repetitive input) — it
+    now scans tag boundaries with one unambiguous pass, then tests the
+    attribute within just that bounded tag.
+  - `@aihu/router`: the file-router's segment builder no longer strips a
+    route's extension with a `\.[^/]+$/`-anchored regex (same backtracking
+    class) — a plain `lastIndexOf`-based split instead.
+  - `@aihu/compiler`: `_isLayoutFile`'s trailing-slash trim no longer uses a
+    `\/+$/`-anchored regex — measured 45s on a 200k-character pathological
+    input before the fix, sub-millisecond after. The state-wrapper codemod
+    (`migrate.ts`/`verify.ts`) also now fully escapes identifiers before
+    embedding them into `RegExp` constructors (previously escaped only `$`).
+  - `@aihu/cli`: the `full` template's scaffolded `server.ts` had the same
+    trailing-slash ReDoS shape in a generated string — fixed so scaffolded
+    apps don't inherit it.
+  - `@aihu/magna`: `setBuildFlag` (a public function accepting an arbitrary
+    dot-notation key) now rejects `__proto__`/`constructor`/`prototype`
+    segments, closing a prototype-pollution gap in its public contract.
+
 ## 1.1.1
 
 ### Patch Changes
