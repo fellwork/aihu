@@ -278,22 +278,23 @@ pub fn emit_with_progressive(
 /// the cascade, so a future `class="btn p-8"` resolves `padding` from the
 /// utility, not the recipe (D4 §8 Slice 4 depends on this exact ordering).
 ///
-/// Declaring it does NOT move today's reset/tokens/utilities rules into these
-/// layers — they stay unlayered, which in the CSS cascade always outranks
-/// ANY layered rule regardless of declaration order (spec: unlayered beats
-/// layered, always). So this statement is inert today (no layer has content
-/// assigned to it yet) and additive: it only pre-establishes ordering for
-/// content a later pass assigns to `aihu.components` (D4 Slice 4) without
-/// disturbing current cascade behavior. Safe to repeat verbatim across every
-/// component/shadow-root — identical `@layer` statement lists don't reorder
-/// or conflict with each other.
+/// Reset/tokens/utilities rules stay unlayered, which in the CSS cascade
+/// always outranks ANY layered rule regardless of declaration order (spec:
+/// unlayered beats layered, always). `aihu.components` is the one layer with
+/// real content — the recipe channel (D4 Slice 4, [`crate::recipes`]) — so
+/// `class="btn p-8"` resolves `padding` from the unlayered utility rule, not
+/// the layered recipe rule, regardless of which one this preamble's `@layer`
+/// statement or the emitted CSS lists first. Safe to repeat verbatim across
+/// every component/shadow-root — identical `@layer` statement lists don't
+/// reorder or conflict with each other.
 pub const LAYER_PREAMBLE: &str = "@layer aihu.reset, aihu.tokens, aihu.components, aihu.utilities;\n";
 
-/// The five independently-emittable channels of an SFC's compiled CSS
-/// (light-DOM leaf flip prep, LDF §10 step 1-2 / D4 §8 Slice 2). Splitting
-/// these out lets later passes — mode-aware token emission (LDF §10 step 2),
-/// the light-DOM selector-rewrite pass (LDF §10 step 3) — operate on the
-/// right channel directly instead of re-parsing a concatenated string.
+/// The six independently-emittable channels of an SFC's compiled CSS
+/// (light-DOM leaf flip prep, LDF §10 step 1-2 / D4 §8 Slice 2 and Slice 4).
+/// Splitting these out lets later passes — mode-aware token emission (LDF
+/// §10 step 2), the light-DOM selector-rewrite pass (LDF §10 step 3), the
+/// recipe channel (D4 Slice 4) — operate on the right channel directly
+/// instead of re-parsing a concatenated string.
 ///
 /// [`ScopedCssChannels::concat`] reproduces today's single-string
 /// concatenation order (plus the new leading `layer_preamble`, LDF §10
@@ -307,6 +308,11 @@ pub struct ScopedCssChannels {
     pub tokens: String,
     /// The one-time preflight border reset.
     pub reset: String,
+    /// The daisyUI-style recipe channel (D4 §6, Slice 4) — tree-shaken
+    /// `.btn`/`.card`/`.badge`-style rules the scanned utility set actually
+    /// references, wrapped in `@layer aihu.components`. See
+    /// [`crate::recipes::compile_recipes`].
+    pub components: String,
     /// Scanned utility-class rules (variant-resolved).
     pub utilities: String,
     /// The folded authored `@style` block (scoped + `$global`).
@@ -315,18 +321,20 @@ pub struct ScopedCssChannels {
 
 impl ScopedCssChannels {
     /// Concatenate in emission order: layer preamble, tokens, reset,
-    /// utilities, authored.
+    /// components, utilities, authored.
     pub fn concat(&self) -> String {
         let mut out = String::with_capacity(
             self.layer_preamble.len()
                 + self.tokens.len()
                 + self.reset.len()
+                + self.components.len()
                 + self.utilities.len()
                 + self.authored.len(),
         );
         out.push_str(&self.layer_preamble);
         out.push_str(&self.tokens);
         out.push_str(&self.reset);
+        out.push_str(&self.components);
         out.push_str(&self.utilities);
         out.push_str(&self.authored);
         out
@@ -365,6 +373,12 @@ pub fn emit_sfc_scoped_channels(ast: &SfcAst) -> Result<ScopedCssChannels, Compi
 
     // Scanned utility rules (scoped) — progressive prefixes routed via `prog`.
     let utilities = emit_with_progressive(&result, &theme, &prog, OutputMode::Scoped);
+
+    // Recipe channel (D4 §6, Slice 4) — tree-shaken against the same scanned
+    // utility set (a recipe class like `btn` is scanned exactly like any
+    // other class, per `scanner.rs`; `compile_recipes` just resolves it
+    // against `recipes/*.css` instead of the Tailwind utility table).
+    let components = crate::recipes::compile_recipes(&result.utilities, &theme)?;
 
     // Fold the authored @style block (minus @theme directives), expanding any
     // `@apply` directives first (Task 1.4). Base utilities inline as
@@ -426,13 +440,18 @@ pub fn emit_sfc_scoped_channels(ast: &SfcAst) -> Result<ScopedCssChannels, Compi
         }
     }
 
-    // Register the palette tokens the reset+utilities+authored channels
-    // reference (Tailwind ships the full palette in its default theme) so
-    // `var(--color-amber-200)` resolves at `:host`/`:root`. Only the
-    // referenced tokens are added — not all 286. Scan all three non-token
-    // channels together, same as scanning the old concatenated `body` string.
-    let mut referenced = String::with_capacity(reset.len() + utilities.len() + authored.len());
+    // Register the palette tokens the reset+components+utilities+authored
+    // channels reference (Tailwind ships the full palette in its default
+    // theme) so `var(--color-amber-200)` resolves at `:host`/`:root`. Only
+    // the referenced tokens are added — not all 286. `components` is
+    // included here too: a recipe rule pulled in by this SFC (e.g.
+    // `.badge-info` referencing `var(--color-info)`) must make that token
+    // tree-shake IN for this component even if nothing else in its own body
+    // references it.
+    let mut referenced =
+        String::with_capacity(reset.len() + components.len() + utilities.len() + authored.len());
     referenced.push_str(&reset);
+    referenced.push_str(&components);
     referenced.push_str(&utilities);
     referenced.push_str(&authored);
     crate::tokens::register_used_palette(&referenced, &mut theme);
@@ -467,6 +486,7 @@ pub fn emit_sfc_scoped_channels(ast: &SfcAst) -> Result<ScopedCssChannels, Compi
         layer_preamble: LAYER_PREAMBLE.to_string(),
         tokens,
         reset,
+        components,
         utilities,
         authored,
     })

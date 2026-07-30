@@ -1,0 +1,20 @@
+/* daisyUI `card` — transcribed in spirit (not vendored) per
+   docs/plans/2026-07-26-option-4-daisyui-design.md §6 (proof recipe, Slice 4).
+   `--depth` (D4 §3.2/§3.4) scales the resting shadow; 0 turns it off flat. */
+
+.card {
+  @apply flex flex-col overflow-hidden;
+  border-radius: var(--radius-lg);
+  border: var(--border) solid var(--color-border);
+  background-color: var(--color-surface);
+  color: var(--color-surface-foreground);
+  box-shadow: 0 calc(var(--depth) * 1px) calc(var(--depth) * 3px) rgb(0 0 0 / 8%);
+}
+
+.card-body {
+  @apply flex flex-col gap-2 p-6;
+}
+
+.card-title {
+  @apply text-lg font-semibold;
+}

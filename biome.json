@@ -110,6 +110,14 @@
           "tailwindDirectives": true
         }
       }
+    },
+    {
+      "includes": ["packages/css-engine/crates/aihu-css-core/recipes/**/*.css"],
+      "css": {
+        "parser": {
+          "tailwindDirectives": true
+        }
+      }
     }
   ]
 }

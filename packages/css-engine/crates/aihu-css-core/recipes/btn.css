@@ -1,0 +1,35 @@
+/* daisyUI `btn` — transcribed in spirit (not vendored byte-for-byte) per
+   docs/plans/2026-07-26-option-4-daisyui-design.md §6.2's worked example.
+   Interactivity (press states, disabled semantics) is @aihu/primitives'
+   AihuButton (D4 §6.1 step 4); this recipe is appearance only. */
+
+.btn {
+  @apply inline-flex items-center justify-center gap-1.5 px-4 text-sm font-semibold text-center select-none transition-colors disabled:pointer-events-none disabled:opacity-50;
+  height: var(--size-field);
+  border-radius: var(--radius-md);
+  border: var(--border) solid transparent;
+  background-color: var(--color-neutral);
+  color: var(--color-neutral-foreground);
+
+  &:hover {
+    background-color: color-mix(in oklab, var(--color-neutral) 90%, black);
+  }
+}
+
+.btn-primary {
+  background-color: var(--color-primary);
+  color: var(--color-primary-foreground);
+}
+
+.btn-ghost {
+  background-color: transparent;
+  border-color: transparent;
+}
+
+.btn-sm {
+  @apply h-8 px-3 text-xs;
+}
+
+.btn-lg {
+  @apply h-10 px-8;
+}

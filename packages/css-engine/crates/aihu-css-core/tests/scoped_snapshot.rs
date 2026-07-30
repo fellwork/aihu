@@ -143,3 +143,52 @@ fn theme_default_vs_override() {
         "--- default ---\n{default}\n--- override ---\n{overridden}"
     ));
 }
+
+// D4 §6, Slice 4 — the recipe channel wired end-to-end through the same
+// `compile_sfc_scoped` entry every other class-scan test in this file uses.
+#[test]
+fn recipe_classes_fold_into_the_layer_aihu_components_channel() {
+    let css = compile_sfc_scoped(&sfc("btn btn-primary p-8")).unwrap();
+    assert!(css.contains("@layer aihu.components {"), "{css}");
+    assert!(css.contains(".btn {"), "{css}");
+    assert!(css.contains(".btn-primary {"), "{css}");
+    // Never scanned — tree-shaken out, same discipline as tokens/utilities.
+    assert!(!css.contains(".btn-ghost"), "{css}");
+    // D4 Q5: the recipe's own `.btn` has no `padding` declaration to collide
+    // with, but the unlayered `.p-8` utility rule must still be present and
+    // OUTSIDE the `@layer aihu.components` block — that's what makes
+    // `class="btn p-8"` resolve padding from the utility, not a recipe.
+    assert!(css.contains(".p-8 { padding: 2rem; }"), "{css}");
+    let open = css.find("@layer aihu.components {").unwrap();
+    let brace_start = css[open..].find('{').unwrap() + open;
+    let mut depth = 0i32;
+    let mut close = None;
+    for (i, b) in css.as_bytes()[brace_start..].iter().enumerate() {
+        match b {
+            b'{' => depth += 1,
+            b'}' => {
+                depth -= 1;
+                if depth == 0 {
+                    close = Some(brace_start + i);
+                    break;
+                }
+            }
+            _ => {}
+        }
+    }
+    let layer_close = close.expect("unbalanced @layer aihu.components block");
+    assert!(
+        css[layer_close..].contains(".p-8"),
+        "the .p-8 utility rule must be emitted OUTSIDE the components layer:\n{css}"
+    );
+    assert!(
+        !css[open..layer_close].contains(".p-8"),
+        "the .p-8 utility rule must NOT be inside the components layer:\n{css}"
+    );
+}
+
+#[test]
+fn no_recipe_classes_used_emits_no_components_layer() {
+    let css = compile_sfc_scoped(&sfc("flex p-4")).unwrap();
+    assert!(!css.contains("aihu.components {"), "{css}");
+}

@@ -13,6 +13,7 @@ pub mod features;
 pub mod light_scope;
 pub mod palette;
 pub mod progressive;
+pub mod recipes;
 pub mod scanner;
 pub mod style_parser;
 pub mod theme;
@@ -28,6 +29,7 @@ pub use emit::{
 };
 pub use light_scope::{scope_authored_sheet, strip_global_keyframe_markers, ScopeId};
 pub use progressive::{ProgressiveFeature, ProgressiveRegistry};
+pub use recipes::compile_recipes;
 pub use scanner::{scan, scan_ast, ScanResult};
 pub use style_parser::{
     parse_style, ApplyDirective, AtRule, AtStatement, Declaration, StyleNode, StyleParseError,

@@ -13,8 +13,21 @@
 //! - **`SfcAttr::Macro { name }`** where `name` starts with `class:` (Form C) →
 //!   the part after `class:` is a statically-known utility.
 //! - **Any other attr** (`on:click`, `if`, `bind:value`, non-`class`) → ignored.
-//! - **`MacroElement` / component nodes** → their `class` attrs are skipped
-//!   (edge E10: components own their own shadow scope).
+//! - **`MacroElement` / component nodes** → their OWN `class` attr IS scanned
+//!   (D4 §5.4·1 / §8 Slice 4 fix — corrected from an earlier "always skip,
+//!   edge E10" rule). Under shadow DOM that rule was harmless: a class passed
+//!   at a call site (`<my-button class="btn">`) never left the parent's own
+//!   subtree, so scanning it bought nothing. Under the light-DOM leaf flip,
+//!   that class is a REAL attribute on the child's light-DOM host element in
+//!   the final DOM — recipe classes (`.btn`) and utility classes alike need
+//!   SOME component's scan to have picked the token up, or its CSS never gets
+//!   emitted by anyone even though the DOM references it. An unrecognized
+//!   token (a semantic/marker class the child interprets itself, not a
+//!   utility or recipe name) is silently ignored downstream exactly like any
+//!   other unknown static class today — no new failure mode. We still do NOT
+//!   descend into treating the MacroElement's own internal template as part
+//!   of the parent's scan; only ITS `attrs` are collected here, same as an
+//!   `Element` node.
 //!
 //! We do NOT re-parse `.aihu` source with regex (Risk #4) — only the AST.
 
@@ -60,10 +73,15 @@ fn walk(node: &SfcNode, out: &mut ScanResult) {
                 walk(child, out);
             }
         }
-        // Edge E10: component / macroElement nodes own their own shadow scope.
-        // We do NOT compile their `class` attrs into the parent's sheet, but we
-        // still descend into children (slots may contain HTML elements).
-        SfcNode::MacroElement { children, .. } => {
+        // D4 §5.4·1: the MacroElement's OWN `class` attr is now scanned like
+        // any Element's — see the module doc for why the old
+        // always-skip-it (edge E10) rule is wrong once light-DOM leaves
+        // exist. We still descend into children (slots may contain HTML
+        // elements).
+        SfcNode::MacroElement { attrs, children, .. } => {
+            for attr in attrs {
+                collect_attr(attr, out);
+            }
             for child in children {
                 walk(child, out);
             }
