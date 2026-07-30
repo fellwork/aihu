@@ -29,3 +29,28 @@ Fix four scaffold DX-matrix failures found via the CI matrix that exercises ever
   from the scaffolded `devDependencies` (only reachable via hoisting under
   bun/npm/yarn). Added it directly to the `agent`/`full` template and to
   `cf-team`'s `apps/web` and `packages/shared` workspace members.
+- `cf-team`: fixing the placeholder substitution above unmasked several
+  deeper, pre-existing gaps once typecheck could actually run —
+  `@aihu-plugin/agent-readiness` was imported but never declared as a
+  dependency; `packages/shared`'s moon task independently hardcoded
+  `tsc --noEmit` (moon tasks bypass `package.json` scripts entirely), which
+  silently skipped writing the `dist/index.d.ts` that `apps/web`'s project
+  reference needs, and there was no `deps:` ordering between the two
+  `typecheck` tasks so they could race even after that was fixed; and
+  `apps/web` had no `vite.config.ts`, no `index.html`, and no `vite`
+  dependency at all — the client build was never wired up. Added the missing
+  dependency, fixed the moon task graph, added a client-only
+  `vite.config.ts` + `index.html` (mirroring `examples/cf-adapter`'s
+  working pattern), and pointed `wrangler.toml`'s `main` at the Workers
+  entry's TS source directly (wrangler bundles it with its own esbuild step)
+  instead of a `vite build`-produced file that nothing ever emitted. Removed
+  a dead `import './aihu-app.aihu'` from the Workers entry — a `.aihu` file
+  has no place in a wrangler-bundled server module, and the component is
+  already mounted client-side via `index.html`.
+- The scaffold DX-matrix harness itself (`packages/cli/tests/
+  scaffold-matrix-e2e.ts`) passed `--port N --strictPort` to every package
+  manager the same way, but pnpm forwards the literal `--` separator into
+  the child process argv unlike npm/bun (confirmed empirically) — so vite
+  saw `-- --port N` and kept its default port, timing out every
+  `<template> × pnpm · dev` cell. Added pnpm to the existing yarn special
+  case in `pmRunArgs`.

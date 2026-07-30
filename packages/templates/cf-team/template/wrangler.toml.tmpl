@@ -2,14 +2,18 @@
 # https://developers.cloudflare.com/workers/wrangler/configuration/
 
 name = "__APP_NAME__"
-main = "apps/web/dist/worker.js"
+# Points at source, not a build output: wrangler bundles the Worker entry
+# itself (its own esbuild step, run by `wrangler dev`/`wrangler deploy`) —
+# there is no separate `apps/web:build` step that produces a worker bundle.
+main = "apps/web/src/main.ts"
 compatibility_date = "2026-05-01"
 compatibility_flags = ["nodejs_compat"]
 
-# Static assets emitted by the apps/web build.
-# [assets]
-# directory = "apps/web/dist/client"
-# binding = "ASSETS"
+# Static assets emitted by `apps/web`'s vite build (client-only — see
+# apps/web/vite.config.ts; the Worker entry above is bundled separately).
+[assets]
+directory = "apps/web/dist/client"
+binding = "ASSETS"
 
 # ─── Bindings (uncomment + configure as needed) ───────────────────────────────
 
