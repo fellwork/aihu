@@ -302,8 +302,8 @@ See [`packages/`](./packages) for all packages on disk. By tier:
 | [`@aihu-plugin/data`](./packages/plugin-data) | `2.0.5` | Reactive data loaders and resource primitives for aihu. |
 | [`@aihu-plugin/drizzle`](./packages/plugin-drizzle) | `0.1.4` | Drizzle ORM data adapter for aihu — typed createResource fetchers and defineLoader helpers (Postgres / SQLite / libSQL). |
 | [`@aihu-plugin/kindly-note`](./packages/plugin-kindly-note) | `0.2.4` | Runtime syntax highlighting + markdown rendering for aihu — <aihu-code>/<aihu-markdown> custom elements + signal-aware highlight()/renderMarkdown() helpers, powered by published @kindly-note/* packages with lazy loading. |
-| [`@aihu/adapter-cloudflare`](./packages/adapter-cloudflare) | `9.0.0` | Cloudflare Workers/Pages deployment adapter for @aihu/app. |
-| [`@aihu/adapter-vercel`](./packages/adapter-vercel) | `9.0.0` | Vercel deployment adapter for @aihu/app. |
+| [`@aihu/adapter-cloudflare`](./packages/adapter-cloudflare) | `10.0.0` | Cloudflare Workers/Pages deployment adapter for @aihu/app. |
+| [`@aihu/adapter-vercel`](./packages/adapter-vercel) | `10.0.0` | Vercel deployment adapter for @aihu/app. |
 | [`@aihu/agent`](./packages/agent) | `0.2.0` | Agent primitives — the foundation of aihu agent-readiness. |
 | [`@aihu/agent-a2a`](./packages/agent-a2a) | `1.0.0` | A2A (Agent2Agent) protocol bindings (spec v1.0.1, JSON-RPC) for @aihu/agent-service. |
 | [`@aihu/agent-acp`](./packages/agent-acp) | `0.2.0` | DEPRECATED — use @aihu/agent-a2a. BeeAI ACP merged into A2A under the Linux Foundation (Aug 2025); this adapter's invented ACP shape has no spec to conform to. |
@@ -311,7 +311,7 @@ See [`packages/`](./packages) for all packages on disk. By tier:
 | [`@aihu/agent-server`](./packages/agent-server) | `0.4.2` | Server-side glue: mount an aihu component server-side and let an MCP client drive it through the agent-service live-dispatch gate, forwarding approved invocations to a browser bridge. |
 | [`@aihu/agent-service`](./packages/agent-service) | `0.3.0` | Service-side agent runtime (server-hosted agent endpoints). |
 | [`@aihu/ai`](./packages/ai) | `0.1.0` | Thin adapters from AI SDK stream types to ReadableStream<string> for aihu $stream collections. |
-| [`@aihu/app`](./packages/app) | `7.1.0` | Top-level app integration — wires runtime, router, and adapters into a Vite app. |
+| [`@aihu/app`](./packages/app) | `8.0.0` | Top-level app integration — wires runtime, router, and adapters into a Vite app. |
 | [`@aihu/arbor`](./packages/arbor) | `4.0.0` | Reactive component tree (the rendering layer that consumes @aihu/signals). |
 | [`@aihu/auth`](./packages/auth) | `5.0.0` | JWT scope checks, ScopeSignal, and server middleware for aihu auth. |
 | [`@aihu/cli`](./packages/cli) | `1.1.1` | Aihu CLI (`aihu`, `create-aihu`) — scaffolding, dev, build commands. |
@@ -330,10 +330,10 @@ See [`packages/`](./packages) for all packages on disk. By tier:
 | [`@aihu/mcp`](./packages/mcp) | `0.2.0` | MCP server for aihu — exposes aihu_example and aihu_validate tools via stdio transport. |
 | [`@aihu/plugin`](./packages/plugin) | `0.1.0` | Plugin substrate shared by @aihu/server and the meta-framework — runtime hook surface. |
 | [`@aihu/plugin-demo`](./packages/plugin-demo) | `0.1.4` | Canonical proof-of-life for the @aihu/plugin API — exercises macros, middleware, and transforms. |
-| [`@aihu/primitives`](./packages/primitives) | `0.1.6` | aihu headless behavior primitives — WAI-ARIA APG patterns as vanilla custom elements, zero CSS. |
+| [`@aihu/primitives`](./packages/primitives) | `0.2.0` | aihu headless behavior primitives — WAI-ARIA APG patterns as vanilla custom elements, zero CSS. |
 | [`@aihu/reactive`](./packages/reactive) | `0.2.0` | Fine-grained Proxy-backed deep reactive trees on aihu signals — lazy per-(object,key) tracking nodes, plain-assignment writes, mutate/reconcile. |
 | [`@aihu/router`](./packages/router) | `0.4.2` | File-based router for the aihu meta-framework. |
-| [`@aihu/runtime`](./packages/runtime) | `5.0.0` | Single File Component (.aihu) runtime — registers custom elements compiled by @aihu/compiler. |
+| [`@aihu/runtime`](./packages/runtime) | `5.1.0` | Single File Component (.aihu) runtime — registers custom elements compiled by @aihu/compiler. |
 | [`@aihu/scraping`](./packages/scraping) | `0.2.0` | O(1) sliding-window rate limiter and bot-detection middleware for aihu agent services. |
 | [`@aihu/seo`](./packages/seo) | `1.0.3` | DEPRECATED compatibility shim over @aihu-plugin/agent-readiness (sitemap.xml, robots.txt, llms.txt, JSON-LD). |
 | [`@aihu/server`](./packages/server) | `0.4.1` | Server runtime + native renderer (napi-rs) for aihu SSR. |

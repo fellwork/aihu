@@ -1,5 +1,13 @@
 # aihu-docs-next
 
+## 0.0.3
+
+### Patch Changes
+
+- Updated dependencies [[`19af14c`](https://github.com/fellwork/aihu/commit/19af14c0989fcae8eed344c119ba91894e13c776)]:
+  - @aihu/runtime@5.1.0
+  - @aihu/app@8.0.0
+
 ## 0.0.2
 
 ### Patch Changes

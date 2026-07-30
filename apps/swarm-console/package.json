@@ -1,7 +1,7 @@
 {
   "name": "@aihu/swarm-console",
   "private": true,
-  "version": "0.0.2",
+  "version": "0.0.3",
   "type": "module",
   "description": "aihu swarm console — a real aihu app (dogfooded) monitoring the local swarm command-center bus via useSwarm(). Replaces the hand-rolled Python-served HTML dashboard.",
   "scripts": {
