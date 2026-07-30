@@ -1,5 +1,13 @@
 # @aihu/language-server
 
+## 0.3.4
+
+### Patch Changes
+
+- Updated dependencies [[`9bba4bb`](https://github.com/fellwork/aihu/commit/9bba4bbf177bcd266502ab9181e91478f1710704)]:
+  - @aihu/compiler@1.1.3
+  - @aihu/tsc@0.2.8
+
 ## 0.3.3
 
 ### Patch Changes
