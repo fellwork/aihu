@@ -108,13 +108,25 @@ export function isUsableExecutable(candidate: string): boolean {
  * Resolve the absolute path to the `aihu-css-compile` executable.
  *
  * Resolution order:
- *   1. The per-platform optionalDependency package
+ *   1. `AIHU_CSS_COMPILE_BIN` env var override, if set — mirrors
+ *      `@aihu/compiler`'s `AIHU_COMPILE_BIN` idiom. Lets a caller that already
+ *      knows the exact binary it wants (a test harness, another package
+ *      pinning its own build) skip resolution entirely.
+ *   2. Dev fallback: the monorepo workspace `target/release|debug/` — only
+ *      present in a dev clone with a Rust toolchain (`cargo build --release -p
+ *      aihu-css-core`). Checked BEFORE the published package: `target/` is a
+ *      path relative to this file inside THIS git checkout, so a real
+ *      standalone npm consumer's `node_modules/@aihu/css-engine` never has it
+ *      — this ordering only ever matters inside the monorepo, where it fixes
+ *      a real trap: a stale/out-of-sync per-platform npm package sitting in
+ *      `node_modules` would otherwise silently outrank a freshly-built dev
+ *      binary, so `cargo build` + a test run would keep exercising old
+ *      compiled behavior. (Same failure shape as the compiler's own binary-
+ *      resolution trap — see `docs/plans/*-compiler-binary-resolution*`.)
+ *   3. The per-platform optionalDependency package
  *      (`@aihu/css-engine-<platform>`) shipped to npm consumers — resolved via
  *      `createRequire(...).resolve('<pkg>/package.json')` so it works in both
  *      ESM and CJS and respects the consumer's node_modules layout.
- *   2. Dev fallback: the monorepo workspace `target/release|debug/` — only
- *      present in a dev clone with a Rust toolchain (`cargo build --release -p
- *      aihu-css-core`). Kept so in-repo builds + tests work without publishing.
  *
  * If the current platform is SUPPORTED but neither path yields a binary, throws
  * a structured error pointing at the missing optionalDependency (mirrors
@@ -124,29 +136,14 @@ export function isUsableExecutable(candidate: string): boolean {
 function resolveBinary(): string {
   if (_binPath !== null) return _binPath
 
-  const descriptor = detectPlatform()
-
-  // 1. Per-platform optionalDependency package (the published-consumer path).
-  //
-  // Accept the candidate ONLY if it is a usable executable. A present-but-
-  // non-executable placeholder (the in-source stub that becomes resolvable once
-  // the per-platform packages are pinned in the lockfile) must NOT be returned —
-  // doing so spawns a non-executable file and fails with EACCES. In that case we
-  // deliberately fall THROUGH to the dev `target/` fallback below.
-  if (descriptor) {
-    const requireFn = createRequire(import.meta.url)
-    try {
-      const pkgJson = requireFn.resolve(`${descriptor.packageName}/package.json`)
-      const candidate = join(dirname(pkgJson), descriptor.binFile)
-      if (isUsableExecutable(candidate)) {
-        _binPath = candidate
-        return _binPath
-      }
-    } catch {
-      // Package not installed (optionalDependency skipped for this platform, or
-      // a partial install). Fall through to the dev/source path, then error.
-    }
+  // 1. Explicit override.
+  const override = process.env.AIHU_CSS_COMPILE_BIN
+  if (override && isUsableExecutable(override)) {
+    _binPath = override
+    return _binPath
   }
+
+  const descriptor = detectPlatform()
 
   // 2. Dev fallback: monorepo workspace target/. Only exists in a dev clone.
   const ext = process.platform === 'win32' ? '.exe' : ''
@@ -158,6 +155,28 @@ function resolveBinary(): string {
     if (existsSync(c)) {
       _binPath = c
       return _binPath
+    }
+  }
+
+  // 3. Per-platform optionalDependency package (the published-consumer path).
+  //
+  // Accept the candidate ONLY if it is a usable executable. A present-but-
+  // non-executable placeholder (the in-source stub that becomes resolvable once
+  // the per-platform packages are pinned in the lockfile) must NOT be returned —
+  // doing so spawns a non-executable file and fails with EACCES. In that case we
+  // deliberately fall through to the missing-binary error below.
+  if (descriptor) {
+    const requireFn = createRequire(import.meta.url)
+    try {
+      const pkgJson = requireFn.resolve(`${descriptor.packageName}/package.json`)
+      const candidate = join(dirname(pkgJson), descriptor.binFile)
+      if (isUsableExecutable(candidate)) {
+        _binPath = candidate
+        return _binPath
+      }
+    } catch {
+      // Package not installed (optionalDependency skipped for this platform, or
+      // a partial install).
     }
   }
 
@@ -251,10 +270,16 @@ export function compile(classes: string[]): string {
  *
  * @param source - the `.aihu` SFC source text
  * @param id - optional file path/id (used to derive the tag stem + `@route` checks)
+ * @param lightScopeId - the compiler-assigned `data-a` scope id (light-DOM leaf
+ *   flip prep, LDF §10 step 1), only when the compiler resolved this SFC to
+ *   `shadowMode: 'light'`. Injected onto the AST payload before it crosses the
+ *   `--ast-json` boundary; not yet consumed by the CSS engine (step 3 does
+ *   that) — passing it today is inert plumbing.
  * @returns the scoped CSS string for the SFC
  */
-export function compileSfc(source: string, id?: string): string {
+export function compileSfc(source: string, id?: string, lightScopeId?: string): string {
   const ast = compileToAst(source, id)
+  const payload = lightScopeId !== undefined ? { ...ast, lightScopeId } : ast
   const bin = resolveBinary()
-  return runBinary(bin, ['--ast-json'], JSON.stringify(ast))
+  return runBinary(bin, ['--ast-json'], JSON.stringify(payload))
 }

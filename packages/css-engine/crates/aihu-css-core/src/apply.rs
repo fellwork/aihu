@@ -39,11 +39,24 @@ pub fn expand_apply(
     scope: SfcStyleScope,
     theme: &ThemeRegistry,
 ) -> Result<String, CompileError> {
+    Ok(expand_apply_sheet(style_content, scope, theme)?.to_css())
+}
+
+/// As [`expand_apply`], but returns the expanded [`StyleSheet`] AST instead of
+/// rendering it to a string — the light-DOM selector-rewrite pass (LDF §10
+/// step 3, `light_scope.rs`) needs the AST, since it must run AFTER `@apply`
+/// expansion (which synthesizes `:host(...)`/`::slotted(...)`/`::part(...)`
+/// text at arbitrary nesting depth) but BEFORE rendering.
+pub fn expand_apply_sheet(
+    style_content: &str,
+    scope: SfcStyleScope,
+    theme: &ThemeRegistry,
+) -> Result<StyleSheet, CompileError> {
     let mut sheet = parse_style(style_content).map_err(|e| CompileError::StyleParse {
         detail: e.to_string(),
     })?;
     expand_sheet(&mut sheet, scope, theme)?;
-    Ok(sheet.to_css())
+    Ok(sheet)
 }
 
 /// Expand `@apply` across every node in a parsed sheet, in place.

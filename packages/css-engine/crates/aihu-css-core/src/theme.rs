@@ -100,12 +100,53 @@ impl ThemeRegistry {
 
     /// Emit a `:host { --token: value; … }` block for every registered token,
     /// so utilities referencing `var(--color-*)` resolve inside the shadow root.
+    ///
+    /// Kept for existing callers; delegates to [`Self::emit_used_tokens`] with
+    /// [`TokenScope::Shadow`] and no usage filter (emits every registered
+    /// token, matching this function's pre-flip behavior byte-for-byte).
     pub fn emit_host_tokens(&self) -> String {
-        if self.tokens.is_empty() {
+        self.emit_tokens_for(&self.tokens, TokenScope::Shadow)
+    }
+
+    /// Emit only the tokens actually referenced in `body`, scoped to `:host`
+    /// (shadow) or `:root` (light) per `scope` (light-DOM leaf flip prep, LDF
+    /// §10 step 2 / D4 §8 Slice 2).
+    ///
+    /// Fixes a live bug: a light-DOM component (page/layout, today; leaves
+    /// once the flip lands) has no shadow root, so a `:host { --x: y }` block
+    /// matches nothing — `var(--x)` silently fails to resolve anywhere in the
+    /// document. `TokenScope::Light` emits `:root` instead, which the light
+    /// tree's utilities/authored rules can actually see.
+    ///
+    /// Also tree-shakes: [`Self::with_aihu_defaults`] unconditionally seeds
+    /// all `AIHU_BRAND_TOKENS`, so unfiltered emission (the old
+    /// `emit_host_tokens` behavior) always emitted all of them regardless of
+    /// whether a given component's CSS references them. This filters to only
+    /// the names `body` actually contains a `var(--name)`-style reference to.
+    pub fn emit_used_tokens(&self, body: &str, scope: TokenScope) -> String {
+        let used: BTreeMap<String, String> = self
+            .tokens
+            .iter()
+            .filter(|(name, _)| var_is_referenced(body, name))
+            .map(|(name, value)| (name.clone(), value.clone()))
+            .collect();
+        self.emit_tokens_for(&used, scope)
+    }
+
+    /// Shared emission body for [`Self::emit_host_tokens`] and
+    /// [`Self::emit_used_tokens`] — one token map, one selector, same
+    /// formatting either way.
+    fn emit_tokens_for(&self, tokens: &BTreeMap<String, String>, scope: TokenScope) -> String {
+        if tokens.is_empty() {
             return String::new();
         }
-        let mut out = String::from(":host {\n");
-        for (name, value) in &self.tokens {
+        let selector = match scope {
+            TokenScope::Shadow => ":host",
+            TokenScope::Light => ":root",
+        };
+        let mut out = String::from(selector);
+        out.push_str(" {\n");
+        for (name, value) in tokens {
             out.push_str("  ");
             out.push_str(name);
             out.push_str(": ");
@@ -115,6 +156,40 @@ impl ThemeRegistry {
         out.push_str("}\n");
         out
     }
+}
+
+/// Whether an emitted token block targets a shadow root (`:host`) or the flat
+/// light-DOM tree (`:root`). Light-DOM leaf flip prep (LDF §10 step 2 / D4 §8
+/// Slice 2) — see [`ThemeRegistry::emit_used_tokens`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TokenScope {
+    Shadow,
+    Light,
+}
+
+/// Whether `body` contains a reference to custom property `name` (e.g. does
+/// `body` reference `--color-primary`). A plain `body.contains(name)` would
+/// false-positive on `--color-primary` when only the DISTINCT sibling token
+/// `--color-primary-foreground` is actually used (a real collision shape in
+/// `AIHU_BRAND_TOKENS`: every color has a `-foreground` pair). Guards the
+/// trailing boundary — the character immediately after a match must not
+/// continue a custom-property identifier (`[a-zA-Z0-9_-]`). No token in this
+/// table is a *suffix* of another, so a leading-boundary check is unneeded.
+fn var_is_referenced(body: &str, name: &str) -> bool {
+    let mut rest = body;
+    while let Some(pos) = rest.find(name) {
+        let after = &rest[pos + name.len()..];
+        let boundary_ok = after
+            .chars()
+            .next()
+            .map(|c| !(c.is_alphanumeric() || c == '-' || c == '_'))
+            .unwrap_or(true);
+        if boundary_ok {
+            return true;
+        }
+        rest = after;
+    }
+    false
 }
 
 /// Extract the body of every `@theme { ... }` directive from a style-block

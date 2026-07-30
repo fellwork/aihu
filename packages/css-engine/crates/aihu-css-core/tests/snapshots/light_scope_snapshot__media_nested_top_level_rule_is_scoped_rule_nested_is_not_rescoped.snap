@@ -1,0 +1,20 @@
+---
+source: packages/css-engine/crates/aihu-css-core/tests/light_scope_snapshot.rs
+assertion_line: 94
+expression: "compile_sfc_scoped(&light(\"@media (min-width: 40rem) { .card { color: red; } } .card { @media (min-width: 40rem) { color: blue; } }\")).unwrap()"
+---
+@layer aihu.reset, aihu.tokens, aihu.components, aihu.utilities;
+*, ::before, ::after { border-style: solid; border-width: 0; }
+/* authored @style (scoped) */
+@scope ([data-a="a1b2c3d4"]) to ([data-a]) {
+@media (min-width: 40rem) {
+  .card {
+    color: red;
+  }
+}
+.card {
+  @media (min-width: 40rem) {
+    color: blue;
+  }
+}
+}

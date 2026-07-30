@@ -86,8 +86,12 @@ async function runPlugin(
   }
 }
 
+// `bg-primary` (a brand-token-referencing utility) is load-bearing for test
+// #1's `:host` token assertion below — theme tokens are now tree-shaken to
+// only what's referenced (light-DOM leaf flip prep, LDF §10 step 2 / D4 §8
+// Slice 2), so a fixture with no color utility emits no token block at all.
 const SFC_WITH_UTILITIES_AND_STYLE = `@template {
-  <div class="flex gap-2 p-4">
+  <div class="flex gap-2 p-4 bg-primary">
     <span class="text-lg">hi</span>
   </div>
 }
@@ -132,10 +136,63 @@ describe('css-engine hook — present (e2e)', () => {
       expect(out).toContain('.gap-2 { gap: 0.5rem; }')
       expect(out).toContain('.p-4 { padding: 1rem; }')
       expect(out).toContain('.text-lg { font-size: 1.125rem')
+      expect(out).toContain('.bg-primary { background-color: var(--color-primary); }')
 
-      // :host theme tokens come through too (proof the FULL scoped sheet folds).
+      // :host theme tokens come through too (proof the FULL scoped sheet
+      // folds) — only the referenced one, tokens are tree-shaken (LDF §10
+      // step 2 / D4 §8 Slice 2).
       expect(out).toContain(':host {')
       expect(out).toContain('--color-primary:')
+    },
+  )
+
+  it.runIf(cssCoreBin)(
+    'shadow mode omits unreferenced tokens (tree-shake, LDF §10 step 2)',
+    async () => {
+      // SFC_UTILITIES_ONLY has no color utility — no token is referenced, so
+      // no :host block should be emitted at all (pre-flip this unconditionally
+      // dumped all 16 brand tokens regardless of use).
+      const out = await runPlugin(SFC_UTILITIES_ONLY, 'x-plain-tokens')
+      expect(out).not.toContain(':host {')
+      expect(out).not.toContain('--color-primary')
+    },
+  )
+
+  it.runIf(cssCoreBin)(
+    'light mode emits tokens at :root, not :host (LDF §10 step 2)',
+    async () => {
+      // A layout-shaped id triggers DA4's implicit page/layout light default
+      // (no @route block needed — `_isLayoutFile`'s default `src/layouts/`
+      // path match, `index.ts:1377`, is the simplest way to hit
+      // `impliedShadowDefault === 'light'` without fabricating a full @route
+      // SFC).
+      const tmp = mkdtempSync(join(tmpdir(), 'aihu-css-hook-light-'))
+      try {
+        const plugin = aihuCompilerPlugin()
+        const transform = plugin.transform as unknown as TransformFn
+        const res = await transform.call(
+          {},
+          SFC_WITH_UTILITIES_AND_STYLE,
+          join(tmp, 'src', 'layouts', 'app.aihu'),
+        )
+        if (res == null) throw new Error('plugin returned no result')
+        const out = res.code
+        // Light mode (Bug 6) routes utility CSS through a virtual `.css`
+        // import (id prefixed with a NUL char, `VIRTUAL_UTILITY_PREFIX`)
+        // instead of inlining it in the module body — resolve it via the
+        // plugin's own `load` hook rather than grepping `out` directly. Avoid
+        // embedding a raw NUL byte in this source file: match the stable
+        // `virtual:aihu-utility/<hash>.css` suffix and prepend `\0` ourselves.
+        const virtualIdMatch = out.match(/(virtual:aihu-utility\/[^"' ]+)["']/)
+        expect(virtualIdMatch).not.toBeNull()
+        const virtualCss = await plugin.load!(`\0${virtualIdMatch![1]}`)
+        expect(virtualCss).toContain('--color-primary:')
+        expect(virtualCss).toContain(':root {')
+        expect(virtualCss).not.toContain(':host {')
+        expect(out).not.toContain(':host {')
+      } finally {
+        rmSync(tmp, { recursive: true, force: true })
+      }
     },
   )
 

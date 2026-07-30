@@ -10,6 +10,7 @@ pub mod ast;
 pub mod cache;
 pub mod emit;
 pub mod features;
+pub mod light_scope;
 pub mod palette;
 pub mod progressive;
 pub mod scanner;
@@ -21,14 +22,18 @@ pub mod variants;
 pub use apply::expand_apply;
 pub use ast::{parse_ast, AstError, SfcAst, SfcAttr, SfcNode, SfcStyleScope};
 pub use cache::{hash_ast, CssCache};
-pub use emit::{emit, emit_sfc_scoped, CompileError, OutputMode};
+pub use emit::{
+    emit, emit_sfc_scoped, emit_sfc_scoped_channels, CompileError, OutputMode, ScopedCssChannels,
+    LAYER_PREAMBLE,
+};
+pub use light_scope::{scope_authored_sheet, strip_global_keyframe_markers, ScopeId};
 pub use progressive::{ProgressiveFeature, ProgressiveRegistry};
 pub use scanner::{scan, scan_ast, ScanResult};
 pub use style_parser::{
     parse_style, ApplyDirective, AtRule, AtStatement, Declaration, StyleNode, StyleParseError,
     StyleRule, StyleSheet,
 };
-pub use theme::ThemeRegistry;
+pub use theme::{ThemeRegistry, TokenScope};
 pub use variants::{split_variants, Variant};
 
 /// Compile a list of utility class names into CSS rules.
