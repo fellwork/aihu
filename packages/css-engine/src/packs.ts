@@ -75,6 +75,14 @@ export const aihuDefault: StylePack = defineStylePack({
     // ── Typography ──
     'font-sans': '"Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif',
     'font-mono': '"JetBrains Mono", ui-monospace, "Fira Code", "Cascadia Code", monospace',
+    // ── Non-color scalars (D4 §3.2/§3.4) — aihu-native defaults for the
+    //    daisyUI-style recipe layer (Slice 4); no dark override, matching
+    //    the radius/space/font scales above (theme-independent). ──
+    'size-selector': '1.25rem',
+    'size-field': '2.25rem',
+    border: '1px',
+    depth: '1',
+    noise: '0',
   },
   dark: {
     'color-primary': '#ede8e0',
@@ -156,6 +164,12 @@ export const aihuGraphite: StylePack = defineStylePack({
     // ── Typography (shared contract) ──
     'font-sans': '"Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif',
     'font-mono': '"JetBrains Mono", ui-monospace, "Fira Code", "Cascadia Code", monospace',
+    // ── Non-color scalars (shared contract, D4 §3.2/§3.4) ──
+    'size-selector': '1.25rem',
+    'size-field': '2.25rem',
+    border: '1px',
+    depth: '1',
+    noise: '0',
   },
   dark: {
     'color-primary': 'oklch(0.92 0 0)',

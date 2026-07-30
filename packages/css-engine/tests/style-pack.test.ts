@@ -42,6 +42,15 @@ const EXPECTED_BRAND_TOKENS = [
   '--color-ring',
   '--color-destructive',
   '--color-destructive-foreground',
+  // D4 §3.4 (E1 + E2, founder-ratified) — semantic-state + filled-surface tokens.
+  '--color-info',
+  '--color-info-foreground',
+  '--color-success',
+  '--color-success-foreground',
+  '--color-warning',
+  '--color-warning-foreground',
+  '--color-neutral',
+  '--color-neutral-foreground',
   '--radius-md',
 ]
 

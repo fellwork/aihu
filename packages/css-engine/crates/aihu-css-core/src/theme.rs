@@ -248,6 +248,16 @@ fn parse_theme_declarations(body: &str) -> Vec<(String, String)> {
 /// aihu brand tokens, extracted from `apps/docs/style.css` (light theme). Maps
 /// the design-system names to the utility token names the table references
 /// (`--color-primary`, `--color-accent`, `--color-surface`, …).
+///
+/// D4 §3.4 / §3.2 (E1 + E2, founder-ratified): `info`/`success`/`warning`/
+/// `neutral` (+ `-foreground`) extend the semantic-state palette daisyUI-style
+/// recipes need but the original terracotta-only contract couldn't express —
+/// values match `packs.ts`'s `aihuDefault.tokens` light values exactly (and
+/// are verified against `.tastemaker/style-lock.md`'s contrast table, kept in
+/// sync by PR #608). The five non-color scalars below them (`--size-selector`,
+/// `--size-field`, `--border`, `--depth`, `--noise`) are aihu-native defaults
+/// for the same recipes (D4 §3.2) — transcribed in spirit, not vendored
+/// byte-for-byte from daisyUI's own token algebra.
 const AIHU_BRAND_TOKENS: &[(&str, &str)] = &[
     ("--color-primary", "#1a1d24"),
     ("--color-primary-foreground", "#faf8f4"),
@@ -265,4 +275,50 @@ const AIHU_BRAND_TOKENS: &[(&str, &str)] = &[
     ("--color-ring", "#c8543a"),
     ("--color-destructive", "#a8432b"),
     ("--color-destructive-foreground", "#faf8f4"),
+    ("--color-info", "#3d5a75"),
+    ("--color-info-foreground", "#faf8f4"),
+    ("--color-success", "#3f6f4f"),
+    ("--color-success-foreground", "#faf8f4"),
+    ("--color-warning", "#945f0e"),
+    ("--color-warning-foreground", "#faf8f4"),
+    ("--color-neutral", "#363c47"),
+    ("--color-neutral-foreground", "#faf8f4"),
+    ("--size-selector", "1.25rem"),
+    ("--size-field", "2.25rem"),
+    ("--border", "1px"),
+    ("--depth", "1"),
+    ("--noise", "0"),
 ];
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn d4_scalar_tokens_are_seeded_and_tree_shake_like_colors() {
+        let registry = ThemeRegistry::with_aihu_defaults();
+        assert_eq!(registry.get("--border"), Some("1px"));
+        assert_eq!(registry.get("--size-field"), Some("2.25rem"));
+
+        // Only the scalar this recipe body actually references is emitted —
+        // same tree-shake `emit_used_tokens` already applies to colors.
+        let out = registry.emit_used_tokens(".btn { border: var(--border) solid; }", TokenScope::Light);
+        assert!(out.contains("--border: 1px;"), "expected --border in:\n{out}");
+        assert!(!out.contains("--size-field"), "unreferenced token leaked:\n{out}");
+        assert!(!out.contains("--depth"), "unreferenced token leaked:\n{out}");
+    }
+
+    #[test]
+    fn d4_border_scalar_does_not_false_positive_on_color_border() {
+        // `--border` (the scalar) must not be considered "referenced" merely
+        // because `--color-border` appears in the body — `var_is_referenced`'s
+        // trailing-boundary guard is what prevents this collision.
+        let registry = ThemeRegistry::with_aihu_defaults();
+        let out = registry.emit_used_tokens(
+            ".x { border-color: var(--color-border); }",
+            TokenScope::Light,
+        );
+        assert!(out.contains("--color-border:"), "expected --color-border in:\n{out}");
+        assert!(!out.contains("\n  --border:"), "scalar --border falsely matched:\n{out}");
+    }
+}
