@@ -91,6 +91,11 @@ jobs:
       # Guard: a compiler Rust change must bump the platform binary packages,
       # or the rebuilt binary is silently skipped at publish (see the script).
       - run: bun run check:compiler-binary-bump
+      # Same guard, for @aihu/css-engine's aihu-css-compile binary and
+      # @aihu/server's napi renderer addon — added after the css-engine one
+      # went stale silently for weeks (see the script's own history).
+      - run: bun run check:css-engine-binary-bump
+      - run: bun run check:server-binary-bump
       # Guard: every non-private package under packages/ must be in
       # publish-all.sh's hand-maintained PKGS array, or changesets bumps it
       # forever while it never reaches npm — silently, with the release job
