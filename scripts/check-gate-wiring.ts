@@ -176,6 +176,48 @@ const NEGATIVE_FIXTURES: Record<string, Fixture> = {
       },
     },
   },
+  // The css-engine/server native-binary-bump guards (scripts/lib/native-
+  // binary-bump.ts, same rule as check:compiler-binary-bump — see that
+  // gate's own history for why this class of guard exists). Both scripts
+  // support a CHANGED_FILES env override that replaces the real `git diff`
+  // with a synthetic file list, so no on-disk fixture tree is needed: red is
+  // "Rust source changed, no platform bumped", green is a complete bump
+  // (every platform of the one family this package ships, plus the host
+  // manifest's optionalDependencies repoint).
+  'check:css-engine-binary-bump': {
+    cmd: ['bun', 'scripts/check-css-engine-binary-bump.ts'],
+    env: { CHANGED_FILES: 'packages/css-engine/crates/aihu-css-core/src/ast.rs' },
+    green: {
+      cmd: ['bun', 'scripts/check-css-engine-binary-bump.ts'],
+      env: {
+        CHANGED_FILES: [
+          'packages/css-engine/crates/aihu-css-core/src/ast.rs',
+          'packages/css-engine/npm/darwin-arm64/package.json',
+          'packages/css-engine/npm/darwin-x64/package.json',
+          'packages/css-engine/npm/linux-x64-gnu/package.json',
+          'packages/css-engine/npm/win32-x64-msvc/package.json',
+          'packages/css-engine/package.json',
+        ].join(','),
+      },
+    },
+  },
+  'check:server-binary-bump': {
+    cmd: ['bun', 'scripts/check-server-binary-bump.ts'],
+    env: { CHANGED_FILES: 'packages/server/src-native/src/render.rs' },
+    green: {
+      cmd: ['bun', 'scripts/check-server-binary-bump.ts'],
+      env: {
+        CHANGED_FILES: [
+          'packages/server/src-native/src/render.rs',
+          'packages/server/npm/darwin-arm64/package.json',
+          'packages/server/npm/darwin-x64/package.json',
+          'packages/server/npm/linux-x64-gnu/package.json',
+          'packages/server/npm/win32-x64-msvc/package.json',
+          'packages/server/package.json',
+        ].join(','),
+      },
+    },
+  },
 }
 
 interface Baseline {
