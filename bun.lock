@@ -117,7 +117,7 @@
     },
     "apps/swarm-console": {
       "name": "@aihu/swarm-console",
-      "version": "0.0.4",
+      "version": "0.0.5",
       "dependencies": {
         "@aihu/agent": "workspace:*",
         "@aihu/arbor": "workspace:*",
@@ -188,14 +188,14 @@
     },
     "cookbook": {
       "name": "@aihu/cookbook",
-      "version": "0.5.33",
+      "version": "0.5.34",
       "dependencies": {
         "@aihu/compiler": "workspace:*",
       },
     },
     "examples/agent-driven-demo": {
       "name": "@aihu/example-agent-driven-demo",
-      "version": "0.0.28",
+      "version": "0.0.29",
       "dependencies": {
         "@aihu/agent": "workspace:*",
         "@aihu/agent-server": "workspace:*",
@@ -232,7 +232,7 @@
     },
     "examples/agent-hub": {
       "name": "@aihu/example-agent-hub",
-      "version": "0.0.26",
+      "version": "0.0.27",
       "dependencies": {
         "@aihu/agent": "workspace:*",
         "@aihu/agent-a2a": "workspace:*",
@@ -294,7 +294,7 @@
     },
     "examples/cf-adapter": {
       "name": "@aihu/example-cf-adapter",
-      "version": "0.0.30",
+      "version": "0.0.31",
       "dependencies": {
         "@aihu/adapter-cloudflare": "workspace:*",
         "@aihu/agent": "workspace:*",
@@ -463,7 +463,7 @@
     },
     "examples/realtime-scores": {
       "name": "@aihu/example-realtime-scores",
-      "version": "0.0.26",
+      "version": "0.0.27",
       "dependencies": {
         "@aihu-plugin/data": "workspace:*",
         "@aihu/agent": "workspace:*",
@@ -494,7 +494,7 @@
     },
     "examples/storefront": {
       "name": "@aihu/example-storefront",
-      "version": "0.0.26",
+      "version": "0.0.27",
       "dependencies": {
         "@aihu-plugin/data": "workspace:*",
         "@aihu/agent": "workspace:*",
@@ -701,7 +701,7 @@
     },
     "packages/compiler": {
       "name": "@aihu/compiler",
-      "version": "1.1.4",
+      "version": "1.1.5",
       "bin": {
         "aihu-compile": "./bin/aihu-compile.mjs",
       },
@@ -763,7 +763,7 @@
     },
     "packages/language-server": {
       "name": "@aihu/language-server",
-      "version": "0.3.5",
+      "version": "0.3.6",
       "bin": {
         "aihu-language-server": "./dist/bin.js",
       },
@@ -978,7 +978,7 @@
     },
     "packages/tsc": {
       "name": "@aihu/tsc",
-      "version": "0.3.0",
+      "version": "0.3.1",
       "bin": {
         "aihu-tsc": "./bin/aihu-tsc.mjs",
       },
@@ -1002,7 +1002,7 @@
     },
     "packages/use": {
       "name": "@aihu/use",
-      "version": "0.5.1",
+      "version": "0.6.0",
       "dependencies": {
         "@aihu/signals": "workspace:*",
       },
