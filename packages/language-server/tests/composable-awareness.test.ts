@@ -21,7 +21,7 @@ describe('composable registry (generated from use_registry.rs)', () => {
     const names = new Set(COMPOSABLE_REGISTRY.map((e) => e.name))
     expect(names.has('useMouse')).toBe(true)
     expect(names.has('useToggle')).toBe(true)
-    expect(names.has('watch')).toBe(true)
+    expect(names.has('useWatch')).toBe(true)
   })
 
   it('every entry has a non-empty description (extracted from its doc comment)', () => {

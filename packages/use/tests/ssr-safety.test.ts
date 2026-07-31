@@ -911,18 +911,18 @@ const entries: Array<{ entry: string; run: () => Promise<void> }> = [
       ),
   },
   {
-    entry: 'watch',
+    entry: 'useWatch',
     run: () =>
       withSSR(
-        () => import('../src/watch/index.ts'),
-        ({ watch }) => {
+        () => import('../src/useWatch/index.ts'),
+        ({ useWatch }) => {
           withGlobalSpies(() => {
             const callback = vi.fn(() => {
               throw new Error('callback must not run under SSR')
             })
             let stop: (() => void) | undefined
             expect(() => {
-              stop = watch(() => 1, callback, { immediate: true })
+              stop = useWatch(() => 1, callback, { immediate: true })
             }).not.toThrow()
             expect(callback).not.toHaveBeenCalled()
             expect(() => stop?.()).not.toThrow()
@@ -974,6 +974,28 @@ const entries: Array<{ entry: string; run: () => Promise<void> }> = [
               expect(result).toBeUndefined()
               expect(fn).not.toHaveBeenCalled()
             })
+          })
+        },
+      ),
+  },
+  {
+    entry: 'useKeyedAsync',
+    run: () =>
+      withSSR(
+        () => import('../src/useKeyedAsync/index.ts'),
+        ({ useKeyedAsync }) => {
+          withGlobalSpies(() => {
+            const fn = vi.fn(async () => 'x')
+            const { data, error, isLoading, isFinished, reload } = useKeyedAsync(() => 'a', fn, {
+              initialData: 'seed',
+            })
+            expect(data()).toBe('seed')
+            expect(error()).toBeUndefined()
+            expect(isLoading()).toBe(false)
+            expect(isFinished()).toBe(false)
+            expect(fn).not.toHaveBeenCalled() // useWatch()'s immediate is a documented no-op under SSR
+            expect(() => reload()).not.toThrow()
+            expect(fn).not.toHaveBeenCalled()
           })
         },
       ),

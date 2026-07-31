@@ -171,6 +171,12 @@ export const COMPOSABLE_REGISTRY: readonly ComposableRegistryEntry[] = [
     description: 'call `callback` every `interval` ms',
   },
   {
+    name: 'useKeyedAsync',
+    specifier: '@aihu/use/useKeyedAsync',
+    description:
+      "an async resource whose IDENTITY is a reactive `key`: changing the key clears `data` synchronously and cancels the previous key's in-flig...",
+  },
+  {
     name: 'useLocalStorage',
     specifier: '@aihu/use/useLocalStorage',
     description:
@@ -359,13 +365,13 @@ export const COMPOSABLE_REGISTRY: readonly ComposableRegistryEntry[] = [
     description: 'a reactive boolean with a flip/set toggler',
   },
   {
+    name: 'useWatch',
+    specifier: '@aihu/use/useWatch',
+    description: 'run a callback when a reactive `source` getter CHANGES',
+  },
+  {
     name: 'useWindowSize',
     specifier: '@aihu/use/useWindowSize',
     description: 'reactive `window.innerWidth` / `innerHeight`',
-  },
-  {
-    name: 'watch',
-    specifier: '@aihu/use/watch',
-    description: 'run a callback when a reactive `source` getter CHANGES',
   },
 ]

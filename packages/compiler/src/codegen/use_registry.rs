@@ -45,15 +45,7 @@ pub(crate) const USE_COMPOSABLES: &[(&str, &str)] = &[
     ("useLocalStorage", "@aihu/use/useLocalStorage"),
     ("useClipboard", "@aihu/use/useClipboard"),
     ("useEventListenerMap", "@aihu/use/useEventListenerMap"),
-    // `watch` is not `use`-prefixed, a slightly higher collision-risk bare
-    // identifier than the rest of this registry (e.g. chokidar's `watch`, a
-    // locally named variable). Low-risk in practice: `detect_composables`'s
-    // `bound_names` guard already excludes any script that imports or
-    // declares its OWN `watch` (any import form, any `@state` decl, any
-    // destructure) — the only residual risk is a genuinely ambient,
-    // unimported `watch` identifier, which does not exist in any
-    // browser/Node global. Included per the hard 6-touch-point rule.
-    ("watch", "@aihu/use/watch"),
+    ("useWatch", "@aihu/use/useWatch"),
     ("useClamp", "@aihu/use/math/useClamp"),
     ("useReducedMotion", "@aihu/use/motion/useReducedMotion"),
     ("usePreferredContrast", "@aihu/use/usePreferredContrast"),
@@ -101,6 +93,7 @@ pub(crate) const USE_COMPOSABLES: &[(&str, &str)] = &[
     ("useHover", "@aihu/use/useHover"),
     ("useMouseInElement", "@aihu/use/useMouseInElement"),
     ("useSwarm", "@aihu/use/useSwarm"),
+    ("useKeyedAsync", "@aihu/use/useKeyedAsync"),
 ];
 
 /// The registry entries to auto-import for this `@state` script.

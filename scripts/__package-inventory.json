@@ -103,67 +103,67 @@
   },
   {
     "name": "@aihu/compiler",
-    "version": "1.1.4",
+    "version": "1.1.5",
     "dir": "packages/compiler",
     "isPlatform": false
   },
   {
     "name": "@aihu/compiler-darwin-arm64",
-    "version": "0.1.45",
+    "version": "0.1.46",
     "dir": "packages/compiler/npm/darwin-arm64",
     "isPlatform": true
   },
   {
     "name": "@aihu/compiler-darwin-x64",
-    "version": "0.1.45",
+    "version": "0.1.46",
     "dir": "packages/compiler/npm/darwin-x64",
     "isPlatform": true
   },
   {
     "name": "@aihu/compiler-linux-arm64-gnu",
-    "version": "0.1.45",
+    "version": "0.1.46",
     "dir": "packages/compiler/npm/linux-arm64-gnu",
     "isPlatform": true
   },
   {
     "name": "@aihu/compiler-linux-x64-gnu",
-    "version": "0.1.45",
+    "version": "0.1.46",
     "dir": "packages/compiler/npm/linux-x64-gnu",
     "isPlatform": true
   },
   {
     "name": "@aihu/compiler-native-darwin-arm64",
-    "version": "0.1.10",
+    "version": "0.1.11",
     "dir": "packages/compiler/npm-native/darwin-arm64",
     "isPlatform": false
   },
   {
     "name": "@aihu/compiler-native-darwin-x64",
-    "version": "0.1.10",
+    "version": "0.1.11",
     "dir": "packages/compiler/npm-native/darwin-x64",
     "isPlatform": false
   },
   {
     "name": "@aihu/compiler-native-linux-arm64-gnu",
-    "version": "0.1.10",
+    "version": "0.1.11",
     "dir": "packages/compiler/npm-native/linux-arm64-gnu",
     "isPlatform": false
   },
   {
     "name": "@aihu/compiler-native-linux-x64-gnu",
-    "version": "0.1.10",
+    "version": "0.1.11",
     "dir": "packages/compiler/npm-native/linux-x64-gnu",
     "isPlatform": false
   },
   {
     "name": "@aihu/compiler-native-win32-x64-msvc",
-    "version": "0.1.10",
+    "version": "0.1.11",
     "dir": "packages/compiler/npm-native/win32-x64-msvc",
     "isPlatform": false
   },
   {
     "name": "@aihu/compiler-win32-x64-msvc",
-    "version": "0.1.45",
+    "version": "0.1.46",
     "dir": "packages/compiler/npm/win32-x64-msvc",
     "isPlatform": true
   },
@@ -217,7 +217,7 @@
   },
   {
     "name": "@aihu/language-server",
-    "version": "0.3.5",
+    "version": "0.3.6",
     "dir": "packages/language-server",
     "isPlatform": false
   },
@@ -331,7 +331,7 @@
   },
   {
     "name": "@aihu/tsc",
-    "version": "0.3.0",
+    "version": "0.3.1",
     "dir": "packages/tsc",
     "isPlatform": false
   },
@@ -343,7 +343,7 @@
   },
   {
     "name": "@aihu/use",
-    "version": "0.5.1",
+    "version": "0.6.0",
     "dir": "packages/use",
     "isPlatform": false
   },
