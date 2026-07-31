@@ -1,5 +1,5 @@
 /**
- * `watch` — run a callback when a reactive `source` getter CHANGES
+ * `useWatch` — run a callback when a reactive `source` getter CHANGES
  * (docs/plans/2026-07-22-effect-scope-and-composables.md §5, Tier 0).
  *
  * Lazy by default (VueUse/Runed semantics): unlike `effect()`, the callback
@@ -8,7 +8,7 @@
  * "lazy by default" is the documented, intentional behavior; every sensor
  * composable in this package eagerly seeds its initial value instead.
  *
- * Return convention: `watch()` exposes no reactive VALUE of its own (it is
+ * Return convention: `useWatch()` exposes no reactive VALUE of its own (it is
  * an effect-runner utility, not state) — it returns a bare `stop(): void`,
  * exactly like {@link import('../useEventListener/index.ts').useEventListener}.
  * This is NOT a violation of the object-of-named-getters convention; that
@@ -21,9 +21,9 @@
  * for producing a new value when it should be considered a change.
  *
  * VALUE-CHANGE gate, not dependency-change: the underlying `effect()` re-runs
- * on every DEPENDENCY change, but `watch` only invokes `callback` when the
+ * on every DEPENDENCY change, but `useWatch` only invokes `callback` when the
  * new value is not `Object.is`-equal to the previous one. This matters for
- * derived/boolean sources — `watch(() => count() > 5, cb)` does NOT fire
+ * derived/boolean sources — `useWatch(() => count() > 5, cb)` does NOT fire
  * `cb` when `count` moves 6 -> 7, because the boolean result is unchanged.
  *
  * `callback` runs UNTRACKED (outside the watcher effect's own dependency
@@ -38,10 +38,10 @@
  * no-op invariant). Returns a no-op `stop`.
  */
 
-import { effect, untrack } from '@aihu/signals'
+import { type Dispose, effect, untrack } from '@aihu/signals'
 import { isClient, tryOnScopeDispose } from '../shared/index.ts'
 
-export interface WatchOptions {
+export interface UseWatchOptions {
   /** Invoke `callback` once synchronously at creation, with `oldValue` as
    * `undefined`. Default `false` — lazy: the callback only runs on a
    * subsequent CHANGE, never on creation. */
@@ -51,13 +51,16 @@ export interface WatchOptions {
   once?: boolean
 }
 
-export type WatchCallback<T> = (
+export type UseWatchCallback<T> = (
   value: T,
   oldValue: T | undefined,
   onCleanup: (fn: () => void) => void,
 ) => void
 
-export type Dispose = () => void
+// `Dispose` is re-exported (not redeclared) — it is structurally identical
+// to `@aihu/signals`' own, and two same-named type aliases across packages
+// is exactly the drift this package tries not to create.
+export type { Dispose }
 
 /**
  * Invoke `callback` UNTRACKED (see module doc): signal reads/writes inside
@@ -71,8 +74,8 @@ export type Dispose = () => void
  * replayed against the real `onCleanup` immediately after `untrack`
  * restores tracking — registration then sees the correct running effect.
  */
-function runWatchCallback<T>(
-  callback: WatchCallback<T>,
+function runUseWatchCallback<T>(
+  callback: UseWatchCallback<T>,
   value: T,
   oldValue: T | undefined,
   onCleanup: (fn: () => void) => void,
@@ -92,10 +95,10 @@ function runWatchCallback<T>(
  * tracking `source` for the page's lifetime unless they call the returned
  * `stop()` themselves.
  */
-export function watch<T>(
+export function useWatch<T>(
   source: () => T,
-  callback: WatchCallback<T>,
-  options: WatchOptions = {},
+  callback: UseWatchCallback<T>,
+  options: UseWatchOptions = {},
 ): Dispose {
   const { immediate = false, once = false } = options
   // SSR: no tracking, no invocation — not even `immediate` (module doc).
@@ -110,7 +113,7 @@ export function watch<T>(
   // path that could want to stop during that first run; it sets this flag
   // instead, and the flag is checked (`stop()` called for real) once
   // `effect()` has returned and `disposeEffect`/`stop` are both live. Every
-  // OTHER `stop()` call (any later re-run) happens strictly after `watch()`
+  // OTHER `stop()` call (any later re-run) happens strictly after `useWatch()`
   // has returned to its caller, so no such deferral is needed there.
   let stopAfterCreate = false
 
@@ -120,13 +123,13 @@ export function watch<T>(
       isFirstRun = false
       prevValue = next
       if (immediate) {
-        runWatchCallback(callback, next, undefined, onCleanup)
+        runUseWatchCallback(callback, next, undefined, onCleanup)
         if (once) stopAfterCreate = true
       }
       return
     }
     // Value-equality gate: this effect body re-runs whenever any signal
-    // `source()` reads changes — a DEPENDENCY change — but `watch`'s
+    // `source()` reads changes — a DEPENDENCY change — but `useWatch`'s
     // contract (module doc) is to fire only on a source-VALUE change,
     // compared by reference (Object.is). A derived/boolean source (e.g.
     // `() => count() > 5`) can re-run this effect while `next` is
@@ -135,7 +138,7 @@ export function watch<T>(
     if (Object.is(next, prevValue)) return
     const prev = prevValue
     prevValue = next
-    runWatchCallback(callback, next, prev, onCleanup)
+    runUseWatchCallback(callback, next, prev, onCleanup)
     if (once) stop()
   })
 

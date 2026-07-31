@@ -1,5 +1,5 @@
 /**
- * Unit tests for `watch` (effect-scope plan §5, Tier 0): lazy-by-default
+ * Unit tests for `useWatch` (effect-scope plan §5, Tier 0): lazy-by-default
  * semantics, `immediate`/`once` options, old/new value passing, per-run
  * `onCleanup`, scope-driven disposal, and the SSR no-op path (simulated
  * `!isClient` via module re-evaluation). jsdom environment (root vitest
@@ -7,14 +7,14 @@
  */
 import { effectScope, signal } from '@aihu/signals'
 import { describe, expect, it } from 'vitest'
-import { watch } from '../src/watch/index.ts'
+import { useWatch } from '../src/useWatch/index.ts'
 import { withSSR } from './_ssr.ts'
 
-describe('@aihu/use/watch', () => {
+describe('@aihu/use/useWatch', () => {
   it('is lazy by default — the callback does NOT run at creation', () => {
     const [count] = signal(0)
     const seen: Array<[number, number | undefined]> = []
-    watch(
+    useWatch(
       () => count(),
       (value, oldValue) => seen.push([value, oldValue]),
     )
@@ -24,7 +24,7 @@ describe('@aihu/use/watch', () => {
   it('invokes the callback on a subsequent change, with old and new values', () => {
     const [count, setCount] = signal(0)
     const seen: Array<[number, number | undefined]> = []
-    watch(
+    useWatch(
       () => count(),
       (value, oldValue) => seen.push([value, oldValue]),
     )
@@ -42,7 +42,7 @@ describe('@aihu/use/watch', () => {
   it('immediate: true invokes once synchronously at creation with oldValue undefined', () => {
     const [count, setCount] = signal(5)
     const seen: Array<[number, number | undefined]> = []
-    watch(
+    useWatch(
       () => count(),
       (value, oldValue) => seen.push([value, oldValue]),
       { immediate: true },
@@ -59,7 +59,7 @@ describe('@aihu/use/watch', () => {
   it('once: true (lazy) stops after the first real change — later changes are not observed', () => {
     const [count, setCount] = signal(0)
     const seen: number[] = []
-    watch(
+    useWatch(
       () => count(),
       (value) => seen.push(value),
       { once: true },
@@ -74,7 +74,7 @@ describe('@aihu/use/watch', () => {
   it('once: true + immediate: true stops after the immediate call — a later change is never observed', () => {
     const [count, setCount] = signal(0)
     const seen: number[] = []
-    watch(
+    useWatch(
       () => count(),
       (value) => seen.push(value),
       { immediate: true, once: true },
@@ -88,7 +88,7 @@ describe('@aihu/use/watch', () => {
   it('shallow/reference comparison: a new object every read still fires (no deep-equal skip)', () => {
     const [obj, setObj] = signal({ n: 0 })
     const seen: Array<{ n: number }> = []
-    watch(
+    useWatch(
       () => obj(),
       (value) => seen.push(value),
     )
@@ -99,10 +99,10 @@ describe('@aihu/use/watch', () => {
   it('value-equality gate: a derived/boolean source does not fire when the VALUE is unchanged', () => {
     // Regression: the effect body re-runs on every DEPENDENCY change
     // (count 6 -> 7), but a derived source's RESULT (count() > 5) does not
-    // change across that transition — watch must not invoke the callback.
+    // change across that transition — useWatch must not invoke the callback.
     const [count, setCount] = signal(6)
     const seen: Array<[boolean, boolean | undefined]> = []
-    watch(
+    useWatch(
       () => count() > 5,
       (value, oldValue) => seen.push([value, oldValue]),
     )
@@ -121,7 +121,7 @@ describe('@aihu/use/watch', () => {
     const [count, setCount] = signal(0)
     const [other, setOther] = signal('a')
     const seen: number[] = []
-    watch(
+    useWatch(
       () => count(),
       (value) => {
         other() // read, but must not be tracked by the watcher
@@ -142,7 +142,7 @@ describe('@aihu/use/watch', () => {
     // while tracked) as needing to re-run while it is still RUNNING.
     const [count, setCount] = signal(0)
     const [tally, setTally] = signal(0)
-    watch(
+    useWatch(
       () => count(),
       () => {
         setTally(tally() + 1)
@@ -158,7 +158,7 @@ describe('@aihu/use/watch', () => {
   it('onCleanup registers a callback that runs before the NEXT invocation', () => {
     const [count, setCount] = signal(0)
     const cleanups: number[] = []
-    watch(
+    useWatch(
       () => count(),
       (value, _old, onCleanup) => {
         onCleanup(() => cleanups.push(value))
@@ -174,7 +174,7 @@ describe('@aihu/use/watch', () => {
   it('onCleanup registered by a change runs on stop()', () => {
     const [count, setCount] = signal(0)
     const cleanups: number[] = []
-    const stop = watch(
+    const stop = useWatch(
       () => count(),
       (value, _old, onCleanup) => {
         onCleanup(() => cleanups.push(value))
@@ -190,7 +190,7 @@ describe('@aihu/use/watch', () => {
   it('the returned stop() is idempotent and prevents further invocations', () => {
     const [count, setCount] = signal(0)
     const seen: number[] = []
-    const stop = watch(
+    const stop = useWatch(
       () => count(),
       (value) => seen.push(value),
     )
@@ -207,7 +207,7 @@ describe('@aihu/use/watch', () => {
     const seen: number[] = []
     const scope = effectScope()
     scope.run(() =>
-      watch(
+      useWatch(
         () => count(),
         (value) => seen.push(value),
       ),
@@ -222,17 +222,17 @@ describe('@aihu/use/watch', () => {
   })
 })
 
-describe('@aihu/use/watch — SSR no-op path', () => {
+describe('@aihu/use/useWatch — SSR no-op path', () => {
   it('with isClient false, registers nothing and never invokes the callback (not even immediate)', () =>
     withSSR(
-      () => import('../src/watch/index.ts'),
+      () => import('../src/useWatch/index.ts'),
       (mod) => {
         const callback = () => {
           throw new Error('callback must not run under SSR')
         }
         let stop: (() => void) | undefined
         expect(() => {
-          stop = mod.watch(() => 1, callback, { immediate: true })
+          stop = mod.useWatch(() => 1, callback, { immediate: true })
         }).not.toThrow()
         expect(() => stop?.()).not.toThrow()
       },
