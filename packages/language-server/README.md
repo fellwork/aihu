@@ -79,6 +79,7 @@ bun add @aihu/language-server
 |---|---|---|
 | `.` | `./dist/server.js` | `—` |
 | `./core` | `./dist/core/index.js` | `—` |
+| `./package.json` | `./package.json` | — |
 
 <sub><i>Auto-generated against `@aihu/language-server@0.3.5`.</i></sub>
 

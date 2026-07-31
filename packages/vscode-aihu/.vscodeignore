@@ -1,0 +1,11 @@
+.vscode/**
+**/*.ts
+!dist/**/*.d.ts
+tsconfig.json
+node_modules/**/*.md
+node_modules/**/*.ts
+node_modules/**/test/**
+node_modules/**/tests/**
+node_modules/**/*.map
+.gitignore
+rt-test.cjs
