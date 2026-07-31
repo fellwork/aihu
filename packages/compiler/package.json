@@ -31,16 +31,16 @@
     "codemod:template-syntax": "bun js/codemods/template-syntax/run-migration.ts"
   },
   "optionalDependencies": {
-    "@aihu/compiler-darwin-arm64": "0.1.45",
-    "@aihu/compiler-darwin-x64": "0.1.45",
-    "@aihu/compiler-linux-x64-gnu": "0.1.45",
-    "@aihu/compiler-linux-arm64-gnu": "0.1.45",
-    "@aihu/compiler-win32-x64-msvc": "0.1.45",
-    "@aihu/compiler-native-darwin-arm64": "0.1.10",
-    "@aihu/compiler-native-darwin-x64": "0.1.10",
-    "@aihu/compiler-native-linux-x64-gnu": "0.1.10",
-    "@aihu/compiler-native-linux-arm64-gnu": "0.1.10",
-    "@aihu/compiler-native-win32-x64-msvc": "0.1.10"
+    "@aihu/compiler-darwin-arm64": "0.1.46",
+    "@aihu/compiler-darwin-x64": "0.1.46",
+    "@aihu/compiler-linux-x64-gnu": "0.1.46",
+    "@aihu/compiler-linux-arm64-gnu": "0.1.46",
+    "@aihu/compiler-win32-x64-msvc": "0.1.46",
+    "@aihu/compiler-native-darwin-arm64": "0.1.11",
+    "@aihu/compiler-native-darwin-x64": "0.1.11",
+    "@aihu/compiler-native-linux-x64-gnu": "0.1.11",
+    "@aihu/compiler-native-linux-arm64-gnu": "0.1.11",
+    "@aihu/compiler-native-win32-x64-msvc": "0.1.11"
   },
   "peerDependencies": {
     "vite": ">=5.0.0"
