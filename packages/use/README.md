@@ -81,7 +81,7 @@ npm install @aihu/use
 bun add @aihu/use
 ```
 
-<sub><i>Auto-generated against `@aihu/use@0.5.1`.</i></sub>
+<sub><i>Auto-generated against `@aihu/use@0.6.0`.</i></sub>
 
 <!-- END_AUTOGEN: install -->
 
@@ -92,12 +92,12 @@ bun add @aihu/use
 
 | | |
 |---|---|
-| **Version** | `0.5.1` |
+| **Version** | `0.6.0` |
 | **Tier** | G — Composables — VueUse-style sensor/state/browser utilities on aihu signals (SSR-safe, per-composable entries) |
 | **Published files** | 3 entries |
 | **License** | MIT |
 
-<sub><i>Auto-generated against `@aihu/use@0.5.1`.</i></sub>
+<sub><i>Auto-generated against `@aihu/use@0.6.0`.</i></sub>
 
 <!-- END_AUTOGEN: stats -->
 
@@ -181,7 +181,7 @@ bun add @aihu/use
 | `./router` | `./dist/router.js` | `—` |
 | `./router/useRouteParams` | `./dist/router/useRouteParams.js` | `—` |
 
-<sub><i>Auto-generated against `@aihu/use@0.5.1`.</i></sub>
+<sub><i>Auto-generated against `@aihu/use@0.6.0`.</i></sub>
 
 <!-- END_AUTOGEN: exports -->
 
@@ -200,7 +200,7 @@ bun add @aihu/use
 - `@aihu/router` — `workspace:*`
 - `jwt-decode` — `>=4`
 
-<sub><i>Auto-generated against `@aihu/use@0.5.1`.</i></sub>
+<sub><i>Auto-generated against `@aihu/use@0.6.0`.</i></sub>
 
 <!-- END_AUTOGEN: deps -->
 
@@ -213,7 +213,7 @@ bun add @aihu/use
 - [@aihu/primitives](../primitives)
 - [Aihu framework root](../../README.md)
 
-<sub><i>Auto-generated against `@aihu/use@0.5.1`.</i></sub>
+<sub><i>Auto-generated against `@aihu/use@0.6.0`.</i></sub>
 
 <!-- END_AUTOGEN: see-also -->
 
@@ -224,6 +224,6 @@ bun add @aihu/use
 
 MIT — see [LICENSE](../../LICENSE).
 
-<sub><i>Auto-generated against `@aihu/use@0.5.1`.</i></sub>
+<sub><i>Auto-generated against `@aihu/use@0.6.0`.</i></sub>
 
 <!-- END_AUTOGEN: license -->

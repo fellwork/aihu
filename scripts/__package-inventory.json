@@ -103,7 +103,7 @@
   },
   {
     "name": "@aihu/compiler",
-    "version": "1.1.4",
+    "version": "1.1.5",
     "dir": "packages/compiler",
     "isPlatform": false
   },
@@ -217,7 +217,7 @@
   },
   {
     "name": "@aihu/language-server",
-    "version": "0.3.5",
+    "version": "0.3.6",
     "dir": "packages/language-server",
     "isPlatform": false
   },
@@ -331,7 +331,7 @@
   },
   {
     "name": "@aihu/tsc",
-    "version": "0.3.0",
+    "version": "0.3.1",
     "dir": "packages/tsc",
     "isPlatform": false
   },
@@ -343,7 +343,7 @@
   },
   {
     "name": "@aihu/use",
-    "version": "0.5.1",
+    "version": "0.6.0",
     "dir": "packages/use",
     "isPlatform": false
   },
