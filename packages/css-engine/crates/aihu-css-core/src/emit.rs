@@ -78,7 +78,7 @@ impl std::fmt::Display for CompileError {
 impl std::error::Error for CompileError {}
 
 /// CSS-escape a class name for use in a selector (`bg-[#fff]` → `bg-\[\#fff\]`).
-fn escape_class(class: &str) -> String {
+pub(crate) fn escape_class(class: &str) -> String {
     let mut out = String::with_capacity(class.len() + 4);
     for c in class.chars() {
         if matches!(
@@ -183,6 +183,12 @@ fn emit_token(token: &str, theme: &ThemeRegistry, prog: &ProgressiveRegistry) ->
             Variant::Dark | Variant::HostContextDark => {
                 dark_cascade = true;
             }
+            Variant::Motion { reduce } => {
+                at_rule = Some(format!(
+                    "@media (prefers-reduced-motion: {})",
+                    if *reduce { "reduce" } else { "no-preference" }
+                ));
+            }
         }
     }
 
@@ -273,6 +279,16 @@ pub fn emit_with_progressive(
                     out.push_str(&rule);
                 }
             }
+        }
+    }
+    if matches!(mode, OutputMode::Scoped) {
+        // Reduced-motion safety net for the ported animation catalog
+        // (tailwind-animations port doc §2, decision D-B·a) — every ported
+        // animation actually used in this sheet is accessible by default,
+        // with no author action required.
+        let guard = crate::animations::reduced_motion_guard(&result.utilities);
+        if !guard.is_empty() {
+            out.push_str(&guard);
         }
     }
     out

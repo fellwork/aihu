@@ -151,4 +151,47 @@ mod tests {
         assert!(!out.contains(".card-body"), "{out}");
         assert!(!out.contains(".card-title"), "{out}");
     }
+
+    /// Documents a live gap, cited by the tailwind-animations port doc (§1,
+    /// §3 Slice 13) as the reason that catalog does not use this channel:
+    /// this loop only matches `StyleNode::Rule` — a top-level `@media`/
+    /// `@keyframes` block in a recipe source parses successfully and then
+    /// silently produces no output. Reproduced directly against the same
+    /// `expand_apply_sheet` + match-on-`StyleNode::Rule` pattern
+    /// `compile_recipes` uses, since `compile_recipes` itself only reads the
+    /// compiled-in `RECIPE_SOURCES`, not arbitrary input. When Slice 13 fixes
+    /// the at-rule branch, this test's final assertion should flip from
+    /// "produces nothing" to "round-trips the keyframes" — update it then,
+    /// don't just delete it.
+    #[test]
+    fn at_rules_in_recipe_source_are_silently_dropped() {
+        let theme = ThemeRegistry::with_aihu_defaults();
+        let source = ".btn { color: red; } @keyframes spin-demo { to { transform: rotate(360deg); } }";
+        let sheet = crate::apply::expand_apply_sheet(source, SfcStyleScope::Scoped, &theme)
+            .expect("valid CSS with one rule + one at-rule should parse");
+
+        // The source really does contain both an at-rule and a plain rule.
+        let has_at_rule = sheet
+            .nodes
+            .iter()
+            .any(|n| matches!(n, StyleNode::AtRule(_)));
+        assert!(has_at_rule, "fixture must contain an at-rule: {sheet:?}");
+
+        // Mirror compile_recipes' emit loop exactly (recipes.rs:82-96): only
+        // `StyleNode::Rule` is emitted, so the `@keyframes` vanishes.
+        let mut emitted = String::new();
+        for node in &sheet.nodes {
+            if let StyleNode::Rule(rule) = node {
+                if rule_is_used(&rule.selector, &classes(&["btn"])) {
+                    emitted.push_str(&StyleSheet { nodes: vec![node.clone()] }.to_css());
+                }
+            }
+        }
+        assert!(emitted.contains(".btn"), "{emitted}");
+        assert!(
+            !emitted.contains("@keyframes"),
+            "if this now fails, Slice 13 landed — flip this assertion to \
+             assert!(emitted.contains(\"@keyframes spin-demo\")) instead: {emitted}"
+        );
+    }
 }

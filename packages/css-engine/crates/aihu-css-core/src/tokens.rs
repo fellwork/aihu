@@ -152,6 +152,12 @@ pub fn conflict_groups() -> Vec<(&'static str, &'static str)> {
     out.push(("via", "--tw-gradient-via"));
     out.push(("to", "--tw-gradient-to"));
 
+    // Ported animation catalog (animations.rs / tailwind-animations port doc
+    // §4.5, step 4): every `animate-*` class — built-ins and ported alike —
+    // sets the single `animation` shorthand, so `cn('animate-fade-in',
+    // 'animate-shake')` must keep only the last one.
+    out.push(("animate", "animation"));
+
     out
 }
 
@@ -204,6 +210,15 @@ pub fn utility_to_css(class_name: &str) -> Option<String> {
     // 2. Fixed long-tail utilities (no value parameter).
     if let Some(css) = fixed_utility(class_name) {
         return Some(css.to_string());
+    }
+
+    // 2b. Ported animation catalog (animations.rs, tailwind-animations port
+    //     doc §2 decision D-A). Placed AFTER fixed_utility so the four
+    //     built-ins (animate-spin/ping/pulse/bounce) win deterministically —
+    //     `animate-pulse` exists in both and is byte-identical, so the
+    //     ordering is a no-op today but must not drift.
+    if let Some(a) = crate::animations::lookup(class_name) {
+        return Some(format!("animation: {};", a.shorthand));
     }
 
     // 3a. Negative motion utilities: `-translate-x-2`, `-rotate-45`. The leading
@@ -1611,7 +1626,7 @@ pub fn animation_keyframes(class_name: &str) -> Option<&'static str> {
         "animate-bounce" => {
             "@keyframes bounce { 0%, 100% { transform: translateY(-25%); animation-timing-function: cubic-bezier(0.8, 0, 1, 1); } 50% { transform: none; animation-timing-function: cubic-bezier(0, 0, 0.2, 1); } }"
         }
-        _ => return None,
+        _ => return crate::animations::lookup(class_name).map(|a| a.keyframes),
     })
 }
 

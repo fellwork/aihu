@@ -1,0 +1,36 @@
+---
+source: packages/css-engine/crates/aihu-css-core/tests/recipes.rs
+assertion_line: 48
+expression: css
+---
+@layer aihu.components {
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding-inline: 0.5rem;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 500;
+  height: var(--size-selector);
+  border-radius: var(--radius-pill);
+  background-color: var(--color-neutral);
+  color: var(--color-neutral-foreground);
+}
+.badge-info {
+  background-color: var(--color-info);
+  color: var(--color-info-foreground);
+}
+.badge-success {
+  background-color: var(--color-success);
+  color: var(--color-success-foreground);
+}
+.badge-warning {
+  background-color: var(--color-warning);
+  color: var(--color-warning-foreground);
+}
+.badge-error {
+  background-color: var(--color-destructive);
+  color: var(--color-destructive-foreground);
+}
+}

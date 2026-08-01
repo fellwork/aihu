@@ -22,7 +22,8 @@
       "!packages/cli/tests/legacy-snapshot.golden",
       "!brand",
       "!apps/docs/playground/presets.generated.ts",
-      "!packages/mcp/src/cookbook-index.json"
+      "!packages/mcp/src/cookbook-index.json",
+      "!vendor/**"
     ]
   },
   "formatter": {
