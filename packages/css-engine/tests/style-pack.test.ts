@@ -65,6 +65,12 @@ const EXPECTED_D4_SCALAR_TOKENS = [
   '--border',
   '--depth',
   '--noise',
+  // performativeUI port additive tokens (docs/plans/2026-08-01-performative-ui-port.md
+  // §1, E-P1/E-P2/E-P3 as ruled) — none is a bg-/text-/border- utility role,
+  // so these belong here, not in EXPECTED_BRAND_TOKENS.
+  '--gradient-brand',
+  '--font-serif',
+  '--ease-brand',
 ]
 
 describe('@aihu/css-engine — aihu-default style pack', () => {

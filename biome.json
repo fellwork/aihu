@@ -23,7 +23,7 @@
       "!brand",
       "!apps/docs/playground/presets.generated.ts",
       "!packages/mcp/src/cookbook-index.json",
-      "!vendor/**"
+      "!vendor"
     ]
   },
   "formatter": {

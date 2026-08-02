@@ -58,6 +58,9 @@ export const aihuDefault: StylePack = defineStylePack({
     'color-warning-foreground': '#faf8f4',
     'color-neutral': '#363c47',
     'color-neutral-foreground': '#faf8f4',
+    // ── performativeUI port additive tokens (docs/plans/2026-08-01-performative-ui-port.md
+    //    §1, E-P1 as ruled) — one token, not three separate gradient stops.
+    'gradient-brand': 'linear-gradient(135deg, #c8543a 0%, #d97757 50%, #945f0e 100%)',
     // ── Radius scale ──
     'radius-sm': '4px',
     'radius-md': '8px',
@@ -75,6 +78,10 @@ export const aihuDefault: StylePack = defineStylePack({
     // ── Typography ──
     'font-sans': '"Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif',
     'font-mono': '"JetBrains Mono", ui-monospace, "Fira Code", "Cascadia Code", monospace',
+    // `font-serif` fixes a live bug (E-P2): the `font-serif` utility has
+    // always referenced this name with no pack defining it. System-serif
+    // stack, not a specific webfont.
+    'font-serif': 'ui-serif, Georgia, Cambria, "Times New Roman", serif',
     // ── Non-color scalars (D4 §3.2/§3.4) — aihu-native defaults for the
     //    daisyUI-style recipe layer (Slice 4); no dark override, matching
     //    the radius/space/font scales above (theme-independent). ──
@@ -83,6 +90,9 @@ export const aihuDefault: StylePack = defineStylePack({
     border: '1px',
     depth: '1',
     noise: '0',
+    // First easing custom property in the engine (existing `ease-*`
+    // utilities are hardcoded literals) — E-P3.
+    'ease-brand': 'cubic-bezier(0.22, 1, 0.36, 1)',
   },
   dark: {
     'color-primary': '#ede8e0',
@@ -109,6 +119,9 @@ export const aihuDefault: StylePack = defineStylePack({
     'color-warning-foreground': '#1a1d24',
     'color-neutral': '#636a72',
     'color-neutral-foreground': '#faf8f4',
+    // performativeUI port (E-P1) — dark-appropriate ramp using this pack's
+    // own dark accent/warning values above.
+    'gradient-brand': 'linear-gradient(135deg, #e8705a 0%, #f0917d 50%, #d8a848 100%)',
   },
 })
 
@@ -147,6 +160,9 @@ export const aihuGraphite: StylePack = defineStylePack({
     'color-warning-foreground': 'oklch(0.98 0 0)',
     'color-neutral': 'oklch(0.3 0 0)',
     'color-neutral-foreground': 'oklch(0.98 0 0)',
+    // performativeUI port additive token (E-P1) — monochrome ramp matching
+    // this pack's chroma≈0 identity.
+    'gradient-brand': 'linear-gradient(135deg, oklch(0.35 0 0) 0%, oklch(0.5 0 0) 50%, oklch(0.65 0 0) 100%)',
     // ── Radius scale (shared contract) ──
     'radius-sm': '4px',
     'radius-md': '8px',
@@ -164,12 +180,14 @@ export const aihuGraphite: StylePack = defineStylePack({
     // ── Typography (shared contract) ──
     'font-sans': '"Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif',
     'font-mono': '"JetBrains Mono", ui-monospace, "Fira Code", "Cascadia Code", monospace',
+    'font-serif': 'ui-serif, Georgia, Cambria, "Times New Roman", serif',
     // ── Non-color scalars (shared contract, D4 §3.2/§3.4) ──
     'size-selector': '1.25rem',
     'size-field': '2.25rem',
     border: '1px',
     depth: '1',
     noise: '0',
+    'ease-brand': 'cubic-bezier(0.22, 1, 0.36, 1)',
   },
   dark: {
     'color-primary': 'oklch(0.92 0 0)',
@@ -196,6 +214,8 @@ export const aihuGraphite: StylePack = defineStylePack({
     'color-warning-foreground': 'oklch(0.18 0 0)',
     'color-neutral': 'oklch(0.52 0 0)',
     'color-neutral-foreground': 'oklch(0.98 0 0)',
+    // performativeUI port (E-P1) — dark monochrome ramp, inverted lightness.
+    'gradient-brand': 'linear-gradient(135deg, oklch(0.78 0 0) 0%, oklch(0.62 0 0) 50%, oklch(0.45 0 0) 100%)',
   },
 })
 

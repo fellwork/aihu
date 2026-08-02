@@ -11,7 +11,12 @@
       ],
       "description": "Presentational badge recipe — inline-flex pill with a variant matrix.",
       "variants": {
-        "variant": ["default", "secondary", "destructive", "outline"]
+        "variant": [
+          "default",
+          "secondary",
+          "destructive",
+          "outline"
+        ]
       },
       "meta": {
         "capabilities": {
@@ -33,11 +38,24 @@
         }
       ],
       "description": "Styled button recipe extending the headless AihuButton primitive (variants + sizes).",
-      "dependencies": ["@aihu/primitives"],
+      "dependencies": [
+        "@aihu/primitives"
+      ],
       "registryDependencies": [],
       "variants": {
-        "variant": ["default", "destructive", "outline", "ghost", "link"],
-        "size": ["sm", "md", "lg", "icon"]
+        "variant": [
+          "default",
+          "destructive",
+          "outline",
+          "ghost",
+          "link"
+        ],
+        "size": [
+          "sm",
+          "md",
+          "lg",
+          "icon"
+        ]
       },
       "meta": {
         "capabilities": {
@@ -80,7 +98,9 @@
         }
       ],
       "description": "Styled checkbox recipe — light-DOM element extending the headless AihuCheckboxRoot primitive (tri-state, Space toggle, native form participation).",
-      "dependencies": ["@aihu/primitives"],
+      "dependencies": [
+        "@aihu/primitives"
+      ],
       "meta": {
         "capabilities": {
           "interactive": true,
@@ -126,7 +146,9 @@
         }
       ],
       "description": "Styled modal dialog recipe — light-DOM pieces extending the headless AihuDialog primitives (focus-trap + return-focus, Escape-to-close, aria-modal, click-outside dismissal).",
-      "dependencies": ["@aihu/primitives"],
+      "dependencies": [
+        "@aihu/primitives"
+      ],
       "meta": {
         "capabilities": {
           "interactive": true,
@@ -134,6 +156,69 @@
           "keyboard": true,
           "form": false,
           "overlay": true,
+          "directional": false
+        }
+      }
+    },
+    {
+      "name": "eyebrow-pill",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/eyebrow-pill/eyebrow-pill.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Presentational label pill, typically preceding a heading. Composes with status-dot in its lead slot.",
+      "registryDependencies": [
+        "status-dot"
+      ],
+      "variants": {
+        "tone": [
+          "neutral",
+          "accent",
+          "success",
+          "warning"
+        ]
+      },
+      "meta": {
+        "capabilities": {
+          "interactive": false,
+          "keyboard": false,
+          "form": false,
+          "overlay": false,
+          "directional": false
+        }
+      }
+    },
+    {
+      "name": "gradient-text",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/gradient-text/gradient-text.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Presentational text decoration — applies the pack's brand gradient as text fill.",
+      "variants": {
+        "weight": [
+          "normal",
+          "medium",
+          "semibold",
+          "bold"
+        ],
+        "font": [
+          "sans",
+          "serif"
+        ]
+      },
+      "meta": {
+        "capabilities": {
+          "interactive": false,
+          "keyboard": false,
+          "form": false,
+          "overlay": false,
           "directional": false
         }
       }
@@ -191,7 +276,49 @@
       ],
       "description": "Presentational separator recipe — token-colored 1px rule with role=separator + aria-orientation.",
       "variants": {
-        "orientation": ["horizontal", "vertical"]
+        "orientation": [
+          "horizontal",
+          "vertical"
+        ]
+      },
+      "meta": {
+        "capabilities": {
+          "interactive": false,
+          "keyboard": false,
+          "form": false,
+          "overlay": false,
+          "directional": false
+        }
+      }
+    },
+    {
+      "name": "status-dot",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/status-dot/status-dot.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Presentational status indicator — a semantic-colored dot with an optional pulsing liveness ring.",
+      "variants": {
+        "status": [
+          "neutral",
+          "online",
+          "busy",
+          "away",
+          "info",
+          "offline"
+        ],
+        "size": [
+          "sm",
+          "md",
+          "lg"
+        ],
+        "pulse": [
+          "off",
+          "on"
+        ]
       },
       "meta": {
         "capabilities": {
@@ -213,7 +340,9 @@
         }
       ],
       "description": "Styled switch recipe — light-DOM element extending the headless AihuSwitchRoot primitive (binary toggle, Space/Enter activation, native form participation).",
-      "dependencies": ["@aihu/primitives"],
+      "dependencies": [
+        "@aihu/primitives"
+      ],
       "meta": {
         "capabilities": {
           "interactive": true,
@@ -264,7 +393,9 @@
         }
       ],
       "description": "Styled tooltip recipe — light-DOM pieces extending the headless AihuTooltip primitives (hover/focus open, Escape dismiss, aria-describedby, placement positioning). Non-focus-trapping overlay.",
-      "dependencies": ["@aihu/primitives"],
+      "dependencies": [
+        "@aihu/primitives"
+      ],
       "meta": {
         "capabilities": {
           "interactive": true,
