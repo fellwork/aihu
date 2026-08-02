@@ -143,6 +143,24 @@ fn slice7_rotate_spin_cluster_snapshot() {
 }
 
 #[test]
+fn slice8_flip_cluster_snapshot() {
+    let classes: Vec<String> = [
+        "animate-flip-horizontal",
+        "animate-flip-in-x",
+        "animate-flip-in-y",
+        "animate-flip-out-x",
+        "animate-flip-out-y",
+        "animate-flip-vertical",
+        "animate-flip-x",
+        "animate-flip-y",
+    ]
+    .into_iter()
+    .map(String::from)
+    .collect();
+    insta::assert_snapshot!(compile_classes(&classes));
+}
+
+#[test]
 fn reduced_motion_guard_present_for_used_animation() {
     let css = compile_sfc_scoped(&sfc("animate-shake")).unwrap();
     assert!(css.contains("prefers-reduced-motion: reduce"));

@@ -97,6 +97,46 @@ pub static ANIMATIONS: &[Animation] = &[
         keyframes: "@keyframes fade-out-up { 0% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; transform: translateY(-20px); } }",
     },
     Animation {
+        class: "animate-flip-horizontal",
+        shorthand: "flip-horizontal 1s ease-in-out both",
+        keyframes: "@keyframes flip-horizontal { 0% { transform: rotateY(0deg); } 100% { transform: rotateY(180deg); } }",
+    },
+    Animation {
+        class: "animate-flip-in-x",
+        shorthand: "flip-in-x 0.6s ease-out both",
+        keyframes: "@keyframes flip-in-x { 0% { opacity: 0; transform: rotateY(90deg); } 100% { opacity: 1; transform: rotateY(0deg); } }",
+    },
+    Animation {
+        class: "animate-flip-in-y",
+        shorthand: "flip-in-y 0.6s ease-out both",
+        keyframes: "@keyframes flip-in-y { 0% { opacity: 0; transform: rotateX(90deg); } 100% { opacity: 1; transform: rotateX(0deg); } }",
+    },
+    Animation {
+        class: "animate-flip-out-x",
+        shorthand: "flip-out-x 0.6s ease-out both",
+        keyframes: "@keyframes flip-out-x { 0% { opacity: 1; transform: rotateY(0deg); } 100% { opacity: 0; transform: rotateY(90deg); } }",
+    },
+    Animation {
+        class: "animate-flip-out-y",
+        shorthand: "flip-out-y 0.6s ease-out both",
+        keyframes: "@keyframes flip-out-y { 0% { opacity: 1; transform: rotateX(0deg); } 100% { opacity: 0; transform: rotateX(90deg); } }",
+    },
+    Animation {
+        class: "animate-flip-vertical",
+        shorthand: "flip-vertical 1s ease-in-out both",
+        keyframes: "@keyframes flip-vertical { 0% { transform: rotateX(0deg); } 100% { transform: rotateX(180deg); } }",
+    },
+    Animation {
+        class: "animate-flip-x",
+        shorthand: "flip-x 0.6s ease-out both",
+        keyframes: "@keyframes flip-x { 0% { transform: scaleX(1); } 50% { transform: scaleX(-1); } 100% { transform: scaleX(1); } }",
+    },
+    Animation {
+        class: "animate-flip-y",
+        shorthand: "flip-y 0.6s ease-out both",
+        keyframes: "@keyframes flip-y { 0% { transform: scaleY(1); } 50% { transform: scaleY(-1); } 100% { transform: scaleY(1); } }",
+    },
+    Animation {
         class: "animate-jump",
         shorthand: "jump 1s ease-in-out both",
         keyframes: "@keyframes jump { 0% { transform: translateY(0); } 50% { transform: translateY(-20px); } 100% { transform: translateY(0); } }",
