@@ -9,9 +9,16 @@
  * and write a compact TS module the runtime imports.
  *
  * Run: `bun run gen:cn-map` (wired into the package build before rolldown).
+ *   bun scripts/gen-cn-conflict-map.ts --check  # CI: fail if stale
+ *
+ * Previously only ran at `prepublishOnly` with no CI drift check — a Rust
+ * `conflict_groups()` edit (e.g. the tailwind-animations port's `animate-*`
+ * entries) could land and ship without ever regenerating the committed map,
+ * silently missing from every `cn()` call until the next publish. `--check`
+ * closes that gap; wire it into `check:ci`.
  */
 import { execFileSync } from 'node:child_process'
-import { existsSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -60,5 +67,18 @@ ${entries}
 `
 
 const target = resolve(pkgRoot, 'src/runtime/cn-conflict-map.generated.ts')
-writeFileSync(target, out)
-console.log(`  generated ${groups.length} conflict-group entries → ${target}`)
+const check = process.argv.includes('--check')
+
+if (check) {
+  const existing = existsSync(target) ? readFileSync(target, 'utf8') : ''
+  if (existing !== out) {
+    console.error(
+      `gen-cn-conflict-map: ${target} is stale — run \`bun run gen:cn-map\` and commit the result.`,
+    )
+    process.exit(1)
+  }
+  console.log(`  cn-conflict-map.generated.ts up to date (${groups.length} entries)`)
+} else {
+  writeFileSync(target, out)
+  console.log(`  generated ${groups.length} conflict-group entries → ${target}`)
+}

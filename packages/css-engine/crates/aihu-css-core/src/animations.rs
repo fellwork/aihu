@@ -439,12 +439,29 @@ pub fn lookup(class: &str) -> Option<&'static Animation> {
 /// awaiting it does not hang. `:not([data-motion="always"])` is the
 /// per-element escape hatch for animation that carries meaning (e.g. a
 /// loading spinner).
+///
+/// Covers `tokens::animation_keyframes()`-resolvable classes generally — the
+/// 78 ported animations AND aihu's pre-existing built-ins
+/// (`animate-spin`/`-ping`/`-pulse`/`-bounce`, three of them `infinite`) — not
+/// just the ported table via `lookup()`. A class carrying an explicit
+/// `motion-reduce:`/`motion-safe:` variant is skipped: those tokens already
+/// live inside their own `@media (prefers-reduced-motion: …)` scope (see
+/// `Variant::Motion` in `variants.rs`/`emit.rs`), so re-guarding them here
+/// would either clamp `motion-reduce:animate-fade-in` to 1ms inside the very
+/// media block the author opted into it for (defeating the whole point of
+/// the opt-in variant), or emit a `motion-safe:*` selector that can never
+/// match under `reduce` (dead CSS) — D-B·b's variants are the author's own
+/// reduced-motion decision, this guard's default-on behavior must not
+/// override it either way.
 pub fn reduced_motion_guard(classes: &BTreeSet<String>) -> String {
     let mut selectors: Vec<String> = classes
         .iter()
         .filter(|token| {
-            let (_, base) = crate::variants::split_variants(token);
-            lookup(&base).is_some()
+            let (variants, base) = crate::variants::split_variants(token);
+            if variants.iter().any(|v| matches!(v, crate::variants::Variant::Motion { .. })) {
+                return false;
+            }
+            crate::tokens::animation_keyframes(&base).is_some()
         })
         .map(|token| format!("{}:not([data-motion=\"always\"])", escaped(token)))
         .collect();
@@ -470,16 +487,53 @@ mod tests {
 
     #[test]
     fn inventory_is_complete() {
-        // 79 upstream `--animate-*` custom properties (vendor/tailwind-animations-8eb93d9/index.css)
-        // minus 1 (`animate-pulse` is byte-identical to aihu's pre-existing
-        // built-in, so it isn't re-registered here — see `builtins_are_not_shadowed`)
-        // = 78. This is the port doc's Slice 10 completeness gate: every
-        // ported animation from Slices 1-10 must be present, asserted
-        // against the real vendored count, not a hand-maintained number.
+        // The port doc's Slice 10 completeness gate: every animation in the
+        // vendored source must be ported, asserted against the vendored file
+        // ITSELF (parsed at test time), not a hand-maintained count — a
+        // hardcoded `ANIMATIONS.len() == 78` can't detect a typo'd/missing/
+        // extra entry as long as the COUNT still happens to match.
+        let manifest_dir = env!("CARGO_MANIFEST_DIR");
+        let vendor_path = std::path::Path::new(manifest_dir)
+            .join("../../../../vendor/tailwind-animations-8eb93d9/index.css");
+        let vendor_src = std::fs::read_to_string(&vendor_path).unwrap_or_else(|e| {
+            panic!("failed to read vendored source at {vendor_path:?}: {e}")
+        });
+
+        // Each upstream animation is declared `  --animate-<name>: ...;` —
+        // one per line, inside aihu's own `@theme` block boundaries this
+        // vendored file was copied verbatim from Tailwind's source.
+        let upstream_names: BTreeSet<String> = vendor_src
+            .lines()
+            .filter_map(|line| {
+                let rest = line.trim_start().strip_prefix("--animate-")?;
+                let (name, _) = rest.split_once(':')?;
+                Some(name.trim().to_string())
+            })
+            .collect();
+        assert!(
+            upstream_names.len() > 70,
+            "parsed suspiciously few --animate-* declarations ({}) from {vendor_path:?} — \
+             is the vendored file's format still `  --animate-<name>: ...;` per line?",
+            upstream_names.len()
+        );
+
+        // `pulse` is the sole deliberate exclusion — byte-identical to
+        // aihu's pre-existing built-in (see `builtins_are_not_shadowed`),
+        // so it is never re-registered in ANIMATIONS.
+        let expected_ported: BTreeSet<&str> = upstream_names
+            .iter()
+            .map(String::as_str)
+            .filter(|&n| n != "pulse")
+            .collect();
+        let actually_ported: BTreeSet<&str> = ANIMATIONS
+            .iter()
+            .map(|a| a.class.strip_prefix("animate-").unwrap())
+            .collect();
+
         assert_eq!(
-            ANIMATIONS.len(),
-            78,
-            "expected all 78 non-builtin tailwind-animations entries to be ported"
+            actually_ported, expected_ported,
+            "ANIMATIONS must contain exactly the vendored catalog's names (minus the \
+             built-in-duplicate `pulse`) — no more, no less"
         );
     }
 
@@ -549,5 +603,21 @@ mod tests {
         assert!(guard.contains(".animate-shake:not([data-motion=\"always\"])"));
         assert!(guard.contains(".hover\\:animate-jump:not([data-motion=\"always\"])"));
         assert!(guard.contains("animation-duration: 1ms !important"));
+    }
+
+    #[test]
+    fn reduced_motion_guard_excludes_explicit_motion_variants_but_includes_builtins() {
+        let classes: BTreeSet<String> = [
+            "animate-shake".to_string(),
+            "motion-reduce:animate-fade-in".to_string(),
+            "motion-safe:animate-fade-in".to_string(),
+            "animate-spin".to_string(),
+        ]
+        .into();
+        let guard = reduced_motion_guard(&classes);
+        assert!(guard.contains(".animate-shake:not([data-motion=\"always\"])"));
+        assert!(guard.contains(".animate-spin:not([data-motion=\"always\"])"));
+        assert!(!guard.contains("motion-reduce"));
+        assert!(!guard.contains("motion-safe"));
     }
 }

@@ -7,3 +7,10 @@ expression: "compile_sfc_scoped(&sfc(\"animate-spin\")).unwrap()"
 *, ::before, ::after { border-style: solid; border-width: 0; }
 .animate-spin { animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .animate-spin:not([data-motion="always"]) {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0ms !important;
+  }
+}

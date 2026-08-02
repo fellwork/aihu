@@ -36,6 +36,32 @@ describe('@aihu/css-engine/runtime/cn — class merge', () => {
     expect(cn('hover:bg-red-500', 'hover:bg-blue-500')).toBe('hover:bg-blue-500')
   })
 
+  it('does not collapse a multi-segment prefix into a shorter one it shares a leading segment with', () => {
+    // Regression: groupKey used to key on the FIRST dash only, so
+    // `animate-delay-500` truncated to the blanket `animate` group and
+    // collided with (silently dropped) `animate-fade-in`. Longest-prefix
+    // matching keeps both — they set different CSS properties.
+    expect(cn('animate-fade-in', 'animate-delay-500')).toBe('animate-fade-in animate-delay-500')
+    expect(cn('animate-delay-100', 'animate-duration-500')).toBe(
+      'animate-delay-100 animate-duration-500',
+    )
+    // Same family still collides, last wins.
+    expect(cn('animate-delay-100', 'animate-delay-500')).toBe('animate-delay-500')
+    expect(cn('animate-fade-in', 'animate-shake')).toBe('animate-shake')
+  })
+
+  it('dedupes other pre-existing multi-segment prefix families (translate-x, grid-cols)', () => {
+    // These were silently non-deduping before groupKey did real longest-prefix
+    // matching — `translate-x` truncated to `translate`, an unregistered
+    // first segment, so it fell through to keying on the whole class string.
+    expect(cn('translate-x-2', 'translate-x-4')).toBe('translate-x-4')
+    // translate-x/-y both write the single `translate` CSS shorthand, so they
+    // share one conflict group by design (last wins across axes too).
+    expect(cn('translate-x-2', 'translate-y-4')).toBe('translate-y-4')
+    expect(cn('grid-cols-2', 'grid-cols-3')).toBe('grid-cols-3')
+    expect(cn('grid-cols-2', 'grid-rows-3')).toBe('grid-cols-2 grid-rows-3')
+  })
+
   it('returns an empty string for no meaningful input', () => {
     expect(cn()).toBe('')
     expect(cn(false, null, undefined, '')).toBe('')

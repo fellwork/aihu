@@ -160,10 +160,14 @@ pub fn conflict_groups() -> Vec<(&'static str, &'static str)> {
 
     // tailwind-animations port, Slice 2 — modifier families, each its own
     // group so e.g. `animate-delay-100 animate-delay-500` collides but
-    // `animate-delay-100 animate-duration-500` does not. Registered BEFORE
-    // the blanket `animate` prefix above in source order — cn.ts's generated
-    // map sorts by prefix length descending, so the longer, more specific
-    // prefixes here win regardless of this list's order; stated for clarity.
+    // `animate-delay-100 animate-duration-500` does not, and neither collides
+    // with the base animation (`animate-fade-in animate-delay-100` must keep
+    // BOTH — they set different CSS properties). This depends on `cn.ts`'s
+    // `groupKey` doing genuine longest-dash-prefix matching against the
+    // generated map (it tries `animate-delay` before falling back to
+    // `animate`) — a plain first-segment-only lookup would collapse every
+    // entry below into the blanket `animate` group above and silently drop
+    // whichever of a base animation / modifier lost the last-wins race.
     out.push(("animate-delay", "animation-delay"));
     out.push(("animate-duration", "animation-duration"));
     out.push(("animate-iteration-count", "animation-iteration-count"));

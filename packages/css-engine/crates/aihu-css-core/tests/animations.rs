@@ -258,3 +258,48 @@ fn motion_safe_variant_wraps_in_no_preference_media_query() {
     let css = compile_sfc_scoped(&sfc("motion-safe:animate-fade-in")).unwrap();
     assert!(css.contains("@media (prefers-reduced-motion: no-preference)"));
 }
+
+#[test]
+fn reduced_motion_guard_does_not_reclamp_an_explicit_motion_reduce_opt_in() {
+    // Regression: `motion-reduce:animate-fade-in` used to ALSO get a guard
+    // selector forcing `animation-duration: 1ms !important` inside the same
+    // `@media (prefers-reduced-motion: reduce)` block the author opted into
+    // it for — defeating the whole point of the opt-in variant (D-B·b).
+    let css = compile_sfc_scoped(&sfc("motion-reduce:animate-fade-in")).unwrap();
+    assert!(css.contains("animation: fade-in"));
+    assert!(!css.contains("animation-duration: 1ms !important"));
+}
+
+#[test]
+fn reduced_motion_guard_skips_a_motion_safe_token_entirely() {
+    // `motion-safe:animate-fade-in` only ever exists inside the
+    // `no-preference` media block — a guard selector for it under `reduce`
+    // could never match anything, dead CSS.
+    let css = compile_sfc_scoped(&sfc("motion-safe:animate-fade-in")).unwrap();
+    assert!(!css.contains("animation-duration: 1ms !important"));
+}
+
+#[test]
+fn stacking_a_breakpoint_with_a_motion_variant_keeps_both_conditions() {
+    // Regression: `at_rule` used to be a single `Option<String>` overwritten
+    // by whichever `@media`-producing variant the loop visited last —
+    // `md:motion-safe:animate-fade-in` would keep only ONE of the two
+    // conditions, applying the animation at widths/preferences the author
+    // explicitly excluded.
+    let css = compile_sfc_scoped(&sfc("md:motion-safe:animate-fade-in")).unwrap();
+    assert!(css.contains("min-width"));
+    assert!(css.contains("prefers-reduced-motion: no-preference"));
+    assert!(css.contains(" and "));
+}
+
+#[test]
+fn reduced_motion_guard_covers_builtin_animations_too() {
+    // Regression: the guard only covered `ANIMATIONS` (the ported table),
+    // so aihu's pre-existing built-ins — three of them `infinite` — got no
+    // reduced-motion treatment at all, unlike the visually-identical ported
+    // entries (animate-spin vs animate-rotate-360, etc.).
+    let css = compile_sfc_scoped(&sfc("animate-spin")).unwrap();
+    assert!(css.contains("prefers-reduced-motion: reduce"));
+    assert!(css.contains(".animate-spin:not([data-motion=\"always\"])"));
+    assert!(css.contains("animation-duration: 1ms !important"));
+}

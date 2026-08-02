@@ -122,11 +122,18 @@ fn emit_token(token: &str, theme: &ThemeRegistry, prog: &ProgressiveRegistry) ->
 
     // The base (innermost) selector and declaration body.
     let mut selector = class_sel;
-    // Wrapping at-rule (e.g. `@media (min-width: …)` for breakpoints or
-    // `@container (min-width: …)` for container queries). Generalized from the
-    // old `media: Option<String>` slot so both `@media` and `@container` wrap
-    // the rule uniformly: `<at-rule> { <rule> }`.
-    let mut at_rule: Option<String> = None;
+    // Wrapping at-rule condition(s). `@media` producers (breakpoint, motion)
+    // accumulate into `media_conditions` and get merged with `and` — a token
+    // combining two of them (`md:motion-safe:animate-fade-in`) must keep BOTH
+    // conditions, not silently drop whichever variant the loop below visits
+    // last (the bug this replaced: a single `Option<String>` overwritten by
+    // each `@media`-producing arm). `@container` stays its own slot — merging
+    // a container condition into the same at-rule as a media condition isn't
+    // valid CSS (they're different at-rule kinds); two container variants
+    // stacking remains last-wins, same as before this change (not reachable
+    // today — there's only one container-producing variant).
+    let mut media_conditions: Vec<String> = Vec::new();
+    let mut container_at_rule: Option<String> = None;
     let mut dark_cascade = false;
 
     for v in &variants {
@@ -170,22 +177,22 @@ fn emit_token(token: &str, theme: &ThemeRegistry, prog: &ProgressiveRegistry) ->
             Variant::Data(m) => selector = format!("{selector}{}", attr_selector("data", m)),
             Variant::Breakpoint(bp) => {
                 if let Some(min) = theme.breakpoint(bp) {
-                    at_rule = Some(format!("@media (min-width: {min})"));
+                    media_conditions.push(format!("(min-width: {min})"));
                 }
             }
             // Container queries wrap the rule in an `@container` at-rule keyed on
             // the container breakpoint scale (mirrors `breakpoint()`).
             Variant::Container(bp) => {
                 if let Some(min) = theme.container_breakpoint(bp) {
-                    at_rule = Some(format!("@container (min-width: {min})"));
+                    container_at_rule = Some(format!("@container (min-width: {min})"));
                 }
             }
             Variant::Dark | Variant::HostContextDark => {
                 dark_cascade = true;
             }
             Variant::Motion { reduce } => {
-                at_rule = Some(format!(
-                    "@media (prefers-reduced-motion: {})",
+                media_conditions.push(format!(
+                    "(prefers-reduced-motion: {})",
                     if *reduce { "reduce" } else { "no-preference" }
                 ));
             }
@@ -213,7 +220,16 @@ fn emit_token(token: &str, theme: &ThemeRegistry, prog: &ProgressiveRegistry) ->
         format!("{selector} {{ {body} }}\n")
     };
 
-    let rule = match at_rule {
+    // Wrap innermost-first: @media (breakpoint/motion conditions merged with
+    // `and`) then @container around that — nesting order between the two
+    // kinds is semantically irrelevant (independent conditions), but must be
+    // applied consistently.
+    let rule = if media_conditions.is_empty() {
+        rule
+    } else {
+        format!("@media {} {{\n{rule}}}\n", media_conditions.join(" and "))
+    };
+    let rule = match container_at_rule {
         Some(at) => format!("{at} {{\n{rule}}}\n"),
         None => rule,
     };

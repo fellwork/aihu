@@ -7,6 +7,12 @@
 
 /** Prefix → conflict-group key, sorted longest-prefix-first. */
 export const CONFLICT_GROUPS: Record<string, string> = {
+  'animate-iteration-count': 'animation-iteration-count',
+  'animate-fill-mode': 'animation-fill-mode',
+  'animate-direction': 'animation-direction',
+  'animate-duration': 'animation-duration',
+  'animate-delay': 'animation-delay',
+  'animate-play': 'animation-play-state',
   'translate-x': 'translate',
   'translate-y': 'translate',
   'grid-cols': 'grid-template-columns',
@@ -28,6 +34,7 @@ export const CONFLICT_GROUPS: Record<string, string> = {
   rounded: 'border-radius',
   'scale-x': 'scale',
   'scale-y': 'scale',
+  animate: 'animation',
   bottom: 'bottom',
   border: 'border-color',
   stroke: 'stroke',
