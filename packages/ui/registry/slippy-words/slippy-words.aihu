@@ -1,0 +1,80 @@
+<!--
+  aihu-slippy-words — presentational styled recipe (performativeUI port,
+  Slice 4 — docs/plans/2026-08-01-performative-ui-port.md §Tier-B batch 1).
+
+  Design and behavior transcribed in spirit from performativeUI (MIT); no
+  source text or `pui-` class names vendored — see NOTICES.md.
+
+  A static sentence where exactly one word "wiggles" for attention at a
+  time, the highlighted word advancing left to right, looping. Built on
+  `@aihu/use/motion`'s `useSequence` cycling over word INDICES (not the
+  words themselves) — every word stays mounted the whole time, so this
+  needs no keyed re-mount trick (unlike `aihu-rotator`/`aihu-word-roll`):
+  toggling the `data-active` attribute on/off is what restarts the ported
+  `animate-jiggle` utility (tailwind-animations port, Track A) each pass.
+
+  text:     space-separated sentence, e.g. "Ship it before you overthink
+            it". Read once at setup (custom-element attrs are strings, not
+            reactive to later attribute changes).
+  interval: milliseconds per word, string-encoded number. Default "600".
+  tone:     neutral (default) | accent — the active word's highlight color.
+
+  `shadow: 'light'` for live retheming — see the parent execution plan's
+  theming decision.
+-->
+
+@state {
+  import { cn } from '@aihu/css-engine/runtime/cn'
+
+  shadow: 'light'
+
+  let text = prop({ default: 'Ship it before you overthink it' })
+  let interval = prop({ default: '600' })
+  let tone = prop({ default: 'neutral' })
+
+  const words = text.split(' ').filter(Boolean)
+  // Carries its own index rather than relying on `each`'s idx alias — the
+  // compiler's key-expr closure only binds the item alias, not the idx
+  // alias (`key={idx}` compiles to `(item) => idx`, an out-of-scope read).
+  // Folding the index into the item itself keeps `key` single-alias, the
+  // supported shape (see `each={item, idx of items} key={item.id}` in the
+  // compiler's own test fixtures).
+  const indexedWords = words.map((word, i) => ({ word, i }))
+
+  const { current: activeIndex } = useSequence(
+    words.map((_, i) => i),
+    { interval: Number(interval) },
+  )
+}
+
+@template {
+  <span data-slot="slippy-words" data-tone={tone} class={cn('aihu-slippy-words')}>
+    <group each={entry of indexedWords} key={entry.i}>
+      <span
+        data-active={entry.i === activeIndex() ? 'on' : 'off'}
+        class={cn('aihu-slippy-word', entry.i === activeIndex() && 'animate-jiggle')}>
+        {entry.word}
+      </span>
+    </group>
+  </span>
+}
+
+@style {
+  .aihu-slippy-words {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 0.3em;
+    font-weight: 600;
+    color: var(--color-foreground);
+  }
+  .aihu-slippy-word {
+    display: inline-block;
+    transform-origin: 50% 100%;
+  }
+  .aihu-slippy-word[data-active="on"] {
+    color: var(--color-neutral);
+  }
+  .aihu-slippy-words[data-tone="accent"] .aihu-slippy-word[data-active="on"] {
+    color: var(--color-accent);
+  }
+}

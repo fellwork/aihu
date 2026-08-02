@@ -1,0 +1,17 @@
+{
+  "name": "word-roll",
+  "type": "ui",
+  "description": "Presentational rolling headline word — cycles through a comma-separated item list, rolling each new word down into a clipped window.",
+  "variants": {
+    "tone": ["neutral", "accent"]
+  },
+  "meta": {
+    "capabilities": {
+      "interactive": false,
+      "keyboard": false,
+      "form": false,
+      "overlay": false,
+      "directional": false
+    }
+  }
+}

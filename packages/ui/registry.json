@@ -321,6 +321,29 @@
       }
     },
     {
+      "name": "rotator",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/rotator/rotator.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Presentational rotating headline word/phrase — cycles through a comma-separated item list on a fixed interval, cross-fading each change.",
+      "variants": {
+        "tone": ["neutral", "accent"]
+      },
+      "meta": {
+        "capabilities": {
+          "interactive": false,
+          "keyboard": false,
+          "form": false,
+          "overlay": false,
+          "directional": false
+        }
+      }
+    },
+    {
       "name": "separator",
       "type": "ui",
       "files": [
@@ -332,6 +355,29 @@
       "description": "Presentational separator recipe — token-colored 1px rule with role=separator + aria-orientation.",
       "variants": {
         "orientation": ["horizontal", "vertical"]
+      },
+      "meta": {
+        "capabilities": {
+          "interactive": false,
+          "keyboard": false,
+          "form": false,
+          "overlay": false,
+          "directional": false
+        }
+      }
+    },
+    {
+      "name": "slippy-words",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/slippy-words/slippy-words.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Presentational sentence where one word wiggles for attention at a time, the highlight advancing left to right, looping.",
+      "variants": {
+        "tone": ["neutral", "accent"]
       },
       "meta": {
         "capabilities": {
@@ -358,6 +404,26 @@
         "tone": ["neutral", "accent"],
         "shimmer": ["off", "on"]
       },
+      "meta": {
+        "capabilities": {
+          "interactive": false,
+          "keyboard": false,
+          "form": false,
+          "overlay": false,
+          "directional": false
+        }
+      }
+    },
+    {
+      "name": "stat-counter",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/stat-counter/stat-counter.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Presentational number that counts up to a target the first time it scrolls into view.",
       "meta": {
         "capabilities": {
           "interactive": false,
@@ -460,6 +526,29 @@
       }
     },
     {
+      "name": "token-stream",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/token-stream/token-stream.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Presentational LLM-response-streaming look — reveals a sentence word by word with a blinking caret.",
+      "variants": {
+        "loop": ["off", "on"]
+      },
+      "meta": {
+        "capabilities": {
+          "interactive": false,
+          "keyboard": false,
+          "form": false,
+          "overlay": false,
+          "directional": false
+        }
+      }
+    },
+    {
       "name": "tooltip",
       "type": "ui",
       "files": [
@@ -486,6 +575,53 @@
           "form": false,
           "overlay": true,
           "trapsFocus": false,
+          "directional": false
+        }
+      }
+    },
+    {
+      "name": "wibbling-spinner",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/wibbling-spinner/wibbling-spinner.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Presentational braille-glyph loading spinner — cycles through a fixed frame set on a short interval.",
+      "variants": {
+        "size": ["sm", "md", "lg"],
+        "tone": ["neutral", "accent"]
+      },
+      "meta": {
+        "capabilities": {
+          "interactive": false,
+          "keyboard": false,
+          "form": false,
+          "overlay": false,
+          "directional": false
+        }
+      }
+    },
+    {
+      "name": "word-roll",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/word-roll/word-roll.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Presentational rolling headline word — cycles through a comma-separated item list, rolling each new word down into a clipped window.",
+      "variants": {
+        "tone": ["neutral", "accent"]
+      },
+      "meta": {
+        "capabilities": {
+          "interactive": false,
+          "keyboard": false,
+          "form": false,
+          "overlay": false,
           "directional": false
         }
       }

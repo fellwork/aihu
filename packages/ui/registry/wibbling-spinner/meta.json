@@ -1,0 +1,18 @@
+{
+  "name": "wibbling-spinner",
+  "type": "ui",
+  "description": "Presentational braille-glyph loading spinner — cycles through a fixed frame set on a short interval.",
+  "variants": {
+    "size": ["sm", "md", "lg"],
+    "tone": ["neutral", "accent"]
+  },
+  "meta": {
+    "capabilities": {
+      "interactive": false,
+      "keyboard": false,
+      "form": false,
+      "overlay": false,
+      "directional": false
+    }
+  }
+}

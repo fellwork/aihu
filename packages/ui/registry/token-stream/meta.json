@@ -1,0 +1,17 @@
+{
+  "name": "token-stream",
+  "type": "ui",
+  "description": "Presentational LLM-response-streaming look — reveals a sentence word by word with a blinking caret.",
+  "variants": {
+    "loop": ["off", "on"]
+  },
+  "meta": {
+    "capabilities": {
+      "interactive": false,
+      "keyboard": false,
+      "form": false,
+      "overlay": false,
+      "directional": false
+    }
+  }
+}

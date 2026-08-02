@@ -15,7 +15,8 @@
     "@aihu/primitives": "workspace:*",
     "@aihu/runtime": "workspace:*",
     "@aihu/signals": "workspace:*",
-    "@aihu/ui": "workspace:*"
+    "@aihu/ui": "workspace:*",
+    "@aihu/use": "workspace:*"
   },
   "devDependencies": {
     "@storybook/addon-a11y": "^10.4.3",

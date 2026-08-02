@@ -1,0 +1,64 @@
+<!--
+  aihu-word-roll — presentational styled recipe (performativeUI port,
+  Slice 4 — docs/plans/2026-08-01-performative-ui-port.md §Tier-B batch 1).
+
+  Design and behavior transcribed in spirit from performativeUI (MIT); no
+  source text or `pui-` class names vendored — see NOTICES.md.
+
+  Like `aihu-rotator`, but the new word rolls DOWN into a fixed-height,
+  clipped window instead of cross-fading — `overflow: hidden` + the
+  ported `animate-slide-in-top` utility (tailwind-animations port, Track A)
+  on a freshly-keyed node, rather than `animate-fade-in`.
+
+  items:    comma-separated string, e.g. "faster,smarter,together". Read
+            once at setup (custom-element attrs are strings, not reactive
+            to later attribute changes).
+  interval: milliseconds per word, string-encoded number. Default "1800".
+  tone:     neutral (default) | accent
+
+  `shadow: 'light'` for live retheming — see the parent execution plan's
+  theming decision.
+-->
+
+@state {
+  import { cn } from '@aihu/css-engine/runtime/cn'
+
+  shadow: 'light'
+
+  let items = prop({ default: 'faster,smarter,together' })
+  let interval = prop({ default: '1800' })
+  let tone = prop({ default: 'neutral' })
+
+  const words = items
+    .split(',')
+    .map((w) => w.trim())
+    .filter(Boolean)
+
+  const { current, index } = useSequence(words, { interval: Number(interval) })
+}
+
+@template {
+  <span data-slot="word-roll" data-tone={tone} class={cn('aihu-word-roll')}>
+    <group each={item of [current()]} key={index()}>
+      <span class={cn('aihu-word-roll-word', 'animate-slide-in-top')}>{item}</span>
+    </group>
+  </span>
+}
+
+@style {
+  .aihu-word-roll {
+    display: inline-block;
+    position: relative;
+    overflow: hidden;
+    height: 1.3em;
+    vertical-align: bottom;
+    font-weight: 600;
+    color: var(--color-foreground);
+  }
+  .aihu-word-roll[data-tone="accent"] {
+    color: var(--color-accent);
+  }
+  .aihu-word-roll-word {
+    display: inline-block;
+  }
+}

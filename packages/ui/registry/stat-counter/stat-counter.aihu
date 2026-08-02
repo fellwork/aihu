@@ -1,0 +1,81 @@
+<!--
+  aihu-stat-counter — presentational styled recipe (performativeUI port,
+  Slice 4 — docs/plans/2026-08-01-performative-ui-port.md §Tier-B batch 1).
+
+  Design and behavior transcribed in spirit from performativeUI (MIT); no
+  source text or `pui-` class names vendored — see NOTICES.md.
+
+  A number that counts up to `to` the first time it scrolls into view —
+  built on `@aihu/use/motion`'s `useCountTo` (Track B Slice 3) gated by the
+  pre-existing `useIntersectionObserver` (CORE @aihu/use), per the roadmap's
+  explicit instruction: fire on scroll-in, not on mount. `ref={hostEl}`
+  feeds the observed element; the observer permanently `stop()`s itself
+  after the first intersection — this counts up exactly once, it does not
+  re-trigger on scroll-out/scroll-back-in.
+
+  to:       target value, string-encoded number. Default "100".
+  from:     starting value, string-encoded number. Default "0".
+  duration: tween duration in ms, string-encoded number. Default "1200".
+  label:    optional caption below the number.
+  prefix / suffix: optional strings around the number (e.g. prefix="$",
+            suffix="%" or suffix="+").
+
+  `shadow: 'light'` for live retheming — see the parent execution plan's
+  theming decision.
+-->
+
+@state {
+  import { cn } from '@aihu/css-engine/runtime/cn'
+
+  shadow: 'light'
+
+  let to = prop({ default: '100' })
+  let from = prop({ default: '0' })
+  let duration = prop({ default: '1200' })
+  let label = prop({ default: '' })
+  let prefix = prop({ default: '' })
+  let suffix = prop({ default: '' })
+
+  let hostEl = state(null)
+
+  const { value, start } = useCountTo({ from: Number(from), duration: Number(duration) })
+
+  const { stop } = useIntersectionObserver(
+    () => hostEl,
+    (entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) {
+        start(Number(to))
+        stop()
+      }
+    },
+    { threshold: 0.4 },
+  )
+}
+
+@template {
+  <span ref={hostEl} data-slot="stat-counter" class={cn('aihu-stat-counter')}>
+    <span class="aihu-stat-counter-value">{prefix}{value()}{suffix}</span>
+    <span if={label} class="aihu-stat-counter-label">{label}</span>
+  </span>
+}
+
+@style {
+  .aihu-stat-counter {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.15rem;
+  }
+  .aihu-stat-counter-value {
+    font-family: var(--font-sans);
+    font-weight: 700;
+    font-size: 2.25rem;
+    line-height: 1;
+    color: var(--color-foreground);
+    font-variant-numeric: tabular-nums;
+  }
+  .aihu-stat-counter-label {
+    font-size: 0.875rem;
+    color: var(--color-muted-foreground);
+  }
+}
