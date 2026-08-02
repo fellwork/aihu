@@ -22,14 +22,59 @@ pub struct Animation {
 /// keeps append-only parallel slices conflict-free (see the port doc §8).
 pub static ANIMATIONS: &[Animation] = &[
     Animation {
+        class: "animate-blurred-fade-in",
+        shorthand: "blurred-fade-in 0.9s ease-in-out both",
+        keyframes: "@keyframes blurred-fade-in { 0% { filter: blur(5px); opacity: 0; } 100% { filter: blur(0); opacity: 1; } }",
+    },
+    Animation {
         class: "animate-fade-in",
         shorthand: "fade-in 0.6s ease-in both",
         keyframes: "@keyframes fade-in { 0% { opacity: 0; } 100% { opacity: 1; } }",
     },
     Animation {
+        class: "animate-fade-in-down",
+        shorthand: "fade-in-down 0.6s ease-in-out both",
+        keyframes: "@keyframes fade-in-down { 0% { opacity: 0; transform: translateY(-20px); } 100% { opacity: 1; transform: translateY(0); } }",
+    },
+    Animation {
+        class: "animate-fade-in-left",
+        shorthand: "fade-in-left 0.6s ease-in-out both",
+        keyframes: "@keyframes fade-in-left { 0% { opacity: 0; transform: translateX(20px); } 100% { opacity: 1; transform: translateX(0); } }",
+    },
+    Animation {
+        class: "animate-fade-in-right",
+        shorthand: "fade-in-right 0.6s ease-in-out both",
+        keyframes: "@keyframes fade-in-right { 0% { opacity: 0; transform: translateX(-20px); } 100% { opacity: 1; transform: translateX(0); } }",
+    },
+    Animation {
+        class: "animate-fade-in-up",
+        shorthand: "fade-in-up 0.6s ease-in-out both",
+        keyframes: "@keyframes fade-in-up { 0% { opacity: 0; transform: translateY(20px); } 100% { opacity: 1; transform: translateY(0); } }",
+    },
+    Animation {
         class: "animate-fade-out",
         shorthand: "fade-out 0.6s ease-out both",
         keyframes: "@keyframes fade-out { 0% { opacity: 1; } 100% { opacity: 0; } }",
+    },
+    Animation {
+        class: "animate-fade-out-down",
+        shorthand: "fade-out-down 0.6s ease-out both",
+        keyframes: "@keyframes fade-out-down { 0% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; transform: translateY(20px); } }",
+    },
+    Animation {
+        class: "animate-fade-out-left",
+        shorthand: "fade-out-left 0.6s ease-out both",
+        keyframes: "@keyframes fade-out-left { 0% { opacity: 1; transform: translateX(0); } 100% { opacity: 0; transform: translateX(-20px); } }",
+    },
+    Animation {
+        class: "animate-fade-out-right",
+        shorthand: "fade-out-right 0.6s ease-out both",
+        keyframes: "@keyframes fade-out-right { 0% { opacity: 1; transform: translateX(0); } 100% { opacity: 0; transform: translateX(20px); } }",
+    },
+    Animation {
+        class: "animate-fade-out-up",
+        shorthand: "fade-out-up 0.6s ease-out both",
+        keyframes: "@keyframes fade-out-up { 0% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; transform: translateY(-20px); } }",
     },
     Animation {
         class: "animate-jump",

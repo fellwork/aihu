@@ -23,12 +23,7 @@
   --color-warning-foreground: oklch(0.98 0 0);
   --color-neutral: oklch(0.3 0 0);
   --color-neutral-foreground: oklch(0.98 0 0);
-  --gradient-brand: linear-gradient(
-    135deg,
-    oklch(0.35 0 0) 0%,
-    oklch(0.5 0 0) 50%,
-    oklch(0.65 0 0) 100%
-  );
+  --gradient-brand: linear-gradient(135deg, oklch(0.35 0 0) 0%, oklch(0.5 0 0) 50%, oklch(0.65 0 0) 100%);
   --radius-sm: 4px;
   --radius-md: 8px;
   --radius-lg: 12px;
@@ -77,10 +72,5 @@
   --color-warning-foreground: oklch(0.18 0 0);
   --color-neutral: oklch(0.52 0 0);
   --color-neutral-foreground: oklch(0.98 0 0);
-  --gradient-brand: linear-gradient(
-    135deg,
-    oklch(0.78 0 0) 0%,
-    oklch(0.62 0 0) 50%,
-    oklch(0.45 0 0) 100%
-  );
+  --gradient-brand: linear-gradient(135deg, oklch(0.78 0 0) 0%, oklch(0.62 0 0) 50%, oklch(0.45 0 0) 100%);
 }

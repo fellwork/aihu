@@ -322,7 +322,7 @@ See [`packages/`](./packages) for all packages on disk. By tier:
 | [`@aihu/compiler-native-linux-x64-gnu`](./packages/compiler/npm-native/linux-x64-gnu) | `0.1.11` | aihu compiler native addon (napi) — linux-x64-gnu platform binary. |
 | [`@aihu/compiler-native-win32-x64-msvc`](./packages/compiler/npm-native/win32-x64-msvc) | `0.1.11` | aihu compiler native addon (napi) — win32-x64-msvc platform binary. |
 | [`@aihu/context`](./packages/context) | `0.2.0` | Async-context-friendly request/SSR context primitives for aihu. |
-| [`@aihu/css-engine`](./packages/css-engine) | `0.5.1` | aihu CSS engine — Tailwind v4 hard fork with WC-native scoped output. |
+| [`@aihu/css-engine`](./packages/css-engine) | `0.5.2` | aihu CSS engine — Tailwind v4 hard fork with WC-native scoped output. |
 | [`@aihu/data`](./packages/_moved/data) | `2.0.5` | [MOVED] This package has moved to @aihu-plugin/data. |
 | [`@aihu/editor`](./packages/editor) | `0.1.2` | Hand-rolled, dependency-free, GX-governed rich-text editor — JSON doc model, invertible transactions, markdown (web-v1 dialect) round-trip, contenteditable view with IME-safe read-back, agent read/suggest/write surface. |
 | [`@aihu/language-server`](./packages/language-server) | `0.3.6` | Cross-editor Language Server (aihu-language-server) for .aihu Single File Components — diagnostics, hover, completion, and quick-fix code actions. |

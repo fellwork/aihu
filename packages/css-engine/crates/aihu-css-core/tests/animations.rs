@@ -73,6 +73,25 @@ fn fade_in_alone_is_one_rule_and_one_keyframe_block() {
 }
 
 #[test]
+fn slice4_fade_cluster_snapshot() {
+    let classes: Vec<String> = [
+        "animate-blurred-fade-in",
+        "animate-fade-in-down",
+        "animate-fade-in-left",
+        "animate-fade-in-right",
+        "animate-fade-in-up",
+        "animate-fade-out-down",
+        "animate-fade-out-left",
+        "animate-fade-out-right",
+        "animate-fade-out-up",
+    ]
+    .into_iter()
+    .map(String::from)
+    .collect();
+    insta::assert_snapshot!(compile_classes(&classes));
+}
+
+#[test]
 fn reduced_motion_guard_present_for_used_animation() {
     let css = compile_sfc_scoped(&sfc("animate-shake")).unwrap();
     assert!(css.contains("prefers-reduced-motion: reduce"));

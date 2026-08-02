@@ -15,7 +15,8 @@ export default {
 const TONES = ['neutral', 'accent', 'warning'] as const
 
 export const Default = {
-  render: (): string => `<aihu-sticky-banner tone="accent">We just shipped something new.</aihu-sticky-banner>`,
+  render: (): string =>
+    `<aihu-sticky-banner tone="accent">We just shipped something new.</aihu-sticky-banner>`,
 }
 
 export const Variants = {
@@ -26,6 +27,7 @@ export const Variants = {
 }
 
 export const DarkMode = {
-  render: (): string => `<aihu-sticky-banner tone="accent">We just shipped something new.</aihu-sticky-banner>`,
+  render: (): string =>
+    `<aihu-sticky-banner tone="accent">We just shipped something new.</aihu-sticky-banner>`,
   globals: { mode: 'dark' },
 }
