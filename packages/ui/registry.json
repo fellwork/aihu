@@ -364,6 +364,26 @@
       }
     },
     {
+      "name": "goldeneye",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/goldeneye/goldeneye.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Decorative watchful eye — a glowing iris with a pupil that autonomously sweeps a slow Lissajous scan, built directly on useCanvasSurface.",
+      "meta": {
+        "capabilities": {
+          "interactive": false,
+          "keyboard": false,
+          "form": false,
+          "overlay": false,
+          "directional": false
+        }
+      }
+    },
+    {
       "name": "gradient-text",
       "type": "ui",
       "files": [
