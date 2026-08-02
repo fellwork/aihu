@@ -32,6 +32,15 @@ pub static ANIMATIONS: &[Animation] = &[
         keyframes: "@keyframes blurred-fade-in { 0% { filter: blur(5px); opacity: 0; } 100% { filter: blur(0); opacity: 1; } }",
     },
     Animation {
+        // Composite (Slice 10) — combines the bounce and fade-in effects
+        // already ported standalone; kept distinct rather than merged into
+        // either cluster because its class name and keyframe curve are
+        // their own thing in the vendored catalog, not an alias.
+        class: "animate-bounce-fade-in",
+        shorthand: "bounce-fade-in 0.6s ease-out both",
+        keyframes: "@keyframes bounce-fade-in { 0% { transform: scale(0.5); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }",
+    },
+    Animation {
         class: "animate-bouncing",
         shorthand: "bouncing 1s ease-in-out both",
         keyframes: "@keyframes bouncing { 0% { transform: translateY(0); } 50% { transform: translateY(-10px); } 100% { transform: translateY(0); } }",
@@ -212,6 +221,11 @@ pub static ANIMATIONS: &[Animation] = &[
         keyframes: "@keyframes pop { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }",
     },
     Animation {
+        class: "animate-pulse-fade-in",
+        shorthand: "pulse-fade-in 0.6s ease-out both",
+        keyframes: "@keyframes pulse-fade-in { 0% { transform: scale(0.9); opacity: 0; } 50% { transform: scale(1.05); opacity: 0.5; } 100% { transform: scale(1); opacity: 1; } }",
+    },
+    Animation {
         class: "animate-pulsing",
         shorthand: "pulsing 1s ease-in-out both",
         keyframes: "@keyframes pulsing { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }",
@@ -342,6 +356,11 @@ pub static ANIMATIONS: &[Animation] = &[
         keyframes: "@keyframes slide-rotate-out { 0% { opacity: 1; transform: translateX(0) rotate(0deg); } 100% { opacity: 0; transform: translateX(20px) rotate(90deg); } }",
     },
     Animation {
+        class: "animate-slide-up-fade",
+        shorthand: "slide-up-fade 0.6s ease-out both",
+        keyframes: "@keyframes slide-up-fade { 0% { opacity: 0; transform: translateY(50px); } 100% { opacity: 1; transform: translateY(0); } }",
+    },
+    Animation {
         class: "animate-spin-clockwise",
         shorthand: "spin-clockwise 0.6s linear both",
         keyframes: "@keyframes spin-clockwise { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }",
@@ -448,6 +467,21 @@ fn escaped(token: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn inventory_is_complete() {
+        // 79 upstream `--animate-*` custom properties (vendor/tailwind-animations-8eb93d9/index.css)
+        // minus 1 (`animate-pulse` is byte-identical to aihu's pre-existing
+        // built-in, so it isn't re-registered here — see `builtins_are_not_shadowed`)
+        // = 78. This is the port doc's Slice 10 completeness gate: every
+        // ported animation from Slices 1-10 must be present, asserted
+        // against the real vendored count, not a hand-maintained number.
+        assert_eq!(
+            ANIMATIONS.len(),
+            78,
+            "expected all 78 non-builtin tailwind-animations entries to be ported"
+        );
+    }
 
     #[test]
     fn table_is_sorted_and_unique() {

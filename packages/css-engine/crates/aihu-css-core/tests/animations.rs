@@ -210,6 +210,19 @@ fn slice9b_attention_seeker_cluster_snapshot() {
 }
 
 #[test]
+fn slice10_composites_snapshot() {
+    let classes: Vec<String> = [
+        "animate-bounce-fade-in",
+        "animate-pulse-fade-in",
+        "animate-slide-up-fade",
+    ]
+    .into_iter()
+    .map(String::from)
+    .collect();
+    insta::assert_snapshot!(compile_classes(&classes));
+}
+
+#[test]
 fn reduced_motion_guard_present_for_used_animation() {
     let css = compile_sfc_scoped(&sfc("animate-shake")).unwrap();
     assert!(css.contains("prefers-reduced-motion: reduce"));
