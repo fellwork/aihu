@@ -40,13 +40,23 @@ describe('@aihu/use/motion/useSequence', () => {
     expect(current()).toBe('a')
   })
 
-  it('loop: false stops advancing (and stays put) at the last item', () => {
+  it('loop: false stops the interval (not just the value) at the last item', () => {
     const { current, isRunning } = useSequence(['a', 'b'], { interval: 10, loop: false })
     vi.advanceTimersByTime(10)
     expect(current()).toBe('b')
+    // Regression: the interval used to keep ticking forever (a permanent
+    // no-op wakeup) instead of actually pausing once there's nothing left
+    // to advance to.
+    expect(isRunning()).toBe(false)
     vi.advanceTimersByTime(50)
     expect(current()).toBe('b')
-    void isRunning // the interval itself keeps firing; advance() clamps.
+  })
+
+  it('loop: false, single item: stops immediately (nothing to advance to)', () => {
+    const { current, isRunning } = useSequence(['only'], { interval: 10, loop: false })
+    vi.advanceTimersByTime(10)
+    expect(current()).toBe('only')
+    expect(isRunning()).toBe(false)
   })
 
   it('next()/prev() work regardless of the auto-advance interval', () => {
@@ -88,6 +98,39 @@ describe('@aihu/use/motion/useSequence', () => {
     expect(current()).toBe('a')
     next()
     expect(current()).toBe('b')
+  })
+
+  it('reduced motion is live: a mid-run preference change pauses, and clearing it resumes', () => {
+    const mql = window.matchMedia('(prefers-reduced-motion: reduce)')
+    const { current, isRunning } = useSequence(['a', 'b', 'c', 'd'], { interval: 10 })
+    vi.advanceTimersByTime(10)
+    expect(current()).toBe('b')
+    expect(isRunning()).toBe(true)
+
+    fireMatchMediaChange(mql, true)
+    expect(isRunning()).toBe(false)
+    vi.advanceTimersByTime(30)
+    expect(current()).toBe('b') // frozen — no further auto-advance
+
+    fireMatchMediaChange(mql, false)
+    expect(isRunning()).toBe(true)
+    vi.advanceTimersByTime(10)
+    expect(current()).toBe('c') // resumed
+  })
+
+  it('an explicit stop() is not overridden by a later reduced-motion preference change', () => {
+    const mql = window.matchMedia('(prefers-reduced-motion: reduce)')
+    const { current, isRunning, stop } = useSequence(['a', 'b', 'c'], { interval: 10 })
+    stop()
+    expect(isRunning()).toBe(false)
+
+    // Toggling the preference on and back off must not resume a sequence
+    // the caller explicitly stopped.
+    fireMatchMediaChange(mql, true)
+    fireMatchMediaChange(mql, false)
+    expect(isRunning()).toBe(false)
+    vi.advanceTimersByTime(100)
+    expect(current()).toBe('a')
   })
 
   it('throws on an empty items array', () => {

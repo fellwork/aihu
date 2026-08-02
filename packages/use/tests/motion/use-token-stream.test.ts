@@ -133,4 +133,22 @@ describe('@aihu/use/motion/useTokenStream — SSR-static path', () => {
         }).not.toThrow()
       },
     ))
+
+  it('tokens() returns a fresh copy, not the caller-owned source array by reference', () =>
+    withSSR(
+      () => import('../../src/motion/useTokenStream/index.ts'),
+      (mod) => {
+        const source = ['a', 'b']
+        const { tokens } = mod.useTokenStream(source)
+        // Mutating what tokens() handed back must not affect later calls.
+        const snapshot = tokens()
+        snapshot.push('mutated')
+        expect(tokens()).toEqual(['a', 'b'])
+        // Mutating the caller's own array after the fact (D8) must not
+        // change what this composable reports either — the source is
+        // snapshotted once at setup, not re-read live.
+        source.push('also mutated')
+        expect(tokens()).toEqual(['a', 'b'])
+      },
+    ))
 })

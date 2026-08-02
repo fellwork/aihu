@@ -61,14 +61,18 @@ export function useTokenStream(
   source: string[],
   options: UseTokenStreamOptions = {},
 ): UseTokenStreamReturn {
-  // Snapshot options to plain values up front (D8 — never let a later
-  // mutation of a caller-owned object diverge SSR vs client).
+  // Snapshot options AND the initial source array to plain values up front
+  // (D8 — never let a later mutation of a caller-owned object/array diverge
+  // SSR vs client, or let a caller-held reference to `source` change this
+  // composable's reported output after the fact).
   const { interval = 60, holdDelay = 1500, loop = false, immediate = true } = options
+  const initialSource = source.slice()
 
-  // SSR: static getter of the full stream, no timer.
+  // SSR: static getter of the full stream, no timer. Returns a fresh copy
+  // each call too — the returned array must not be a live handle either.
   if (!isClient) {
     return {
-      tokens: () => source,
+      tokens: () => initialSource.slice(),
       isStreaming: () => false,
       isDone: () => true,
       start: () => {},
@@ -82,7 +86,7 @@ export function useTokenStream(
   const [isStreaming, setIsStreaming] = signal(false)
   const [isDone, setIsDone] = signal(false)
 
-  let current: string[] = source
+  let current: string[] = initialSource
   let index = 0
   let phase: 'streaming' | 'holding' = 'streaming'
   let handle: ReturnType<typeof setTimeout> | undefined
@@ -124,12 +128,16 @@ export function useTokenStream(
     schedule(interval)
   }
 
+  // A retained stop()/skip() handle must not write to signals once the
+  // owning scope has torn down.
   const stop = (): void => {
+    if (disposed) return
     clear()
     setIsStreaming(false)
   }
 
   const skip = (): void => {
+    if (disposed) return
     clear()
     index = current.length
     phase = 'streaming'

@@ -71,13 +71,15 @@ export function useCountTo(options: UseCountToOptions = {}): UseCountToReturn {
   const { from = 0, duration = 1200, decimals = 0, easing = easeOutCubic } = options
 
   // SSR: static getter of the last-requested target (or `from`), no rAF.
+  // Rounded the same way the client's initial signal value is (below) — an
+  // unrounded SSR value vs. a rounded client value is a hydration mismatch.
   if (!isClient) {
-    let target = from
+    let target = round(from, decimals)
     return {
       value: () => target,
       isCounting: () => false,
       start: (to: number) => {
-        target = to
+        target = round(to, decimals)
       },
       stop: () => {},
       skip: () => {},
@@ -130,12 +132,16 @@ export function useCountTo(options: UseCountToOptions = {}): UseCountToReturn {
     resume()
   }
 
+  // A retained stop()/skip() handle must not write to signals once the
+  // owning scope has torn down.
   const stop = (): void => {
+    if (disposed) return
     pause()
     setIsCounting(false)
   }
 
   const skip = (): void => {
+    if (disposed) return
     pause()
     finish()
   }

@@ -135,12 +135,16 @@ export function useTypewriter(
     schedule(eraseSpeed)
   }
 
+  // A retained stop()/skip() handle must not write to signals once the
+  // owning scope has torn down.
   const stop = (): void => {
+    if (disposed) return
     clear()
     setIsTyping(false)
   }
 
   const skip = (): void => {
+    if (disposed) return
     clear()
     index = current.length
     phase = 'typing'

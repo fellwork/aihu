@@ -24,7 +24,7 @@
  * `0`, `isRunning()` is `false`, every mutator is a no-op — no timer is
  * ever registered.
  */
-import { signal } from '@aihu/signals'
+import { effect, signal } from '@aihu/signals'
 import { isClient, tryOnScopeDispose } from '../../shared/index.ts'
 import { useIntervalFn } from '../../useIntervalFn/index.ts'
 import { useReducedMotion } from '../useReducedMotion/index.ts'
@@ -47,10 +47,12 @@ export interface UseSequenceReturn<T> {
   /** Reactive getter — true while the auto-advance interval is armed (false
    * whenever `prefersReduced()` is true, even if `start()` was called). */
   readonly isRunning: () => boolean
-  /** (Re)start auto-advancing. No-op under reduced motion or after the
+  /** (Re)start auto-advancing. Under reduced motion, arms once the
+   * preference clears (see the reduced-motion note above); no-op after the
    * owning effect scope is disposed. */
   start: () => void
-  /** Stop auto-advancing. Idempotent. */
+  /** Stop auto-advancing. Idempotent. A later reduced-motion preference
+   * change will not resume it — call `start()` again to re-arm. */
   stop: () => void
   /** Advance one item (wrapping per `loop`). Works regardless of
    * `isRunning()` — an explicit call, not autoplay. */
@@ -92,6 +94,11 @@ export function useSequence<T>(
   const { prefersReduced } = useReducedMotion()
   const [index, setIndex] = signal(0)
   let disposed = false
+  // Tracks the CALLER's intent (start()'d vs. stop()'d), independent of
+  // whether the interval is actually armed right now — the reduced-motion
+  // effect below needs this to decide whether a preference flip back to
+  // no-preference should resume, without overriding an explicit stop().
+  let wantsRunning = false
 
   const current = (): T => items[index()] as T
 
@@ -106,29 +113,62 @@ export function useSequence<T>(
     }
   }
 
-  const { isActive, pause, resume } = useIntervalFn(() => advance(1), interval, {
-    immediate: false,
-  })
+  const tick = (): void => {
+    advance(1)
+    // `loop: false` reaching the last item has nothing left to advance to —
+    // stop the interval instead of ticking forever with no visible effect.
+    if (!loop && index() === items.length - 1) pause()
+  }
+
+  const { isActive, pause, resume } = useIntervalFn(tick, interval, { immediate: false })
 
   const isRunning = (): boolean => isActive() && !prefersReduced()
 
   const start = (): void => {
     // A still-referenced start() must not re-arm the interval (and fire
-    // state updates) once the owning scope tore down. Reduced motion keeps
-    // the sequence on manual advance only.
-    if (disposed || prefersReduced()) return
+    // state updates) once the owning scope tore down.
+    if (disposed) return
+    wantsRunning = true
+    if (prefersReduced()) return
     resume()
   }
 
-  const next = (): void => advance(1)
-  const prev = (): void => advance(-1)
+  const stop = (): void => {
+    if (disposed) return
+    wantsRunning = false
+    pause()
+  }
+
+  // A retained next()/prev() handle (e.g. captured by an event listener)
+  // must not write to `index` once the owning scope has torn down.
+  const next = (): void => {
+    if (disposed) return
+    advance(1)
+  }
+  const prev = (): void => {
+    if (disposed) return
+    advance(-1)
+  }
+
+  // Live reduced-motion: a mid-run preference change pauses/resumes the
+  // interval without overriding an explicit stop() (`wantsRunning` is only
+  // ever set by start()/stop(), never by this effect).
+  const disposeReducedMotionEffect = effect(() => {
+    if (disposed) return
+    if (prefersReduced()) {
+      pause()
+    } else if (wantsRunning) {
+      resume()
+    }
+  })
 
   tryOnScopeDispose(() => {
     disposed = true
     pause()
+    disposeReducedMotionEffect()
   })
 
   if (immediate) start()
 
-  return { current, index, isRunning, start, stop: pause, next, prev }
+  return { current, index, isRunning, start, stop, next, prev }
 }

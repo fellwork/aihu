@@ -127,4 +127,15 @@ describe('@aihu/use/motion/useCountTo — SSR-static path', () => {
         }).not.toThrow()
       },
     ))
+
+  it('rounds the SSR value the same way the client seeds its initial signal (no hydration mismatch)', () =>
+    withSSR(
+      () => import('../../src/motion/useCountTo/index.ts'),
+      (mod) => {
+        const { value, start } = mod.useCountTo({ from: 1.5, decimals: 0 })
+        expect(value()).toBe(2)
+        start(10.4)
+        expect(value()).toBe(10)
+      },
+    ))
 })
