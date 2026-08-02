@@ -57,8 +57,12 @@
     font-weight: 600;
     color: var(--color-foreground);
   }
+  /* Raw `--color-accent` is only 4.14:1 on `--color-background` in
+     aihu-default light — under the 4.5:1 WCAG 2 AA floor for this
+     normal-weight (600) word. Mixing 30% `--color-foreground` into it keeps
+     the accent hue while lifting every pack x mode to >=6.4:1. */
   .aihu-rotator[data-tone="accent"] {
-    color: var(--color-accent);
+    color: color-mix(in oklab, var(--color-accent) 70%, var(--color-foreground));
   }
   .aihu-rotator-word {
     display: inline-block;

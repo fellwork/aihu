@@ -74,8 +74,14 @@
     color: var(--color-foreground);
     font-variant-numeric: tabular-nums;
   }
+  /* `--color-muted-foreground` is the packs' lowest-contrast text token and
+     fails AA for normal text here (3.35:1 light / 3.06:1 dark on
+     `--color-surface` in aihu-default). Swapped to `--color-secondary`
+     (>=5.4:1 everywhere), matching the fix already applied to
+     .aihu-prompt-placeholder / .aihu-mock-ide-title / .aihu-pricing-card
+     tier+period. */
   .aihu-stat-counter-label {
     font-size: 0.875rem;
-    color: var(--color-muted-foreground);
+    color: var(--color-secondary);
   }
 }
