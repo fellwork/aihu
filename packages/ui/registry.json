@@ -1,6 +1,29 @@
 {
   "items": [
     {
+      "name": "ascii-hero",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/ascii-hero/ascii-hero.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Decorative hero-section character field — a monospaced grid of glyphs drifting, pulsing, or wiping in on a managed canvas, built on useCharacterField.",
+      "variants": {
+        "mode": ["drift", "pulse", "reveal"]
+      },
+      "meta": {
+        "capabilities": {
+          "interactive": false,
+          "keyboard": false,
+          "form": false,
+          "overlay": false,
+          "directional": false
+        }
+      }
+    },
+    {
       "name": "aurora",
       "type": "ui",
       "files": [
@@ -458,6 +481,26 @@
         }
       ],
       "description": "Decorative fake code-editor window chrome — traffic-light dots + title bar over a slotted code body.",
+      "meta": {
+        "capabilities": {
+          "interactive": false,
+          "keyboard": false,
+          "form": false,
+          "overlay": false,
+          "directional": false
+        }
+      }
+    },
+    {
+      "name": "node-graph-background",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/node-graph-background/node-graph-background.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Decorative animated network background — drifting nodes joined by distance-faded connecting lines on a managed canvas, built on useCanvasSurface.",
       "meta": {
         "capabilities": {
           "interactive": false,

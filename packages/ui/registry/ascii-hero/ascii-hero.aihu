@@ -1,0 +1,140 @@
+<!--
+  aihu-ascii-hero — presentational styled recipe (performativeUI port,
+  Slice 10 — docs/plans/2026-08-01-performative-ui-port.md §Tier-C batch 2).
+
+  Design and behavior transcribed in spirit from performativeUI (MIT); no
+  source text or `pui-` class names vendored — see NOTICES.md. The upstream
+  demo file was NOT read for this port: the effect below is written from the
+  behavioral description in the slice brief plus the composable's own API.
+
+  A hero-section text-field effect: a monospaced grid of glyphs shimmering
+  behind (or in front of) hero copy, built directly on `@aihu/use/motion`'s
+  `useCharacterField` (Track B Slice 8), which is itself built on
+  `useCanvasSurface`. Unlike its Slice-10 sibling `node-graph-background`
+  — which had to drop a level because `useParticleField` exposes no draw
+  seam — this component needs nothing the composable does not already do, so
+  it stays at the higher level: the grid, the reflow-on-resize, the three
+  animation modes and the reduced-motion at-rest composition are all
+  `useCharacterField`'s, and this file only maps attributes onto its options.
+
+  `useCanvasSurface` OWNS canvas creation (see its header comment: measuring
+  and styling the same node would feed a `ResizeObserver` a resize loop, so
+  it measures the HOST and styles a canvas it creates itself). This
+  component's `@template` is therefore a plain container — `ref={hostEl}`
+  feeds that host to `useCharacterField`, which mounts its own `<canvas>`
+  inside it; nothing here reaches for a `<canvas>` element directly.
+
+  ── Props ────────────────────────────────────────────────────────────────
+
+  chars:    the glyph set, as a plain string split per code unit. Default
+            "01" — a binary rain reads as "hero for a dev tool", which is
+            what this component is for; the composable's own default
+            (" .:-=+*#%@", a luminance ramp) is the right default for an
+            ASCII-art renderer and the wrong one for a hero backdrop.
+  density:  fraction of grid cells that carry a glyph at all, [0, 1],
+            string-encoded number. Default "0.6". Deliberately below 1: the
+            composable notes that "below 1 the field is sparse, which reads
+            as texture rather than a filled block", and a hero background
+            that renders as a solid block of characters fights the headline
+            sitting on top of it.
+  mode:     drift (default) | pulse | reveal — `useCharacterField`'s closed
+            mode enum, surfaced rather than hard-coded because all three are
+            legitimate hero treatments. `drift` is the default because it is
+            the only continuously AMBIENT one: `reveal` is a one-shot
+            typewriter wipe that finishes in ~1.5s and then sits static
+            forever (right for an entrance, wrong for a persistent
+            backdrop), and `pulse` breathes the whole field's opacity in a
+            way that pulls the eye off the copy. An unrecognized value falls
+            back to `drift` rather than throwing — attributes are untrusted
+            strings and a decorative layer must not be able to break a page.
+  color:    fill color for the glyphs. Default "#ffffff". This is a LITERAL
+            CSS color string, not a `--color-*` token reference — identical
+            constraint to `floating-sparkles` (Slice 9) and
+            `node-graph-background`: a canvas 2D context's `fillStyle` is not
+            part of the CSS cascade and cannot resolve a custom property, so
+            it needs an already-resolved value. Exposed (beyond the three
+            props the slice brief named) for parity with the rest of the
+            Tier-C batch — a decorative canvas layer with no color control is
+            unusable on half the surfaces it would be dropped onto.
+
+  Not exposed: `cellSize`, `fontSize`, `fontFamily`, `speed`, `opacity`,
+  `revealDuration`. Every one of them is an internal look-and-feel constant
+  at this altitude, and the composable's defaults (14px pitch, monospace,
+  0.85 alpha) are already the hero-appropriate values. Widening the surface
+  ahead of a real need is the over-engineering this port keeps declining.
+
+  ── Layout ───────────────────────────────────────────────────────────────
+
+  A standalone, full-bleed, absolutely-positioned decorative layer
+  (`position: absolute; inset: 0`), no slot — the same "decorative background
+  layer" contract `floating-sparkles`, `aurora` and `node-graph-background`
+  carry, for consistency across the Tier-C batch. The consumer places it as
+  the first child of a `position: relative` hero section and stacks the real
+  headline above it with `z-index` (see `useCanvasSurface`'s header: "the
+  host must be positioned" for its owned canvas to land at the host's
+  top-left, which `position: absolute` already satisfies).
+
+  ── Reduced motion / off-screen ──────────────────────────────────────────
+
+  Neither is reimplemented here, and — importantly — neither is FOUGHT here:
+  no local `prefers-reduced-motion` branch is layered on top, because
+  `useCharacterField` already owns a per-mode at-rest composition that a
+  naive component-level override would be strictly worse than. Under
+  `prefers-reduced-motion: reduce`, `useCanvasSurface` paints exactly one
+  frame with `reducedMotion: true` and never arms the rAF loop; the field's
+  `onFrame` then calls its `atRest()` instead of `step()`, which resets every
+  cell to its seeded glyph at full base opacity. That means `drift` freezes
+  on its seeded glyphs, `pulse` holds full opacity, and `reveal` shows the
+  wipe's END state — every cell already revealed, never a frozen half-wipe.
+  A populated field in all three modes, never a blank box.
+  `isVisible`-gated pausing while scrolled off-screen is inherited for free.
+
+  `shadow: 'light'` — see the parent execution plan's theming decision.
+-->
+
+@state {
+  import { cn } from '@aihu/css-engine/runtime/cn'
+
+  shadow: 'light'
+
+  let chars = prop({ default: '01' })
+  let density = prop({ default: '0.6' })
+  let mode = prop({ default: 'drift' })
+  let color = prop({ default: '#ffffff' })
+
+  let hostEl = state(null)
+
+  // Read every prop into a differently-named local before use — an
+  // options-object key textually identical to a prop name (`mode: mode`,
+  // `density: density`, `color: color`) trips the compiler's prop-auto-unwrap
+  // rewriter (see token-stream.aihu's header for the exact failure mode).
+  const glyphs = chars.length > 0 ? chars : '01'
+  const cellDensity = Math.min(1, Math.max(0, Number(density) || 0))
+  const fieldMode = mode === 'pulse' || mode === 'reveal' ? mode : 'drift'
+  const inkColor = color
+
+  useCharacterField(() => hostEl, {
+    characters: glyphs,
+    density: cellDensity,
+    mode: fieldMode,
+    color: inkColor,
+  })
+}
+
+@template {
+  <div
+    ref={hostEl}
+    data-slot="ascii-hero"
+    aria-hidden="true"
+    class={cn('aihu-ascii-hero')}></div>
+}
+
+@style {
+  .aihu-ascii-hero {
+    display: block;
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+}
