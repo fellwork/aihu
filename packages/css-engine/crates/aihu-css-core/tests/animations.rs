@@ -127,6 +127,22 @@ fn slice6_zoom_scale_cluster_snapshot() {
 }
 
 #[test]
+fn slice7_rotate_spin_cluster_snapshot() {
+    let classes: Vec<String> = [
+        "animate-rotate-180",
+        "animate-rotate-360",
+        "animate-rotate-90",
+        "animate-rotate-out",
+        "animate-spin-clockwise",
+        "animate-spin-counter-clockwise",
+    ]
+    .into_iter()
+    .map(String::from)
+    .collect();
+    insta::assert_snapshot!(compile_classes(&classes));
+}
+
+#[test]
 fn reduced_motion_guard_present_for_used_animation() {
     let css = compile_sfc_scoped(&sfc("animate-shake")).unwrap();
     assert!(css.contains("prefers-reduced-motion: reduce"));

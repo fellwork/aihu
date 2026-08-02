@@ -107,9 +107,29 @@ pub static ANIMATIONS: &[Animation] = &[
         keyframes: "@keyframes pop { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }",
     },
     Animation {
+        class: "animate-rotate-180",
+        shorthand: "rotate-180 1s ease-in-out both",
+        keyframes: "@keyframes rotate-180 { 0% { transform: rotate(0deg); } 100% { transform: rotate(180deg); } }",
+    },
+    Animation {
+        class: "animate-rotate-360",
+        shorthand: "rotate-360 1s linear both",
+        keyframes: "@keyframes rotate-360 { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }",
+    },
+    Animation {
+        class: "animate-rotate-90",
+        shorthand: "rotate-90 1s ease-in-out both",
+        keyframes: "@keyframes rotate-90 { 0% { transform: rotate(0deg); } 100% { transform: rotate(90deg); } }",
+    },
+    Animation {
         class: "animate-rotate-in",
         shorthand: "rotate-in 0.6s ease-out both",
         keyframes: "@keyframes rotate-in { 0% { opacity: 0; transform: rotate(-90deg); } 100% { opacity: 1; transform: rotate(0deg); } }",
+    },
+    Animation {
+        class: "animate-rotate-out",
+        shorthand: "rotate-out 0.6s ease-out both",
+        keyframes: "@keyframes rotate-out { 0% { opacity: 1; transform: rotate(0deg); } 100% { opacity: 0; transform: rotate(90deg); } }",
     },
     Animation {
         class: "animate-scale",
@@ -175,6 +195,16 @@ pub static ANIMATIONS: &[Animation] = &[
         class: "animate-slide-rotate-out",
         shorthand: "slide-rotate-out 0.6s ease-out both",
         keyframes: "@keyframes slide-rotate-out { 0% { opacity: 1; transform: translateX(0) rotate(0deg); } 100% { opacity: 0; transform: translateX(20px) rotate(90deg); } }",
+    },
+    Animation {
+        class: "animate-spin-clockwise",
+        shorthand: "spin-clockwise 0.6s linear both",
+        keyframes: "@keyframes spin-clockwise { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }",
+    },
+    Animation {
+        class: "animate-spin-counter-clockwise",
+        shorthand: "spin-counter-clockwise 0.6s linear both",
+        keyframes: "@keyframes spin-counter-clockwise { 0% { transform: rotate(0deg); } 100% { transform: rotate(-360deg); } }",
     },
     Animation {
         class: "animate-zoom-in",

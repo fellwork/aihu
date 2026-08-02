@@ -1,0 +1,17 @@
+---
+source: packages/css-engine/crates/aihu-css-core/tests/animations.rs
+assertion_line: 142
+expression: compile_classes(&classes)
+---
+.animate-rotate-180 { animation: rotate-180 1s ease-in-out both; }
+@keyframes rotate-180 { 0% { transform: rotate(0deg); } 100% { transform: rotate(180deg); } }
+.animate-rotate-360 { animation: rotate-360 1s linear both; }
+@keyframes rotate-360 { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+.animate-rotate-90 { animation: rotate-90 1s ease-in-out both; }
+@keyframes rotate-90 { 0% { transform: rotate(0deg); } 100% { transform: rotate(90deg); } }
+.animate-rotate-out { animation: rotate-out 0.6s ease-out both; }
+@keyframes rotate-out { 0% { opacity: 1; transform: rotate(0deg); } 100% { opacity: 0; transform: rotate(90deg); } }
+.animate-spin-clockwise { animation: spin-clockwise 0.6s linear both; }
+@keyframes spin-clockwise { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+.animate-spin-counter-clockwise { animation: spin-counter-clockwise 0.6s linear both; }
+@keyframes spin-counter-clockwise { 0% { transform: rotate(0deg); } 100% { transform: rotate(-360deg); } }
