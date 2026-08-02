@@ -222,6 +222,11 @@ pub static ANIMATIONS: &[Animation] = &[
         keyframes: "@keyframes roll-in { 0% { transform: translateX(-20px) rotate(-120deg); } 100% { transform: translateX(0) rotate(0); } }",
     },
     Animation {
+        class: "animate-roll-out",
+        shorthand: "roll-out 1s ease-in-out both",
+        keyframes: "@keyframes roll-out { 0% { transform: translateX(0) rotate(0); } 100% { transform: translateX(20px) rotate(120deg); } }",
+    },
+    Animation {
         class: "animate-rotate-180",
         shorthand: "rotate-180 1s ease-in-out both",
         keyframes: "@keyframes rotate-180 { 0% { transform: rotate(0deg); } 100% { transform: rotate(180deg); } }",
@@ -247,6 +252,16 @@ pub static ANIMATIONS: &[Animation] = &[
         keyframes: "@keyframes rotate-out { 0% { opacity: 1; transform: rotate(0deg); } 100% { opacity: 0; transform: rotate(90deg); } }",
     },
     Animation {
+        class: "animate-rotational-wave",
+        shorthand: "rotational-wave 2s ease-in-out infinite both",
+        keyframes: "@keyframes rotational-wave { 0% { transform: rotate(0deg); } 25% { transform: rotate(10deg); } 50% { transform: rotate(-10deg); } 75% { transform: rotate(10deg); } 100% { transform: rotate(0deg); } }",
+    },
+    Animation {
+        class: "animate-rubber-band",
+        shorthand: "rubber-band 1s ease-in-out both",
+        keyframes: "@keyframes rubber-band { 0% { transform: scale(1); } 30% { transform: scale(1.25); } 40% { transform: scale(0.75); } 50% { transform: scale(1.15); } 65% { transform: scale(0.95); } 75% { transform: scale(1.05); } 100% { transform: scale(1); } }",
+    },
+    Animation {
         class: "animate-scale",
         shorthand: "scale 0.6s ease-out both",
         keyframes: "@keyframes scale { 0% { transform: scale(1); } 100% { transform: scale(1.10); } }",
@@ -255,6 +270,21 @@ pub static ANIMATIONS: &[Animation] = &[
         class: "animate-shake",
         shorthand: "shake 0.5s ease-in-out both",
         keyframes: "@keyframes shake { 0% { transform: translateX(0); } 25% { transform: translateX(-10px); } 50% { transform: translateX(10px); } 75% { transform: translateX(-10px); } 100% { transform: translateX(0); } }",
+    },
+    Animation {
+        class: "animate-sink",
+        shorthand: "sink 1s ease-in-out both",
+        keyframes: "@keyframes sink { 0% { transform: translateY(-10px); } 50% { transform: translateY(0); } 100% { transform: translateY(-10px); } }",
+    },
+    Animation {
+        class: "animate-skew",
+        shorthand: "skew 0.5s ease-in-out both",
+        keyframes: "@keyframes skew { 0% { transform: skew(0deg); } 100% { transform: skew(20deg); } }",
+    },
+    Animation {
+        class: "animate-skew-right",
+        shorthand: "skew-right 0.5s ease-in-out both",
+        keyframes: "@keyframes skew-right { 0% { transform: skew(0deg); } 100% { transform: skew(-20deg); } }",
     },
     Animation {
         // `--tw-anim-slide-distance` (upstream, default `20px`) is renamed to
@@ -320,6 +350,46 @@ pub static ANIMATIONS: &[Animation] = &[
         class: "animate-spin-counter-clockwise",
         shorthand: "spin-counter-clockwise 0.6s linear both",
         keyframes: "@keyframes spin-counter-clockwise { 0% { transform: rotate(0deg); } 100% { transform: rotate(-360deg); } }",
+    },
+    Animation {
+        class: "animate-squeeze",
+        shorthand: "squeeze 0.6s ease-in-out both",
+        keyframes: "@keyframes squeeze { 0%, 100% { transform: scale(1, 1); } 50% { transform: scale(1.1, 0.9); } }",
+    },
+    Animation {
+        class: "animate-sway",
+        shorthand: "sway 0.6s ease-out both",
+        keyframes: "@keyframes sway { 0% { transform: rotate(0deg); } 50% { transform: rotate(15deg); } 100% { transform: rotate(0deg); } }",
+    },
+    Animation {
+        class: "animate-swing",
+        shorthand: "swing 1s ease-in-out both",
+        keyframes: "@keyframes swing { 0% { transform: rotate(0deg); } 50% { transform: rotate(15deg); } 100% { transform: rotate(0deg); } }",
+    },
+    Animation {
+        class: "animate-swing-drop-in",
+        shorthand: "swing-drop-in 0.6s ease-out both",
+        keyframes: "@keyframes swing-drop-in { 0% { transform: rotate(-30deg) translateY(-50px); opacity: 0; } 100% { transform: rotate(0deg) translateY(0); opacity: 1; } }",
+    },
+    Animation {
+        class: "animate-tada",
+        shorthand: "tada 1s ease-in-out both",
+        keyframes: "@keyframes tada { 0% { transform: scale(1); } 10% { transform: scale(0.9) rotate(-3deg); } 20% { transform: scale(0.9) rotate(-3deg); } 30% { transform: scale(1.1) rotate(3deg); } 40% { transform: scale(1.1) rotate(-3deg); } 50% { transform: scale(1.1) rotate(3deg); } 60% { transform: scale(1.1) rotate(-3deg); } 70% { transform: scale(1.1) rotate(3deg); } 80% { transform: scale(1.1) rotate(3deg); } 90% { transform: scale(1.1) rotate(3deg); } 100% { transform: scale(1) rotate(0); } }",
+    },
+    Animation {
+        class: "animate-tilt",
+        shorthand: "tilt 0.6s ease-in-out both",
+        keyframes: "@keyframes tilt { 0% { transform: rotateY(0deg); } 50% { transform: rotateY(20deg); } 100% { transform: rotateY(0deg); } }",
+    },
+    Animation {
+        class: "animate-vertical-bounce",
+        shorthand: "vertical-bounce 0.6s ease-in-out both",
+        keyframes: "@keyframes vertical-bounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-20px); } }",
+    },
+    Animation {
+        class: "animate-wobble",
+        shorthand: "wobble 1s ease-in-out both",
+        keyframes: "@keyframes wobble { 0% { transform: translateX(0); } 15% { transform: translateX(-20px); } 30% { transform: translateX(20%); } 45% { transform: translateX(-15%); } 60% { transform: translateX(20px); } 75% { transform: translateX(-5%); } 100% { transform: translateX(0); } }",
     },
     Animation {
         class: "animate-zoom-in",
