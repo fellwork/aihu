@@ -1,0 +1,132 @@
+<!--
+  aihu-chat-fab — styled recipe (Phase 2, performativeUI port Slice 7 —
+  docs/plans/2026-08-01-performative-ui-port.md §Tier-B batch 3).
+
+  Roadmap: "= button + popover, deliberately avoiding a toast primitive." A
+  fixed-position circular floating-action button that toggles a small panel —
+  a generic chat-launcher SHELL. No chat logic lives here: the panel content
+  is a plain default `<slot>`, left entirely to the consumer.
+
+  COMPOSE, NOT EXTEND — same rationale `before-after.aihu`'s header documents:
+  `aihu-chat-fab` is not itself a styled popover, it's a FAB that happens to
+  use one internally, so it composes the `popover-{root,trigger,content}`
+  STYLED RECIPE pieces (this slice's item #1) as children in its own
+  `@template`, rather than extending `AihuPopoverRoot` directly. Using the
+  STYLED recipe tags (not the raw `@aihu/primitives/popover` primitive under
+  the default `aihu-` prefix) is deliberate: `popover-root.aihu` already
+  registers `aihu-popover-root`/`-trigger`/`-content` via the compiler's
+  `$extends:` macro, and calling `definePopover('aihu')` again here would be a
+  SECOND `customElements.define` for the same tag names — a real collision the
+  moment both this recipe and the popover recipe are loaded in the same page
+  (as they are, e.g., in this very Storybook). `registryDependencies:
+  ["popover"]` (see meta.json) documents the real dependency, matching the
+  established `eyebrow-pill` + `status-dot` composition precedent: the child
+  tags are used directly in markup, and whichever entry point loads first
+  registers them (this recipe's own `.stories.ts` imports both, same as
+  `eyebrow-pill.stories.ts` imports `status-dot.aihu`).
+
+  label:  accessible name for the icon-only trigger button. Default "Chat".
+  placement: forwarded to the composed `<aihu-popover-root placement=...>` —
+             default "top" (the panel opens ABOVE a corner-anchored button).
+  corner: bottom-right (default) | bottom-left | top-right | top-left — fixed-
+          position anchor corner. A `position` prop was considered per the
+          roadmap note, but a closed vocabulary of corners is what a FAB
+          actually needs (arbitrary `top`/`left`/`right`/`bottom` coordinates
+          would just invite fighting the built-in `position: fixed` anchor,
+          which is not a real use case for a launcher button).
+
+  `shadow: 'light'` so the composed popover pieces sit in one continuous
+  light-DOM tree — required for `injectContext`'s ancestor walk to find the
+  root's provided context from the trigger/content descendants.
+
+  `aihu add` rewrites the `aihu-` prefix (tag + selectors) at copy time.
+-->
+
+@state {
+  import { cn } from '@aihu/css-engine/runtime/cn'
+
+  shadow: 'light'
+
+  let label = prop({ default: 'Chat' })
+  let placement = prop({ default: 'top' })
+  let corner = prop({ default: 'bottom-right' })
+}
+
+@template {
+  <div class={cn('aihu-chat-fab-anchor')} data-corner={corner}>
+    <aihu-popover-root placement={placement}>
+      <aihu-popover-trigger class="aihu-chat-fab-trigger" aria-label={label}>
+        <span class="aihu-chat-fab-icon" aria-hidden="true">
+          <slot name="icon">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+            </svg>
+          </slot>
+        </span>
+      </aihu-popover-trigger>
+      <aihu-popover-content class="aihu-chat-fab-panel">
+        <slot></slot>
+      </aihu-popover-content>
+    </aihu-popover-root>
+  </div>
+}
+
+@style {
+  aihu-chat-fab {
+    display: contents;
+  }
+  .aihu-chat-fab-anchor {
+    position: fixed;
+    z-index: 40;
+  }
+  .aihu-chat-fab-anchor[data-corner="bottom-right"] {
+    bottom: 1.5rem;
+    right: 1.5rem;
+  }
+  .aihu-chat-fab-anchor[data-corner="bottom-left"] {
+    bottom: 1.5rem;
+    left: 1.5rem;
+  }
+  .aihu-chat-fab-anchor[data-corner="top-right"] {
+    top: 1.5rem;
+    right: 1.5rem;
+  }
+  .aihu-chat-fab-anchor[data-corner="top-left"] {
+    top: 1.5rem;
+    left: 1.5rem;
+  }
+
+  /* Overrides `aihu-popover-trigger`'s pill-button shape with a circular FAB.
+     Class-selector specificity (0,1,0) beats the base recipe's element/attr
+     rules (0,0,1 / 0,0,2), so these win regardless of stylesheet order. */
+  .aihu-chat-fab-trigger {
+    width: 3.5rem;
+    height: 3.5rem;
+    padding: 0;
+    border: none;
+    border-radius: 9999px;
+    background-color: var(--color-primary);
+    color: var(--color-primary-foreground);
+    box-shadow: 0 4px 14px color-mix(in oklab, var(--color-foreground) 30%, transparent);
+  }
+  .aihu-chat-fab-trigger:hover {
+    background-color: var(--color-primary);
+    filter: brightness(1.08);
+  }
+  .aihu-chat-fab-trigger[data-state="open"] {
+    background-color: var(--color-primary);
+  }
+  .aihu-chat-fab-icon {
+    display: inline-flex;
+  }
+
+  /* Overrides `aihu-popover-content`'s default panel sizing with a chat-panel
+     shape — same specificity argument as the trigger override above. */
+  .aihu-chat-fab-panel {
+    width: min(22rem, calc(100vw - 3rem));
+    max-width: none;
+    min-height: 16rem;
+    max-height: min(28rem, calc(100vh - 8rem));
+    overflow: auto;
+  }
+}

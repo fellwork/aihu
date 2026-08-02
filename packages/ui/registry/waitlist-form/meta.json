@@ -1,0 +1,15 @@
+{
+  "name": "waitlist-form",
+  "type": "ui",
+  "description": "Email-capture form with an inline success state — dispatches `waitlist-submit` ({ email }) for the consumer to wire the real request; no popover, no network logic.",
+  "meta": {
+    "capabilities": {
+      "interactive": true,
+      "hoverable": true,
+      "keyboard": true,
+      "form": true,
+      "overlay": false,
+      "directional": false
+    }
+  }
+}

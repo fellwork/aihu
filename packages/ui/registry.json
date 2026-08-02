@@ -138,6 +138,30 @@
       }
     },
     {
+      "name": "chat-fab",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/chat-fab/chat-fab.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Floating action button + non-modal popover panel shell — a generic chat-launcher, deliberately with no chat logic (panel content is a plain slot).",
+      "dependencies": ["@aihu/primitives"],
+      "registryDependencies": ["popover"],
+      "meta": {
+        "capabilities": {
+          "interactive": true,
+          "hoverable": false,
+          "keyboard": true,
+          "form": false,
+          "overlay": true,
+          "trapsFocus": false,
+          "directional": false
+        }
+      }
+    },
+    {
       "name": "checkbox",
       "type": "ui",
       "files": [
@@ -400,6 +424,37 @@
           "keyboard": false,
           "form": false,
           "overlay": false,
+          "directional": false
+        }
+      }
+    },
+    {
+      "name": "popover",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/popover/popover-content.aihu",
+          "type": "component"
+        },
+        {
+          "path": "registry/popover/popover-root.aihu",
+          "type": "component"
+        },
+        {
+          "path": "registry/popover/popover-trigger.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Styled non-modal popover recipe — light-DOM pieces extending the headless AihuPopover primitives (disclosure trigger, positioned panel, outside-pointerdown + Escape dismissal, no focus trap).",
+      "dependencies": ["@aihu/primitives"],
+      "meta": {
+        "capabilities": {
+          "interactive": true,
+          "hoverable": false,
+          "keyboard": true,
+          "form": false,
+          "overlay": true,
+          "trapsFocus": false,
           "directional": false
         }
       }
@@ -677,6 +732,28 @@
       }
     },
     {
+      "name": "temperature",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/temperature/temperature.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Styled 3-value response-temperature preset picker (Precise / Balanced / Creative) — light-DOM element extending the headless AihuRadioGroupRoot primitive (roving tabindex, arrow-key selection, native form participation).",
+      "dependencies": ["@aihu/primitives"],
+      "meta": {
+        "capabilities": {
+          "interactive": true,
+          "hoverable": false,
+          "keyboard": true,
+          "form": true,
+          "overlay": false,
+          "directional": true
+        }
+      }
+    },
+    {
       "name": "textarea",
       "type": "ui",
       "files": [
@@ -747,6 +824,27 @@
           "form": false,
           "overlay": true,
           "trapsFocus": false,
+          "directional": false
+        }
+      }
+    },
+    {
+      "name": "waitlist-form",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/waitlist-form/waitlist-form.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Email-capture form with an inline success state — dispatches `waitlist-submit` ({ email }) for the consumer to wire the real request; no popover, no network logic.",
+      "meta": {
+        "capabilities": {
+          "interactive": true,
+          "hoverable": true,
+          "keyboard": true,
+          "form": true,
+          "overlay": false,
           "directional": false
         }
       }

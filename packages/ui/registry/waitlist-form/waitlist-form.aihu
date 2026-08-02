@@ -1,0 +1,246 @@
+<!--
+  aihu-waitlist-form — styled recipe (Phase 2, performativeUI port Slice 7 —
+  docs/plans/2026-08-01-performative-ui-port.md §Tier-B batch 3).
+
+  An email-capture form with an inline success state after submit.
+
+  NO NETWORK LOGIC HERE — submitting dispatches `waitlist-submit` (detail
+  `{ email: string }`, bubbles, composed) and swaps to the success message;
+  the consumer owns the actual request (and can call `setAttribute('submitted',
+  '')` — see below — or just let the component's own optimistic swap stand,
+  their call).
+
+  DESIGN DECISION — inline state swap, NOT a popover. The roadmap flags this
+  as "overlay-dependent"-adjacent and floats a popover for the success state,
+  but a form's own success message is not a disclosure over something else —
+  it doesn't need `role="dialog"`, positioning, outside-dismissal, or any of
+  the overlay primitive's machinery. A `<group if=...>` swap between the form
+  and a `role="status"` message is the honest, simpler surface: it works with
+  zero JS beyond the swap itself, needs no z-index/portal reasoning, and reads
+  correctly to a screen reader via the SAME live-region mechanism a toast
+  would use anyway. Building the popover-backed version here would be pure
+  ceremony over a plain "swap this text" requirement.
+
+  DESIGN DECISION — plain native `<input type="email">` / `<button>`, NOT the
+  registry's `input`/`button` recipes and NOT `@aihu/primitives/input` +
+  `@aihu/primitives/form-control`. Three reasons: (1) the registry's OWN
+  `input.aihu` recipe is itself just a styled native `<input>` wrapper with NO
+  `$extends` ("the native control plus light DOM is enough for forms" — see
+  its header) — reusing it here would add a cross-recipe dependency for zero
+  behavioral gain over writing the same native element locally; (2)
+  `@aihu/primitives/input`'s `AihuInput` registers under the SAME default
+  `aihu-input` tag the registry's `input.aihu` recipe also compiles to — a
+  real double-registration collision the moment both are loaded together (the
+  same hazard `chat-fab.aihu`'s header documents for popover), avoidable
+  entirely by not registering a custom element for the field at all; (3) a
+  single email field needs exactly the a11y that a real `<label>` WRAPPING a
+  real `<input>` already gives it for free (implicit label association, no id
+  bookkeeping) — `@aihu/primitives/form-control`'s slotted `aria-describedby`/
+  `for` wiring solves a harder problem (multi-piece coordination) this
+  single-field form doesn't have.
+
+  No `submitting` signal: there is no real async operation in this component
+  (the actual network call is the consumer's job, wired off `waitlist-submit`)
+  — the form→success swap is synchronous, so there is no in-flight window a
+  disabled/submitting state would ever cover. `disabled` IS supported (a
+  consumer showing their OWN pending state can set it) — forwarded to both the
+  input and the submit button.
+
+  `shadow: 'light'` — see the parent execution plan's theming decision.
+
+  REAL DEFECTS FOUND AND WORKED AROUND, not framework fixes in scope for this
+  slice:
+
+  1. A bare `required` attribute (no `={...}`) on a template element compiles
+     to the static primitive `required: ''` (`packages/arbor/src/attrs.ts`
+     `_setAttrOrProp`'s "static primitive" path). Because `'required' in
+     HTMLInputElement.prototype` is true, that path assigns the DOM PROPERTY
+     (`el.required = ''`), and `required` is a boolean IDL attribute — `''`
+     coerces to `false`, so the constraint SILENTLY NEVER APPLIES. Every other
+     boolean-property attribute in this registry (`disabled`, `checked`, …) is
+     always bound through a real `prop()` boolean (`disabled={disabled}`),
+     which never hits this trap — `required` is only ever written here as a
+     literal `required={true}` for exactly that reason.
+     (`cookbook/form-validation.aihu` has the same bare-`required` shape and
+     is very likely affected too, but fixing a cookbook doc is out of scope
+     here.)
+
+  2. `ref={...}` on an element inside a `<group if=...>` populates its signal
+     LATE — through a SEPARATE `onMount` the compiler registers only once the
+     conditional branch is actually grown, not the synchronous ref-before-
+     onMount assignment `before-after.aihu`'s header documents for an
+     UNconditional top-level ref. A first attempt put `ref={formEl}` on the
+     `<form>` itself (which only exists while `!submitted`) and read it back
+     in an `effect()` — in principle reactive-enough to attach once the ref
+     lands, but it never actually did (empirically verified with a direct
+     `dispatchEvent(new Event('submit', {cancelable:true}))` probe:
+     `defaultPrevented` stayed `false` no matter what). Root-caused as a real,
+     narrow gap in this specific ref-inside-`<group if>`-plus-`effect()`
+     combination — not a framework fix in scope here. WORKED AROUND instead by
+     moving `ref={containerEl}` to the ALWAYS-PRESENT outer `<div>` (never
+     conditional, so it gets the proven synchronous top-level-ref path) and
+     listening for `submit` there: the event BUBBLES up from the
+     conditionally-rendered `<form>` through the light-DOM tree regardless
+     (`shadow: 'light'` has no real ShadowRoot to stop it), so a single
+     container-level listener sees every submit without ever needing a ref
+     into the conditional branch at all.
+-->
+
+@state {
+  import { cn } from '@aihu/css-engine/runtime/cn'
+
+  shadow: 'light'
+
+  let label = prop({ default: 'Email' })
+  let placeholder = prop({ default: 'you@example.com' })
+  let buttonLabel = prop({ default: 'Join the waitlist' })
+  let successMessage = prop({ default: "You're on the list — we'll be in touch." })
+  let disabled = prop({ default: false })
+
+  let containerEl = state(null)
+  let submitted = state(false)
+
+  onMount(() => {
+    if (!containerEl) return
+    const container = containerEl
+    const onSubmit = (ev) => {
+      const form = ev.target
+      if (!(form instanceof HTMLFormElement)) return
+      ev.preventDefault()
+      const input = form.querySelector('input[type="email"]')
+      const email = input ? input.value.trim() : ''
+      if (!email) return
+      submitted = true
+      container.dispatchEvent(
+        new CustomEvent('waitlist-submit', {
+          detail: { email },
+          bubbles: true,
+          composed: true,
+        }),
+      )
+    }
+    container.addEventListener('submit', onSubmit)
+  })
+}
+
+@template {
+  <div ref={containerEl} data-slot="waitlist-form" class={cn('aihu-waitlist-form')}>
+    <group if={!submitted}>
+      <form class="aihu-waitlist-form-form">
+        <label class="aihu-waitlist-form-label">
+          <span class="aihu-waitlist-form-label-text">{label}</span>
+          <input
+            type="email"
+            class="aihu-waitlist-form-input"
+            name="email"
+            placeholder={placeholder}
+            required={true}
+            disabled={disabled}
+            autocomplete="email" />
+        </label>
+        <button type="submit" class="aihu-waitlist-form-submit" disabled={disabled}>
+          {buttonLabel}
+        </button>
+      </form>
+    </group>
+    <group if={submitted}>
+      <p class="aihu-waitlist-form-success" role="status">{successMessage}</p>
+    </group>
+  </div>
+}
+
+@style {
+  .aihu-waitlist-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    max-width: 24rem;
+  }
+  .aihu-waitlist-form-form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: var(--space-2);
+  }
+  .aihu-waitlist-form-label {
+    display: flex;
+    flex: 1 1 12rem;
+    flex-direction: column;
+    gap: var(--space-1);
+    font-family: var(--font-sans);
+  }
+  .aihu-waitlist-form-label-text {
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--color-foreground);
+  }
+  .aihu-waitlist-form-input {
+    height: 2.25rem;
+    padding: var(--space-1) var(--space-3);
+    font-family: var(--font-sans);
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    color: var(--color-foreground);
+    background-color: var(--color-background);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .aihu-waitlist-form-input::placeholder {
+    color: var(--color-muted-foreground);
+  }
+  .aihu-waitlist-form-input:focus-visible {
+    outline: none;
+    border-color: var(--color-ring);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-ring) 35%, transparent);
+  }
+  .aihu-waitlist-form-input:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .aihu-waitlist-form-input:invalid:not(:placeholder-shown) {
+    border-color: var(--color-destructive);
+  }
+  .aihu-waitlist-form-submit {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 2.25rem;
+    padding-inline: 1.25rem;
+    font-family: var(--font-sans);
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--color-primary-foreground);
+    background-color: var(--color-primary);
+    border: none;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: filter 0.15s;
+  }
+  .aihu-waitlist-form-submit:hover {
+    filter: brightness(1.06);
+  }
+  .aihu-waitlist-form-submit:focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+  }
+  .aihu-waitlist-form-submit:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .aihu-waitlist-form-success {
+    margin: 0;
+    padding: var(--space-3) var(--space-4);
+    font-family: var(--font-sans);
+    font-size: 0.875rem;
+    /* `--color-success-foreground` is a solid-fill pairing (cream-on-green) —
+       wrong ink for a light TINTED background. `color-mix` toward
+       `--color-foreground` is the same tinted-surface pattern
+       `eyebrow-pill.aihu`'s `tone="success"` rule uses. */
+    color: color-mix(in oklab, var(--color-success) 60%, var(--color-foreground));
+    background-color: color-mix(in oklab, var(--color-success) 12%, transparent);
+    border: 1px solid var(--color-success);
+    border-radius: var(--radius-md);
+  }
+}

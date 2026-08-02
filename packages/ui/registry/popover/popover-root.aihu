@@ -1,0 +1,32 @@
+<!--
+  aihu-popover-root — styled recipe piece (Phase 2, master spec §9.4 / §9.7,
+  performativeUI port Slice 7 — docs/plans/2026-08-01-performative-ui-port.md
+  §Tier-B batch 3).
+
+  The state owner of the non-modal popover machine. `<aihu-popover-root>`
+  EXTENDS the headless AihuPopoverRoot primitive (owns `open`/`placement`,
+  provides the popover context, reflects `data-state`, binds the outside-
+  pointerdown dismissal) via the compiler's `$extends:` macro — same shape as
+  `dialog-root`/`tooltip-root`. Light DOM (`$shadow: 'light'`) so descendant
+  pieces inject the context; `display: contents` keeps the root visually
+  transparent.
+
+  `aihu add` rewrites the `aihu-` prefix (tag + selectors) at copy time.
+-->
+
+@state {
+  import { AihuPopoverRoot } from '@aihu/primitives/popover'
+
+  base: AihuPopoverRoot
+  shadow: 'light'
+}
+
+@template {
+  <slot></slot>
+}
+
+@style {
+  aihu-popover-root {
+    display: contents;
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "name": "popover",
+  "type": "ui",
+  "description": "Styled non-modal popover recipe — light-DOM pieces extending the headless AihuPopover primitives (disclosure trigger, positioned panel, outside-pointerdown + Escape dismissal, no focus trap).",
+  "dependencies": ["@aihu/primitives"],
+  "meta": {
+    "capabilities": {
+      "interactive": true,
+      "hoverable": false,
+      "keyboard": true,
+      "form": false,
+      "overlay": true,
+      "trapsFocus": false,
+      "directional": false
+    }
+  }
+}
