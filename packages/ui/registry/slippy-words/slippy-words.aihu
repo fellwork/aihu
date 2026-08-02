@@ -9,9 +9,11 @@
   time, the highlighted word advancing left to right, looping. Built on
   `@aihu/use/motion`'s `useSequence` cycling over word INDICES (not the
   words themselves) — every word stays mounted the whole time, so this
-  needs no keyed re-mount trick (unlike `aihu-rotator`/`aihu-word-roll`):
-  toggling the `data-active` attribute on/off is what restarts the ported
-  `animate-jiggle` utility (tailwind-animations port, Track A) each pass.
+  needs no keyed re-mount trick (unlike `aihu-rotator`/`aihu-word-roll`).
+  What restarts the ported `animate-jiggle` utility (tailwind-animations
+  port, Track A) each pass is `cn()` adding/removing the CLASS on the
+  active word's `class` binding below — `data-active` is plain state for
+  the `@style` selector, it carries no animation itself.
 
   text:     space-separated sentence, e.g. "Ship it before you overthink
             it". Read once at setup (custom-element attrs are strings, not

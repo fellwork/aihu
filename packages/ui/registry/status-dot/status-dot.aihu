@@ -20,6 +20,17 @@
   runtime dark-mode/theme-catalog switching, per the light-DOM token-scope
   guarantee (@layer aihu.tokens at :root always outranks a stale per-component
   :host snapshot). See the parent execution plan's theming decision.
+
+  `role="img"` needs an accessible name (WCAG 1.1.1) — with the default empty
+  `label` (the shape every composed usage in `eyebrow-pill`/`community-badge`
+  uses today, pairing the dot with adjacent visible text instead) this dot has
+  none. `aria-hidden` tracks whether `label` is non-empty: when it's empty the
+  dot drops out of the accessibility tree entirely (matching `sparkle`'s
+  decorative-by-default pattern), so `role="img"`/`aria-label=""` are never
+  exposed to assistive tech in the first place — the compiler's attribute
+  binding always calls `setAttribute` (no removal path for `undefined`), so
+  conditionally OMITTING `role`/`aria-label` isn't an option here; gating
+  exposure via `aria-hidden` is.
 -->
 
 @state {
@@ -41,6 +52,7 @@
     data-pulse={pulse}
     role="img"
     aria-label={label}
+    aria-hidden={label ? 'false' : 'true'}
     class={cn('aihu-status-dot')}>
     <span class="aihu-status-dot-ring" aria-hidden="true"></span>
   </span>

@@ -13,6 +13,13 @@
   cycling — `useSequence` already does this (auto-advance never fires while
   `prefersReduced()` is true), no extra work needed here.
 
+  `role="status"` on the OUTER element carries an implicit `aria-live="polite"`
+  — applying it to an element whose entire content is the 80ms-churning glyph
+  would announce a content change roughly 12 times per second. The glyph is
+  therefore `aria-hidden="true"` (purely decorative), and the accessible name
+  comes from a separate `sr-only` "Loading" span that never changes — the live
+  region only ever announces once, on mount.
+
   size: sm | md (default) | lg
   tone: neutral (default) | accent
 
@@ -39,9 +46,9 @@
     data-size={size}
     data-tone={tone}
     role="status"
-    aria-label="Loading"
     class={cn('aihu-wibbling-spinner')}>
-    {current()}
+    <span aria-hidden="true">{current()}</span>
+    <span class="sr-only">Loading</span>
   </span>
 }
 
