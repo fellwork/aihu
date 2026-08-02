@@ -18,7 +18,10 @@ import { fileURLToPath } from 'node:url'
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 
 // The design doc is allowed to name the pattern it forbids everywhere else.
-const ALLOWLIST = ['docs/plans/2026-08-01-performative-ui-port.md', 'scripts/check-no-vendored-pui.ts']
+const ALLOWLIST = [
+  'docs/plans/2026-08-01-performative-ui-port.md',
+  'scripts/check-no-vendored-pui.ts',
+]
 
 // Structural usage patterns that indicate an ACTUAL `pui-` class was copied
 // into markup/CSS — not prose mentioning the convention. Attribution comments

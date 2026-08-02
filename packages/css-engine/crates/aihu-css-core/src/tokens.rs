@@ -158,6 +158,19 @@ pub fn conflict_groups() -> Vec<(&'static str, &'static str)> {
     // 'animate-shake')` must keep only the last one.
     out.push(("animate", "animation"));
 
+    // tailwind-animations port, Slice 2 — modifier families, each its own
+    // group so e.g. `animate-delay-100 animate-delay-500` collides but
+    // `animate-delay-100 animate-duration-500` does not. Registered BEFORE
+    // the blanket `animate` prefix above in source order — cn.ts's generated
+    // map sorts by prefix length descending, so the longer, more specific
+    // prefixes here win regardless of this list's order; stated for clarity.
+    out.push(("animate-delay", "animation-delay"));
+    out.push(("animate-duration", "animation-duration"));
+    out.push(("animate-iteration-count", "animation-iteration-count"));
+    out.push(("animate-fill-mode", "animation-fill-mode"));
+    out.push(("animate-direction", "animation-direction"));
+    out.push(("animate-play", "animation-play-state"));
+
     out
 }
 
@@ -452,6 +465,10 @@ fn arbitrary_prop(prefix: &str) -> Option<&'static str> {
         "font" => "font-family",
         "leading-trim" => "line-height",
         "outline-offset" => "outline-offset",
+        // tailwind-animations port, Slice 3 — `animate-bezier-[.4,0,.2,1]` has
+        // no closed value set (arbitrary cubic-bezier args), so it's arbitrary-
+        // value-only, unlike the closed-keyword animate-ease* family above.
+        "animate-bezier" => "animation-timing-function",
         _ => return None,
     })
 }
@@ -832,6 +849,30 @@ fn fixed_utility(class_name: &str) -> Option<&'static str> {
         "animate-ping" => "animation: ping 1s cubic-bezier(0, 0, 0.2, 1) infinite;",
         "animate-pulse" => "animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;",
         "animate-bounce" => "animation: bounce 1s infinite;",
+
+        // tailwind-animations port, Slice 2 (docs/plans/2026-08-01-tailwind-animations-port.md) —
+        // closed-keyword modifier families for the ported catalog. Direction/
+        // play-state/fill-mode are fixed sets (not parameterized); delay/
+        // duration/iteration-count are parameterized (see parameterized_utility).
+        "animate-direction-normal" => "animation-direction: normal;",
+        "animate-direction-reverse" => "animation-direction: reverse;",
+        "animate-direction-alternate" => "animation-direction: alternate;",
+        "animate-direction-alternate-reverse" => "animation-direction: alternate-reverse;",
+        "animate-play-running" => "animation-play-state: running;",
+        "animate-play-paused" => "animation-play-state: paused;",
+        "animate-fill-mode-none" => "animation-fill-mode: none;",
+        "animate-fill-mode-forwards" => "animation-fill-mode: forwards;",
+        "animate-fill-mode-backwards" => "animation-fill-mode: backwards;",
+        "animate-fill-mode-both" => "animation-fill-mode: both;",
+
+        // tailwind-animations port, Slice 3 — easing modifiers. Distinct
+        // names from the existing `ease-*` utilities above, which set
+        // `transition-timing-function`; these set `animation-timing-function`.
+        "animate-ease" => "animation-timing-function: ease;",
+        "animate-ease-in" => "animation-timing-function: ease-in;",
+        "animate-ease-out" => "animation-timing-function: ease-out;",
+        "animate-ease-in-out" => "animation-timing-function: ease-in-out;",
+        "animate-linear" => "animation-timing-function: linear;",
 
         // --- Parity round: long-tail fixed utilities ----------------------
 
@@ -1302,6 +1343,36 @@ fn parameterized_utility(prefix: &str, value: &str) -> Option<String> {
     if prefix == "duration" {
         if let Some(ms) = positive_int_or_zero(value) {
             return Some(format!("transition-duration: {ms}ms;"));
+        }
+    }
+
+    // tailwind-animations port, Slice 2 — parameterized animation modifiers.
+    // Distinct prefixes from `duration`/`ease-*` above (those target
+    // `transition-*`; these target `animation-*`).
+    if prefix == "animate-delay" {
+        if let Some(ms) = positive_int_or_zero(value) {
+            return Some(format!("animation-delay: {ms}ms;"));
+        }
+    }
+    if prefix == "animate-duration" {
+        if let Some(ms) = positive_int_or_zero(value) {
+            return Some(format!("animation-duration: {ms}ms;"));
+        }
+    }
+    if prefix == "animate-iteration-count" {
+        if value == "infinite" {
+            return Some("animation-iteration-count: infinite;".to_string());
+        }
+        if let Some(n) = positive_int(value) {
+            return Some(format!("animation-iteration-count: {n};"));
+        }
+    }
+    // Slice 3 — `animate-steps-4` → `steps(4)`. `animate-bezier-[...]` (the
+    // arbitrary-value form) is registered via `arbitrary_prop` below, not
+    // here, since it has no closed integer/keyword set.
+    if prefix == "animate-steps" {
+        if let Some(n) = positive_int(value) {
+            return Some(format!("animation-timing-function: steps({n});"));
         }
     }
 

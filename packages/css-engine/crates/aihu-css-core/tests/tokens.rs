@@ -555,6 +555,114 @@ fn animate_ping_pulse_bounce_emit_keyframes() {
 }
 
 #[test]
+fn animate_delay_and_duration_emit_milliseconds() {
+    assert_eq!(
+        css(&["animate-delay-200"]),
+        ".animate-delay-200 { animation-delay: 200ms; }\n"
+    );
+    assert_eq!(
+        css(&["animate-duration-750"]),
+        ".animate-duration-750 { animation-duration: 750ms; }\n"
+    );
+}
+
+#[test]
+fn animate_iteration_count_emits_number_or_infinite() {
+    assert_eq!(
+        css(&["animate-iteration-count-3"]),
+        ".animate-iteration-count-3 { animation-iteration-count: 3; }\n"
+    );
+    assert_eq!(
+        css(&["animate-iteration-count-infinite"]),
+        ".animate-iteration-count-infinite { animation-iteration-count: infinite; }\n"
+    );
+}
+
+#[test]
+fn animate_fill_mode_emits_all_four_keywords() {
+    for (class, value) in [
+        ("animate-fill-mode-none", "none"),
+        ("animate-fill-mode-forwards", "forwards"),
+        ("animate-fill-mode-backwards", "backwards"),
+        ("animate-fill-mode-both", "both"),
+    ] {
+        assert_eq!(
+            css(&[class]),
+            format!(".{class} {{ animation-fill-mode: {value}; }}\n")
+        );
+    }
+}
+
+#[test]
+fn animate_direction_emits_all_four_keywords() {
+    for (class, value) in [
+        ("animate-direction-normal", "normal"),
+        ("animate-direction-reverse", "reverse"),
+        ("animate-direction-alternate", "alternate"),
+        ("animate-direction-alternate-reverse", "alternate-reverse"),
+    ] {
+        assert_eq!(
+            css(&[class]),
+            format!(".{class} {{ animation-direction: {value}; }}\n")
+        );
+    }
+}
+
+#[test]
+fn animate_play_state_emits_running_and_paused() {
+    assert_eq!(
+        css(&["animate-play-running"]),
+        ".animate-play-running { animation-play-state: running; }\n"
+    );
+    assert_eq!(
+        css(&["animate-play-paused"]),
+        ".animate-play-paused { animation-play-state: paused; }\n"
+    );
+}
+
+#[test]
+fn animate_ease_family_emits_animation_timing_function() {
+    // Distinct from the existing ease-*/ease-linear utilities, which target
+    // transition-timing-function.
+    assert_eq!(
+        css(&["animate-ease"]),
+        ".animate-ease { animation-timing-function: ease; }\n"
+    );
+    assert_eq!(
+        css(&["animate-ease-in"]),
+        ".animate-ease-in { animation-timing-function: ease-in; }\n"
+    );
+    assert_eq!(
+        css(&["animate-ease-out"]),
+        ".animate-ease-out { animation-timing-function: ease-out; }\n"
+    );
+    assert_eq!(
+        css(&["animate-ease-in-out"]),
+        ".animate-ease-in-out { animation-timing-function: ease-in-out; }\n"
+    );
+    assert_eq!(
+        css(&["animate-linear"]),
+        ".animate-linear { animation-timing-function: linear; }\n"
+    );
+}
+
+#[test]
+fn animate_steps_emits_steps_function() {
+    assert_eq!(
+        css(&["animate-steps-4"]),
+        ".animate-steps-4 { animation-timing-function: steps(4); }\n"
+    );
+}
+
+#[test]
+fn animate_bezier_arbitrary_value_emits_animation_timing_function() {
+    assert_eq!(
+        css(&["animate-bezier-[.4,0,.2,1]"]),
+        ".animate-bezier-[.4,0,.2,1] { animation-timing-function: .4,0,.2,1; }\n"
+    );
+}
+
+#[test]
 fn named_container_marker_emits_type_and_name() {
     assert_eq!(
         css(&["@container/sidebar"]),

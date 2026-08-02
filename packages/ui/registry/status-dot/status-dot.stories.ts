@@ -44,6 +44,7 @@ export const DarkMode = {
 }
 
 export const ReducedMotion = {
-  render: (): string => `<aihu-status-dot status="online" pulse="on" label="Online, pulsing"></aihu-status-dot>`,
+  render: (): string =>
+    `<aihu-status-dot status="online" pulse="on" label="Online, pulsing"></aihu-status-dot>`,
   parameters: { chromatic: { prefersReducedMotion: 'reduce' } },
 }

@@ -162,7 +162,8 @@ export const aihuGraphite: StylePack = defineStylePack({
     'color-neutral-foreground': 'oklch(0.98 0 0)',
     // performativeUI port additive token (E-P1) — monochrome ramp matching
     // this pack's chroma≈0 identity.
-    'gradient-brand': 'linear-gradient(135deg, oklch(0.35 0 0) 0%, oklch(0.5 0 0) 50%, oklch(0.65 0 0) 100%)',
+    'gradient-brand':
+      'linear-gradient(135deg, oklch(0.35 0 0) 0%, oklch(0.5 0 0) 50%, oklch(0.65 0 0) 100%)',
     // ── Radius scale (shared contract) ──
     'radius-sm': '4px',
     'radius-md': '8px',
@@ -215,7 +216,8 @@ export const aihuGraphite: StylePack = defineStylePack({
     'color-neutral': 'oklch(0.52 0 0)',
     'color-neutral-foreground': 'oklch(0.98 0 0)',
     // performativeUI port (E-P1) — dark monochrome ramp, inverted lightness.
-    'gradient-brand': 'linear-gradient(135deg, oklch(0.78 0 0) 0%, oklch(0.62 0 0) 50%, oklch(0.45 0 0) 100%)',
+    'gradient-brand':
+      'linear-gradient(135deg, oklch(0.78 0 0) 0%, oklch(0.62 0 0) 50%, oklch(0.45 0 0) 100%)',
   },
 })
 
