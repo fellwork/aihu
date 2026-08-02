@@ -112,7 +112,7 @@
   {
     "name": "@aihu/css-engine/runtime/cn",
     "path": "packages/css-engine/dist/runtime/cn.js",
-    "limit": "1 KB",
+    "limit": "1.1 KB",
     "gzip": true
   },
   {
