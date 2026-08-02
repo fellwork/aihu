@@ -911,6 +911,62 @@ const entries: Array<{ entry: string; run: () => Promise<void> }> = [
       ),
   },
   {
+    entry: 'motion/useTypewriter',
+    run: () =>
+      withSSR(
+        () => import('../src/motion/useTypewriter/index.ts'),
+        ({ useTypewriter }) => {
+          withGlobalSpies(() => {
+            const { text, isDone } = useTypewriter('hello')
+            expect(text()).toBe('hello')
+            expect(isDone()).toBe(true)
+          })
+        },
+      ),
+  },
+  {
+    entry: 'motion/useCountTo',
+    run: () =>
+      withSSR(
+        () => import('../src/motion/useCountTo/index.ts'),
+        ({ useCountTo }) => {
+          withGlobalSpies(() => {
+            const { value, isCounting } = useCountTo({ from: 5 })
+            expect(value()).toBe(5)
+            expect(isCounting()).toBe(false)
+          })
+        },
+      ),
+  },
+  {
+    entry: 'motion/useTokenStream',
+    run: () =>
+      withSSR(
+        () => import('../src/motion/useTokenStream/index.ts'),
+        ({ useTokenStream }) => {
+          withGlobalSpies(() => {
+            const { tokens, isDone } = useTokenStream(['a', 'b'])
+            expect(tokens()).toEqual(['a', 'b'])
+            expect(isDone()).toBe(true)
+          })
+        },
+      ),
+  },
+  {
+    entry: 'motion/useSequence',
+    run: () =>
+      withSSR(
+        () => import('../src/motion/useSequence/index.ts'),
+        ({ useSequence }) => {
+          withGlobalSpies(() => {
+            const { current, isRunning } = useSequence(['a', 'b'])
+            expect(current()).toBe('a')
+            expect(isRunning()).toBe(false)
+          })
+        },
+      ),
+  },
+  {
     entry: 'useWatch',
     run: () =>
       withSSR(

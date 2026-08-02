@@ -283,9 +283,25 @@
       "types": "./dist/motion.d.ts",
       "import": "./dist/motion.js"
     },
+    "./motion/useCountTo": {
+      "types": "./dist/motion/useCountTo.d.ts",
+      "import": "./dist/motion/useCountTo.js"
+    },
     "./motion/useReducedMotion": {
       "types": "./dist/motion/useReducedMotion.d.ts",
       "import": "./dist/motion/useReducedMotion.js"
+    },
+    "./motion/useSequence": {
+      "types": "./dist/motion/useSequence.d.ts",
+      "import": "./dist/motion/useSequence.js"
+    },
+    "./motion/useTokenStream": {
+      "types": "./dist/motion/useTokenStream.d.ts",
+      "import": "./dist/motion/useTokenStream.js"
+    },
+    "./motion/useTypewriter": {
+      "types": "./dist/motion/useTypewriter.d.ts",
+      "import": "./dist/motion/useTypewriter.js"
     },
     "./router": {
       "types": "./dist/router.d.ts",

@@ -94,6 +94,10 @@ pub(crate) const USE_COMPOSABLES: &[(&str, &str)] = &[
     ("useMouseInElement", "@aihu/use/useMouseInElement"),
     ("useSwarm", "@aihu/use/useSwarm"),
     ("useKeyedAsync", "@aihu/use/useKeyedAsync"),
+    ("useTypewriter", "@aihu/use/motion/useTypewriter"),
+    ("useCountTo", "@aihu/use/motion/useCountTo"),
+    ("useTokenStream", "@aihu/use/motion/useTokenStream"),
+    ("useSequence", "@aihu/use/motion/useSequence"),
 ];
 
 /// The registry entries to auto-import for this `@state` script.

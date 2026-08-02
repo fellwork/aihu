@@ -759,6 +759,34 @@
     "ignore": ["@aihu/signals"]
   },
   {
+    "name": "@aihu/use/motion/useTypewriter",
+    "path": "packages/use/dist/motion/useTypewriter.js",
+    "limit": "900 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
+    "name": "@aihu/use/motion/useCountTo",
+    "path": "packages/use/dist/motion/useCountTo.js",
+    "limit": "950 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
+    "name": "@aihu/use/motion/useTokenStream",
+    "path": "packages/use/dist/motion/useTokenStream.js",
+    "limit": "900 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
+    "name": "@aihu/use/motion/useSequence",
+    "path": "packages/use/dist/motion/useSequence.js",
+    "limit": "900 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
     "name": "@aihu/auth",
     "path": "packages/auth/dist/index.js",
     "limit": "1.5 KB",

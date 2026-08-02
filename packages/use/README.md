@@ -177,7 +177,11 @@ bun add @aihu/use
 | `./math` | `./dist/math.js` | `—` |
 | `./math/useClamp` | `./dist/math/useClamp.js` | `—` |
 | `./motion` | `./dist/motion.js` | `—` |
+| `./motion/useCountTo` | `./dist/motion/useCountTo.js` | `—` |
 | `./motion/useReducedMotion` | `./dist/motion/useReducedMotion.js` | `—` |
+| `./motion/useSequence` | `./dist/motion/useSequence.js` | `—` |
+| `./motion/useTokenStream` | `./dist/motion/useTokenStream.js` | `—` |
+| `./motion/useTypewriter` | `./dist/motion/useTypewriter.js` | `—` |
 | `./router` | `./dist/router.js` | `—` |
 | `./router/useRouteParams` | `./dist/router/useRouteParams.js` | `—` |
 

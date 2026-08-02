@@ -83,6 +83,11 @@ export const COMPOSABLE_REGISTRY: readonly ComposableRegistryEntry[] = [
     description: 'a reactive numeric counter clamped to an optional `[min, max]` range',
   },
   {
+    name: 'useCountTo',
+    specifier: '@aihu/use/motion/useCountTo',
+    description: 'tween a number to a target over a duration, eased',
+  },
+  {
     name: 'useDateFormat',
     specifier: '@aihu/use/useDateFormat',
     description: 'format a reactive `Date`/epoch-number/date-string via `Intl.DateTimeFormat`',
@@ -302,6 +307,11 @@ export const COMPOSABLE_REGISTRY: readonly ComposableRegistryEntry[] = [
     description: 'reactive scroll position of an element or `window`',
   },
   {
+    name: 'useSequence',
+    specifier: '@aihu/use/motion/useSequence',
+    description: 'cycle through a list of items, holding on each for a fixed interval',
+  },
+  {
     name: 'useSet',
     specifier: '@aihu/use/useSet',
     description:
@@ -363,6 +373,17 @@ export const COMPOSABLE_REGISTRY: readonly ComposableRegistryEntry[] = [
     name: 'useToggle',
     specifier: '@aihu/use/useToggle',
     description: 'a reactive boolean with a flip/set toggler',
+  },
+  {
+    name: 'useTokenStream',
+    specifier: '@aihu/use/motion/useTokenStream',
+    description: 'reveal an array of tokens (words, chunks) one at a time, optionally looping',
+  },
+  {
+    name: 'useTypewriter',
+    specifier: '@aihu/use/motion/useTypewriter',
+    description:
+      'reveal a string one character at a time, optionally looping (type, hold, erase, retype)',
   },
   {
     name: 'useWatch',
