@@ -11,7 +11,38 @@
       ],
       "description": "Presentational badge recipe — inline-flex pill with a variant matrix.",
       "variants": {
-        "variant": ["default", "secondary", "destructive", "outline"]
+        "variant": [
+          "default",
+          "secondary",
+          "destructive",
+          "outline"
+        ]
+      },
+      "meta": {
+        "capabilities": {
+          "interactive": false,
+          "keyboard": false,
+          "form": false,
+          "overlay": false,
+          "directional": false
+        }
+      }
+    },
+    {
+      "name": "big-back",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/big-back/big-back.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Presentational oversized watermark-style text, typically a footer wordmark. Decorative, hidden from the accessibility tree.",
+      "variants": {
+        "weight": [
+          "bold",
+          "black"
+        ]
       },
       "meta": {
         "capabilities": {
@@ -33,11 +64,24 @@
         }
       ],
       "description": "Styled button recipe extending the headless AihuButton primitive (variants + sizes).",
-      "dependencies": ["@aihu/primitives"],
+      "dependencies": [
+        "@aihu/primitives"
+      ],
       "registryDependencies": [],
       "variants": {
-        "variant": ["default", "destructive", "outline", "ghost", "link"],
-        "size": ["sm", "md", "lg", "icon"]
+        "variant": [
+          "default",
+          "destructive",
+          "outline",
+          "ghost",
+          "link"
+        ],
+        "size": [
+          "sm",
+          "md",
+          "lg",
+          "icon"
+        ]
       },
       "meta": {
         "capabilities": {
@@ -80,13 +124,44 @@
         }
       ],
       "description": "Styled checkbox recipe — light-DOM element extending the headless AihuCheckboxRoot primitive (tri-state, Space toggle, native form participation).",
-      "dependencies": ["@aihu/primitives"],
+      "dependencies": [
+        "@aihu/primitives"
+      ],
       "meta": {
         "capabilities": {
           "interactive": true,
           "hoverable": false,
           "keyboard": true,
           "form": true,
+          "overlay": false,
+          "directional": false
+        }
+      }
+    },
+    {
+      "name": "community-badge",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/community-badge/community-badge.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Presentational social-proof pill — pairs a status-dot-style lead slot with a metric.",
+      "registryDependencies": [
+        "status-dot"
+      ],
+      "variants": {
+        "tone": [
+          "neutral",
+          "accent"
+        ]
+      },
+      "meta": {
+        "capabilities": {
+          "interactive": false,
+          "keyboard": false,
+          "form": false,
           "overlay": false,
           "directional": false
         }
@@ -126,7 +201,9 @@
         }
       ],
       "description": "Styled modal dialog recipe — light-DOM pieces extending the headless AihuDialog primitives (focus-trap + return-focus, Escape-to-close, aria-modal, click-outside dismissal).",
-      "dependencies": ["@aihu/primitives"],
+      "dependencies": [
+        "@aihu/primitives"
+      ],
       "meta": {
         "capabilities": {
           "interactive": true,
@@ -148,9 +225,16 @@
         }
       ],
       "description": "Presentational label pill, typically preceding a heading. Composes with status-dot in its lead slot.",
-      "registryDependencies": ["status-dot"],
+      "registryDependencies": [
+        "status-dot"
+      ],
       "variants": {
-        "tone": ["neutral", "accent", "success", "warning"]
+        "tone": [
+          "neutral",
+          "accent",
+          "success",
+          "warning"
+        ]
       },
       "meta": {
         "capabilities": {
@@ -173,8 +257,16 @@
       ],
       "description": "Presentational text decoration — applies the pack's brand gradient as text fill.",
       "variants": {
-        "weight": ["normal", "medium", "semibold", "bold"],
-        "font": ["sans", "serif"]
+        "weight": [
+          "normal",
+          "medium",
+          "semibold",
+          "bold"
+        ],
+        "font": [
+          "sans",
+          "serif"
+        ]
       },
       "meta": {
         "capabilities": {
@@ -229,6 +321,57 @@
       }
     },
     {
+      "name": "logo-row",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/logo-row/logo-row.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Presentational flex row for partner/press logos — muted+grayscale at rest, full color on hover.",
+      "meta": {
+        "capabilities": {
+          "interactive": false,
+          "keyboard": false,
+          "form": false,
+          "overlay": false,
+          "directional": false,
+          "hoverable": true
+        }
+      }
+    },
+    {
+      "name": "quest-text",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/quest-text/quest-text.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Presentational inline text emphasis for prompts/callouts — underline accent with an optional blinking caret.",
+      "variants": {
+        "tone": [
+          "neutral",
+          "accent"
+        ],
+        "caret": [
+          "off",
+          "on"
+        ]
+      },
+      "meta": {
+        "capabilities": {
+          "interactive": false,
+          "keyboard": false,
+          "form": false,
+          "overlay": false,
+          "directional": false
+        }
+      }
+    },
+    {
       "name": "separator",
       "type": "ui",
       "files": [
@@ -239,7 +382,45 @@
       ],
       "description": "Presentational separator recipe — token-colored 1px rule with role=separator + aria-orientation.",
       "variants": {
-        "orientation": ["horizontal", "vertical"]
+        "orientation": [
+          "horizontal",
+          "vertical"
+        ]
+      },
+      "meta": {
+        "capabilities": {
+          "interactive": false,
+          "keyboard": false,
+          "form": false,
+          "overlay": false,
+          "directional": false
+        }
+      }
+    },
+    {
+      "name": "sparkle",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/sparkle/sparkle.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Presentational decorative accent mark — a four-pointed star with an optional shimmer.",
+      "variants": {
+        "size": [
+          "sm",
+          "md",
+          "lg"
+        ],
+        "tone": [
+          "neutral",
+          "accent"
+        ],
+        "shimmer": [
+          "off",
+          "on"
+        ]
       },
       "meta": {
         "capabilities": {
@@ -262,9 +443,50 @@
       ],
       "description": "Presentational status indicator — a semantic-colored dot with an optional pulsing liveness ring.",
       "variants": {
-        "status": ["neutral", "online", "busy", "away", "info", "offline"],
-        "size": ["sm", "md", "lg"],
-        "pulse": ["off", "on"]
+        "status": [
+          "neutral",
+          "online",
+          "busy",
+          "away",
+          "info",
+          "offline"
+        ],
+        "size": [
+          "sm",
+          "md",
+          "lg"
+        ],
+        "pulse": [
+          "off",
+          "on"
+        ]
+      },
+      "meta": {
+        "capabilities": {
+          "interactive": false,
+          "keyboard": false,
+          "form": false,
+          "overlay": false,
+          "directional": false
+        }
+      }
+    },
+    {
+      "name": "sticky-banner",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/sticky-banner/sticky-banner.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Presentational full-width announcement bar. No dismiss affordance in this slice.",
+      "variants": {
+        "tone": [
+          "neutral",
+          "accent",
+          "warning"
+        ]
       },
       "meta": {
         "capabilities": {
@@ -286,7 +508,9 @@
         }
       ],
       "description": "Styled switch recipe — light-DOM element extending the headless AihuSwitchRoot primitive (binary toggle, Space/Enter activation, native form participation).",
-      "dependencies": ["@aihu/primitives"],
+      "dependencies": [
+        "@aihu/primitives"
+      ],
       "meta": {
         "capabilities": {
           "interactive": true,
@@ -337,7 +561,9 @@
         }
       ],
       "description": "Styled tooltip recipe — light-DOM pieces extending the headless AihuTooltip primitives (hover/focus open, Escape dismiss, aria-describedby, placement positioning). Non-focus-trapping overlay.",
-      "dependencies": ["@aihu/primitives"],
+      "dependencies": [
+        "@aihu/primitives"
+      ],
       "meta": {
         "capabilities": {
           "interactive": true,

@@ -1,0 +1,17 @@
+{
+  "name": "sticky-banner",
+  "type": "ui",
+  "description": "Presentational full-width announcement bar. No dismiss affordance in this slice.",
+  "variants": {
+    "tone": ["neutral", "accent", "warning"]
+  },
+  "meta": {
+    "capabilities": {
+      "interactive": false,
+      "keyboard": false,
+      "form": false,
+      "overlay": false,
+      "directional": false
+    }
+  }
+}

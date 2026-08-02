@@ -1,0 +1,18 @@
+{
+  "name": "community-badge",
+  "type": "ui",
+  "description": "Presentational social-proof pill — pairs a status-dot-style lead slot with a metric.",
+  "registryDependencies": ["status-dot"],
+  "variants": {
+    "tone": ["neutral", "accent"]
+  },
+  "meta": {
+    "capabilities": {
+      "interactive": false,
+      "keyboard": false,
+      "form": false,
+      "overlay": false,
+      "directional": false
+    }
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "name": "logo-row",
+  "type": "ui",
+  "description": "Presentational flex row for partner/press logos — muted+grayscale at rest, full color on hover.",
+  "meta": {
+    "capabilities": {
+      "interactive": false,
+      "keyboard": false,
+      "form": false,
+      "overlay": false,
+      "directional": false,
+      "hoverable": true
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "name": "quest-text",
+  "type": "ui",
+  "description": "Presentational inline text emphasis for prompts/callouts — underline accent with an optional blinking caret.",
+  "variants": {
+    "tone": ["neutral", "accent"],
+    "caret": ["off", "on"]
+  },
+  "meta": {
+    "capabilities": {
+      "interactive": false,
+      "keyboard": false,
+      "form": false,
+      "overlay": false,
+      "directional": false
+    }
+  }
+}

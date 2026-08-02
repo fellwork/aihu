@@ -1,0 +1,54 @@
+<!--
+  aihu-logo-row — presentational styled recipe (performativeUI port,
+  Slice 2 — docs/plans/2026-08-01-performative-ui-port.md).
+
+  Design and behavior transcribed in spirit from performativeUI (MIT); no
+  source text or `pui-` class names vendored — see NOTICES.md.
+
+  A flex row for partner/press logos — muted+grayscale at rest, full color
+  on hover. Consumers project their own logo images/SVGs as children.
+  `aihu add` rewrites the `aihu-` prefix at copy time.
+
+  align: start (default) | center
+
+  `shadow: 'light'` — see status-dot.aihu's header for why.
+-->
+
+@state {
+  import { cn } from '@aihu/css-engine/runtime/cn'
+
+  shadow: 'light'
+
+  let align = prop({ default: 'start' })
+}
+
+@template {
+  <div data-slot="logo-row" data-align={align} class={cn('aihu-logo-row')}>
+    <slot />
+  </div>
+}
+
+@style {
+  .aihu-logo-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2rem;
+  }
+  .aihu-logo-row[data-align="center"] {
+    justify-content: center;
+  }
+  .aihu-logo-row ::slotted(*) {
+    filter: grayscale(1);
+    opacity: 0.6;
+    transition:
+      filter 0.2s var(--ease-brand),
+      opacity 0.2s var(--ease-brand);
+    max-height: 1.5rem;
+    width: auto;
+  }
+  .aihu-logo-row ::slotted(*:hover) {
+    filter: grayscale(0);
+    opacity: 1;
+  }
+}
