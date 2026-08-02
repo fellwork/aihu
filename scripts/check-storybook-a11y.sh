@@ -85,4 +85,13 @@ if [ "$ready" -ne 1 ]; then
 fi
 
 echo "==> [4/4] Test-runner — play functions + axe"
-AIHU_STORYBOOK_URL="$URL" bun run --cwd apps/storybook test-storybook
+# --failOnConsole: axe only checks the accessibility TREE — it is blind to a
+# component that renders fine but throws at runtime (e.g. a MissingContextError
+# from a broken context-provider wiring). Without this flag that class of bug
+# is invisible to the gate; a play-function assertion has to happen to exercise
+# the exact code path AND someone has to be watching the terminal for a stray
+# console.error that doesn't fail anything on its own. Wired in after the
+# chat-fab popover MissingContextError shipped past this gate silently — see
+# the runtime fix in packages/runtime/src/define-component.ts (Bug E) for the
+# underlying bug.
+AIHU_STORYBOOK_URL="$URL" bun run --cwd apps/storybook test-storybook -- --failOnConsole
