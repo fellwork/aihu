@@ -1,0 +1,14 @@
+{
+  "name": "aurora",
+  "type": "ui",
+  "description": "Decorative animated aurora-borealis-style background wash — pure CSS layered gradients, blur, and mix-blend-mode, no canvas.",
+  "meta": {
+    "capabilities": {
+      "interactive": false,
+      "keyboard": false,
+      "form": false,
+      "overlay": false,
+      "directional": false
+    }
+  }
+}

@@ -1,6 +1,26 @@
 {
   "items": [
     {
+      "name": "aurora",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/aurora/aurora.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Decorative animated aurora-borealis-style background wash — pure CSS layered gradients, blur, and mix-blend-mode, no canvas.",
+      "meta": {
+        "capabilities": {
+          "interactive": false,
+          "keyboard": false,
+          "form": false,
+          "overlay": false,
+          "directional": false
+        }
+      }
+    },
+    {
       "name": "badge",
       "type": "ui",
       "files": [
@@ -267,6 +287,26 @@
       "variants": {
         "tone": ["neutral", "accent", "success", "warning"]
       },
+      "meta": {
+        "capabilities": {
+          "interactive": false,
+          "keyboard": false,
+          "form": false,
+          "overlay": false,
+          "directional": false
+        }
+      }
+    },
+    {
+      "name": "floating-sparkles",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/floating-sparkles/floating-sparkles.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Decorative ambient particle field — small glowing dots drifting and twinkling on a managed canvas, built on useParticleField.",
       "meta": {
         "capabilities": {
           "interactive": false,

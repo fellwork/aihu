@@ -1,0 +1,14 @@
+{
+  "name": "floating-sparkles",
+  "type": "ui",
+  "description": "Decorative ambient particle field — small glowing dots drifting and twinkling on a managed canvas, built on useParticleField.",
+  "meta": {
+    "capabilities": {
+      "interactive": false,
+      "keyboard": false,
+      "form": false,
+      "overlay": false,
+      "directional": false
+    }
+  }
+}

@@ -1,0 +1,156 @@
+<!--
+  aihu-aurora — presentational styled recipe (performativeUI port,
+  Slice 9 — docs/plans/2026-08-01-performative-ui-port.md §Tier-C batch 1).
+
+  Design and behavior transcribed in spirit from performativeUI (MIT); no
+  source text or `pui-` class names vendored — see NOTICES.md.
+
+  A decorative animated aurora-borealis-style background wash — PURE CSS, no
+  canvas, no `@aihu/use/motion` composable. The roadmap's explicit
+  instruction for this slice was "try pure CSS gradients + `@keyframes` for
+  `aurora` first; only fall back to canvas if that fails" (to prove Slice 8's
+  canvas infra was worth building for the genuinely hard remaining Tier-C
+  pairs — `node-graph-background`/`ascii-hero`, `goldeneye` — by spending
+  nothing on the cheap one). The pure-CSS attempt succeeded convincingly on
+  the first pass and is what ships:
+
+  - One real DOM node. The base element itself is one drifting layer
+    (`background-image: var(--gradient-brand)` animated via
+    `background-position`); `::before`/`::after` supply two more soft-edged
+    blurred blobs. Three independently-animated layers from a single
+    element — no extra `<span>`s needed, because CSS pseudo-elements are
+    "free" DOM nodes.
+  - `filter: blur(...)` on every layer is what turns flat gradients into the
+    soft, out-of-focus aurora look; `mix-blend-mode: screen` on the two
+    pseudo-element blobs is what makes them glow into and through the base
+    layer and each other instead of sitting as flat opaque discs.
+    `isolation: isolate` on the root scopes that blending to this
+    component's own paint so it never blends with page content behind it.
+  - Color: `--gradient-brand` (already a 3-stop warm gradient) for the base
+    layer, plus exactly ONE additional token for a cool counterpoint —
+    `--color-info` (blue) — via `color-mix(in oklab, var(--color-info) 65%,
+    transparent)`, the same `color-mix` translucency technique `glass-card`
+    (Slice 5, E-P3) already established. `--color-accent` (already inside
+    the gradient) is reused at low opacity for the second blob rather than
+    reaching for a second semantic token. No new tokens — everything here
+    already exists in the pack.
+  - Reduced motion: the mandatory `@media (prefers-reduced-motion: reduce)`
+    guard sets `animation: none` on the root and both pseudo-elements. This
+    trivially satisfies the port's "paint once, never loop" convention
+    (Slice 8's canvas composables enforce the same contract in JS) — with no
+    keyframes running, every layer just renders its plain, non-animated
+    declared state (the base layer's static `background-position`, the
+    pseudo-elements' static `inset`/`filter`), which is a complete, populated
+    aurora composition, not a blank box. There is no JS branch to trace here;
+    the whole guard is 5 lines of CSS.
+
+  Fully decorative, slot-free, self-contained: `position: absolute; inset: 0`
+  meant to sit BEHIND other content. The consumer places it as the first
+  child of a `position: relative` ancestor and stacks real content above it
+  with `z-index` — the same layout contract `floating-sparkles` (this
+  slice's sibling) documents, for consistency across the Tier-C batch.
+
+  No props — every knob here (gradient, second color, blur radii, timings)
+  is an internal implementation detail, not a per-instance variant.
+
+  `shadow: 'light'` — see the parent execution plan's theming decision.
+-->
+
+@state {
+  import { cn } from '@aihu/css-engine/runtime/cn'
+
+  shadow: 'light'
+}
+
+@template {
+  <div data-slot="aurora" aria-hidden="true" class={cn('aihu-aurora')}></div>
+}
+
+@style {
+  .aihu-aurora {
+    display: block;
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    isolation: isolate;
+    pointer-events: none;
+    background-image: var(--gradient-brand);
+    background-size: 200% 200%;
+    background-position: 0% 50%;
+    filter: blur(60px) saturate(1.4);
+    opacity: 0.6;
+    animation: aihu-aurora-drift-base 20s var(--ease-brand) infinite alternate;
+  }
+  .aihu-aurora::before,
+  .aihu-aurora::after {
+    content: '';
+    position: absolute;
+    inset: -30%;
+    border-radius: 50%;
+    mix-blend-mode: screen;
+  }
+  .aihu-aurora::before {
+    background: radial-gradient(
+      closest-side,
+      color-mix(in oklab, var(--color-info) 65%, transparent),
+      transparent 70%
+    );
+    filter: blur(50px);
+    animation: aihu-aurora-drift-cool 24s var(--ease-brand) infinite alternate;
+  }
+  .aihu-aurora::after {
+    background: radial-gradient(
+      closest-side,
+      color-mix(in oklab, var(--color-accent) 55%, transparent),
+      transparent 70%
+    );
+    filter: blur(70px);
+    animation: aihu-aurora-drift-warm 28s var(--ease-brand) infinite alternate-reverse;
+  }
+  @keyframes aihu-aurora-drift-base {
+    0% {
+      background-position: 0% 30%;
+    }
+    50% {
+      background-position: 100% 70%;
+    }
+    100% {
+      background-position: 30% 100%;
+    }
+  }
+  @keyframes aihu-aurora-drift-cool {
+    0% {
+      transform: translate(-15%, -10%) scale(1);
+      opacity: 0.7;
+    }
+    50% {
+      transform: translate(10%, 15%) scale(1.15);
+      opacity: 0.9;
+    }
+    100% {
+      transform: translate(-5%, 20%) scale(0.95);
+      opacity: 0.6;
+    }
+  }
+  @keyframes aihu-aurora-drift-warm {
+    0% {
+      transform: translate(15%, 10%) scale(1);
+      opacity: 0.6;
+    }
+    50% {
+      transform: translate(-10%, -15%) scale(1.1);
+      opacity: 0.85;
+    }
+    100% {
+      transform: translate(5%, -20%) scale(0.9);
+      opacity: 0.5;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .aihu-aurora,
+    .aihu-aurora::before,
+    .aihu-aurora::after {
+      animation: none;
+    }
+  }
+}
