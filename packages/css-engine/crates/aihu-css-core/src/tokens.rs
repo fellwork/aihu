@@ -518,6 +518,17 @@ fn arbitrary_prop(prefix: &str) -> Option<&'static str> {
         // property that upstream reads but ships no utility for.
         "animate-dialog-duration" => "--aihu-anim-dialog-duration",
         "animate-dialog-easing" => "--aihu-anim-dialog-easing",
+        // Slice 11 — arbitrary-value escape hatches for the four
+        // scroll-driven-timeline families, e.g. `timeline-[--my-timeline]`,
+        // `animate-range-[10%_50%]`. Named forms live in `fixed_utility`
+        // above; `timeline-*`'s named forms carry upstream's `!important`,
+        // but this generic arbitrary-value path (shared with every other
+        // `[…]`-bracket utility) does not support appending it — a rarer,
+        // acceptable inconsistency versus special-casing this one prefix.
+        "timeline" => "animation-timeline",
+        "scroll-timeline-axis" => "scroll-timeline-axis",
+        "view-timeline-axis" => "view-timeline-axis",
+        "animate-range" => "animation-range",
         _ => return None,
     })
 }
@@ -961,6 +972,54 @@ fn fixed_utility(class_name: &str) -> Option<&'static str> {
         "animate-dialog-zoom" => {
             "--aihu-anim-dialog-start-x: 0px; --aihu-anim-dialog-start-y: 0px; --aihu-anim-dialog-start-scale: 0.92;"
         }
+
+        // tailwind-animations port, Slice 11 — scroll-driven timelines
+        // (`timeline-*`, `scroll-timeline-axis-*`, `view-timeline-axis-*`,
+        // `animate-range-*`). Each is a closed named-value set + an arbitrary
+        // fallback (registered in `arbitrary_prop` below) — the same
+        // named-lookup-plus-bracket-escape shape as `leading-*`/`aspect-*`,
+        // not a variant, so this does NOT route through `ProgressiveRegistry`
+        // (`progressive.rs`): that registry is for `prefix:` VARIANTS applied
+        // to another utility and gated behind `@supports` (`view-transition:`,
+        // `anchor:`, …); these are ordinary base utilities. The vendor CSS
+        // itself emits them ungated (no `@supports` wrapper) — same graceful-
+        // degradation posture as the rest of the animation catalog, so aihu
+        // follows suit. `!important` on `animation-timeline` is transcribed
+        // verbatim from upstream, not an aihu convention — kept for fidelity
+        // even though `@layer aihu.utilities` already outranks recipe/base
+        // layers without it.
+        "timeline-none" => "animation-timeline: none !important;",
+        "timeline-auto" => "animation-timeline: auto !important;",
+        "timeline-scroll" => "animation-timeline: scroll() !important;",
+        "timeline-scroll-x" => "animation-timeline: scroll(x) !important;",
+        "timeline-scroll-y" => "animation-timeline: scroll(y) !important;",
+        "timeline-scroll-block" => "animation-timeline: scroll(block) !important;",
+        "timeline-scroll-inline" => "animation-timeline: scroll(inline) !important;",
+        "timeline-view" => "animation-timeline: view() !important;",
+        "timeline-view-x" => "animation-timeline: view(x) !important;",
+        "timeline-view-y" => "animation-timeline: view(y) !important;",
+        "timeline-view-block" => "animation-timeline: view(block) !important;",
+        "timeline-view-inline" => "animation-timeline: view(inline) !important;",
+
+        "scroll-timeline-axis-block" => "scroll-timeline-axis: block;",
+        "scroll-timeline-axis-inline" => "scroll-timeline-axis: inline;",
+        "scroll-timeline-axis-x" => "scroll-timeline-axis: x;",
+        "scroll-timeline-axis-y" => "scroll-timeline-axis: y;",
+
+        "view-timeline-axis-block" => "view-timeline-axis: block;",
+        "view-timeline-axis-inline" => "view-timeline-axis: inline;",
+        "view-timeline-axis-x" => "view-timeline-axis: x;",
+        "view-timeline-axis-y" => "view-timeline-axis: y;",
+
+        "animate-range-normal" => "animation-range: normal;",
+        "animate-range-cover" => "animation-range: cover;",
+        "animate-range-contain" => "animation-range: contain;",
+        "animate-range-entry" => "animation-range: entry;",
+        "animate-range-exit" => "animation-range: exit;",
+        "animate-range-gradual" => "animation-range: 10% 90%;",
+        "animate-range-moderate" => "animation-range: 20% 80%;",
+        "animate-range-brisk" => "animation-range: 30% 70%;",
+        "animate-range-rapid" => "animation-range: 40% 60%;",
 
         // --- Parity round: long-tail fixed utilities ----------------------
 

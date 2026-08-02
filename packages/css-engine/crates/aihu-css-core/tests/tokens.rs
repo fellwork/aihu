@@ -841,3 +841,151 @@ fn animate_dialog_conflict_groups_keep_the_base_alongside_a_preset() {
     let all = aihu_css_core::tokens::conflict_groups();
     assert_eq!(all.len(), groups.len(), "duplicate conflict-group prefix");
 }
+
+// --- tailwind-animations port, Slice 11 — scroll-driven timelines ---------
+
+#[test]
+fn timeline_named_forms_emit_important() {
+    assert_eq!(css(&["timeline-none"]), ".timeline-none { animation-timeline: none !important; }\n");
+    assert_eq!(css(&["timeline-auto"]), ".timeline-auto { animation-timeline: auto !important; }\n");
+    assert_eq!(
+        css(&["timeline-scroll"]),
+        ".timeline-scroll { animation-timeline: scroll() !important; }\n"
+    );
+    assert_eq!(
+        css(&["timeline-scroll-x"]),
+        ".timeline-scroll-x { animation-timeline: scroll(x) !important; }\n"
+    );
+    assert_eq!(
+        css(&["timeline-scroll-y"]),
+        ".timeline-scroll-y { animation-timeline: scroll(y) !important; }\n"
+    );
+    assert_eq!(
+        css(&["timeline-scroll-block"]),
+        ".timeline-scroll-block { animation-timeline: scroll(block) !important; }\n"
+    );
+    assert_eq!(
+        css(&["timeline-scroll-inline"]),
+        ".timeline-scroll-inline { animation-timeline: scroll(inline) !important; }\n"
+    );
+    assert_eq!(css(&["timeline-view"]), ".timeline-view { animation-timeline: view() !important; }\n");
+    assert_eq!(
+        css(&["timeline-view-x"]),
+        ".timeline-view-x { animation-timeline: view(x) !important; }\n"
+    );
+    assert_eq!(
+        css(&["timeline-view-y"]),
+        ".timeline-view-y { animation-timeline: view(y) !important; }\n"
+    );
+    assert_eq!(
+        css(&["timeline-view-block"]),
+        ".timeline-view-block { animation-timeline: view(block) !important; }\n"
+    );
+    assert_eq!(
+        css(&["timeline-view-inline"]),
+        ".timeline-view-inline { animation-timeline: view(inline) !important; }\n"
+    );
+}
+
+#[test]
+fn timeline_arbitrary_form_has_no_important() {
+    // Documented, accepted asymmetry vs the named forms — see tokens.rs's
+    // `arbitrary_prop` comment for why.
+    assert_eq!(
+        css(&["timeline-[--my-timeline]"]),
+        ".timeline-[--my-timeline] { animation-timeline: --my-timeline; }\n"
+    );
+}
+
+#[test]
+fn scroll_timeline_axis_emits_all_four_named_forms() {
+    assert_eq!(
+        css(&["scroll-timeline-axis-block"]),
+        ".scroll-timeline-axis-block { scroll-timeline-axis: block; }\n"
+    );
+    assert_eq!(
+        css(&["scroll-timeline-axis-inline"]),
+        ".scroll-timeline-axis-inline { scroll-timeline-axis: inline; }\n"
+    );
+    assert_eq!(
+        css(&["scroll-timeline-axis-x"]),
+        ".scroll-timeline-axis-x { scroll-timeline-axis: x; }\n"
+    );
+    assert_eq!(
+        css(&["scroll-timeline-axis-y"]),
+        ".scroll-timeline-axis-y { scroll-timeline-axis: y; }\n"
+    );
+}
+
+#[test]
+fn view_timeline_axis_emits_all_four_named_forms() {
+    assert_eq!(
+        css(&["view-timeline-axis-block"]),
+        ".view-timeline-axis-block { view-timeline-axis: block; }\n"
+    );
+    assert_eq!(
+        css(&["view-timeline-axis-inline"]),
+        ".view-timeline-axis-inline { view-timeline-axis: inline; }\n"
+    );
+    assert_eq!(
+        css(&["view-timeline-axis-x"]),
+        ".view-timeline-axis-x { view-timeline-axis: x; }\n"
+    );
+    assert_eq!(
+        css(&["view-timeline-axis-y"]),
+        ".view-timeline-axis-y { view-timeline-axis: y; }\n"
+    );
+}
+
+#[test]
+fn animate_range_emits_all_nine_named_forms() {
+    assert_eq!(css(&["animate-range-normal"]), ".animate-range-normal { animation-range: normal; }\n");
+    assert_eq!(css(&["animate-range-cover"]), ".animate-range-cover { animation-range: cover; }\n");
+    assert_eq!(
+        css(&["animate-range-contain"]),
+        ".animate-range-contain { animation-range: contain; }\n"
+    );
+    assert_eq!(css(&["animate-range-entry"]), ".animate-range-entry { animation-range: entry; }\n");
+    assert_eq!(css(&["animate-range-exit"]), ".animate-range-exit { animation-range: exit; }\n");
+    assert_eq!(
+        css(&["animate-range-gradual"]),
+        ".animate-range-gradual { animation-range: 10% 90%; }\n"
+    );
+    assert_eq!(
+        css(&["animate-range-moderate"]),
+        ".animate-range-moderate { animation-range: 20% 80%; }\n"
+    );
+    assert_eq!(css(&["animate-range-brisk"]), ".animate-range-brisk { animation-range: 30% 70%; }\n");
+    assert_eq!(css(&["animate-range-rapid"]), ".animate-range-rapid { animation-range: 40% 60%; }\n");
+}
+
+#[test]
+fn animate_range_arbitrary_form() {
+    assert_eq!(
+        css(&["animate-range-[10%_50%]"]),
+        ".animate-range-[10%_50%] { animation-range: 10% 50%; }\n"
+    );
+}
+
+#[test]
+fn scroll_driven_timeline_utilities_do_not_collide_in_conflict_groups() {
+    // Each of the four families is independent — no false collisions.
+    let groups: std::collections::BTreeMap<&str, &str> =
+        aihu_css_core::tokens::conflict_groups().into_iter().collect();
+    // None of these families registered a conflict-group entry at all (no
+    // shipped consumer composes two values of the same family on one
+    // element today) — this test exists to document that choice and catch
+    // an accidental future registration colliding with an unrelated prefix.
+    for prefix in [
+        "timeline",
+        "scroll-timeline-axis",
+        "view-timeline-axis",
+        "animate-range",
+    ] {
+        assert!(
+            !groups.contains_key(prefix),
+            "unexpected conflict-group entry for {prefix} — if this is now \
+             intentional, update this test's assertion instead of deleting it"
+        );
+    }
+}
