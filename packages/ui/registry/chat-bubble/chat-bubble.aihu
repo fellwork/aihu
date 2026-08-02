@@ -5,15 +5,22 @@
   Design and behavior transcribed in spirit from performativeUI (MIT); no
   source text or `pui-` class names vendored — see NOTICES.md.
 
-  A single chat message bubble. `role` controls alignment (assistant = left,
-  neutral surface; user = right, primary-tinted) and the initials avatar's
-  accent. `avatar` is a plain string prop (initials, e.g. "SM") rather than a
-  slot — this catalog's chat surfaces are marketing-demo dressing, not a real
-  chat widget, so a simple text prop covers it without the extra API surface
-  a slotted avatar would add. Default slot = message content.
+  A single chat message bubble. `speaker` controls alignment (assistant =
+  left, neutral surface; user = right, primary-tinted) and the initials
+  avatar's accent. `avatar` is a plain string prop (initials, e.g. "SM")
+  rather than a slot — this catalog's chat surfaces are marketing-demo
+  dressing, not a real chat widget, so a simple text prop covers it without
+  the extra API surface a slotted avatar would add. Default slot = message
+  content.
 
-  role:   assistant (default) | user
-  avatar: optional initials string, e.g. "AI" or "SM".
+  NOT NAMED `role`: a prop's name IS its host attribute, and `role` is the
+  reserved global ARIA attribute — `<aihu-chat-bubble role="user">` puts an
+  invalid ARIA role on the host, which axe flags as a critical `aria-roles`
+  violation. The value is still stamped as `data-role` on the inner element,
+  which is what the styles key off.
+
+  speaker: assistant (default) | user
+  avatar:  optional initials string, e.g. "AI" or "SM".
 
   `shadow: 'light'` — see the parent execution plan's theming decision.
 -->
@@ -23,12 +30,12 @@
 
   shadow: 'light'
 
-  let role = prop({ default: 'assistant' })
+  let speaker = prop({ default: 'assistant' })
   let avatar = prop({ default: '' })
 }
 
 @template {
-  <div data-slot="chat-bubble" data-role={role} class={cn('aihu-chat-bubble')}>
+  <div data-slot="chat-bubble" data-role={speaker} class={cn('aihu-chat-bubble')}>
     <span if={avatar} class="aihu-chat-bubble-avatar" aria-hidden="true">{avatar}</span>
     <div class="aihu-chat-bubble-content">
       <slot />
@@ -57,8 +64,13 @@
     border-radius: 9999px;
     font-size: 0.6875rem;
     font-weight: 600;
-    background-color: var(--color-muted);
-    color: var(--color-muted-foreground);
+    /* `--color-muted` fill under `--color-muted-foreground` text is 1.9:1 in
+       aihu-default light — the two tokens are neighbours on the ramp, not a
+       fill/ink pair. `--color-secondary` / `--color-secondary-foreground` IS
+       such a pair and holds >=5.9:1 in every pack x mode at this 0.6875rem
+       size. */
+    background-color: var(--color-secondary);
+    color: var(--color-secondary-foreground);
   }
   .aihu-chat-bubble[data-role="user"] .aihu-chat-bubble-avatar {
     background-color: var(--color-primary);

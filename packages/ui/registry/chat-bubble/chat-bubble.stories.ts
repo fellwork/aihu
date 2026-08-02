@@ -26,7 +26,7 @@ export const DarkMode = {
 export const Variants = {
   render: (): string => `
     <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-      <aihu-chat-bubble role="assistant" avatar="AI">How can I help you today?</aihu-chat-bubble>
-      <aihu-chat-bubble role="user" avatar="SM">Port the marketing catalog into aihu.</aihu-chat-bubble>
+      <aihu-chat-bubble speaker="assistant" avatar="AI">How can I help you today?</aihu-chat-bubble>
+      <aihu-chat-bubble speaker="user" avatar="SM">Port the marketing catalog into aihu.</aihu-chat-bubble>
     </div>`,
 }

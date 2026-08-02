@@ -49,7 +49,11 @@
   .aihu-community-badge[data-tone="accent"] {
     border-color: color-mix(in oklab, var(--color-accent) 40%, var(--color-border));
   }
+  /* Raw `--color-accent` is only 4.14:1 on `--color-surface` in aihu-default
+     light — under the 4.5:1 WCAG 2 AA floor for this 0.8125rem label. Mixing
+     30% of `--color-foreground` into it keeps the accent hue while lifting
+     every pack x mode to >=6.4:1. */
   .aihu-community-badge[data-tone="accent"] .aihu-community-badge-text {
-    color: var(--color-accent);
+    color: color-mix(in oklab, var(--color-accent) 70%, var(--color-foreground));
   }
 }

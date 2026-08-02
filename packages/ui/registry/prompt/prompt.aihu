@@ -65,8 +65,13 @@
     border-radius: 9999px;
     background-color: var(--color-accent);
   }
+  /* `--color-secondary`, not `--color-muted-foreground`: the latter is the
+     pack's lowest-contrast text token (3.35:1 on `--color-surface` in
+     aihu-default light, 3.06:1 dark) and fails WCAG 2 AA for normal text.
+     `--color-secondary` keeps the de-emphasized look at 5.9:1 or better in
+     every pack x mode. */
   .aihu-prompt-placeholder {
     font-size: 0.875rem;
-    color: var(--color-muted-foreground);
+    color: var(--color-secondary);
   }
 }

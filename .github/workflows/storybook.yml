@@ -78,10 +78,6 @@ jobs:
           AIHU_SKIP_POSTINSTALL: "1"
       - name: Build workspace packages
         run: bun run build
-      - name: Build Storybook
-        run: bun run --cwd apps/storybook build-storybook
-      - name: Required-story-set gate (spec §10.2)
-        run: bun scripts/check-required-stories.ts
       - name: Install Playwright chromium (version matched to the lockfile)
         # Bare `bunx playwright` fetches the LATEST playwright (it is only a
         # transitive dep, so no .bin link exists), whose browser revision
@@ -93,14 +89,23 @@ jobs:
           echo "playwright (lockfile) = ${PW_VERSION}"
           test -n "$PW_VERSION"
           bunx "playwright@${PW_VERSION}" install --with-deps chromium
-      - name: Test-runner — play functions + axe (spec §10.2–10.3)
-        run: |
-          bunx http-server apps/storybook/storybook-static -p 6006 --silent &
-          for i in $(seq 1 60); do
-            curl -sf -o /dev/null http://127.0.0.1:6006 && break
-            sleep 1
-          done
-          bun run --cwd apps/storybook test-storybook
+      # Build Storybook + required-story-set gate (spec §10.2) + serve + the
+      # test-runner (play functions + axe, spec §10.2–10.3), as one command.
+      # Those four steps used to be hand-sequenced here with the server left
+      # unreaped; scripts/check-storybook-a11y.sh owns the sequence now so the
+      # merge gate is reproducible locally as `bun run check:a11y`. Playwright
+      # chromium is installed by the step ABOVE, deliberately not by the script.
+      - name: Storybook a11y + interaction gate (spec §10.2–10.3)
+        run: bun run check:a11y
+      # REDUNDANT ON PURPOSE — check:a11y already ran this, against the same
+      # built index, before the test-runner. It stays as its own step because
+      # scripts/check-gate-wiring.ts establishes reachability by reading
+      # workflow `run:` BODIES, not shell scripts: folding the invocation into
+      # check-storybook-a11y.sh makes check:stories look like an orphan (a gate
+      # no CI path invokes) and turns that meta-check red. Costs <1s — it only
+      # re-reads storybook-static/index.json.
+      - name: Required-story-set gate (spec §10.2) — reachability anchor
+        run: bun scripts/check-required-stories.ts
 
   storybook-ok:
     # Single stable status for branch protection (mirrors plan-a's ci-ok):

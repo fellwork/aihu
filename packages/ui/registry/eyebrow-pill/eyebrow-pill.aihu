@@ -44,20 +44,26 @@
     text-transform: uppercase;
     border: var(--border) solid var(--color-border);
   }
+  /* Each tone's raw token as label text over its own 12% tint lands under the
+     4.5:1 WCAG 2 AA floor for this 0.75rem label in at least one pack x mode
+     (accent 3.56:1 in aihu-default light, neutral 3.00:1 in aihu-default
+     dark). Mixing 40% `--color-foreground` into the label keeps the tone's
+     hue against the unchanged tint and lifts every tone x pack x mode to
+     >=5.8:1. */
   .aihu-eyebrow-pill[data-tone="neutral"] {
-    color: var(--color-neutral);
+    color: color-mix(in oklab, var(--color-neutral) 60%, var(--color-foreground));
     background-color: color-mix(in oklab, var(--color-neutral) 12%, transparent);
   }
   .aihu-eyebrow-pill[data-tone="accent"] {
-    color: var(--color-accent);
+    color: color-mix(in oklab, var(--color-accent) 60%, var(--color-foreground));
     background-color: color-mix(in oklab, var(--color-accent) 12%, transparent);
   }
   .aihu-eyebrow-pill[data-tone="success"] {
-    color: var(--color-success);
+    color: color-mix(in oklab, var(--color-success) 60%, var(--color-foreground));
     background-color: color-mix(in oklab, var(--color-success) 12%, transparent);
   }
   .aihu-eyebrow-pill[data-tone="warning"] {
-    color: var(--color-warning);
+    color: color-mix(in oklab, var(--color-warning) 60%, var(--color-foreground));
     background-color: color-mix(in oklab, var(--color-warning) 12%, transparent);
   }
 }

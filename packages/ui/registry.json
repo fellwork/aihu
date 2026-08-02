@@ -123,9 +123,9 @@
           "type": "component"
         }
       ],
-      "description": "Presentational single chat message bubble — role-aware alignment and accent, optional initials avatar.",
+      "description": "Presentational single chat message bubble — speaker-aware alignment and accent, optional initials avatar.",
       "variants": {
-        "role": ["user", "assistant"]
+        "speaker": ["user", "assistant"]
       },
       "meta": {
         "capabilities": {

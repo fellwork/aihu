@@ -76,10 +76,14 @@
   .aihu-mock-ide-dot-green {
     background-color: var(--color-success);
   }
+  /* `--color-secondary`, not `--color-muted-foreground`: the latter fails
+     WCAG 2 AA for normal text against the tinted titlebar (3.3:1 in
+     aihu-default light). `--color-secondary` holds >=5.4:1 in every
+     pack x mode while reading just as de-emphasized. */
   .aihu-mock-ide-title {
     font-family: var(--font-mono);
     font-size: 0.75rem;
-    color: var(--color-muted-foreground);
+    color: var(--color-secondary);
   }
   .aihu-mock-ide-body {
     padding: 1rem;

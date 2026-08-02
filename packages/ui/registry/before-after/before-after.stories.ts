@@ -69,8 +69,11 @@ export const Focus = {
   },
 }
 
+// `disabled="on"`, not a bare `disabled`: before-after.aihu's prop is the
+// documented `off | on` string enum (`if (disabled === 'on')`), so a valueless
+// attribute reads as `''` and never forwards to the composed slider.
 export const Disabled = {
-  render: (): string => CARD('disabled'),
+  render: (): string => CARD('disabled="on"'),
   play: async ({ canvasElement }: { canvasElement: HTMLElement }): Promise<void> => {
     const handle = canvasElement.querySelector('aihu-slider-root') as HTMLElement
     await expect(handle).toHaveAttribute('data-disabled')

@@ -44,8 +44,12 @@
     background-color: var(--color-neutral);
     color: var(--color-neutral-foreground);
   }
+  /* `--color-accent-foreground` on raw `--color-accent` is only 4.14:1 in
+     aihu-default light — under the 4.5:1 WCAG 2 AA floor for this 0.875rem
+     banner text. Deepening the fill with 20% `--color-foreground` keeps the
+     accent read and lifts every pack x mode to >=5.5:1. */
   .aihu-sticky-banner[data-tone="accent"] {
-    background-color: var(--color-accent);
+    background-color: color-mix(in oklab, var(--color-accent) 80%, var(--color-foreground));
     color: var(--color-accent-foreground);
   }
   .aihu-sticky-banner[data-tone="warning"] {

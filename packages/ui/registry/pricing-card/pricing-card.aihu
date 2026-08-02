@@ -57,13 +57,18 @@
     border-color: var(--color-primary);
     box-shadow: 0 0 0 1px var(--color-primary), 0 10px 30px color-mix(in oklab, var(--color-primary) 25%, transparent);
   }
+  /* `--color-secondary`, not `--color-muted-foreground`, on both the tier
+     label and the price period: the latter fails WCAG 2 AA for normal text
+     on `--color-surface` (3.35:1 aihu-default light, 3.06:1 dark).
+     `--color-secondary` stays de-emphasized at >=5.9:1 in every
+     pack x mode. */
   .aihu-pricing-card-tier {
     margin: 0;
     font-size: 0.875rem;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.02em;
-    color: var(--color-muted-foreground);
+    color: var(--color-secondary);
   }
   .aihu-pricing-card[data-featured="on"] .aihu-pricing-card-tier {
     color: var(--color-primary);
@@ -78,7 +83,7 @@
     margin-left: 0.25rem;
     font-size: 1rem;
     font-weight: 400;
-    color: var(--color-muted-foreground);
+    color: var(--color-secondary);
   }
   .aihu-pricing-card-features {
     font-size: 0.875rem;
