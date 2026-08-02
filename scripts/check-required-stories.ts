@@ -119,6 +119,17 @@ const PRIMITIVES: Array<{ name: string; title: string; caps: Capabilities }> = [
     title: 'Primitives/Slider',
     caps: { interactive: true, keyboard: true },
   },
+  // Track B Slice 6 (performativeUI port). An overlay like tooltip/dialog, but
+  // `trapsFocus: false` (same as tooltip): a popover is a NON-MODAL disclosure
+  // — it never traps focus and has no backdrop, so FocusManagement does not
+  // apply (see packages/primitives/src/popover/accessibility.md's "Not a
+  // dialog"). Unlike tooltip its content CAN hold focusables, which is a
+  // behavior contract, not a required-story one.
+  {
+    name: 'popover',
+    title: 'Primitives/Popover',
+    caps: { interactive: true, keyboard: true, overlay: true, trapsFocus: false },
+  },
 ]
 
 function requiredStories(req: Requirement): string[] {

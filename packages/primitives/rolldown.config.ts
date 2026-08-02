@@ -31,6 +31,7 @@ export default defineConfig({
     switch: 'src/switch/index.ts',
     'radio-group': 'src/radio-group/index.ts',
     slider: 'src/slider/index.ts',
+    popover: 'src/popover/index.ts',
   },
   output: {
     dir: 'dist',
