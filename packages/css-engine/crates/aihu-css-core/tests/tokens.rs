@@ -663,6 +663,16 @@ fn animate_bezier_arbitrary_value_emits_animation_timing_function() {
 }
 
 #[test]
+fn animate_slide_distance_arbitrary_value_sets_custom_property() {
+    // tailwind-animations port, Slice 5 — sets the custom property the ported
+    // slide-* keyframes read via var(--aihu-anim-slide-distance, 20px).
+    assert_eq!(
+        css(&["animate-slide-distance-[32px]"]),
+        ".animate-slide-distance-[32px] { --aihu-anim-slide-distance: 32px; }\n"
+    );
+}
+
+#[test]
 fn named_container_marker_emits_type_and_name() {
     assert_eq!(
         css(&["@container/sidebar"]),

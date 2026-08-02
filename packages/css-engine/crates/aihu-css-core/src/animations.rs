@@ -95,15 +95,56 @@ pub static ANIMATIONS: &[Animation] = &[
         // `--tw-anim-slide-distance` (upstream, default `20px`) is renamed to
         // `--aihu-anim-slide-distance` per D-D — the inline `20px` fallback
         // makes this self-contained, no `theme.rs` registration needed. The
-        // `animate-slide-distance-*` utility that sets it lands in Slice 5.
+        // `animate-slide-distance-*` arbitrary-value utility that sets it is
+        // registered in `tokens.rs::arbitrary_prop` (Slice 5).
+        class: "animate-slide-in-bottom",
+        shorthand: "slide-in-bottom 0.6s ease-out both",
+        keyframes: "@keyframes slide-in-bottom { 0% { transform: translateY(var(--aihu-anim-slide-distance, 20px)); } 100% { transform: translateY(0); } }",
+    },
+    Animation {
         class: "animate-slide-in-left",
         shorthand: "slide-in-left 0.6s ease-out both",
         keyframes: "@keyframes slide-in-left { 0% { transform: translateX(calc(var(--aihu-anim-slide-distance, 20px) * -1)); } 100% { transform: translateX(0); } }",
     },
     Animation {
+        class: "animate-slide-in-right",
+        shorthand: "slide-in-right 0.6s ease-out both",
+        keyframes: "@keyframes slide-in-right { 0% { transform: translateX(var(--aihu-anim-slide-distance, 20px)); } 100% { transform: translateX(0); } }",
+    },
+    Animation {
         class: "animate-slide-in-top",
         shorthand: "slide-in-top 0.6s ease-out both",
         keyframes: "@keyframes slide-in-top { 0% { transform: translateY(calc(var(--aihu-anim-slide-distance, 20px) * -1)); } 100% { transform: translateY(0); } }",
+    },
+    Animation {
+        class: "animate-slide-out-bottom",
+        shorthand: "slide-out-bottom 0.6s ease-out both",
+        keyframes: "@keyframes slide-out-bottom { 0% { transform: translateY(0); } 100% { transform: translateY(var(--aihu-anim-slide-distance, 20px)); } }",
+    },
+    Animation {
+        class: "animate-slide-out-left",
+        shorthand: "slide-out-left 0.6s ease-out both",
+        keyframes: "@keyframes slide-out-left { 0% { transform: translateX(0); } 100% { transform: translateX(calc(var(--aihu-anim-slide-distance, 20px) * -1)); } }",
+    },
+    Animation {
+        class: "animate-slide-out-right",
+        shorthand: "slide-out-right 0.6s ease-out both",
+        keyframes: "@keyframes slide-out-right { 0% { transform: translateX(0); } 100% { transform: translateX(var(--aihu-anim-slide-distance, 20px)); } }",
+    },
+    Animation {
+        class: "animate-slide-out-top",
+        shorthand: "slide-out-top 0.6s ease-out both",
+        keyframes: "@keyframes slide-out-top { 0% { transform: translateY(0); } 100% { transform: translateY(calc(var(--aihu-anim-slide-distance, 20px) * -1)); } }",
+    },
+    Animation {
+        class: "animate-slide-rotate-in",
+        shorthand: "slide-rotate-in 0.6s ease-out both",
+        keyframes: "@keyframes slide-rotate-in { 0% { opacity: 0; transform: translateX(-20px) rotate(-90deg); } 100% { opacity: 1; transform: translateX(0) rotate(0deg); } }",
+    },
+    Animation {
+        class: "animate-slide-rotate-out",
+        shorthand: "slide-rotate-out 0.6s ease-out both",
+        keyframes: "@keyframes slide-rotate-out { 0% { opacity: 1; transform: translateX(0) rotate(0deg); } 100% { opacity: 0; transform: translateX(20px) rotate(90deg); } }",
     },
     Animation {
         class: "animate-zoom-in",

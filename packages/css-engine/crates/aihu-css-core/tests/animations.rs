@@ -92,6 +92,24 @@ fn slice4_fade_cluster_snapshot() {
 }
 
 #[test]
+fn slice5_slide_cluster_snapshot() {
+    let classes: Vec<String> = [
+        "animate-slide-in-bottom",
+        "animate-slide-in-right",
+        "animate-slide-out-bottom",
+        "animate-slide-out-left",
+        "animate-slide-out-right",
+        "animate-slide-out-top",
+        "animate-slide-rotate-in",
+        "animate-slide-rotate-out",
+    ]
+    .into_iter()
+    .map(String::from)
+    .collect();
+    insta::assert_snapshot!(compile_classes(&classes));
+}
+
+#[test]
 fn reduced_motion_guard_present_for_used_animation() {
     let css = compile_sfc_scoped(&sfc("animate-shake")).unwrap();
     assert!(css.contains("prefers-reduced-motion: reduce"));

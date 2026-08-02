@@ -469,6 +469,9 @@ fn arbitrary_prop(prefix: &str) -> Option<&'static str> {
         // no closed value set (arbitrary cubic-bezier args), so it's arbitrary-
         // value-only, unlike the closed-keyword animate-ease* family above.
         "animate-bezier" => "animation-timing-function",
+        // Slice 5 — `animate-slide-distance-[32px]` sets the custom property
+        // the ported slide-* keyframes read via `var(--aihu-anim-slide-distance, 20px)`.
+        "animate-slide-distance" => "--aihu-anim-slide-distance",
         _ => return None,
     })
 }
