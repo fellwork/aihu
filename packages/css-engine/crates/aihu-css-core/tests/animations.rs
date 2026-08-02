@@ -110,6 +110,23 @@ fn slice5_slide_cluster_snapshot() {
 }
 
 #[test]
+fn slice6_zoom_scale_cluster_snapshot() {
+    let classes: Vec<String> = [
+        "animate-contract-horizontally",
+        "animate-contract-vertically",
+        "animate-expand-horizontally",
+        "animate-expand-vertically",
+        "animate-pop",
+        "animate-scale",
+        "animate-zoom-out",
+    ]
+    .into_iter()
+    .map(String::from)
+    .collect();
+    insta::assert_snapshot!(compile_classes(&classes));
+}
+
+#[test]
 fn reduced_motion_guard_present_for_used_animation() {
     let css = compile_sfc_scoped(&sfc("animate-shake")).unwrap();
     assert!(css.contains("prefers-reduced-motion: reduce"));

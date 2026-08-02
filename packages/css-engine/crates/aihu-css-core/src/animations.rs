@@ -27,6 +27,26 @@ pub static ANIMATIONS: &[Animation] = &[
         keyframes: "@keyframes blurred-fade-in { 0% { filter: blur(5px); opacity: 0; } 100% { filter: blur(0); opacity: 1; } }",
     },
     Animation {
+        class: "animate-contract-horizontally",
+        shorthand: "contract-horizontally 0.6s ease-out both",
+        keyframes: "@keyframes contract-horizontally { 0% { transform: scaleX(1); } 100% { transform: scaleX(0); } }",
+    },
+    Animation {
+        class: "animate-contract-vertically",
+        shorthand: "contract-vertically 0.6s ease-out both",
+        keyframes: "@keyframes contract-vertically { 0% { transform: scaleY(1); } 100% { transform: scaleY(0); } }",
+    },
+    Animation {
+        class: "animate-expand-horizontally",
+        shorthand: "expand-horizontally 0.6s ease-out both",
+        keyframes: "@keyframes expand-horizontally { 0% { transform: scaleX(0); } 100% { transform: scaleX(1); } }",
+    },
+    Animation {
+        class: "animate-expand-vertically",
+        shorthand: "expand-vertically 0.6s ease-out both",
+        keyframes: "@keyframes expand-vertically { 0% { transform: scaleY(0); } 100% { transform: scaleY(1); } }",
+    },
+    Animation {
         class: "animate-fade-in",
         shorthand: "fade-in 0.6s ease-in both",
         keyframes: "@keyframes fade-in { 0% { opacity: 0; } 100% { opacity: 1; } }",
@@ -82,9 +102,19 @@ pub static ANIMATIONS: &[Animation] = &[
         keyframes: "@keyframes jump { 0% { transform: translateY(0); } 50% { transform: translateY(-20px); } 100% { transform: translateY(0); } }",
     },
     Animation {
+        class: "animate-pop",
+        shorthand: "pop 0.6s ease-out both",
+        keyframes: "@keyframes pop { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }",
+    },
+    Animation {
         class: "animate-rotate-in",
         shorthand: "rotate-in 0.6s ease-out both",
         keyframes: "@keyframes rotate-in { 0% { opacity: 0; transform: rotate(-90deg); } 100% { opacity: 1; transform: rotate(0deg); } }",
+    },
+    Animation {
+        class: "animate-scale",
+        shorthand: "scale 0.6s ease-out both",
+        keyframes: "@keyframes scale { 0% { transform: scale(1); } 100% { transform: scale(1.10); } }",
     },
     Animation {
         class: "animate-shake",
@@ -150,6 +180,11 @@ pub static ANIMATIONS: &[Animation] = &[
         class: "animate-zoom-in",
         shorthand: "zoom-in 0.6s ease-out both",
         keyframes: "@keyframes zoom-in { 0% { opacity: 0; transform: scale(.5); } 100% { opacity: 1; transform: scale(1); } }",
+    },
+    Animation {
+        class: "animate-zoom-out",
+        shorthand: "zoom-out 0.6s ease-out both",
+        keyframes: "@keyframes zoom-out { 0% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(.5); } }",
     },
 ];
 
