@@ -1,0 +1,77 @@
+<!--
+  aihu-logo-marquee — presentational styled recipe (performativeUI port,
+  Slice 5 — docs/plans/2026-08-01-performative-ui-port.md §Tier-B batch 2).
+
+  Design and behavior transcribed in spirit from performativeUI (MIT); no
+  source text or `pui-` class names vendored — see NOTICES.md.
+
+  An infinite horizontal auto-scrolling logo row. CSS-only: a single track
+  animates `translateX(0)` -> `translateX(-50%)` on an infinite loop. Native
+  `<slot>` cannot render the same light-DOM children twice for a seamless
+  duplicate-track loop, so — matching the common upstream marquee pattern —
+  THE CONSUMER IS EXPECTED TO DUPLICATE THEIR OWN LOGO LIST TWICE as children
+  (e.g. render the same 6 `<img>`s back to back, 12 total): at the halfway
+  point (-50%) the second copy is pixel-aligned with where the first started,
+  so the loop reads as continuous. A single, non-duplicated list will visibly
+  jump at the loop boundary.
+
+  The animation pauses on `:hover`/`:focus-within` so a user can read a logo
+  without it sliding away, and honors `prefers-reduced-motion: reduce` (this
+  is a HARD rule for every animated component in this catalog, no exceptions
+  — mirrors status-dot.aihu's reduced-motion idiom exactly).
+
+  `shadow: 'light'` — see the parent execution plan's theming decision.
+-->
+
+@state {
+  import { cn } from '@aihu/css-engine/runtime/cn'
+
+  shadow: 'light'
+}
+
+@template {
+  <div data-slot="logo-marquee" class={cn('aihu-logo-marquee')}>
+    <div class="aihu-logo-marquee-track">
+      <slot />
+    </div>
+  </div>
+}
+
+@style {
+  .aihu-logo-marquee {
+    display: block;
+    overflow: hidden;
+    -webkit-mask-image: linear-gradient(
+      to right,
+      transparent,
+      black 10%,
+      black 90%,
+      transparent
+    );
+    mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
+  }
+  .aihu-logo-marquee-track {
+    display: flex;
+    align-items: center;
+    gap: 3rem;
+    width: max-content;
+    animation: aihu-logo-marquee-scroll 24s linear infinite;
+  }
+  .aihu-logo-marquee:hover .aihu-logo-marquee-track,
+  .aihu-logo-marquee:focus-within .aihu-logo-marquee-track {
+    animation-play-state: paused;
+  }
+  @keyframes aihu-logo-marquee-scroll {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(-50%);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .aihu-logo-marquee-track {
+      animation: none;
+    }
+  }
+}

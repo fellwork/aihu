@@ -1,0 +1,17 @@
+{
+  "name": "glass-card",
+  "type": "ui",
+  "description": "Presentational frosted-glass surface card — backdrop-filter blur over a translucent, color-mixed background.",
+  "variants": {
+    "padding": ["sm", "md", "lg"]
+  },
+  "meta": {
+    "capabilities": {
+      "interactive": false,
+      "keyboard": false,
+      "form": false,
+      "overlay": false,
+      "directional": false
+    }
+  }
+}

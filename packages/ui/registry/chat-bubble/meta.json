@@ -1,0 +1,17 @@
+{
+  "name": "chat-bubble",
+  "type": "ui",
+  "description": "Presentational single chat message bubble — role-aware alignment and accent, optional initials avatar.",
+  "variants": {
+    "role": ["user", "assistant"]
+  },
+  "meta": {
+    "capabilities": {
+      "interactive": false,
+      "keyboard": false,
+      "form": false,
+      "overlay": false,
+      "directional": false
+    }
+  }
+}

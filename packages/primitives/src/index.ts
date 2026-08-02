@@ -90,6 +90,12 @@ export {
   type SeparatorOrientation,
 } from './separator/index.ts'
 export {
+  AihuSliderRoot,
+  defineSlider,
+  type SliderContextValue,
+  sliderContext,
+} from './slider/index.ts'
+export {
   AihuSwitchRoot,
   AihuSwitchThumb,
   defineSwitch,

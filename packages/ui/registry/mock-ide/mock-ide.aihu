@@ -1,0 +1,91 @@
+<!--
+  aihu-mock-ide — presentational styled recipe (performativeUI port,
+  Slice 5 — docs/plans/2026-08-01-performative-ui-port.md §Tier-B batch 2).
+
+  Design and behavior transcribed in spirit from performativeUI (MIT); no
+  source text or `pui-` class names vendored — see NOTICES.md.
+
+  A decorative fake code-editor window: three macOS-style traffic-light dots
+  (pure CSS circles — NOT real window controls, no click handlers, no
+  window-management behavior of any kind) + an optional title bar label + a
+  default slot for the code body. No syntax highlighting — the consumer wraps
+  their own `<pre><code>...</code></pre>` in the default slot.
+
+  title: optional filename/label shown in the title bar, e.g. "index.ts".
+
+  `shadow: 'light'` — see the parent execution plan's theming decision.
+-->
+
+@state {
+  import { cn } from '@aihu/css-engine/runtime/cn'
+
+  shadow: 'light'
+
+  let title = prop({ default: '' })
+}
+
+@template {
+  <div data-slot="mock-ide" class={cn('aihu-mock-ide')}>
+    <div class="aihu-mock-ide-titlebar" aria-hidden="true">
+      <span class="aihu-mock-ide-dots">
+        <span class="aihu-mock-ide-dot aihu-mock-ide-dot-red"></span>
+        <span class="aihu-mock-ide-dot aihu-mock-ide-dot-yellow"></span>
+        <span class="aihu-mock-ide-dot aihu-mock-ide-dot-green"></span>
+      </span>
+      <span if={title} class="aihu-mock-ide-title">{title}</span>
+    </div>
+    <div class="aihu-mock-ide-body">
+      <slot />
+    </div>
+  </div>
+}
+
+@style {
+  .aihu-mock-ide {
+    display: block;
+    overflow: hidden;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background-color: var(--color-surface);
+    color: var(--color-surface-foreground);
+  }
+  .aihu-mock-ide-titlebar {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.625rem 0.875rem;
+    background-color: color-mix(in oklab, var(--color-foreground) 4%, var(--color-surface));
+    border-bottom: 1px solid var(--color-border);
+  }
+  .aihu-mock-ide-dots {
+    display: inline-flex;
+    gap: 0.4rem;
+    flex: none;
+  }
+  .aihu-mock-ide-dot {
+    width: 0.65rem;
+    height: 0.65rem;
+    border-radius: 9999px;
+  }
+  .aihu-mock-ide-dot-red {
+    background-color: var(--color-destructive);
+  }
+  .aihu-mock-ide-dot-yellow {
+    background-color: var(--color-warning);
+  }
+  .aihu-mock-ide-dot-green {
+    background-color: var(--color-success);
+  }
+  .aihu-mock-ide-title {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--color-muted-foreground);
+  }
+  .aihu-mock-ide-body {
+    padding: 1rem;
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
+    line-height: 1.6;
+    overflow-x: auto;
+  }
+}

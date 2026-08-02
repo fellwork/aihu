@@ -1,0 +1,17 @@
+{
+  "name": "pricing-card",
+  "type": "ui",
+  "description": "Pricing tier card — tier/price/period, an optional featured accent border/elevation, and a default slot for the consumer's feature list.",
+  "variants": {
+    "featured": ["off", "on"]
+  },
+  "meta": {
+    "capabilities": {
+      "interactive": false,
+      "keyboard": false,
+      "form": false,
+      "overlay": false,
+      "directional": false
+    }
+  }
+}

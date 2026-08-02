@@ -1,0 +1,15 @@
+{
+  "name": "before-after",
+  "type": "ui",
+  "description": "Drag-to-reveal image comparison, built on the AihuSliderRoot primitive — keyboard-operable divider between named before/after slots.",
+  "dependencies": ["@aihu/primitives"],
+  "meta": {
+    "capabilities": {
+      "interactive": true,
+      "keyboard": true,
+      "form": false,
+      "overlay": false,
+      "directional": false
+    }
+  }
+}

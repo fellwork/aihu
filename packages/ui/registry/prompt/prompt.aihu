@@ -1,0 +1,72 @@
+<!--
+  aihu-prompt — presentational styled recipe (performativeUI port,
+  Slice 5 — docs/plans/2026-08-01-performative-ui-port.md §Tier-B batch 2).
+
+  Design and behavior transcribed in spirit from performativeUI (MIT); no
+  source text or `pui-` class names vendored — see NOTICES.md.
+
+  DELIBERATELY NOT A REAL FORM INPUT — this is the "AI prompt bar" LOOK for
+  marketing surfaces (hero sections, feature callouts), not a functioning
+  text field. `placeholder` renders as a literal muted-colored `<span>`, not
+  an editable `<input>`/`<textarea>` value. A consumer who needs a real,
+  submittable prompt field should compose `@aihu/primitives/input` (or
+  `@aihu/primitives/textarea`) themselves — wiring a real headless input into
+  this look is explicitly out of scope for this presentational recipe, to
+  avoid the a11y/form-participation surface area a fake-looking-real input
+  would otherwise obligate.
+
+  placeholder: literal text shown in the pill, e.g. "Ask anything...".
+  `<slot name="icon">` — optional leading decorative icon/element.
+
+  `shadow: 'light'` — see the parent execution plan's theming decision.
+-->
+
+@state {
+  import { cn } from '@aihu/css-engine/runtime/cn'
+
+  shadow: 'light'
+
+  let placeholder = prop({ default: 'Ask anything...' })
+}
+
+@template {
+  <div data-slot="prompt" class={cn('aihu-prompt')}>
+    <span class="aihu-prompt-icon" aria-hidden="true">
+      <slot name="icon">
+        <span class="aihu-prompt-dot"></span>
+      </slot>
+    </span>
+    <span class="aihu-prompt-placeholder">{placeholder}</span>
+  </div>
+}
+
+@style {
+  .aihu-prompt {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.625rem;
+    width: 100%;
+    max-width: 28rem;
+    padding: 0.75rem 1.125rem;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--color-border);
+    background-color: var(--color-surface);
+  }
+  .aihu-prompt-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+  }
+  .aihu-prompt-dot {
+    display: inline-block;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 9999px;
+    background-color: var(--color-accent);
+  }
+  .aihu-prompt-placeholder {
+    font-size: 0.875rem;
+    color: var(--color-muted-foreground);
+  }
+}

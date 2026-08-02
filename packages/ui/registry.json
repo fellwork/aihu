@@ -24,6 +24,27 @@
       }
     },
     {
+      "name": "before-after",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/before-after/before-after.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Drag-to-reveal image comparison, built on the AihuSliderRoot primitive — keyboard-operable divider between named before/after slots.",
+      "dependencies": ["@aihu/primitives"],
+      "meta": {
+        "capabilities": {
+          "interactive": true,
+          "keyboard": true,
+          "form": false,
+          "overlay": false,
+          "directional": false
+        }
+      }
+    },
+    {
       "name": "big-back",
       "type": "ui",
       "files": [
@@ -83,6 +104,29 @@
         }
       ],
       "description": "Presentational card recipe with slotted header, body, and footer regions.",
+      "meta": {
+        "capabilities": {
+          "interactive": false,
+          "keyboard": false,
+          "form": false,
+          "overlay": false,
+          "directional": false
+        }
+      }
+    },
+    {
+      "name": "chat-bubble",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/chat-bubble/chat-bubble.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Presentational single chat message bubble — role-aware alignment and accent, optional initials avatar.",
+      "variants": {
+        "role": ["user", "assistant"]
+      },
       "meta": {
         "capabilities": {
           "interactive": false,
@@ -210,6 +254,29 @@
       }
     },
     {
+      "name": "glass-card",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/glass-card/glass-card.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Presentational frosted-glass surface card — backdrop-filter blur over a translucent, color-mixed background.",
+      "variants": {
+        "padding": ["sm", "md", "lg"]
+      },
+      "meta": {
+        "capabilities": {
+          "interactive": false,
+          "keyboard": false,
+          "form": false,
+          "overlay": false,
+          "directional": false
+        }
+      }
+    },
+    {
       "name": "gradient-text",
       "type": "ui",
       "files": [
@@ -276,6 +343,27 @@
       }
     },
     {
+      "name": "logo-marquee",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/logo-marquee/logo-marquee.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Infinite horizontal auto-scrolling row of logos — CSS-only, pauses on hover/focus and honors reduced motion.",
+      "meta": {
+        "capabilities": {
+          "interactive": false,
+          "hoverable": true,
+          "keyboard": false,
+          "form": false,
+          "overlay": false,
+          "directional": false
+        }
+      }
+    },
+    {
       "name": "logo-row",
       "type": "ui",
       "files": [
@@ -293,6 +381,90 @@
           "overlay": false,
           "directional": false,
           "hoverable": true
+        }
+      }
+    },
+    {
+      "name": "mock-ide",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/mock-ide/mock-ide.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Decorative fake code-editor window chrome — traffic-light dots + title bar over a slotted code body.",
+      "meta": {
+        "capabilities": {
+          "interactive": false,
+          "keyboard": false,
+          "form": false,
+          "overlay": false,
+          "directional": false
+        }
+      }
+    },
+    {
+      "name": "pricing-card",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/pricing-card/pricing-card.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Pricing tier card — tier/price/period, an optional featured accent border/elevation, and a default slot for the consumer's feature list.",
+      "variants": {
+        "featured": ["off", "on"]
+      },
+      "meta": {
+        "capabilities": {
+          "interactive": false,
+          "keyboard": false,
+          "form": false,
+          "overlay": false,
+          "directional": false
+        }
+      }
+    },
+    {
+      "name": "prompt",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/prompt/prompt.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Presentational single-line AI-prompt-bar look — a rounded pill with a leading icon slot and a placeholder text span; not a real form input.",
+      "meta": {
+        "capabilities": {
+          "interactive": false,
+          "keyboard": false,
+          "form": false,
+          "overlay": false,
+          "directional": false
+        }
+      }
+    },
+    {
+      "name": "prompt-hero",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/prompt-hero/prompt-hero.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Larger hero variant composing gradient-text (heading) above a prompt bar, centered layout.",
+      "registryDependencies": ["gradient-text", "prompt"],
+      "meta": {
+        "capabilities": {
+          "interactive": false,
+          "keyboard": false,
+          "form": false,
+          "overlay": false,
+          "directional": false
         }
       }
     },

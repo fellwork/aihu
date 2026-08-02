@@ -30,6 +30,7 @@ export default defineConfig({
     checkbox: 'src/checkbox/index.ts',
     switch: 'src/switch/index.ts',
     'radio-group': 'src/radio-group/index.ts',
+    slider: 'src/slider/index.ts',
   },
   output: {
     dir: 'dist',

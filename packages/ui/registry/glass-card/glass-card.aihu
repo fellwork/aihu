@@ -1,0 +1,58 @@
+<!--
+  aihu-glass-card — presentational styled recipe (performativeUI port,
+  Slice 5 — docs/plans/2026-08-01-performative-ui-port.md §Tier-B batch 2).
+
+  Design and behavior transcribed in spirit from performativeUI (MIT); no
+  source text or `pui-` class names vendored — see NOTICES.md.
+
+  A frosted-glass surface: a translucent, color-mixed background behind a
+  `backdrop-filter: blur(...)`. No new tokens (E-P3 ruling) — derived
+  per-recipe via `color-mix()` + a literal `blur(12px)`. Default slot holds
+  the card body.
+
+  padding: sm | md | lg (default)
+  (Variant matrix is the registry catalog contract — see meta.json — reflected
+  as data-padding and matched in @style below.)
+
+  `shadow: 'light'` — see the parent execution plan's theming decision.
+-->
+
+@state {
+  import { cn } from '@aihu/css-engine/runtime/cn'
+
+  shadow: 'light'
+
+  let padding = prop({ default: 'md' })
+}
+
+@template {
+  <div data-slot="glass-card" data-padding={padding} class={cn('aihu-glass-card')}>
+    <slot />
+  </div>
+}
+
+@style {
+  .aihu-glass-card {
+    display: block;
+    background-color: color-mix(in oklab, var(--color-surface) 70%, transparent);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid color-mix(in oklab, var(--color-border) 60%, transparent);
+    border-radius: var(--radius-lg);
+    color: var(--color-surface-foreground);
+  }
+  .aihu-glass-card[data-padding="sm"] {
+    padding: 0.75rem;
+  }
+  .aihu-glass-card[data-padding="md"] {
+    padding: 1.25rem;
+  }
+  .aihu-glass-card[data-padding="lg"] {
+    padding: 2rem;
+  }
+  @supports not (backdrop-filter: blur(1px)) {
+    .aihu-glass-card {
+      background-color: color-mix(in oklab, var(--color-surface) 92%, transparent);
+    }
+  }
+}

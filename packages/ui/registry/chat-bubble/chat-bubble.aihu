@@ -1,0 +1,81 @@
+<!--
+  aihu-chat-bubble — presentational styled recipe (performativeUI port,
+  Slice 5 — docs/plans/2026-08-01-performative-ui-port.md §Tier-B batch 2).
+
+  Design and behavior transcribed in spirit from performativeUI (MIT); no
+  source text or `pui-` class names vendored — see NOTICES.md.
+
+  A single chat message bubble. `role` controls alignment (assistant = left,
+  neutral surface; user = right, primary-tinted) and the initials avatar's
+  accent. `avatar` is a plain string prop (initials, e.g. "SM") rather than a
+  slot — this catalog's chat surfaces are marketing-demo dressing, not a real
+  chat widget, so a simple text prop covers it without the extra API surface
+  a slotted avatar would add. Default slot = message content.
+
+  role:   assistant (default) | user
+  avatar: optional initials string, e.g. "AI" or "SM".
+
+  `shadow: 'light'` — see the parent execution plan's theming decision.
+-->
+
+@state {
+  import { cn } from '@aihu/css-engine/runtime/cn'
+
+  shadow: 'light'
+
+  let role = prop({ default: 'assistant' })
+  let avatar = prop({ default: '' })
+}
+
+@template {
+  <div data-slot="chat-bubble" data-role={role} class={cn('aihu-chat-bubble')}>
+    <span if={avatar} class="aihu-chat-bubble-avatar" aria-hidden="true">{avatar}</span>
+    <div class="aihu-chat-bubble-content">
+      <slot />
+    </div>
+  </div>
+}
+
+@style {
+  .aihu-chat-bubble {
+    display: flex;
+    align-items: flex-end;
+    gap: 0.5rem;
+    max-width: 32rem;
+  }
+  .aihu-chat-bubble[data-role="user"] {
+    flex-direction: row-reverse;
+    margin-inline-start: auto;
+  }
+  .aihu-chat-bubble-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 9999px;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    background-color: var(--color-muted);
+    color: var(--color-muted-foreground);
+  }
+  .aihu-chat-bubble[data-role="user"] .aihu-chat-bubble-avatar {
+    background-color: var(--color-primary);
+    color: var(--color-primary-foreground);
+  }
+  .aihu-chat-bubble-content {
+    padding: 0.625rem 0.875rem;
+    border-radius: var(--radius-lg);
+    font-size: 0.875rem;
+    line-height: 1.5;
+    background-color: var(--color-surface);
+    color: var(--color-surface-foreground);
+    border: 1px solid var(--color-border);
+  }
+  .aihu-chat-bubble[data-role="user"] .aihu-chat-bubble-content {
+    background-color: var(--color-primary);
+    color: var(--color-primary-foreground);
+    border-color: var(--color-primary);
+  }
+}

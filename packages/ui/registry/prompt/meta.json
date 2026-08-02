@@ -1,0 +1,14 @@
+{
+  "name": "prompt",
+  "type": "ui",
+  "description": "Presentational single-line AI-prompt-bar look — a rounded pill with a leading icon slot and a placeholder text span; not a real form input.",
+  "meta": {
+    "capabilities": {
+      "interactive": false,
+      "keyboard": false,
+      "form": false,
+      "overlay": false,
+      "directional": false
+    }
+  }
+}

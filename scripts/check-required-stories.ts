@@ -110,6 +110,15 @@ const PRIMITIVES: Array<{ name: string; title: string; caps: Capabilities }> = [
   },
   { name: 'label', title: 'Primitives/Label', caps: {} },
   { name: 'separator', title: 'Primitives/Separator', caps: {} },
+  // Track B Slice 5 (performativeUI port). Interactive + keyboard, but
+  // deliberately NOT `form: true` — single-thumb comparison-slider divider
+  // position isn't form data in this primitive's scope (see
+  // packages/primitives/src/slider/accessibility.md's "What's NOT included").
+  {
+    name: 'slider',
+    title: 'Primitives/Slider',
+    caps: { interactive: true, keyboard: true },
+  },
 ]
 
 function requiredStories(req: Requirement): string[] {
