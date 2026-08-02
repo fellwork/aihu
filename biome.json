@@ -25,7 +25,9 @@
       "!packages/mcp/src/cookbook-index.json",
       "!vendor",
       "!packages/css-engine/styles/aihu-default.css",
-      "!packages/css-engine/styles/aihu-graphite.css"
+      "!packages/css-engine/styles/aihu-graphite.css",
+      "!apps/storybook/src/stories/animations-gallery.generated.css",
+      "!apps/storybook/src/stories/animations-gallery.generated.ts"
     ]
   },
   "formatter": {

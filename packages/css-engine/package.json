@@ -1,6 +1,6 @@
 {
   "name": "@aihu/css-engine",
-  "version": "0.5.13",
+  "version": "0.5.14",
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",
@@ -40,16 +40,17 @@
     "@aihu/compiler": "workspace:^"
   },
   "optionalDependencies": {
-    "@aihu/css-engine-darwin-arm64": "0.1.16",
-    "@aihu/css-engine-darwin-x64": "0.1.16",
-    "@aihu/css-engine-linux-x64-gnu": "0.1.16",
-    "@aihu/css-engine-win32-x64-msvc": "0.1.16"
+    "@aihu/css-engine-darwin-arm64": "0.1.17",
+    "@aihu/css-engine-darwin-x64": "0.1.17",
+    "@aihu/css-engine-linux-x64-gnu": "0.1.17",
+    "@aihu/css-engine-win32-x64-msvc": "0.1.17"
   },
   "scripts": {
     "build": "bun run gen:style-packs && rolldown -c",
     "build:rust": "cargo build --release -p aihu-css-core",
     "gen:cn-map": "bun scripts/gen-cn-conflict-map.ts",
     "gen:style-packs": "bun scripts/gen-style-packs.ts",
+    "gen:animations-gallery": "bun scripts/gen-animations-gallery.ts",
     "test": "vitest run",
     "test:rust": "cargo test -p aihu-css-core",
     "typecheck": "tsc --noEmit",
