@@ -161,6 +161,31 @@ fn slice8_flip_cluster_snapshot() {
 }
 
 #[test]
+fn slice9a_attention_seeker_cluster_snapshot() {
+    let classes: Vec<String> = [
+        "animate-blink",
+        "animate-bouncing",
+        "animate-dancing",
+        "animate-flash",
+        "animate-float",
+        "animate-hang",
+        "animate-heartbeat",
+        "animate-horizontal-bounce",
+        "animate-horizontal-vibration",
+        "animate-impulse-rotation-left",
+        "animate-impulse-rotation-right",
+        "animate-jelly",
+        "animate-jiggle",
+        "animate-pulsing",
+        "animate-roll-in",
+    ]
+    .into_iter()
+    .map(String::from)
+    .collect();
+    insta::assert_snapshot!(compile_classes(&classes));
+}
+
+#[test]
 fn reduced_motion_guard_present_for_used_animation() {
     let css = compile_sfc_scoped(&sfc("animate-shake")).unwrap();
     assert!(css.contains("prefers-reduced-motion: reduce"));

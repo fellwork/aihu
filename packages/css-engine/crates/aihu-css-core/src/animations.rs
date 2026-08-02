@@ -22,9 +22,19 @@ pub struct Animation {
 /// keeps append-only parallel slices conflict-free (see the port doc §8).
 pub static ANIMATIONS: &[Animation] = &[
     Animation {
+        class: "animate-blink",
+        shorthand: "blink 0.5s both",
+        keyframes: "@keyframes blink { 0% { opacity: 0; } 100% { opacity: 1; } }",
+    },
+    Animation {
         class: "animate-blurred-fade-in",
         shorthand: "blurred-fade-in 0.9s ease-in-out both",
         keyframes: "@keyframes blurred-fade-in { 0% { filter: blur(5px); opacity: 0; } 100% { filter: blur(0); opacity: 1; } }",
+    },
+    Animation {
+        class: "animate-bouncing",
+        shorthand: "bouncing 1s ease-in-out both",
+        keyframes: "@keyframes bouncing { 0% { transform: translateY(0); } 50% { transform: translateY(-10px); } 100% { transform: translateY(0); } }",
     },
     Animation {
         class: "animate-contract-horizontally",
@@ -35,6 +45,11 @@ pub static ANIMATIONS: &[Animation] = &[
         class: "animate-contract-vertically",
         shorthand: "contract-vertically 0.6s ease-out both",
         keyframes: "@keyframes contract-vertically { 0% { transform: scaleY(1); } 100% { transform: scaleY(0); } }",
+    },
+    Animation {
+        class: "animate-dancing",
+        shorthand: "dancing 1s ease-in-out both",
+        keyframes: "@keyframes dancing { 0% { transform: skew(0deg); } 25% { transform: skew(-40deg); } 50% { transform: skew(40deg); } 75% { transform: skew(-40deg); } 100% { transform: skew(0deg); } }",
     },
     Animation {
         class: "animate-expand-horizontally",
@@ -97,6 +112,11 @@ pub static ANIMATIONS: &[Animation] = &[
         keyframes: "@keyframes fade-out-up { 0% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; transform: translateY(-20px); } }",
     },
     Animation {
+        class: "animate-flash",
+        shorthand: "flash 1s ease-in-out both",
+        keyframes: "@keyframes flash { 0% { opacity: 1; } 50% { opacity: 0; } 100% { opacity: 1; } }",
+    },
+    Animation {
         class: "animate-flip-horizontal",
         shorthand: "flip-horizontal 1s ease-in-out both",
         keyframes: "@keyframes flip-horizontal { 0% { transform: rotateY(0deg); } 100% { transform: rotateY(180deg); } }",
@@ -137,6 +157,51 @@ pub static ANIMATIONS: &[Animation] = &[
         keyframes: "@keyframes flip-y { 0% { transform: scaleY(1); } 50% { transform: scaleY(-1); } 100% { transform: scaleY(1); } }",
     },
     Animation {
+        class: "animate-float",
+        shorthand: "float 1s ease-in-out both",
+        keyframes: "@keyframes float { 0% { transform: translateY(0); } 50% { transform: translateY(-10px); } 100% { transform: translateY(0); } }",
+    },
+    Animation {
+        class: "animate-hang",
+        shorthand: "hang 1s ease-in-out both",
+        keyframes: "@keyframes hang { 0% { transform: translateY(-20px); } 50% { transform: translateY(0); } 100% { transform: translateY(-20px); } }",
+    },
+    Animation {
+        class: "animate-heartbeat",
+        shorthand: "heartbeat 0.6s ease-out both",
+        keyframes: "@keyframes heartbeat { 0% { transform: scale(1); } 25% { transform: scale(1.1); } 50% { transform: scale(1); } 75% { transform: scale(0.9); } 100% { transform: scale(1); } }",
+    },
+    Animation {
+        class: "animate-horizontal-bounce",
+        shorthand: "horizontal-bounce 0.6s ease-in-out both",
+        keyframes: "@keyframes horizontal-bounce { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(20px); } }",
+    },
+    Animation {
+        class: "animate-horizontal-vibration",
+        shorthand: "horizontal-vibration 0.3s linear infinite both",
+        keyframes: "@keyframes horizontal-vibration { 0% { transform: translateX(0); } 25% { transform: translateX(5px); } 50% { transform: translateX(-5px); } 75% { transform: translateX(5px); } 100% { transform: translateX(0); } }",
+    },
+    Animation {
+        class: "animate-impulse-rotation-left",
+        shorthand: "impulse-rotation-left 1s ease-in-out both",
+        keyframes: "@keyframes impulse-rotation-left { 0% { transform: rotate(0deg); } 50% { transform: rotate(40deg); } 100% { transform: rotate(-360deg); } }",
+    },
+    Animation {
+        class: "animate-impulse-rotation-right",
+        shorthand: "impulse-rotation-right 1s ease-in-out both",
+        keyframes: "@keyframes impulse-rotation-right { 0% { transform: rotate(0deg); } 50% { transform: rotate(-40deg); } 100% { transform: rotate(360deg); } }",
+    },
+    Animation {
+        class: "animate-jelly",
+        shorthand: "jelly 1s ease-out forwards",
+        keyframes: "@keyframes jelly { 0% { transform: scale(1, 1); } 20% { transform: scale(1.25, 0.75); } 40% { transform: scale(0.75, 1.25); } 60% { transform: scale(1.15, 0.85); } 75% { transform: scale(0.95, 1.05); } 85% { transform: scale(1.05, 0.95); } 92% { transform: scale(1, 1.02); } 100% { transform: scale(1, 1); } }",
+    },
+    Animation {
+        class: "animate-jiggle",
+        shorthand: "jiggle 0.5s ease-in-out both",
+        keyframes: "@keyframes jiggle { 0% { transform: rotate(-3deg); } 50% { transform: rotate(3deg); } 100% { transform: rotate(-3deg); } }",
+    },
+    Animation {
         class: "animate-jump",
         shorthand: "jump 1s ease-in-out both",
         keyframes: "@keyframes jump { 0% { transform: translateY(0); } 50% { transform: translateY(-20px); } 100% { transform: translateY(0); } }",
@@ -145,6 +210,16 @@ pub static ANIMATIONS: &[Animation] = &[
         class: "animate-pop",
         shorthand: "pop 0.6s ease-out both",
         keyframes: "@keyframes pop { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }",
+    },
+    Animation {
+        class: "animate-pulsing",
+        shorthand: "pulsing 1s ease-in-out both",
+        keyframes: "@keyframes pulsing { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }",
+    },
+    Animation {
+        class: "animate-roll-in",
+        shorthand: "roll-in 1s ease-in-out both",
+        keyframes: "@keyframes roll-in { 0% { transform: translateX(-20px) rotate(-120deg); } 100% { transform: translateX(0) rotate(0); } }",
     },
     Animation {
         class: "animate-rotate-180",
