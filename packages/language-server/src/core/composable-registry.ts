@@ -49,6 +49,16 @@ export const COMPOSABLE_REGISTRY: readonly ComposableRegistryEntry[] = [
       "reactive `navigator.language` (the user's single primary language), updated on the `languagechange` event",
   },
   {
+    name: 'useCanvasSurface',
+    specifier: '@aihu/use/motion/useCanvasSurface',
+    description: "own a decorative `<canvas>`'s sizing, DPI, visibility gating and rAF loop",
+  },
+  {
+    name: 'useCharacterField',
+    specifier: '@aihu/use/motion/useCharacterField',
+    description: 'an animated grid of character glyphs on a managed canvas',
+  },
+  {
     name: 'useClamp',
     specifier: '@aihu/use/math/useClamp',
     description: 'reactive clamp of a number to `[min, max]`',
@@ -244,6 +254,11 @@ export const COMPOSABLE_REGISTRY: readonly ComposableRegistryEntry[] = [
     specifier: '@aihu/use/usePageLeave',
     description:
       'reactive boolean for whether the pointer has left the page/viewport, tracked via `mouseleave`/`mouseenter` on `document`',
+  },
+  {
+    name: 'useParticleField',
+    specifier: '@aihu/use/motion/useParticleField',
+    description: 'an N-particle 2D drift simulation on a managed canvas',
   },
   {
     name: 'usePerformanceObserver',

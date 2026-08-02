@@ -453,7 +453,7 @@
   {
     "name": "@aihu/use/motion",
     "path": "packages/use/dist/motion.js",
-    "limit": "3 KB",
+    "limit": "6 KB",
     "gzip": true,
     "ignore": ["@aihu/signals"]
   },
@@ -783,6 +783,27 @@
     "name": "@aihu/use/motion/useSequence",
     "path": "packages/use/dist/motion/useSequence.js",
     "limit": "900 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
+    "name": "@aihu/use/motion/useCanvasSurface",
+    "path": "packages/use/dist/motion/useCanvasSurface.js",
+    "limit": "2300 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
+    "name": "@aihu/use/motion/useParticleField",
+    "path": "packages/use/dist/motion/useParticleField.js",
+    "limit": "3900 B",
+    "gzip": true,
+    "ignore": ["@aihu/signals"]
+  },
+  {
+    "name": "@aihu/use/motion/useCharacterField",
+    "path": "packages/use/dist/motion/useCharacterField.js",
+    "limit": "3250 B",
     "gzip": true,
     "ignore": ["@aihu/signals"]
   },

@@ -967,6 +967,67 @@ const entries: Array<{ entry: string; run: () => Promise<void> }> = [
       ),
   },
   {
+    entry: 'motion/useCanvasSurface',
+    run: () =>
+      withSSR(
+        () => import('../src/motion/useCanvasSurface/index.ts'),
+        ({ useCanvasSurface }) => {
+          withGlobalSpies(() => {
+            // The draw callback must never fire server-side — there is no
+            // context to hand it, and a draw callback that runs under SSR is
+            // exactly the crash this gate exists to prevent.
+            const onFrame = vi.fn(() => {
+              throw new Error('onFrame must not run under SSR')
+            })
+            const surface = useCanvasSurface(null, { onFrame })
+            expect(surface.canvas()).toBeNull()
+            expect(surface.ctx()).toBeNull()
+            expect(surface.width()).toBe(0)
+            expect(surface.pixelRatio()).toBe(1)
+            expect(surface.isRunning()).toBe(false)
+            surface.start()
+            surface.redraw()
+            expect(onFrame).not.toHaveBeenCalled()
+          })
+        },
+      ),
+  },
+  {
+    entry: 'motion/useParticleField',
+    run: () =>
+      withSSR(
+        () => import('../src/motion/useParticleField/index.ts'),
+        ({ useParticleField }) => {
+          withGlobalSpies(() => {
+            const { particles, canvas, isRunning, start } = useParticleField(null, { count: 20 })
+            expect(particles()).toEqual([])
+            expect(canvas()).toBeNull()
+            expect(isRunning()).toBe(false)
+            start()
+            expect(particles()).toEqual([])
+          })
+        },
+      ),
+  },
+  {
+    entry: 'motion/useCharacterField',
+    run: () =>
+      withSSR(
+        () => import('../src/motion/useCharacterField/index.ts'),
+        ({ useCharacterField }) => {
+          withGlobalSpies(() => {
+            const { cells, columns, rows, isRunning, start } = useCharacterField(null)
+            expect(cells()).toEqual([])
+            expect(columns()).toBe(0)
+            expect(rows()).toBe(0)
+            expect(isRunning()).toBe(false)
+            start()
+            expect(cells()).toEqual([])
+          })
+        },
+      ),
+  },
+  {
     entry: 'useWatch',
     run: () =>
       withSSR(

@@ -9,10 +9,11 @@
       "peers": {}
     },
     "motion": {
+      "$comment": "aggregateLimit raised 3 KB -> 6 KB in wave 2 (Slice 8, Tier-C canvas infrastructure) against a MEASURED aggregate of 5314 B — not a reactive bump-until-green. Wave 1's five text/timer members totalled ~1.8 KB; useCanvasSurface (2090 B) + useCharacterField (2932 B) + useParticleField (3545 B) share the surface chunk, so the deduplicated aggregate is 5314 B, leaving 830 B (~14%) of headroom under 6 KB. memberLimit deliberately STAYS at 900 B: it only seeds the .size-limit.json row a new composable seeds with, and the family's typical member is still a sub-1 KB text/timer composable — the three canvas members carry per-row limits measured individually instead, so a future small composable is not handed a 4 KB budget by default.",
       "aggregate": true,
       "autoImport": true,
       "memberLimit": "900 B",
-      "aggregateLimit": "3 KB",
+      "aggregateLimit": "6 KB",
       "peers": {}
     },
     "router": {

@@ -283,9 +283,21 @@
       "types": "./dist/motion.d.ts",
       "import": "./dist/motion.js"
     },
+    "./motion/useCanvasSurface": {
+      "types": "./dist/motion/useCanvasSurface.d.ts",
+      "import": "./dist/motion/useCanvasSurface.js"
+    },
+    "./motion/useCharacterField": {
+      "types": "./dist/motion/useCharacterField.d.ts",
+      "import": "./dist/motion/useCharacterField.js"
+    },
     "./motion/useCountTo": {
       "types": "./dist/motion/useCountTo.d.ts",
       "import": "./dist/motion/useCountTo.js"
+    },
+    "./motion/useParticleField": {
+      "types": "./dist/motion/useParticleField.d.ts",
+      "import": "./dist/motion/useParticleField.js"
     },
     "./motion/useReducedMotion": {
       "types": "./dist/motion/useReducedMotion.d.ts",
