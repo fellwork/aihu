@@ -4,7 +4,17 @@
   `<aihu-dialog-backdrop>` EXTENDS the headless AihuDialogBackdrop primitive
   (click-outside dismissal, reflects `data-state`) via the compiler's
   `$extends:` macro. Light DOM (`$shadow: 'light'`). The translucent scrim covers
-  the viewport while open and is removed from layout while closed.
+  the viewport while open and fades out on close.
+
+  MOTION (tailwind-animations port, Track A Slice 12). This is aihu's stand-in
+  for the vendor's `.animate-dialog::backdrop` rules: `::backdrop` is a
+  pseudo-element that exists only on a native `<dialog>`/fullscreen element, and
+  aihu's dialog is a headless JS primitive over plain positioned elements — so
+  the backdrop is a REAL element carrying the same `data-state`, and the fade is
+  ported onto that instead. Animation is on by default; the
+  `animate-dialog-duration-*` / `animate-dialog-easing-[…]` utilities retune it
+  via the shared `--aihu-anim-dialog-*` custom properties. Full decision record:
+  `packages/css-engine/crates/aihu-css-core/recipes/dialog.css`.
 
   `aihu add` rewrites the `aihu-` prefix (tag + selectors) at copy time.
 -->
@@ -26,8 +36,28 @@
     inset: 0;
     z-index: 40;
     background: color-mix(in oklab, var(--color-foreground) 50%, transparent);
+    opacity: 1;
+    visibility: visible;
+    will-change: opacity;
+    transition:
+      opacity var(--aihu-anim-dialog-duration, 350ms) ease,
+      visibility 0s;
   }
+  /* `visibility: hidden`, not `display: none` — see dialog-content.aihu's
+     closed-state comment for why (the primitive never unmounts these elements,
+     and `display` cannot be transitioned into without `allow-discrete`). The
+     delayed `visibility` slot keeps the scrim painted for its whole fade-out. */
   aihu-dialog-backdrop[data-state="closed"] {
-    display: none;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition-delay: 0s, var(--aihu-anim-dialog-duration, 350ms);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    aihu-dialog-backdrop:not([data-motion="always"]),
+    aihu-dialog-backdrop[data-state="closed"]:not([data-motion="always"]) {
+      transition-duration: 1ms;
+      transition-delay: 0s;
+    }
   }
 }

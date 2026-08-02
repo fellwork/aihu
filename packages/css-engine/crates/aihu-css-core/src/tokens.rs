@@ -175,6 +175,40 @@ pub fn conflict_groups() -> Vec<(&'static str, &'static str)> {
     out.push(("animate-direction", "animation-direction"));
     out.push(("animate-play", "animation-play-state"));
 
+    // tailwind-animations port, Slice 12 — the dialog entry/exit family.
+    //
+    // `cn.ts`'s `groupKey` scans LONGEST dash-prefix first and starts at the
+    // FULL class name, which is what makes the shape below work: every
+    // start-offset preset is registered under its own EXACT class name, all
+    // pointing at one shared group, so the six presets collide with each other
+    // (`cn('animate-dialog-from-top', 'animate-dialog-zoom')` → the zoom) while
+    // the base `animate-dialog` — registered separately, one entry earlier in
+    // the scan's fallback chain — survives alongside any of them. Registering
+    // the shared prefix `animate-dialog` for the presets instead would have
+    // swallowed the base class into the same group and silently dropped it from
+    // `cn('animate-dialog', 'animate-dialog-from-top')`, which is precisely the
+    // failure the Slice-1 Opus review caught for the plain `animate-*` family.
+    //
+    // The base and the backdrop each get a self-named group for a second
+    // reason: without an entry of their own they would fall through to the
+    // blanket `("animate", "animation")` row above and collide with real
+    // keyframe animations, even though neither declares `animation` at all.
+    out.push(("animate-dialog", "animate-dialog"));
+    out.push(("animate-dialog-backdrop", "animate-dialog-backdrop"));
+    const DIALOG_START_PRESETS: &[&str] = &[
+        "animate-dialog-from-top",
+        "animate-dialog-from-bottom",
+        "animate-dialog-from-left",
+        "animate-dialog-from-right",
+        "animate-dialog-fade",
+        "animate-dialog-zoom",
+    ];
+    for p in DIALOG_START_PRESETS {
+        out.push((p, "--aihu-anim-dialog-start"));
+    }
+    out.push(("animate-dialog-duration", "--aihu-anim-dialog-duration"));
+    out.push(("animate-dialog-easing", "--aihu-anim-dialog-easing"));
+
     out
 }
 
@@ -476,6 +510,14 @@ fn arbitrary_prop(prefix: &str) -> Option<&'static str> {
         // Slice 5 — `animate-slide-distance-[32px]` sets the custom property
         // the ported slide-* keyframes read via `var(--aihu-anim-slide-distance, 20px)`.
         "animate-slide-distance" => "--aihu-anim-slide-distance",
+        // Slice 12 — the arbitrary-value forms of the dialog family's two
+        // free-valued knobs. `animate-dialog-duration-[0.4s]` complements the
+        // integer-millisecond `animate-dialog-duration-400` above (upstream's
+        // `--value(…, [duration], [*])` third branch), and
+        // `animate-dialog-easing-[cubic-bezier(...)]` exposes the easing custom
+        // property that upstream reads but ships no utility for.
+        "animate-dialog-duration" => "--aihu-anim-dialog-duration",
+        "animate-dialog-easing" => "--aihu-anim-dialog-easing",
         _ => return None,
     })
 }
@@ -880,6 +922,45 @@ fn fixed_utility(class_name: &str) -> Option<&'static str> {
         "animate-ease-out" => "animation-timing-function: ease-out;",
         "animate-ease-in-out" => "animation-timing-function: ease-in-out;",
         "animate-linear" => "animation-timing-function: linear;",
+
+        // tailwind-animations port, Slice 12 — dialog entry/exit MODIFIERS.
+        // The base `animate-dialog` / `animate-dialog-backdrop` are a
+        // three-rule state machine and therefore live in the recipe channel
+        // (`recipes/dialog.css`, which carries the full decision record);
+        // these six are single flat custom-property blocks, so they are
+        // ordinary utilities exactly like every other modifier family above.
+        // Being utilities is also what gets them `conflict_groups()` entries
+        // and therefore `cn()` last-wins merging.
+        //
+        // Upstream packs the offset as one `--tw-anim-dialog-start-translate`
+        // pair; aihu splits it into scalar `-start-x`/`-start-y` so a centered
+        // panel can compose it into `calc(-50% + var(…))` alongside its own
+        // centering translate — see `recipes/dialog.css` §"Token renaming"
+        // and `packages/ui/registry/dialog/dialog-content.aihu`.
+        //
+        // `0px`, not `0`: these land inside a `calc()` in the registry
+        // component, where a unitless zero added to a percentage is invalid.
+        "animate-dialog-from-top" => {
+            "--aihu-anim-dialog-start-x: 0px; --aihu-anim-dialog-start-y: -1.5rem;"
+        }
+        "animate-dialog-from-bottom" => {
+            "--aihu-anim-dialog-start-x: 0px; --aihu-anim-dialog-start-y: 1.5rem;"
+        }
+        "animate-dialog-from-left" => {
+            "--aihu-anim-dialog-start-x: -1.5rem; --aihu-anim-dialog-start-y: 0px;"
+        }
+        "animate-dialog-from-right" => {
+            "--aihu-anim-dialog-start-x: 1.5rem; --aihu-anim-dialog-start-y: 0px;"
+        }
+        // The two named presets also pin `-start-scale`, since "fade" means
+        // opacity ONLY and "zoom" means scale only — otherwise the family
+        // default (0.96) would leak into both.
+        "animate-dialog-fade" => {
+            "--aihu-anim-dialog-start-x: 0px; --aihu-anim-dialog-start-y: 0px; --aihu-anim-dialog-start-scale: 1;"
+        }
+        "animate-dialog-zoom" => {
+            "--aihu-anim-dialog-start-x: 0px; --aihu-anim-dialog-start-y: 0px; --aihu-anim-dialog-start-scale: 0.92;"
+        }
 
         // --- Parity round: long-tail fixed utilities ----------------------
 
@@ -1372,6 +1453,19 @@ fn parameterized_utility(prefix: &str, value: &str) -> Option<String> {
         }
         if let Some(n) = positive_int(value) {
             return Some(format!("animation-iteration-count: {n};"));
+        }
+    }
+    // Slice 12 — `animate-dialog-duration-250` → the custom property the
+    // `animate-dialog` recipe (and the dialog registry components) read for
+    // every one of their transition durations/delays. Distinct from
+    // `animate-duration` above: that sets `animation-duration` on a
+    // keyframe-backed animation, this reconfigures a TRANSITION-driven family
+    // that has no `animation` at all. Checked before `animate-duration` can
+    // ever see it because `parameterized_utility` splits on the LAST `-`, so
+    // the prefix is the full `animate-dialog-duration`.
+    if prefix == "animate-dialog-duration" {
+        if let Some(ms) = positive_int_or_zero(value) {
+            return Some(format!("--aihu-anim-dialog-duration: {ms}ms;"));
         }
     }
     // Slice 3 — `animate-steps-4` → `steps(4)`. `animate-bezier-[...]` (the

@@ -50,6 +50,32 @@ describe('@aihu/css-engine/runtime/cn — class merge', () => {
     expect(cn('animate-fade-in', 'animate-shake')).toBe('animate-shake')
   })
 
+  it('keeps the animate-dialog base alongside its start-offset presets (Slice 12)', () => {
+    // The presets are registered under their EXACT class names, not under the
+    // shared `animate-dialog` prefix, precisely so `groupKey`'s full-name-first
+    // scan resolves them before it can reach the base's own group. Registering
+    // the shared prefix instead would swallow the base and silently drop it.
+    expect(cn('animate-dialog', 'animate-dialog-from-left')).toBe(
+      'animate-dialog animate-dialog-from-left',
+    )
+    // All six presets are one mutually-exclusive group — last wins, across the
+    // `from-*` / named-preset spelling boundary too.
+    expect(cn('animate-dialog-from-top', 'animate-dialog-from-bottom')).toBe(
+      'animate-dialog-from-bottom',
+    )
+    expect(cn('animate-dialog-from-left', 'animate-dialog-zoom')).toBe('animate-dialog-zoom')
+    // Timing knobs are independent axes, combinable with any preset.
+    expect(cn('animate-dialog-zoom', 'animate-dialog-duration-200')).toBe(
+      'animate-dialog-zoom animate-dialog-duration-200',
+    )
+    // Neither the base nor the backdrop declares `animation`, so neither may
+    // fall through to the blanket `animate` → `animation` group.
+    expect(cn('animate-fade-in', 'animate-dialog')).toBe('animate-fade-in animate-dialog')
+    expect(cn('animate-dialog', 'animate-dialog-backdrop')).toBe(
+      'animate-dialog animate-dialog-backdrop',
+    )
+  })
+
   it('dedupes other pre-existing multi-segment prefix families (translate-x, grid-cols)', () => {
     // These were silently non-deduping before groupKey did real longest-prefix
     // matching — `translate-x` truncated to `translate`, an unregistered

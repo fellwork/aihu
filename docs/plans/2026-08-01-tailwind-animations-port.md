@@ -98,7 +98,7 @@ with aihu. Exactly one custom property survives:
 | 9 | Attention seekers (~19): `shake`, `jiggle`, `tada`, `wobble`, `swing`, `heartbeat`, `horizontal-vibration`, `dancing`, `sway`, `skew`, `skew-right`, `tilt`, `jump`, `hang`, `float`, `sink`, `bouncing`, `vertical-bounce`, `horizontal-bounce` | 1 | Largest batch — split 9a/9b if reviewed as too large. `shake`/`jump` land in Slice 1. |
 | 10 | Composites (3): `bounce-fade-in`, `swing-drop-in`, `pulse-fade-in` — plus the inventory-complete gate (`ANIMATIONS.len() == 78`) | 4–9 | Gate asserted against the vendored file, not a hand-list. |
 | 11 | Scroll-driven timelines: `timeline-*`, `scroll-timeline-axis-*`, `view-timeline-axis-*`, `animate-range-*` | 1 (ideally 2–3) | Decide `progressive.rs` routing in this slice. |
-| 12 | Dialog set: `animate-dialog-fade`, `animate-dialog-zoom`, `animate-dialog-from-*`, `animate-dialog-duration-*` | 11 | Multi-rule output; likely needs Slice 13's recipe fix. Not a blocker for 1–11. |
+| 12 | Dialog set: `animate-dialog-fade`, `animate-dialog-zoom`, `animate-dialog-from-*`, `animate-dialog-duration-*` | 13 | **Done.** Split channel, as predicted: the multi-rule base (`.animate-dialog`, `.animate-dialog-backdrop`) went to the recipe channel via Slice 13's at-rule fix (`recipes/dialog.css`); the flat custom-property modifiers stayed utilities in `tokens.rs` (they need `conflict_groups()`, and `-duration-*` is unbounded so it has no recipe form). Adapted, not transcribed — see §5. It turned out NOT to depend on Slice 11: `animate-dialog` is a transition family, not a scroll-driven timeline. |
 | 13 | Recipe-channel at-rule fix + binary-bump-guard hole | — | Independent, parallel with everything. Prerequisite of 12 if 12 uses the recipe route. |
 | 14 | Docs + demo gallery rendering all 78 | 10 | Real visual regression net. |
 
@@ -121,3 +121,30 @@ summarized here for reference:
 - New `tests/animations.rs` (structural invariants + insta snapshots) and `tests/recipes.rs`
   (golden tests for existing btn/card/badge recipes, closing prior debt).
 - Binary version bump across `packages/css-engine/package.json` + 5 platform packages.
+
+---
+
+## 5. Slice 12 — the dialog set, and why it is an ADAPTATION
+
+Upstream's `animate-dialog` block (`vendor/tailwind-animations-8eb93d9/index.css` 781-877) is built
+entirely around the **native `<dialog>` element**: `::backdrop`, the `[open]` attribute,
+`.is-opening`/`.is-closing`, and `@starting-style` + `transition-behavior: allow-discrete` to
+animate in and out of the UA-imposed `display: none`.
+
+aihu's dialog is a **headless JS primitive** (`@aihu/primitives/dialog`) over plain positioned
+elements, publishing `data-state="open"|"closed"`. So the *approach* was ported, not the selectors.
+
+| Decision | Choice | Why |
+|---|---|---|
+| CSS channel | **Split.** Multi-rule base → recipe channel (`recipes/dialog.css`); flat modifiers → `tokens.rs` utilities | `utility_to_css`'s `Option<String>`-per-class cannot express a 3-rule state machine; the modifiers need `conflict_groups()`, and `-duration-*` is unbounded so it has no recipe form |
+| `::backdrop` | **Replaced** by a real-element class `.animate-dialog-backdrop` | No native `<dialog>` exists to host the pseudo-element |
+| `@starting-style` / `allow-discrete` | **Not used** | The primitive never unmounts content — it only flips `data-state`. Both features exist to solve mount/`display: none`, neither of which applies |
+| `<aihu-presence-gate>` | **Not wired in** | Same reason: nothing is ever unmounted, so there is no exit to coordinate. Zero primitive-level changes; `apg`/`focus-trap`/`keyboard` suites pass unmodified |
+| Closed state | `visibility: hidden` + delayed `visibility` slot, replacing `display: none` | `display` cannot be transitioned into without `allow-discrete`; `visibility` is the discrete property the platform transitions specially, and still clears the a11y tree + tab order |
+| Default vs opt-in | **On by default** in the dialog registry pieces | A modal that snaps into existence is the anomaly. The `animate-dialog-*` utilities are the opt-in half — they only retune the built-in motion via the shared custom properties |
+| Reduced motion | Own `@media (prefers-reduced-motion: reduce)` block in both channels | `animations.rs`'s `reduced_motion_guard` covers only the keyframe-backed utility channel; this family is transition-driven. Same `[data-motion="always"]` escape hatch, same collapse-the-duration (not `transition: none`) shape |
+| D-D token shape | `--tw-anim-dialog-start-translate` (pair) → `--aihu-anim-dialog-start-x` / `-start-y` (scalars) | A centered panel must own the `translate` property for centering; only scalars compose into `calc(-50% + …)`. Keeping the centering in `transform` instead would let the `scale` entrance drift the panel by (1−scale)·width/2 |
+
+**Known limitation, accepted:** the closing panel stays in the native tab order for its exit window
+(focus is already back on the trigger). Closing it needs `inert`, i.e. a primitive-level JS change
+with real risk to the focus-trap/keyboard suites — out of scope for a CSS slice.

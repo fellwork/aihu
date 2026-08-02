@@ -731,3 +731,113 @@ fn sizing_fraction_not_treated_as_opacity() {
     // `w-1/2` is a width fraction, not a color opacity — must stay 50%.
     assert_eq!(css(&["w-1/2"]), ".w-1/2 { width: 50%; }\n");
 }
+
+// ── tailwind-animations Slice 12: the dialog entry/exit MODIFIERS ───────────
+// The base `animate-dialog`/`animate-dialog-backdrop` are a multi-rule state
+// machine and live in the recipe channel (`recipes/dialog.css` + the dialog
+// tests in `tests/recipes.rs`); only the flat custom-property modifiers are
+// utilities, and these pin them.
+
+#[test]
+fn animate_dialog_direction_presets_set_scalar_start_offsets() {
+    // Upstream's single `--tw-anim-dialog-start-translate` pair is split into
+    // scalar x/y so a centered panel can compose the offset into a `calc()`
+    // next to its own `translate: -50% -50%` (decision D-D, adapted).
+    for (class, x, y) in [
+        ("animate-dialog-from-top", "0px", "-1.5rem"),
+        ("animate-dialog-from-bottom", "0px", "1.5rem"),
+        ("animate-dialog-from-left", "-1.5rem", "0px"),
+        ("animate-dialog-from-right", "1.5rem", "0px"),
+    ] {
+        assert_eq!(
+            css(&[class]),
+            format!(
+                ".{class} {{ --aihu-anim-dialog-start-x: {x}; --aihu-anim-dialog-start-y: {y}; }}\n"
+            )
+        );
+    }
+}
+
+#[test]
+fn animate_dialog_named_presets_also_pin_the_start_scale() {
+    // "fade" is opacity-only and "zoom" is scale-only, so both must override
+    // the family's 0.96 default rather than inherit it.
+    assert!(css(&["animate-dialog-fade"]).contains("--aihu-anim-dialog-start-scale: 1;"));
+    assert!(css(&["animate-dialog-zoom"]).contains("--aihu-anim-dialog-start-scale: 0.92;"));
+    for class in ["animate-dialog-fade", "animate-dialog-zoom"] {
+        assert!(css(&[class]).contains("--aihu-anim-dialog-start-x: 0px;"));
+        assert!(css(&[class]).contains("--aihu-anim-dialog-start-y: 0px;"));
+    }
+}
+
+#[test]
+fn animate_dialog_duration_is_parameterized_and_distinct_from_animate_duration() {
+    assert_eq!(
+        css(&["animate-dialog-duration-250"]),
+        ".animate-dialog-duration-250 { --aihu-anim-dialog-duration: 250ms; }\n"
+    );
+    // Must NOT be swallowed by the `animate-duration` family, which sets the
+    // `animation-duration` property of a keyframe-backed animation.
+    assert!(!css(&["animate-dialog-duration-250"]).contains("animation-duration"));
+}
+
+#[test]
+fn animate_dialog_arbitrary_duration_and_easing() {
+    assert_eq!(
+        css(&["animate-dialog-duration-[0.4s]"]),
+        ".animate-dialog-duration-[0.4s] { --aihu-anim-dialog-duration: 0.4s; }\n"
+    );
+    assert!(
+        css(&["animate-dialog-easing-[cubic-bezier(0.22,_1,_0.36,_1)]"])
+            .contains("--aihu-anim-dialog-easing: cubic-bezier(0.22, 1, 0.36, 1);")
+    );
+}
+
+#[test]
+fn animate_dialog_conflict_groups_keep_the_base_alongside_a_preset() {
+    let groups: std::collections::BTreeMap<&str, &str> =
+        aihu_css_core::tokens::conflict_groups().into_iter().collect();
+
+    // The base and the backdrop each own a self-named group so they never fall
+    // through to the blanket `animate` → `animation` row (neither declares
+    // `animation`), and never collide with a preset.
+    assert_eq!(groups.get("animate-dialog"), Some(&"animate-dialog"));
+    assert_eq!(
+        groups.get("animate-dialog-backdrop"),
+        Some(&"animate-dialog-backdrop")
+    );
+
+    // All six start-offset presets share ONE group so they last-wins against
+    // each other. Registered under their EXACT class names (not the shared
+    // `animate-dialog` prefix) precisely so the base survives beside them —
+    // `cn.ts`'s `groupKey` tries the full class name before shorter prefixes.
+    for preset in [
+        "animate-dialog-from-top",
+        "animate-dialog-from-bottom",
+        "animate-dialog-from-left",
+        "animate-dialog-from-right",
+        "animate-dialog-fade",
+        "animate-dialog-zoom",
+    ] {
+        assert_eq!(
+            groups.get(preset),
+            Some(&"--aihu-anim-dialog-start"),
+            "{preset} must share the start-offset group"
+        );
+    }
+
+    // Timing knobs are independent axes — combinable with any preset.
+    assert_eq!(
+        groups.get("animate-dialog-duration"),
+        Some(&"--aihu-anim-dialog-duration")
+    );
+    assert_eq!(
+        groups.get("animate-dialog-easing"),
+        Some(&"--aihu-anim-dialog-easing")
+    );
+
+    // No duplicate prefix keys anywhere — a dup would silently collide in the
+    // generated `cn()` map.
+    let all = aihu_css_core::tokens::conflict_groups();
+    assert_eq!(all.len(), groups.len(), "duplicate conflict-group prefix");
+}

@@ -7,10 +7,20 @@
 
 /** Prefix → conflict-group key, sorted longest-prefix-first. */
 export const CONFLICT_GROUPS: Record<string, string> = {
+  'animate-dialog-from-bottom': '--aihu-anim-dialog-start',
+  'animate-dialog-from-right': '--aihu-anim-dialog-start',
+  'animate-dialog-from-left': '--aihu-anim-dialog-start',
   'animate-iteration-count': 'animation-iteration-count',
+  'animate-dialog-backdrop': 'animate-dialog-backdrop',
+  'animate-dialog-from-top': '--aihu-anim-dialog-start',
+  'animate-dialog-duration': '--aihu-anim-dialog-duration',
+  'animate-dialog-easing': '--aihu-anim-dialog-easing',
+  'animate-dialog-fade': '--aihu-anim-dialog-start',
+  'animate-dialog-zoom': '--aihu-anim-dialog-start',
   'animate-fill-mode': 'animation-fill-mode',
   'animate-direction': 'animation-direction',
   'animate-duration': 'animation-duration',
+  'animate-dialog': 'animate-dialog',
   'animate-delay': 'animation-delay',
   'animate-play': 'animation-play-state',
   'translate-x': 'translate',

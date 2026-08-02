@@ -1,0 +1,57 @@
+---
+source: packages/css-engine/crates/aihu-css-core/tests/recipes.rs
+assertion_line: 98
+expression: css
+---
+@layer aihu.components {
+.animate-dialog {
+  opacity: 1;
+  translate: 0 0;
+  scale: 1;
+  visibility: visible;
+  will-change: opacity, translate, scale;
+  transition: opacity var(--aihu-anim-dialog-duration, 350ms) ease,
+    translate var(--aihu-anim-dialog-duration, 350ms)
+    var(--aihu-anim-dialog-easing, cubic-bezier(0.22, 1, 0.36, 1)),
+    scale var(--aihu-anim-dialog-duration, 350ms)
+    var(--aihu-anim-dialog-easing, cubic-bezier(0.22, 1, 0.36, 1)),
+    visibility 0s;
+  &[data-state="closed"] {
+    opacity: var(--aihu-anim-dialog-start-opacity, 0);
+    translate: var(--aihu-anim-dialog-start-x, 0px) var(--aihu-anim-dialog-start-y, 1.5rem);
+    scale: var(--aihu-anim-dialog-start-scale, 0.96);
+    visibility: hidden;
+    pointer-events: none;
+    transition-delay: 0s, 0s, 0s, var(--aihu-anim-dialog-duration, 350ms);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    &:not([data-motion="always"]),
+    &[data-state="closed"]:not([data-motion="always"]) {
+      transition-duration: 1ms;
+      transition-delay: 0s;
+    }
+  }
+}
+.animate-dialog-backdrop {
+  opacity: 1;
+  visibility: visible;
+  will-change: opacity;
+  background: var(--aihu-anim-dialog-backdrop-background, rgb(15 23 42 / 0.58));
+  backdrop-filter: var(--aihu-anim-dialog-backdrop-filter, blur(8px));
+  transition: opacity var(--aihu-anim-dialog-duration, 350ms) ease,
+    visibility 0s;
+  &[data-state="closed"] {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition-delay: 0s, var(--aihu-anim-dialog-duration, 350ms);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    &:not([data-motion="always"]),
+    &[data-state="closed"]:not([data-motion="always"]) {
+      transition-duration: 1ms;
+      transition-delay: 0s;
+    }
+  }
+}
+}

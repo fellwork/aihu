@@ -52,7 +52,8 @@ export const States = {
   play: async ({ canvasElement }: { canvasElement: HTMLElement }): Promise<void> => {
     const content = canvasElement.querySelector('aihu-dialog-content') as HTMLElement
     const trigger = canvasElement.querySelector('aihu-dialog-trigger') as HTMLElement
-    // Closed at rest: content hidden (display:none), trigger collapsed.
+    // Closed at rest: content hidden (visibility:hidden — see the Motion
+    // stories below for why it is no longer display:none), trigger collapsed.
     await expect(content).toHaveAttribute('data-state', 'closed')
     await expect(trigger).toHaveAttribute('aria-expanded', 'false')
   },
@@ -122,5 +123,91 @@ export const FocusManagement = {
     await waitFor(async () => {
       await expect(trigger).toHaveFocus()
     })
+  },
+}
+
+// ── Motion (tailwind-animations port, Track A Slice 12) ─────────────────────
+// The panel + scrim animate in and out by default; the `animate-dialog-*`
+// utility family only RETUNES that built-in motion by overriding the shared
+// `--aihu-anim-dialog-*` custom properties. Storybook mounts no global utility
+// sheet (see .storybook/main.ts — only the pack token CSS is injected), so
+// these stories ship the exact declaration bodies `tokens.rs` emits for those
+// classes rather than pretending the classes resolve on their own. That keeps
+// the demo honest AND makes it a real regression net: if the emitted custom
+// property names ever drift from the ones the recipe pieces read, the panel
+// visibly stops responding to the class.
+const DIALOG_UTILITIES = `
+  <style>
+    .animate-dialog-from-top { --aihu-anim-dialog-start-x: 0px; --aihu-anim-dialog-start-y: -1.5rem; }
+    .animate-dialog-from-bottom { --aihu-anim-dialog-start-x: 0px; --aihu-anim-dialog-start-y: 1.5rem; }
+    .animate-dialog-from-left { --aihu-anim-dialog-start-x: -1.5rem; --aihu-anim-dialog-start-y: 0px; }
+    .animate-dialog-from-right { --aihu-anim-dialog-start-x: 1.5rem; --aihu-anim-dialog-start-y: 0px; }
+    .animate-dialog-fade { --aihu-anim-dialog-start-x: 0px; --aihu-anim-dialog-start-y: 0px; --aihu-anim-dialog-start-scale: 1; }
+    .animate-dialog-zoom { --aihu-anim-dialog-start-x: 0px; --aihu-anim-dialog-start-y: 0px; --aihu-anim-dialog-start-scale: 0.92; }
+    .animate-dialog-duration-1200 { --aihu-anim-dialog-duration: 1200ms; }
+  </style>`
+
+/** One dialog whose content carries `classes` (an `animate-dialog-*` set). */
+const MOTION_DIALOG = (label: string, classes: string): string => `
+  ${DIALOG_UTILITIES}
+  <aihu-dialog-root modal>
+    <aihu-dialog-trigger>${label}</aihu-dialog-trigger>
+    <aihu-dialog-backdrop></aihu-dialog-backdrop>
+    <aihu-dialog-content class="${classes}">
+      <aihu-dialog-title>${label}</aihu-dialog-title>
+      <aihu-dialog-description>Entrance tuned by <code>${classes}</code>.</aihu-dialog-description>
+      <aihu-dialog-close aria-label="Close">×</aihu-dialog-close>
+    </aihu-dialog-content>
+  </aihu-dialog-root>`
+
+/**
+ * The four directional entrances. Deliberately slowed to 1200ms so the motion
+ * is legible in a manual pass and so the `play` assertion below observes the
+ * panel mid-transition rather than racing the default 350ms.
+ */
+export const MotionDirections = {
+  render: (): string =>
+    ['top', 'bottom', 'left', 'right']
+      .map((dir) =>
+        MOTION_DIALOG(`From ${dir}`, `animate-dialog-from-${dir} animate-dialog-duration-1200`),
+      )
+      .join(''),
+}
+
+/** The two named presets: fade (opacity only) and zoom (scale only). */
+export const MotionPresets = {
+  render: (): string =>
+    ['fade', 'zoom']
+      .map((preset) =>
+        MOTION_DIALOG(`Dialog ${preset}`, `animate-dialog-${preset} animate-dialog-duration-1200`),
+      )
+      .join(''),
+}
+
+/**
+ * The load-bearing behavioural claim of Slice 12: the closed panel is no longer
+ * removed from layout with `display: none`, so it can be transitioned into and
+ * out of. Asserting on the COMPUTED style is the only way to catch a regression
+ * back to `display: none` — the `data-state` attribute alone would still pass.
+ */
+export const MotionExitIsAnimated = {
+  render: (): string => MOTION_DIALOG('Animated exit', 'animate-dialog-duration-1200'),
+  play: async ({ canvasElement }: { canvasElement: HTMLElement }): Promise<void> => {
+    const trigger = canvasElement.querySelector('aihu-dialog-trigger') as HTMLElement
+    const content = canvasElement.querySelector('aihu-dialog-content') as HTMLElement
+
+    await userEvent.click(trigger)
+    await waitFor(async () => {
+      await expect(content).toHaveAttribute('data-state', 'open')
+    })
+    await expect(getComputedStyle(content).display).not.toBe('none')
+
+    await userEvent.keyboard('{Escape}')
+    await waitFor(async () => {
+      await expect(content).toHaveAttribute('data-state', 'closed')
+    })
+    // Still rendered while the exit transition runs — the whole point of using
+    // a delayed `visibility` rather than an instant `display` cutover.
+    await expect(getComputedStyle(content).display).not.toBe('none')
   },
 }
