@@ -58,7 +58,13 @@ jobs:
 
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          # Pinned, not `latest`: this job WRITES generated content (the
+          # `release:version` script runs sync-readme.ts), and plan-a.yml's
+          # readme-sync + gate-wiring jobs VERIFY it under a pinned version.
+          # A bun-version-dependent difference in that output (glob ordering,
+          # JSON serialization) would make every Release PR a phantom red
+          # against a writer it can never match. Keep in sync with plan-a.yml.
+          bun-version: '1.3.8'
 
       - run: bun install --frozen-lockfile
 

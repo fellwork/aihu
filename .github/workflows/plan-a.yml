@@ -4,13 +4,21 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
+    # MUST mirror the `code` filter's exclusion list below (FEL-433 half-2),
+    # not a blanket '**/*.md' — a push touching only skills/aihu/**.md (real
+    # compiler input check:skill-samples validates, not documentation) used
+    # to skip this workflow entirely on a push to main while a PR touching
+    # the identical files correctly ran full CI, reopening on the push side
+    # exactly the doc-only-skip hole FEL-433 closed on the PR side.
     paths-ignore:
       - '.team/**'
       - 'docs/**'
       - '.claude/**'
       - 'state-*.md'
       - 'README.md'
-      - '**/*.md'
+      - '**/README.md'
+      - '**/CHANGELOG.md'
+      - '.changeset/**'
   pull_request:
     branches: [main]
     types: [opened, reopened, synchronize, ready_for_review]
@@ -91,6 +99,11 @@ jobs:
       # Guard: a compiler Rust change must bump the platform binary packages,
       # or the rebuilt binary is silently skipped at publish (see the script).
       - run: bun run check:compiler-binary-bump
+      # Same guard, for @aihu/css-engine's aihu-css-compile binary and
+      # @aihu/server's napi renderer addon — added after the css-engine one
+      # went stale silently for weeks (see the script's own history).
+      - run: bun run check:css-engine-binary-bump
+      - run: bun run check:server-binary-bump
       # Guard: every non-private package under packages/ must be in
       # publish-all.sh's hand-maintained PKGS array, or changesets bumps it
       # forever while it never reaches npm — silently, with the release job

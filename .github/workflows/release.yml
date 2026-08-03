@@ -229,7 +229,13 @@ jobs:
 
   release:
     name: Publish GitHub Release
-    needs: [build, build-wasm]
+    # Downloads EVERY run artifact (no `name:` filter, below) regardless of
+    # which job produced it, so it must wait on every job that uploads one —
+    # not just build/build-wasm. Missing build-native/build-css-native/
+    # build-compiler-napi here let this job start while they were still
+    # running, racing the artifact set the flatten step now asserts is
+    # complete.
+    needs: [build, build-wasm, build-native, build-css-native, build-compiler-napi]
     runs-on: ubuntu-22.04
     # Longest observed run of this job is ~3 min; without a bound a hang
     # inherits GitHub's 360 min default and stalls the release for six hours.
@@ -246,15 +252,60 @@ jobs:
 
       - name: Flatten artifact directory
         run: |
+          set -euo pipefail
           mkdir -p release-assets
           # Skip 0-byte files. The GitHub Release Asset API rejects empty
           # uploads with "size must be greater than or equal to 1"; a single
           # empty sidecar (typically from a partial-failed prior run that
           # downloaded an artifact for re-upload) would tank the whole
           # release-create step.
-          find artifacts -type f ! -empty -exec cp {} release-assets/ \;
+          #
+          # download-artifact@v4 (no `name:` filter, above) lays every run's
+          # artifacts out as artifacts/<artifact-name>/<original-basename> —
+          # the <artifact-name> segment is unique per upload-artifact step
+          # (aihu-compile-<platform>, aihu-compile-wasm, native-<platform>,
+          # css-native-<platform>, compiler-napi-<platform>), but not every
+          # basename is: every css-native-<platform> artifact (except win32,
+          # which is the differently-named aihu-css-compile.exe) contains a
+          # file literally named aihu-css-compile. A bare
+          # `cp {} release-assets/` collapses all three onto one path — last
+          # write wins, no error — which is exactly how the css binary in a
+          # past Release ended up advertising a nondeterministic platform.
+          #
+          # Fix: copy under the plain basename when nothing has claimed it
+          # yet (preserves today's exact asset names for aihu-compile-wasm.*
+          # and aihu-compile-<platform>.* — both are consumed by a hardcoded
+          # `releases/latest/download/<name>` URL elsewhere in this repo, so
+          # THOSE must never move). Only on an actual collision, fall back to
+          # an artifact-directory-qualified name, so a second file with the
+          # same basename still ships instead of silently vanishing.
+          while IFS= read -r f; do
+            dir="$(dirname "$f")"
+            artifact_name="$(basename "$dir")"
+            base="$(basename "$f")"
+            dest="release-assets/$base"
+            if [ -e "$dest" ]; then
+              dest="release-assets/${artifact_name}-${base}"
+              if [ -e "$dest" ]; then
+                echo "::error::asset name collision even after qualifying with the artifact directory: $dest (from $f)"
+                exit 1
+              fi
+              echo "note: $f basename '$base' collides with an already-staged asset — staging as $(basename "$dest") instead"
+            fi
+            cp "$f" "$dest"
+          done < <(find artifacts -type f ! -empty | sort)
           ls -la release-assets/
-          ls -la release-assets
+          # Sanity count: one asset per upload-artifact step is expected at
+          # minimum (some, like aihu-compile-<platform>, upload 2 — binary +
+          # .sha256). A run with fewer files than artifact directories means
+          # something silently produced nothing, not that everything is fine.
+          artifact_dirs=$(find artifacts -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')
+          staged=$(find release-assets -type f | wc -l | tr -d ' ')
+          echo "staged $staged release asset(s) from $artifact_dirs artifact director(y/ies)"
+          if [ "$staged" -lt "$artifact_dirs" ]; then
+            echo "::error::staged fewer release assets ($staged) than artifact directories ($artifact_dirs) — at least one artifact directory contributed nothing"
+            exit 1
+          fi
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@72f2c25fcb47643c292f7107632f7a47c1df5cd8 # v2.2.1
@@ -275,9 +326,11 @@ jobs:
   # the freshly-built binary. No env-var gate is needed — on a supported
   # platform a missing binary throws via the loader (AC-9, spec §5.1), so CI
   # without the addon is automatically a hard fail. The PR-time enforcement
-  # lives in the per-PR CI workflow (see .github/workflows/ci.yml or moon's
-  # local CI gate); this release workflow builds and publishes the per-platform
-  # .node binaries that ship as @aihu/server-<platform> packages.
+  # lives in the per-PR CI workflow's `check` job (.github/workflows/plan-a.yml
+  # — its `bun run test` step picks this up like any other *.test.ts file,
+  # with no dedicated named step) or moon's local CI gate; this release
+  # workflow builds and publishes the per-platform .node binaries that ship as
+  # @aihu/server-<platform> packages.
   # ---------------------------------------------------------------------------
   build-native:
     name: Build native ${{ matrix.platform }}
@@ -414,17 +467,27 @@ jobs:
           for dir in packages/server/npm/*/; do
             platform=$(basename "$dir")
             node_file=$(ls native-artifacts/native-$platform/*.node 2>/dev/null || true)
+            # HARD FAIL, not silent skip: a missing binary here would publish
+            # an empty platform package and brick install resolution for that
+            # platform (see publish-compiler-native's comment on why this
+            # loop's OWN prior silent-skip shape was the anti-pattern).
             if [ -z "$node_file" ]; then
-              echo "no .node artifact for $platform — skipping"
-              continue
+              echo "::error::no .node artifact for $platform (expected native-artifacts/native-$platform/*.node)"
+              exit 1
             fi
-            cp "$node_file" "$dir/"
+            dest="$dir/$(basename "$node_file")"
+            cp "$node_file" "$dest"
             # NOTE: unlike publish-css-native, we intentionally do NOT chmod 0755
             # here. .node files are dlopen()'d by Node/Bun, not exec()'d — the
             # OS loader does not require the exec bit. actions/download-artifact@v4
             # drops POSIX mode bits, but the resulting -rw-r--r-- is harmless for
             # napi addons. Do not change this without re-verifying dlopen on all
             # 4 platforms.
+            # Final guard: the staged file must be non-empty before publish.
+            if [ ! -s "$dest" ]; then
+              echo "::error::staged binary is empty: $dest (platform $platform)"
+              exit 1
+            fi
             pkg_name=$(node -p "require('./$dir/package.json').name")
             pkg_version=$(node -p "require('./$dir/package.json').version")
             # Idempotency: 'npm view <pkg>@<ver>' returns the version string when
@@ -574,11 +637,16 @@ jobs:
             # The css binary is a raw executable named aihu-css-compile[.exe];
             # match either to be platform-agnostic in the copy.
             bin_file=$(ls css-native-artifacts/css-native-$platform/aihu-css-compile* 2>/dev/null || true)
+            # HARD FAIL, not silent skip: a missing binary here would publish
+            # an empty platform package and brick install resolution for that
+            # platform (see publish-compiler-native's comment on why this
+            # loop's OWN prior silent-skip shape was the anti-pattern).
             if [ -z "$bin_file" ]; then
-              echo "no css binary artifact for $platform — skipping"
-              continue
+              echo "::error::no css binary artifact for $platform (expected css-native-artifacts/css-native-$platform/aihu-css-compile*)"
+              exit 1
             fi
-            cp "$bin_file" "$dir/"
+            dest="$dir/$(basename "$bin_file")"
+            cp "$bin_file" "$dest"
             # Restore +x lost in actions/download-artifact@v4 (does NOT preserve
             # POSIX mode bits). Without this, the published tarball ships
             # aihu-css-compile as -rw-r--r--, and Bun consumers cannot fix it
@@ -587,8 +655,13 @@ jobs:
             # on Linux anyway so chmod on a .exe is meaningless.
             case "$platform" in
               win32-*) ;;
-              *) chmod 0755 "$dir/$(basename "$bin_file")" ;;
+              *) chmod 0755 "$dest" ;;
             esac
+            # Final guard: the staged file must be non-empty before publish.
+            if [ ! -s "$dest" ]; then
+              echo "::error::staged binary is empty: $dest (platform $platform)"
+              exit 1
+            fi
             pkg_name=$(node -p "require('./$dir/package.json').name")
             pkg_version=$(node -p "require('./$dir/package.json').version")
             # Idempotency: skip if this version is already on npm (re-run / retag).
@@ -611,9 +684,11 @@ jobs:
   # uses the workspace `target/` fallback.
   #
   # IMPORTANT: artifact names differ from npm dir names — they are mapped
-  # EXPLICITLY below. Unlike publish-css-native's silent-skip loop, a missing
-  # binary for any of the 5 dirs is a HARD FAIL: a silent skip would publish an
-  # empty platform package and brick install resolution for that platform.
+  # EXPLICITLY below. A missing binary for any of the 5 dirs is a HARD FAIL: a
+  # silent skip would publish an empty platform package and brick install
+  # resolution for that platform. (publish-native, publish-css-native, and
+  # publish-compiler-napi originally silent-skipped instead — fixed to match
+  # this job's shape once the pattern was noticed; see their own comments.)
   # ---------------------------------------------------------------------------
   publish-compiler-native:
     name: Publish @aihu/compiler-* platform packages
@@ -882,13 +957,23 @@ jobs:
           for dir in packages/compiler/npm-native/*/; do
             platform=$(basename "$dir")
             node_file=$(ls compiler-napi-artifacts/compiler-napi-$platform/*.node 2>/dev/null || true)
+            # HARD FAIL, not silent skip: a missing binary here would publish
+            # an empty platform package and brick install resolution for that
+            # platform — this is the exact FEL-414 shape (napi addon stranded
+            # on npm at 0.1.0 through nine CLI bumps) a silent skip caused.
             if [ -z "$node_file" ]; then
-              echo "no .node artifact for $platform — skipping"
-              continue
+              echo "::error::no .node artifact for $platform (expected compiler-napi-artifacts/compiler-napi-$platform/*.node)"
+              exit 1
             fi
-            cp "$node_file" "$dir/"
+            dest="$dir/$(basename "$node_file")"
+            cp "$node_file" "$dest"
             # No chmod: .node files are dlopen()'d, not exec()'d (see the
             # publish-native NOTE — do not change without re-verifying dlopen).
+            # Final guard: the staged file must be non-empty before publish.
+            if [ ! -s "$dest" ]; then
+              echo "::error::staged binary is empty: $dest (platform $platform)"
+              exit 1
+            fi
             pkg_name=$(node -p "require('./$dir/package.json').name")
             pkg_version=$(node -p "require('./$dir/package.json').version")
             # Idempotency: skip if this version is already on npm (re-run / retag).

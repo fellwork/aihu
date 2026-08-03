@@ -39,6 +39,12 @@
  * "Completely" is checked against the platform directories that actually exist
  * on disk, so adding a sixth platform tightens the guard automatically.
  *
+ * The general form of this rule (shared source, family-only source, lockstep,
+ * host-pin repoint) lives in scripts/lib/native-binary-bump.ts — this file is
+ * a thin, compiler-specific configuration of it. See
+ * scripts/check-css-engine-binary-bump.ts and scripts/check-server-binary-bump.ts
+ * for the same guard applied to this monorepo's other native-binary packages.
+ *
  * Usage:
  *   bun scripts/check-compiler-binary-bump.ts            # diff vs origin/<base>
  *   BASE_REF=main bun scripts/check-compiler-binary-bump.ts
@@ -47,9 +53,9 @@
  * Exit 0 = ok (or nothing to check), 1 = a required platform bump is missing.
  */
 import { execSync } from 'node:child_process'
-import { existsSync, readdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { createBumpChecker, type PlatformMap } from './lib/native-binary-bump.ts'
 
 // `import.meta.dir` is Bun-only and this module is also imported by vitest.
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
@@ -70,8 +76,6 @@ export const FAMILIES: Record<Family, { dir: string; label: string }> = {
   },
 }
 
-const FAMILY_KEYS = Object.keys(FAMILIES) as Family[]
-
 /** True when the file is shared compiler Rust source — feeds BOTH artifacts. */
 export function isCompilerRustSource(file: string): boolean {
   return (
@@ -85,152 +89,39 @@ export function isNapiAddonSource(file: string): boolean {
   return file.startsWith('packages/compiler/src-native/')
 }
 
-/** Which family a platform manifest belongs to, or null if it is not one. */
-export function platformManifestFamily(file: string): Family | null {
-  const parts = file.split('/')
-  if (parts[parts.length - 1] !== 'package.json') return null
-  for (const family of FAMILY_KEYS) {
-    const dirParts = FAMILIES[family].dir.split('/')
-    // Exactly <dir>/<platform>/package.json — nothing nested deeper.
-    if (parts.length === dirParts.length + 2 && dirParts.every((p, i) => parts[i] === p)) {
-      return family
-    }
-  }
-  return null
-}
+const checker = createBumpChecker<Family>(
+  {
+    hostManifest: HOST_MANIFEST,
+    families: FAMILIES,
+    isSharedSource: isCompilerRustSource,
+    isFamilyOnlySource: { napi: isNapiAddonSource },
+  },
+  ROOT,
+)
 
-/** True when the file is a platform binary package manifest (carries the version). */
-export function isPlatformManifest(file: string): boolean {
-  return platformManifestFamily(file) !== null
-}
+export const platformManifestFamily = checker.platformManifestFamily
+export const isPlatformManifest = checker.isPlatformManifest
+export const discoverPlatforms = checker.discoverPlatforms
+export type { PlatformMap }
 
-export type PlatformMap = Record<Family, string[]>
-
-let cachedPlatforms: PlatformMap | undefined
-
-/** The platform dirs that actually exist on disk, per family (sorted). */
-export function discoverPlatforms(root: string = ROOT): PlatformMap {
-  const read = (dir: string): string[] => {
-    const abs = join(root, dir)
-    if (!existsSync(abs)) return []
-    return readdirSync(abs, { withFileTypes: true })
-      .filter((e) => e.isDirectory() && existsSync(join(abs, e.name, 'package.json')))
-      .map((e) => e.name)
-      .sort()
-  }
-  return { cli: read(FAMILIES.cli.dir), napi: read(FAMILIES.napi.dir) }
-}
-
-function platforms(): PlatformMap {
-  cachedPlatforms ??= discoverPlatforms()
-  return cachedPlatforms
-}
-
-export interface BumpCheck {
-  ok: boolean
-  /** Shared Rust source files that changed (drive both families). */
-  rustChanged: string[]
-  /** Addon-only source files that changed (drive the napi family). */
-  napiSourceChanged: string[]
-  /** Families this change is required to bump. */
-  requiredFamilies: Family[]
-  /** Exact manifest paths that must have changed but did not. */
-  missing: string[]
-  message: string
-}
-
-/** Pure check over a list of changed paths — no git, so it is unit-testable. */
-export function checkBump(changedFiles: string[], expected: PlatformMap = platforms()): BumpCheck {
-  const changed = new Set(changedFiles)
-  const rustChanged = changedFiles.filter(isCompilerRustSource)
-  const napiSourceChanged = changedFiles.filter(isNapiAddonSource)
-
-  const touched: Record<Family, string[]> = { cli: [], napi: [] }
-  for (const file of changedFiles) {
-    const family = platformManifestFamily(file)
-    if (family) touched[family].push(file)
-  }
-
-  // Why each family is on the hook — surfaced verbatim in the failure message.
-  const reasons: Record<Family, string[]> = { cli: [], napi: [] }
-  if (rustChanged.length > 0) {
-    const why = `shared compiler Rust source changed (${rustChanged.length} file${
-      rustChanged.length === 1 ? '' : 's'
-    }) — it is compiled into BOTH the CLI binary and the napi addon`
-    reasons.cli.push(why)
-    reasons.napi.push(why)
-  }
-  if (napiSourceChanged.length > 0) {
-    reasons.napi.push('napi addon source changed (packages/compiler/src-native/)')
-  }
-  for (const family of FAMILY_KEYS) {
-    if (touched[family].length > 0 && touched[family].length < expected[family].length) {
-      reasons[family].push(
-        `a partial bump of this family is already in the diff (${touched[family].length} of ${expected[family].length} manifests) — platform versions must move in lockstep`,
-      )
-    }
-  }
-
-  const requiredFamilies = FAMILY_KEYS.filter((f) => reasons[f].length > 0)
-
-  const missing: string[] = []
-  for (const family of requiredFamilies) {
-    for (const platform of expected[family]) {
-      const manifest = `${FAMILIES[family].dir}/${platform}/package.json`
-      if (!changed.has(manifest)) missing.push(manifest)
-    }
-  }
-  if (requiredFamilies.length > 0 && !changed.has(HOST_MANIFEST)) {
-    missing.push(HOST_MANIFEST)
-  }
-
-  if (missing.length === 0) {
-    return {
-      ok: true,
-      rustChanged,
-      napiSourceChanged,
-      requiredFamilies,
-      missing,
-      message: 'ok',
-    }
-  }
-
-  const lines: string[] = ['Compiler platform bump incomplete.', '']
-  if (rustChanged.length > 0) {
-    lines.push('Shared Rust source changed:')
-    lines.push(...rustChanged.map((f) => `  - ${f}`))
-    lines.push('')
-  }
-  if (napiSourceChanged.length > 0) {
-    lines.push('napi addon source changed:')
-    lines.push(...napiSourceChanged.map((f) => `  - ${f}`))
-    lines.push('')
-  }
-  for (const family of requiredFamilies) {
-    lines.push(`${FAMILIES[family].label} must bump, because:`)
-    lines.push(...reasons[family].map((r) => `  - ${r}`))
-  }
-  lines.push('')
-  lines.push('Missing (not changed in this PR):')
-  lines.push(...missing.map((f) => `  - ${f}`))
-  lines.push('')
-  lines.push(
-    'release.yml skips versions already on npm, for BOTH the packages/compiler/npm/*',
-    'and packages/compiler/npm-native/* publish loops. Any manifest left unbumped is',
-    'silently not published and consumers keep loading the stale artifact — this is',
-    'exactly how the napi addon stayed on npm at 0.1.0 through nine CLI bumps.',
-    '',
-    'Fix: bump every manifest listed above (all platforms of every required family,',
-    `in lockstep) and repoint the ${HOST_MANIFEST} optionalDependencies`,
-    'pins at the new versions.',
-  )
+/**
+ * Pure check over a list of changed paths — no git, so it is unit-testable.
+ * Adapts the shared checker's generalized result shape back to this script's
+ * original field names (`rustChanged`, `napiSourceChanged`) so the existing
+ * test suite and any other consumer keeps working unchanged.
+ */
+export function checkBump(
+  changedFiles: string[],
+  expected: PlatformMap<Family> = discoverPlatforms(),
+) {
+  const result = checker.checkBump(changedFiles, expected)
   return {
-    ok: false,
-    rustChanged,
-    napiSourceChanged,
-    requiredFamilies,
-    missing,
-    message: lines.join('\n'),
+    ok: result.ok,
+    rustChanged: result.sharedChanged,
+    napiSourceChanged: result.familyOnlyChanged.napi ?? [],
+    requiredFamilies: result.requiredFamilies,
+    missing: result.missing,
+    message: result.message,
   }
 }
 
