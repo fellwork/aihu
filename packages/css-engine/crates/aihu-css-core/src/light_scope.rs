@@ -371,7 +371,7 @@ fn lower_shadow_pseudos_single(selector: &str) -> String {
 /// `"..."`/`'...'` string — matching the discipline `apply.rs`'s
 /// `split_top_level_semicolons`/`split_first_colon` already use for the same
 /// reason.
-
+///
 /// Tracks paren/bracket depth and quote state while scanning one byte at a
 /// time. `advance` returns `true` while inside a quoted string or a
 /// bracketed/parenthesized region — i.e. NOT at top level.

@@ -38,6 +38,23 @@ describe('css-engine binary bump guard', () => {
     expect(isCssCoreRustSource('packages/compiler/src/codegen/emit.rs')).toBe(false)
   })
 
+  it("recognizes build.rs and recipes/*.css — both include_str!'d into the binary", () => {
+    // The gap this guard used to have (tailwind-animations port doc, Track A
+    // Slice 13): `build.rs` include_str!s every `recipes/*.css` file, so an
+    // edit to either changes the compiled binary exactly like a `.rs` edit
+    // does, but neither matched the old `src/**.rs`-only predicate.
+    expect(isCssCoreRustSource('packages/css-engine/crates/aihu-css-core/build.rs')).toBe(true)
+    expect(isCssCoreRustSource('packages/css-engine/crates/aihu-css-core/recipes/btn.css')).toBe(
+      true,
+    )
+    // A non-.css file under recipes/ (if one ever existed) isn't include_str!'d.
+    expect(isCssCoreRustSource('packages/css-engine/crates/aihu-css-core/recipes/README.md')).toBe(
+      false,
+    )
+    // build.rs/recipes/ from an unrelated crate must not false-positive.
+    expect(isCssCoreRustSource('packages/compiler/build.rs')).toBe(false)
+  })
+
   it('recognizes platform manifests', () => {
     expect(isPlatformManifest('packages/css-engine/npm/darwin-arm64/package.json')).toBe(true)
     expect(platformManifestFamily('packages/css-engine/npm/darwin-arm64/package.json')).toBe('cli')
@@ -54,6 +71,18 @@ describe('css-engine binary bump guard', () => {
     expect(result.ok).toBe(false)
     expect(result.sharedChanged).toContain('packages/css-engine/crates/aihu-css-core/src/ast.rs')
     expect(result.requiredFamilies).toEqual(['cli'])
+    expect(result.missing).toEqual(fullBump())
+  })
+
+  it('FAILS when a recipes/*.css file changed but no platform package bumped', () => {
+    const result = checkBump([
+      'packages/css-engine/crates/aihu-css-core/recipes/btn.css',
+      'packages/css-engine/src/index.ts',
+    ])
+    expect(result.ok).toBe(false)
+    expect(result.sharedChanged).toContain(
+      'packages/css-engine/crates/aihu-css-core/recipes/btn.css',
+    )
     expect(result.missing).toEqual(fullBump())
   })
 

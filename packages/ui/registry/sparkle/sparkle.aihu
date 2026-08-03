@@ -1,0 +1,105 @@
+<!--
+  aihu-sparkle — presentational styled recipe (performativeUI port,
+  Slice 2 — docs/plans/2026-08-01-performative-ui-port.md).
+
+  Design and behavior transcribed in spirit from performativeUI (MIT); no
+  source text or `pui-` class names vendored — see NOTICES.md.
+
+  A small decorative four-pointed accent mark, drawn in CSS (no icon font/
+  SVG import). Optional shimmer. `aihu add` rewrites the `aihu-` prefix at
+  copy time.
+
+  size:   sm | md (default) | lg
+  tone:   neutral (default) | accent
+  shimmer: off (default) | on
+
+  `shadow: 'light'` — see status-dot.aihu's header for why.
+-->
+
+@state {
+  import { cn } from '@aihu/css-engine/runtime/cn'
+
+  shadow: 'light'
+
+  let size = prop({ default: 'md' })
+  let tone = prop({ default: 'neutral' })
+  let shimmer = prop({ default: 'off' })
+}
+
+@template {
+  <span
+    data-slot="sparkle"
+    data-size={size}
+    data-tone={tone}
+    data-shimmer={shimmer}
+    aria-hidden="true"
+    class={cn('aihu-sparkle')}></span>
+}
+
+@style {
+  .aihu-sparkle {
+    display: inline-block;
+    flex: none;
+    color: var(--color-neutral);
+    /* Four-pointed star, drawn with a conic gradient mask — no SVG asset. */
+    background-color: currentColor;
+    -webkit-mask-image: conic-gradient(
+      from 0deg,
+      transparent 0deg 40deg,
+      currentColor 40deg 50deg,
+      transparent 50deg 130deg,
+      currentColor 130deg 140deg,
+      transparent 140deg 220deg,
+      currentColor 220deg 230deg,
+      transparent 230deg 310deg,
+      currentColor 310deg 320deg,
+      transparent 320deg 360deg
+    );
+    mask-image: conic-gradient(
+      from 0deg,
+      transparent 0deg 40deg,
+      currentColor 40deg 50deg,
+      transparent 50deg 130deg,
+      currentColor 130deg 140deg,
+      transparent 140deg 220deg,
+      currentColor 220deg 230deg,
+      transparent 230deg 310deg,
+      currentColor 310deg 320deg,
+      transparent 320deg 360deg
+    );
+  }
+  .aihu-sparkle[data-size="sm"] {
+    width: 0.625rem;
+    height: 0.625rem;
+  }
+  .aihu-sparkle[data-size="md"] {
+    width: 1rem;
+    height: 1rem;
+  }
+  .aihu-sparkle[data-size="lg"] {
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+  .aihu-sparkle[data-tone="accent"] {
+    color: var(--color-accent);
+  }
+  .aihu-sparkle[data-shimmer="on"] {
+    animation: aihu-sparkle-shimmer 1.6s var(--ease-brand) infinite;
+  }
+  @keyframes aihu-sparkle-shimmer {
+    0%,
+    100% {
+      opacity: 0.5;
+      transform: scale(0.85);
+    }
+    50% {
+      opacity: 1;
+      transform: scale(1.05);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .aihu-sparkle[data-shimmer="on"] {
+      animation: none;
+    }
+  }
+}

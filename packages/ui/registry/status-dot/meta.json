@@ -1,0 +1,19 @@
+{
+  "name": "status-dot",
+  "type": "ui",
+  "description": "Presentational status indicator — a semantic-colored dot with an optional pulsing liveness ring.",
+  "variants": {
+    "status": ["neutral", "online", "busy", "away", "info", "offline"],
+    "size": ["sm", "md", "lg"],
+    "pulse": ["off", "on"]
+  },
+  "meta": {
+    "capabilities": {
+      "interactive": false,
+      "keyboard": false,
+      "form": false,
+      "overlay": false,
+      "directional": false
+    }
+  }
+}

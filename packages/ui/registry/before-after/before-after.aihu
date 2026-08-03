@@ -1,0 +1,188 @@
+<!--
+  aihu-before-after — Phase-2 styled recipe (performativeUI port,
+  Slice 5 — docs/plans/2026-08-01-performative-ui-port.md §Tier-B batch 2).
+
+  Design and behavior transcribed in spirit from performativeUI (MIT); no
+  source text or `pui-` class names vendored — see NOTICES.md.
+
+  Drag-to-reveal image comparison, built on the new `AihuSliderRoot` primitive
+  (Track B Slice 5's new minimal single-thumb slider). Named
+  `<slot name="before">` / `<slot name="after">` hold the two images (or any
+  content); a draggable divider bound to the slider's value (0-100 = reveal
+  percentage of the "after" layer) drives a `clip-path: inset(...)` on the
+  after-layer wrapper.
+
+  COMPOSE, NOT EXTEND — the deliberate choice here, and why: every other
+  Phase-2 recipe in this registry (dialog-content, switch, checkbox, ...) IS
+  its primitive — `<aihu-switch>` literally extends `AihuSwitchRoot` because a
+  styled switch is nothing more than a styled switch. `before-after` is not a
+  styled slider; it's a two-image comparator that happens to use a slider
+  internally to drive a divider, the same way a native `<input type=range>`
+  might power a bigger widget without becoming that widget's public identity.
+  Extending `AihuSliderRoot` here would make `<aihu-before-after>` itself
+  `role="slider"` with `aria-valuenow` etc, which is the WRONG accessibility
+  tree for what is actually a two-panel image region with an interior slider
+  control. So the primitive is composed as a CHILD element instead: registered
+  via the primitive package's own `defineSlider()` (imported as a side effect,
+  same registration entry point `switch.stories.ts`/`radio-group.stories.ts`
+  call at module scope) and mounted as a real `<aihu-slider-root>` in the
+  template, with its `value-change` event listened to via `ref` + `onMount`
+  (the FEL-441-guaranteed ordering: `ref` lands before `@state`'s `onMount`
+  runs, so the listener attaches on a live element, not `null`).
+
+  value:    initial reveal percentage (0-100 = % of the after layer
+            revealed), string-encoded number. Default "50".
+  disabled: off (default) | on — forwarded to the composed slider once at
+            mount (custom-element attrs are strings, read once at setup —
+            same read-once convention this port already uses for e.g.
+            rotator's `items`; this is not meant to be toggled live).
+
+  IMPORTANT — `value`/`disabled` are forwarded to `<aihu-slider-root>`
+  IMPERATIVELY (`el.setAttribute(...)` inside `onMount`), never as a REACTIVE
+  template attribute binding (`value={value}` in `@template`). Reason: the
+  compiled template's reactive-attrs path does `key in el` to decide
+  property-set vs `setAttribute` (arbor's `_applyAttrs`), and `AihuSliderRoot`
+  exposes a getter-only `value` accessor (`get value(): Read<number>`) — a
+  reactive `value={value}` binding would resolve `asProp = true` and then
+  throw ("Cannot set property value ... which has only a getter") the moment
+  the effect tried `el.value = ...`. Every existing primitive/recipe pairing
+  in this registry sidesteps this because they either EXTEND the primitive
+  (`base:`, so there's no separate child element to bind attrs onto) or are
+  only ever instantiated from raw HTML strings in `.stories.ts` (which parse
+  attributes, never touch this reactive-attrs code path) — `before-after` is
+  the first recipe to mount a primitive as a plain templated CHILD, which is
+  what surfaces this. Imperative `setAttribute` avoids the collision
+  entirely (same DOM entry point `AihuSliderRoot.attributeChangedCallback`
+  reads from either way).
+
+  `shadow: 'light'` — see the parent execution plan's theming decision; also
+  required here so the composed `<aihu-slider-root>` sits in light DOM where
+  `defineSlider()`'s customElements.define takes effect on it directly (a true
+  shadow-root boundary would not change custom-element upgrade semantics, but
+  light DOM keeps this component's whole composition on one consistent theming
+  model with the rest of the port).
+-->
+
+@state {
+  import { cn } from '@aihu/css-engine/runtime/cn'
+  import { defineSlider } from '@aihu/primitives/slider'
+
+  shadow: 'light'
+
+  defineSlider()
+
+  let value = prop({ default: '50' })
+  let disabled = prop({ default: 'off' })
+
+  let sliderEl = state(null)
+  let reveal = state(Number(value))
+
+  onMount(() => {
+    if (!sliderEl) return
+    const el = sliderEl
+    // Imperative, one-time forward (see the header comment above for the
+    // getter-collision note on why this is NOT a reactive template binding).
+    el.setAttribute('value', value)
+    if (disabled === 'on') el.setAttribute('disabled', '')
+    const sync = () => {
+      reveal = Number(el.getAttribute('value') ?? '50')
+    }
+    // Pick up any clamp/round the primitive applied to the initial value.
+    sync()
+    el.addEventListener('value-change', sync)
+  })
+}
+
+@template {
+  <div data-slot="before-after" class={cn('aihu-before-after')}>
+    <div class="aihu-before-after-layer aihu-before-after-before">
+      <slot name="before" />
+    </div>
+    <div
+      class="aihu-before-after-layer aihu-before-after-after"
+      style={`clip-path: inset(0 ${100 - reveal}% 0 0);`}>
+      <slot name="after" />
+    </div>
+    <aihu-slider-root
+      ref={sliderEl}
+      class="aihu-before-after-handle"
+      aria-label="Comparison position"
+      style={`left: ${reveal}%;`}>
+      <span class="aihu-before-after-handle-grip" aria-hidden="true"></span>
+    </aihu-slider-root>
+  </div>
+}
+
+@style {
+  .aihu-before-after {
+    position: relative;
+    display: block;
+    overflow: hidden;
+    border-radius: var(--radius-lg);
+    isolation: isolate;
+    user-select: none;
+  }
+  .aihu-before-after-layer {
+    position: absolute;
+    inset: 0;
+  }
+  /* shadow: 'light' has no real ShadowRoot, so slotted content is projected
+     as plain light-DOM children — style it with an ordinary descendant
+     selector, not `::slotted()` (a native-shadow-only pseudo-class that
+     would silently match nothing here). */
+  .aihu-before-after-layer img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .aihu-before-after-before {
+    z-index: 1;
+  }
+  .aihu-before-after-after {
+    z-index: 2;
+  }
+  .aihu-before-after-handle {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    z-index: 3;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    margin-left: -1.25rem;
+    background: transparent;
+    cursor: ew-resize;
+    touch-action: none;
+  }
+  .aihu-before-after-handle::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    width: 2px;
+    background-color: var(--color-background);
+    box-shadow: 0 0 0 1px color-mix(in oklab, var(--color-foreground) 20%, transparent);
+    transform: translateX(-50%);
+  }
+  .aihu-before-after-handle-grip {
+    position: relative;
+    z-index: 1;
+    display: inline-flex;
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 9999px;
+    background-color: var(--color-background);
+    box-shadow: 0 1px 3px color-mix(in oklab, var(--color-foreground) 30%, transparent);
+  }
+  .aihu-before-after-handle:focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+  }
+  .aihu-before-after-handle[data-disabled] {
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+}

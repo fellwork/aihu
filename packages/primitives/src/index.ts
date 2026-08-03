@@ -71,6 +71,16 @@ export {
 } from './form-control/index.ts'
 export { AihuInput, AihuTextControlBase, defineInput } from './input/index.ts'
 export { AihuLabel, defineLabel } from './label/index.ts'
+// Track B Slice 6 (performativeUI port) — non-modal disclosure overlay.
+export {
+  AihuPopoverContent,
+  AihuPopoverRoot,
+  AihuPopoverTrigger,
+  definePopover,
+  type PopoverContextValue,
+  type PopoverCoords,
+  popoverContext,
+} from './popover/index.ts'
 // Phase 0 primitives.
 export { AihuPresenceGate, definePresenceGate, presenceContext } from './presence-gate/index.ts'
 export {
@@ -89,6 +99,12 @@ export {
   defineSeparator,
   type SeparatorOrientation,
 } from './separator/index.ts'
+export {
+  AihuSliderRoot,
+  defineSlider,
+  type SliderContextValue,
+  sliderContext,
+} from './slider/index.ts'
 export {
   AihuSwitchRoot,
   AihuSwitchThumb,

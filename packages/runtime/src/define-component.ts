@@ -54,6 +54,26 @@ interface _LC {
 }
 let _cur: _LC | null = null
 
+// Bug E — stale custom-element-reaction guard (see the detailed rationale on
+// both `connectedCallback` implementations below). Module-level reentrancy
+// depth: incremented for the duration of EVERY compiled component's
+// connectedCallback, decremented on exit. A connectedCallback that starts
+// while `_ceReactionDepth > 0` is, by construction, running SYNCHRONOUSLY
+// nested inside another element's still-executing connectedCallback — the
+// only way that happens on the real platform is a `[CEReactions]`-wrapped
+// DOM mutation (`removeChild`, `replaceWith`, ...) performed by the OUTER
+// callback's own body, which eagerly drains the INNER element's entire
+// pending reaction queue, including an earlier-enqueued-but-not-yet-invoked
+// `connectedCallback` reaction from the ORIGINAL insertion that is still
+// waiting its turn. Scoping the guard to `wasNested` (not bare `isConnected`)
+// is deliberate: several existing unit tests call `el.connectedCallback()`
+// directly on a never-inserted element (a documented jsdom workaround, see
+// `define-component.test.ts`'s Bug 6 suite) — those calls happen at
+// `_ceReactionDepth === 0`, so they are unaffected; only a connectedCallback
+// invoked WHILE ANOTHER is already mid-execution, on an element that turns
+// out not to be connected, is treated as a stale replay and skipped.
+let _ceReactionDepth = 0
+
 // Callers must invoke this inside `runWithScope(es, ...)` so onMount-created
 // effects are scope-owned and onMount-returned teardowns register into the
 // same unified LIFO list as setup-time `onCleanup` callbacks.
@@ -382,56 +402,84 @@ export function defineComponent(setupOrOptions: Setup | ComponentOptions): typeo
         }
       }
       connectedCallback(): void {
-        if (_mount === null) throw new RuntimeError('SCR-R0002', _E0002)
-        // Bug 6: a throw from setup()/_build()/_mount() escapes into the
-        // platform custom-element-reactions queue, which surfaces it only as a
-        // bare anonymous "Uncaught" with no component-tag attribution (and the
-        // shadow root is left empty because the throw aborts before mount runs).
-        // Catch-log-rethrow: console.error WITH the tag for a greppable,
-        // attributable signal, then re-throw to preserve fail-loud behavior
-        // (so SCR-R0002/0003 invariants and any other throw still propagate).
+        // Bug E — stale reaction guard. See the `_ceReactionDepth` doc comment
+        // above for the full mechanism: a connectedCallback invoked while
+        // ANOTHER is already synchronously mid-execution (`wasNested`), on an
+        // element that turns out not to be connected, is a stale replay of an
+        // earlier-queued reaction — fired prematurely by a `[CEReactions]`
+        // DOM mutation (e.g. the Bug D carve's `removeChild` below, on SOME
+        // ancestor) that eagerly drained this element's pending reaction
+        // queue. This fires for real when a `shadowMode: 'light'` component
+        // (e.g. a popover/dialog root) is itself a nested child inside
+        // ANOTHER component's own compiled `@template`: arbor's
+        // `_materialize` builds that whole subtree via `document.createElement`
+        // (which upgrades/constructs each custom element immediately) and
+        // then attaches it to the live document in one shot — unlike
+        // markup/`innerHTML`-driven insertion (e.g. every `.stories.ts` that
+        // writes a tag directly), where the HTML parser defers upgrading
+        // nested custom elements until after an ancestor's own
+        // connectedCallback has already run, so this race never fires there.
+        // A disconnectedCallback follows the skipped call (harmless — nothing
+        // was ever wired up), then a SECOND, correctly-timed connectedCallback
+        // fires once the element reaches its final position — that is the
+        // one this guard defers to.
+        const wasNested = _ceReactionDepth > 0
+        _ceReactionDepth++
         try {
-          // Bug D — light-DOM slot projection. Under `shadowMode: 'light'` the
-          // host has no shadow root, so the browser's native <slot> projection
-          // does not run. Carve any existing light-DOM children BEFORE _mount
-          // appends the layout template (otherwise the layout's nodes land
-          // after them) and reinsert at the <slot> position after mount.
-          // Shadow-DOM path is untouched (`host !== this`).
-          const isLightDom = _isRealElement(this) && this.shadowRoot === null
-          const lightDomChildren: ChildNode[] | null = isLightDom
-            ? Array.from(this.childNodes)
-            : null
-          if (lightDomChildren !== null) {
-            for (const c of lightDomChildren) this.removeChild(c)
-          }
-          const tree = this._build()
-          const lc = this[LC_SYM]!
-          const host = this.shadowRoot ?? this
-          // Server-build @agent components register a full per-instance binding
-          // in setup (keyed by `this`). Forward it to mount() so the LiveBinding
-          // lands in arbor's componentInstanceRegistry — the headless gate path.
-          // Client builds never register one (undefined → mount() no-ops it).
-          const ab = _takeAgentServerBinding(this)
-          const scope = ab ? _mount(tree!, host, { agentBinding: ab }) : _mount(tree!, host)
-          this[S] = scope
-          _scopes.set(this, scope)
-          if (lightDomChildren !== null) _projectLightDomSlot(this, lightDomChildren)
-          // onMount bodies run INSIDE the component scope so effects they
-          // create are scope-owned and returned teardowns join the unified
-          // LIFO list (see _runMounts).
-          runWithScope(_componentScopes.get(this)!, () => _runMounts(lc))
-        } catch (err) {
-          // Setup/mount/onMount throw: stop + delete the just-opened scope so
-          // any effects created before the throw don't leak (mirror of the
-          // signals first-run-throw self-dispose). A throwing disposer must
-          // not mask the ORIGINAL error — log it and rethrow the original.
+          if (wasNested && !this.isConnected) return
+          if (_mount === null) throw new RuntimeError('SCR-R0002', _E0002)
+          // Bug 6: a throw from setup()/_build()/_mount() escapes into the
+          // platform custom-element-reactions queue, which surfaces it only as a
+          // bare anonymous "Uncaught" with no component-tag attribution (and the
+          // shadow root is left empty because the throw aborts before mount runs).
+          // Catch-log-rethrow: console.error WITH the tag for a greppable,
+          // attributable signal, then re-throw to preserve fail-loud behavior
+          // (so SCR-R0002/0003 invariants and any other throw still propagate).
           try {
-            _stopComponentScope(this)
-          } catch (stopErr) {
-            console.error(`[aihu] scope stop failed for <${_tagOf(this)}>:`, stopErr)
+            // Bug D — light-DOM slot projection. Under `shadowMode: 'light'` the
+            // host has no shadow root, so the browser's native <slot> projection
+            // does not run. Carve any existing light-DOM children BEFORE _mount
+            // appends the layout template (otherwise the layout's nodes land
+            // after them) and reinsert at the <slot> position after mount.
+            // Shadow-DOM path is untouched (`host !== this`).
+            const isLightDom = _isRealElement(this) && this.shadowRoot === null
+            const lightDomChildren: ChildNode[] | null = isLightDom
+              ? Array.from(this.childNodes)
+              : null
+            if (lightDomChildren !== null) {
+              for (const c of lightDomChildren) this.removeChild(c)
+            }
+            const tree = this._build()
+            const lc = this[LC_SYM]!
+            const host = this.shadowRoot ?? this
+            // Server-build @agent components register a full per-instance binding
+            // in setup (keyed by `this`). Forward it to mount() so the LiveBinding
+            // lands in arbor's componentInstanceRegistry — the headless gate path.
+            // Client builds never register one (undefined → mount() no-ops it).
+            const ab = _takeAgentServerBinding(this)
+            const scope = ab ? _mount(tree!, host, { agentBinding: ab }) : _mount(tree!, host)
+            this[S] = scope
+            _scopes.set(this, scope)
+            if (lightDomChildren !== null) _projectLightDomSlot(this, lightDomChildren)
+            // onMount bodies run INSIDE the component scope so effects they
+            // create are scope-owned and returned teardowns join the unified
+            // LIFO list (see _runMounts).
+            runWithScope(_componentScopes.get(this)!, () => _runMounts(lc))
+          } catch (err) {
+            // Setup/mount/onMount throw: stop + delete the just-opened scope so
+            // any effects created before the throw don't leak (mirror of the
+            // signals first-run-throw self-dispose). A throwing disposer must
+            // not mask the ORIGINAL error — log it and rethrow the original.
+            try {
+              _stopComponentScope(this)
+            } catch (stopErr) {
+              console.error(`[aihu] scope stop failed for <${_tagOf(this)}>:`, stopErr)
+            }
+            console.error(`[aihu] setup failed for <${_tagOf(this)}>:`, err)
+            throw err
           }
-          console.error(`[aihu] setup failed for <${_tagOf(this)}>:`, err)
-          throw err
+        } finally {
+          _ceReactionDepth--
         }
       }
       disconnectedCallback(): void {
@@ -712,53 +760,77 @@ export function defineComponent(setupOrOptions: Setup | ComponentOptions): typeo
     }
 
     connectedCallback(): void {
-      if (_mount === null) throw new RuntimeError('SCR-R0002', _E0002)
-      // Bug 6 (options/props-form): same catch-log-rethrow as the function-form
-      // connectedCallback above. A setup/build/mount throw — incl. the
-      // SCR-R0003 "no signal" invariant from _build() — is logged WITH the tag
-      // for attribution, then re-thrown to preserve fail-loud propagation.
+      // Bug E — stale reaction guard (see the `_ceReactionDepth` doc comment
+      // and the function-form connectedCallback above for the full
+      // mechanism). This is the path that actually throws for a
+      // `base:`-extending recipe: `_baseProto.connectedCallback` below is
+      // where a context-consuming primitive (e.g. `AihuPopoverTrigger` /
+      // `PopoverPiece`) calls `injectContext`, which is exactly what fails
+      // when this callback is a stale replay — fired synchronously nested
+      // inside SOME ancestor's own connectedCallback, mid-`removeChild`, by
+      // that ancestor's light-DOM-slot carve (Bug D, below) — while THIS
+      // element is momentarily detached. `wasNested` (not bare `isConnected`)
+      // keeps this from breaking the Bug 6 unit tests, which deliberately
+      // call `el.connectedCallback()` directly on a never-inserted element at
+      // `_ceReactionDepth === 0` (a documented jsdom workaround) — only a
+      // connectedCallback firing WHILE ANOTHER is already mid-execution is
+      // eligible to be treated as a stale replay.
+      const wasNested = _ceReactionDepth > 0
+      _ceReactionDepth++
       try {
-        // §9.4 class-extension: run the base primitive's connectedCallback
-        // FIRST — it sets role/tabindex/aria-* and listeners on the HOST and
-        // provides any cross-piece context, none of which touch the host's
-        // children. Running it before the template mounts means a
-        // context-providing primitive (e.g. checkbox root) is registered
-        // before its slotted child pieces upgrade. Dispatched via the base
-        // prototype (the DOM lib can't type `super.connectedCallback`); a no-op
-        // when the base is HTMLElement, so existing components are unaffected.
-        _baseProto.connectedCallback?.call(this)
-        // Bug D — light-DOM slot projection (see function-form for the full
-        // rationale). Mirrored here so options/props-form components behave
-        // identically under `shadowMode: 'light'`.
-        const isLightDom = _isRealElement(this) && this.shadowRoot === null
-        const lightDomChildren: ChildNode[] | null = isLightDom ? Array.from(this.childNodes) : null
-        if (lightDomChildren !== null) {
-          for (const c of lightDomChildren) this.removeChild(c)
-        }
-        const tree = this._build()
-        const lc = this[LC_SYM]!
-        const host = this.shadowRoot ?? this
-        // See function-form connectedCallback: forward the server @agent binding
-        // (registered in setup, keyed by `this`) to mount() so the headless gate
-        // sees a LiveBinding. Client builds never register one.
-        const ab = _takeAgentServerBinding(this)
-        const scope = ab ? _mount?.(tree!, host, { agentBinding: ab }) : _mount?.(tree!, host)
-        this[S] = scope
-        _scopes.set(this, scope)
-        if (lightDomChildren !== null) _projectLightDomSlot(this, lightDomChildren)
-        // onMount bodies run INSIDE the component scope — unified LIFO list
-        // (see the function-form connectedCallback).
-        runWithScope(_componentScopes.get(this)!, () => _runMounts(lc))
-      } catch (err) {
-        // Setup/mount/onMount throw: stop + delete the just-opened scope (see
-        // the function-form connectedCallback for the full rationale).
+        if (wasNested && !this.isConnected) return
+        if (_mount === null) throw new RuntimeError('SCR-R0002', _E0002)
+        // Bug 6 (options/props-form): same catch-log-rethrow as the function-form
+        // connectedCallback above. A setup/build/mount throw — incl. the
+        // SCR-R0003 "no signal" invariant from _build() — is logged WITH the tag
+        // for attribution, then re-thrown to preserve fail-loud propagation.
         try {
-          _stopComponentScope(this)
-        } catch (stopErr) {
-          console.error(`[aihu] scope stop failed for <${_tagOf(this)}>:`, stopErr)
+          // §9.4 class-extension: run the base primitive's connectedCallback
+          // FIRST — it sets role/tabindex/aria-* and listeners on the HOST and
+          // provides any cross-piece context, none of which touch the host's
+          // children. Running it before the template mounts means a
+          // context-providing primitive (e.g. checkbox root) is registered
+          // before its slotted child pieces upgrade. Dispatched via the base
+          // prototype (the DOM lib can't type `super.connectedCallback`); a no-op
+          // when the base is HTMLElement, so existing components are unaffected.
+          _baseProto.connectedCallback?.call(this)
+          // Bug D — light-DOM slot projection (see function-form for the full
+          // rationale). Mirrored here so options/props-form components behave
+          // identically under `shadowMode: 'light'`.
+          const isLightDom = _isRealElement(this) && this.shadowRoot === null
+          const lightDomChildren: ChildNode[] | null = isLightDom
+            ? Array.from(this.childNodes)
+            : null
+          if (lightDomChildren !== null) {
+            for (const c of lightDomChildren) this.removeChild(c)
+          }
+          const tree = this._build()
+          const lc = this[LC_SYM]!
+          const host = this.shadowRoot ?? this
+          // See function-form connectedCallback: forward the server @agent binding
+          // (registered in setup, keyed by `this`) to mount() so the headless gate
+          // sees a LiveBinding. Client builds never register one.
+          const ab = _takeAgentServerBinding(this)
+          const scope = ab ? _mount?.(tree!, host, { agentBinding: ab }) : _mount?.(tree!, host)
+          this[S] = scope
+          _scopes.set(this, scope)
+          if (lightDomChildren !== null) _projectLightDomSlot(this, lightDomChildren)
+          // onMount bodies run INSIDE the component scope — unified LIFO list
+          // (see the function-form connectedCallback).
+          runWithScope(_componentScopes.get(this)!, () => _runMounts(lc))
+        } catch (err) {
+          // Setup/mount/onMount throw: stop + delete the just-opened scope (see
+          // the function-form connectedCallback for the full rationale).
+          try {
+            _stopComponentScope(this)
+          } catch (stopErr) {
+            console.error(`[aihu] scope stop failed for <${_tagOf(this)}>:`, stopErr)
+          }
+          console.error(`[aihu] setup failed for <${_tagOf(this)}>:`, err)
+          throw err
         }
-        console.error(`[aihu] setup failed for <${_tagOf(this)}>:`, err)
-        throw err
+      } finally {
+        _ceReactionDepth--
       }
     }
 

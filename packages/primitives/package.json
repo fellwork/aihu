@@ -78,6 +78,14 @@
     "./radio-group": {
       "types": "./dist/radio-group.d.ts",
       "import": "./dist/radio-group.js"
+    },
+    "./slider": {
+      "types": "./dist/slider.d.ts",
+      "import": "./dist/slider.js"
+    },
+    "./popover": {
+      "types": "./dist/popover.d.ts",
+      "import": "./dist/popover.js"
     }
   },
   "files": [

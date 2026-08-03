@@ -1,0 +1,21 @@
+{
+  "name": "chat-fab",
+  "type": "ui",
+  "description": "Floating action button + non-modal popover panel shell — a generic chat-launcher, deliberately with no chat logic (panel content is a plain slot).",
+  "dependencies": ["@aihu/primitives"],
+  "registryDependencies": ["popover"],
+  "variants": {
+    "corner": ["bottom-right", "bottom-left", "top-right", "top-left"]
+  },
+  "meta": {
+    "capabilities": {
+      "interactive": true,
+      "hoverable": false,
+      "keyboard": true,
+      "form": false,
+      "overlay": true,
+      "trapsFocus": false,
+      "directional": false
+    }
+  }
+}

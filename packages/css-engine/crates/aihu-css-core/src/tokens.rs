@@ -152,6 +152,63 @@ pub fn conflict_groups() -> Vec<(&'static str, &'static str)> {
     out.push(("via", "--tw-gradient-via"));
     out.push(("to", "--tw-gradient-to"));
 
+    // Ported animation catalog (animations.rs / tailwind-animations port doc
+    // §4.5, step 4): every `animate-*` class — built-ins and ported alike —
+    // sets the single `animation` shorthand, so `cn('animate-fade-in',
+    // 'animate-shake')` must keep only the last one.
+    out.push(("animate", "animation"));
+
+    // tailwind-animations port, Slice 2 — modifier families, each its own
+    // group so e.g. `animate-delay-100 animate-delay-500` collides but
+    // `animate-delay-100 animate-duration-500` does not, and neither collides
+    // with the base animation (`animate-fade-in animate-delay-100` must keep
+    // BOTH — they set different CSS properties). This depends on `cn.ts`'s
+    // `groupKey` doing genuine longest-dash-prefix matching against the
+    // generated map (it tries `animate-delay` before falling back to
+    // `animate`) — a plain first-segment-only lookup would collapse every
+    // entry below into the blanket `animate` group above and silently drop
+    // whichever of a base animation / modifier lost the last-wins race.
+    out.push(("animate-delay", "animation-delay"));
+    out.push(("animate-duration", "animation-duration"));
+    out.push(("animate-iteration-count", "animation-iteration-count"));
+    out.push(("animate-fill-mode", "animation-fill-mode"));
+    out.push(("animate-direction", "animation-direction"));
+    out.push(("animate-play", "animation-play-state"));
+
+    // tailwind-animations port, Slice 12 — the dialog entry/exit family.
+    //
+    // `cn.ts`'s `groupKey` scans LONGEST dash-prefix first and starts at the
+    // FULL class name, which is what makes the shape below work: every
+    // start-offset preset is registered under its own EXACT class name, all
+    // pointing at one shared group, so the six presets collide with each other
+    // (`cn('animate-dialog-from-top', 'animate-dialog-zoom')` → the zoom) while
+    // the base `animate-dialog` — registered separately, one entry earlier in
+    // the scan's fallback chain — survives alongside any of them. Registering
+    // the shared prefix `animate-dialog` for the presets instead would have
+    // swallowed the base class into the same group and silently dropped it from
+    // `cn('animate-dialog', 'animate-dialog-from-top')`, which is precisely the
+    // failure the Slice-1 Opus review caught for the plain `animate-*` family.
+    //
+    // The base and the backdrop each get a self-named group for a second
+    // reason: without an entry of their own they would fall through to the
+    // blanket `("animate", "animation")` row above and collide with real
+    // keyframe animations, even though neither declares `animation` at all.
+    out.push(("animate-dialog", "animate-dialog"));
+    out.push(("animate-dialog-backdrop", "animate-dialog-backdrop"));
+    const DIALOG_START_PRESETS: &[&str] = &[
+        "animate-dialog-from-top",
+        "animate-dialog-from-bottom",
+        "animate-dialog-from-left",
+        "animate-dialog-from-right",
+        "animate-dialog-fade",
+        "animate-dialog-zoom",
+    ];
+    for p in DIALOG_START_PRESETS {
+        out.push((p, "--aihu-anim-dialog-start"));
+    }
+    out.push(("animate-dialog-duration", "--aihu-anim-dialog-duration"));
+    out.push(("animate-dialog-easing", "--aihu-anim-dialog-easing"));
+
     out
 }
 
@@ -204,6 +261,15 @@ pub fn utility_to_css(class_name: &str) -> Option<String> {
     // 2. Fixed long-tail utilities (no value parameter).
     if let Some(css) = fixed_utility(class_name) {
         return Some(css.to_string());
+    }
+
+    // 2b. Ported animation catalog (animations.rs, tailwind-animations port
+    //     doc §2 decision D-A). Placed AFTER fixed_utility so the four
+    //     built-ins (animate-spin/ping/pulse/bounce) win deterministically —
+    //     `animate-pulse` exists in both and is byte-identical, so the
+    //     ordering is a no-op today but must not drift.
+    if let Some(a) = crate::animations::lookup(class_name) {
+        return Some(format!("animation: {};", a.shorthand));
     }
 
     // 3a. Negative motion utilities: `-translate-x-2`, `-rotate-45`. The leading
@@ -437,6 +503,32 @@ fn arbitrary_prop(prefix: &str) -> Option<&'static str> {
         "font" => "font-family",
         "leading-trim" => "line-height",
         "outline-offset" => "outline-offset",
+        // tailwind-animations port, Slice 3 — `animate-bezier-[.4,0,.2,1]` has
+        // no closed value set (arbitrary cubic-bezier args), so it's arbitrary-
+        // value-only, unlike the closed-keyword animate-ease* family above.
+        "animate-bezier" => "animation-timing-function",
+        // Slice 5 — `animate-slide-distance-[32px]` sets the custom property
+        // the ported slide-* keyframes read via `var(--aihu-anim-slide-distance, 20px)`.
+        "animate-slide-distance" => "--aihu-anim-slide-distance",
+        // Slice 12 — the arbitrary-value forms of the dialog family's two
+        // free-valued knobs. `animate-dialog-duration-[0.4s]` complements the
+        // integer-millisecond `animate-dialog-duration-400` above (upstream's
+        // `--value(…, [duration], [*])` third branch), and
+        // `animate-dialog-easing-[cubic-bezier(...)]` exposes the easing custom
+        // property that upstream reads but ships no utility for.
+        "animate-dialog-duration" => "--aihu-anim-dialog-duration",
+        "animate-dialog-easing" => "--aihu-anim-dialog-easing",
+        // Slice 11 — arbitrary-value escape hatches for the four
+        // scroll-driven-timeline families, e.g. `timeline-[--my-timeline]`,
+        // `animate-range-[10%_50%]`. Named forms live in `fixed_utility`
+        // above; `timeline-*`'s named forms carry upstream's `!important`,
+        // but this generic arbitrary-value path (shared with every other
+        // `[…]`-bracket utility) does not support appending it — a rarer,
+        // acceptable inconsistency versus special-casing this one prefix.
+        "timeline" => "animation-timeline",
+        "scroll-timeline-axis" => "scroll-timeline-axis",
+        "view-timeline-axis" => "view-timeline-axis",
+        "animate-range" => "animation-range",
         _ => return None,
     })
 }
@@ -817,6 +909,117 @@ fn fixed_utility(class_name: &str) -> Option<&'static str> {
         "animate-ping" => "animation: ping 1s cubic-bezier(0, 0, 0.2, 1) infinite;",
         "animate-pulse" => "animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;",
         "animate-bounce" => "animation: bounce 1s infinite;",
+
+        // tailwind-animations port, Slice 2 (docs/plans/2026-08-01-tailwind-animations-port.md) —
+        // closed-keyword modifier families for the ported catalog. Direction/
+        // play-state/fill-mode are fixed sets (not parameterized); delay/
+        // duration/iteration-count are parameterized (see parameterized_utility).
+        "animate-direction-normal" => "animation-direction: normal;",
+        "animate-direction-reverse" => "animation-direction: reverse;",
+        "animate-direction-alternate" => "animation-direction: alternate;",
+        "animate-direction-alternate-reverse" => "animation-direction: alternate-reverse;",
+        "animate-play-running" => "animation-play-state: running;",
+        "animate-play-paused" => "animation-play-state: paused;",
+        "animate-fill-mode-none" => "animation-fill-mode: none;",
+        "animate-fill-mode-forwards" => "animation-fill-mode: forwards;",
+        "animate-fill-mode-backwards" => "animation-fill-mode: backwards;",
+        "animate-fill-mode-both" => "animation-fill-mode: both;",
+
+        // tailwind-animations port, Slice 3 — easing modifiers. Distinct
+        // names from the existing `ease-*` utilities above, which set
+        // `transition-timing-function`; these set `animation-timing-function`.
+        "animate-ease" => "animation-timing-function: ease;",
+        "animate-ease-in" => "animation-timing-function: ease-in;",
+        "animate-ease-out" => "animation-timing-function: ease-out;",
+        "animate-ease-in-out" => "animation-timing-function: ease-in-out;",
+        "animate-linear" => "animation-timing-function: linear;",
+
+        // tailwind-animations port, Slice 12 — dialog entry/exit MODIFIERS.
+        // The base `animate-dialog` / `animate-dialog-backdrop` are a
+        // three-rule state machine and therefore live in the recipe channel
+        // (`recipes/dialog.css`, which carries the full decision record);
+        // these six are single flat custom-property blocks, so they are
+        // ordinary utilities exactly like every other modifier family above.
+        // Being utilities is also what gets them `conflict_groups()` entries
+        // and therefore `cn()` last-wins merging.
+        //
+        // Upstream packs the offset as one `--tw-anim-dialog-start-translate`
+        // pair; aihu splits it into scalar `-start-x`/`-start-y` so a centered
+        // panel can compose it into `calc(-50% + var(…))` alongside its own
+        // centering translate — see `recipes/dialog.css` §"Token renaming"
+        // and `packages/ui/registry/dialog/dialog-content.aihu`.
+        //
+        // `0px`, not `0`: these land inside a `calc()` in the registry
+        // component, where a unitless zero added to a percentage is invalid.
+        "animate-dialog-from-top" => {
+            "--aihu-anim-dialog-start-x: 0px; --aihu-anim-dialog-start-y: -1.5rem;"
+        }
+        "animate-dialog-from-bottom" => {
+            "--aihu-anim-dialog-start-x: 0px; --aihu-anim-dialog-start-y: 1.5rem;"
+        }
+        "animate-dialog-from-left" => {
+            "--aihu-anim-dialog-start-x: -1.5rem; --aihu-anim-dialog-start-y: 0px;"
+        }
+        "animate-dialog-from-right" => {
+            "--aihu-anim-dialog-start-x: 1.5rem; --aihu-anim-dialog-start-y: 0px;"
+        }
+        // The two named presets also pin `-start-scale`, since "fade" means
+        // opacity ONLY and "zoom" means scale only — otherwise the family
+        // default (0.96) would leak into both.
+        "animate-dialog-fade" => {
+            "--aihu-anim-dialog-start-x: 0px; --aihu-anim-dialog-start-y: 0px; --aihu-anim-dialog-start-scale: 1;"
+        }
+        "animate-dialog-zoom" => {
+            "--aihu-anim-dialog-start-x: 0px; --aihu-anim-dialog-start-y: 0px; --aihu-anim-dialog-start-scale: 0.92;"
+        }
+
+        // tailwind-animations port, Slice 11 — scroll-driven timelines
+        // (`timeline-*`, `scroll-timeline-axis-*`, `view-timeline-axis-*`,
+        // `animate-range-*`). Each is a closed named-value set + an arbitrary
+        // fallback (registered in `arbitrary_prop` below) — the same
+        // named-lookup-plus-bracket-escape shape as `leading-*`/`aspect-*`,
+        // not a variant, so this does NOT route through `ProgressiveRegistry`
+        // (`progressive.rs`): that registry is for `prefix:` VARIANTS applied
+        // to another utility and gated behind `@supports` (`view-transition:`,
+        // `anchor:`, …); these are ordinary base utilities. The vendor CSS
+        // itself emits them ungated (no `@supports` wrapper) — same graceful-
+        // degradation posture as the rest of the animation catalog, so aihu
+        // follows suit. `!important` on `animation-timeline` is transcribed
+        // verbatim from upstream, not an aihu convention — kept for fidelity
+        // even though `@layer aihu.utilities` already outranks recipe/base
+        // layers without it.
+        "timeline-none" => "animation-timeline: none !important;",
+        "timeline-auto" => "animation-timeline: auto !important;",
+        "timeline-scroll" => "animation-timeline: scroll() !important;",
+        "timeline-scroll-x" => "animation-timeline: scroll(x) !important;",
+        "timeline-scroll-y" => "animation-timeline: scroll(y) !important;",
+        "timeline-scroll-block" => "animation-timeline: scroll(block) !important;",
+        "timeline-scroll-inline" => "animation-timeline: scroll(inline) !important;",
+        "timeline-view" => "animation-timeline: view() !important;",
+        "timeline-view-x" => "animation-timeline: view(x) !important;",
+        "timeline-view-y" => "animation-timeline: view(y) !important;",
+        "timeline-view-block" => "animation-timeline: view(block) !important;",
+        "timeline-view-inline" => "animation-timeline: view(inline) !important;",
+
+        "scroll-timeline-axis-block" => "scroll-timeline-axis: block;",
+        "scroll-timeline-axis-inline" => "scroll-timeline-axis: inline;",
+        "scroll-timeline-axis-x" => "scroll-timeline-axis: x;",
+        "scroll-timeline-axis-y" => "scroll-timeline-axis: y;",
+
+        "view-timeline-axis-block" => "view-timeline-axis: block;",
+        "view-timeline-axis-inline" => "view-timeline-axis: inline;",
+        "view-timeline-axis-x" => "view-timeline-axis: x;",
+        "view-timeline-axis-y" => "view-timeline-axis: y;",
+
+        "animate-range-normal" => "animation-range: normal;",
+        "animate-range-cover" => "animation-range: cover;",
+        "animate-range-contain" => "animation-range: contain;",
+        "animate-range-entry" => "animation-range: entry;",
+        "animate-range-exit" => "animation-range: exit;",
+        "animate-range-gradual" => "animation-range: 10% 90%;",
+        "animate-range-moderate" => "animation-range: 20% 80%;",
+        "animate-range-brisk" => "animation-range: 30% 70%;",
+        "animate-range-rapid" => "animation-range: 40% 60%;",
 
         // --- Parity round: long-tail fixed utilities ----------------------
 
@@ -1290,6 +1493,49 @@ fn parameterized_utility(prefix: &str, value: &str) -> Option<String> {
         }
     }
 
+    // tailwind-animations port, Slice 2 — parameterized animation modifiers.
+    // Distinct prefixes from `duration`/`ease-*` above (those target
+    // `transition-*`; these target `animation-*`).
+    if prefix == "animate-delay" {
+        if let Some(ms) = positive_int_or_zero(value) {
+            return Some(format!("animation-delay: {ms}ms;"));
+        }
+    }
+    if prefix == "animate-duration" {
+        if let Some(ms) = positive_int_or_zero(value) {
+            return Some(format!("animation-duration: {ms}ms;"));
+        }
+    }
+    if prefix == "animate-iteration-count" {
+        if value == "infinite" {
+            return Some("animation-iteration-count: infinite;".to_string());
+        }
+        if let Some(n) = positive_int(value) {
+            return Some(format!("animation-iteration-count: {n};"));
+        }
+    }
+    // Slice 12 — `animate-dialog-duration-250` → the custom property the
+    // `animate-dialog` recipe (and the dialog registry components) read for
+    // every one of their transition durations/delays. Distinct from
+    // `animate-duration` above: that sets `animation-duration` on a
+    // keyframe-backed animation, this reconfigures a TRANSITION-driven family
+    // that has no `animation` at all. Checked before `animate-duration` can
+    // ever see it because `parameterized_utility` splits on the LAST `-`, so
+    // the prefix is the full `animate-dialog-duration`.
+    if prefix == "animate-dialog-duration" {
+        if let Some(ms) = positive_int_or_zero(value) {
+            return Some(format!("--aihu-anim-dialog-duration: {ms}ms;"));
+        }
+    }
+    // Slice 3 — `animate-steps-4` → `steps(4)`. `animate-bezier-[...]` (the
+    // arbitrary-value form) is registered via `arbitrary_prop` below, not
+    // here, since it has no closed integer/keyword set.
+    if prefix == "animate-steps" {
+        if let Some(n) = positive_int(value) {
+            return Some(format!("animation-timing-function: steps({n});"));
+        }
+    }
+
     // Palette colors: bg-red-500, text-slate-700, border-emerald-300.
     if let Some(prop) = color_prop(prefix) {
         // prefix already stripped to the color path; value is the shade only
@@ -1611,7 +1857,7 @@ pub fn animation_keyframes(class_name: &str) -> Option<&'static str> {
         "animate-bounce" => {
             "@keyframes bounce { 0%, 100% { transform: translateY(-25%); animation-timing-function: cubic-bezier(0.8, 0, 1, 1); } 50% { transform: none; animation-timing-function: cubic-bezier(0, 0, 0.2, 1); } }"
         }
-        _ => return None,
+        _ => return crate::animations::lookup(class_name).map(|a| a.keyframes),
     })
 }
 

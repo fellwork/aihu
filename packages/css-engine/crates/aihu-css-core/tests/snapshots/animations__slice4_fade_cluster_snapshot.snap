@@ -1,0 +1,23 @@
+---
+source: packages/css-engine/crates/aihu-css-core/tests/animations.rs
+assertion_line: 91
+expression: compile_classes(&classes)
+---
+.animate-blurred-fade-in { animation: blurred-fade-in 0.9s ease-in-out both; }
+@keyframes blurred-fade-in { 0% { filter: blur(5px); opacity: 0; } 100% { filter: blur(0); opacity: 1; } }
+.animate-fade-in-down { animation: fade-in-down 0.6s ease-in-out both; }
+@keyframes fade-in-down { 0% { opacity: 0; transform: translateY(-20px); } 100% { opacity: 1; transform: translateY(0); } }
+.animate-fade-in-left { animation: fade-in-left 0.6s ease-in-out both; }
+@keyframes fade-in-left { 0% { opacity: 0; transform: translateX(20px); } 100% { opacity: 1; transform: translateX(0); } }
+.animate-fade-in-right { animation: fade-in-right 0.6s ease-in-out both; }
+@keyframes fade-in-right { 0% { opacity: 0; transform: translateX(-20px); } 100% { opacity: 1; transform: translateX(0); } }
+.animate-fade-in-up { animation: fade-in-up 0.6s ease-in-out both; }
+@keyframes fade-in-up { 0% { opacity: 0; transform: translateY(20px); } 100% { opacity: 1; transform: translateY(0); } }
+.animate-fade-out-down { animation: fade-out-down 0.6s ease-out both; }
+@keyframes fade-out-down { 0% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; transform: translateY(20px); } }
+.animate-fade-out-left { animation: fade-out-left 0.6s ease-out both; }
+@keyframes fade-out-left { 0% { opacity: 1; transform: translateX(0); } 100% { opacity: 0; transform: translateX(-20px); } }
+.animate-fade-out-right { animation: fade-out-right 0.6s ease-out both; }
+@keyframes fade-out-right { 0% { opacity: 1; transform: translateX(0); } 100% { opacity: 0; transform: translateX(20px); } }
+.animate-fade-out-up { animation: fade-out-up 0.6s ease-out both; }
+@keyframes fade-out-up { 0% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; transform: translateY(-20px); } }

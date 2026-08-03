@@ -1,0 +1,59 @@
+<!--
+  aihu-community-badge — presentational styled recipe (performativeUI port,
+  Slice 2 — docs/plans/2026-08-01-performative-ui-port.md).
+
+  Design and behavior transcribed in spirit from performativeUI (MIT); no
+  source text or `pui-` class names vendored — see NOTICES.md.
+
+  A small social-proof pill combining a status-dot-style accent mark with
+  a metric slot, e.g. "1,204 builders online". Composes with aihu-status-dot
+  in its `lead` slot, same as eyebrow-pill. `aihu add` rewrites the `aihu-`
+  prefix at copy time.
+
+  tone: neutral (default) | accent
+
+  `shadow: 'light'` — see status-dot.aihu's header for why.
+-->
+
+@state {
+  import { cn } from '@aihu/css-engine/runtime/cn'
+
+  shadow: 'light'
+
+  let tone = prop({ default: 'neutral' })
+}
+
+@template {
+  <span data-slot="community-badge" data-tone={tone} class={cn('aihu-community-badge')}>
+    <slot name="lead" />
+    <span class="aihu-community-badge-text"><slot /></span>
+  </span>
+}
+
+@style {
+  .aihu-community-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-radius: var(--radius-pill);
+    padding-block: 0.375rem;
+    padding-inline: 0.875rem;
+    border: var(--border) solid var(--color-border);
+    background-color: var(--color-surface);
+    color: var(--color-foreground);
+  }
+  .aihu-community-badge-text {
+    font-size: 0.8125rem;
+    font-weight: 500;
+  }
+  .aihu-community-badge[data-tone="accent"] {
+    border-color: color-mix(in oklab, var(--color-accent) 40%, var(--color-border));
+  }
+  /* Raw `--color-accent` is only 4.14:1 on `--color-surface` in aihu-default
+     light — under the 4.5:1 WCAG 2 AA floor for this 0.8125rem label. Mixing
+     30% of `--color-foreground` into it keeps the accent hue while lifting
+     every pack x mode to >=6.4:1. */
+  .aihu-community-badge[data-tone="accent"] .aihu-community-badge-text {
+    color: color-mix(in oklab, var(--color-accent) 70%, var(--color-foreground));
+  }
+}

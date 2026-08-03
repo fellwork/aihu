@@ -1,0 +1,74 @@
+<!--
+  aihu-wibbling-spinner — presentational styled recipe (performativeUI port,
+  Slice 4 — docs/plans/2026-08-01-performative-ui-port.md §Tier-B batch 1).
+
+  Design and behavior transcribed in spirit from performativeUI (MIT); no
+  source text or `pui-` class names vendored — see NOTICES.md.
+
+  A tiny braille-glyph loading spinner — cycles through a fixed frame set on
+  a short interval via `@aihu/use/motion`'s `useSequence` (Track B Slice 3),
+  rather than a CSS `@keyframes` rotation. Glyph frames read as motion even
+  fully static (each frame's dot pattern implies rotation), so under
+  `prefers-reduced-motion: reduce` it freezes on the first frame instead of
+  cycling — `useSequence` already does this (auto-advance never fires while
+  `prefersReduced()` is true), no extra work needed here.
+
+  `role="status"` on the OUTER element carries an implicit `aria-live="polite"`
+  — applying it to an element whose entire content is the 80ms-churning glyph
+  would announce a content change roughly 12 times per second. The glyph is
+  therefore `aria-hidden="true"` (purely decorative), and the accessible name
+  comes from a separate `sr-only` "Loading" span that never changes — the live
+  region only ever announces once, on mount.
+
+  size: sm | md (default) | lg
+  tone: neutral (default) | accent
+
+  `shadow: 'light'` for live retheming — see the parent execution plan's
+  theming decision.
+-->
+
+@state {
+  import { cn } from '@aihu/css-engine/runtime/cn'
+
+  shadow: 'light'
+
+  let size = prop({ default: 'md' })
+  let tone = prop({ default: 'neutral' })
+
+  const FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
+
+  const { current } = useSequence(FRAMES, { interval: 80 })
+}
+
+@template {
+  <span
+    data-slot="wibbling-spinner"
+    data-size={size}
+    data-tone={tone}
+    role="status"
+    class={cn('aihu-wibbling-spinner')}>
+    <span aria-hidden="true">{current()}</span>
+    <span class="sr-only">Loading</span>
+  </span>
+}
+
+@style {
+  .aihu-wibbling-spinner {
+    display: inline-block;
+    font-family: var(--font-mono);
+    line-height: 1;
+    color: var(--color-neutral);
+  }
+  .aihu-wibbling-spinner[data-tone="accent"] {
+    color: var(--color-accent);
+  }
+  .aihu-wibbling-spinner[data-size="sm"] {
+    font-size: 1rem;
+  }
+  .aihu-wibbling-spinner[data-size="md"] {
+    font-size: 1.5rem;
+  }
+  .aihu-wibbling-spinner[data-size="lg"] {
+    font-size: 2rem;
+  }
+}

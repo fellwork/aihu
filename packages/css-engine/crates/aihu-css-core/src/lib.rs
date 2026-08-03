@@ -5,6 +5,7 @@
 //! of utility classes (see tokens.rs); Plan 2 wires the AST scanner; Plan 3
 //! adds variants and progressive features.
 
+pub mod animations;
 pub mod apply;
 pub mod ast;
 pub mod cache;

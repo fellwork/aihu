@@ -1,0 +1,50 @@
+<!--
+  aihu-prompt-hero — presentational styled recipe (performativeUI port,
+  Slice 5 — docs/plans/2026-08-01-performative-ui-port.md §Tier-B batch 2).
+
+  Design and behavior transcribed in spirit from performativeUI (MIT); no
+  source text or `pui-` class names vendored — see NOTICES.md.
+
+  A larger hero variant: a gradient-text heading centered above a `prompt`
+  bar. Composes TWO other registry recipes as children in its default
+  template — `aihu-gradient-text` for the heading, `aihu-prompt` for the bar
+  — exercising `registryDependencies` on both (see meta.json), the same
+  pattern `eyebrow-pill` established on `status-dot` in Slice 1.
+
+  heading:     the hero heading text, rendered through <aihu-gradient-text>.
+  placeholder: forwarded to the nested <aihu-prompt>'s `placeholder`.
+
+  `shadow: 'light'` — see the parent execution plan's theming decision.
+-->
+
+@state {
+  import { cn } from '@aihu/css-engine/runtime/cn'
+
+  shadow: 'light'
+
+  let heading = prop({ default: 'Ask anything' })
+  let placeholder = prop({ default: 'Ask anything...' })
+}
+
+@template {
+  <div data-slot="prompt-hero" class={cn('aihu-prompt-hero')}>
+    <aihu-gradient-text weight="bold" class="aihu-prompt-hero-heading">
+      {heading}
+    </aihu-gradient-text>
+    <aihu-prompt placeholder={placeholder}></aihu-prompt>
+  </div>
+}
+
+@style {
+  .aihu-prompt-hero {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5rem;
+    text-align: center;
+  }
+  .aihu-prompt-hero-heading {
+    font-size: clamp(1.75rem, 4vw, 3rem);
+    line-height: 1.1;
+  }
+}

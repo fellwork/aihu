@@ -1,0 +1,9 @@
+/* FIXTURE — deliberately-stale animations-gallery CSS, for
+   check-gate-wiring.ts's negative-fixture proof of check:animations-gallery
+   (C-FEL-428). NOT the real generated target; gen-animations-gallery.ts
+   --check is pointed here via ANIMATIONS_GALLERY_CSS_TARGET so its red path
+   (this file mismatching the freshly-compiled CSS) is actually executed and
+   observed, without touching the real committed output. */
+.gate-wiring-fixture-only-and-never-real {
+  color: red;
+}

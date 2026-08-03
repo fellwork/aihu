@@ -1,0 +1,14 @@
+{
+  "name": "goldeneye",
+  "type": "ui",
+  "description": "Decorative watchful eye — a glowing iris with a pupil that autonomously sweeps a slow Lissajous scan, built directly on useCanvasSurface.",
+  "meta": {
+    "capabilities": {
+      "interactive": false,
+      "keyboard": false,
+      "form": false,
+      "overlay": false,
+      "directional": false
+    }
+  }
+}

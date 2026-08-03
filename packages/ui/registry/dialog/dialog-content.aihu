@@ -8,6 +8,18 @@
   consumer's children. Only the DEFAULT `<slot/>` projects in light DOM, so the
   consumer composes the title/description/close as plain children.
 
+  MOTION (tailwind-animations port, Track A Slice 12). The panel animates in and
+  out — it is NOT an instant `display` cutover any more. The animation is ON BY
+  DEFAULT rather than opt-in behind an `animate-dialog-*` class: a modal that
+  snaps into existence is the anomaly, not the enhancement, and the registry's
+  job is to ship the good default. The `animate-dialog-*` UTILITIES stay the
+  opt-in half — they only reconfigure this built-in motion by overriding the
+  `--aihu-anim-dialog-*` custom properties it reads, so
+  `<aihu-dialog-content class="animate-dialog-from-left animate-dialog-duration-200">`
+  works without the component knowing anything about those classes. The full
+  decision record for the family lives in
+  `packages/css-engine/crates/aihu-css-core/recipes/dialog.css`.
+
   `aihu add` rewrites the `aihu-` prefix (tag + selectors) at copy time.
 -->
 
@@ -27,7 +39,19 @@
     position: fixed;
     left: 50%;
     top: 50%;
-    transform: translate(-50%, -50%);
+    /* Centering rides on the INDIVIDUAL `translate` property, not on
+       `transform: translate(-50%, -50%)`. The entrance uses the individual
+       `scale` property, and the platform composes those as
+       `translate · rotate · scale · transform`, all about one shared
+       transform-origin — so a centering offset parked in `transform` gets
+       scaled by the entrance, drifting the panel by (1 − scale) · width / 2
+       (~10px on a 32rem panel at scale 0.96) for the whole animation. With the
+       centering in `translate` instead, `scale` resolves about the panel's true
+       centre and nothing drifts. This is also why the family's start offset is
+       two SCALAR custom properties rather than upstream's packed pair: only
+       scalars compose into the `calc()`s below. */
+    translate: -50% -50%;
+    scale: 1;
     z-index: 50;
     width: 100%;
     max-width: 32rem;
@@ -40,12 +64,54 @@
     background-color: var(--color-surface);
     color: var(--color-surface-foreground);
     box-shadow: 0 10px 30px color-mix(in oklab, var(--color-foreground) 25%, transparent);
+    opacity: 1;
+    visibility: visible;
+    will-change: opacity, translate, scale;
+    /* `visibility 0s` is a real slot in the list, not a no-op — the closed rule
+       below delays exactly that slot so the panel stays rendered for its whole
+       fade-out and only then leaves the a11y tree / tab order. */
+    transition:
+      opacity var(--aihu-anim-dialog-duration, 350ms) ease,
+      translate var(--aihu-anim-dialog-duration, 350ms) var(--aihu-anim-dialog-easing, cubic-bezier(0.22, 1, 0.36, 1)),
+      scale var(--aihu-anim-dialog-duration, 350ms) var(--aihu-anim-dialog-easing, cubic-bezier(0.22, 1, 0.36, 1)),
+      visibility 0s;
   }
+  /* The closed state is `visibility: hidden`, NOT `display: none`. The headless
+     primitive never unmounts this element (it only flips `data-state`), so a
+     permanently-rendered element needs neither `@starting-style` nor
+     `transition-behavior: allow-discrete` nor `<aihu-presence-gate>` — but it
+     DOES need a closed state that can be transitioned INTO, which `display`
+     cannot be. `visibility` is the discrete property the platform transitions
+     specially: delayed to the end of the fade, it holds the panel rendered
+     throughout the exit and still removes it from the accessibility tree and
+     the tab order once it lands. */
   aihu-dialog-content[data-state="closed"] {
-    display: none;
+    opacity: var(--aihu-anim-dialog-start-opacity, 0);
+    translate:
+      calc(-50% + var(--aihu-anim-dialog-start-x, 0px))
+      calc(-50% + var(--aihu-anim-dialog-start-y, 1.5rem));
+    scale: var(--aihu-anim-dialog-start-scale, 0.96);
+    visibility: hidden;
+    pointer-events: none;
+    transition-delay: 0s, 0s, 0s, var(--aihu-anim-dialog-duration, 350ms);
   }
   aihu-dialog-content:focus-visible {
     outline: 2px solid var(--color-ring);
     outline-offset: 2px;
+  }
+  /* Reduced motion is a hard requirement of this port. `animations.rs`'s
+     `reduced_motion_guard` only covers keyframe-backed `animate-*` utilities,
+     so a transition-driven surface carries its own guard — same
+     `[data-motion="always"]` per-element escape hatch, and the duration is
+     COLLAPSED rather than set to `transition: none` so `transitionend` still
+     fires for anything listening. The `[data-state="closed"]` arm is load-
+     bearing: without it the closed rule's `transition-delay` would still hold
+     `visibility` for the full 350ms. */
+  @media (prefers-reduced-motion: reduce) {
+    aihu-dialog-content:not([data-motion="always"]),
+    aihu-dialog-content[data-state="closed"]:not([data-motion="always"]) {
+      transition-duration: 1ms;
+      transition-delay: 0s;
+    }
   }
 }

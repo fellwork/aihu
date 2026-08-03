@@ -1,0 +1,18 @@
+{
+  "name": "eyebrow-pill",
+  "type": "ui",
+  "description": "Presentational label pill, typically preceding a heading. Composes with status-dot in its lead slot.",
+  "registryDependencies": ["status-dot"],
+  "variants": {
+    "tone": ["neutral", "accent", "success", "warning"]
+  },
+  "meta": {
+    "capabilities": {
+      "interactive": false,
+      "keyboard": false,
+      "form": false,
+      "overlay": false,
+      "directional": false
+    }
+  }
+}

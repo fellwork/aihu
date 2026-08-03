@@ -1,0 +1,15 @@
+{
+  "name": "prompt-hero",
+  "type": "ui",
+  "description": "Larger hero variant composing gradient-text (heading) above a prompt bar, centered layout.",
+  "registryDependencies": ["gradient-text", "prompt"],
+  "meta": {
+    "capabilities": {
+      "interactive": false,
+      "keyboard": false,
+      "form": false,
+      "overlay": false,
+      "directional": false
+    }
+  }
+}

@@ -1,0 +1,70 @@
+<!--
+  aihu-rotator — presentational styled recipe (performativeUI port,
+  Slice 4 — docs/plans/2026-08-01-performative-ui-port.md §Tier-B batch 1).
+
+  Design and behavior transcribed in spirit from performativeUI (MIT); no
+  source text or `pui-` class names vendored — see NOTICES.md.
+
+  A rotating single-word/phrase headline slot — cycles through `items` on a
+  fixed interval, cross-fading each change. Built on `@aihu/use/motion`'s
+  `useSequence` (Track B Slice 3) rather than a hand-rolled interval.
+
+  items:    comma-separated string, e.g. "Design,Build,Ship" (custom-element
+            attrs are strings — read once at setup, not reactive to later
+            attribute changes, same constraint as every array-valued prop in
+            this port).
+  interval: milliseconds per word, string-encoded number. Default "2000".
+  tone:     neutral (default) | accent
+
+  `shadow: 'light'` for live retheming — see the parent execution plan's
+  theming decision.
+
+  The `<group each key>` wrapper forces a fresh DOM node per cycle (`key`
+  changes -> re-mount), which is what makes the `animate-fade-in` utility
+  class (tailwind-animations port, Track A) restart on every word change
+  instead of playing once and going static.
+-->
+
+@state {
+  import { cn } from '@aihu/css-engine/runtime/cn'
+
+  shadow: 'light'
+
+  let items = prop({ default: 'Design,Build,Ship' })
+  let interval = prop({ default: '2000' })
+  let tone = prop({ default: 'neutral' })
+
+  const words = items
+    .split(',')
+    .map((w) => w.trim())
+    .filter(Boolean)
+
+  const { current, index } = useSequence(words, { interval: Number(interval) })
+}
+
+@template {
+  <span data-slot="rotator" data-tone={tone} class={cn('aihu-rotator')}>
+    <group each={item of [current()]} key={index()}>
+      <span class={cn('aihu-rotator-word', 'animate-fade-in')}>{item}</span>
+    </group>
+  </span>
+}
+
+@style {
+  .aihu-rotator {
+    display: inline-block;
+    position: relative;
+    font-weight: 600;
+    color: var(--color-foreground);
+  }
+  /* Raw `--color-accent` is only 4.14:1 on `--color-background` in
+     aihu-default light — under the 4.5:1 WCAG 2 AA floor for this
+     normal-weight (600) word. Mixing 30% `--color-foreground` into it keeps
+     the accent hue while lifting every pack x mode to >=6.4:1. */
+  .aihu-rotator[data-tone="accent"] {
+    color: color-mix(in oklab, var(--color-accent) 70%, var(--color-foreground));
+  }
+  .aihu-rotator-word {
+    display: inline-block;
+  }
+}

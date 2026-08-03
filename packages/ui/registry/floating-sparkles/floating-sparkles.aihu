@@ -1,0 +1,90 @@
+<!--
+  aihu-floating-sparkles — presentational styled recipe (performativeUI port,
+  Slice 9 — docs/plans/2026-08-01-performative-ui-port.md §Tier-C batch 1).
+
+  Design and behavior transcribed in spirit from performativeUI (MIT); no
+  source text or `pui-` class names vendored — see NOTICES.md.
+
+  A decorative ambient particle field — small glowing dots drifting and
+  twinkling — built directly on `@aihu/use/motion`'s `useParticleField`
+  (Track B Slice 8), which is itself built on `useCanvasSurface`.
+  `useCanvasSurface` OWNS canvas creation (see its header comment: measuring
+  and styling the same node would feed a `ResizeObserver` a resize loop, so
+  it measures the HOST and styles a canvas it creates itself). This
+  component's `@template` is therefore a plain container — `ref={hostEl}`
+  feeds that host to `useParticleField`, which mounts its own `<canvas>`
+  inside it; nothing here reaches for a `<canvas>` element directly.
+
+  count: how many particles, string-encoded number. Default "30".
+  color: a single fill color for every particle, default "#ffffff". This is
+         a LITERAL CSS color string, not a `--color-*` token reference — every
+         other decorative recipe in this port writes `color: var(--color-*)`
+         in `@style`, but a canvas 2D context's `fillStyle` is not part of
+         the CSS cascade and cannot resolve a custom property; it needs an
+         already-resolved value. `useParticleField`'s `colors` option already
+         accepts an array (for a future multi-color field); per the roadmap
+         this component deliberately does NOT parse a comma-separated string
+         into that array yet (over-engineering ahead of a real need) — a
+         single-element array is passed instead.
+
+  Layout: a standalone, full-bleed, absolutely-positioned decorative layer
+  (`position: absolute; inset: 0`), no slot — meant to sit BEHIND other
+  content the same way `aurora` (this slice's sibling component) does, for a
+  consistent Tier-C "decorative background layer" contract across the batch.
+  The consumer places it as the first child of a `position: relative`
+  ancestor and stacks real content above it with `z-index` (see
+  `useCanvasSurface`'s header: "the host must be positioned" for its owned
+  canvas to land at the host's top-left, which `position: absolute` already
+  satisfies here).
+
+  Reduced motion and off-screen pausing are NOT reimplemented here — both are
+  the composable family's job. `useCanvasSurface`'s "paint once, never loop"
+  contract means `prefersReduced()` true renders one static seeded starfield
+  frame instead of looping (traced in `useParticleField`'s `onFrame`: `if
+  (!reducedMotion) step(...)` is skipped, `draw(..., !reducedMotion)` turns
+  off the twinkle modulation, so the field freezes on its seeded positions —
+  never blank). `isVisible`-gated pausing while scrolled off-screen is
+  likewise inherited for free.
+
+  `shadow: 'light'` — see the parent execution plan's theming decision.
+-->
+
+@state {
+  import { cn } from '@aihu/css-engine/runtime/cn'
+
+  shadow: 'light'
+
+  let count = prop({ default: '30' })
+  let color = prop({ default: '#ffffff' })
+
+  let hostEl = state(null)
+
+  // Read into a differently-named local before use — an options-object key
+  // textually identical to a prop name (`count: count`) trips the compiler's
+  // prop-auto-unwrap rewriter (see token-stream.aihu's header for the exact
+  // failure mode this sidesteps).
+  const particleCount = Number(count)
+
+  useParticleField(() => hostEl, {
+    count: particleCount,
+    colors: [color],
+  })
+}
+
+@template {
+  <div
+    ref={hostEl}
+    data-slot="floating-sparkles"
+    aria-hidden="true"
+    class={cn('aihu-floating-sparkles')}></div>
+}
+
+@style {
+  .aihu-floating-sparkles {
+    display: block;
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+}

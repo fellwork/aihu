@@ -5,7 +5,12 @@
  * Stories are CO-LOCATED with their sources (spec §10.2):
  *   - headless primitives:  packages/primitives/src/<name>/<name>.stories.ts
  *   - styled recipes:       packages/ui/registry/<name>/<name>.stories.ts
+ *   - docs/demo galleries:  apps/storybook/src/stories/<name>.stories.ts
+ *     (tailwind-animations port doc, Track A Slice 14) — the one exception to
+ *     co-location: these are plain HTML demos of raw utility classes, not
+ *     compiled `.aihu` SFCs, so there is no natural "source" to sit next to.
  *
+
  * `.aihu` recipe compilation reuses `aihuCompilerPlugin` from `@aihu/compiler`
  * — the same standalone Vite path the examples use. Recipe stories import the
  * SYNCED copies under src/recipes/ (`aihu-<name>.aihu`): the compiled element
@@ -44,6 +49,7 @@ const config: StorybookConfig = {
   stories: [
     '../../../packages/primitives/src/**/*.stories.ts',
     '../../../packages/ui/registry/**/*.stories.ts',
+    '../src/stories/**/*.stories.ts',
   ],
   addons: ['@storybook/addon-docs', '@storybook/addon-a11y'],
   async viteFinal(base) {

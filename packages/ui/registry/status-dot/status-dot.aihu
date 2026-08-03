@@ -1,0 +1,126 @@
+<!--
+  aihu-status-dot — presentational styled recipe (performativeUI port,
+  Slice 1 — docs/plans/2026-08-01-performative-ui-port.md §3).
+
+  Design and behavior transcribed in spirit from performativeUI (MIT); no
+  source text or `pui-` class names vendored — see NOTICES.md.
+
+  A small circular status indicator whose fill communicates a semantic state,
+  with an optional pulsing "liveness" ring. `aihu add` rewrites the `aihu-`
+  prefix at copy time.
+
+  status: neutral (default) | online | busy | away | info | offline
+  size:   sm | md (default) | lg
+  pulse:  off (default) | on
+  (Variant matrix is the registry catalog contract — see meta.json — reflected
+  as data-status/data-size/data-pulse and matched in @style below.)
+
+  `shadow: 'light'` (not true shadow DOM, unlike the older badge/separator
+  shape): this component's --color-* token references retheme live against
+  runtime dark-mode/theme-catalog switching, per the light-DOM token-scope
+  guarantee (@layer aihu.tokens at :root always outranks a stale per-component
+  :host snapshot). See the parent execution plan's theming decision.
+
+  `role="img"` needs an accessible name (WCAG 1.1.1) — with the default empty
+  `label` (the shape every composed usage in `eyebrow-pill`/`community-badge`
+  uses today, pairing the dot with adjacent visible text instead) this dot has
+  none. `aria-hidden` tracks whether `label` is non-empty: when it's empty the
+  dot drops out of the accessibility tree entirely (matching `sparkle`'s
+  decorative-by-default pattern), so `role="img"`/`aria-label=""` are never
+  exposed to assistive tech in the first place — the compiler's attribute
+  binding always calls `setAttribute` (no removal path for `undefined`), so
+  conditionally OMITTING `role`/`aria-label` isn't an option here; gating
+  exposure via `aria-hidden` is.
+-->
+
+@state {
+  import { cn } from '@aihu/css-engine/runtime/cn'
+
+  shadow: 'light'
+
+  let status = prop({ default: 'neutral' })
+  let size = prop({ default: 'md' })
+  let pulse = prop({ default: 'off' })
+  let label = prop({ default: '' })
+}
+
+@template {
+  <span
+    data-slot="status-dot"
+    data-status={status}
+    data-size={size}
+    data-pulse={pulse}
+    role="img"
+    aria-label={label}
+    aria-hidden={label ? 'false' : 'true'}
+    class={cn('aihu-status-dot')}>
+    <span class="aihu-status-dot-ring" aria-hidden="true"></span>
+  </span>
+}
+
+@style {
+  .aihu-status-dot {
+    display: inline-block;
+    position: relative;
+    flex: none;
+    border-radius: var(--radius-pill);
+    color: var(--color-neutral);
+    background-color: currentColor;
+  }
+  .aihu-status-dot[data-size="sm"] {
+    width: 0.375rem;
+    height: 0.375rem;
+  }
+  .aihu-status-dot[data-size="md"] {
+    width: 0.5rem;
+    height: 0.5rem;
+  }
+  .aihu-status-dot[data-size="lg"] {
+    width: 0.625rem;
+    height: 0.625rem;
+  }
+  .aihu-status-dot[data-status="neutral"] {
+    color: var(--color-neutral);
+  }
+  .aihu-status-dot[data-status="online"] {
+    color: var(--color-success);
+  }
+  .aihu-status-dot[data-status="busy"] {
+    color: var(--color-destructive);
+  }
+  .aihu-status-dot[data-status="away"] {
+    color: var(--color-warning);
+  }
+  .aihu-status-dot[data-status="info"] {
+    color: var(--color-info);
+  }
+  .aihu-status-dot[data-status="offline"] {
+    color: var(--color-muted-foreground);
+  }
+  .aihu-status-dot-ring {
+    position: absolute;
+    inset: 0;
+    border-radius: var(--radius-pill);
+    background-color: currentColor;
+    opacity: 0;
+    pointer-events: none;
+  }
+  .aihu-status-dot[data-pulse="on"] .aihu-status-dot-ring {
+    animation: aihu-status-dot-pulse 1.8s var(--ease-brand) infinite;
+  }
+  @keyframes aihu-status-dot-pulse {
+    from {
+      transform: scale(1);
+      opacity: 0.55;
+    }
+    to {
+      transform: scale(2.6);
+      opacity: 0;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .aihu-status-dot[data-pulse="on"] .aihu-status-dot-ring {
+      animation: none;
+    }
+  }
+}

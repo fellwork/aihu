@@ -43,6 +43,11 @@ pub enum Variant {
     Dark,
     /// `sm:`/`md:`/`lg:`/`xl:`/`2xl:` → `@media (min-width: …)`.
     Breakpoint(String),
+    /// `motion-reduce:`/`motion-safe:` → `@media (prefers-reduced-motion: reduce|no-preference)`.
+    /// The opt-in half of the ported-animation reduced-motion story (tailwind-animations
+    /// port doc §2, decision D-B·b) — the compiler-emitted guard in `animations.rs`
+    /// is the default-on half.
+    Motion { reduce: bool },
     /// `[&>div]:` arbitrary selector → native nesting (`& > div`).
     ArbitrarySelector(String),
 
@@ -167,6 +172,8 @@ fn parse_prefix(prefix: &str) -> Option<Variant> {
         "selection" => Variant::PseudoElement("selection".to_string()),
         "file" => Variant::PseudoElement("file-selector-button".to_string()),
         "sm" | "md" | "lg" | "xl" | "2xl" => Variant::Breakpoint(prefix.to_string()),
+        "motion-reduce" => Variant::Motion { reduce: true },
+        "motion-safe" => Variant::Motion { reduce: false },
         // Container-query breakpoints: `@sm`/`@md`/`@lg`/`@xl`/`@2xl`.
         "@sm" | "@md" | "@lg" | "@xl" | "@2xl" => Variant::Container(prefix[1..].to_string()),
         _ => {
@@ -312,6 +319,13 @@ fn apply_variant_to_selector(
             if let Some(min) = theme.container_breakpoint(bp) {
                 acc.at_rule = Some(format!("@container (min-width: {min})"));
             }
+            selector
+        }
+        Variant::Motion { reduce } => {
+            acc.at_rule = Some(format!(
+                "@media (prefers-reduced-motion: {})",
+                if *reduce { "reduce" } else { "no-preference" }
+            ));
             selector
         }
         Variant::Dark | Variant::HostContextDark => {

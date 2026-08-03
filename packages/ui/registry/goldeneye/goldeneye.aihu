@@ -1,0 +1,266 @@
+<!--
+  aihu-goldeneye — presentational styled recipe (performativeUI port,
+  Slice 11 — docs/plans/2026-08-01-performative-ui-port.md §Tier-C tail).
+  "Isolated deliberately so it can be cut without blocking anything else" per
+  the roadmap note; this is the last Tier-C decorative recipe in the batch.
+
+  Design and behavior transcribed in spirit from performativeUI (MIT); no
+  source text or `pui-` class names vendored — see NOTICES.md. The upstream
+  demo file was neither fetched nor read for this port (no network access,
+  and this port's binding provenance rule forbids transcribing upstream
+  source on sight regardless): the effect below is written from the
+  behavioral description in the slice brief plus ordinary, widely-known
+  AI/tech marketing-site visual-effect conventions.
+
+  ── Interpreting "goldeneye" ────────────────────────────────────────────
+
+  The brief named three plausible readings for a component with this name in
+  an AI-marketing-UI catalog: a Matrix-style digital-rain cascade, a
+  scanning/targeting-reticle sweep, or a single glowing eye/orb. This recipe
+  picks the third and treats it as the correct reading, not a coin flip:
+
+    - The name decomposes literally as "gold" + "eye" — an eye, in a golden
+      hue, not a rain of glyphs or a crosshair. Digital rain is also already
+      this batch's `ascii-hero` territory (binary drift on a character
+      field); a second glyph-cascade recipe this late in Tier-C would be a
+      near-duplicate, not a new visual.
+    - A single watchful eye is a genuinely common personification in
+      AI-product marketing — "the system is perceiving/attending to you" —
+      distinct from anything else in this batch (`floating-sparkles` is
+      ambient texture, `node-graph-background` is a network metaphor,
+      `ascii-hero` is a hero backdrop). It is also the reading that most
+      naturally SUBSUMES the scanning-reticle idea rather than competing
+      with it: this eye's pupil autonomously sweeps a slow scan path (see
+      below), which reads as "scanning" without needing a separate
+      crosshair motif.
+    - The sweep is autonomous (a fixed Lissajous path driven by elapsed
+      time), deliberately NOT pointer-tracking. A tracking eye would need a
+      pointer listener and would blur the line into "interactive," but the
+      brief is explicit that this is a decorative recipe with no
+      interactive/keyboard/form/overlay capabilities (mirrored exactly in
+      `meta.json`) — so "watchful" is expressed as a self-directed scan, not
+      as attention paid to the visitor's cursor.
+
+  ── Architecture: built directly on `useCanvasSurface` ──────────────────
+
+  Neither `useParticleField` nor `useCharacterField` is the right fit here,
+  and for a DIFFERENT reason than `node-graph-background`'s (Slice 10) case
+  for dropping to the same level — that one needed a second draw pass over
+  shared state and hit a missing draw hook. This recipe has no such
+  workaround to make because it was never a fit for the "N-item field"
+  abstraction those composables model in the first place:
+
+    - `useParticleField` and `useCharacterField` both own a SEEDED ARRAY of
+      many independent items (particles / glyph cells), each with its own
+      position and (for particles) velocity, that must be seeded on first
+      size, integrated every frame, and rescaled or rebuilt on resize. That
+      machinery is the point of those composables.
+    - This eye draws exactly ONE continuously-shaded feature — a radial
+      glow, a solid iris disc, one sweeping pupil, one glint — whose
+      geometry is a pure function of `(elapsed time, host width, host
+      height)`, recomputed from scratch every frame. There is no seeded
+      state to own, so there is also no `onResize` hook below: unlike every
+      other Tier-C recipe in this port, a resize needs no rescale pass
+      because nothing persists between frames to rescale.
+
+  `useCanvasSurface` is explicitly "the substrate every canvas-based visual
+  effect sits on … future canvas effects are expected to [sit on it] as
+  well" (its own header), so entering at this level is the sanctioned
+  choice for a custom single-feature draw, not a bypass — same verdict
+  `node-graph-background` reached, arrived at independently here because
+  this recipe's shape never matched a field composable's grain to begin
+  with.
+
+  ── The `globalAlpha` + `'transparent'`-stop idiom ──────────────────────
+
+  The glow halo needs to fade from a caller-chosen `color` at some alpha
+  down to nothing at its edge — but `color` is an arbitrary literal CSS
+  string (hex/rgb/hsl/named; see below), and computing an alpha-adjusted
+  variant of an unknown format would mean parsing it. Two things sidestep
+  that entirely: `'transparent'` is a valid gradient color-stop regardless
+  of the OTHER stop's format, so the far stop needs no relation to `color`
+  at all; and the glow's overall peak brightness is carried by
+  `ctx.globalAlpha` (reset to `1` after, same discipline `node-graph-background`
+  and `useParticleField`'s `draw()` already follow), not by a baked-in alpha
+  channel on the gradient itself. The iris disc, for the same reason, is
+  drawn as a FLAT fill in `color` rather than a light-core/dark-rim
+  gradient — a rim shade would need a lightened or darkened variant of an
+  unparsed color string, which is exactly the constraint this idiom avoids.
+
+  ── Props ────────────────────────────────────────────────────────────────
+
+  color:       the iris and glow color. Default "#ffd700" (gold — the
+               component's namesake hue). A LITERAL CSS color string, not a
+               `--color-*` token reference — identical constraint to every
+               other canvas recipe in this port (`floating-sparkles`,
+               `node-graph-background`, `ascii-hero`): a canvas 2D context's
+               `fillStyle` is not part of the CSS cascade and cannot resolve
+               a custom property.
+  pupil-color: the pupil's fill color. Default "#1c1408" (a near-black warm
+               brown, legible against the default gold without reading as
+               pure black-on-yellow). Also a literal CSS color string.
+               (Declared `pupilColor`; the runtime derives the observed
+               attribute as kebab-case, so consumers write `pupil-color`.)
+  speed:       sweep/pulse rate multiplier, string-encoded number. Default
+               "1". "0" freezes the sweep and glow at their `t=0` pose
+               (still painted — see Reduced motion below — not blanked);
+               this is a legitimate use, not an error case, so it is not
+               coerced back up to a nonzero default.
+
+  Not exposed: individual radii, glow strength, sweep amplitude, glint
+  opacity. Every one of them is an internal look-and-feel constant at this
+  altitude — widening the surface ahead of a real need is the
+  over-engineering `ascii-hero`'s header already declined for this port.
+
+  ── Layout ───────────────────────────────────────────────────────────────
+
+  A standalone, full-bleed, absolutely-positioned decorative layer
+  (`position: absolute; inset: 0`), no slot — the same "decorative
+  background layer" contract every Tier-C recipe in this port carries. The
+  eye's own geometry is derived from the HOST's box (`Math.min(width,
+  height)` sets the iris radius, `width/2, height/2` its center), so unlike
+  a texture-fill recipe this also composes naturally as a compact element:
+  a consumer can either drop it as the first child of a large
+  `position: relative` hero (an ambient background eye) or size the host to
+  a small square/circle wrapper for a compact "eye" placement — both are
+  the same recipe, just a differently-sized host.
+
+  ── Reduced motion / off-screen ─────────────────────────────────────────
+
+  Neither is reimplemented here; both are `useCanvasSurface`'s job. Every
+  animated term in `draw()` — the glow's pulse and both axes of the pupil's
+  sweep — is a bare `Math.sin(t * frequency * TAU)` with NO phase offset, so
+  at `t = 0` every one of them evaluates to exactly `0`: the pupil sits
+  precisely centered in the iris and the glow sits at its baseline (not
+  peak, not trough) brightness. `handleFrame` below maps
+  `frame.reducedMotion` to `t = 0` for exactly this reason. Traced through
+  `useCanvasSurface`'s "paint once, never loop" contract: under
+  `prefers-reduced-motion: reduce`, `start()` invokes `onFrame` exactly once
+  with `reducedMotion: true` and never arms the rAF loop, so `handleFrame`
+  computes `t = 0`, `draw()` renders that centered-pupil / baseline-glow
+  frame, and nothing further is painted — a settled, watchful eye at rest,
+  never a blank box and never frozen mid-sweep. `isVisible`-gated pausing
+  while scrolled off-screen is inherited for free.
+
+  `shadow: 'light'` — see the parent execution plan's theming decision.
+-->
+
+@state {
+  import { cn } from '@aihu/css-engine/runtime/cn'
+
+  shadow: 'light'
+
+  let color = prop({ default: '#ffd700' })
+  let pupilColor = prop({ default: '#1c1408' })
+  let speed = prop({ default: '1' })
+
+  let hostEl = state(null)
+
+  // Read every prop into a differently-named local before use — an
+  // options-object key textually identical to a prop name trips the
+  // compiler's prop-auto-unwrap rewriter (see token-stream.aihu's header for
+  // the exact failure mode).
+  const irisColor = color
+  const pupilColorValue = pupilColor
+  const rateMultiplier = Math.max(0, Number(speed) || 0)
+
+  const TAU = Math.PI * 2
+  /** Iris radius as a fraction of the host's shorter side. */
+  const IRIS_RADIUS_RATIO = 0.32
+  /** Glow halo radius as a multiple of the iris radius. */
+  const GLOW_RADIUS_RATIO = 2.2
+  /** Glow's breathing alpha ranges [BASE - AMPLITUDE, BASE + AMPLITUDE]. */
+  const GLOW_ALPHA_BASE = 0.28
+  const GLOW_ALPHA_AMPLITUDE = 0.18
+  /** Cycles per second (pre-`rateMultiplier`) for the glow's breathing and
+   * each axis of the pupil's sweep. X and Y differ so the sweep traces a
+   * Lissajous path rather than a degenerate straight line. */
+  const PULSE_FREQ = 0.15
+  const SWEEP_FREQ_X = 0.12
+  const SWEEP_FREQ_Y = 0.19
+  /** Pupil wander radius as a fraction of the iris radius; Y is scaled down
+   * further so the scan reads as mostly side-to-side, like a search. */
+  const PUPIL_SWEEP_RATIO = 0.45
+  const PUPIL_SWEEP_Y_RATIO = 0.6
+  const PUPIL_RADIUS_RATIO = 0.42
+  const GLINT_ALPHA = 0.85
+
+  const draw = (ctx, width, height, t) => {
+    ctx.clearRect(0, 0, width, height)
+
+    const cx = width / 2
+    const cy = height / 2
+    const irisRadius = Math.min(width, height) * IRIS_RADIUS_RATIO
+    if (irisRadius <= 0) return
+
+    // Ambient glow: see the header's `globalAlpha` + `'transparent'`-stop
+    // note — the far stop needs no relation to `irisColor`'s format, and the
+    // pulse's peak brightness rides on `globalAlpha`, not a baked-in alpha.
+    const pulse = GLOW_ALPHA_BASE + GLOW_ALPHA_AMPLITUDE * Math.sin(t * PULSE_FREQ * TAU)
+    const glowRadius = irisRadius * GLOW_RADIUS_RATIO
+    const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, glowRadius)
+    glow.addColorStop(0, irisColor)
+    glow.addColorStop(1, 'transparent')
+    ctx.globalAlpha = pulse
+    ctx.fillStyle = glow
+    ctx.beginPath()
+    ctx.arc(cx, cy, glowRadius, 0, TAU)
+    ctx.fill()
+    ctx.globalAlpha = 1
+
+    // Iris: a flat solid disc — see the header for why this is not a
+    // light-core/dark-rim gradient.
+    ctx.fillStyle = irisColor
+    ctx.beginPath()
+    ctx.arc(cx, cy, irisRadius, 0, TAU)
+    ctx.fill()
+
+    // Pupil: a Lissajous sweep, pure `sin` with no phase offset on either
+    // axis, so `t = 0` is always a centered gaze (see the header's reduced
+    // motion note).
+    const sweep = irisRadius * PUPIL_SWEEP_RATIO
+    const px = cx + Math.sin(t * SWEEP_FREQ_X * TAU) * sweep
+    const py = cy + Math.sin(t * SWEEP_FREQ_Y * TAU) * sweep * PUPIL_SWEEP_Y_RATIO
+    const pupilRadius = irisRadius * PUPIL_RADIUS_RATIO
+    ctx.fillStyle = pupilColorValue
+    ctx.beginPath()
+    ctx.arc(px, py, pupilRadius, 0, TAU)
+    ctx.fill()
+
+    // Glint: a small fixed highlight offset up-left from the pupil's center,
+    // so the eye reads as glossy rather than a flat dot.
+    ctx.globalAlpha = GLINT_ALPHA
+    ctx.fillStyle = '#ffffff'
+    ctx.beginPath()
+    ctx.arc(px - pupilRadius * 0.35, py - pupilRadius * 0.35, pupilRadius * 0.3, 0, TAU)
+    ctx.fill()
+    ctx.globalAlpha = 1
+  }
+
+  const handleFrame = (frame) => {
+    const t = frame.reducedMotion ? 0 : (frame.timestamp / 1000) * rateMultiplier
+    draw(frame.ctx, frame.width, frame.height, t)
+  }
+
+  useCanvasSurface(() => hostEl, {
+    onFrame: handleFrame,
+  })
+}
+
+@template {
+  <div
+    ref={hostEl}
+    data-slot="goldeneye"
+    aria-hidden="true"
+    class={cn('aihu-goldeneye')}></div>
+}
+
+@style {
+  .aihu-goldeneye {
+    display: block;
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+}

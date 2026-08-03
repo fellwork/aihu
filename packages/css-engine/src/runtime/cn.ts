@@ -39,17 +39,27 @@ function tokens(inputs: ClassValue[], out: string[]): void {
  * known group (so unrelated classes always coexist). Strips variant prefixes
  * (`md:`, `hover:`, …) so `hover:p-2` and `hover:p-4` still conflict, while
  * `p-2` and `hover:p-4` do not (different variant scope).
+ *
+ * Matches `CONFLICT_GROUPS` by LONGEST dash-delimited prefix, not just the
+ * first segment — `animate-delay-500` must key to the `animate-delay` entry,
+ * not fall through to the broader `animate` entry `animate-fade-in` keys to
+ * (that collision is the whole reason a modifier family gets its own group:
+ * `cn('animate-fade-in', 'animate-delay-500')` must keep BOTH, since they set
+ * different CSS properties). `CONFLICT_GROUPS` is generated sorted
+ * longest-prefix-first for exactly this scan (see
+ * `scripts/gen-cn-conflict-map.ts`) — dashless bases (`flex`) and any base
+ * with no registered prefix at any segment length key to the class itself.
  */
 function groupKey(cls: string): string {
   const colon = cls.lastIndexOf(':')
   const variant = colon === -1 ? '' : cls.slice(0, colon + 1)
   const base = colon === -1 ? cls : cls.slice(colon + 1)
-  const dash = base.indexOf('-')
-  // The prefix is the segment before the first dash (`bg-red-500` → `bg`); for
-  // dashless bases (`flex`) there is no group, so the class keys to itself.
-  const prefix = dash === -1 ? base : base.slice(0, dash)
-  const group = CONFLICT_GROUPS[prefix]
-  return group ? `${variant}${group}` : cls
+  const segments = base.split('-')
+  for (let i = segments.length; i > 0; i--) {
+    const group = CONFLICT_GROUPS[segments.slice(0, i).join('-')]
+    if (group) return `${variant}${group}`
+  }
+  return cls
 }
 
 /**

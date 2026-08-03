@@ -1,0 +1,14 @@
+{
+  "name": "mock-ide",
+  "type": "ui",
+  "description": "Decorative fake code-editor window chrome — traffic-light dots + title bar over a slotted code body.",
+  "meta": {
+    "capabilities": {
+      "interactive": false,
+      "keyboard": false,
+      "form": false,
+      "overlay": false,
+      "directional": false
+    }
+  }
+}

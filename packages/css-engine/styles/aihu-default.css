@@ -23,6 +23,7 @@
   --color-warning-foreground: #faf8f4;
   --color-neutral: #363c47;
   --color-neutral-foreground: #faf8f4;
+  --gradient-brand: linear-gradient(135deg, #c8543a 0%, #d97757 50%, #945f0e 100%);
   --radius-sm: 4px;
   --radius-md: 8px;
   --radius-lg: 12px;
@@ -37,11 +38,13 @@
   --space-16: 4rem;
   --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "Fira Code", "Cascadia Code", monospace;
+  --font-serif: ui-serif, Georgia, Cambria, "Times New Roman", serif;
   --size-selector: 1.25rem;
   --size-field: 2.25rem;
   --border: 1px;
   --depth: 1;
   --noise: 0;
+  --ease-brand: cubic-bezier(0.22, 1, 0.36, 1);
 }
 .dark,
 [data-theme="dark"] {
@@ -69,4 +72,5 @@
   --color-warning-foreground: #1a1d24;
   --color-neutral: #636a72;
   --color-neutral-foreground: #faf8f4;
+  --gradient-brand: linear-gradient(135deg, #e8705a 0%, #f0917d 50%, #d8a848 100%);
 }

@@ -1,0 +1,16 @@
+{
+  "name": "temperature",
+  "type": "ui",
+  "description": "Styled 3-value response-temperature preset picker (Precise / Balanced / Creative) — light-DOM element extending the headless AihuRadioGroupRoot primitive (roving tabindex, arrow-key selection, native form participation).",
+  "dependencies": ["@aihu/primitives"],
+  "meta": {
+    "capabilities": {
+      "interactive": true,
+      "hoverable": false,
+      "keyboard": true,
+      "form": true,
+      "overlay": false,
+      "directional": true
+    }
+  }
+}

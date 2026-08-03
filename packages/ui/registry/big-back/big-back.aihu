@@ -1,0 +1,55 @@
+<!--
+  aihu-big-back — presentational styled recipe (performativeUI port,
+  Slice 2 — docs/plans/2026-08-01-performative-ui-port.md).
+
+  Design and behavior transcribed in spirit from performativeUI (MIT); no
+  source text or `pui-` class names vendored — see NOTICES.md.
+
+  Oversized, low-opacity watermark-style text — typically the wordmark
+  bleeding off the edge of a footer. Purely decorative; hidden from the
+  accessibility tree. `aihu add` rewrites the `aihu-` prefix at copy time.
+
+  weight: bold (default) | black
+
+  `shadow: 'light'` — see status-dot.aihu's header for why.
+-->
+
+@state {
+  import { cn } from '@aihu/css-engine/runtime/cn'
+
+  shadow: 'light'
+
+  let weight = prop({ default: 'bold' })
+}
+
+@template {
+  <span
+    data-slot="big-back"
+    data-weight={weight}
+    aria-hidden="true"
+    class={cn('aihu-big-back')}>
+    <slot />
+  </span>
+}
+
+@style {
+  .aihu-big-back {
+    display: block;
+    width: 100%;
+    overflow: hidden;
+    white-space: nowrap;
+    line-height: 0.85;
+    letter-spacing: -0.03em;
+    font-size: clamp(4rem, 18vw, 14rem);
+    color: var(--color-foreground);
+    opacity: 0.06;
+    user-select: none;
+    pointer-events: none;
+  }
+  .aihu-big-back[data-weight="bold"] {
+    font-weight: 700;
+  }
+  .aihu-big-back[data-weight="black"] {
+    font-weight: 900;
+  }
+}

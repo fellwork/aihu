@@ -1,0 +1,18 @@
+{
+  "name": "gradient-text",
+  "type": "ui",
+  "description": "Presentational text decoration — applies the pack's brand gradient as text fill.",
+  "variants": {
+    "weight": ["normal", "medium", "semibold", "bold"],
+    "font": ["sans", "serif"]
+  },
+  "meta": {
+    "capabilities": {
+      "interactive": false,
+      "keyboard": false,
+      "form": false,
+      "overlay": false,
+      "directional": false
+    }
+  }
+}

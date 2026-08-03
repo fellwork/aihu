@@ -1,0 +1,15 @@
+{
+  "name": "logo-marquee",
+  "type": "ui",
+  "description": "Infinite horizontal auto-scrolling row of logos — CSS-only, pauses on hover/focus and honors reduced motion.",
+  "meta": {
+    "capabilities": {
+      "interactive": false,
+      "hoverable": true,
+      "keyboard": false,
+      "form": false,
+      "overlay": false,
+      "directional": false
+    }
+  }
+}

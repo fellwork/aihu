@@ -44,11 +44,24 @@ export const FAMILIES: Record<Family, { dir: string; label: string }> = {
   },
 }
 
-/** True when the file is aihu-css-core Rust source — feeds the binary. */
+/**
+ * True when the file feeds the compiled aihu-css-core binary — Rust source
+ * under `src/`, the crate manifest, `build.rs`, OR a `recipes/*.css` file.
+ * The last two were a real gap (tailwind-animations port doc, Track A
+ * Slice 13): `build.rs` `include_str!`s every `recipes/*.css` file into
+ * `RECIPE_SOURCES` (see that file's own doc comment) — a recipe-family CSS
+ * edit changes the compiled binary's output exactly like a `.rs` edit does,
+ * but neither file matched the old `src/**.rs`-only predicate, so this guard
+ * could pass while the binary silently went stale — the exact FEL-414
+ * failure shape this file exists to prevent, just for CSS instead of Rust.
+ */
 export function isCssCoreRustSource(file: string): boolean {
+  const crateRoot = 'packages/css-engine/crates/aihu-css-core/'
   return (
-    (file.startsWith('packages/css-engine/crates/aihu-css-core/src/') && file.endsWith('.rs')) ||
-    file === 'packages/css-engine/crates/aihu-css-core/Cargo.toml'
+    (file.startsWith(`${crateRoot}src/`) && file.endsWith('.rs')) ||
+    file === `${crateRoot}Cargo.toml` ||
+    file === `${crateRoot}build.rs` ||
+    (file.startsWith(`${crateRoot}recipes/`) && file.endsWith('.css'))
   )
 }
 

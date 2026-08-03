@@ -93,6 +93,8 @@ bun add @aihu/primitives
 | `./checkbox` | `./dist/checkbox.js` | `—` |
 | `./switch` | `./dist/switch.js` | `—` |
 | `./radio-group` | `./dist/radio-group.js` | `—` |
+| `./slider` | `./dist/slider.js` | `—` |
+| `./popover` | `./dist/popover.js` | `—` |
 
 <sub><i>Auto-generated against `@aihu/primitives@0.2.0`.</i></sub>
 

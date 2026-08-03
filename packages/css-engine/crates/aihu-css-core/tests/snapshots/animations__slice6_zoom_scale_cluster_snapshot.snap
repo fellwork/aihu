@@ -1,0 +1,19 @@
+---
+source: packages/css-engine/crates/aihu-css-core/tests/animations.rs
+assertion_line: 126
+expression: compile_classes(&classes)
+---
+.animate-contract-horizontally { animation: contract-horizontally 0.6s ease-out both; }
+@keyframes contract-horizontally { 0% { transform: scaleX(1); } 100% { transform: scaleX(0); } }
+.animate-contract-vertically { animation: contract-vertically 0.6s ease-out both; }
+@keyframes contract-vertically { 0% { transform: scaleY(1); } 100% { transform: scaleY(0); } }
+.animate-expand-horizontally { animation: expand-horizontally 0.6s ease-out both; }
+@keyframes expand-horizontally { 0% { transform: scaleX(0); } 100% { transform: scaleX(1); } }
+.animate-expand-vertically { animation: expand-vertically 0.6s ease-out both; }
+@keyframes expand-vertically { 0% { transform: scaleY(0); } 100% { transform: scaleY(1); } }
+.animate-pop { animation: pop 0.6s ease-out both; }
+@keyframes pop { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
+.animate-scale { animation: scale 0.6s ease-out both; }
+@keyframes scale { 0% { transform: scale(1); } 100% { transform: scale(1.10); } }
+.animate-zoom-out { animation: zoom-out 0.6s ease-out both; }
+@keyframes zoom-out { 0% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(.5); } }

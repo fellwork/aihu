@@ -9,9 +9,30 @@
  * and write a compact TS module the runtime imports.
  *
  * Run: `bun run gen:cn-map` (wired into the package build before rolldown).
+ *   bun scripts/gen-cn-conflict-map.ts --check  # CI: fail if stale
+ *
+ * Previously only ran at `prepublishOnly` with no CI drift check — a Rust
+ * `conflict_groups()` edit (e.g. the tailwind-animations port's `animate-*`
+ * entries) could land and ship without ever regenerating the committed map,
+ * silently missing from every `cn()` call until the next publish. `--check`
+ * closes that gap; wire it into `check:ci`.
+ *
+ * FIXTURE-SCAN MODE (C-FEL-GATE-WIRING-RUNS, same shape as check-moon-graph.ts's
+ * `MOON_GRAPH_ROOT`). `CN_MAP_TARGET` repoints the `--check` comparison at a
+ * different committed file instead of the real generated target; it changes
+ * WHERE the gate reads and nothing else. `CN_MAP_DUMP_JSON`, separately,
+ * repoints the INPUT: instead of invoking the Rust binary, read a committed
+ * fixture file holding the same `--dump-conflict-groups` JSON shape. This one
+ * is load-bearing, not cosmetic — check-gate-wiring.ts's own `gate-wiring` CI
+ * job runs with no `bun install`, no build, no Rust (deliberately, so it stays
+ * cheap and runs on every draft push; see that job's own comment in
+ * plan-a.yml), so a fixture proof that shelled out to the real binary would
+ * throw "binary not found" on BOTH its red and green runs — indiscriminate,
+ * not proven. Together, both env vars let the negative-fixture proof exercise
+ * only the comparison logic, hermetically, with no Rust toolchain needed.
  */
 import { execFileSync } from 'node:child_process'
-import { existsSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -33,8 +54,9 @@ function resolveBinary(): string {
   )
 }
 
-const bin = resolveBinary()
-const json = execFileSync(bin, ['--dump-conflict-groups'], { encoding: 'utf-8' })
+const json = process.env.CN_MAP_DUMP_JSON
+  ? readFileSync(resolve(repoRoot, process.env.CN_MAP_DUMP_JSON), 'utf8')
+  : execFileSync(resolveBinary(), ['--dump-conflict-groups'], { encoding: 'utf-8' })
 const groups = JSON.parse(json) as Array<[string, string]>
 
 // Compact serialization: a flat `{ prefix: group }` record. Sorted by prefix
@@ -59,6 +81,21 @@ ${entries}
 }
 `
 
-const target = resolve(pkgRoot, 'src/runtime/cn-conflict-map.generated.ts')
-writeFileSync(target, out)
-console.log(`  generated ${groups.length} conflict-group entries → ${target}`)
+const target = process.env.CN_MAP_TARGET
+  ? resolve(repoRoot, process.env.CN_MAP_TARGET)
+  : resolve(pkgRoot, 'src/runtime/cn-conflict-map.generated.ts')
+const check = process.argv.includes('--check')
+
+if (check) {
+  const existing = existsSync(target) ? readFileSync(target, 'utf8') : ''
+  if (existing !== out) {
+    console.error(
+      `gen-cn-conflict-map: ${target} is stale — run \`bun run gen:cn-map\` and commit the result.`,
+    )
+    process.exit(1)
+  }
+  console.log(`  cn-conflict-map.generated.ts up to date (${groups.length} entries)`)
+} else {
+  writeFileSync(target, out)
+  console.log(`  generated ${groups.length} conflict-group entries → ${target}`)
+}

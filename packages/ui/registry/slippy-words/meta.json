@@ -1,0 +1,17 @@
+{
+  "name": "slippy-words",
+  "type": "ui",
+  "description": "Presentational sentence where one word wiggles for attention at a time, the highlight advancing left to right, looping.",
+  "variants": {
+    "tone": ["neutral", "accent"]
+  },
+  "meta": {
+    "capabilities": {
+      "interactive": false,
+      "keyboard": false,
+      "form": false,
+      "overlay": false,
+      "directional": false
+    }
+  }
+}

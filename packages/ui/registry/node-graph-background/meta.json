@@ -1,0 +1,14 @@
+{
+  "name": "node-graph-background",
+  "type": "ui",
+  "description": "Decorative animated network background — drifting nodes joined by distance-faded connecting lines on a managed canvas, built on useCanvasSurface.",
+  "meta": {
+    "capabilities": {
+      "interactive": false,
+      "keyboard": false,
+      "form": false,
+      "overlay": false,
+      "directional": false
+    }
+  }
+}

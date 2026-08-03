@@ -1,0 +1,103 @@
+<!--
+  aihu-temperature — styled recipe (Phase 2, performativeUI port Slice 7 —
+  docs/plans/2026-08-01-performative-ui-port.md §Tier-B batch 3).
+
+  Design and behavior transcribed in spirit from performativeUI (MIT); no
+  source text or `pui-` class names vendored — see NOTICES.md.
+
+  An AI-marketing "response temperature" segmented preset picker — three
+  fixed values (Precise / Balanced / Creative), not a literal range input.
+
+  DESIGN DECISION (roadmap: "builds on existing roving-focus + collection, no
+  new menu primitive needed"): read as option (a) — a single-select group of
+  buttons is *exactly* what `AihuRadioGroupRoot` already is (itself built on
+  `roving-focus` + `collection`, per that primitive's own header comment), so
+  `<aihu-temperature>` EXTENDS it directly via the compiler's `$extends:`
+  macro, the same "IS its primitive" shape `switch.aihu`/`checkbox.aihu` use —
+  no popover, no new menu primitive, no dropdown. The fixed three items are
+  NOT a `<slot>`-composed, consumer-supplied list (this is deliberately a
+  3-value PRESET control, not a general-purpose radio group recipe — see the
+  roadmap's "keep it a 3-value fixed preset control unless you have good
+  reason otherwise"); the three `<aihu-radio-group-item>` children are
+  hardcoded in `@template`, registered via the primitive package's own
+  `defineRadioGroup()` (imported as a side effect, same registration entry
+  point `before-after.aihu`'s `defineSlider()` call uses).
+
+  No `$prop` is declared: `AihuRadioGroupRoot` owns every attribute this needs
+  (`value` / `default-value` / `name` / `disabled` / `required`, plus the
+  inherited roving-focus `orientation` / `loop` / `dir`) — same "No $prop"
+  convention `switch.aihu`/`checkbox.aihu` document. Nothing is selected by
+  default (native radio-group parity: no selection submits nothing); set
+  `default-value="balanced"` to seed one. The control has no built-in
+  accessible name of its own — set `aria-label` directly on the host, e.g.
+  `<aihu-temperature aria-label="Response style">`, same as any plain
+  `role="radiogroup"` element would need.
+
+  `shadow: 'light'` so the composed `<aihu-radio-group-item>` children sit in
+  light DOM where `defineRadioGroup()`'s `customElements.define` takes effect
+  on them directly (same rationale `before-after.aihu`'s header documents for
+  its composed `<aihu-slider-root>`).
+
+  `aihu add` rewrites the `aihu-` prefix (tag + selectors) at copy time.
+-->
+
+@state {
+  import { defineRadioGroup, AihuRadioGroupRoot } from '@aihu/primitives/radio-group'
+
+  base: AihuRadioGroupRoot
+  shadow: 'light'
+
+  defineRadioGroup()
+}
+
+@template {
+  <aihu-radio-group-item class="aihu-temperature-item" value="precise">Precise</aihu-radio-group-item>
+  <aihu-radio-group-item class="aihu-temperature-item" value="balanced">Balanced</aihu-radio-group-item>
+  <aihu-radio-group-item class="aihu-temperature-item" value="creative">Creative</aihu-radio-group-item>
+}
+
+@style {
+  aihu-temperature {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 2px;
+    border-radius: var(--radius-pill);
+    /* `--color-secondary` / `--color-secondary-foreground` is a real fill/ink
+       pair (unlike `--color-muted` / `--color-muted-foreground`, which are
+       ramp neighbours, not a pair — see `chat-bubble.aihu`'s header comment
+       for the measured 1.9:1 failure that token combination produces). */
+    background-color: var(--color-secondary);
+  }
+  aihu-temperature[aria-disabled="true"] {
+    opacity: 0.6;
+  }
+  .aihu-temperature-item {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding-block: 0.375rem;
+    padding-inline: 0.875rem;
+    border-radius: var(--radius-pill);
+    font-family: var(--font-sans);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--color-secondary-foreground);
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 0.15s, color 0.15s, box-shadow 0.15s;
+  }
+  .aihu-temperature-item:focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+  }
+  .aihu-temperature-item[data-state="checked"] {
+    background-color: var(--color-surface);
+    color: var(--color-surface-foreground);
+    box-shadow: 0 1px 2px color-mix(in oklab, var(--color-foreground) 15%, transparent);
+  }
+  .aihu-temperature-item[data-disabled] {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}

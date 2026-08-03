@@ -1,0 +1,75 @@
+<!--
+  aihu-quest-text — presentational styled recipe (performativeUI port,
+  Slice 2 — docs/plans/2026-08-01-performative-ui-port.md).
+
+  Design and behavior transcribed in spirit from performativeUI (MIT); no
+  source text or `pui-` class names vendored — see NOTICES.md.
+
+  Emphasized inline text treatment for prompts/callouts — an underline-style
+  accent rule beneath the text plus an optional blinking caret, evoking an
+  "ask me anything" prompt affordance. `aihu add` rewrites the `aihu-`
+  prefix at copy time.
+
+  tone:  neutral (default) | accent
+  caret: off (default) | on
+
+  `shadow: 'light'` — see status-dot.aihu's header for why.
+-->
+
+@state {
+  import { cn } from '@aihu/css-engine/runtime/cn'
+
+  shadow: 'light'
+
+  let tone = prop({ default: 'neutral' })
+  let caret = prop({ default: 'off' })
+}
+
+@template {
+  <span data-slot="quest-text" data-tone={tone} data-caret={caret} class={cn('aihu-quest-text')}>
+    <slot />
+  </span>
+}
+
+@style {
+  .aihu-quest-text {
+    display: inline;
+    position: relative;
+    font-weight: 500;
+    padding-bottom: 0.125rem;
+    background-image: linear-gradient(to right, currentColor, currentColor);
+    background-repeat: no-repeat;
+    background-position: 0 100%;
+    background-size: 100% 2px;
+    color: var(--color-foreground);
+  }
+  .aihu-quest-text[data-tone="accent"] {
+    color: var(--color-accent);
+  }
+  .aihu-quest-text[data-caret="on"]::after {
+    content: "";
+    display: inline-block;
+    width: 0.5em;
+    height: 1em;
+    margin-inline-start: 0.125em;
+    vertical-align: text-bottom;
+    background-color: currentColor;
+    animation: aihu-quest-text-caret 1s steps(1) infinite;
+  }
+  @keyframes aihu-quest-text-caret {
+    0%,
+    49% {
+      opacity: 1;
+    }
+    50%,
+    100% {
+      opacity: 0;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .aihu-quest-text[data-caret="on"]::after {
+      animation: none;
+      opacity: 1;
+    }
+  }
+}

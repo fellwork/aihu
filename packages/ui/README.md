@@ -34,6 +34,22 @@ bun run gen:registry   # scan registry/** → registry.json (index-only)
 bun run test           # vitest (recipe-compile + runtime shadow-adoption)
 bun run typecheck      # tsc --noEmit (no dist; recipes are typechecked, not compiled)
 ```
+
+### Ported catalogs — provenance
+
+Some recipes in this registry are ported from third-party open-source catalogs, per
+`docs/plans/2026-08-01-performative-ui-port.md`:
+
+- **[tailwind-animations](https://github.com/midudev/tailwind-animations)** (MIT, ©
+  Miguel Ángel Durán) — the ported `animate-*` utility classes are transcribed into
+  `@aihu/css-engine`'s utility engine; see `vendor/tailwind-animations-*/PROVENANCE.md`
+  and root [`NOTICES.md`](../../NOTICES.md).
+- **[performativeUI](https://github.com/vorpus/performativeUI)** (MIT) — components in
+  this registry inspired by performativeUI's design/behavior/style are reimplemented in
+  aihu-native code (no `pui-` prefixed class names or source text copied); each such
+  recipe's header comment carries a one-line attribution. See
+  `docs/plans/2026-08-01-performative-ui-port.md` for the transcription policy and
+  `scripts/check-no-vendored-pui.ts` for the CI guard enforcing it.
 <!-- END_HANDWRITTEN: prose -->
 
 ## Install

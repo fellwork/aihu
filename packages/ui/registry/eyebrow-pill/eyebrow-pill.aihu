@@ -1,0 +1,69 @@
+<!--
+  aihu-eyebrow-pill — presentational styled recipe (performativeUI port,
+  Slice 1 — docs/plans/2026-08-01-performative-ui-port.md §3).
+
+  Design and behavior transcribed in spirit from performativeUI (MIT); no
+  source text or `pui-` class names vendored — see NOTICES.md.
+
+  A small uppercase label pill, typically preceding a heading. Composes with
+  aihu-status-dot in its `lead` slot — this deliberately exercises
+  `registryDependencies` (see meta.json), which no other shipped recipe uses
+  yet. `aihu add` rewrites the `aihu-` prefix at copy time.
+
+  tone: neutral (default) | accent | success | warning
+
+  `shadow: 'light'` — see status-dot.aihu's header for why.
+-->
+
+@state {
+  import { cn } from '@aihu/css-engine/runtime/cn'
+
+  shadow: 'light'
+
+  let tone = prop({ default: 'neutral' })
+}
+
+@template {
+  <span data-slot="eyebrow-pill" data-tone={tone} class={cn('aihu-eyebrow-pill')}>
+    <slot name="lead" />
+    <slot />
+  </span>
+}
+
+@style {
+  .aihu-eyebrow-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    border-radius: var(--radius-pill);
+    padding-block: 0.125rem;
+    padding-inline: 0.625rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    border: var(--border) solid var(--color-border);
+  }
+  /* Each tone's raw token as label text over its own 12% tint lands under the
+     4.5:1 WCAG 2 AA floor for this 0.75rem label in at least one pack x mode
+     (accent 3.56:1 in aihu-default light, neutral 3.00:1 in aihu-default
+     dark). Mixing 40% `--color-foreground` into the label keeps the tone's
+     hue against the unchanged tint and lifts every tone x pack x mode to
+     >=5.8:1. */
+  .aihu-eyebrow-pill[data-tone="neutral"] {
+    color: color-mix(in oklab, var(--color-neutral) 60%, var(--color-foreground));
+    background-color: color-mix(in oklab, var(--color-neutral) 12%, transparent);
+  }
+  .aihu-eyebrow-pill[data-tone="accent"] {
+    color: color-mix(in oklab, var(--color-accent) 60%, var(--color-foreground));
+    background-color: color-mix(in oklab, var(--color-accent) 12%, transparent);
+  }
+  .aihu-eyebrow-pill[data-tone="success"] {
+    color: color-mix(in oklab, var(--color-success) 60%, var(--color-foreground));
+    background-color: color-mix(in oklab, var(--color-success) 12%, transparent);
+  }
+  .aihu-eyebrow-pill[data-tone="warning"] {
+    color: color-mix(in oklab, var(--color-warning) 60%, var(--color-foreground));
+    background-color: color-mix(in oklab, var(--color-warning) 12%, transparent);
+  }
+}

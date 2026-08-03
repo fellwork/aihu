@@ -1,0 +1,82 @@
+<!--
+  aihu-popover-trigger — styled recipe piece (Phase 2, master spec §9.4 / §9.7,
+  performativeUI port Slice 7).
+
+  Design and behavior transcribed in spirit from performativeUI (MIT); no
+  source text or `pui-` class names vendored — see NOTICES.md.
+
+  `<aihu-popover-trigger>` EXTENDS the headless AihuPopoverTrigger primitive
+  (toggles the popover, wires `aria-haspopup="dialog"` / `aria-expanded` /
+  `aria-controls`, Enter/Space activation, Escape-dismiss) via the compiler's
+  `$extends:` macro. Light DOM (`$shadow: 'light'`) so context injection
+  reaches the ancestor root.
+
+  UNLIKE `dialog-trigger` (deliberately unstyled — dialog openers are usually
+  the consumer's own button), the trigger here carries REAL button-shaped
+  styling: a popover is very often invoked from a bare icon or label with no
+  other button around it, so shipping a good default affordance out of the box
+  is the honest default. Styling mirrors `aihu-button`'s `outline` variant
+  (border + background, not the `default` variant's solid primary fill) —
+  a popover disclosure is a secondary action, not a primary CTA.
+
+  `aihu add` rewrites the `aihu-` prefix (tag + selectors) at copy time.
+-->
+
+@state {
+  import { AihuPopoverTrigger } from '@aihu/primitives/popover'
+
+  base: AihuPopoverTrigger
+  shadow: 'light'
+}
+
+@template {
+  <slot></slot>
+}
+
+@style {
+  aihu-popover-trigger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    height: 2.25rem;
+    padding-inline: 1rem;
+    font-family: var(--font-sans);
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--color-foreground);
+    background-color: var(--color-background);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 0.15s, border-color 0.15s;
+  }
+  /* MEASURED, not assumed: `--color-accent` (#c8543a) as a SOLID fill
+     against EITHER `--color-accent-foreground` (4.13:1) or `--color-foreground`
+     (3.84:1) fails the 4.5:1 AA floor for this 14px/500-weight label — a real
+     violation caught by `check-storybook-a11y.sh` on the `Open` story (the
+     `[data-state="open"]` rule, not a `:hover` pseudo-class the gate happens
+     to observe). Same 12%-tint-background + 60/40-color-mix-ink formula
+     `eyebrow-pill.aihu`'s `tone="accent"` rule already measured and documents
+     as fixing this exact token's contrast (its header comment: "accent
+     3.56:1... lifts... to >=5.8:1"). */
+  aihu-popover-trigger:hover {
+    background-color: color-mix(in oklab, var(--color-accent) 12%, var(--color-background));
+    color: color-mix(in oklab, var(--color-accent) 60%, var(--color-foreground));
+  }
+  aihu-popover-trigger:focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+  }
+  aihu-popover-trigger[data-state="open"] {
+    border-color: var(--color-accent);
+    background-color: color-mix(in oklab, var(--color-accent) 12%, var(--color-background));
+    color: color-mix(in oklab, var(--color-accent) 60%, var(--color-foreground));
+  }
+  aihu-popover-trigger[aria-disabled="true"] {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+}

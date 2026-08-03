@@ -1,0 +1,100 @@
+<!--
+  aihu-popover-content — styled recipe piece (Phase 2, master spec §9.4 / §9.7,
+  performativeUI port Slice 7).
+
+  Design and behavior transcribed in spirit from performativeUI (MIT); no
+  source text or `pui-` class names vendored — see NOTICES.md.
+
+  `<aihu-popover-content>` EXTENDS the headless AihuPopoverContent primitive
+  (`role="dialog"` WITHOUT `aria-modal`, positions against the trigger via the
+  REUSED css-engine `position()` shim, reflects `data-state` /
+  `data-placement`) via the compiler's `$extends:` macro. Light DOM
+  (`$shadow: 'light'`). No side/align variants here — placement positioning is
+  the primitive's job (inline `left`/`top`, read back off `coords`).
+
+  MOTION. The panel animates in/out on by default, same technique as
+  `dialog-content.aihu` (Track A Slice 12): the primitive never unmounts this
+  element (only flips `data-state`), so the closed state uses a delayed
+  `visibility: hidden` rather than `display: none` — no `@starting-style`/
+  `allow-discrete` needed, and the panel stays rendered (and transitionable)
+  for its whole exit.
+
+  DELIBERATELY A SEPARATE `--aihu-anim-popover-*` custom-property family, NOT
+  a reuse of `--aihu-anim-dialog-*`: reusing the dialog family's literal custom
+  properties would let a consumer's `animate-dialog-*` utility class silently
+  retune an unrelated component, and semantically a popover is not a dialog
+  (see the primitive's accessibility.md "Not a dialog"). The entrance is also
+  simpler than dialog's four-direction family — fade + zoom only, no directional
+  offset — because `data-placement` is not yet known on the very FIRST open
+  (the primitive sets `data-state="open"` and calls `_position()` in the same
+  synchronous effect, but only the value written before that tick is what the
+  transition animates FROM); a directional slide keyed off `data-placement`
+  would silently do nothing on a component's first open and only start working
+  from its second, which is a worse default than a placement-agnostic fade+zoom
+  that is correct every time.
+
+  `aihu add` rewrites the `aihu-` prefix (tag + selectors) at copy time.
+-->
+
+@state {
+  import { AihuPopoverContent } from '@aihu/primitives/popover'
+
+  base: AihuPopoverContent
+  shadow: 'light'
+}
+
+@template {
+  <slot></slot>
+}
+
+@style {
+  aihu-popover-content {
+    position: fixed;
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    min-width: 12rem;
+    max-width: 20rem;
+    padding: var(--space-4);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background-color: var(--color-surface);
+    color: var(--color-surface-foreground);
+    box-shadow: 0 10px 30px color-mix(in oklab, var(--color-foreground) 20%, transparent);
+    opacity: 1;
+    scale: 1;
+    visibility: visible;
+    will-change: opacity, scale;
+    /* `visibility 0s` is a real slot in the list — see dialog-content.aihu's
+       comment on the same trick. The closed rule below delays exactly that
+       slot so the panel stays rendered (and reachable by its own transition)
+       for the whole fade-out, only then leaving the a11y tree / tab order. */
+    transition:
+      opacity var(--aihu-anim-popover-duration, 180ms) ease,
+      scale var(--aihu-anim-popover-duration, 180ms) var(--aihu-anim-popover-easing, cubic-bezier(0.22, 1, 0.36, 1)),
+      visibility 0s;
+  }
+  aihu-popover-content[data-state="closed"] {
+    opacity: var(--aihu-anim-popover-start-opacity, 0);
+    scale: var(--aihu-anim-popover-start-scale, 0.96);
+    visibility: hidden;
+    pointer-events: none;
+    transition-delay: 0s, 0s, var(--aihu-anim-popover-duration, 180ms);
+  }
+  aihu-popover-content:focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+  }
+  /* Reduced motion is a hard requirement of this port (see status-dot.aihu).
+     The `[data-state="closed"]` arm is load-bearing — without it the closed
+     rule's `transition-delay` would still hold `visibility` for the full
+     duration. */
+  @media (prefers-reduced-motion: reduce) {
+    aihu-popover-content:not([data-motion="always"]),
+    aihu-popover-content[data-state="closed"]:not([data-motion="always"]) {
+      transition-duration: 1ms;
+      transition-delay: 0s;
+    }
+  }
+}

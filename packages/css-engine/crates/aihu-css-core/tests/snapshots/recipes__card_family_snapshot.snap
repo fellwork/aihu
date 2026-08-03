@@ -1,0 +1,28 @@
+---
+source: packages/css-engine/crates/aihu-css-core/tests/recipes.rs
+assertion_line: 31
+expression: css
+---
+@layer aihu.components {
+.card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  border: var(--border) solid var(--color-border);
+  background-color: var(--color-surface);
+  color: var(--color-surface-foreground);
+  box-shadow: 0 calc(var(--depth) * 1px) calc(var(--depth) * 3px) rgb(0 0 0 / 8%);
+}
+.card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1.5rem;
+}
+.card-title {
+  font-size: 1.125rem;
+  line-height: 1.75rem;
+  font-weight: 600;
+}
+}

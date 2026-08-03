@@ -1,0 +1,72 @@
+<!--
+  aihu-gradient-text — presentational styled recipe (performativeUI port,
+  Slice 1 — docs/plans/2026-08-01-performative-ui-port.md §3).
+
+  Design and behavior transcribed in spirit from performativeUI (MIT); no
+  source text or `pui-` class names vendored — see NOTICES.md.
+
+  Applies the pack's brand gradient (--gradient-brand) as text fill, with an
+  opt-in serif variant. `aihu add` rewrites the `aihu-` prefix at copy time.
+
+  weight: normal | medium | semibold (default) | bold
+  font:   sans (default) | serif
+
+  This component is also the token layer's own acceptance test: if
+  --gradient-brand or --font-serif failed to reach :root (this component's
+  shadow: 'light' scope), it renders transparent or visibly falls back — see
+  the @supports guard below.
+
+  `shadow: 'light'` — see status-dot.aihu's header for why.
+-->
+
+@state {
+  import { cn } from '@aihu/css-engine/runtime/cn'
+
+  shadow: 'light'
+
+  let weight = prop({ default: 'semibold' })
+  let font = prop({ default: 'sans' })
+}
+
+@template {
+  <span
+    data-slot="gradient-text"
+    data-weight={weight}
+    data-font={font}
+    class={cn('aihu-gradient-text')}>
+    <slot />
+  </span>
+}
+
+@style {
+  .aihu-gradient-text {
+    background-image: var(--gradient-brand);
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
+  }
+  @supports not (background-clip: text) {
+    .aihu-gradient-text {
+      background-image: none;
+      color: var(--color-accent);
+    }
+  }
+  .aihu-gradient-text[data-font="sans"] {
+    font-family: var(--font-sans);
+  }
+  .aihu-gradient-text[data-font="serif"] {
+    font-family: var(--font-serif);
+  }
+  .aihu-gradient-text[data-weight="normal"] {
+    font-weight: 400;
+  }
+  .aihu-gradient-text[data-weight="medium"] {
+    font-weight: 500;
+  }
+  .aihu-gradient-text[data-weight="semibold"] {
+    font-weight: 600;
+  }
+  .aihu-gradient-text[data-weight="bold"] {
+    font-weight: 700;
+  }
+}

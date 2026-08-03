@@ -1,0 +1,17 @@
+{
+  "name": "big-back",
+  "type": "ui",
+  "description": "Presentational oversized watermark-style text, typically a footer wordmark. Decorative, hidden from the accessibility tree.",
+  "variants": {
+    "weight": ["bold", "black"]
+  },
+  "meta": {
+    "capabilities": {
+      "interactive": false,
+      "keyboard": false,
+      "form": false,
+      "overlay": false,
+      "directional": false
+    }
+  }
+}

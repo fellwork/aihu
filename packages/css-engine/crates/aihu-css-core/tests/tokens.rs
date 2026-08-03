@@ -555,6 +555,124 @@ fn animate_ping_pulse_bounce_emit_keyframes() {
 }
 
 #[test]
+fn animate_delay_and_duration_emit_milliseconds() {
+    assert_eq!(
+        css(&["animate-delay-200"]),
+        ".animate-delay-200 { animation-delay: 200ms; }\n"
+    );
+    assert_eq!(
+        css(&["animate-duration-750"]),
+        ".animate-duration-750 { animation-duration: 750ms; }\n"
+    );
+}
+
+#[test]
+fn animate_iteration_count_emits_number_or_infinite() {
+    assert_eq!(
+        css(&["animate-iteration-count-3"]),
+        ".animate-iteration-count-3 { animation-iteration-count: 3; }\n"
+    );
+    assert_eq!(
+        css(&["animate-iteration-count-infinite"]),
+        ".animate-iteration-count-infinite { animation-iteration-count: infinite; }\n"
+    );
+}
+
+#[test]
+fn animate_fill_mode_emits_all_four_keywords() {
+    for (class, value) in [
+        ("animate-fill-mode-none", "none"),
+        ("animate-fill-mode-forwards", "forwards"),
+        ("animate-fill-mode-backwards", "backwards"),
+        ("animate-fill-mode-both", "both"),
+    ] {
+        assert_eq!(
+            css(&[class]),
+            format!(".{class} {{ animation-fill-mode: {value}; }}\n")
+        );
+    }
+}
+
+#[test]
+fn animate_direction_emits_all_four_keywords() {
+    for (class, value) in [
+        ("animate-direction-normal", "normal"),
+        ("animate-direction-reverse", "reverse"),
+        ("animate-direction-alternate", "alternate"),
+        ("animate-direction-alternate-reverse", "alternate-reverse"),
+    ] {
+        assert_eq!(
+            css(&[class]),
+            format!(".{class} {{ animation-direction: {value}; }}\n")
+        );
+    }
+}
+
+#[test]
+fn animate_play_state_emits_running_and_paused() {
+    assert_eq!(
+        css(&["animate-play-running"]),
+        ".animate-play-running { animation-play-state: running; }\n"
+    );
+    assert_eq!(
+        css(&["animate-play-paused"]),
+        ".animate-play-paused { animation-play-state: paused; }\n"
+    );
+}
+
+#[test]
+fn animate_ease_family_emits_animation_timing_function() {
+    // Distinct from the existing ease-*/ease-linear utilities, which target
+    // transition-timing-function.
+    assert_eq!(
+        css(&["animate-ease"]),
+        ".animate-ease { animation-timing-function: ease; }\n"
+    );
+    assert_eq!(
+        css(&["animate-ease-in"]),
+        ".animate-ease-in { animation-timing-function: ease-in; }\n"
+    );
+    assert_eq!(
+        css(&["animate-ease-out"]),
+        ".animate-ease-out { animation-timing-function: ease-out; }\n"
+    );
+    assert_eq!(
+        css(&["animate-ease-in-out"]),
+        ".animate-ease-in-out { animation-timing-function: ease-in-out; }\n"
+    );
+    assert_eq!(
+        css(&["animate-linear"]),
+        ".animate-linear { animation-timing-function: linear; }\n"
+    );
+}
+
+#[test]
+fn animate_steps_emits_steps_function() {
+    assert_eq!(
+        css(&["animate-steps-4"]),
+        ".animate-steps-4 { animation-timing-function: steps(4); }\n"
+    );
+}
+
+#[test]
+fn animate_bezier_arbitrary_value_emits_animation_timing_function() {
+    assert_eq!(
+        css(&["animate-bezier-[.4,0,.2,1]"]),
+        ".animate-bezier-[.4,0,.2,1] { animation-timing-function: .4,0,.2,1; }\n"
+    );
+}
+
+#[test]
+fn animate_slide_distance_arbitrary_value_sets_custom_property() {
+    // tailwind-animations port, Slice 5 — sets the custom property the ported
+    // slide-* keyframes read via var(--aihu-anim-slide-distance, 20px).
+    assert_eq!(
+        css(&["animate-slide-distance-[32px]"]),
+        ".animate-slide-distance-[32px] { --aihu-anim-slide-distance: 32px; }\n"
+    );
+}
+
+#[test]
 fn named_container_marker_emits_type_and_name() {
     assert_eq!(
         css(&["@container/sidebar"]),
@@ -612,4 +730,262 @@ fn color_opacity_modifier_emits_color_mix() {
 fn sizing_fraction_not_treated_as_opacity() {
     // `w-1/2` is a width fraction, not a color opacity — must stay 50%.
     assert_eq!(css(&["w-1/2"]), ".w-1/2 { width: 50%; }\n");
+}
+
+// ── tailwind-animations Slice 12: the dialog entry/exit MODIFIERS ───────────
+// The base `animate-dialog`/`animate-dialog-backdrop` are a multi-rule state
+// machine and live in the recipe channel (`recipes/dialog.css` + the dialog
+// tests in `tests/recipes.rs`); only the flat custom-property modifiers are
+// utilities, and these pin them.
+
+#[test]
+fn animate_dialog_direction_presets_set_scalar_start_offsets() {
+    // Upstream's single `--tw-anim-dialog-start-translate` pair is split into
+    // scalar x/y so a centered panel can compose the offset into a `calc()`
+    // next to its own `translate: -50% -50%` (decision D-D, adapted).
+    for (class, x, y) in [
+        ("animate-dialog-from-top", "0px", "-1.5rem"),
+        ("animate-dialog-from-bottom", "0px", "1.5rem"),
+        ("animate-dialog-from-left", "-1.5rem", "0px"),
+        ("animate-dialog-from-right", "1.5rem", "0px"),
+    ] {
+        assert_eq!(
+            css(&[class]),
+            format!(
+                ".{class} {{ --aihu-anim-dialog-start-x: {x}; --aihu-anim-dialog-start-y: {y}; }}\n"
+            )
+        );
+    }
+}
+
+#[test]
+fn animate_dialog_named_presets_also_pin_the_start_scale() {
+    // "fade" is opacity-only and "zoom" is scale-only, so both must override
+    // the family's 0.96 default rather than inherit it.
+    assert!(css(&["animate-dialog-fade"]).contains("--aihu-anim-dialog-start-scale: 1;"));
+    assert!(css(&["animate-dialog-zoom"]).contains("--aihu-anim-dialog-start-scale: 0.92;"));
+    for class in ["animate-dialog-fade", "animate-dialog-zoom"] {
+        assert!(css(&[class]).contains("--aihu-anim-dialog-start-x: 0px;"));
+        assert!(css(&[class]).contains("--aihu-anim-dialog-start-y: 0px;"));
+    }
+}
+
+#[test]
+fn animate_dialog_duration_is_parameterized_and_distinct_from_animate_duration() {
+    assert_eq!(
+        css(&["animate-dialog-duration-250"]),
+        ".animate-dialog-duration-250 { --aihu-anim-dialog-duration: 250ms; }\n"
+    );
+    // Must NOT be swallowed by the `animate-duration` family, which sets the
+    // `animation-duration` property of a keyframe-backed animation.
+    assert!(!css(&["animate-dialog-duration-250"]).contains("animation-duration"));
+}
+
+#[test]
+fn animate_dialog_arbitrary_duration_and_easing() {
+    assert_eq!(
+        css(&["animate-dialog-duration-[0.4s]"]),
+        ".animate-dialog-duration-[0.4s] { --aihu-anim-dialog-duration: 0.4s; }\n"
+    );
+    assert!(
+        css(&["animate-dialog-easing-[cubic-bezier(0.22,_1,_0.36,_1)]"])
+            .contains("--aihu-anim-dialog-easing: cubic-bezier(0.22, 1, 0.36, 1);")
+    );
+}
+
+#[test]
+fn animate_dialog_conflict_groups_keep_the_base_alongside_a_preset() {
+    let groups: std::collections::BTreeMap<&str, &str> =
+        aihu_css_core::tokens::conflict_groups().into_iter().collect();
+
+    // The base and the backdrop each own a self-named group so they never fall
+    // through to the blanket `animate` → `animation` row (neither declares
+    // `animation`), and never collide with a preset.
+    assert_eq!(groups.get("animate-dialog"), Some(&"animate-dialog"));
+    assert_eq!(
+        groups.get("animate-dialog-backdrop"),
+        Some(&"animate-dialog-backdrop")
+    );
+
+    // All six start-offset presets share ONE group so they last-wins against
+    // each other. Registered under their EXACT class names (not the shared
+    // `animate-dialog` prefix) precisely so the base survives beside them —
+    // `cn.ts`'s `groupKey` tries the full class name before shorter prefixes.
+    for preset in [
+        "animate-dialog-from-top",
+        "animate-dialog-from-bottom",
+        "animate-dialog-from-left",
+        "animate-dialog-from-right",
+        "animate-dialog-fade",
+        "animate-dialog-zoom",
+    ] {
+        assert_eq!(
+            groups.get(preset),
+            Some(&"--aihu-anim-dialog-start"),
+            "{preset} must share the start-offset group"
+        );
+    }
+
+    // Timing knobs are independent axes — combinable with any preset.
+    assert_eq!(
+        groups.get("animate-dialog-duration"),
+        Some(&"--aihu-anim-dialog-duration")
+    );
+    assert_eq!(
+        groups.get("animate-dialog-easing"),
+        Some(&"--aihu-anim-dialog-easing")
+    );
+
+    // No duplicate prefix keys anywhere — a dup would silently collide in the
+    // generated `cn()` map.
+    let all = aihu_css_core::tokens::conflict_groups();
+    assert_eq!(all.len(), groups.len(), "duplicate conflict-group prefix");
+}
+
+// --- tailwind-animations port, Slice 11 — scroll-driven timelines ---------
+
+#[test]
+fn timeline_named_forms_emit_important() {
+    assert_eq!(css(&["timeline-none"]), ".timeline-none { animation-timeline: none !important; }\n");
+    assert_eq!(css(&["timeline-auto"]), ".timeline-auto { animation-timeline: auto !important; }\n");
+    assert_eq!(
+        css(&["timeline-scroll"]),
+        ".timeline-scroll { animation-timeline: scroll() !important; }\n"
+    );
+    assert_eq!(
+        css(&["timeline-scroll-x"]),
+        ".timeline-scroll-x { animation-timeline: scroll(x) !important; }\n"
+    );
+    assert_eq!(
+        css(&["timeline-scroll-y"]),
+        ".timeline-scroll-y { animation-timeline: scroll(y) !important; }\n"
+    );
+    assert_eq!(
+        css(&["timeline-scroll-block"]),
+        ".timeline-scroll-block { animation-timeline: scroll(block) !important; }\n"
+    );
+    assert_eq!(
+        css(&["timeline-scroll-inline"]),
+        ".timeline-scroll-inline { animation-timeline: scroll(inline) !important; }\n"
+    );
+    assert_eq!(css(&["timeline-view"]), ".timeline-view { animation-timeline: view() !important; }\n");
+    assert_eq!(
+        css(&["timeline-view-x"]),
+        ".timeline-view-x { animation-timeline: view(x) !important; }\n"
+    );
+    assert_eq!(
+        css(&["timeline-view-y"]),
+        ".timeline-view-y { animation-timeline: view(y) !important; }\n"
+    );
+    assert_eq!(
+        css(&["timeline-view-block"]),
+        ".timeline-view-block { animation-timeline: view(block) !important; }\n"
+    );
+    assert_eq!(
+        css(&["timeline-view-inline"]),
+        ".timeline-view-inline { animation-timeline: view(inline) !important; }\n"
+    );
+}
+
+#[test]
+fn timeline_arbitrary_form_has_no_important() {
+    // Documented, accepted asymmetry vs the named forms — see tokens.rs's
+    // `arbitrary_prop` comment for why.
+    assert_eq!(
+        css(&["timeline-[--my-timeline]"]),
+        ".timeline-[--my-timeline] { animation-timeline: --my-timeline; }\n"
+    );
+}
+
+#[test]
+fn scroll_timeline_axis_emits_all_four_named_forms() {
+    assert_eq!(
+        css(&["scroll-timeline-axis-block"]),
+        ".scroll-timeline-axis-block { scroll-timeline-axis: block; }\n"
+    );
+    assert_eq!(
+        css(&["scroll-timeline-axis-inline"]),
+        ".scroll-timeline-axis-inline { scroll-timeline-axis: inline; }\n"
+    );
+    assert_eq!(
+        css(&["scroll-timeline-axis-x"]),
+        ".scroll-timeline-axis-x { scroll-timeline-axis: x; }\n"
+    );
+    assert_eq!(
+        css(&["scroll-timeline-axis-y"]),
+        ".scroll-timeline-axis-y { scroll-timeline-axis: y; }\n"
+    );
+}
+
+#[test]
+fn view_timeline_axis_emits_all_four_named_forms() {
+    assert_eq!(
+        css(&["view-timeline-axis-block"]),
+        ".view-timeline-axis-block { view-timeline-axis: block; }\n"
+    );
+    assert_eq!(
+        css(&["view-timeline-axis-inline"]),
+        ".view-timeline-axis-inline { view-timeline-axis: inline; }\n"
+    );
+    assert_eq!(
+        css(&["view-timeline-axis-x"]),
+        ".view-timeline-axis-x { view-timeline-axis: x; }\n"
+    );
+    assert_eq!(
+        css(&["view-timeline-axis-y"]),
+        ".view-timeline-axis-y { view-timeline-axis: y; }\n"
+    );
+}
+
+#[test]
+fn animate_range_emits_all_nine_named_forms() {
+    assert_eq!(css(&["animate-range-normal"]), ".animate-range-normal { animation-range: normal; }\n");
+    assert_eq!(css(&["animate-range-cover"]), ".animate-range-cover { animation-range: cover; }\n");
+    assert_eq!(
+        css(&["animate-range-contain"]),
+        ".animate-range-contain { animation-range: contain; }\n"
+    );
+    assert_eq!(css(&["animate-range-entry"]), ".animate-range-entry { animation-range: entry; }\n");
+    assert_eq!(css(&["animate-range-exit"]), ".animate-range-exit { animation-range: exit; }\n");
+    assert_eq!(
+        css(&["animate-range-gradual"]),
+        ".animate-range-gradual { animation-range: 10% 90%; }\n"
+    );
+    assert_eq!(
+        css(&["animate-range-moderate"]),
+        ".animate-range-moderate { animation-range: 20% 80%; }\n"
+    );
+    assert_eq!(css(&["animate-range-brisk"]), ".animate-range-brisk { animation-range: 30% 70%; }\n");
+    assert_eq!(css(&["animate-range-rapid"]), ".animate-range-rapid { animation-range: 40% 60%; }\n");
+}
+
+#[test]
+fn animate_range_arbitrary_form() {
+    assert_eq!(
+        css(&["animate-range-[10%_50%]"]),
+        ".animate-range-[10%_50%] { animation-range: 10% 50%; }\n"
+    );
+}
+
+#[test]
+fn scroll_driven_timeline_utilities_do_not_collide_in_conflict_groups() {
+    // Each of the four families is independent — no false collisions.
+    let groups: std::collections::BTreeMap<&str, &str> =
+        aihu_css_core::tokens::conflict_groups().into_iter().collect();
+    // None of these families registered a conflict-group entry at all (no
+    // shipped consumer composes two values of the same family on one
+    // element today) — this test exists to document that choice and catch
+    // an accidental future registration colliding with an unrelated prefix.
+    for prefix in [
+        "timeline",
+        "scroll-timeline-axis",
+        "view-timeline-axis",
+        "animate-range",
+    ] {
+        assert!(
+            !groups.contains_key(prefix),
+            "unexpected conflict-group entry for {prefix} — if this is now \
+             intentional, update this test's assertion instead of deleting it"
+        );
+    }
 }

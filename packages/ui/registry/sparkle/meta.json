@@ -1,0 +1,19 @@
+{
+  "name": "sparkle",
+  "type": "ui",
+  "description": "Presentational decorative accent mark — a four-pointed star with an optional shimmer.",
+  "variants": {
+    "size": ["sm", "md", "lg"],
+    "tone": ["neutral", "accent"],
+    "shimmer": ["off", "on"]
+  },
+  "meta": {
+    "capabilities": {
+      "interactive": false,
+      "keyboard": false,
+      "form": false,
+      "overlay": false,
+      "directional": false
+    }
+  }
+}

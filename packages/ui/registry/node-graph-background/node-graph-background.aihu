@@ -1,0 +1,261 @@
+<!--
+  aihu-node-graph-background — presentational styled recipe (performativeUI
+  port, Slice 10 — docs/plans/2026-08-01-performative-ui-port.md §Tier-C
+  batch 2).
+
+  Design and behavior transcribed in spirit from performativeUI (MIT); no
+  source text or `pui-` class names vendored — see NOTICES.md. The upstream
+  demo file was NOT read for this port: the effect below is written from the
+  behavioral description in the slice brief plus the ordinary, widely-known
+  "particle network" pattern.
+
+  A decorative animated network/graph background — N small nodes drift across
+  a managed canvas and any two nodes closer than `connection-distance` are
+  joined by a line whose opacity fades to zero as that distance is
+  approached (closer = more opaque).
+
+  ── Architectural note: why this does NOT use `useParticleField` ──────────
+
+  The obvious composition — "let `useParticleField` (Track B Slice 8) own the
+  N drifting points and just add a line pass on top" — is not available, and
+  the reason is in that composable's source, not a matter of taste:
+
+    1. `useParticleField` has NO custom-draw hook. `UseParticleFieldOptions`
+       exposes simulation knobs only (count, colors, radii, speed, gravity,
+       pointerAttraction, twinkle, …). There is no `onFrame`/`draw` option
+       and no flag to suppress its own painting: its private `draw()` is
+       hard-wired into the single `onFrame` it hands `useCanvasSurface`, and
+       that `draw()` opens with an unconditional
+       `ctx.clearRect(0, 0, width, height)`. Anything this component painted
+       onto that same surface would be erased at the top of the next frame.
+    2. `particles()` is documented as the live backing array "exposed for
+       tests and for effects that want to seed or perturb the field directly"
+       — deliberately NOT reactive, because (its words) "the canvas IS the
+       render". It is a state handle, not a render seam.
+    3. So the only compositional route left is a SECOND `useCanvasSurface`
+       for the line layer, reading `particles()` for positions. That buys a
+       second `<canvas>`, a second rAF loop, and a second
+       ResizeObserver/IntersectionObserver pair on one host — and, worse, two
+       independently-scheduled paints: the line layer would render whatever
+       positions the dot layer last integrated, so on any frame the two loops
+       interleave, line endpoints visibly detach from the nodes they connect.
+       Correctness here requires lines and nodes to be painted from ONE
+       snapshot, in ONE frame, in ONE draw call sequence.
+
+  Verdict: option (b) — drop to `useCanvasSurface` directly and hand-roll the
+  minimal node drift. `useCanvasSurface` is explicitly "the substrate every
+  canvas-based visual effect sits on … future canvas effects are expected to
+  [sit on it] as well", so this is the sanctioned level to enter at, not a
+  bypass. The duplicated logic is ~25 lines of Euler integration and
+  edge-wrapping; every hard part — canvas ownership, HiDPI backing store,
+  the resize dance that would otherwise feed a ResizeObserver loop, the
+  off-screen pause, the rAF driver, the reduced-motion contract — is still
+  inherited, not re-derived. Nothing is reimplemented that Slice 8 owns.
+
+  ── Props ────────────────────────────────────────────────────────────────
+
+  count:                how many nodes, string-encoded number. Default "40".
+                        The pair pass is O(n²) per frame, which is the reason
+                        this default is a few dozen and not a few hundred.
+  color:                the single stroke/fill color for BOTH nodes and their
+                        connecting lines. Default "#ffffff". This is a
+                        LITERAL CSS color string, not a `--color-*` token
+                        reference — identical constraint to
+                        `floating-sparkles` (Slice 9): a canvas 2D context's
+                        `fillStyle`/`strokeStyle` is not part of the CSS
+                        cascade and cannot resolve a custom property, so it
+                        needs an already-resolved value.
+  connection-distance:  px threshold under which two nodes are joined,
+                        string-encoded number. Default "120". (The prop is
+                        declared `connectionDistance`; the runtime derives
+                        the observed attribute as kebab-case, so consumers
+                        write `connection-distance`.)
+
+  ── Layout ───────────────────────────────────────────────────────────────
+
+  A standalone, full-bleed, absolutely-positioned decorative layer
+  (`position: absolute; inset: 0`), no slot — the same "decorative background
+  layer" contract `floating-sparkles` and `aurora` carry, for consistency
+  across the Tier-C batch. The consumer places it as the first child of a
+  `position: relative` ancestor and stacks real content above it with
+  `z-index` (see `useCanvasSurface`'s header: "the host must be positioned"
+  for its owned canvas to land at the host's top-left, which
+  `position: absolute` already satisfies).
+
+  ── Reduced motion / off-screen ──────────────────────────────────────────
+
+  Neither is reimplemented here; both are `useCanvasSurface`'s job. Under
+  `prefers-reduced-motion: reduce` that composable's "paint once, never loop"
+  contract calls `onFrame` exactly once with `reducedMotion: true` and never
+  arms the rAF loop. `onFrame` below therefore skips `step()` and runs the
+  identical `draw()` — so the frozen frame is a fully-populated graph at
+  rest, nodes AND connections, never a blank box and never in motion.
+  `isVisible`-gated pausing while scrolled off-screen is inherited for free.
+
+  `shadow: 'light'` — see the parent execution plan's theming decision.
+-->
+
+@state {
+  import { cn } from '@aihu/css-engine/runtime/cn'
+
+  shadow: 'light'
+
+  let count = prop({ default: '40' })
+  let color = prop({ default: '#ffffff' })
+  let connectionDistance = prop({ default: '120' })
+
+  let hostEl = state(null)
+
+  // Read every prop into a differently-named local before use — an
+  // options-object key textually identical to a prop name trips the
+  // compiler's prop-auto-unwrap rewriter (see token-stream.aihu's header for
+  // the exact failure mode). Snapshotting here also matches the composable
+  // family's convention: attributes are read once at setup, not live.
+  const nodeCount = Math.max(0, Math.floor(Number(count) || 0))
+  const inkColor = color
+  const linkDistance = Math.max(0, Number(connectionDistance) || 0)
+
+  const TAU = Math.PI * 2
+  /** Peak drift speed, px/sec, seeded per node in [-SPEED, SPEED] per axis. */
+  const SPEED = 14
+  const NODE_RADIUS = 2
+  const NODE_ALPHA = 0.85
+  /** Alpha of a connection at zero distance; it fades linearly to 0 at
+   * `linkDistance`. */
+  const LINE_ALPHA = 0.45
+
+  const nodes = []
+  // Mutable scalars live on a const holder rather than as top-level `let`s:
+  // `@state`'s reactive declarations are explicit (`state(...)`), and these
+  // are deliberately plain frame-local bookkeeping that nothing renders from.
+  const seeded = { width: 0, height: 0 }
+
+  const seed = (width, height) => {
+    nodes.length = 0
+    for (let i = 0; i < nodeCount; i++) {
+      nodes.push({
+        x: Math.random() * width,
+        y: Math.random() * height,
+        vx: (Math.random() * 2 - 1) * SPEED,
+        vy: (Math.random() * 2 - 1) * SPEED,
+      })
+    }
+    seeded.width = width
+    seeded.height = height
+  }
+
+  /** Integrate one step. `dt` is SECONDS, clamped for the same reason
+   * `useParticleField` clamps: a backgrounded tab resumes with a multi-second
+   * delta and integrating that unclamped teleports the whole graph away in a
+   * single frame. Nodes WRAP rather than bounce — a bouncing graph reads as
+   * trapped, a wrapping one reads as ambient drift. */
+  const step = (dt, width, height) => {
+    const clamped = dt > 0.05 ? 0.05 : dt
+    for (const n of nodes) {
+      n.x += n.vx * clamped
+      n.y += n.vy * clamped
+      if (n.x < -NODE_RADIUS) n.x += width + NODE_RADIUS * 2
+      else if (n.x > width + NODE_RADIUS) n.x -= width + NODE_RADIUS * 2
+      if (n.y < -NODE_RADIUS) n.y += height + NODE_RADIUS * 2
+      else if (n.y > height + NODE_RADIUS) n.y -= height + NODE_RADIUS * 2
+    }
+  }
+
+  /** Connections first, then nodes, so the dots sit ON TOP of the web rather
+   * than being bisected by every line that terminates on them. */
+  const draw = (ctx, width, height) => {
+    ctx.clearRect(0, 0, width, height)
+
+    if (linkDistance > 0) {
+      const maxSq = linkDistance * linkDistance
+      ctx.strokeStyle = inkColor
+      ctx.lineWidth = 1
+      for (let i = 0; i < nodes.length; i++) {
+        const a = nodes[i]
+        for (let j = i + 1; j < nodes.length; j++) {
+          const b = nodes[j]
+          const dx = a.x - b.x
+          const dy = a.y - b.y
+          const distSq = dx * dx + dy * dy
+          // Compare SQUARED distances to reject the vast majority of pairs
+          // without a sqrt; only survivors pay for the real distance, which
+          // the opacity ramp needs.
+          if (distSq >= maxSq) continue
+          ctx.globalAlpha = LINE_ALPHA * (1 - Math.sqrt(distSq) / linkDistance)
+          ctx.beginPath()
+          ctx.moveTo(a.x, a.y)
+          ctx.lineTo(b.x, b.y)
+          ctx.stroke()
+        }
+      }
+    }
+
+    ctx.globalAlpha = NODE_ALPHA
+    ctx.fillStyle = inkColor
+    for (const n of nodes) {
+      ctx.beginPath()
+      ctx.arc(n.x, n.y, NODE_RADIUS, 0, TAU)
+      ctx.fill()
+    }
+    // Leave the context as we found it — a later `redraw()` must not inherit
+    // the last node's alpha.
+    ctx.globalAlpha = 1
+  }
+
+  /** Re-seed only on the FIRST real size; re-randomizing on every resize tick
+   * would make a window drag look like static. Later sizes rescale
+   * proportionally so no node is stranded outside the new box. */
+  const handleResize = (width, height) => {
+    if (nodes.length === 0) {
+      seed(width, height)
+      return
+    }
+    const sx = seeded.width > 0 ? width / seeded.width : 1
+    const sy = seeded.height > 0 ? height / seeded.height : 1
+    for (const n of nodes) {
+      n.x *= sx
+      n.y *= sy
+    }
+    seeded.width = width
+    seeded.height = height
+  }
+
+  const handleFrame = (frame) => {
+    if (nodes.length === 0) seed(frame.width, frame.height)
+    // The reduced-motion contract: paint the graph, never integrate it.
+    if (!frame.reducedMotion) step(frame.delta / 1000, frame.width, frame.height)
+    draw(frame.ctx, frame.width, frame.height)
+  }
+
+  // Both callbacks are hoisted to named consts rather than written inline as
+  // `onResize: (w, h) => { … }`. An options-object entry whose VALUE is a
+  // multi-line arrow function is mis-parsed by the compiler's @state
+  // macro/prop rewriter — it reads the `key:` as a state-macro declaration
+  // and emits `let onResize: (width, height) => {`, which is not valid TS
+  // (`Expected "}" but found "onResize"`). Same family of rewriter hazard as
+  // the prop-name/option-key collision documented in token-stream.aihu; the
+  // fix is the same shape — keep the object literal's values to bare
+  // identifiers whose names differ from their keys.
+  useCanvasSurface(() => hostEl, {
+    onResize: handleResize,
+    onFrame: handleFrame,
+  })
+}
+
+@template {
+  <div
+    ref={hostEl}
+    data-slot="node-graph-background"
+    aria-hidden="true"
+    class={cn('aihu-node-graph-background')}></div>
+}
+
+@style {
+  .aihu-node-graph-background {
+    display: block;
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+}

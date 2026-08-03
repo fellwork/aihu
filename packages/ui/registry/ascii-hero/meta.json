@@ -1,0 +1,17 @@
+{
+  "name": "ascii-hero",
+  "type": "ui",
+  "description": "Decorative hero-section character field — a monospaced grid of glyphs drifting, pulsing, or wiping in on a managed canvas, built on useCharacterField.",
+  "variants": {
+    "mode": ["drift", "pulse", "reveal"]
+  },
+  "meta": {
+    "capabilities": {
+      "interactive": false,
+      "keyboard": false,
+      "form": false,
+      "overlay": false,
+      "directional": false
+    }
+  }
+}

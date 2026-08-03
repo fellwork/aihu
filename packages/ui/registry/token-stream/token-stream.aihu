@@ -1,0 +1,89 @@
+<!--
+  aihu-token-stream — presentational styled recipe (performativeUI port,
+  Slice 4 — docs/plans/2026-08-01-performative-ui-port.md §Tier-B batch 1).
+
+  Design and behavior transcribed in spirit from performativeUI (MIT); no
+  source text or `pui-` class names vendored — see NOTICES.md.
+
+  The LLM-response-streaming look: reveals a sentence word by word with a
+  blinking caret at the leading edge, built directly on `@aihu/use/motion`'s
+  `useTokenStream` (Track B Slice 3) — the composable this component exists
+  to showcase.
+
+  text:     space-separated sentence, e.g. "Reading the whole codebase in
+            under a second." Read once at setup (custom-element attrs are
+            strings, not reactive to later attribute changes).
+  interval: milliseconds per token, string-encoded number. Default "80".
+  loop:     off (default) | on — restream forever once fully revealed.
+
+  `shadow: 'light'` for live retheming — see the parent execution plan's
+  theming decision. The caret is CSS-only (`quest-text`'s pattern, Slice 1),
+  not driven by JS — it just stops blinking once `isDone()` is true.
+-->
+
+@state {
+  import { cn } from '@aihu/css-engine/runtime/cn'
+
+  shadow: 'light'
+
+  let text = prop({ default: 'Reading the whole codebase in under a second.' })
+  let interval = prop({ default: '80' })
+  let loop = prop({ default: 'off' })
+
+  const words = text.split(' ').filter(Boolean)
+  // Read into a differently-named local before use — an options-object key
+  // that's textually identical to a prop name (`loop: loop === 'on'`) trips
+  // the compiler's prop-auto-unwrap rewriter (it misreads the key as a
+  // shorthand-property expansion and emits invalid `let loop: …` output).
+  const shouldLoop = loop === 'on'
+
+  const { tokens, isDone } = useTokenStream(words, {
+    interval: Number(interval),
+    loop: shouldLoop,
+  })
+}
+
+@template {
+  <span
+    data-slot="token-stream"
+    data-done={isDone() ? 'on' : 'off'}
+    class={cn('aihu-token-stream')}>
+    {tokens().join(' ')}
+  </span>
+}
+
+@style {
+  .aihu-token-stream {
+    display: inline;
+    font-family: var(--font-mono);
+    color: var(--color-foreground);
+  }
+  .aihu-token-stream::after {
+    content: '';
+    display: inline-block;
+    width: 0.5em;
+    height: 1em;
+    margin-left: 0.15em;
+    background-color: var(--color-accent);
+    vertical-align: text-bottom;
+    animation: aihu-token-stream-blink 1s step-end infinite;
+  }
+  .aihu-token-stream[data-done="on"]::after {
+    animation: none;
+    opacity: 0;
+  }
+  @keyframes aihu-token-stream-blink {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .aihu-token-stream::after {
+      animation: none;
+    }
+  }
+}

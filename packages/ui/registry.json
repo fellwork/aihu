@@ -1,6 +1,49 @@
 {
   "items": [
     {
+      "name": "ascii-hero",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/ascii-hero/ascii-hero.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Decorative hero-section character field — a monospaced grid of glyphs drifting, pulsing, or wiping in on a managed canvas, built on useCharacterField.",
+      "variants": {
+        "mode": ["drift", "pulse", "reveal"]
+      },
+      "meta": {
+        "capabilities": {
+          "interactive": false,
+          "keyboard": false,
+          "form": false,
+          "overlay": false,
+          "directional": false
+        }
+      }
+    },
+    {
+      "name": "aurora",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/aurora/aurora.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Decorative animated aurora-borealis-style background wash — pure CSS layered gradients, blur, and mix-blend-mode, no canvas.",
+      "meta": {
+        "capabilities": {
+          "interactive": false,
+          "keyboard": false,
+          "form": false,
+          "overlay": false,
+          "directional": false
+        }
+      }
+    },
+    {
       "name": "badge",
       "type": "ui",
       "files": [
@@ -12,6 +55,50 @@
       "description": "Presentational badge recipe — inline-flex pill with a variant matrix.",
       "variants": {
         "variant": ["default", "secondary", "destructive", "outline"]
+      },
+      "meta": {
+        "capabilities": {
+          "interactive": false,
+          "keyboard": false,
+          "form": false,
+          "overlay": false,
+          "directional": false
+        }
+      }
+    },
+    {
+      "name": "before-after",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/before-after/before-after.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Drag-to-reveal image comparison, built on the AihuSliderRoot primitive — keyboard-operable divider between named before/after slots.",
+      "dependencies": ["@aihu/primitives"],
+      "meta": {
+        "capabilities": {
+          "interactive": true,
+          "keyboard": true,
+          "form": false,
+          "overlay": false,
+          "directional": false
+        }
+      }
+    },
+    {
+      "name": "big-back",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/big-back/big-back.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Presentational oversized watermark-style text, typically a footer wordmark. Decorative, hidden from the accessibility tree.",
+      "variants": {
+        "weight": ["bold", "black"]
       },
       "meta": {
         "capabilities": {
@@ -71,6 +158,56 @@
       }
     },
     {
+      "name": "chat-bubble",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/chat-bubble/chat-bubble.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Presentational single chat message bubble — speaker-aware alignment and accent, optional initials avatar.",
+      "variants": {
+        "speaker": ["user", "assistant"]
+      },
+      "meta": {
+        "capabilities": {
+          "interactive": false,
+          "keyboard": false,
+          "form": false,
+          "overlay": false,
+          "directional": false
+        }
+      }
+    },
+    {
+      "name": "chat-fab",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/chat-fab/chat-fab.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Floating action button + non-modal popover panel shell — a generic chat-launcher, deliberately with no chat logic (panel content is a plain slot).",
+      "dependencies": ["@aihu/primitives"],
+      "registryDependencies": ["popover"],
+      "variants": {
+        "corner": ["bottom-right", "bottom-left", "top-right", "top-left"]
+      },
+      "meta": {
+        "capabilities": {
+          "interactive": true,
+          "hoverable": false,
+          "keyboard": true,
+          "form": false,
+          "overlay": true,
+          "trapsFocus": false,
+          "directional": false
+        }
+      }
+    },
+    {
       "name": "checkbox",
       "type": "ui",
       "files": [
@@ -87,6 +224,30 @@
           "hoverable": false,
           "keyboard": true,
           "form": true,
+          "overlay": false,
+          "directional": false
+        }
+      }
+    },
+    {
+      "name": "community-badge",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/community-badge/community-badge.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Presentational social-proof pill — pairs a status-dot-style lead slot with a metric.",
+      "registryDependencies": ["status-dot"],
+      "variants": {
+        "tone": ["neutral", "accent"]
+      },
+      "meta": {
+        "capabilities": {
+          "interactive": false,
+          "keyboard": false,
+          "form": false,
           "overlay": false,
           "directional": false
         }
@@ -139,6 +300,117 @@
       }
     },
     {
+      "name": "eyebrow-pill",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/eyebrow-pill/eyebrow-pill.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Presentational label pill, typically preceding a heading. Composes with status-dot in its lead slot.",
+      "registryDependencies": ["status-dot"],
+      "variants": {
+        "tone": ["neutral", "accent", "success", "warning"]
+      },
+      "meta": {
+        "capabilities": {
+          "interactive": false,
+          "keyboard": false,
+          "form": false,
+          "overlay": false,
+          "directional": false
+        }
+      }
+    },
+    {
+      "name": "floating-sparkles",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/floating-sparkles/floating-sparkles.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Decorative ambient particle field — small glowing dots drifting and twinkling on a managed canvas, built on useParticleField.",
+      "meta": {
+        "capabilities": {
+          "interactive": false,
+          "keyboard": false,
+          "form": false,
+          "overlay": false,
+          "directional": false
+        }
+      }
+    },
+    {
+      "name": "glass-card",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/glass-card/glass-card.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Presentational frosted-glass surface card — backdrop-filter blur over a translucent, color-mixed background.",
+      "variants": {
+        "padding": ["sm", "md", "lg"]
+      },
+      "meta": {
+        "capabilities": {
+          "interactive": false,
+          "keyboard": false,
+          "form": false,
+          "overlay": false,
+          "directional": false
+        }
+      }
+    },
+    {
+      "name": "goldeneye",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/goldeneye/goldeneye.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Decorative watchful eye — a glowing iris with a pupil that autonomously sweeps a slow Lissajous scan, built directly on useCanvasSurface.",
+      "meta": {
+        "capabilities": {
+          "interactive": false,
+          "keyboard": false,
+          "form": false,
+          "overlay": false,
+          "directional": false
+        }
+      }
+    },
+    {
+      "name": "gradient-text",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/gradient-text/gradient-text.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Presentational text decoration — applies the pack's brand gradient as text fill.",
+      "variants": {
+        "weight": ["normal", "medium", "semibold", "bold"],
+        "font": ["sans", "serif"]
+      },
+      "meta": {
+        "capabilities": {
+          "interactive": false,
+          "keyboard": false,
+          "form": false,
+          "overlay": false,
+          "directional": false
+        }
+      }
+    },
+    {
       "name": "input",
       "type": "ui",
       "files": [
@@ -181,6 +453,230 @@
       }
     },
     {
+      "name": "logo-marquee",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/logo-marquee/logo-marquee.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Infinite horizontal auto-scrolling row of logos — CSS-only, pauses on hover/focus and honors reduced motion.",
+      "meta": {
+        "capabilities": {
+          "interactive": false,
+          "hoverable": true,
+          "keyboard": false,
+          "form": false,
+          "overlay": false,
+          "directional": false
+        }
+      }
+    },
+    {
+      "name": "logo-row",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/logo-row/logo-row.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Presentational flex row for partner/press logos — muted+grayscale at rest, full color on hover.",
+      "meta": {
+        "capabilities": {
+          "interactive": false,
+          "keyboard": false,
+          "form": false,
+          "overlay": false,
+          "directional": false,
+          "hoverable": true
+        }
+      }
+    },
+    {
+      "name": "mock-ide",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/mock-ide/mock-ide.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Decorative fake code-editor window chrome — traffic-light dots + title bar over a slotted code body.",
+      "meta": {
+        "capabilities": {
+          "interactive": false,
+          "keyboard": false,
+          "form": false,
+          "overlay": false,
+          "directional": false
+        }
+      }
+    },
+    {
+      "name": "node-graph-background",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/node-graph-background/node-graph-background.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Decorative animated network background — drifting nodes joined by distance-faded connecting lines on a managed canvas, built on useCanvasSurface.",
+      "meta": {
+        "capabilities": {
+          "interactive": false,
+          "keyboard": false,
+          "form": false,
+          "overlay": false,
+          "directional": false
+        }
+      }
+    },
+    {
+      "name": "popover",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/popover/popover-content.aihu",
+          "type": "component"
+        },
+        {
+          "path": "registry/popover/popover-root.aihu",
+          "type": "component"
+        },
+        {
+          "path": "registry/popover/popover-trigger.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Styled non-modal popover recipe — light-DOM pieces extending the headless AihuPopover primitives (disclosure trigger, positioned panel, outside-pointerdown + Escape dismissal, no focus trap).",
+      "dependencies": ["@aihu/primitives"],
+      "meta": {
+        "capabilities": {
+          "interactive": true,
+          "hoverable": false,
+          "keyboard": true,
+          "form": false,
+          "overlay": true,
+          "trapsFocus": false,
+          "directional": false
+        }
+      }
+    },
+    {
+      "name": "pricing-card",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/pricing-card/pricing-card.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Pricing tier card — tier/price/period, an optional featured accent border/elevation, and a default slot for the consumer's feature list.",
+      "variants": {
+        "featured": ["off", "on"]
+      },
+      "meta": {
+        "capabilities": {
+          "interactive": false,
+          "keyboard": false,
+          "form": false,
+          "overlay": false,
+          "directional": false
+        }
+      }
+    },
+    {
+      "name": "prompt",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/prompt/prompt.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Presentational single-line AI-prompt-bar look — a rounded pill with a leading icon slot and a placeholder text span; not a real form input.",
+      "meta": {
+        "capabilities": {
+          "interactive": false,
+          "keyboard": false,
+          "form": false,
+          "overlay": false,
+          "directional": false
+        }
+      }
+    },
+    {
+      "name": "prompt-hero",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/prompt-hero/prompt-hero.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Larger hero variant composing gradient-text (heading) above a prompt bar, centered layout.",
+      "registryDependencies": ["gradient-text", "prompt"],
+      "meta": {
+        "capabilities": {
+          "interactive": false,
+          "keyboard": false,
+          "form": false,
+          "overlay": false,
+          "directional": false
+        }
+      }
+    },
+    {
+      "name": "quest-text",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/quest-text/quest-text.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Presentational inline text emphasis for prompts/callouts — underline accent with an optional blinking caret.",
+      "variants": {
+        "tone": ["neutral", "accent"],
+        "caret": ["off", "on"]
+      },
+      "meta": {
+        "capabilities": {
+          "interactive": false,
+          "keyboard": false,
+          "form": false,
+          "overlay": false,
+          "directional": false
+        }
+      }
+    },
+    {
+      "name": "rotator",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/rotator/rotator.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Presentational rotating headline word/phrase — cycles through a comma-separated item list on a fixed interval, cross-fading each change.",
+      "variants": {
+        "tone": ["neutral", "accent"]
+      },
+      "meta": {
+        "capabilities": {
+          "interactive": false,
+          "keyboard": false,
+          "form": false,
+          "overlay": false,
+          "directional": false
+        }
+      }
+    },
+    {
       "name": "separator",
       "type": "ui",
       "files": [
@@ -192,6 +688,122 @@
       "description": "Presentational separator recipe — token-colored 1px rule with role=separator + aria-orientation.",
       "variants": {
         "orientation": ["horizontal", "vertical"]
+      },
+      "meta": {
+        "capabilities": {
+          "interactive": false,
+          "keyboard": false,
+          "form": false,
+          "overlay": false,
+          "directional": false
+        }
+      }
+    },
+    {
+      "name": "slippy-words",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/slippy-words/slippy-words.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Presentational sentence where one word wiggles for attention at a time, the highlight advancing left to right, looping.",
+      "variants": {
+        "tone": ["neutral", "accent"]
+      },
+      "meta": {
+        "capabilities": {
+          "interactive": false,
+          "keyboard": false,
+          "form": false,
+          "overlay": false,
+          "directional": false
+        }
+      }
+    },
+    {
+      "name": "sparkle",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/sparkle/sparkle.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Presentational decorative accent mark — a four-pointed star with an optional shimmer.",
+      "variants": {
+        "size": ["sm", "md", "lg"],
+        "tone": ["neutral", "accent"],
+        "shimmer": ["off", "on"]
+      },
+      "meta": {
+        "capabilities": {
+          "interactive": false,
+          "keyboard": false,
+          "form": false,
+          "overlay": false,
+          "directional": false
+        }
+      }
+    },
+    {
+      "name": "stat-counter",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/stat-counter/stat-counter.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Presentational number that counts up to a target the first time it scrolls into view.",
+      "meta": {
+        "capabilities": {
+          "interactive": false,
+          "keyboard": false,
+          "form": false,
+          "overlay": false,
+          "directional": false
+        }
+      }
+    },
+    {
+      "name": "status-dot",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/status-dot/status-dot.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Presentational status indicator — a semantic-colored dot with an optional pulsing liveness ring.",
+      "variants": {
+        "status": ["neutral", "online", "busy", "away", "info", "offline"],
+        "size": ["sm", "md", "lg"],
+        "pulse": ["off", "on"]
+      },
+      "meta": {
+        "capabilities": {
+          "interactive": false,
+          "keyboard": false,
+          "form": false,
+          "overlay": false,
+          "directional": false
+        }
+      }
+    },
+    {
+      "name": "sticky-banner",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/sticky-banner/sticky-banner.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Presentational full-width announcement bar. No dismiss affordance in this slice.",
+      "variants": {
+        "tone": ["neutral", "accent", "warning"]
       },
       "meta": {
         "capabilities": {
@@ -226,6 +838,28 @@
       }
     },
     {
+      "name": "temperature",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/temperature/temperature.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Styled 3-value response-temperature preset picker (Precise / Balanced / Creative) — light-DOM element extending the headless AihuRadioGroupRoot primitive (roving tabindex, arrow-key selection, native form participation).",
+      "dependencies": ["@aihu/primitives"],
+      "meta": {
+        "capabilities": {
+          "interactive": true,
+          "hoverable": false,
+          "keyboard": true,
+          "form": true,
+          "overlay": false,
+          "directional": true
+        }
+      }
+    },
+    {
       "name": "textarea",
       "type": "ui",
       "files": [
@@ -241,6 +875,29 @@
           "hoverable": false,
           "keyboard": false,
           "form": true,
+          "overlay": false,
+          "directional": false
+        }
+      }
+    },
+    {
+      "name": "token-stream",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/token-stream/token-stream.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Presentational LLM-response-streaming look — reveals a sentence word by word with a blinking caret.",
+      "variants": {
+        "loop": ["off", "on"]
+      },
+      "meta": {
+        "capabilities": {
+          "interactive": false,
+          "keyboard": false,
+          "form": false,
           "overlay": false,
           "directional": false
         }
@@ -273,6 +930,74 @@
           "form": false,
           "overlay": true,
           "trapsFocus": false,
+          "directional": false
+        }
+      }
+    },
+    {
+      "name": "waitlist-form",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/waitlist-form/waitlist-form.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Email-capture form with an inline success state — dispatches `waitlist-submit` ({ email }) for the consumer to wire the real request; no popover, no network logic.",
+      "meta": {
+        "capabilities": {
+          "interactive": true,
+          "hoverable": true,
+          "keyboard": true,
+          "form": true,
+          "overlay": false,
+          "directional": false
+        }
+      }
+    },
+    {
+      "name": "wibbling-spinner",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/wibbling-spinner/wibbling-spinner.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Presentational braille-glyph loading spinner — cycles through a fixed frame set on a short interval.",
+      "variants": {
+        "size": ["sm", "md", "lg"],
+        "tone": ["neutral", "accent"]
+      },
+      "meta": {
+        "capabilities": {
+          "interactive": false,
+          "keyboard": false,
+          "form": false,
+          "overlay": false,
+          "directional": false
+        }
+      }
+    },
+    {
+      "name": "word-roll",
+      "type": "ui",
+      "files": [
+        {
+          "path": "registry/word-roll/word-roll.aihu",
+          "type": "component"
+        }
+      ],
+      "description": "Presentational rolling headline word — cycles through a comma-separated item list, rolling each new word down into a clipped window.",
+      "variants": {
+        "tone": ["neutral", "accent"]
+      },
+      "meta": {
+        "capabilities": {
+          "interactive": false,
+          "keyboard": false,
+          "form": false,
+          "overlay": false,
           "directional": false
         }
       }

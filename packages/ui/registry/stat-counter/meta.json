@@ -1,0 +1,14 @@
+{
+  "name": "stat-counter",
+  "type": "ui",
+  "description": "Presentational number that counts up to a target the first time it scrolls into view.",
+  "meta": {
+    "capabilities": {
+      "interactive": false,
+      "keyboard": false,
+      "form": false,
+      "overlay": false,
+      "directional": false
+    }
+  }
+}

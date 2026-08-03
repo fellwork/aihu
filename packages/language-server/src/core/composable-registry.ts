@@ -49,6 +49,16 @@ export const COMPOSABLE_REGISTRY: readonly ComposableRegistryEntry[] = [
       "reactive `navigator.language` (the user's single primary language), updated on the `languagechange` event",
   },
   {
+    name: 'useCanvasSurface',
+    specifier: '@aihu/use/motion/useCanvasSurface',
+    description: "own a decorative `<canvas>`'s sizing, DPI, visibility gating and rAF loop",
+  },
+  {
+    name: 'useCharacterField',
+    specifier: '@aihu/use/motion/useCharacterField',
+    description: 'an animated grid of character glyphs on a managed canvas',
+  },
+  {
     name: 'useClamp',
     specifier: '@aihu/use/math/useClamp',
     description: 'reactive clamp of a number to `[min, max]`',
@@ -81,6 +91,11 @@ export const COMPOSABLE_REGISTRY: readonly ComposableRegistryEntry[] = [
     name: 'useCounter',
     specifier: '@aihu/use/useCounter',
     description: 'a reactive numeric counter clamped to an optional `[min, max]` range',
+  },
+  {
+    name: 'useCountTo',
+    specifier: '@aihu/use/motion/useCountTo',
+    description: 'tween a number to a target over a duration, eased',
   },
   {
     name: 'useDateFormat',
@@ -241,6 +256,11 @@ export const COMPOSABLE_REGISTRY: readonly ComposableRegistryEntry[] = [
       'reactive boolean for whether the pointer has left the page/viewport, tracked via `mouseleave`/`mouseenter` on `document`',
   },
   {
+    name: 'useParticleField',
+    specifier: '@aihu/use/motion/useParticleField',
+    description: 'an N-particle 2D drift simulation on a managed canvas',
+  },
+  {
     name: 'usePerformanceObserver',
     specifier: '@aihu/use/usePerformanceObserver',
     description:
@@ -300,6 +320,11 @@ export const COMPOSABLE_REGISTRY: readonly ComposableRegistryEntry[] = [
     name: 'useScroll',
     specifier: '@aihu/use/useScroll',
     description: 'reactive scroll position of an element or `window`',
+  },
+  {
+    name: 'useSequence',
+    specifier: '@aihu/use/motion/useSequence',
+    description: 'cycle through a list of items, holding on each for a fixed interval',
   },
   {
     name: 'useSet',
@@ -363,6 +388,17 @@ export const COMPOSABLE_REGISTRY: readonly ComposableRegistryEntry[] = [
     name: 'useToggle',
     specifier: '@aihu/use/useToggle',
     description: 'a reactive boolean with a flip/set toggler',
+  },
+  {
+    name: 'useTokenStream',
+    specifier: '@aihu/use/motion/useTokenStream',
+    description: 'reveal an array of tokens (words, chunks) one at a time, optionally looping',
+  },
+  {
+    name: 'useTypewriter',
+    specifier: '@aihu/use/motion/useTypewriter',
+    description:
+      'reveal a string one character at a time, optionally looping (type, hold, erase, retype)',
   },
   {
     name: 'useWatch',

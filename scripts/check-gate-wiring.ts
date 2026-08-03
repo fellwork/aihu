@@ -218,6 +218,60 @@ const NEGATIVE_FIXTURES: Record<string, Fixture> = {
       },
     },
   },
+  // performativeUI port Track B follow-up: check:cn-map and
+  // check:animations-gallery were wired into plan-a.yml's `check` job (they
+  // had been NEW ORPHANs — declared but invoked by no workflow, see git
+  // history on this entry's PR). Same shape as check:moon-graph above: a gate
+  // freshly leaving "no CI path invokes it" must ship its own proof rather
+  // than fall into the shrink-only not-yet-proven ramp, which can never be
+  // ADDED to.
+  //
+  // BUILDLESS BY CONSTRUCTION — THIS job (`gate-wiring` in plan-a.yml) runs
+  // with no `bun install`, no build, no Rust (deliberately, see that job's own
+  // comment). Both generators normally shell out to the `aihu-css-compile`
+  // Rust binary; a fixture that did the same would throw "binary not found"
+  // on BOTH its red and green runs here — indiscriminate, not proven. So
+  // CN_MAP_DUMP_JSON / ANIMATIONS_GALLERY_CLASSES_JSON /
+  // ANIMATIONS_GALLERY_CSS_DUMP repoint the INPUT at a committed fixture file
+  // instead (bypassing the binary entirely), while CN_MAP_TARGET /
+  // ANIMATIONS_GALLERY_*_TARGET repoint the OUTPUT comparison — red points at
+  // a deliberately-stale target, green at the exact expected serialization of
+  // the same dump (generated once via the script's own write mode, not
+  // hand-transcribed, so it cannot drift from the real format).
+  'check:cn-map': {
+    cmd: ['bun', 'packages/css-engine/scripts/gen-cn-conflict-map.ts', '--check'],
+    env: {
+      CN_MAP_DUMP_JSON: 'scripts/fixtures/cn-map/dump.json',
+      CN_MAP_TARGET: 'scripts/fixtures/cn-map/stale.generated.ts',
+    },
+    green: {
+      cmd: ['bun', 'packages/css-engine/scripts/gen-cn-conflict-map.ts', '--check'],
+      env: {
+        CN_MAP_DUMP_JSON: 'scripts/fixtures/cn-map/dump.json',
+        CN_MAP_TARGET: 'scripts/fixtures/cn-map/expected.generated.ts',
+      },
+    },
+  },
+  // Same shape, for check:animations-gallery's two generated targets.
+  'check:animations-gallery': {
+    cmd: ['bun', 'packages/css-engine/scripts/gen-animations-gallery.ts', '--check'],
+    env: {
+      ANIMATIONS_GALLERY_CLASSES_JSON: 'scripts/fixtures/animations-gallery/dump-classes.json',
+      ANIMATIONS_GALLERY_CSS_DUMP: 'scripts/fixtures/animations-gallery/dump.css',
+      ANIMATIONS_GALLERY_CSS_TARGET: 'scripts/fixtures/animations-gallery/stale.generated.css',
+      ANIMATIONS_GALLERY_CLASSES_TARGET: 'scripts/fixtures/animations-gallery/stale.generated.ts',
+    },
+    green: {
+      cmd: ['bun', 'packages/css-engine/scripts/gen-animations-gallery.ts', '--check'],
+      env: {
+        ANIMATIONS_GALLERY_CLASSES_JSON: 'scripts/fixtures/animations-gallery/dump-classes.json',
+        ANIMATIONS_GALLERY_CSS_DUMP: 'scripts/fixtures/animations-gallery/dump.css',
+        ANIMATIONS_GALLERY_CSS_TARGET: 'scripts/fixtures/animations-gallery/expected.generated.css',
+        ANIMATIONS_GALLERY_CLASSES_TARGET:
+          'scripts/fixtures/animations-gallery/expected.generated.ts',
+      },
+    },
+  },
 }
 
 interface Baseline {

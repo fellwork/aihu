@@ -1,0 +1,17 @@
+{
+  "name": "rotator",
+  "type": "ui",
+  "description": "Presentational rotating headline word/phrase — cycles through a comma-separated item list on a fixed interval, cross-fading each change.",
+  "variants": {
+    "tone": ["neutral", "accent"]
+  },
+  "meta": {
+    "capabilities": {
+      "interactive": false,
+      "keyboard": false,
+      "form": false,
+      "overlay": false,
+      "directional": false
+    }
+  }
+}

@@ -1,0 +1,11 @@
+---
+source: packages/css-engine/crates/aihu-css-core/tests/animations.rs
+assertion_line: 222
+expression: compile_classes(&classes)
+---
+.animate-bounce-fade-in { animation: bounce-fade-in 0.6s ease-out both; }
+@keyframes bounce-fade-in { 0% { transform: scale(0.5); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+.animate-pulse-fade-in { animation: pulse-fade-in 0.6s ease-out both; }
+@keyframes pulse-fade-in { 0% { transform: scale(0.9); opacity: 0; } 50% { transform: scale(1.05); opacity: 0.5; } 100% { transform: scale(1); opacity: 1; } }
+.animate-slide-up-fade { animation: slide-up-fade 0.6s ease-out both; }
+@keyframes slide-up-fade { 0% { opacity: 0; transform: translateY(50px); } 100% { opacity: 1; transform: translateY(0); } }

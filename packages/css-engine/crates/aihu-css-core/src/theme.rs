@@ -297,6 +297,22 @@ const AIHU_BRAND_TOKENS: &[(&str, &str)] = &[
     ("--radius-md", "8px"),
     ("--radius-lg", "12px"),
     ("--radius-pill", "999px"),
+    // performativeUI port (docs/plans/2026-08-01-performative-ui-port.md §1,
+    // escalations E-P1/E-P2/E-P3 as ruled): three additive tokens, none a
+    // `bg-*`/`text-*`/`border-*` color role (so `is_brand_token` is
+    // untouched). `--gradient-brand` is ONE token holding a full
+    // `linear-gradient()` value (not three separate stop tokens — E-P1),
+    // derived from the existing accent/warning hues so the shipped identity
+    // stays single-accent-derived. `--font-serif` fixes a live bug: the
+    // `font-serif` utility (tokens.rs) has always referenced this name with
+    // no pack defining it; the default is a system-serif stack, not a
+    // specific webfont (E-P2). `--ease-brand` is the first easing custom
+    // property in the engine (existing `ease-*` utilities are hardcoded
+    // literals) — E-P3's glass-surface treatment is deliberately token-free
+    // (derived per-recipe via `color-mix()`), so no glass token exists here.
+    ("--gradient-brand", "linear-gradient(135deg, #c8543a 0%, #d97757 50%, #945f0e 100%)"),
+    ("--font-serif", "ui-serif, Georgia, Cambria, \"Times New Roman\", serif"),
+    ("--ease-brand", "cubic-bezier(0.22, 1, 0.36, 1)"),
 ];
 
 #[cfg(test)]
@@ -353,5 +369,31 @@ mod tests {
             out2.contains("--border: 1px;"),
             "expected --border in:\n{out2}"
         );
+    }
+
+    #[test]
+    fn performative_ui_tokens_tree_shake_like_every_other_scalar() {
+        // docs/plans/2026-08-01-performative-ui-port.md §1: three additive
+        // tokens (E-P1/E-P2/E-P3 as ruled). They must tree-shake exactly like
+        // the D4 scalars above — referencing one must not pull in the other
+        // two.
+        let registry = ThemeRegistry::with_aihu_defaults();
+        assert_eq!(
+            registry.get("--gradient-brand"),
+            Some("linear-gradient(135deg, #c8543a 0%, #d97757 50%, #945f0e 100%)")
+        );
+        assert_eq!(
+            registry.get("--font-serif"),
+            Some("ui-serif, Georgia, Cambria, \"Times New Roman\", serif")
+        );
+        assert_eq!(registry.get("--ease-brand"), Some("cubic-bezier(0.22, 1, 0.36, 1)"));
+
+        let out = registry.emit_used_tokens(
+            ".x { background-image: var(--gradient-brand); }",
+            TokenScope::Light,
+        );
+        assert!(out.contains("--gradient-brand:"), "{out}");
+        assert!(!out.contains("--font-serif"), "unreferenced token leaked:\n{out}");
+        assert!(!out.contains("--ease-brand"), "unreferenced token leaked:\n{out}");
     }
 }

@@ -1,0 +1,17 @@
+{
+  "name": "chat-bubble",
+  "type": "ui",
+  "description": "Presentational single chat message bubble — speaker-aware alignment and accent, optional initials avatar.",
+  "variants": {
+    "speaker": ["user", "assistant"]
+  },
+  "meta": {
+    "capabilities": {
+      "interactive": false,
+      "keyboard": false,
+      "form": false,
+      "overlay": false,
+      "directional": false
+    }
+  }
+}
