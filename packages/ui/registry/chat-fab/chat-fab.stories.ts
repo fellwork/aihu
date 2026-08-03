@@ -34,6 +34,27 @@ export const Default = {
   render: (): string => FAB(),
 }
 
+// meta.json declares `corner` as a closed 4-value enum (bottom-right
+// (default) | bottom-left | top-right | top-left — see chat-fab.aihu's
+// header). scripts/check-required-stories.ts only requires this Variants
+// story to EXIST once `variants` is declared; it does not verify every listed
+// value is actually rendered, so this renders all 4 explicitly rather than
+// just the default. `.aihu-chat-fab-anchor` is `position: fixed` (viewport-
+// relative, not the wrapper div), which is exactly why all 4 can render
+// simultaneously without overlapping — each corner is a real position on the
+// Storybook canvas viewport.
+const CORNERS = ['bottom-right', 'bottom-left', 'top-right', 'top-left'] as const
+
+export const Variants = {
+  render: (): string => `
+    <div style="position: relative; width: 100%; height: 20rem;">
+      ${CORNERS.map(
+        (corner) =>
+          `<aihu-chat-fab label="Open chat (${corner})" corner="${corner}"><p>${corner}</p></aihu-chat-fab>`,
+      ).join('\n      ')}
+    </div>`,
+}
+
 export const DarkMode = {
   render: (): string => FAB(),
   globals: { mode: 'dark' },
@@ -50,6 +71,24 @@ export const States = {
   },
 }
 
+// REGRESSION GUARD for the `_ceReactionDepth` fix (packages/runtime/src/
+// define-component.ts, commit 38917c56). This story's whole markup shape —
+// aihu-chat-fab COMPOSING aihu-popover-{root,trigger,content} as children in
+// its OWN @template (see chat-fab.aihu's header comment) — is exactly what
+// triggered the bug: arbor's _materialize builds that subtree via
+// document.createElement + a single outer appendChild, which upgrades the
+// nested popover-root/-slot children with an undrained, pending
+// connectedCallback reaction BEFORE this element's own light-DOM-slot carve
+// runs; the carve's `removeChild` eagerly drains that queue, firing the
+// popover's connectedCallback prematurely on a still-detached node, and
+// injectContext's ancestor-walk threw MissingContextError even though the
+// context WAS provided. jsdom cannot reproduce this — its custom-element
+// reaction queue doesn't model the drain — so this play function, run for
+// real under Playwright/Chromium via `bun run check:a11y` (--failOnConsole,
+// scripts/check-storybook-a11y.sh), is the actual regression test: clicking
+// the trigger and asserting the popover reaches `data-state="open"` can only
+// pass if construction never threw. Do not delete/weaken this assertion
+// without an equivalent real-browser check elsewhere.
 export const Open = {
   render: (): string => FAB(),
   play: async ({ canvasElement }: { canvasElement: HTMLElement }): Promise<void> => {
