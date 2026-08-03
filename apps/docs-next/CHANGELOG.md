@@ -1,5 +1,12 @@
 # aihu-docs-next
 
+## 0.0.6
+
+### Patch Changes
+
+- Updated dependencies [[`c38072f`](https://github.com/fellwork/aihu/commit/c38072f95ca4887c2968d7dabee176f577b44e6e)]:
+  - @aihu/css-engine@0.6.0
+
 ## 0.0.5
 
 ### Patch Changes
