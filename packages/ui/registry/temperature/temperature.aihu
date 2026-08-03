@@ -2,6 +2,9 @@
   aihu-temperature — styled recipe (Phase 2, performativeUI port Slice 7 —
   docs/plans/2026-08-01-performative-ui-port.md §Tier-B batch 3).
 
+  Design and behavior transcribed in spirit from performativeUI (MIT); no
+  source text or `pui-` class names vendored — see NOTICES.md.
+
   An AI-marketing "response temperature" segmented preset picker — three
   fixed values (Precise / Balanced / Creative), not a literal range input.
 

@@ -3,6 +3,9 @@
   performativeUI port Slice 7 — docs/plans/2026-08-01-performative-ui-port.md
   §Tier-B batch 3).
 
+  Design and behavior transcribed in spirit from performativeUI (MIT); no
+  source text or `pui-` class names vendored — see NOTICES.md.
+
   The state owner of the non-modal popover machine. `<aihu-popover-root>`
   EXTENDS the headless AihuPopoverRoot primitive (owns `open`/`placement`,
   provides the popover context, reflects `data-state`, binds the outside-

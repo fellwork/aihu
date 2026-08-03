@@ -2,6 +2,9 @@
   aihu-popover-trigger — styled recipe piece (Phase 2, master spec §9.4 / §9.7,
   performativeUI port Slice 7).
 
+  Design and behavior transcribed in spirit from performativeUI (MIT); no
+  source text or `pui-` class names vendored — see NOTICES.md.
+
   `<aihu-popover-trigger>` EXTENDS the headless AihuPopoverTrigger primitive
   (toggles the popover, wires `aria-haspopup="dialog"` / `aria-expanded` /
   `aria-controls`, Enter/Space activation, Escape-dismiss) via the compiler's

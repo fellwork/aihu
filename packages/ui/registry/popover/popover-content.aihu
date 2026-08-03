@@ -2,6 +2,9 @@
   aihu-popover-content — styled recipe piece (Phase 2, master spec §9.4 / §9.7,
   performativeUI port Slice 7).
 
+  Design and behavior transcribed in spirit from performativeUI (MIT); no
+  source text or `pui-` class names vendored — see NOTICES.md.
+
   `<aihu-popover-content>` EXTENDS the headless AihuPopoverContent primitive
   (`role="dialog"` WITHOUT `aria-modal`, positions against the trigger via the
   REUSED css-engine `position()` shim, reflects `data-state` /

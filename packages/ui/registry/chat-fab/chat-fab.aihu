@@ -2,6 +2,9 @@
   aihu-chat-fab — styled recipe (Phase 2, performativeUI port Slice 7 —
   docs/plans/2026-08-01-performative-ui-port.md §Tier-B batch 3).
 
+  Design and behavior transcribed in spirit from performativeUI (MIT); no
+  source text or `pui-` class names vendored — see NOTICES.md.
+
   Roadmap: "= button + popover, deliberately avoiding a toast primitive." A
   fixed-position circular floating-action button that toggles a small panel —
   a generic chat-launcher SHELL. No chat logic lives here: the panel content
