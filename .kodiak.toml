@@ -1,0 +1,63 @@
+# Kodiak (https://kodiakhq.com) — PR automerge bot.
+#
+# Kodiak watches PRs and merges them once branch protection is satisfied, so a
+# PR that goes green at 2am does not sit until someone notices. It does NOT
+# bypass any gate: it merges only what GitHub would already let you merge by
+# hand, which for this repo means the `ci-ok` required status (see
+# scripts/setup-branch-protection.sh — ci-ok is deliberately the SOLE required
+# context, because `check`/`examples` legitimately SKIP on doc-only PRs).
+#
+# Opt-in by design: nothing merges automatically unless the `automerge` label
+# is on the PR (require_automerge_label below). Adding the label is the act of
+# saying "land this when it's green".
+
+version = 1
+
+[merge]
+# Opt-in, not opt-out. Without the label Kodiak leaves the PR completely alone.
+automerge_label = "automerge"
+require_automerge_label = true
+
+# Squash to match this repo's dominant history shape — main is overwhelmingly
+# `type(scope): description (#NNN)` single commits (see #725/#726/#717/#720…).
+# A branch whose individual commits are worth preserving can still be merged by
+# hand with a merge commit; this only governs what Kodiak does unattended.
+method = "squash"
+
+# The repo already sets this at the GitHub level; stated here too so the
+# behavior is visible in-tree rather than only in repo settings.
+delete_branch_on_merge = true
+
+# `blocked` already exists as a repo label ("Blocked by another issue"), so it
+# doubles as a hard stop for Kodiak. The extra spellings are conventional
+# escape hatches that cost nothing to honor.
+blocking_labels = ["blocked", "do not merge", "DO NOT MERGE"]
+
+# Default `^WIP:.*` would not catch this repo's conventional-commit titles
+# (`fix(ci): …`), so match a WIP marker anywhere in the title instead.
+blocking_title_regex = "(?i)\\b(wip|do not merge)\\b"
+
+# Comment on the PR when it goes conflicted, instead of failing silently.
+notify_on_conflict = true
+
+[merge.message]
+# Squash commits should read like the PR, not like GitHub's default
+# "Merge pull request #N from user/branch" — and the resulting subject line is
+# what commitlint's conventional-commit rules see on main.
+title = "pull_request_title"
+body = "pull_request_body"
+include_pr_number = true
+body_type = "markdown"
+# Drop PR-template HTML comments so they don't land in the commit body.
+strip_html_comments = true
+
+[update]
+# Branch protection has `strict: false` (branches need NOT be up to date to
+# merge), so rebasing every open PR on each push to main would be pure CI churn
+# for no gate benefit. Kodiak still updates a branch when it actually needs it
+# before merging (optimistic_updates defaults on).
+always = false
+require_automerge_label = true
+
+# [approve] intentionally omitted — no auto-approval. Kodiak lands what humans
+# and CI have already approved; it does not manufacture the approval itself.
