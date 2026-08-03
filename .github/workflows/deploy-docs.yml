@@ -171,6 +171,14 @@ jobs:
   deploy:
     name: Build & deploy
     needs: test
+    # Dependabot PRs run with GITHUB_TOKEN only — repo Actions secrets (incl.
+    # CLOUDFLARE_API_TOKEN) are deliberately withheld by GitHub for security,
+    # a separate store from regular repo secrets (Settings > Secrets >
+    # Dependabot). Deploying THAT would mean any dependency-bump PR carries
+    # real Cloudflare deploy credentials — not a tradeoff to make for an
+    # actions-version bump that touches no app code. `test` above still runs
+    # (no secrets needed) so a real build break still surfaces.
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-22.04
     timeout-minutes: 30
     steps:

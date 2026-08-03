@@ -34,6 +34,16 @@ permissions:
 jobs:
   deploy:
     name: Build & deploy
+    # Dependabot PRs run with GITHUB_TOKEN only — repo Actions secrets (incl.
+    # CLOUDFLARE_API_TOKEN) are deliberately withheld by GitHub for security,
+    # a separate store from regular repo secrets (Settings > Secrets >
+    # Dependabot). Deploying THAT would mean any dependency-bump PR carries
+    # real Cloudflare deploy credentials — not a tradeoff to make for an
+    # actions-version bump that touches no app code. This is docs-next's ONLY
+    # job (build+deploy combined, unlike deploy-docs.yml's separate `test`),
+    # so skipping it loses the build-verification signal too for Dependabot
+    # PRs specifically; acceptable for the same reason.
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-22.04
     timeout-minutes: 25
     steps:
