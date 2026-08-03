@@ -2,6 +2,9 @@
   aihu-waitlist-form — styled recipe (Phase 2, performativeUI port Slice 7 —
   docs/plans/2026-08-01-performative-ui-port.md §Tier-B batch 3).
 
+  Design and behavior transcribed in spirit from performativeUI (MIT); no
+  source text or `pui-` class names vendored — see NOTICES.md.
+
   An email-capture form with an inline success state after submit.
 
   NO NETWORK LOGIC HERE — submitting dispatches `waitlist-submit` (detail
@@ -187,7 +190,17 @@
     transition: border-color 0.15s, box-shadow 0.15s;
   }
   .aihu-waitlist-form-input::placeholder {
-    color: var(--color-muted-foreground);
+    /* --color-muted-foreground is the packs' lowest-contrast text token
+       (3.14-3.35:1 against this input's --color-background across all four
+       pack x mode combos — fails AA's 4.5:1 floor everywhere) — the same
+       failing token commits 2362b5ea/bc0b0a59 systematically removed from
+       every other registry component. --color-secondary is the same house
+       remedy those commits used for this exact token on prompt/mock-ide/
+       pricing-card's placeholder-shaped text: 6.39-7.23:1 here, comfortably
+       AA in all four combos (see this component's PR for the hand
+       computation against packages/css-engine/styles/aihu-default.css /
+       aihu-graphite.css). */
+    color: var(--color-secondary);
   }
   .aihu-waitlist-form-input:focus-visible {
     outline: none;
