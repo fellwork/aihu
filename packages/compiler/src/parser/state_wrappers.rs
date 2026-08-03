@@ -13,9 +13,11 @@
 //!   `controller`, `route`, `consume` — a bare identifier not shadowed by an
 //!   authored import.
 //! - **Statement-position calls** (§3.2): `effect(…)`, `onMount(…)`,
-//!   `onDispose(…)`, `onAdopt(…)`, `onAttributeChange(…)`, `aria(…)`,
-//!   `provide(…)`, `form(…)`, `event(…)`, `beforeNavigate(…)`,
-//!   `afterNavigate(…)`. To keep OLD-dialect files byte-identical (a plain
+//!   `onDispose(…)` (alias: `onCleanup(…)`, the `@aihu/runtime` export name —
+//!   recognized so it doesn't silently compile to an unimported identifier),
+//!   `onAdopt(…)`, `onAttributeChange(…)`, `aria(…)`, `provide(…)`, `form(…)`,
+//!   `event(…)`, `beforeNavigate(…)`, `afterNavigate(…)`. To keep OLD-dialect
+//!   files byte-identical (a plain
 //!   `effect(fn)` over an imported `effect` is legal plain JS today), these
 //!   are honored only when the file also declares at least one binding
 //!   wrapper or naked directive — i.e. when the file IS new-dialect.
@@ -48,10 +50,19 @@ const BINDING_INTRINSICS: &[&str] = &[
 ];
 
 /// The statement-position intrinsic names (spec §3.2 + §3.3.3).
+///
+/// `onCleanup` is recognized alongside `onDispose` (both lower to the same
+/// `dispose` lifecycle entry) because it collides with the real, importable
+/// `@aihu/runtime` export of the same name — a plausible, easy mistake (an
+/// incident on 2026-08-03 shipped it bare across 8 files in fellwork-web,
+/// silently compiling to an unimported identifier and crashing every one of
+/// those pages' setup() in production). Recognizing the name here closes the
+/// footgun instead of relying on authors remembering the dialect's spelling.
 const STATEMENT_INTRINSICS: &[&str] = &[
     "effect",
     "onMount",
     "onDispose",
+    "onCleanup",
     "onAdopt",
     "onAttributeChange",
     "aria",
@@ -899,13 +910,13 @@ fn try_parse_statement_call(
                 entries: vec![entry],
             }
         }
-        "onMount" | "onDispose" | "onAdopt" | "onAttributeChange" => {
+        "onMount" | "onDispose" | "onCleanup" | "onAdopt" | "onAttributeChange" => {
             if call.args.len() != 1 {
                 return Err(c629(w, "takes exactly one callback"));
             }
             let key = match w {
                 "onMount" => "mount",
-                "onDispose" => "dispose",
+                "onDispose" | "onCleanup" => "dispose",
                 "onAdopt" => "adopt",
                 _ => "attributeChange",
             };
@@ -1270,6 +1281,33 @@ beforeNavigate((to, from, next) => next())
             StateMacro::Collection { kind: CollectionKind::Lifecycle, .. }
         ));
         assert!(matches!(&s.macros[3], StateMacro::BeforeNavigate { .. }));
+    }
+
+    #[test]
+    fn on_cleanup_is_recognized_as_an_on_dispose_alias() {
+        // Incident 2026-08-03: onCleanup is a real @aihu/runtime export, so a
+        // bare call to it reads as correct — but only onDispose was in the
+        // recognized statement-call surface, so the compiler never wired the
+        // runtime import and 8 fellwork-web pages crashed on every load.
+        let body = "\
+let x = state(0)
+onCleanup(() => { cleanup() })
+";
+        let s = scan(body);
+        assert_eq!(s.macros.len(), 2);
+        assert!(matches!(
+            &s.macros[1],
+            StateMacro::Collection { kind: CollectionKind::Lifecycle, .. }
+        ));
+
+        // Same lowering as the canonical spelling — dispose is dispose
+        // regardless of which recognized name authored it.
+        let via_on_cleanup = scan("let x = state(0)\nonCleanup(() => { cleanup() })\n");
+        let via_on_dispose = scan("let x = state(0)\nonDispose(() => { cleanup() })\n");
+        assert_eq!(
+            format!("{:?}", via_on_cleanup.macros[1]),
+            format!("{:?}", via_on_dispose.macros[1])
+        );
     }
 
     #[test]
