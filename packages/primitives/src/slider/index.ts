@@ -55,6 +55,13 @@ export class AihuSliderRoot extends HTMLElement {
   private readonly _disabled = signal(false)
   private _dragging = false
   private _disposers: Array<() => void> = []
+  // Reentrancy guard for _reflectValueAttr — see that method's doc comment.
+  private _reflectingValue = false
+  // Set at the end of connectedCallback, after _syncFromAttrs() has done the
+  // ONE clean settle pass using fully-populated min/max/step/value. See
+  // _reclamp()'s doc comment for why min/max/step-triggered reflection is
+  // suppressed before this is true.
+  private _ready = false
 
   constructor() {
     super()
@@ -83,6 +90,7 @@ export class AihuSliderRoot extends HTMLElement {
 
   connectedCallback(): void {
     this._syncFromAttrs()
+    this._ready = true
 
     if (!this.hasAttribute('role')) this.setAttribute('role', 'slider')
     if (!this.hasAttribute('tabindex')) this.setAttribute('tabindex', '0')
@@ -126,17 +134,76 @@ export class AihuSliderRoot extends HTMLElement {
         this._reclamp()
         break
       }
-      case 'value':
-        this._value[1](this._clampRound(this._parseNum(value, 50)))
+      case 'value': {
+        const clamped = this._clampRound(this._parseNum(value, 50))
+        this._value[1](clamped)
+        // Same `_ready` gate as _reclamp() and for the same reason: during
+        // initial multi-attribute markup this reaction can run against a
+        // still-partial min/max/step, and _syncFromAttrs() (connectedCallback)
+        // does the one correct reflect once every attribute has settled.
+        // Post-connection (the actual Bug 2a scenario — a single
+        // `setAttribute('value', …)` on an already-live slider) this always
+        // reflects immediately, same as before.
+        if (this._ready) this._reflectValueAttr(clamped)
         break
+      }
       case 'disabled':
         this._disabled[1](value !== null)
         break
     }
   }
 
+  // Reclamps the current value against the LATEST min/max/step (called from
+  // attributeChangedCallback's 'min'/'max'/'step' branches). Attribute
+  // reflection is deliberately suppressed until `_ready` (post-connection):
+  // initial multi-attribute markup (e.g. `min="10" max="20" value="14"
+  // step="2"`) enqueues one attributeChangedCallback reaction PER attribute,
+  // and 'min'/'max' reactions run BEFORE the still-queued 'value'/'step'
+  // reactions — reflecting mid-upgrade here would write intermediate,
+  // wrong values (clamped against a PARTIALLY-populated min/max/step) into
+  // the `value` attribute, based on empirically confirmed ordering, not
+  // merely a theoretical concern. `_syncFromAttrs()` (called once at the end
+  // of connectedCallback, by which point every initial attribute reaction
+  // has already run) does the one correct settle pass using the FULLY
+  // populated min/max/step/value and reflects it — see that method. Once
+  // `_ready`, a min/max/step change is a single isolated attribute mutation
+  // (no cascade), so reflecting immediately here is safe.
   private _reclamp(): void {
-    this._value[1](this._clampRound(this._value[0]()))
+    const clamped = this._clampRound(this._value[0]())
+    this._value[1](clamped)
+    if (this._ready) this._reflectValueAttr(clamped)
+  }
+
+  /** Two-way `value` attribute reflection (accessibility.md contract), same
+   * pattern as `AihuSwitchRoot.setChecked`'s `checked` reflection. Every path
+   * that can CLAMP/STEP the value (a raw `setAttribute('value', …)`, or a
+   * `min`/`max`/`step` change that reclamps the current value out from under
+   * it) must write the STEPPED result back to the attribute, or the attribute
+   * silently desyncs from `aria-valuenow` (Bug 2a).
+   *
+   * GUARDED, not merely "convergent": `setAttribute` here re-enters
+   * `attributeChangedCallback` SYNCHRONOUSLY (jsdom, matching spec CEReactions
+   * timing), and initial multi-attribute markup (e.g.
+   * `min="10" max="20" value="14" step="2"`) enqueues one reaction per
+   * attribute — 'min'/'max' reactions calling `_reclamp()` BEFORE the
+   * queued-but-not-yet-run 'value'/'step' reactions can each independently
+   * decide the value attribute is stale (each sees a different intermediate
+   * min/max/step combination) and each write it again, and each write
+   * re-enters this method. That cascade genuinely blew the call stack in
+   * practice (RangeError, not a two-level bounce) — `_reflectingValue` caps
+   * it to one active write: a reentrant call still updates the `_value`
+   * signal (unconditional, above), it just never issues a second overlapping
+   * `setAttribute`, which the OUTERMOST call is already in the middle of. */
+  private _reflectValueAttr(clamped: number): void {
+    if (this._reflectingValue) return
+    const clampedStr = String(clamped)
+    if (this.getAttribute('value') === clampedStr) return
+    this._reflectingValue = true
+    try {
+      this.setAttribute('value', clampedStr)
+    } finally {
+      this._reflectingValue = false
+    }
   }
 
   private _parseNum(raw: string | null, fallback: number): number {
@@ -161,7 +228,9 @@ export class AihuSliderRoot extends HTMLElement {
     const step = this._parseNum(this.getAttribute('step'), 1)
     this._step[1](step > 0 ? step : 1)
     this._disabled[1](this.hasAttribute('disabled'))
-    this._value[1](this._clampRound(this._parseNum(this.getAttribute('value'), 50)))
+    const clamped = this._clampRound(this._parseNum(this.getAttribute('value'), 50))
+    this._value[1](clamped)
+    this._reflectValueAttr(clamped)
   }
 
   /** setValue() + emit `value-change` iff the clamped/rounded value actually
@@ -227,6 +296,7 @@ export class AihuSliderRoot extends HTMLElement {
     this._updateFromPointerX(ev.clientX)
     document.addEventListener('pointermove', this._onPointerMove)
     document.addEventListener('pointerup', this._onPointerUp)
+    document.addEventListener('pointercancel', this._onPointerCancel)
   }
 
   private readonly _onPointerMove = (ev: PointerEvent): void => {
@@ -238,10 +308,21 @@ export class AihuSliderRoot extends HTMLElement {
     this._endDrag()
   }
 
+  // Bug 2b: a touch-scroll steal, a right-click during drag, or the OS
+  // cancelling the pointer (e.g. a system gesture) fires `pointercancel`
+  // instead of `pointerup` — with only pointerup/pointermove bound, drag
+  // tracking never ended: every subsequent page-wide pointermove kept
+  // updating the value with the button up, and both document listeners
+  // leaked until disconnect. Ends the drag exactly like pointerup.
+  private readonly _onPointerCancel = (): void => {
+    this._endDrag()
+  }
+
   private _endDrag(): void {
     this._dragging = false
     document.removeEventListener('pointermove', this._onPointerMove)
     document.removeEventListener('pointerup', this._onPointerUp)
+    document.removeEventListener('pointercancel', this._onPointerCancel)
   }
 
   private _updateFromPointerX(clientX: number): void {
