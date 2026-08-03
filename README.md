@@ -322,7 +322,7 @@ See [`packages/`](./packages) for all packages on disk. By tier:
 | [`@aihu/compiler-native-linux-x64-gnu`](./packages/compiler/npm-native/linux-x64-gnu) | `0.1.12` | aihu compiler native addon (napi) — linux-x64-gnu platform binary. |
 | [`@aihu/compiler-native-win32-x64-msvc`](./packages/compiler/npm-native/win32-x64-msvc) | `0.1.12` | aihu compiler native addon (napi) — win32-x64-msvc platform binary. |
 | [`@aihu/context`](./packages/context) | `0.2.0` | Async-context-friendly request/SSR context primitives for aihu. |
-| [`@aihu/css-engine`](./packages/css-engine) | `0.5.14` | aihu CSS engine — Tailwind v4 hard fork with WC-native scoped output. |
+| [`@aihu/css-engine`](./packages/css-engine) | `0.6.0` | aihu CSS engine — Tailwind v4 hard fork with WC-native scoped output. |
 | [`@aihu/data`](./packages/_moved/data) | `2.0.5` | [MOVED] This package has moved to @aihu-plugin/data. |
 | [`@aihu/editor`](./packages/editor) | `0.1.2` | Hand-rolled, dependency-free, GX-governed rich-text editor — JSON doc model, invertible transactions, markdown (web-v1 dialect) round-trip, contenteditable view with IME-safe read-back, agent read/suggest/write surface. |
 | [`@aihu/language-server`](./packages/language-server) | `0.3.6` | Cross-editor Language Server (aihu-language-server) for .aihu Single File Components — diagnostics, hover, completion, and quick-fix code actions. |
@@ -330,7 +330,7 @@ See [`packages/`](./packages) for all packages on disk. By tier:
 | [`@aihu/mcp`](./packages/mcp) | `0.2.0` | MCP server for aihu — exposes aihu_example and aihu_validate tools via stdio transport. |
 | [`@aihu/plugin`](./packages/plugin) | `0.1.0` | Plugin substrate shared by @aihu/server and the meta-framework — runtime hook surface. |
 | [`@aihu/plugin-demo`](./packages/plugin-demo) | `0.1.4` | Canonical proof-of-life for the @aihu/plugin API — exercises macros, middleware, and transforms. |
-| [`@aihu/primitives`](./packages/primitives) | `0.2.0` | aihu headless behavior primitives — WAI-ARIA APG patterns as vanilla custom elements, zero CSS. |
+| [`@aihu/primitives`](./packages/primitives) | `0.2.1` | aihu headless behavior primitives — WAI-ARIA APG patterns as vanilla custom elements, zero CSS. |
 | [`@aihu/reactive`](./packages/reactive) | `0.2.0` | Fine-grained Proxy-backed deep reactive trees on aihu signals — lazy per-(object,key) tracking nodes, plain-assignment writes, mutate/reconcile. |
 | [`@aihu/router`](./packages/router) | `0.4.3` | File-based router for the aihu meta-framework. |
 | [`@aihu/runtime`](./packages/runtime) | `5.1.0` | Single File Component (.aihu) runtime — registers custom elements compiled by @aihu/compiler. |

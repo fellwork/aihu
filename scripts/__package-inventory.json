@@ -175,7 +175,7 @@
   },
   {
     "name": "@aihu/css-engine",
-    "version": "0.5.14",
+    "version": "0.6.0",
     "dir": "packages/css-engine",
     "isPlatform": false
   },
@@ -247,7 +247,7 @@
   },
   {
     "name": "@aihu/primitives",
-    "version": "0.2.0",
+    "version": "0.2.1",
     "dir": "packages/primitives",
     "isPlatform": false
   },

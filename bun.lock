@@ -74,7 +74,7 @@
     },
     "apps/docs-next": {
       "name": "aihu-docs-next",
-      "version": "0.0.5",
+      "version": "0.0.6",
       "dependencies": {
         "@aihu/app": "workspace:*",
         "@aihu/arbor": "workspace:*",
@@ -735,7 +735,7 @@
     },
     "packages/css-engine": {
       "name": "@aihu/css-engine",
-      "version": "0.5.14",
+      "version": "0.6.0",
       "dependencies": {
         "@aihu/compiler": "workspace:^",
       },
@@ -885,7 +885,7 @@
     },
     "packages/primitives": {
       "name": "@aihu/primitives",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "dependencies": {
         "@aihu/arbor": "workspace:*",
         "@aihu/css-engine": "workspace:*",
