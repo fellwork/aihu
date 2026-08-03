@@ -55,8 +55,14 @@ jobs:
 
   chromatic:
     needs: changes
+    # Dependabot PRs run with GITHUB_TOKEN only — repo Actions secrets (incl.
+    # the Chromatic project token) are deliberately withheld by GitHub for
+    # security, a separate store from regular repo secrets (Settings >
+    # Secrets > Dependabot). An actions-version bump touches no Storybook
+    # content anyway, so a visual-regression snapshot has no signal to give.
     if: >-
-      (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
+      github.actor != 'dependabot[bot]'
+      && (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
       && (github.event_name != 'pull_request' || needs.changes.outputs.storybook == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 30
