@@ -1,0 +1,102 @@
+name: Nightly drift
+
+# Catches the class of failure PR CI structurally CANNOT catch: drift between
+# what this repo declares and what the outside world actually has.
+#
+# Motivating incident (2026-08-01 → 08-03): packages/css-engine/package.json
+# pinned @aihu/css-engine-<platform>@0.1.4, later 0.1.17, while npm still had
+# only 0.1.3. Platform binaries ship as optionalDependencies, which are dropped
+# SILENTLY when unresolvable — every install kept reporting success, every PR
+# stayed green, and deploy-docs-next died three weeks later with a confusing
+# "Native CSS compiler binary not found for this platform". No PR was wrong; the
+# WORLD changed relative to main. Only a scheduled check against the real
+# registry sees that.
+#
+# This job gates nothing. It cannot block a PR or a merge — it opens (or
+# updates) a single tracking issue, so drift is loud without adding latency or
+# a new way for CI to be red on someone else's PR.
+
+"on":
+  schedule:
+    # 07:00 UTC daily — after typical US-evening merges, before the workday.
+    - cron: "0 7 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: nightly-drift
+  cancel-in-progress: false
+
+jobs:
+  drift:
+    name: Drift check
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.8"
+
+      # No `bun install` needed: check-pins-published.ts reads package.json files
+      # and talks to the npm registry over fetch(). Keeping it dependency-free is
+      # deliberate — a drift check that itself needs a healthy install is exactly
+      # the check that goes quiet when things break.
+      - name: Check platform-binary pins are published
+        id: pins
+        run: |
+          set +e
+          OUT=$(bun scripts/check-pins-published.ts --strict 2>&1)
+          CODE=$?
+          set -e
+          echo "$OUT"
+          {
+            echo 'report<<DRIFT_EOF'
+            echo "$OUT"
+            echo 'DRIFT_EOF'
+          } >> "$GITHUB_OUTPUT"
+          echo "code=$CODE" >> "$GITHUB_OUTPUT"
+
+      # One durable issue, updated in place — not a new issue every night.
+      - name: Open or update the drift issue
+        if: steps.pins.outputs.code != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPORT: ${{ steps.pins.outputs.report }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          TITLE="Drift: platform-binary pins are ahead of npm"
+          BODY=$(printf '%s\n\n```\n%s\n```\n\n_Detected by `.github/workflows/nightly-drift.yml` — [run](%s)._\n\nThis usually means a release is overdue: merging the pending `changeset-release/main` PR runs `release.yml`, which publishes the platform binaries **before** the host packages, so consumers never see a dangling pin.' \
+            "A pin in this repo points at a version that is not on npm. Because platform binaries are \`optionalDependencies\`, installs of the affected host packages silently drop the binary instead of failing." \
+            "$REPORT" "$RUN_URL")
+          EXISTING=$(gh issue list --state open --search "$TITLE in:title" --json number,title \
+            --jq ".[] | select(.title == \"$TITLE\") | .number" | head -1)
+          if [ -n "$EXISTING" ]; then
+            echo "Updating existing issue #$EXISTING"
+            gh issue comment "$EXISTING" --body "$BODY"
+          else
+            echo "Opening new drift issue"
+            gh issue create --title "$TITLE" --body "$BODY" --label tooling
+          fi
+
+      # Close the loop: when drift clears, say so and close, so a stale open
+      # issue never becomes background noise people learn to ignore.
+      - name: Close the drift issue when clean
+        if: steps.pins.outputs.code == '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          TITLE="Drift: platform-binary pins are ahead of npm"
+          EXISTING=$(gh issue list --state open --search "$TITLE in:title" --json number,title \
+            --jq ".[] | select(.title == \"$TITLE\") | .number" | head -1)
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --body "Resolved — all in-repo platform-binary pins are published. ([run]($RUN_URL))"
+            gh issue close "$EXISTING"
+          fi

@@ -54,6 +54,7 @@
     "check:server-binary-bump": "bun scripts/check-server-binary-bump.ts",
     "ci:receipt": "bun scripts/ci-receipt.ts",
     "lint:dep-pins": "bun scripts/lint-dep-pins.ts",
+    "drift:pins": "bun scripts/check-pins-published.ts",
     "lint:node-leak": "bun scripts/lint-node-bundle-leaks.ts",
     "check:hmr": "bun scripts/hmr-check.ts",
     "test:cookbook": "bun run --cwd cookbook test",

@@ -1,0 +1,68 @@
+# Path → label rules for actions/labeler (see .github/workflows/labeler.yml).
+#
+# Every label here ALREADY EXISTS in the repo and was previously applied by
+# hand; this only automates the mechanical part. No new taxonomy is introduced,
+# because a labeler that invents labels just creates a second, competing one.
+#
+# Labels deliberately NOT automated: `security` (a judgement call about impact,
+# not a path — auto-applying it would dilute the signal exactly where it matters
+# most), `blocked`, `automerge`, `agent-active` (all intentional human/agent
+# acts — see .kodiak.toml), and `swarm` (owned by the swarm sync, not by paths).
+
+compiler:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "packages/compiler/**"
+
+css-engine:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "packages/css-engine/**"
+
+shadow-dom:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "packages/css-engine/crates/aihu-css-core/src/light_scope.rs"
+          - "packages/runtime/src/define-component.ts"
+          - "packages/runtime/src/define-element.ts"
+
+ssr:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "packages/server/**"
+          - "packages/app/**"
+
+cli:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "packages/cli/**"
+          - "packages/create-aihu/**"
+
+agent:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "packages/agent/**"
+          - "packages/agent-a2a/**"
+          - "packages/agent-acp/**"
+          - "packages/agent-server/**"
+          - "packages/agent-service/**"
+          - "packages/mcp/**"
+          - "packages/plugin-agent-readiness/**"
+
+tooling:
+  - changed-files:
+      - any-glob-to-any-file:
+          - ".github/**"
+          - "scripts/**"
+          - "moon.yml"
+          - "biome.json"
+          - ".size-limit.json"
+          - ".kodiak.toml"
+
+documentation:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "docs/**"
+          - "apps/docs/**"
+          - "apps/docs-next/**"
+          - "**/*.md"

@@ -1,0 +1,31 @@
+version: 2
+
+# DELIBERATELY scoped to GitHub Actions only.
+#
+# npm/cargo updates are NOT enabled: this repo pins dependencies on purpose
+# (see scripts/lint-dep-pins.ts) and a firehose of version-bump PRs would train
+# everyone to rubber-stamp them — the opposite of the intent. Actions versions
+# are different: they are infrastructure nobody thinks about until a runner
+# deprecation breaks CI, which is already happening here (actions/checkout@v4
+# emits "Node.js 20 is deprecated ... forced to run on Node.js 24" on every
+# single run today).
+#
+# Grouped into ONE weekly PR so this stays a single review, not five.
+updates:
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "07:00"
+    open-pull-requests-limit: 3
+    commit-message:
+      # Matches this repo's conventional-commit history; `ci` is an allowed
+      # scope in commitlint's scope-enum, so these PRs pass the commit gate.
+      prefix: "chore(ci)"
+    groups:
+      actions:
+        patterns:
+          - "*"
+    labels:
+      - tooling

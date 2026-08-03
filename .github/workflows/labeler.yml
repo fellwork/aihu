@@ -1,0 +1,34 @@
+name: Label PRs
+
+# Applies path-based labels (rules in .github/labeler.yml). Purely additive
+# triage: it gates nothing, is not part of `ci-ok`, and cannot make a PR red.
+#
+# `pull_request_target` is required so PRs from forks can be labelled at all —
+# the default `pull_request` token is read-only there. That trigger runs the
+# workflow from the BASE branch with write scope, so the usual rule applies:
+# it must never check out or execute PR-authored code. This job does neither —
+# it only calls actions/labeler, which reads the changed-file list from the API.
+"on":
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: labeler-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  label:
+    name: Apply path labels
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/labeler@v5
+        with:
+          repo-token: ${{ github.token }}
+          # Labels are advisory triage, not a record of the PR's whole history:
+          # if a path stops being touched, its label should go too.
+          sync-labels: true

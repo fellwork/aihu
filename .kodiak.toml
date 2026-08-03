@@ -10,6 +10,21 @@
 # Opt-in by design: nothing merges automatically unless the `automerge` label
 # is on the PR (require_automerge_label below). Adding the label is the act of
 # saying "land this when it's green".
+#
+# AGENT PROTOCOL — this is the intended path for agentic sessions, not a
+# workaround. An agent that has finished a PR and wants it landed applies the
+# `automerge` label and stops. Kodiak takes it from there: it waits for `ci-ok`,
+# handles the merge, and deletes the branch. The agent never has to sit on a
+# CI run, poll for green, or hold merge rights of its own.
+#
+#   working  → no label (default state; nothing can merge)
+#   finished → add `automerge`  ⇒ lands as soon as ci-ok is green
+#   changed my mind mid-flight → add `agent-active` (a blocking label, and
+#                                blocking beats automerge) or convert to draft
+#
+# The safety property that makes this sound: the default is "never merge", so
+# an interrupted, crashed, or forgetful agent fails CLOSED. Landing work always
+# takes a deliberate act; abandoning it never lands anything.
 
 version = 1
 
@@ -31,7 +46,24 @@ delete_branch_on_merge = true
 # `blocked` already exists as a repo label ("Blocked by another issue"), so it
 # doubles as a hard stop for Kodiak. The extra spellings are conventional
 # escape hatches that cost nothing to honor.
-blocking_labels = ["blocked", "do not merge", "DO NOT MERGE"]
+#
+# `agent-active` is the important one: this repo is worked by long-running
+# agentic sessions that push follow-up commits to a branch minutes or hours
+# apart. A PR can be genuinely green between two such pushes, and merging in
+# that window would land half-finished work that looked complete. Two layers
+# stop that:
+#
+#   1. require_automerge_label above — the DEFAULT is "never merge". An agent
+#      that simply never applies `automerge` is already safe, which is why that
+#      is the primary control rather than a convention someone must remember.
+#   2. `agent-active` — a positive assertion of "a session is still working
+#      this branch", for the case where `automerge` was applied EARLIER and the
+#      work then continued. Blocking labels beat the automerge label, so adding
+#      it mid-flight revokes automerge without having to remove it.
+#
+# Kodiak also does not merge draft PRs, so `gh pr ready`/draft toggling is a
+# third, independent brake that needs no configuration at all.
+blocking_labels = ["blocked", "agent-active", "do not merge", "DO NOT MERGE"]
 
 # Default `^WIP:.*` would not catch this repo's conventional-commit titles
 # (`fix(ci): …`), so match a WIP marker anywhere in the title instead.
