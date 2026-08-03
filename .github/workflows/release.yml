@@ -111,10 +111,10 @@ jobs:
             use_cross: false
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@1482605bfc5719782e1267fd0c0cc350fe7646b8 # stable @ 2024-10-25
+        uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c # stable @ 2024-10-25
         with:
           toolchain: "1.95"
           targets: ${{ matrix.target }}
@@ -160,7 +160,7 @@ jobs:
           Write-Host "Generated SHA256: $hash"
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.asset }}
           path: |
@@ -180,10 +180,10 @@ jobs:
     # directory so consumers receive the full glue (.wasm + .js + .d.ts + package.json).
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install Rust toolchain (wasm32)
-        uses: dtolnay/rust-toolchain@1482605bfc5719782e1267fd0c0cc350fe7646b8 # stable @ 2024-10-25
+        uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c # stable @ 2024-10-25
         with:
           toolchain: "1.95"
           targets: wasm32-unknown-unknown
@@ -218,7 +218,7 @@ jobs:
           fi
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: aihu-compile-wasm
           path: |
@@ -246,7 +246,7 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
     steps:
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: artifacts
 
@@ -308,7 +308,7 @@ jobs:
           fi
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@72f2c25fcb47643c292f7107632f7a47c1df5cd8 # v2.2.1
+        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v2.2.1
         with:
           files: release-assets/*
           generate_release_notes: true
@@ -367,16 +367,16 @@ jobs:
             cdylib: aihu_server_native.dll
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@1482605bfc5719782e1267fd0c0cc350fe7646b8 # stable @ 2024-10-25
+        uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c # stable @ 2024-10-25
         with:
           toolchain: "1.95"
           targets: ${{ matrix.target }}
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '20'
 
@@ -395,7 +395,7 @@ jobs:
           Copy-Item -Path "packages/server/src-native/target/${{ matrix.target }}/release/${{ matrix.cdylib }}" -Destination "${{ matrix.node-file }}"
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: native-${{ matrix.platform }}
           path: ${{ matrix.node-file }}
@@ -415,10 +415,10 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.canary)
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
@@ -448,7 +448,7 @@ jobs:
           bun scripts/stamp-platform-snapshot.ts
 
       - name: Download all native artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: native-artifacts
 
@@ -479,7 +479,7 @@ jobs:
             cp "$node_file" "$dest"
             # NOTE: unlike publish-css-native, we intentionally do NOT chmod 0755
             # here. .node files are dlopen()'d by Node/Bun, not exec()'d — the
-            # OS loader does not require the exec bit. actions/download-artifact@v4
+            # OS loader does not require the exec bit. actions/download-artifact@v8
             # drops POSIX mode bits, but the resulting -rw-r--r-- is harmless for
             # napi addons. Do not change this without re-verifying dlopen on all
             # 4 platforms.
@@ -544,10 +544,10 @@ jobs:
             ext: '.exe'
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@1482605bfc5719782e1267fd0c0cc350fe7646b8 # stable @ 2024-10-25
+        uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c # stable @ 2024-10-25
         with:
           toolchain: "1.95"
           targets: ${{ matrix.target }}
@@ -570,7 +570,7 @@ jobs:
           Copy-Item -Path "target/${{ matrix.target }}/release/${{ matrix.bin-file }}" -Destination "${{ matrix.bin-file }}"
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: css-native-${{ matrix.platform }}
           path: ${{ matrix.bin-file }}
@@ -588,10 +588,10 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.canary)
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
@@ -617,7 +617,7 @@ jobs:
           bun scripts/stamp-platform-snapshot.ts
 
       - name: Download all css-native artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: css-native-artifacts
 
@@ -647,7 +647,7 @@ jobs:
             fi
             dest="$dir/$(basename "$bin_file")"
             cp "$bin_file" "$dest"
-            # Restore +x lost in actions/download-artifact@v4 (does NOT preserve
+            # Restore +x lost in actions/download-artifact@v8 (does NOT preserve
             # POSIX mode bits). Without this, the published tarball ships
             # aihu-css-compile as -rw-r--r--, and Bun consumers cannot fix it
             # (postinstall is blocked by default for untrusted deps). Skip
@@ -701,10 +701,10 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.canary)
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
@@ -730,7 +730,7 @@ jobs:
           bun scripts/stamp-platform-snapshot.ts
 
       - name: Download all compiler binary artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: compiler-artifacts
 
@@ -774,7 +774,7 @@ jobs:
               *)       dest="$dir/aihu-compile" ;;
             esac
             cp "$src" "$dest"
-            # Restore +x lost in actions/download-artifact@v4 (does NOT preserve
+            # Restore +x lost in actions/download-artifact@v8 (does NOT preserve
             # POSIX mode bits). Skip win32 — NTFS has no exec bit and we run on
             # Linux. Without this the published tarball ships aihu-compile as
             # -rw-r--r-- and Bun consumers (postinstall blocked for untrusted
@@ -855,10 +855,10 @@ jobs:
             use_cross: false
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@1482605bfc5719782e1267fd0c0cc350fe7646b8 # stable @ 2024-10-25
+        uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c # stable @ 2024-10-25
         with:
           toolchain: "1.95"
           targets: ${{ matrix.target }}
@@ -869,7 +869,7 @@ jobs:
         run: cargo install cross --git https://github.com/cross-rs/cross --tag v0.2.5 --locked
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '20'
 
@@ -895,7 +895,7 @@ jobs:
           Copy-Item -Path "packages/compiler/src-native/target/${{ matrix.target }}/release/${{ matrix.cdylib }}" -Destination "${{ matrix.node-file }}"
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: compiler-napi-${{ matrix.platform }}
           path: ${{ matrix.node-file }}
@@ -913,10 +913,10 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.canary)
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
@@ -940,7 +940,7 @@ jobs:
           bun scripts/stamp-platform-snapshot.ts
 
       - name: Download all compiler addon artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: compiler-napi-artifacts
 
@@ -1014,7 +1014,7 @@ jobs:
       id-token: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -1022,7 +1022,7 @@ jobs:
           bun-version: latest
 
       - name: Setup Node (for npm token)
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
@@ -1062,7 +1062,7 @@ jobs:
         # aihu-compile binaries as artifacts. Stage the host platform's binary
         # so the `bun run build` step below (which compiles .aihu sources via
         # the workspace `target/` dev fallback OR this staged bin) can exec it.
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: native-artifacts
 

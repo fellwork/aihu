@@ -53,7 +53,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: moonrepo/setup-toolchain@v0
         with:
           auto-install: true
@@ -72,7 +72,7 @@ jobs:
         working-directory: bench/signals
         run: cat fitness.json
       - name: Upload fitness.json
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: bench-signals-fitness
           path: bench/signals/fitness.json

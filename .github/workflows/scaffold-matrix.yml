@@ -65,7 +65,7 @@ jobs:
     # Generous: every cell installs from the live registry and boots two servers.
     timeout-minutes: 90
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -110,7 +110,7 @@ jobs:
         with:
           auto-install: true
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
 
@@ -167,7 +167,7 @@ jobs:
 
       - name: Upload matrix log
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: scaffold-matrix-log
           path: scaffold-matrix.log
