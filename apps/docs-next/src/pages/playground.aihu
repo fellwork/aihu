@@ -1,0 +1,242 @@
+@route {
+  path: "/playground",
+  name: "playground-page",
+  layout: "docs",
+  head: {
+    title: "Playground — aihu",
+    description: "Edit real .aihu source and watch it compile and run in your browser — powered by the WASM build of aihu-compile.",
+    canonical: "/playground"
+  }
+}
+
+@state {
+  // PRESETS is pure data (generated from the cookbook corpus), so it is safe to
+  // import at module scope: it renders into the prerendered HTML below.
+  //
+  // The playground ELEMENT is deliberately NOT imported here. It is registered
+  // from `src/main.ts` alongside the other islands, for two reasons:
+  //   1. `playground-embed.ts` defines custom-element classes at module scope
+  //      (`extends HTMLElement`), which the output:'static' prerender pass
+  //      would evaluate under Node.
+  //   2. A dynamic import expression inside an `@state` block does not survive
+  //      the build at all. Vite's `builtin:vite-dynamic-import-vars` text-scans
+  //      for the dynamic-import token and then re-parses the whole module as
+  //      JavaScript — but a compiled `.aihu` module is still TypeScript
+  //      (`import type { Signal }`, `let __aihu_setup__: ((ctx: any) => any) |
+  //      undefined`), so it dies with a PARSE_ERROR. The scan is textual, so
+  //      even writing that token in a COMMENT here is enough to trigger it;
+  //      that is why this note spells it out longhand. main.ts is plain TS,
+  //      transpiled before the plugin sees it, and has neither problem.
+  import { PRESETS } from '../../playground/presets.ts'
+
+  // COMPILER WORKAROUND — build the deep link through this helper rather than
+  // inlining the template literal as an object property below. The generated
+  // type-check sidecar rewrites any own-line object-literal property whose
+  // value text contains an equals sign into a `let` declaration, which is a
+  // syntax error and fails the whole build. A query string necessarily
+  // contains one, so the literal is kept out of the object here.
+  const presetHref = (id: string) => `/playground?preset=${id}`
+
+  const presets = PRESETS.map((p) => ({
+    id: p.id,
+    label: p.label,
+    href: presetHref(p.id),
+    lines: p.source.trimEnd().split('\n').length,
+  }))
+}
+
+@template {
+  <div class="dn-pgx dn-article">
+    <header class="dn-pgx-head">
+      <p class="dn-sec-num"><b>PG</b> playground</p>
+      <h1>Edit. Compile. Inspect. All in your browser.</h1>
+      <p>The real <code>aihu-compile</code> compiler, built to WebAssembly and
+         running on this page. Type <code>.aihu</code> source on the left; every
+         keystroke recompiles it and mounts the result — a live custom element —
+         in the sandboxed frame on the right. <em>No server round-trip, no
+         install.</em></p>
+    </header>
+
+    <playground-embed></playground-embed>
+
+    <section class="dn-pgx-sec">
+      <h2>Start from a recipe</h2>
+      <p class="dn-pgx-lede">Every preset is a real recipe from the
+         <a href="/cookbook">cookbook corpus</a> — the same source the docs, the
+         MCP <code>aihu_example</code> index, and the agent exports are generated
+         from. Each link deep-links the playground straight to that preset.</p>
+      <div class="dn-pgx-grid">
+        <a class="dn-pgx-card" each={p of presets} key={p.id} href={p.href}>
+          <span class="dn-pgx-card-label">{p.label}</span>
+          <code class="dn-pgx-card-id">{p.id}</code>
+          <span class="dn-pgx-card-meta dn-rail">{p.lines} lines</span>
+        </a>
+      </div>
+    </section>
+
+    <section class="dn-pgx-sec">
+      <h2>How it works</h2>
+      <ul class="dn-pgx-list">
+        <li><b>The compiler is the real one.</b> <code>public/wasm/</code> is
+            built from this checkout's Rust sources with <code>wasm-pack</code>
+            at build time, never fetched from a release — so the grammar the
+            playground accepts is exactly the grammar this commit ships.</li>
+        <li><b>The preview is sandboxed.</b> Compiled output runs in an iframe
+            with <code>sandbox="allow-scripts"</code> and no
+            <code>allow-same-origin</code>, so it cannot reach this page, its
+            storage, or its cookies. The frame's only channel back is a
+            <code>postMessage</code> height handshake.</li>
+        <li><b>Your draft is the URL.</b> Picking a preset writes
+            <code>?preset=&lt;id&gt;</code>; editing it switches to
+            <code>?src=&lt;source&gt;</code>, so any state you can see is a link
+            you can share.</li>
+      </ul>
+      <p class="dn-pgx-note">If the editor reports that the WASM bundle is
+         unavailable, the build ran without <code>wasm-pack</code> and the
+         <code>wasm32-unknown-unknown</code> target. Install both and re-run
+         <code>bun run prebuild</code>.</p>
+    </section>
+  </div>
+}
+
+@style {
+  .dn-pgx {
+    max-width: 62rem;
+  }
+  .dn-pgx-head .dn-sec-num {
+    margin: 0 0 1.1rem;
+  }
+  .dn-pgx-head h1 {
+    font-size: var(--fs-3xl);
+    font-weight: 700;
+    letter-spacing: var(--tracking-tighter);
+    line-height: 1.08;
+    margin: 0 0 0.75rem;
+    text-wrap: balance;
+    max-width: 20ch;
+  }
+  .dn-pgx-head p {
+    color: var(--muted);
+    font-size: var(--fs-md);
+    line-height: 1.6;
+    max-width: 44rem;
+    margin: 0 0 2rem;
+  }
+  .dn-pgx-head em {
+    color: var(--accent);
+    font-style: normal;
+    font-weight: 600;
+  }
+  .dn-pgx code {
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+    color: var(--accent-strong);
+  }
+
+  /* The element renders its own chrome in a shadow root; the page only owns
+     its box. Before the island upgrades (and on a no-JS crawl) it is empty
+     and collapses to nothing, which is why the prose sections carry the
+     page's real prerendered content. */
+  playground-embed {
+    display: block;
+    margin-bottom: 3.5rem;
+    border-radius: var(--r-lg);
+    overflow: hidden;
+    box-shadow: var(--shadow-md);
+  }
+
+  .dn-pgx-sec {
+    margin-bottom: 3.5rem;
+    scroll-margin-top: calc(var(--header-h) + 1rem);
+  }
+  .dn-pgx-sec h2 {
+    font-size: var(--fs-xl);
+    letter-spacing: var(--tracking-tight);
+    margin: 0 0 0.75rem;
+    padding-bottom: 0.6rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .dn-pgx-lede {
+    color: var(--muted);
+    font-size: var(--fs-sm);
+    line-height: 1.6;
+    max-width: 44rem;
+    margin: 0 0 1.25rem;
+  }
+
+  .dn-pgx-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.6rem;
+  }
+  .dn-pgx-card {
+    display: flex;
+    align-items: baseline;
+    gap: 0.6rem;
+    padding: 0.85rem 1rem;
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    background: var(--surface);
+    color: var(--fg);
+    text-decoration: none;
+    transition: border-color 0.14s, transform 0.12s, box-shadow 0.16s;
+  }
+  .dn-pgx-card:hover {
+    text-decoration: none;
+    border-color: var(--accent-line);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+  }
+  .dn-pgx-card-label {
+    font-weight: 600;
+    font-size: var(--fs-sm);
+    color: var(--fg-strong);
+  }
+  .dn-pgx-card-id {
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+    color: var(--muted) !important;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .dn-pgx-card-meta {
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+
+  .dn-pgx-list {
+    margin: 0;
+    padding-left: 1.1rem;
+    display: grid;
+    gap: 0.6rem;
+    color: var(--muted);
+    font-size: var(--fs-sm);
+    line-height: 1.6;
+    max-width: 46rem;
+  }
+  .dn-pgx-list b {
+    color: var(--fg-strong);
+    font-weight: 600;
+  }
+  .dn-pgx-note {
+    margin: 1.25rem 0 0;
+    padding: 0.8rem 1rem;
+    border-left: 2px solid var(--border-strong);
+    background: var(--surface-2);
+    color: var(--muted);
+    font-size: var(--fs-sm);
+    line-height: 1.55;
+  }
+
+  @media (min-width: 640px) {
+    .dn-pgx-grid {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+  @media (min-width: 900px) {
+    .dn-pgx-grid {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+}

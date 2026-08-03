@@ -18,13 +18,13 @@
 
 @template {
   <div class="dn-guide">
-    <p class="dn-sec-num"><b>G · 08</b> guides</p>
+    <p class="dn-sec-num"><b>G · 12</b> guides</p>
     <p class="dn-breadcrumb dn-rail"><a href="/guides/getting-started">Guides</a> / Deployment</p>
     <article class="dn-prose dn-article" html={body}></article>
     <nav class="dn-page-nav" aria-label="Guide pagination">
-      <a class="dn-page-prev" href="/guides/agent-discovery">
+      <a class="dn-page-prev" href="/guides/authoring-plugins">
         <span>Previous</span>
-        <strong>← Agent Discovery</strong>
+        <strong>← Authoring Plugins</strong>
       </a>
       <a class="dn-page-next" href="/api">
         <span>Next</span>

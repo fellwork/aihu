@@ -5,7 +5,14 @@
  *
  *   1. packages/mcp/src/cookbook-index.json   — the @aihu/mcp `aihu_example` index
  *   2. llms-cookbook.txt (repo root)          — agent-consumable text export
- *   3. apps/docs/playground/presets.generated.ts — playground presets
+ *   3. apps/docs/playground/presets.generated.ts      — playground presets
+ *   4. apps/docs-next/playground/presets.generated.ts — ditto, docs-next's port
+ *      of the playground. Two apps carry the playground during the docs-next →
+ *      docs promotion, and BOTH are written here (and diffed by
+ *      scripts/check-cookbook-index.ts) so neither can fossilize: a hand-copied
+ *      second artifact with no generator edge and no CI edge is precisely the
+ *      drift this script exists to prevent. Drop the apps/docs row when it
+ *      retires.
  *
  * FAIL-LOUD CONTRACT (the `-1` bundle-size doctrine): any recipe with
  * missing/invalid frontmatter, an unknown construct/type/concern, a duplicate
@@ -17,7 +24,7 @@
  */
 
 import { writeFileSync } from 'node:fs'
-import { basename, dirname, join, resolve } from 'node:path'
+import { basename, dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
   buildCorpus,
@@ -32,7 +39,10 @@ const repoRoot = resolve(__dirname, '../../../')
 const cookbookDir = join(repoRoot, 'cookbook')
 const indexPath = join(repoRoot, 'packages/mcp/src/cookbook-index.json')
 const llmsPath = join(repoRoot, 'llms-cookbook.txt')
-const presetsPath = join(repoRoot, 'apps/docs/playground/presets.generated.ts')
+const presetsPaths = [
+  join(repoRoot, 'apps/docs/playground/presets.generated.ts'),
+  join(repoRoot, 'apps/docs-next/playground/presets.generated.ts'),
+]
 
 const { entries, errors } = buildCorpus(cookbookDir)
 
@@ -65,7 +75,10 @@ console.log(`[build-cookbook-index] Wrote ${entries.length} entries to ${basenam
 writeFileSync(llmsPath, renderLlmsCookbook(entries), 'utf-8')
 console.log(`[build-cookbook-index] Wrote ${entries.length} recipes to ${basename(llmsPath)}`)
 
-writeFileSync(presetsPath, renderPresetsTs(entries), 'utf-8')
-console.log(
-  `[build-cookbook-index] Wrote ${presetCount} playground presets to ${basename(presetsPath)}`,
-)
+const presetsTs = renderPresetsTs(entries)
+for (const presetsPath of presetsPaths) {
+  writeFileSync(presetsPath, presetsTs, 'utf-8')
+  console.log(
+    `[build-cookbook-index] Wrote ${presetCount} playground presets to ${relative(repoRoot, presetsPath)}`,
+  )
+}

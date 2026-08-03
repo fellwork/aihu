@@ -10,8 +10,29 @@
 }
 
 @state {
-  import { COOKBOOK, GOVERNED, LIVE_ISLANDS, COUNTER_SOURCE } from '../data/gallery.ts'
+  import { COOKBOOK, GOVERNED, LIVE_ISLANDS, PLAYGROUND_PRESETS, COUNTER_SOURCE } from '../data/gallery.ts'
   import { codeBlock } from '../lib/code-block.ts'
+
+  // Recipes carrying a `playground` frontmatter label are the ones wired into
+  // the in-browser WASM playground. The deep link MUST use the preset query
+  // param — that is the contract <playground-embed> reads on connect
+  // (playground-embed.ts). A path segment would 404; there is no such route.
+  //
+  // COMPILER WORKAROUND — the link is built through this helper rather than
+  // inlined as an object property below. The generated type-check sidecar
+  // rewrites any own-line object-literal property whose value text contains an
+  // equals sign into a `let` declaration, which is a syntax error that fails
+  // the build. A query string necessarily contains one. (Minimal repro: a
+  // property whose value is a template literal containing "?x=" fails, and so
+  // does `isDefault: r.id === 'a'`, which has no question mark at all — so the
+  // trigger is the equals sign, not the query marker.)
+  const presetHref = (id: string) => `/playground?preset=${id}`
+
+  const playgroundPresets = PLAYGROUND_PRESETS.map((r) => ({
+    id: r.id,
+    label: r.playground ?? r.title,
+    href: presetHref(r.id),
+  }))
 
   const cookbook = COOKBOOK.map((r) => ({
     id: r.id,
@@ -63,9 +84,15 @@
       </div>
       <p class="dn-pg-note">
         This counter is the real <code>aihu-counter</code> recipe, compiled at
-        build and hydrated as an island — fully interactive right here.
-        In-browser recompilation (the WASM playground) is the next phase.
+        build and hydrated as an island — fully interactive right here. To
+        change the source and recompile it in your browser, open the
+        <a href="/playground">WASM playground</a>:
       </p>
+      <div class="dn-pg-presets">
+        <a class="dn-pg-preset" each={p of playgroundPresets} key={p.id} href={p.href}>
+          {p.label}
+        </a>
+      </div>
     </section>
 
     <section id="governed" class="dn-sec">
@@ -215,6 +242,34 @@
     font-family: var(--font-mono);
     font-size: 0.85em;
     color: var(--accent);
+  }
+
+  /* Deep links into /playground?preset=<id> — one chip per cookbook recipe
+     carrying a `playground:` frontmatter label. */
+  .dn-pg-presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    padding: 0 1.25rem 1.1rem;
+  }
+  .dn-pg-preset {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.7rem;
+    border: 1px solid var(--border);
+    border-radius: var(--r-sm);
+    background: var(--surface-2);
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+    text-decoration: none;
+    transition: color 0.12s, border-color 0.12s, background 0.12s;
+  }
+  .dn-pg-preset:hover {
+    text-decoration: none;
+    color: var(--accent);
+    border-color: var(--accent-line);
+    background: var(--surface);
   }
 
   /* sections */

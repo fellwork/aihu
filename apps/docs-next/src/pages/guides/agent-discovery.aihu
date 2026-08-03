@@ -18,7 +18,7 @@
 
 @template {
   <div class="dn-guide">
-    <p class="dn-sec-num"><b>G · 07</b> guides</p>
+    <p class="dn-sec-num"><b>G · 10</b> guides</p>
     <p class="dn-breadcrumb dn-rail"><a href="/guides/getting-started">Guides</a> / Agent Discovery</p>
     <article class="dn-prose dn-article" html={body}></article>
     <nav class="dn-page-nav" aria-label="Guide pagination">
@@ -26,9 +26,9 @@
         <span>Previous</span>
         <strong>← SSR &amp; Hydration</strong>
       </a>
-      <a class="dn-page-next" href="/guides/deployment">
+      <a class="dn-page-next" href="/guides/authoring-plugins">
         <span>Next</span>
-        <strong>Deployment →</strong>
+        <strong>Authoring Plugins →</strong>
       </a>
     </nav>
   </div>
