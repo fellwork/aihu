@@ -69,6 +69,32 @@ jobs:
         env:
           CARGO_TERM_COLOR: always
 
+      # aihu-css-compile (the css-engine's native CSS compiler) is the SECOND
+      # native binary this job needs, and unlike aihu-compile above it was never
+      # built here — docs-next's `prebuild` → `gen:css` → `compile()` calls it
+      # directly (apps/docs-next/gen-css.ts), and the vite plugin's compileSfc()
+      # pass calls it again. deploy-docs.yml gets away without this step because
+      # apps/docs has no gen:css and never touches @aihu/css-engine at build time.
+      #
+      # Until now this job resolved the binary from the PUBLISHED
+      # @aihu/css-engine-<platform> optionalDependency instead. That is a silent
+      # single point of failure: optionalDependencies are dropped WITHOUT error
+      # when unresolvable, so the moment packages/css-engine/package.json pinned
+      # a version that had not been published yet (0.1.4 in #725, then 0.1.17),
+      # installs kept "succeeding" and the job died much later with
+      # "Native CSS compiler binary not found for this platform" — red since
+      # 2026-08-01, green through 2026-07-30 on the last published pin (0.1.3).
+      #
+      # Building from source removes the coupling to release cadence entirely:
+      # resolveBinary() checks target/release/aihu-css-compile as a dev fallback
+      # (it is named in that very error message's "Checked dev fallback paths"),
+      # so a source build satisfies both call sites and an unpublished pin can
+      # never break docs deploys again. Same shape as the compiler step above.
+      - name: Build css-engine binary
+        run: cargo build --release -p aihu-css-core
+        env:
+          CARGO_TERM_COLOR: always
+
       - name: Stage compiler binary
         run: |
           mkdir -p packages/compiler/bin
