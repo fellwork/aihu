@@ -38,11 +38,21 @@
     guard sets `animation: none` on the root and both pseudo-elements. This
     trivially satisfies the port's "paint once, never loop" convention
     (Slice 8's canvas composables enforce the same contract in JS) — with no
-    keyframes running, every layer just renders its plain, non-animated
-    declared state (the base layer's static `background-position`, the
-    pseudo-elements' static `inset`/`filter`), which is a complete, populated
-    aurora composition, not a blank box. There is no JS branch to trace here;
-    the whole guard is 5 lines of CSS.
+    keyframes running, every layer falls back to its own PLAIN declared
+    state, which is why `transform`/`opacity` on `.aihu-aurora::before`/
+    `::after` are declared as normal (non-keyframe) properties on those
+    selectors too, set to each layer's own mid-cycle (50%) keyframe values —
+    a genuinely calm rest frame, not the unstyled CSS default. (An earlier
+    revision left `transform`/`opacity` declared ONLY inside the two
+    `@keyframes` blocks; under `animation: none` that resolves to
+    `transform: none` + `opacity: 1` — both blobs full-opacity and
+    dead-center — which, combined with `mix-blend-mode: screen`, is the
+    BRIGHTEST, most centrally-stacked render the component can produce,
+    the opposite of "calm." Fixed by giving both pseudo-elements their own
+    static mid-cycle declaration below.) The base layer's
+    `background-position: 0% 50%` was never keyframe-only — it was already a
+    real declared value on `.aihu-aurora` itself — so it needed no change.
+    There is no JS branch to trace here; the whole guard is 5 lines of CSS.
 
   Fully decorative, slot-free, self-contained: `position: absolute; inset: 0`
   meant to sit BEHIND other content. The consumer places it as the first
@@ -96,6 +106,12 @@
       transparent 70%
     );
     filter: blur(50px);
+    /* Static rest frame — the `50%` keyframe of aihu-aurora-drift-cool below.
+       Reduced motion sets `animation: none` and lets THIS show; without it,
+       transform/opacity would fall back to the CSS default (`none` / `1`),
+       not a calm mid-cycle pose. See this file's header comment. */
+    transform: translate(10%, 15%) scale(1.15);
+    opacity: 0.9;
     animation: aihu-aurora-drift-cool 24s var(--ease-brand) infinite alternate;
   }
   .aihu-aurora::after {
@@ -105,6 +121,10 @@
       transparent 70%
     );
     filter: blur(70px);
+    /* Static rest frame — the `50%` keyframe of aihu-aurora-drift-warm below.
+       Same reduced-motion role as ::before's, above. */
+    transform: translate(-10%, -15%) scale(1.1);
+    opacity: 0.85;
     animation: aihu-aurora-drift-warm 28s var(--ease-brand) infinite alternate-reverse;
   }
   @keyframes aihu-aurora-drift-base {
