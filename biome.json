@@ -22,6 +22,7 @@
       "!packages/cli/tests/legacy-snapshot.golden",
       "!brand",
       "!apps/docs/playground/presets.generated.ts",
+      "!apps/docs-next/playground/presets.generated.ts",
       "!packages/mcp/src/cookbook-index.json",
       "!vendor",
       "!packages/css-engine/styles/aihu-default.css",

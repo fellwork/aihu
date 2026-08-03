@@ -23,9 +23,13 @@ export const NAV: readonly NavSection[] = [
       { label: 'Installation', href: '/guides/installation', ready: true },
       { label: 'Reactivity', href: '/guides/reactivity', ready: true },
       { label: 'Authoring Components', href: '/guides/authoring-components', ready: true },
+      { label: 'Authoring Agents', href: '/guides/authoring-agents', ready: true },
+      { label: 'Utility Classes', href: '/guides/utility-classes', ready: true },
       { label: 'Routing & Layouts', href: '/guides/routing-layouts', ready: true },
+      { label: 'Data Fetching', href: '/guides/data-fetching', ready: true },
       { label: 'SSR & Hydration', href: '/guides/ssr-hydration', ready: true },
       { label: 'Agent Discovery', href: '/guides/agent-discovery', ready: true },
+      { label: 'Authoring Plugins', href: '/guides/authoring-plugins', ready: true },
       { label: 'Deployment', href: '/guides/deployment', ready: true },
     ],
   },
@@ -51,8 +55,9 @@ export const NAV: readonly NavSection[] = [
   // Gallery data (scripts/gen-gallery.ts): 20 cookbook recipes + the 9
   // founder-ratified governed examples, derived from packages/mcp/src/
   // cookbook-index.json + examples/<name>/coverage.manifest.json. Every
-  // recipe below is a real, prerendered /cookbook/<id> detail page; the
-  // in-browser WASM playground is deferred (see cookbook build follow-up).
+  // recipe below is a real, prerendered /cookbook/<id> detail page, and the
+  // in-browser WASM playground (ported from apps/docs) compiles the same
+  // corpus live at /playground.
   {
     title: 'Examples',
     links: [
@@ -68,4 +73,12 @@ export const NAV: readonly NavSection[] = [
     ],
   },
   // --- /Cookbook (track B) ---
+  // --- Playground (WASM) ---
+  // Its own top-level section rather than a row under Examples: it is a tool,
+  // not a document, and it is the only route that ships the compiler itself
+  // (the wasm-pack build of aihu-compile) to the browser.
+  {
+    title: 'Playground',
+    links: [{ label: 'Compile in-browser', href: '/playground', ready: true }],
+  },
 ]

@@ -1,34 +1,34 @@
 @route {
-  path: "/guides/routing-layouts",
-  name: "guide-routing-layouts",
+  path: "/guides/data-fetching",
+  name: "guide-data-fetching",
   layout: "docs",
   head: {
-    title: "Routing & Layouts — aihu",
-    description: "File-based routing, the @route block, .route.json sidecars, layouts, and router middleware.",
-    canonical: "/guides/routing-layouts"
+    title: "Data Fetching — aihu",
+    description: "The resource() @state intrinsic, createResource from @aihu-plugin/data, server loaders, governed route.data, and streaming routes.",
+    canonical: "/guides/data-fetching"
   }
 }
 
 @state {
   import { renderMarkdown } from '../../lib/markdown.ts'
-  import { ROUTING_LAYOUTS } from '../../data/guide-routing-layouts.ts'
+  import { DATA_FETCHING } from '../../data/guide-data-fetching.ts'
 
-  const body = renderMarkdown(ROUTING_LAYOUTS)
+  const body = renderMarkdown(DATA_FETCHING)
 }
 
 @template {
   <div class="dn-guide">
-    <p class="dn-sec-num"><b>G · 07</b> guides</p>
-    <p class="dn-breadcrumb dn-rail"><a href="/guides/getting-started">Guides</a> / Routing &amp; Layouts</p>
+    <p class="dn-sec-num"><b>G · 08</b> guides</p>
+    <p class="dn-breadcrumb dn-rail"><a href="/guides/getting-started">Guides</a> / Data Fetching</p>
     <article class="dn-prose dn-article" html={body}></article>
     <nav class="dn-page-nav" aria-label="Guide pagination">
-      <a class="dn-page-prev" href="/guides/utility-classes">
+      <a class="dn-page-prev" href="/guides/routing-layouts">
         <span>Previous</span>
-        <strong>← Utility Classes</strong>
+        <strong>← Routing &amp; Layouts</strong>
       </a>
-      <a class="dn-page-next" href="/guides/data-fetching">
+      <a class="dn-page-next" href="/guides/ssr-hydration">
         <span>Next</span>
-        <strong>Data Fetching →</strong>
+        <strong>SSR &amp; Hydration →</strong>
       </a>
     </nav>
   </div>

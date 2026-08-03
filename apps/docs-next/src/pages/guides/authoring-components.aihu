@@ -26,9 +26,9 @@
         <span>Previous</span>
         <strong>← Reactivity</strong>
       </a>
-      <a class="dn-page-next" href="/guides/routing-layouts">
+      <a class="dn-page-next" href="/guides/authoring-agents">
         <span>Next</span>
-        <strong>Routing &amp; Layouts →</strong>
+        <strong>Authoring Agents →</strong>
       </a>
     </nav>
   </div>

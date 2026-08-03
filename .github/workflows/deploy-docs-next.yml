@@ -67,10 +67,30 @@ jobs:
         with:
           auto-install: true
 
-      # aihu-compile (the .aihu SFC compiler) is a native Rust binary. docs-next
-      # has no WASM playground (deferred — see apps/docs-next's cookbook commit),
-      # so unlike deploy-docs.yml this job needs no wasm32 target / wasm-pack,
-      # only the native release binary for the vite-plugin compiler pass.
+      # aihu-compile (the .aihu SFC compiler) is a native Rust binary, needed
+      # here for the vite-plugin compiler pass.
+      #
+      # docs-next now ALSO carries the in-browser WASM playground (/playground,
+      # ported from apps/docs), whose `prebuild` builds the compiler to
+      # wasm32-unknown-unknown from THIS checkout via scripts/build-wasm-bundle.ts
+      # — so this job needs the same wasm32 target + wasm-pack that
+      # deploy-docs.yml installs. Building from the checkout rather than fetching
+      # a release is deliberate: a released bundle lags the workspace grammar and
+      # every preset then fails to compile with C306 (#491).
+      #
+      # This is not optional-with-a-soft-landing in CI: apps/docs-next/scripts/
+      # stage-wasm.ts passes --strict whenever $CI is set, so a missing toolchain
+      # fails the deploy here instead of silently shipping a playground that
+      # cannot compile anything.
+      - name: Install Rust toolchain (+ wasm32 for the playground bundle)
+        uses: dtolnay/rust-toolchain@1482605bfc5719782e1267fd0c0cc350fe7646b8
+        with:
+          toolchain: "1.95" # sync with rust-toolchain.toml
+          targets: wasm32-unknown-unknown
+
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
       - name: Cache Rust build (deps only; aihu-compile always rebuilds)
         uses: Swatinem/rust-cache@v2
 
@@ -134,9 +154,12 @@ jobs:
           AIHU_COMPILE_BIN: ${{ github.workspace }}/packages/compiler/bin/aihu-compile
 
       - name: Build docs-next
-        # gen:css (prebuild) + vite build → dist. public/ (including the
-        # agent-discovery surface: ai.txt, agents.json, openapi.json,
-        # .well-known/*) is copied into dist/ by vite as static assets.
+        # prebuild (gen:css + gen:preview + gen:wasm) then vite build → dist.
+        # public/ is copied into dist/ by vite as static assets — that covers
+        # both the agent-discovery surface (ai.txt, agents.json, openapi.json,
+        # .well-known/*) and the two playground artifacts the prebuild stages
+        # there (wasm/ and aihu-preview-bundle.js), which is why the playground
+        # needs no custom vite plugin.
         run: bun run build
         working-directory: apps/docs-next
         env:

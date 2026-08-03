@@ -2,8 +2,21 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "noEmit": true,
+    // The playground is browser code: it touches HTMLElement, ShadowRoot,
+    // customElements, iframes and postMessage, none of which exist in the
+    // node-only lib set the rest of this project compiles against.
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "types": ["node"],
     "moduleDetection": "force"
   },
-  "include": ["src/lib", "src/data", "scripts", "gen-css.ts", "aihu.config.ts", "vite.config.ts"]
+  "include": [
+    "src/lib",
+    "src/data",
+    "scripts",
+    "playground",
+    "gen-css.ts",
+    "aihu.config.ts",
+    "vite.config.ts",
+    "rolldown.preview.config.ts"
+  ]
 }
