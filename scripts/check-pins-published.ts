@@ -110,7 +110,12 @@ function latestStable(versions: string[]): string {
 
 async function publishedVersions(name: string): Promise<string[] | null> {
   try {
-    const res = await fetch(`https://registry.npmjs.org/${name.replace('/', '%2F')}`, {
+    // encodeURIComponent, not `.replace('/', '%2F')`: replace() substitutes only
+    // the FIRST match, which CodeQL correctly flags as incomplete sanitization
+    // (js/incomplete-sanitization). It happens to be harmless for the one-slash
+    // `@scope/name` shape we actually pass, but "correct only for today's
+    // inputs" is not a property worth keeping in a URL builder.
+    const res = await fetch(`https://registry.npmjs.org/${encodeURIComponent(name)}`, {
       headers: { accept: 'application/vnd.npm.install-v1+json' },
       signal: AbortSignal.timeout(15_000),
     })
