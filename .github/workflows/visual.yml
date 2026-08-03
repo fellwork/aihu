@@ -40,8 +40,8 @@ jobs:
     outputs:
       storybook: ${{ steps.filter.outputs.storybook }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v3
+      - uses: actions/checkout@v7
+      - uses: dorny/paths-filter@v4
         id: filter
         with:
           filters: |
@@ -67,7 +67,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # Chromatic requires full git history for baseline resolution.
           fetch-depth: 0
