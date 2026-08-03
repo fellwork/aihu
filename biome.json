@@ -27,7 +27,9 @@
       "!packages/css-engine/styles/aihu-default.css",
       "!packages/css-engine/styles/aihu-graphite.css",
       "!apps/storybook/src/stories/animations-gallery.generated.css",
-      "!apps/storybook/src/stories/animations-gallery.generated.ts"
+      "!apps/storybook/src/stories/animations-gallery.generated.ts",
+      "!scripts/fixtures/animations-gallery/expected.generated.css",
+      "!scripts/fixtures/animations-gallery/expected.generated.ts"
     ]
   },
   "formatter": {

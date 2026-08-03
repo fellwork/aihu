@@ -1,0 +1,6 @@
+.fixture-fade-in {
+  animation: fixture-fade-in 300ms ease-out both;
+}
+.fixture-slide-up {
+  animation: fixture-slide-up 300ms ease-out both;
+}

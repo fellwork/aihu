@@ -146,6 +146,29 @@ jobs:
       # `bun run gen:composable-registry` after adding/renaming a composable
       # or editing its doc comment.
       - run: bun run check:composable-registry
+      # Generated-artifact drift guards for @aihu/css-engine's Rust-derived
+      # tables — same shape as check:composable-registry above (a committed TS
+      # module generated from the compiler binary's own data, never
+      # hand-written), so they run right after it. Both invoke
+      # aihu-css-compile directly (see each script's header), which "Build
+      # Rust binaries" already staged at target/release/ above, so no extra
+      # build step is needed here.
+      #
+      # check:cn-map — the `cn()` conflict map is generated from
+      # tokens::conflict_groups(); a Rust utility-registry edit (e.g. new
+      # animate-* entries) that forgets `bun run gen:cn-map` ships silently
+      # stale until the next publish. Previously only ran at prepublishOnly
+      # with no CI drift check (see gen-cn-conflict-map.ts's header) — wired
+      # in now because chain membership in `check:ci` (invoked by no
+      # workflow) proved nothing (C-FEL-428).
+      - run: bun run check:cn-map
+      # check:animations-gallery — the Storybook demo gallery's data
+      # (tailwind-animations port Track A Slice 14) is pre-compiled at
+      # generation time from animations::ANIMATIONS, since the gallery's
+      # plain-HTML story is never scanned by the aihuCompilerPlugin (see
+      # gen-animations-gallery.ts's header). Same C-FEL-428 orphan history as
+      # check:cn-map above — was reachable only via the inert check:ci chain.
+      - run: bun run check:animations-gallery
         # Use the pinned local biome (node_modules/.bin via check:lint), NOT
         # `bunx biome`, which resolves its own latest copy and made CI flap when
         # biome 2.4.15 published mid-day (see PR pinning @biomejs/biome to 2.4.14).
