@@ -63,17 +63,14 @@ test('active nav tracks client-side navigation, not just reloads', async ({ page
     timeout: 10_000,
   })
   const activeHref = () =>
-    page.evaluate(
-      () =>
-        document.querySelector('.dn-topnav a.active')?.getAttribute('href') ?? null,
-    )
+    page.evaluate(() => document.querySelector('.dn-topnav a.active')?.getAttribute('href') ?? null)
   await expect.poll(activeHref).toBe('/guides/getting-started')
 
   // Navigate to a different SECTION client-side; the header must follow.
   await page.evaluate(() => {
-    const a = [...document.querySelectorAll('a')].find(
-      (x) => x.getAttribute('href') === '/api',
-    ) as HTMLAnchorElement | undefined
+    const a = [...document.querySelectorAll('a')].find((x) => x.getAttribute('href') === '/api') as
+      | HTMLAnchorElement
+      | undefined
     a?.click()
   })
   await expect(page).toHaveURL(/\/api$/)
