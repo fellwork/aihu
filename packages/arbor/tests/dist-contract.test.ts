@@ -45,8 +45,7 @@ interface Dist {
   when: (condition: unknown, grow: unknown) => NodeBag
 }
 
-const load = async (): Promise<Dist> =>
-  (await import(/* @vite-ignore */ DIST)) as unknown as Dist
+const load = async (): Promise<Dist> => (await import(/* @vite-ignore */ DIST)) as unknown as Dist
 
 describe('@aihu/arbor dist — node wire format', () => {
   it('has a built dist to test', () => {
