@@ -1,0 +1,45 @@
+# Cloudflare Pages redirects — the aihu.dev IA move.
+#
+# WHY THIS FILE EXISTS. apps/docs (the site aihu.dev serves today) prerenders
+# to `dist/<slug>/index.html`, so every one of its slugs is a LIVE URL: it is in
+# the published sitemap.xml, in llms.txt, and in each page's own `canonical`.
+# docs-next reorganises the IA — packages/* became api/*, and the three
+# top-level entry pages moved under guides/ — so without these rules the
+# cutover turns ~27 advertised URLs into 404s.
+#
+# Only genuinely MOVED paths are listed. Every guide that kept its path
+# (/guides/reactivity, /guides/theming, /guides/styling, …) needs no rule and
+# has none — a redirect from a path to itself is a loop.
+#
+# Verified before writing: every target on the right-hand side resolves to a
+# real prerendered page in docs-next. Checked mechanically against the built
+# page list, not by eye.
+#
+# Format: <from> <to> <status>. 301 throughout — these moves are permanent, and
+# a 301 is what transfers link equity and gets cached by crawlers.
+
+# ── The package reference: /packages/* → /api/* ──────────────────────────────
+# A splat rather than 22 literal rules. Confirmed that all 22 slugs apps/docs
+# published (adapter-cloudflare, adapter-vercel, agent-a2a, agent-acp,
+# agent-server, ai, auth, cli, context, editor, language-server, magna, mcp,
+# plugin-drizzle, plugin-kindly-note, reactive, scraping, seo, store, tsc, ui,
+# use) exist under /api/. docs-next publishes 40 api pages, so the splat also
+# catches any old deep link to a package the old site never had a page for —
+# which lands on a real page rather than a 404.
+/packages/*                 /api/:splat                 301
+
+# ── Entry pages that moved under /guides/ ────────────────────────────────────
+/introduction               /                           301
+/installation               /guides/installation        301
+/getting-started            /guides/getting-started     301
+/migration                  /guides/migration           301
+
+# ── The reference index ──────────────────────────────────────────────────────
+/api-reference              /api                        301
+
+# ── Carried over from apps/docs/public/_redirects ────────────────────────────
+# The old site shipped exactly one rule, `/docs → /docs/introduction`. Its
+# target no longer exists (and `/docs/*` was never a prefix docs-next serves),
+# so it is retargeted to the new home of the introduction content rather than
+# dropped: anything still linking /docs deserves a landing, not a 404.
+/docs                       /                           301

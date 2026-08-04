@@ -238,6 +238,20 @@ jobs:
           # the TDZ bug in apps/docs; deploy-docs.yml carries the same two hunks.
           AIHU_COMPILE_BIN: ${{ github.workspace }}/packages/compiler/bin/aihu-compile
 
+      # Redirect map — verified against the BUILT dist, before anything slower
+      # runs (it needs only the emitted pages, and it is the cheapest gate here).
+      #
+      # `_redirects` is a static file copied verbatim into dist, so nothing else
+      # in this job looks at it: not the build, not Playwright, not Lighthouse.
+      # A rule pointing at a page that does not exist is therefore completely
+      # silent — Cloudflare serves the 301 and the visitor lands on a 404. These
+      # particular rules carry ~27 URLs that are live on aihu.dev today across
+      # the docs-next IA move, and they are in the published sitemap, so a
+      # broken one converts an indexed URL into a 404 rather than preserving it.
+      - name: Redirect map gate
+        run: bun scripts/check-redirects.ts
+        working-directory: apps/docs-next
+
       - name: Install Node.js
         uses: actions/setup-node@v7
         with:
