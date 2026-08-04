@@ -38,5 +38,28 @@ export default defineConfig({
     dynamicImportVarsOptions: {
       exclude: [/\.aihu$/],
     },
+
+    // Do NOT <link rel="modulepreload"> the playground's lazy chunks.
+    //
+    // `playground-embed.ts` is imported eagerly from `src/main.ts` (it has to
+    // register its custom elements on the client entry). Its heavy pieces are
+    // deliberately dynamic imports so they load only once a <playground-embed>
+    // actually connects — but Vite preloads chunks reachable from an entry by
+    // default, which silently defeats that: `strip-ts.ts` pulls in the whole
+    // `typescript` package, so EVERY page shipped a 3.4 MB modulepreload.
+    //
+    // Measured on /guides/getting-started, a page with no playground on it:
+    //   before   perf 55   LCP 20,101ms   (3.42 MB eager, 74/74 pages)
+    //   after    see the commit message for the re-measured numbers
+    // The old apps/docs scores perf 100 / LCP 1,575ms on the same gate, and
+    // aihu.dev's Lighthouse threshold is 95+ on all four categories — so this
+    // is load-bearing for the docs-next promotion, not a nicety.
+    //
+    // Filtering preload deps costs no correctness: the dynamic import still
+    // resolves and fetches on demand the moment the element needs it.
+    modulePreload: {
+      resolveDependencies: (_filename, deps) =>
+        deps.filter((d) => !/(strip-ts|code-editor|codemirror|playground-embed)/i.test(d)),
+    },
   },
 })
