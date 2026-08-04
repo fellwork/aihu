@@ -59,6 +59,13 @@ export function createResourceStore(): ResourceStoreWithMeta {
  * Inject in component setup:  const store = inject(ResourceStoreToken)
  * Provide at app root:        provide(ResourceStoreToken, createResourceStore())
  *
+ * "App root" is a concrete seam: `createApp({ context: () => … })`
+ * (`AppConfig.context`, @aihu/app). `provide()` is component-scoped, so a bare
+ * call at module top level lands in NO scope and every `inject` returns
+ * undefined (here that degrades quietly to the module-level singleton below —
+ * correct, but never per-app scoped). The `context` callback runs inside the
+ * app-root context scope, where it takes effect.
+ *
  * No default value is provided — inject(ResourceStoreToken) returns undefined
  * when no store is provided, which causes createResource to fall back to the
  * module-level singleton store.

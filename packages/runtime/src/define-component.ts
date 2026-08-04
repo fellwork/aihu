@@ -227,6 +227,38 @@ function _enterOwnerContext(el: Record<symbol, unknown>): ReturnType<typeof _ent
     el[PROVIDES_SYM] = own
   })
 }
+
+/**
+ * @internal — run `fn` inside a context scope OWNED BY an arbitrary DOM node,
+ * so that `provide()` calls made in `fn` become visible to every component
+ * later connected beneath that node.
+ *
+ * `@aihu/context`'s hierarchical `provide`/`inject` are component-scoped: only
+ * `_build()` installs a scope (via `_enterOwnerContext` above), so a `provide()`
+ * made during app bootstrap — outside any component setup — lands nowhere and
+ * every descendant's `inject()` silently falls back to the token default. That
+ * is exactly the failure mode `@aihu/app`'s `createApp()` hit with
+ * `RouteContext` (`useRoute()`/`useRouter()`/`useRouteParams()` resolving null
+ * forever in the primary app model).
+ *
+ * The provides chain is keyed on DOM nodes, not on component-ness —
+ * `_enterOwnerContext` walks `parentNode` / shadow `host` looking for ANY node
+ * carrying a provides object. So installing one on the app's outlet element is
+ * enough to root the whole tree, with no synthetic wrapper component and no
+ * change to `inject`'s hot path. Re-entrant and nestable (it uses the same
+ * enter/exit token protocol as a component setup), and a no-op-safe pairing:
+ * the scope is always torn down in `finally`.
+ *
+ * Not exported for app authors — `@aihu/app` is the intended (and only) caller.
+ */
+export function _withOwnerContext<R>(node: object, fn: () => R): R {
+  const prev = _enterOwnerContext(node as Record<symbol, unknown>)
+  try {
+    return fn()
+  } finally {
+    _exitContext(prev)
+  }
+}
 const _E0002 = 'no mount'
 
 /** Bug 6: safe tag-name lookup for the connectedCallback error path. A real

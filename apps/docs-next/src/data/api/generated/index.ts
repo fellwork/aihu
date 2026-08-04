@@ -368,8 +368,8 @@ export const PACKAGES: readonly ApiPackageMeta[] = [
     tagline:
       'Single File Component (.aihu) runtime — registers custom elements compiled by @aihu/compiler.',
     note: '',
-    exportCount: 40,
-    valueCount: 27,
+    exportCount: 41,
+    valueCount: 28,
     typeCount: 13,
     agent: true,
   },

@@ -39,14 +39,34 @@ vi.mock('virtual:aihu-routes', () => ({ default: mockRoutes }))
 vi.mock('virtual:aihu-layouts', () => ({ default: mockLayouts }))
 vi.mock('virtual:aihu-components', () => ({ default: mockComponents }))
 vi.mock('@aihu/arbor', () => ({ hydrate: vi.fn(), mount: vi.fn() }))
-vi.mock('@aihu/signals', () => ({ signal: vi.fn() }))
+// `signal` serves two unrelated purposes in client.ts: it is handed to
+// `_setSignal` (wiring only — identity is all that matters there) and it backs
+// the route-context match signal, which IS destructured as `[read, write]`.
+// A bare `vi.fn()` returning undefined would throw on that destructure, so the
+// stub returns a minimal working read/write pair.
+vi.mock('@aihu/signals', () => ({
+  signal: vi.fn((init: unknown) => {
+    let v = init
+    return [
+      () => v,
+      (next: unknown) => {
+        v = next
+      },
+    ]
+  }),
+}))
 vi.mock('@aihu/router', () => ({
   createRouter: vi.fn(() => ({ match: mockMatch })),
+  bindRouteSignalWriter: vi.fn(),
+  provideRouteContext: vi.fn(),
 }))
 vi.mock('@aihu/runtime', () => ({
   _setMount: vi.fn(),
   _setSignal: vi.fn(),
   _setHydrate: vi.fn(),
+  // Pass-through: these wiring tests do not exercise the context scope itself,
+  // they only need the provide callback to run.
+  _withOwnerContext: vi.fn((_node: object, fn: () => unknown) => fn()),
 }))
 
 import { _setHydrate, _setMount, _setSignal } from '@aihu/runtime'

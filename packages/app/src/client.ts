@@ -2,9 +2,9 @@ import componentRegistry from 'virtual:aihu-components'
 import layouts from 'virtual:aihu-layouts'
 import routes from 'virtual:aihu-routes'
 import { hydrate, mount } from '@aihu/arbor'
-import type { MatchResult, RouteDefinition, RouteHead } from '@aihu/router'
-import { createRouter } from '@aihu/router'
-import { _setHydrate, _setMount, _setSignal } from '@aihu/runtime'
+import type { MatchResult, RouteContextValue, RouteDefinition, RouteHead } from '@aihu/router'
+import { bindRouteSignalWriter, createRouter, provideRouteContext } from '@aihu/router'
+import { _setHydrate, _setMount, _setSignal, _withOwnerContext } from '@aihu/runtime'
 // Pure subpath — NOT the @aihu/server barrel. The barrel reaches loader.ts +
 // the lazy native loader; importing it would risk dragging node:-bearing code
 // into the browser client bundle and trip check:runtime-purity. head-lowering.ts
@@ -31,10 +31,43 @@ export interface AppConfig {
    * Use this for singletons (db clients, auth helpers, i18n) that are
    * referenced as bare identifiers inside @state blocks.
    *
+   * NOTE — this is NOT `@aihu/context`'s `provide()`. Despite the shared name
+   * it is a different mechanism: values land on `globalThis`, not in a context
+   * token, and `inject(Token)` will never see them. For real token-based DI at
+   * the app root, use {@link AppConfig.context} below.
+   *
    * @example
    * createApp({ provide: { supabase, checkAuth } })
    */
   provide?: Record<string, unknown>
+  /**
+   * App-root context scope. Runs ONCE at bootstrap, inside a real
+   * `@aihu/context` scope owned by the outlet element — so every
+   * `provide(Token, value)` made here is visible to `inject(Token)` in every
+   * page, layout and nested component the app renders.
+   *
+   * This is the app-root seam that several packages' docs already assume
+   * exists ("provide at app root" — `@aihu/magna`'s `MagnaFetchToken`,
+   * `@aihu-plugin/data`'s `ResourceStoreToken`). Without it, `provide()` at
+   * bootstrap lands in no scope at all and `inject()` silently returns the
+   * token default forever — `inject` falls back rather than throwing, so the
+   * failure is invisible. `@aihu/app` installs the router's own `RouteContext`
+   * through the same scope, immediately BEFORE this callback runs, so an app
+   * may also deliberately override it.
+   *
+   * Must be synchronous: `provide()` only writes to the active scope, and the
+   * scope is torn down when the callback returns. Providing from an `await`ed
+   * continuation is a silent no-op.
+   *
+   * @example
+   * import { provide } from '@aihu/context'
+   * import { MagnaFetchToken, createMagnaFetch } from '@aihu/magna'
+   *
+   * createApp({
+   *   context: () => provide(MagnaFetchToken, createMagnaFetch({ url })),
+   * })
+   */
+  context?: () => void
   /**
    * Rendering mode from the server config. Controls whether the client
    * wires the hydration function into the runtime.
@@ -180,6 +213,51 @@ export function createApp(config?: AppConfig): AppHandle {
 
   const router = createRouter(routes)
 
+  // ── App-root context scope ────────────────────────────────────────────────
+  //
+  // ROOT CAUSE this fixes: `@aihu/app` had NO context-participating app root.
+  // `@aihu/context`'s `provide()` is component-scoped — only a component's
+  // `_build()` installs a scope (`_enterOwnerContext` in
+  // packages/runtime/src/define-component.ts) — and `createApp` is bootstrap,
+  // not a component. So a `provide()` here landed in no scope at all and every
+  // descendant's `inject()` fell back to the token default, silently, forever.
+  //
+  // Two consequences, one cause:
+  //   1. `RouteContext` was provided ONLY by the standalone `<router>` element
+  //      path (`aihu-router.aihu` / the compiler's `createRouterBoundary`), so
+  //      `useRoute()` / `useRouter()` / `useRouteParams()` were dead no-ops in
+  //      the PRIMARY app model — including `output: 'static'` SSG apps.
+  //   2. Tokens whose docs say "provide at app root" (`@aihu/magna`'s
+  //      `MagnaFetchToken`, `@aihu-plugin/data`'s `ResourceStoreToken`) had no
+  //      such root to be provided from.
+  //
+  // The fix is therefore the general seam, not a RouteContext special case:
+  // `_withOwnerContext` installs a context scope OWNED BY THE OUTLET ELEMENT —
+  // a DOM ancestor of every page and layout this app renders. The runtime's
+  // per-component `_enterOwnerContext` walks `parentNode` / shadow `host`
+  // looking for ANY node carrying a provides object, so rooting the chain on
+  // the outlet needs no synthetic wrapper component and no change to
+  // `inject`'s hot path. `config.context` opens the same scope to app authors.
+  //
+  // Note `config.provide` (above) is an unrelated `globalThis` hoist that never
+  // touches `@aihu/context`; the name collision is part of why this went
+  // unnoticed. See the AppConfig docs.
+  //
+  // The match signal is written from `render()` (below), so `ctx.current()` is
+  // reactive and tracks navigation. Binding it as the route-signal writer also
+  // makes `@aihu/router`'s programmatic `navigate()` work here: it now finds a
+  // context (instead of falling back to a full page load) and drives a real
+  // outlet re-render through `renderNav`.
+  const [readMatch, writeMatch] = signal<MatchResult | null>(null)
+  const routeContext: RouteContextValue = { router, current: readMatch }
+  bindRouteSignalWriter(routeContext, renderNav)
+  _withOwnerContext(outlet, () => {
+    provideRouteContext(routeContext)
+    // Author-supplied providers run second so an app may deliberately override
+    // the framework's own tokens (both write to the same scope; last wins).
+    config?.context?.()
+  })
+
   // Per-route <head> wiring (B5, SEO arc). `siteUrl` resolves relative
   // canonical/OG/Twitter URLs to absolute; `globalHead` (app.head) is folded
   // under each route's head so defaults persist across navigations.
@@ -220,6 +298,10 @@ export function createApp(config?: AppConfig): AppHandle {
 
   async function render(match: MatchResult | null): Promise<void> {
     currentMatch = match
+    // Publish to the route context BEFORE any page/layout element is created,
+    // so a component's `useRoute()` — read during its synchronous setup — sees
+    // the match it is being rendered for, not the previous one.
+    writeMatch(match)
     if (!match) {
       // Check for a 404/not-found route by convention before falling back inline
       const notFoundRoute = (routes as RouteDefinition[]).find(
