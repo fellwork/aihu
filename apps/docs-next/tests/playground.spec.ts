@@ -11,10 +11,9 @@
 import { expect, test } from '@playwright/test'
 
 async function waitForEmbed(page: import('@playwright/test').Page) {
-  await page.waitForFunction(
-    () => document.querySelector('playground-embed')?.shadowRoot != null,
-    { timeout: 10_000 },
-  )
+  await page.waitForFunction(() => document.querySelector('playground-embed')?.shadowRoot != null, {
+    timeout: 10_000,
+  })
 }
 
 test('playground-embed upgrades and boots with no error banner or console errors', async ({
@@ -40,7 +39,10 @@ test('playground-embed upgrades and boots with no error banner or console errors
   // dist/wasm is built by wasm-pack at prebuild and may be absent in a local
   // build that skipped the Rust toolchain — CI always has it (see
   // deploy-docs-next.yml's wasm32 + wasm-pack steps + stage-wasm.ts --strict).
-  test.skip(bootError?.includes('WASM bundle unavailable') ?? false, 'no ./wasm bundle in this build')
+  test.skip(
+    bootError?.includes('WASM bundle unavailable') ?? false,
+    'no ./wasm bundle in this build',
+  )
 
   expect(bootError).toBeNull()
   expect(errors).toEqual([])
@@ -52,8 +54,7 @@ test('preset deep link (?preset=) loads that preset on cold visit', async ({ pag
   const active = await page.evaluate(() => {
     const sr = document.querySelector('playground-embed')?.shadowRoot
     return (
-      sr?.querySelector('.preset-tab[aria-pressed="true"]')?.getAttribute('data-preset-id') ??
-      null
+      sr?.querySelector('.preset-tab[aria-pressed="true"]')?.getAttribute('data-preset-id') ?? null
     )
   })
   expect(active).toBe('aihu-counter')

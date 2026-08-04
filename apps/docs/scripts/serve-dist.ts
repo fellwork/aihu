@@ -104,11 +104,7 @@ function maybeCompress(
 }
 
 function respond(fileBody: Buffer | Uint8Array, contentType: string, ext: string, req: Request) {
-  const { body, encoding } = maybeCompress(
-    fileBody,
-    ext,
-    req.headers.get('accept-encoding') ?? '',
-  )
+  const { body, encoding } = maybeCompress(fileBody, ext, req.headers.get('accept-encoding') ?? '')
   const headers: Record<string, string> = { 'content-type': contentType, vary: 'accept-encoding' }
   if (encoding) headers['content-encoding'] = encoding
   return new Response(body, { headers })
