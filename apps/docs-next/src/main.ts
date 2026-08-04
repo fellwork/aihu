@@ -51,8 +51,9 @@ import './styles/cookbook.css' // /cookbook/<id> recipe datasheet — same reaso
 // Boot the SPA. On an output:'static' build the prerendered per-route HTML is
 // already in the document; createApp hydrates and adopts it in place.
 //
-// `site.url` MUST mirror aihu.config.ts's `site.url` (the prerender path reads
-// it from there directly). Without it, `updateHead`'s first call — which runs
+// `site.url` MUST mirror the `site.url` in `vite.config.ts`'s inline
+// `viteAihuPlugin({...})` config (the prerender path reads it from there
+// directly). Without it, `updateHead`'s first call — which runs
 // during this same hydration, not just on later navigation — resolves
 // `canonical`/OG/Twitter with `siteUrl: undefined` and REWRITES the
 // prerendered absolute `https://aihu.dev/...` canonical down to the page's

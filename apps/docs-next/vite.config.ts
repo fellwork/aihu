@@ -4,7 +4,6 @@ import { criticalPath, viteAihuPlugin } from '@aihu/app'
 import { viteAgentReadinessIntegration } from '@aihu-plugin/agent-readiness'
 import { defineConfig, type Plugin } from 'vite'
 import { agentReadinessConfig } from './agent-readiness.config.ts'
-import aihuConfig from './aihu.config.ts'
 
 /**
  * Emit a flat `<pattern>.html` beside every prerendered `<pattern>/index.html`,
@@ -80,9 +79,14 @@ function flatHtmlSiblings(): Plugin {
   }
 }
 
-// The SSG build is driven entirely by `aihu.config.ts` (output: 'static').
-// viteAihuPlugin wires the Rust compiler, the file-router integration, per-route
-// <head> injection, and the prerender closeBundle pass.
+// The SSG build is driven by the inline config passed to `viteAihuPlugin`
+// below. It used to live in a separate `aihu.config.ts`; `vite.config.ts` is
+// the canonical home, and the standalone file is a legacy fallback being
+// removed framework-wide, so docs-next carries its own config here rather than
+// inheriting the deprecated shape into `apps/docs` at the cutover.
+//
+// viteAihuPlugin wires the Rust compiler, the file-router integration,
+// per-route <head> injection, and the prerender closeBundle pass.
 //
 // viteAgentReadinessIntegration emits the agent-discovery documents (llms.txt,
 // llms-full.txt, robots.txt, sitemap.xml, and the MCP/A2A cards) as real static
@@ -90,7 +94,34 @@ function flatHtmlSiblings(): Plugin {
 // HTTP 200 — see `agent-readiness.config.ts`.
 export default defineConfig({
   plugins: [
-    viteAihuPlugin(aihuConfig),
+    viteAihuPlugin({
+      // `output: 'static'` prerenders every STATIC route to a content-ful
+      // `<pattern>/index.html` with its per-route `<head>`, then hydrates into
+      // the SPA on load. Crawlers and non-JS agents read real content; humans
+      // get the live, island-hydrated app. Deployed as static assets on
+      // Cloudflare Pages (see `wrangler.toml`) — no server runtime needed.
+      output: 'static',
+      site: { url: 'https://aihu.dev' },
+      dir: { pages: 'src/pages', layouts: 'src/layouts' },
+      // `shadowMode: 'light'` renders layouts + pages into the light DOM so the
+      // global design-token cascade (`src/styles/*`) reaches every component,
+      // SPA `<a>` interception works across the shell, and the prerendered
+      // content sits directly in the document for crawlers.
+      css: { shadowMode: 'light' },
+      app: {
+        head: {
+          title: 'aihu — the framework that equally governs humans and AI',
+          meta: [
+            { name: 'generator', content: 'aihu' },
+            {
+              name: 'description',
+              content:
+                'aihu is a web meta-framework that equally governs the security and experience of humans and AI. Guides, API reference, examples, and a live playground.',
+            },
+          ],
+        },
+      },
+    }),
     viteAgentReadinessIntegration(agentReadinessConfig),
     flatHtmlSiblings(),
 
