@@ -171,6 +171,30 @@ export function _injectShadowMode(
 }
 
 /**
+ * Fill the Rust codegen's `__AIHU_LIGHT_SCOPE_ID__` placeholder with the
+ * component's real light-DOM scope id (LDF §10 step 3).
+ *
+ * The server-target string renderer (`emit.rs`, wave-3) emits
+ * `const __AIHU_LIGHT_SCOPE_ID__: string | undefined = undefined;` and merges
+ * it into `__ssrString`'s options (`opts.lightScopeId ?? __AIHU_LIGHT_SCOPE_ID__`)
+ * so a compiled light-DOM component can stamp `data-a` on its own rendered
+ * root with NO caller cooperation. Whether the component actually resolves to
+ * light mode is only known here in the JS layer (same reason
+ * `_injectShadowMode` exists), so Rust emits the placeholder and this helper
+ * replaces the literal when the mode resolved to light — exactly the wiring
+ * the Rust-side comment names. Idempotent: no placeholder (client target,
+ * bailed string renderer) → code returned untouched.
+ *
+ * @internal
+ */
+export function _injectLightScopeId(code: string, lightScopeId: string): string {
+  return code.replace(
+    'const __AIHU_LIGHT_SCOPE_ID__: string | undefined = undefined',
+    `const __AIHU_LIGHT_SCOPE_ID__: string | undefined = '${lightScopeId}'`,
+  )
+}
+
+/**
  * Light-DOM (`shadowMode:'light'`) recipes: redirect the authored `@style`
  * block's per-instance `host.adoptedStyleSheets = [__style__]` assignment to
  * `document.adoptedStyleSheets` so the recipe's class-scoped CSS reaches the
@@ -1535,6 +1559,11 @@ export function aihuCompilerPlugin(options?: AihuCompilerPluginOptions): VitePlu
           effectiveShadow != null
             ? _injectShadowMode(result.code, effectiveShadow, lightScopeId)
             : result.code
+        // LDF §10 step 3, server side: fill the Rust codegen's
+        // `__AIHU_LIGHT_SCOPE_ID__` placeholder so the compiled `__ssrString`
+        // stamps `data-a` on its own root by default (no-op when the target
+        // carries no string renderer).
+        if (lightScopeId) compiled = _injectLightScopeId(compiled, lightScopeId)
         // Light-DOM: the authored `@style` block compiled to a per-instance
         // `host.adoptedStyleSheets` assignment, but a light-DOM host has no
         // shadow root so that setter is a no-op. Redirect the module-level
@@ -1606,6 +1635,18 @@ export function aihuCompilerPlugin(options?: AihuCompilerPluginOptions): VitePlu
           // code the SSR render never runs. Emit the server target as-is; the
           // TS-strip below still applies.
           out = compiled
+          // LDF §10 step 3, server side: expose the compiler-assigned light-DOM
+          // scope id so an SSR/SSG caller (e.g. `@aihu/app`'s prerender) can
+          // pass it to `renderToString` as `SsrOptions.lightScopeId` and stamp
+          // `data-a` on the prerendered root. This is the SAME id the client
+          // transform injects into `defineElement` options and the css fold
+          // wrote into the emitted `@scope([data-a="…"])` blocks — exporting it
+          // from the compiled module keeps a single source of truth (no
+          // consumer ever re-derives the hash). Server target only: the client
+          // runtime stamps at `connectedCallback` and needs no export.
+          if (lightScopeId) {
+            out += `\nexport const __aihu_light_scope__ = '${lightScopeId}'\n`
+          }
         } else if (
           islandsEnabled &&
           elementTag !== null &&

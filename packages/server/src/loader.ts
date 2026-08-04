@@ -58,9 +58,16 @@ export async function renderToString(
   // addon needs, and is byte-identical to both walkers by contract.
   // `AIHU_SSR_STRING=0` disables the fast path inside ssr.ts, in which case
   // this routing still lands on the correct TS walker output.
+  // LDF §10 step 3: `lightScopeId` also falls through to TS — the napi
+  // addon's `renderTree(treeJson, hydratable)` signature predates the option
+  // and would silently DROP the root `data-a` stamp, shipping prerendered
+  // light-DOM markup whose `@scope([data-a="…"])` CSS matches nothing until
+  // hydration (the docs-next LCP regression this option exists to fix). When
+  // the native surface grows the parameter, this guard can be lifted.
   if (
     opts?.serializer ||
     opts?.contextSetup ||
+    opts?.lightScopeId !== undefined ||
     typeof component !== 'function' ||
     typeof (component as { __aihu_ssr_string__?: unknown }).__aihu_ssr_string__ === 'function'
   ) {

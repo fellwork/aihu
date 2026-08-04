@@ -405,6 +405,45 @@ describe.skipIf(!hasBinary)('SSR string fast path — differential byte-identity
     expect(html).toBe('<div data-aihu-path="0"></div>')
   })
 
+  it('lightScopeId stamps data-a on the root — byte-identical across both renderers', async () => {
+    // LDF §10 step 3: `root_scope_attr` (string emit) reads
+    // `__opts.lightScopeId`; the walker reads `SsrOptions.lightScopeId`. Both
+    // stamp the ROOT element only, between the static attrs and the path
+    // marker — this pins the placement AND the parity, in both hydration
+    // modes, plus the unstamped default staying unstamped.
+    const { mod } = await compileToModule(
+      'diff-light-scope',
+      `@template {
+  <section class="card">
+    <h2>Scoped</h2>
+  </section>
+}
+`,
+    )
+    const ssrString = mod.__ssrString as (
+      props?: Record<string, unknown>,
+      opts?: { hydratable?: boolean; lightScopeId?: string },
+    ) => string
+    for (const hydratable of [true, false]) {
+      const walker = await renderToString(() => mod.__ssr(), {
+        hydratable,
+        lightScopeId: 'deadbee1',
+      })
+      const fast = ssrString({}, { hydratable, lightScopeId: 'deadbee1' })
+      expect(fast).toBe(markup(walker))
+      expect(fast).toContain(' data-a="deadbee1"')
+      // Root only.
+      expect(fast.match(/ data-a="/g)).toHaveLength(1)
+    }
+    // Placement: static attrs, then data-a, then the path marker.
+    expect(ssrString({}, { hydratable: true, lightScopeId: 'deadbee1' })).toContain(
+      '<section class="card" data-a="deadbee1" data-aihu-path="0">',
+    )
+    // Undefined stays unstamped on both paths.
+    expect(ssrString({}, { hydratable: true })).not.toContain('data-a=')
+    expect(await renderToString(() => mod.__ssr(), { hydratable: true })).not.toContain('data-a=')
+  })
+
   it('dataSource trees (hand-built) never carry a string renderer; streaming intact', async () => {
     // Compiled templates cannot produce dataSource branches — this shape only
     // exists for hand-built trees, which have no __ssrString by construction.

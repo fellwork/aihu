@@ -263,6 +263,61 @@ describe('runPrerender — layout composition', () => {
     expect(html).toContain('src="/assets/main-abc123.js"')
   })
 
+  it('stamps each module’s __aihu_light_scope__ as data-a on its prerendered root (LDF §10 step 3)', async () => {
+    fx = await makeFixture()
+    await writeRoute(fx.root, 'index.ts', { name: 'home-page', layout: 'app' })
+    await writeLayout(fx.root, 'app')
+
+    // Both modules carry the compiler's server-target scope export. The layout
+    // is an arbor factory (the walker path); its root must carry the LAYOUT's
+    // id and the page root the PAGE's id — the ids must not cross, because the
+    // page root's `data-a` is also the layout scope's `to ([data-a])` boundary.
+    const loadModule: SsrModuleLoader = async (file) => {
+      const f = file.replace(/\\/g, '/')
+      if (f.endsWith('/src/layouts/app.aihu')) {
+        return {
+          __aihu_light_scope__: 'aabbccdd',
+          default: () => ({
+            kind: 'branch',
+            tag: 'div',
+            attrs: { class: 'shell' },
+            children: [
+              {
+                kind: 'branch',
+                tag: 'main',
+                attrs: { 'data-aihu-outlet': '' },
+                children: [],
+              },
+            ],
+          }),
+        }
+      }
+      return {
+        __aihu_light_scope__: '11223344',
+        default: () => ({
+          kind: 'branch',
+          tag: 'article',
+          children: [{ kind: 'leaf', leafKind: 'text', value: 'Page Content' }],
+        }),
+      }
+    }
+
+    await runPrerender({
+      resolvedViteConfig: fx.resolvedViteConfig,
+      config: { output: 'static', dir: { pages: 'pages', layouts: 'src/layouts' } },
+      loadModule,
+      warn: fx.warn,
+    })
+
+    const html = await readFile(join(fx.outDir, 'index.html'), 'utf8')
+    // Layout root: its own scope id, on the ROOT element only.
+    expect(html).toMatch(/<div class="shell" data-a="aabbccdd" data-aihu-path="0">/)
+    // Page root: its own scope id — inside the layout's outlet marker.
+    expect(html).toMatch(/<article data-a="11223344" data-aihu-path="0">Page Content<\/article>/)
+    // Root-only: no other element gained a data-a stamp.
+    expect(html.match(/ data-a="/g)).toHaveLength(2)
+  })
+
   it('falls back to the SPA shell when the layout has no SSR-renderable default', async () => {
     fx = await makeFixture()
     await writeRoute(fx.root, 'index.ts', { name: 'home-page', layout: 'app' })

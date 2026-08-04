@@ -166,6 +166,28 @@ export interface SsrOptions {
    * loader never gated. Set by the router's governed `handle` path.
    */
   readonly governed?: boolean
+
+  /**
+   * The component's light-DOM scope id (light-DOM leaf flip, LDF §10 step 3).
+   * When set, the render stamps `data-a="<id>"` on the component's ROOT
+   * element — the server-side mirror of `@aihu/runtime`'s `wrapClass`
+   * `connectedCallback` stamp — so the `@scope([data-a="<id>"]) to ([data-a])`
+   * blocks the build emitted for this component apply to the prerendered HTML
+   * at FIRST PAINT, before any client JS runs.
+   *
+   * This is not cosmetic. Without the stamp, a prerendered light-DOM
+   * component's scoped CSS (its entire `@style` block, media queries
+   * included) matches NOTHING until the component's chunk loads and the
+   * runtime stamps the host — measured on apps/docs-next under Lighthouse's
+   * throttled profile, the unstyled first paint pushed the LCP element below
+   * the fold and cost ~1.9s of LCP (3430ms → 1470ms once stamped).
+   *
+   * The value is the compiler-assigned id (`_lightScopeId` over the module
+   * id) — read it from the compiled module's `__aihu_light_scope__` export;
+   * never hand-compute it. Undefined (the default) stamps nothing —
+   * byte-identical output to the pre-option renderer.
+   */
+  readonly lightScopeId?: string
 }
 
 /**
@@ -448,7 +470,12 @@ function _isFragment(obj: Record<string, unknown>): boolean {
   return obj.tag === null || obj.tag === ''
 }
 
-function _renderNode(node: unknown, path: string, hydratable: boolean): string {
+function _renderNode(
+  node: unknown,
+  path: string,
+  hydratable: boolean,
+  rootScopeId?: string,
+): string {
   if (typeof node !== 'object' || node === null) return ''
   const obj = node as Record<string, unknown>
   if (!('kind' in obj)) return ''
@@ -462,11 +489,17 @@ function _renderNode(node: unknown, path: string, hydratable: boolean): string {
     let inner = ''
     for (let i = 0; i < children.length; i++) {
       inner += _textBoundaryBefore(children, i, hydratable)
-      inner += _renderNode(children[i], `${path}.${i}`, hydratable)
+      inner += _renderNode(children[i], `${path}.${i}`, hydratable, rootScopeId)
     }
     if (_isFragment(obj)) return inner
     const tag = typeof obj.tag === 'string' ? obj.tag : 'div'
     let attrStr = serializeAttrs(asAttrMap(obj.attrs))
+    // LDF §10 step 3 — `data-a` on the ROOT element only, mirroring the
+    // compiled string renderer's `root_scope_attr` (ssr_string_emit.rs):
+    // static attrs first, then `data-a`, then the path marker, so the two
+    // paths stay byte-identical. Child paths are always `0.…`, so the
+    // `path === ROOT_PATH` guard fires at most once per render.
+    if (rootScopeId && path === ROOT_PATH) attrStr += ` data-a="${escapeAttr(rootScopeId)}"`
     if (hydratable) attrStr += ` data-aihu-path="${escapeAttr(path)}"`
     return `<${tag}${attrStr}>${inner}</${tag}>`
   }
@@ -475,7 +508,7 @@ function _renderNode(node: unknown, path: string, hydratable: boolean): string {
     const { open, close } = _structuralMarkers(path, hydratable)
     let inner = ''
     for (const sub of _structuralSubtrees(obj, path)) {
-      inner += _renderNode(sub.node, sub.path, hydratable)
+      inner += _renderNode(sub.node, sub.path, hydratable, rootScopeId)
     }
     return open + inner + close
   }
@@ -579,6 +612,13 @@ async function renderNodeAsync(
   if (obj.kind === 'branch') {
     const tag = typeof obj.tag === 'string' ? obj.tag : 'div'
     let attrStr = serializeAttrs(asAttrMap(obj.attrs))
+    // LDF §10 step 3 — `data-a` on the ROOT element only. Same placement as
+    // the compiled string renderer's `root_scope_attr` (static attrs, then
+    // `data-a`, then the path marker) so walker and string output stay
+    // byte-identical. `pendingState.opts` carries the render's SsrOptions,
+    // so no extra parameter threads through the recursion.
+    const rootScopeId = pendingState.opts?.lightScopeId
+    if (rootScopeId && path === ROOT_PATH) attrStr += ` data-a="${escapeAttr(rootScopeId)}"`
     if (hydratable) attrStr += ` data-aihu-path="${escapeAttr(path)}"`
 
     const children = Array.isArray(obj.children) ? obj.children : []
@@ -850,7 +890,7 @@ function emitStateScriptAndClose(
  * BYTE-IDENTICAL to the tree walk for the same component+state — enforced by
  * the differential suite — so taking it changes latency, never bytes.
  */
-type SsrStringRenderer = (opts?: { hydratable?: boolean }) => string
+type SsrStringRenderer = (opts?: { hydratable?: boolean; lightScopeId?: string }) => string
 
 /**
  * Resolve the compiled string renderer for `component`, if any.
@@ -881,7 +921,12 @@ export function attachSsrString<T extends () => unknown>(
   if (typeof ssrString === 'function') {
     ;(component as T & { __aihu_ssr_string__?: SsrStringRenderer }).__aihu_ssr_string__ = (opts?: {
       hydratable?: boolean
-    }) => (ssrString as (p: unknown, o?: { hydratable?: boolean }) => string)(props, opts)
+      lightScopeId?: string
+    }) =>
+      (ssrString as (p: unknown, o?: { hydratable?: boolean; lightScopeId?: string }) => string)(
+        props,
+        opts,
+      )
   }
   return component
 }
@@ -937,7 +982,13 @@ export function renderToStream(
       if (ssrString) {
         let html: string
         try {
-          html = ssrString({ hydratable: opts?.hydratable ?? false })
+          html = ssrString({
+            hydratable: opts?.hydratable ?? false,
+            // LDF §10 step 3: the compiled renderer's `root_scope_attr` reads
+            // `__opts.lightScopeId` to stamp `data-a` on the root element —
+            // forward it so the string path matches the walker's stamp.
+            ...(opts?.lightScopeId !== undefined ? { lightScopeId: opts.lightScopeId } : {}),
+          })
         } catch (err) {
           controller.error(err)
           return
