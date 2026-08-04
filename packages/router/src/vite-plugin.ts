@@ -231,6 +231,37 @@ export function scanLayouts(d: string): LayoutMap {
 }
 
 /**
+ * A syntactically valid custom-element tag: lowercase, starts with a letter,
+ * contains at least one hyphen, and holds nothing but `[a-z0-9-]`.
+ *
+ * This is deliberately STRICTER than the HTML spec's `PotentialCustomElementName`
+ * (which permits a large swathe of Unicode) and exactly matches the subset the
+ * compiler will accept — C450 refuses to compile a component whose tag has no
+ * hyphen, because `customElements.define` throws `SyntaxError` on one.
+ *
+ * `genC` uses it as a codegen boundary. The registry it emits is JavaScript
+ * SOURCE built by string concatenation from names read out of `.aihu` files
+ * (`@meta { name }` / `@route { name }` / the file stem), so an unvalidated tag
+ * is an unvalidated value reaching a code-construction sink. `JSON.stringify`
+ * does escape correctly, but "the sanitizer happens to be adequate" is a
+ * weaker guarantee than "the value cannot contain anything needing escaping",
+ * and only the latter is checkable at a glance. Anything failing this test
+ * could never have registered as an element anyway, so dropping it costs no
+ * working behaviour.
+ */
+const CUSTOM_ELEMENT_TAG = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)+$/
+
+/**
+ * A module path safe to inline into a generated `import("…")` specifier.
+ * Paths come from our own `readdirSync` walk, so this is a belt-and-braces
+ * check on the same principle as `CUSTOM_ELEMENT_TAG`: reject anything holding
+ * a quote, a backslash, or a line terminator (`\n`, `\r`, and the U+2028/U+2029
+ * pair that `JSON.stringify` notably does NOT escape) rather than trust the
+ * escaping. A path like that cannot survive a bundler's resolver regardless.
+ */
+const SAFE_MODULE_PATH = /^[^"'\\\n\r\u2028\u2029]+$/
+
+/**
  * O1b: Resolve the custom-element tag a component file registers under.
  * Name precedence mirrors the compiler: explicit `@meta { name }` →
  * `@route { name }` → the file stem; the winner is normalized via
@@ -505,7 +536,35 @@ export function genL(d: string): string {
  */
 export function genC(d: string): string {
   const mods = scanComponents(d)
-  const tags = Object.keys(mods).sort()
+
+  // Validate at the codegen boundary. Everything below concatenates these two
+  // values into JavaScript SOURCE, and both are read out of files on disk —
+  // tags from a component's `@meta`/`@route` `name` (or its stem), paths from
+  // the directory walk. Checking the shape here means the emitted module is
+  // well-formed by construction rather than by trusting `JSON.stringify` to
+  // escape whatever arrives. Neither drop loses working behaviour: a tag
+  // failing CUSTOM_ELEMENT_TAG could never register (the compiler's own C450
+  // refuses to build one), and a path failing SAFE_MODULE_PATH could never
+  // resolve.
+  const tags = Object.keys(mods)
+    .filter((t) => {
+      if (!CUSTOM_ELEMENT_TAG.test(t)) {
+        console.warn(
+          `[aihu-router] skipping component "${t}" (${mods[t]}): not a valid custom-element ` +
+            `tag — must be lowercase [a-z0-9-] and contain a hyphen.`,
+        )
+        return false
+      }
+      if (!SAFE_MODULE_PATH.test(mods[t] as string)) {
+        console.warn(
+          `[aihu-router] skipping component "${t}": module path contains a quote, backslash, ` +
+            `or line terminator (${JSON.stringify(mods[t])}).`,
+        )
+        return false
+      }
+      return true
+    })
+    .sort()
 
   // Direct child tags per component, restricted to tags this registry can load.
   const kids: Record<string, string[]> = {}

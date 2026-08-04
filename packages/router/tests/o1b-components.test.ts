@@ -173,14 +173,14 @@ describe('genC()', () => {
   it("a parent's loader also loads its transitively nested components", () => {
     const tmp = mkdtempSync(join(tmpdir(), 'aihu-genc-nested-'))
     try {
-      // header → search-box → search-hit  (two levels deep)
-      writeFileSync(join(tmp, 'header.aihu'), '@template { <div><search-box/></div> }\n')
+      // site-header → search-box → search-hit  (two levels deep)
+      writeFileSync(join(tmp, 'site-header.aihu'), '@template { <div><search-box/></div> }\n')
       writeFileSync(join(tmp, 'search-box.aihu'), '@template { <div><search-hit/></div> }\n')
       writeFileSync(join(tmp, 'search-hit.aihu'), '@template { <div/> }\n')
       const content = genC(tmp)
       // The parent pulls BOTH levels, not just its direct child.
       expect(content).toMatch(
-        /"header": \(\) => Promise\.all\(\[__m\["header"\]\(\), __m\["search-box"\]\(\), __m\["search-hit"\]\(\)\]\)/,
+        /"site-header": \(\) => Promise\.all\(\[__m\["site-header"\]\(\), __m\["search-box"\]\(\), __m\["search-hit"\]\(\)\]\)/,
       )
       // A leaf keeps the cheap single-thunk form — no needless Promise.all.
       expect(content).toContain('"search-hit": __m["search-hit"],')
@@ -215,10 +215,10 @@ describe('genC()', () => {
     try {
       // `<some-global>` is a globally-registered element the router doesn't own;
       // emitting a __m lookup for it would be a dangling reference.
-      writeFileSync(join(tmp, 'host.aihu'), '@template { <div><some-global/></div> }\n')
+      writeFileSync(join(tmp, 'host-el.aihu'), '@template { <div><some-global/></div> }\n')
       const content = genC(tmp)
       expect(content).not.toContain('some-global')
-      expect(content).toContain('"host": __m["host"],')
+      expect(content).toContain('"host-el": __m["host-el"],')
     } finally {
       rmSync(tmp, { recursive: true, force: true })
     }
@@ -406,6 +406,43 @@ describe('viteRouterPlugin — virtual:aihu-components hooks', () => {
       expect(content).toContain('UserCard.aihu')
     } finally {
       rmSync(tmp, { recursive: true, force: true })
+    }
+  })
+})
+
+// ─── genC() — codegen input validation ───────────────────────────────────────
+//
+// genC concatenates tag names and module paths into JavaScript SOURCE. Both are
+// read off disk (tags from `@meta`/`@route` `name` or the file stem), so both
+// are validated at the boundary rather than trusted to `JSON.stringify`. A tag
+// that fails could never have registered as a custom element anyway — the
+// compiler's C450 refuses to build one — so dropping it costs nothing.
+
+describe('genC() — input validation', () => {
+  it('drops a component whose tag is not a valid custom-element name', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'aihu-genc-'))
+    try {
+      // No hyphen → `customElements.define` would throw SyntaxError.
+      writeFileSync(join(dir, 'widget.aihu'), '@template {\n  <p>x</p>\n}\n')
+      writeFileSync(join(dir, 'user-card.aihu'), '@template {\n  <p>y</p>\n}\n')
+
+      const out = genC(dir)
+      expect(out).toContain('"user-card"')
+      expect(out).not.toContain('"widget"')
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('emits a registry that parses as JavaScript', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'aihu-genc-'))
+    try {
+      writeFileSync(join(dir, 'user-card.aihu'), '@template {\n  <p>y</p>\n}\n')
+      const out = genC(dir)
+      // The load-bearing property: whatever went in, the output is valid source.
+      expect(() => new Function(out.replace(/^export default/m, 'return'))).not.toThrow()
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
     }
   })
 })
