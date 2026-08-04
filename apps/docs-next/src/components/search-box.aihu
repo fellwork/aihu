@@ -48,7 +48,14 @@
         <path d="M21 21l-4.3-4.3"></path>
       </svg>
       <span class="dn-search-label">Search</span>
-      <kbd class="dn-kbd">⌘K</kbd>
+      <!-- aria-hidden: the shortcut hint is decorative chrome, and WITHOUT this
+           the button trips axe `label-content-name-mismatch`. Its visible text
+           is "Search ⌘K" while its accessible name is "Search docs", so the
+           name does not contain the visible label — a speech-control user
+           saying "click Search ⌘K" gets nothing. Hiding the <kbd> leaves the
+           visible text as "Search", which IS contained in "Search docs".
+           A <kbd> is not focusable, so this creates no aria-hidden-focus. -->
+      <kbd class="dn-kbd" aria-hidden="true">⌘K</kbd>
     </button>
 
     <div class="dn-search-overlay" class:dn-open={open} on:click={hide}>

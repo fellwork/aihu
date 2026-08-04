@@ -59,6 +59,22 @@ a:hover {
   text-underline-offset: 2px;
 }
 
+/* Breadcrumb links sit INSIDE a text run ("Guides / Getting Started"), so they
+   are a text-block link, not nav chrome, as far as WCAG 1.4.1 is concerned.
+   Every breadcrumb colours its link --muted on a --faint parent, which is
+   1.1:1 — two near-identical greys, far under the 3:1 needed to distinguish a
+   link by colour alone. axe `link-in-text-block`, still failing after the
+   .dn-prose fix.
+
+   One rule here rather than 15 edits: `.dn-breadcrumb a` is redeclared in 13
+   guide pages, api/signals.aihu, api.css and cookbook.css, but every one of
+   them sets only `color`, so none overrides this decoration. */
+.dn-breadcrumb a {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+
 ::selection {
   background: var(--accent-soft);
   color: var(--fg-strong);
@@ -191,7 +207,13 @@ html.dark .dn-tt-sun {
   color: var(--faint);
 }
 .dn-sec-num b {
-  color: var(--accent);
+  /* --accent (#c8543a) is only 4.14:1 on --paper and 3.87:1 on --surface-2 —
+     under the 4.5:1 AA floor for this small (0.78rem) eyebrow text; Lighthouse
+     measured 4.13:1 on this exact element. --accent-strong is the same hue one
+     step darker and already passes on every ground in both themes (>=5.39:1
+     light, >=6.49:1 dark), so no new colour is introduced — the same move
+     base.css already makes for inline code in dark mode. */
+  color: var(--accent-strong);
   font-weight: 600;
 }
 .dn-sec-num::after {
@@ -322,9 +344,33 @@ html.dark .dn-prose :not(pre) > code,
 html.dark .dn-inline-code {
   color: var(--accent-strong);
 }
+/* Prose links carry TWO separate a11y requirements, and the default styling met
+   neither:
+
+   1. `link-in-text-block` — a link distinguished from surrounding body text by
+      colour alone must clear 3:1 against that text. --accent vs --fg is 2.76:1
+      light and 1.97:1 dark (Lighthouse measured 2.04:1), so colour alone cannot
+      carry it at any accent shade the brand would accept. The underline is the
+      non-colour affordance that settles it outright. Deliberately scoped to
+      .dn-prose so nav, sidebar, cards and other chrome — where links are
+      unambiguous by position — stay undecorated.
+
+   2. `color-contrast` — --accent (#c8543a) is 4.14:1 on --paper, under the
+      4.5:1 AA floor for normal text. --accent-strong is the same hue, already
+      in the palette, and passes on every ground in both themes.
+
+   `text-underline-offset` + a thin decoration keep this from reading as a 1998
+   hyperlink at body size. */
 .dn-prose a {
-  color: var(--accent);
+  color: var(--accent-strong);
   font-weight: 500;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+  text-decoration-color: var(--accent-line);
+}
+.dn-prose a:hover {
+  text-decoration-color: currentColor;
 }
 
 /* heading anchor — hidden until the heading is hovered */
