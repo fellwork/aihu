@@ -31,6 +31,21 @@
 
   onMount(() => {
     if (typeof window === 'undefined') return
+    // Scan SYNCHRONOUSLY first, not only via rAF/setTimeout. The headings
+    // this scans (.dn-article/.dn-prose h2/h3) are part of the page's own
+    // prerendered static HTML — they exist in the DOM before any JS runs at
+    // all, so there is no race to wait out on first load. Deferring made
+    // `items` flip from empty to populated in a LATER frame, and because
+    // .dn-toc-col only occupies its grid column once <toc-rail>'s inner
+    // <nav> has content (`show={items.length > 0}`), that later flip is a
+    // real, measured layout shift — confirmed live: CLS 0.217 on the CI
+    // runner's slower CPU (the 120ms timeout landed inside Lighthouse's
+    // shift-observation window), while it never showed up locally on a
+    // faster machine where the same delayed scan resolved before first
+    // paint. The rAF + setTimeout stay as a defensive re-scan for
+    // client-side navigation swapping <outlet>'s content under an
+    // already-mounted <toc-rail>, which is a real race this one can't cover.
+    scan()
     requestAnimationFrame(scan)
     setTimeout(scan, 120)
     window.addEventListener('scroll', spy, { passive: true })
