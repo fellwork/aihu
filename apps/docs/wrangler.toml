@@ -1,5 +1,6 @@
+# The docs app deploys as static assets to Cloudflare Pages. `output: 'static'`
+# prerenders every route to `dist/<pattern>/index.html`, so there is no server
+# runtime — Pages serves the prerendered HTML + hydrating island bundle.
 name = "aihu-docs"
-compatibility_date = "2025-01-01"
+compatibility_date = "2026-05-28"
 pages_build_output_dir = "dist"
-# _worker.js in dist/ is auto-detected by Cloudflare Pages for SSR routing.
-# Routes: agent-readiness endpoints → Worker; everything else → ASSETS (CDN).

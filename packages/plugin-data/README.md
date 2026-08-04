@@ -74,7 +74,7 @@ bun add @aihu-plugin/data
 <!-- BEGIN_AUTOGEN: see-also -->
 <!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
 
-- [Data-fetching guide](../../apps/docs/src/content/docs/guides/data-fetching.md)
+- [Data-fetching guide](https://aihu.dev/guides/data-fetching)
 - [@aihu/context](../context)
 - [Aihu framework root](../../README.md)
 

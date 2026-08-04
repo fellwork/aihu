@@ -17,7 +17,6 @@
  *        - packages/mcp/src/cookbook-index.json
  *        - llms-cookbook.txt
  *        - apps/docs/playground/presets.generated.ts
- *        - apps/docs-next/playground/presets.generated.ts
  *      (edit a recipe without regenerating → red; hand-edit an artifact → red)
  *   3. An empty corpus, an empty index, or zero playground presets.
  *
@@ -118,11 +117,6 @@ const ARTIFACTS: ReadonlyArray<[string, string]> = [
   ['packages/mcp/src/cookbook-index.json', renderIndexJson(entries)],
   ['llms-cookbook.txt', renderLlmsCookbook(entries)],
   ['apps/docs/playground/presets.generated.ts', renderPresetsTs(entries)],
-  // docs-next carries its own port of the playground during the docs-next →
-  // docs promotion. The generator writes BOTH copies, so both are diffed here:
-  // a hand-copied artifact with no CI edge is exactly the fossilization this
-  // check exists to catch. Drop the apps/docs row when it retires.
-  ['apps/docs-next/playground/presets.generated.ts', renderPresetsTs(entries)],
 ]
 
 const stale: string[] = []

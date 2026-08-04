@@ -660,7 +660,7 @@ const PACKAGE_TIERS: Record<string, TierInfo> = {
       { label: 'arch-1 (website)', href: '../../docs/roadmap/arch-1-website.md' },
       {
         label: 'Routing & layouts guide',
-        href: '../../apps/docs/src/content/docs/guides/routing-layouts.md',
+        href: 'https://aihu.dev/guides/routing-layouts',
       },
       { label: '@aihu/server', href: '../server' },
     ],
@@ -672,7 +672,7 @@ const PACKAGE_TIERS: Record<string, TierInfo> = {
       { label: 'arch-1 (website)', href: '../../docs/roadmap/arch-1-website.md' },
       {
         label: 'SSR & hydration guide',
-        href: '../../apps/docs/src/content/docs/guides/ssr-hydration.md',
+        href: 'https://aihu.dev/guides/ssr-hydration',
       },
       { label: '@aihu/router', href: '../router' },
       { label: '@aihu-plugin/agent-readiness', href: '../plugin-agent-readiness' },
@@ -684,7 +684,7 @@ const PACKAGE_TIERS: Record<string, TierInfo> = {
     seeAlso: [
       {
         label: 'Data-fetching guide',
-        href: '../../apps/docs/src/content/docs/guides/data-fetching.md',
+        href: 'https://aihu.dev/guides/data-fetching',
       },
       { label: '@aihu/context', href: '../context' },
     ],

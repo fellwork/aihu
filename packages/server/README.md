@@ -85,7 +85,7 @@ bun add @aihu/server
 <!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
 
 - [arch-1 (website)](../../docs/roadmap/arch-1-website.md)
-- [SSR & hydration guide](../../apps/docs/src/content/docs/guides/ssr-hydration.md)
+- [SSR & hydration guide](https://aihu.dev/guides/ssr-hydration)
 - [@aihu/router](../router)
 - [@aihu-plugin/agent-readiness](../plugin-agent-readiness)
 - [Aihu framework root](../../README.md)

@@ -6,7 +6,7 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: 1,
   use: {
-    baseURL: 'http://localhost:8788',
+    baseURL: 'http://localhost:5176',
   },
   projects: [
     {
@@ -15,13 +15,11 @@ export default defineConfig({
     },
   ],
   webServer: {
-    // Deterministic static server (mirrors CF Pages ASSETS: dir-index + SPA
-    // fallback) instead of `wrangler pages dev`, which won't start reliably in
-    // CI (compat-date drift + bunx cold-download blow the readiness timeout).
-    // See apps/docs/scripts/serve-dist.ts + issue #314. No e2e needs the live
-    // worker (prerender.spec drives dist/_worker.js in-process).
-    command: 'bun scripts/serve-dist.ts 8788',
-    url: 'http://localhost:8788',
+    // `vite preview` over the real SSG dist/ — no SPA fallback needed, every
+    // route (and its flat extensionless sibling — see vite.config.ts's
+    // flatHtmlSiblings) is a real file on disk.
+    command: 'bun run preview',
+    url: 'http://localhost:5176',
     reuseExistingServer: !process.env.CI,
     timeout: 60_000,
   },

@@ -1,16 +1,4 @@
 {
-  "agents": [
-    {
-      "name": "aihu Documentation Agent",
-      "description": "Browse and search the aihu Web Components framework documentation, API reference, and examples",
-      "url": "https://aihu.dev/.well-known/agent.json",
-      "protocol": "a2a"
-    },
-    {
-      "name": "aihu MCP Server",
-      "description": "Access aihu framework documentation and tools via the Model Context Protocol",
-      "url": "https://aihu.dev/.well-known/mcp/server-card.json",
-      "protocol": "mcp"
-    }
-  ]
+  "_todo": "regenerate from the docs content post-launch — the old site's aihu.dev/.well-known/agent.json (A2A) and aihu.dev/.well-known/mcp/server-card.json (MCP) entries came from packages/plugin-agent-readiness, which is not yet wired into apps/docs. Do not re-add those two entries until the corresponding routes actually exist on this app, or agents will be pointed at 404s.",
+  "agents": []
 }

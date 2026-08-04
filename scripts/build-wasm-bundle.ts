@@ -100,7 +100,7 @@ async function sourceHash(): Promise<string> {
 
 async function stageBundle(): Promise<void> {
   await mkdir(outDir, { recursive: true })
-  // Skip build-internal files; apps/docs/build.ts additionally strips
+  // Skip build-internal files; the retired apps/docs build.ts also stripped
   // non-runtime files (package.json, README, .d.ts) before deploy.
   const skip = new Set(['.gitignore', 'build-stamp.json'])
   for (const ent of await readdir(pkgWasmDir, { withFileTypes: true })) {

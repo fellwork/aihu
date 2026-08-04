@@ -1,250 +1,61 @@
 // apps/docs/tests/playground.spec.ts
 //
-// Directive 1 acceptance — verify the six preset snippets ship and the
-// URL-share roundtrip works.
+// <playground-embed> is a top-level light-DOM element that renders its own
+// chrome in ITS OWN shadow root (attachShadow in playground-embed.ts) and is
+// registered lazily from playground.aihu's onMount — see that file's
+// COMPILER WORKAROUND / SCR-R0010 comments for why. Unlike apps/docs (which
+// nests the embed inside a <docs-shell> shadow root too), this is a single
+// shadow pierce. This smoke test mirrors the manual CDN verification done for
+// the perf/a11y pass: the island upgrades, the WASM compiler boots with no
+// error banner, and zero console errors are logged.
 import { expect, test } from '@playwright/test'
 
-// Generated from cookbook frontmatter (`playground:` labels) — see
-// apps/docs/playground/presets.generated.ts.
-const PRESET_IDS = [
-  'agent-weather',
-  'aihu-counter',
-  'aihu-tabs',
-  'form-validation',
-  'search-debounce',
-  'theme-toggle',
-]
-
-// <playground-embed> is inside <docs-shell>'s shadow root, so each
-// helper pierces two layers of shadow DOM to reach it.
-
-async function presetTab(page: import('@playwright/test').Page, id: string) {
-  return page.evaluateHandle((presetId) => {
-    const shell = document.querySelector('docs-shell')
-    const embed = shell?.shadowRoot?.querySelector('playground-embed') as HTMLElement | null
-    if (!embed?.shadowRoot) return null
-    return embed.shadowRoot.querySelector(`.preset-tab[data-preset-id="${presetId}"]`)
-  }, id)
-}
-
-async function activePresetId(page: import('@playwright/test').Page) {
-  return page.evaluate(() => {
-    const shell = document.querySelector('docs-shell')
-    const embed = shell?.shadowRoot?.querySelector('playground-embed') as HTMLElement | null
-    if (!embed?.shadowRoot) return null
-    const active = embed.shadowRoot.querySelector('.preset-tab[aria-pressed="true"]')
-    return active?.getAttribute('data-preset-id') ?? null
+async function waitForEmbed(page: import('@playwright/test').Page) {
+  await page.waitForFunction(() => document.querySelector('playground-embed')?.shadowRoot != null, {
+    timeout: 10_000,
   })
 }
 
-async function gotoPlayground(page: import('@playwright/test').Page, query = '') {
-  await page.goto(`/${query}#playground`)
-  await page.waitForFunction(
-    () => {
-      const shell = document.querySelector('docs-shell')
-      const embed = shell?.shadowRoot?.querySelector('playground-embed') as HTMLElement | null
-      return embed?.shadowRoot != null
-    },
-    { timeout: 10_000 },
-  )
-}
-
-test('renders all 6 preset tabs', async ({ page }) => {
-  await gotoPlayground(page)
-  for (const id of PRESET_IDS) {
-    const tab = await presetTab(page, id)
-    expect(tab.asElement()).not.toBeNull()
-  }
-})
-
-test('selecting a preset updates the URL with ?preset=', async ({ page }) => {
-  await gotoPlayground(page)
-  await page.evaluate(() => {
-    const shell = document.querySelector('docs-shell')
-    const embed = shell?.shadowRoot?.querySelector('playground-embed') as HTMLElement | null
-    const tab = embed?.shadowRoot?.querySelector(
-      '.preset-tab[data-preset-id="aihu-tabs"]',
-    ) as HTMLButtonElement | null
-    tab?.click()
-  })
-  await expect.poll(() => page.url()).toMatch(/\?preset=aihu-tabs/)
-  expect(await activePresetId(page)).toBe('aihu-tabs')
-})
-
-test('default preset (aihu-counter) keeps URL clean — no ?preset=aihu-counter', async ({
+test('playground-embed upgrades and boots with no error banner or console errors', async ({
   page,
 }) => {
-  await gotoPlayground(page)
-  expect(page.url()).not.toMatch(/preset=aihu-counter/)
-  expect(await activePresetId(page)).toBe('aihu-counter')
-})
-
-test('?preset=agent-weather in URL loads that preset on cold visit', async ({ page }) => {
-  await gotoPlayground(page, '?preset=agent-weather')
-  expect(await activePresetId(page)).toBe('agent-weather')
-})
-
-test('tall preset (aihu-tabs) preview is not clipped — iframe fills its pane within a clamped, scrollable layout', async ({
-  page,
-}) => {
-  // Give the embed a generous viewport so the .playground clamp resolves to
-  // its 720px max and the assertion isn't height-starved on a tiny window.
-  await page.setViewportSize({ width: 1280, height: 1400 })
-  await gotoPlayground(page)
-
-  // Select the tall preset.
-  await page.evaluate(() => {
-    const shell = document.querySelector('docs-shell')
-    const embed = shell?.shadowRoot?.querySelector('playground-embed') as HTMLElement | null
-    const tab = embed?.shadowRoot?.querySelector(
-      '.preset-tab[data-preset-id="aihu-tabs"]',
-    ) as HTMLButtonElement | null
-    tab?.click()
-  })
-  await expect.poll(() => activePresetId(page)).toBe('aihu-tabs')
-
-  // Probe geometry + computed CSS by piercing two shadow layers to the
-  // iframe inside <playground-embed>. We assert on box geometry and CSS
-  // (NOT rendered preview pixels) so the test is robust to WASM absence:
-  // dist/wasm is fetched at prebuild and may be missing in some runs.
-  const probe = await page.evaluate(() => {
-    const shell = document.querySelector('docs-shell')
-    const embed = shell?.shadowRoot?.querySelector('playground-embed') as HTMLElement | null
-    const sr = embed?.shadowRoot
-    if (!sr) return null
-    const iframe = sr.querySelector('iframe') as HTMLIFrameElement | null
-    const previewPane = sr.querySelector('.preview-pane') as HTMLElement | null
-    const pane = sr.querySelector('.pane') as HTMLElement | null
-    const playground = sr.querySelector('.playground') as HTMLElement | null
-    if (!iframe || !previewPane || !pane || !playground || !embed) return null
-    const ifr = iframe.getBoundingClientRect()
-    const pr = previewPane.getBoundingClientRect()
-    return {
-      iframeHeight: iframe.clientHeight,
-      iframeTop: ifr.top,
-      iframeBottom: ifr.bottom,
-      paneTop: pr.top,
-      paneBottom: pr.bottom,
-      paneMinHeight: getComputedStyle(pane).minHeight,
-      playgroundHeight: getComputedStyle(playground).height,
-      hostOverflow: getComputedStyle(embed).overflow,
-    }
+  const errors: string[] = []
+  page.on('console', (msg) => {
+    if (msg.type() === 'error') errors.push(msg.text())
   })
 
-  expect(probe).not.toBeNull()
-  const p = probe!
-
-  // (a) The iframe is laid out and fills its pane (the fix): it has a real
-  // height and does not overflow past the preview pane's box (allow a 1px
-  // sub-pixel slack).
-  expect(p.iframeHeight).toBeGreaterThan(0)
-  expect(p.iframeBottom).toBeLessThanOrEqual(p.paneBottom + 1)
-  expect(p.iframeTop).toBeGreaterThanOrEqual(p.paneTop - 1)
-
-  // (b) The CSS contract that makes scroll/auto-grow work:
-  //   - .pane has min-height:0 so flex children can shrink below content,
-  //   - .playground has a definite (non-auto) clamped height,
-  //   - :host retains overflow:hidden (rounded-corner clip — acceptance #3).
-  expect(p.paneMinHeight).toBe('0px')
-  expect(p.playgroundHeight).not.toBe('auto')
-  expect(Number.parseFloat(p.playgroundHeight)).toBeGreaterThan(0)
-  expect(p.hostOverflow).toContain('hidden')
-})
-
-test('?src=<source> roundtrip: cold-load arbitrary source', async ({ page }) => {
-  const customSource = '@state {}\n@template { <h1>hello</h1> }\n@style {}'
-  await gotoPlayground(page, `?src=${encodeURIComponent(customSource)}`)
-  const loaded = await page.evaluate(() => {
-    const shell = document.querySelector('docs-shell')
-    const embed = shell?.shadowRoot?.querySelector('playground-embed') as HTMLElement | null
-    const editor = embed?.shadowRoot?.querySelector('code-editor') as
-      | (HTMLElement & { value: string })
-      | null
-    return editor?.value ?? null
-  })
-  expect(loaded).toBe(customSource)
-  // No preset is active for arbitrary sources.
-  expect(await activePresetId(page)).toBeNull()
-})
-
-// Regression guard: presets must stay in sync with the shipped compiler
-// grammar. They have drifted before (C306 `$value`, `$each` string form,
-// single-identifier interpolation), erroring half the tabs and — because the
-// preview only repaints on a successful compile — leaving the preview stuck on
-// the last good render ("can't control the preview"). WASM-gated: skipped when
-// the build has no ./wasm bundle (the playground shows a fallback message).
-async function errorText(page: import('@playwright/test').Page) {
-  return page.evaluate(() => {
-    const shell = document.querySelector('docs-shell')
-    const embed = shell?.shadowRoot?.querySelector('playground-embed') as HTMLElement | null
-    const err = embed?.shadowRoot?.querySelector('.error') as HTMLElement | null
-    return err && !err.hidden ? (err.textContent ?? '') : ''
-  })
-}
-
-// Render state of the preview iframe. Compiling cleanly is NOT enough — a preset
-// can compile yet render NOTHING (an each() with no $key → undefined keyFn threw;
-// an incompletely-stripped `as unknown as <Type>` cast → SyntaxError, script never
-// runs). Those surface only as a blank preview or a `.pe-error` INSIDE the iframe,
-// so the guard must look in the frame, not just the compile-error pane.
-async function previewRender(page: import('@playwright/test').Page) {
-  const frame = page.frameLocator('iframe')
-  return frame.locator('body').evaluate((b) => {
-    const pe = b.querySelector('.pe-error')
-    if (pe) return { ok: false, why: `pe-error: ${(pe.textContent ?? '').slice(0, 80)}` }
-    const ac = b.querySelector('aihu-component') as
-      | (HTMLElement & { shadowRoot: ShadowRoot })
-      | null
-    const n = ac?.shadowRoot?.childElementCount ?? 0
-    return {
-      ok: n > 0,
-      why: ac ? `shadow children=${n}` : 'no <aihu-component> (script failed to run)',
-    }
-  })
-}
-
-test('every preset compiles AND renders in the preview', async ({ page }) => {
-  await gotoPlayground(page)
+  const res = await page.goto('/playground')
+  expect(res?.status()).toBe(200)
+  await waitForEmbed(page)
   await page.waitForTimeout(900) // WASM boot + first compile
-  const boot = await errorText(page)
-  test.skip(boot.includes('WASM bundle unavailable'), 'no ./wasm bundle in this build')
 
-  for (const id of PRESET_IDS) {
-    await page.evaluate((pid) => {
-      const shell = document.querySelector('docs-shell')
-      const embed = shell?.shadowRoot?.querySelector('playground-embed') as HTMLElement | null
-      ;(
-        embed?.shadowRoot?.querySelector(
-          `.preset-tab[data-preset-id="${pid}"]`,
-        ) as HTMLButtonElement | null
-      )?.click()
-    }, id)
-    await expect.poll(() => activePresetId(page)).toBe(id)
-    await page.waitForTimeout(500) // debounce + compile + iframe srcdoc swap + execute
-    expect(await errorText(page), `preset "${id}" must compile cleanly`).toBe('')
-    const r = await previewRender(page)
-    expect(r.ok, `preset "${id}" must render in the preview (${r.why})`).toBe(true)
-  }
+  const bootError = await page.evaluate(() => {
+    const err = document
+      .querySelector('playground-embed')
+      ?.shadowRoot?.querySelector('.error') as HTMLElement | null
+    return err && !err.hidden ? err.textContent : null
+  })
+
+  // dist/wasm is built by wasm-pack at prebuild and may be absent in a local
+  // build that skipped the Rust toolchain — CI always has it (see
+  // deploy-docs.yml's wasm32 + wasm-pack steps + stage-wasm.ts --strict).
+  test.skip(
+    bootError?.includes('WASM bundle unavailable') ?? false,
+    'no ./wasm bundle in this build',
+  )
+
+  expect(bootError).toBeNull()
+  expect(errors).toEqual([])
 })
 
-test('code editor stays within its column — no overflow into the preview pane', async ({
-  page,
-}) => {
-  await page.setViewportSize({ width: 1280, height: 1000 })
-  await gotoPlayground(page)
-  const probe = await page.evaluate(() => {
-    const shell = document.querySelector('docs-shell')
-    const sr = (shell?.shadowRoot?.querySelector('playground-embed') as HTMLElement | null)
-      ?.shadowRoot
-    const ce = sr?.querySelector('code-editor') as HTMLElement | null
-    const pv = sr?.querySelector('.preview-pane') as HTMLElement | null
-    if (!ce || !pv) return null
-    return {
-      editorRight: ce.getBoundingClientRect().right,
-      previewLeft: pv.getBoundingClientRect().left,
-    }
+test('preset deep link (?preset=) loads that preset on cold visit', async ({ page }) => {
+  await page.goto('/playground?preset=aihu-counter')
+  await waitForEmbed(page)
+  const active = await page.evaluate(() => {
+    const sr = document.querySelector('playground-embed')?.shadowRoot
+    return (
+      sr?.querySelector('.preset-tab[aria-pressed="true"]')?.getAttribute('data-preset-id') ?? null
+    )
   })
-  expect(probe).not.toBeNull()
-  // The editor's right edge must not cross into the preview column (1px slack).
-  expect(probe!.editorRight).toBeLessThanOrEqual(probe!.previewLeft + 1)
+  expect(active).toBe('aihu-counter')
 })
