@@ -1,6 +1,6 @@
 import { copyFileSync, readdirSync } from 'node:fs'
 import { join, resolve } from 'node:path'
-import { viteAihuPlugin } from '@aihu/app'
+import { criticalPath, viteAihuPlugin } from '@aihu/app'
 import { viteAgentReadinessIntegration } from '@aihu-plugin/agent-readiness'
 import { defineConfig, type Plugin } from 'vite'
 import { agentReadinessConfig } from './agent-readiness.config.ts'
@@ -93,6 +93,29 @@ export default defineConfig({
     viteAihuPlugin(aihuConfig),
     viteAgentReadinessIntegration(agentReadinessConfig),
     flatHtmlSiblings(),
+
+    // Guard what the client entry statically pulls in. Both rules encode a
+    // regression this site actually shipped and only caught later, by hand,
+    // from a Lighthouse score:
+    //   - `typescript` (3.4 MB) reached the entry because its CJS chunk hosted
+    //     rolldown's interop helpers and the entry imported those (#736).
+    //   - all six islands reached the entry via `import './components/x.aihu'`
+    //     side-effect lines, so every page paid for every island.
+    // Neither failed anything at the time. Now they fail the build, naming the
+    // module, its chunk, and the importer that pulled it in.
+    criticalPath({
+      deny: [
+        {
+          pattern: /node_modules[\\/]typescript[\\/]/,
+          reason: 'the 3.4 MB TS compiler must stay behind a dynamic import (see playground.aihu)',
+        },
+        {
+          pattern: /\/src\/components\/.*\.aihu$/,
+          reason:
+            'islands load per-route via virtual:aihu-components — never import one from the client entry',
+        },
+      ],
+    }),
   ],
 
   build: {
