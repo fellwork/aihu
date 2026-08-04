@@ -20,6 +20,7 @@
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { useRoute } from '@aihu/router'
 import type { ResolvedConfig } from 'vite'
 import { afterEach, describe, expect, it } from 'vitest'
 import { AihuConfigError, defineConfig } from '../src/config.ts'
@@ -488,4 +489,118 @@ describe('prerenderClose — loads real route modules via Vite SSR', () => {
     expect(html).toContain('<meta name="description" content="desc">')
     expect(html).toContain('src="/assets/main-abc123.js"')
   }, 30000)
+})
+
+// ─── runPrerender — route context during SSG ─────────────────────────────────
+//
+// `@aihu/server` never imports `@aihu/context`; the seam is `_setContextFns` +
+// `SsrOptions.contextSetup`, and `runPrerender` is the SSG SSR entry that owns
+// wiring it. Before that wiring, `inject(RouteContext)` returned the token
+// default (`null`) for the whole prerender, so every route-aware component
+// server-rendered as if no route were active and then changed on the client.
+//
+// No component in a prerendered tree provides `RouteContext` — on the client
+// `<router>` does, and there is no `<router>` here — so pre-population is the
+// only mechanism, and these tests are what prove it survives to the walk.
+
+describe('runPrerender — route context', () => {
+  let fx: Fixture
+  afterEach(async () => {
+    if (fx) await rm(fx.root, { recursive: true, force: true })
+  })
+
+  it('exposes the matched route to the page render', async () => {
+    fx = await makeFixture()
+    await writeRoute(fx.root, 'about.ts', { name: 'about-page' })
+
+    const loadModule: SsrModuleLoader = async () => ({
+      default: () => ({
+        kind: 'leaf',
+        leafKind: 'text',
+        value: `path=${useRoute()?.pathname ?? 'NO-ROUTE'}`,
+      }),
+    })
+
+    await runPrerender({
+      resolvedViteConfig: fx.resolvedViteConfig,
+      config: { output: 'static', dir: { pages: 'pages' } },
+      loadModule,
+      warn: fx.warn,
+    })
+
+    const html = await readFile(join(fx.outDir, 'about', 'index.html'), 'utf8')
+    expect(html).toContain('path=/about')
+    expect(html).not.toContain('NO-ROUTE')
+  })
+
+  it('gives each concrete path of a dynamic route its OWN params', async () => {
+    fx = await makeFixture()
+    await writeRoute(fx.root, join('posts', '[slug].ts'), { name: 'post-page' })
+
+    const loadModule: SsrModuleLoader = async () => ({
+      default: () => ({
+        kind: 'leaf',
+        leafKind: 'text',
+        value: `slug=${useRoute()?.params.slug ?? 'NONE'}`,
+      }),
+      getStaticPaths: () => [{ slug: 'hello' }, { slug: 'world' }],
+    })
+
+    await runPrerender({
+      resolvedViteConfig: fx.resolvedViteConfig,
+      config: { output: 'static', dir: { pages: 'pages' } },
+      loadModule,
+      warn: fx.warn,
+    })
+
+    expect(await readFile(join(fx.outDir, 'posts', 'hello', 'index.html'), 'utf8')).toContain(
+      'slug=hello',
+    )
+    expect(await readFile(join(fx.outDir, 'posts', 'world', 'index.html'), 'utf8')).toContain(
+      'slug=world',
+    )
+  })
+
+  // The layout shell cache used to key on layout NAME alone, which was safe
+  // only while layouts rendered route-blind. Now that a layout sees the route,
+  // a name-only key would serve every page the FIRST page's chrome — the exact
+  // bug an active-nav highlight would exhibit, and the reason to wire context
+  // at all. This is the regression lock on the cache key.
+  it('re-renders the layout per concrete path, not once per route pattern', async () => {
+    fx = await makeFixture()
+    await writeRoute(fx.root, join('posts', '[slug].ts'), { name: 'post-page', layout: 'app' })
+    await mkdir(join(fx.root, 'src', 'layouts'), { recursive: true })
+    await writeFile(join(fx.root, 'src', 'layouts', 'app.aihu'), '<layout/>\n')
+
+    const loadModule: SsrModuleLoader = async (file) => {
+      if (file.replace(/\\/g, '/').endsWith('/src/layouts/app.aihu')) {
+        return {
+          default: {
+            toHtml: () =>
+              `<div class="shell"><header>nav:${useRoute()?.params.slug ?? 'NONE'}</header>` +
+              `<main data-aihu-outlet></main></div>`,
+          },
+        }
+      }
+      return {
+        default: { toHtml: () => '<article>Post</article>' },
+        getStaticPaths: () => [{ slug: 'hello' }, { slug: 'world' }],
+      }
+    }
+
+    await runPrerender({
+      resolvedViteConfig: fx.resolvedViteConfig,
+      config: { output: 'static', dir: { pages: 'pages', layouts: 'src/layouts' } },
+      loadModule,
+      warn: fx.warn,
+    })
+
+    expect(await readFile(join(fx.outDir, 'posts', 'hello', 'index.html'), 'utf8')).toContain(
+      'nav:hello',
+    )
+    // The load-bearing assertion: 'world' must NOT have been served 'hello'.
+    expect(await readFile(join(fx.outDir, 'posts', 'world', 'index.html'), 'utf8')).toContain(
+      'nav:world',
+    )
+  })
 })
