@@ -309,6 +309,53 @@ describe('runPrerender — layout composition', () => {
     expect(html).toContain('<h1>Home Content</h1>') // page still ships
     expect(result.warnings.join('\n')).toMatch(/renders no <outlet>/)
   })
+
+  // ─── the no-sidecar path — i.e. every real build ──────────────────────────
+  //
+  // The three tests above all hand `writeRoute` a sidecar object, so they only
+  // ever exercised `readRouteSidecar()` returning a populated record. A real
+  // SSG build never produces one: routes compile through the stdin path, which
+  // writes no `.route.json` to disk. `sidecar?.layout` was therefore ALWAYS
+  // undefined in production, layouts were never prerendered, and nothing warned
+  // — the layout warnings above are all downstream of a name that never
+  // arrived. The suite could not catch it because the fixture supplied by hand
+  // exactly the artifact the build does not emit.
+  //
+  // So this test writes a real `.aihu` source with NO sidecar and asserts the
+  // layout still wraps the page, recovered from source via `compileRouteMeta`.
+  it('recovers the layout from source when no .route.json sidecar exists', async () => {
+    fx = await makeFixture()
+    const routePath = join(fx.root, 'pages', 'index.aihu')
+    await writeFile(
+      routePath,
+      '@route {\n  layout: "app"\n}\n\n@template {\n  <h1>Home Content</h1>\n}\n',
+    )
+    await writeLayout(fx.root, 'app')
+
+    const loadModule: SsrModuleLoader = async (file) => {
+      if (file.replace(/\\/g, '/').endsWith('/src/layouts/app.aihu')) {
+        return {
+          default: {
+            toHtml: () =>
+              '<div class="shell"><header>App Header</header><main data-aihu-outlet></main></div>',
+          },
+        }
+      }
+      return { default: { toHtml: () => '<h1>Home Content</h1>' } }
+    }
+
+    const result = await runPrerender({
+      resolvedViteConfig: fx.resolvedViteConfig,
+      config: { output: 'static', dir: { pages: 'pages', layouts: 'src/layouts' } },
+      loadModule,
+      warn: fx.warn,
+    })
+
+    expect(result.written).toContain('index.html')
+    const html = await readFile(join(fx.outDir, 'index.html'), 'utf8')
+    expect(html).toContain('<header>App Header</header>')
+    expect(html).toMatch(/data-aihu-outlet[^>]*><h1>Home Content<\/h1><\/main>/)
+  })
 })
 
 describe('runPrerender — dynamic routes', () => {

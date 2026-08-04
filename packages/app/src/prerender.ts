@@ -343,24 +343,36 @@ export async function runPrerender(opts: RunPrerenderOptions): Promise<Prerender
 
     const sidecar = readRouteSidecar(route.file)
     let head = sidecar?.head
-    if (head === undefined) {
+    let declaredLayout = sidecar?.layout
+    if (head === undefined || declaredLayout === undefined) {
       // The stdin compile path writes no `.route.json` sidecar to disk, so a
       // real SSG build has none to read (only the test harness lays them down).
-      // Recover the route's `@route { head }` straight from source via the
+      // Recover the route's `@route` metadata straight from source via the
       // compiler — the SAME metadata the SPA build threads into
       // `virtual:aihu-routes` (compileRouteMeta). Without this fallback every
       // prerendered page ships ONLY the global head and loses its per-route
       // title / description / canonical / og / twitter / json-ld — the SEO
-      // payload that is the entire reason to prerender for crawlers. Failure is
-      // non-fatal: the page still ships content + the global head.
+      // payload that is the entire reason to prerender for crawlers.
+      //
+      // `layout` needs the SAME recovery, and its absence was worse than an SEO
+      // loss: `sidecar?.layout` was ALWAYS undefined in a real build, so the
+      // layout shell was silently never prerendered — not even a warning, since
+      // the "layout not found" / "no outlet marker" warnings below all sit
+      // downstream of a layout NAME that never arrived. Every static page
+      // therefore shipped its bare content with no chrome, and the client had to
+      // build the entire layout before the page reached its final geometry.
+      //
+      // Failure is non-fatal: the page still ships content + the global head.
       try {
         const src = await readFile(route.file, 'utf8')
-        head = compileRouteMeta(src, route.file)?.head as typeof head
+        const meta = compileRouteMeta(src, route.file)
+        if (head === undefined) head = meta?.head as typeof head
+        if (declaredLayout === undefined) declaredLayout = meta?.layout
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err)
         pushWarn(
-          `[@aihu/app] static output: could not recover per-route head for ${route.pattern}: ` +
-            `${msg} — the page ships with the global head only.`,
+          `[@aihu/app] static output: could not recover @route metadata for ${route.pattern}: ` +
+            `${msg} — the page ships with the global head and no layout.`,
         )
       }
     }
@@ -378,7 +390,7 @@ export async function runPrerender(opts: RunPrerenderOptions): Promise<Prerender
     // The page content is injected into its `data-aihu-outlet` marker below. If
     // the layout isn't server-renderable (compiled SFC) or has no marker, fall
     // back to rendering the page directly (the client still wraps it on hydrate).
-    const layoutName = sidecar?.layout
+    const layoutName = declaredLayout
     let layoutShell = layoutName ? await renderLayoutShell(layoutName, route.pattern) : null
     if (layoutShell !== null && injectIntoOutletMarker(layoutShell, '') === null) {
       pushWarn(
