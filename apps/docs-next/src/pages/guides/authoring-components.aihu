@@ -26,9 +26,9 @@
         <span>Previous</span>
         <strong>← Reactivity</strong>
       </a>
-      <a class="dn-page-next" href="/guides/authoring-agents">
+      <a class="dn-page-next" href="/guides/composition">
         <span>Next</span>
-        <strong>Authoring Agents →</strong>
+        <strong>Composition &amp; Injection →</strong>
       </a>
     </nav>
   </div>

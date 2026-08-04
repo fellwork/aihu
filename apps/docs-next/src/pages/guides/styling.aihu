@@ -1,34 +1,34 @@
 @route {
-  path: "/guides/deployment",
-  name: "guide-deployment",
+  path: "/guides/styling",
+  name: "guide-styling",
   layout: "docs",
   head: {
-    title: "Deployment — aihu",
-    description: "Build for production and deploy to Cloudflare Workers, Vercel, Bun, Deno, or Node.js.",
-    canonical: "/guides/deployment"
+    title: "Styling — aihu",
+    description: "The @aihu/css-engine model: build-time scanning, shadow and @scope light-DOM isolation, WC-native variants, and cn().",
+    canonical: "/guides/styling"
   }
 }
 
 @state {
   import { renderMarkdown } from '../../lib/markdown.ts'
-  import { DEPLOYMENT } from '../../data/guide-deployment.ts'
+  import { STYLING } from '../../data/guide-styling.ts'
 
-  const body = renderMarkdown(DEPLOYMENT)
+  const body = renderMarkdown(STYLING)
 }
 
 @template {
   <div class="dn-guide">
-    <p class="dn-sec-num"><b>G · 16</b> guides</p>
-    <p class="dn-breadcrumb dn-rail"><a href="/guides/getting-started">Guides</a> / Deployment</p>
+    <p class="dn-sec-num"><b>G · 07</b> guides</p>
+    <p class="dn-breadcrumb dn-rail"><a href="/guides/getting-started">Guides</a> / Styling</p>
     <article class="dn-prose dn-article" html={body}></article>
     <nav class="dn-page-nav" aria-label="Guide pagination">
-      <a class="dn-page-prev" href="/guides/authoring-plugins">
+      <a class="dn-page-prev" href="/guides/authoring-agents">
         <span>Previous</span>
-        <strong>← Authoring Plugins</strong>
+        <strong>← Authoring Agents</strong>
       </a>
-      <a class="dn-page-next" href="/guides/migration">
+      <a class="dn-page-next" href="/guides/theming">
         <span>Next</span>
-        <strong>Migration →</strong>
+        <strong>Theming →</strong>
       </a>
     </nav>
   </div>

@@ -18,7 +18,7 @@
 
 @template {
   <div class="dn-guide">
-    <p class="dn-sec-num"><b>G · 09</b> guides</p>
+    <p class="dn-sec-num"><b>G · 13</b> guides</p>
     <p class="dn-breadcrumb dn-rail"><a href="/guides/getting-started">Guides</a> / SSR &amp; Hydration</p>
     <article class="dn-prose dn-article" html={body}></article>
     <nav class="dn-page-nav" aria-label="Guide pagination">
