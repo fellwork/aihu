@@ -1,6 +1,30 @@
 // toc-rail — the right-hand "On this page" rail. Scans the rendered article's
 // h2/h3 after hydration and tracks the active section on scroll. Empty during
 // prerender (no DOM); it fills on the client — a progressive-enhancement seam.
+//
+// onMount below scans on a microtask, not only via rAF/setTimeout. The
+// headings it scans are static prerendered content already in the DOM before
+// any JS runs, so there's no race to wait out on first load — but deferring
+// the FIRST scan all the way to rAF/a 120ms timeout let `items` flip from
+// empty to populated in a LATER frame, and since .dn-toc-col only occupies
+// its grid column once <toc-rail>'s inner <nav> has content, that later flip
+// is a real, measured layout shift (CLS 0.217, confirmed live on a CI
+// runner's slower CPU; never showed up on a faster local machine). A
+// *synchronous* first scan() call fixed the CLS but broke `vite build`
+// outright — the SSG prerender runs onMount synchronously, and a synchronous
+// state write back into that same still-executing render call is a
+// reentrancy shape aihu's runtime doesn't handle (see define-component.ts's
+// `_ceReactionDepth` guard for the same class of issue elsewhere). A
+// microtask still resolves before the browser's next paint (closing the CLS
+// gap) while letting the current call stack unwind first — safe either way.
+//
+// KEEP THIS COMMENT SHORT: a long inline comment inside the onMount(() => {})
+// body itself (as opposed to here, above @state) corrupts the compiler's
+// output — it duplicate-emits the callback and truncates mid-comment on the
+// second copy, breaking the build with a PARSE_ERROR pointing at a bogus
+// line 1. Reproduced directly against target/release/aihu-compile --target
+// client; worth a compiler-side fix, but the workaround is simply: no
+// substantial prose inside this specific callback.
 
 @state {
   const SEL = '.dn-article h2[id], .dn-article h3[id], .dn-prose h2[id], .dn-prose h3[id]'
@@ -31,21 +55,8 @@
 
   onMount(() => {
     if (typeof window === 'undefined') return
-    // Scan SYNCHRONOUSLY first, not only via rAF/setTimeout. The headings
-    // this scans (.dn-article/.dn-prose h2/h3) are part of the page's own
-    // prerendered static HTML — they exist in the DOM before any JS runs at
-    // all, so there is no race to wait out on first load. Deferring made
-    // `items` flip from empty to populated in a LATER frame, and because
-    // .dn-toc-col only occupies its grid column once <toc-rail>'s inner
-    // <nav> has content (`show={items.length > 0}`), that later flip is a
-    // real, measured layout shift — confirmed live: CLS 0.217 on the CI
-    // runner's slower CPU (the 120ms timeout landed inside Lighthouse's
-    // shift-observation window), while it never showed up locally on a
-    // faster machine where the same delayed scan resolved before first
-    // paint. The rAF + setTimeout stay as a defensive re-scan for
-    // client-side navigation swapping <outlet>'s content under an
-    // already-mounted <toc-rail>, which is a real race this one can't cover.
-    scan()
+    // See the file-header comment: microtask, not sync, and keep this short.
+    queueMicrotask(scan)
     requestAnimationFrame(scan)
     setTimeout(scan, 120)
     window.addEventListener('scroll', spy, { passive: true })
