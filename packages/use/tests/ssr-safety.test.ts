@@ -1269,34 +1269,6 @@ const entries: Array<{ entry: string; run: () => Promise<void> }> = [
         },
       ),
   },
-  {
-    entry: 'useSwarm',
-    run: () =>
-      withSSR(
-        () => import('../src/useSwarm/index.ts'),
-        ({ useSwarm }) => {
-          withGlobalSpies(() => {
-            const { state, agents, contracts, yourMove, connected, close } = useSwarm()
-            expect(state()).toEqual({
-              t: '',
-              supervisor_up: false,
-              decide: [],
-              orphan: [],
-              reviews: [],
-              errors: [],
-              agents: [],
-              contracts: [],
-              activity: [],
-            })
-            expect(agents()).toEqual([])
-            expect(contracts()).toEqual([])
-            expect(yourMove()).toEqual({ decide: [], orphan: [], reviews: [], errors: [] })
-            expect(connected()).toBe(false)
-            expect(() => close()).not.toThrow()
-          })
-        },
-      ),
-  },
 ]
 
 describe('@aihu/use — Tier 2: hand-written call-time SSR safety (isClient no-op invariant)', () => {

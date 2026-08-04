@@ -745,13 +745,6 @@
     "ignore": ["@aihu/signals"]
   },
   {
-    "name": "@aihu/use/useSwarm",
-    "path": "packages/use/dist/useSwarm.js",
-    "limit": "1.45 kB",
-    "gzip": true,
-    "ignore": ["@aihu/signals"]
-  },
-  {
     "name": "@aihu/use/useKeyedAsync",
     "path": "packages/use/dist/useKeyedAsync.js",
     "limit": "750 B",

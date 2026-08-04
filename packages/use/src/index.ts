@@ -162,14 +162,6 @@ export type { UseStopwatchOptions, UseStopwatchReturn } from './useStopwatch/ind
 export { useStopwatch } from './useStopwatch/index.ts'
 export type { UseSupportedReturn } from './useSupported/index.ts'
 export { useSupported } from './useSupported/index.ts'
-export type {
-  SwarmRecord,
-  SwarmState,
-  SwarmYourMove,
-  UseSwarmOptions,
-  UseSwarmReturn,
-} from './useSwarm/index.ts'
-export { useSwarm } from './useSwarm/index.ts'
 export type { UseTextDirectionOptions, UseTextDirectionReturn } from './useTextDirection/index.ts'
 export { useTextDirection } from './useTextDirection/index.ts'
 export type { UseThrottleReturn } from './useThrottle/index.ts'
