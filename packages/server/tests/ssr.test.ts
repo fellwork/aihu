@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { renderToString } from '../src/ssr.ts'
+import { _setContextFns, renderToString } from '../src/ssr.ts'
 
 describe('@aihu/server ssr', () => {
   it('{ toHtml() } component renders its HTML directly', async () => {
@@ -178,5 +178,83 @@ describe('@aihu/server ssr', () => {
     })
     expect(result).toContain('<meta')
     expect(result).toContain('description')
+  })
+})
+
+// ─── the contextSetup seam ───────────────────────────────────────────────────
+//
+// `SsrOptions.contextSetup` exists so a caller can pre-populate the context map
+// a render walk reads — the case where NO component in the tree provides the
+// value (the router's `RouteContext` during SSG, say). It did not work: the
+// hook ran first and a fresh empty map was activated second, discarding
+// whatever the caller had activated. Nothing in the repo called the hook, so
+// nothing noticed.
+//
+// These tests use a hand-rolled activate/clear pair rather than importing
+// `@aihu/context`. That keeps ssr.ts's hard boundary intact in the dependency
+// graph AND is the more precise test: what's under test is the ORDER ssr.ts
+// calls the seam in, not @aihu/context's map lookup.
+
+describe('@aihu/server ssr — contextSetup', () => {
+  const TOKEN = Symbol('test.token')
+
+  /** Mirrors @aihu/context's module-global active-map semantics. */
+  function makeContextFns(): {
+    activate: (m: Map<symbol, unknown>) => void
+    clear: () => void
+    read: () => unknown
+  } {
+    let active: Map<symbol, unknown> | null = null
+    return {
+      activate: (m) => {
+        active = m
+      },
+      clear: () => {
+        active = null
+      },
+      read: () => active?.get(TOKEN),
+    }
+  }
+
+  it('keeps a map the caller activates alive for the render walk', async () => {
+    const fns = makeContextFns()
+    _setContextFns(fns.activate, fns.clear)
+
+    const component = (): unknown => ({
+      kind: 'leaf',
+      leafKind: 'text',
+      value: String(fns.read() ?? 'MISSING'),
+    })
+
+    const html = await renderToString(component, {
+      contextSetup: (activate) => activate(new Map([[TOKEN, 'PROVIDED']])),
+    })
+    expect(html).toBe('PROVIDED')
+  })
+
+  it('still hands a fresh empty map to a caller that pre-populates nothing', async () => {
+    const fns = makeContextFns()
+    _setContextFns(fns.activate, fns.clear)
+    // Leak a value from a "previous request" — the fresh map must shadow it.
+    fns.activate(new Map([[TOKEN, 'STALE']]))
+
+    const component = (): unknown => ({
+      kind: 'leaf',
+      leafKind: 'text',
+      value: String(fns.read() ?? 'EMPTY'),
+    })
+
+    const html = await renderToString(component, { contextSetup: () => {} })
+    expect(html).toBe('EMPTY')
+  })
+
+  it('clears the active map after the walk', async () => {
+    const fns = makeContextFns()
+    _setContextFns(fns.activate, fns.clear)
+
+    await renderToString(() => ({ kind: 'leaf', leafKind: 'text', value: 'x' }), {
+      contextSetup: (activate) => activate(new Map([[TOKEN, 'PROVIDED']])),
+    })
+    expect(fns.read()).toBeUndefined()
   })
 })

@@ -2,6 +2,14 @@ import { defineConfig } from 'rolldown'
 import { dts } from 'rolldown-plugin-dts'
 
 const external = [
+  // MUST stay external. `@aihu/context` keeps the active context map in a
+  // module-global (`_activeContextMap`), so a bundled copy is a SECOND map:
+  // `prerender.ts` would populate its private one while user components read
+  // the app's, and `inject()` would return token defaults with nothing to
+  // indicate why. Tests can't catch it — vitest aliases `@aihu/context` to
+  // source, so the duplicate only exists in the published dist.
+  '@aihu/context',
+  '@aihu/context/ssr',
   '@aihu/router',
   '@aihu/router/plugin',
   '@aihu/server',
