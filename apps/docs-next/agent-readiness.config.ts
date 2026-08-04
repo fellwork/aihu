@@ -18,7 +18,7 @@ import type { AgentReadinessConfig } from '@aihu-plugin/agent-readiness'
  * `/.well-known/webmcp` alias — are checked in under `public/`.
  *
  * Every URL here is absolute against the production origin. docs-next already
- * declares `site.url` as https://aihu.dev (see `aihu.config.ts`) and emits its
+ * declares `site.url` as https://aihu.dev (see `vite.config.ts`) and emits its
  * canonical link against it, so these documents are authored for the domain
  * this app is meant to serve, not for its .pages.dev staging host.
  */
