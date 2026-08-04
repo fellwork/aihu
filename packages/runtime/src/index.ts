@@ -27,6 +27,7 @@ export {
   _onMount as onMount,
   _setMount,
   _setSignal,
+  _withOwnerContext,
   defineComponent,
 } from './define-component.ts'
 /** @internal */

@@ -74,6 +74,12 @@ export const EXPORTS: readonly ApiExport[] = [
     summary: 'Take (read) the server binding registered for `element`.',
   },
   {
+    name: '_withOwnerContext',
+    kind: 'function',
+    signature: 'function _withOwnerContext<R>(node: object, fn: () => R): R',
+    summary: '',
+  },
+  {
     name: 'announce',
     kind: 'function',
     signature: 'function announce(message: string): void',

@@ -655,6 +655,7 @@
         "@aihu/compiler": "workspace:*",
       },
       "peerDependencies": {
+        "@aihu/context": "workspace:*",
         "@aihu/arbor": "workspace:*",
         "@aihu/router": "workspace:*",
         "@aihu/runtime": "workspace:*",
