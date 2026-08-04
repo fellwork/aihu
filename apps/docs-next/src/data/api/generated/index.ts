@@ -168,9 +168,9 @@ export const PACKAGES: readonly ApiPackageMeta[] = [
     version: '8.1.0',
     tagline: 'Top-level app integration — wires runtime, router, and adapters into a Vite app.',
     note: '',
-    exportCount: 30,
-    valueCount: 10,
-    typeCount: 20,
+    exportCount: 33,
+    valueCount: 11,
+    typeCount: 22,
     agent: true,
   },
   {

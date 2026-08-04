@@ -24,6 +24,12 @@ export const EXPORTS: readonly ApiExport[] = [
     summary: '',
   },
   {
+    name: 'criticalPath',
+    kind: 'function',
+    signature: 'function criticalPath(opts: CriticalPathOptions = {}): Plugin',
+    summary: '',
+  },
+  {
     name: 'declareAihuModule',
     kind: 'function',
     signature:
@@ -134,6 +140,20 @@ export const EXPORTS: readonly ApiExport[] = [
     signature:
       "interface CreateHandlerSourceOptions {\n  /**\n   * Import specifier for the compiled routes manifest module.\n   * Default: './routes-manifest.js'\n   */\n  routesSpecifier?: string\n  /**\n   * Import specifier for @aihu/server.\n   * Default: '@aihu/server'\n   * Adapters that bundle server deps may override this to a relative path.\n   */\n  serverSpecifier?: string\n}",
     summary: 'Options for AdapterContext.createHandlerSource().',
+  },
+  {
+    name: 'CriticalPathOptions',
+    kind: 'interface',
+    signature:
+      "interface CriticalPathOptions {\n  /** Modules forbidden in the critical path. */\n  readonly deny?: readonly CriticalPathRule[]\n  /**\n   * Max gzipped size of the critical path (all statically-entry-reachable\n   * chunks combined). Gzip, not raw, because that is what crosses the wire —\n   * and it matches `scripts/size.ts`'s existing convention.\n   */\n  readonly maxBytes?: number\n  /** Report without failing the build. Default `false`. */\n  readonly warnOnly?: boolean\n}",
+    summary: '',
+  },
+  {
+    name: 'CriticalPathRule',
+    kind: 'interface',
+    signature:
+      'interface CriticalPathRule {\n  /** Tested against the module id (absolute path, posix-normalized). */\n  pattern: RegExp\n  /**\n   * Printed on violation. Say WHY it must stay out and what to do instead —\n   * this message is the whole value of the rule when it fires months later.\n   */\n  reason: string\n}',
+    summary: 'A module pattern that must never become statically reachable from an entry.',
   },
   {
     name: 'DirConfig',
