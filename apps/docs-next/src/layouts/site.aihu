@@ -1,15 +1,27 @@
 // site layout — the full-bleed shell for marketing/landing pages: shared header,
 // a routed <outlet>, and the site footer. No sidebar.
 
-@state {
-  // Reset scroll to the top on client-side navigation — otherwise the previous
-  // page's scroll offset carries over (e.g. clicking a link halfway down the
-  // landing page opens the next page scrolled halfway down). Skip when the URL
-  // targets an in-page anchor so TOC links still work.
-  afterNavigate(() => {
-    if (!location.hash) window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
-  })
-}
+// NO @state BLOCK — deliberately. This layout used to call
+// `afterNavigate(() => …)` to reset scroll on client-side navigation, and that
+// single line was silently breaking the entire landing page.
+//
+// `afterNavigate` is a COMPILER INTRINSIC: there is no runtime export to
+// import, so the compiler must lower the call away. In the layout build path
+// it did not — the literal text `afterNavigate(...)` survived into the emitted
+// chunk (verified in `dist/assets/site-*.js`, while `docs-*.js` from the
+// otherwise-identical docs layout had zero occurrences). At runtime that threw
+// `ReferenceError: afterNavigate is not defined` during the layout's setup,
+// which killed the WHOLE `<aihu-layout-site>` element — so the landing page
+// rendered its page content with no header and no footer at all. Hoisting the
+// callback to a named const (matching docs.aihu) did NOT fix it; the
+// difference between the two layouts is still unexplained and is filed as a
+// compiler bug rather than guessed at here.
+//
+// Removing it costs nothing, which is the reason this is a deletion and not a
+// workaround: `src/main.ts` already installs a GLOBAL scroll-reset click
+// handler, and its own comment says it exists precisely because "a per-layout
+// afterNavigate misses cross-layout transitions (site ↔ docs)". The layout
+// copy was redundant with a handler that already covers more cases.
 
 @template {
   <div class="dn-site">
