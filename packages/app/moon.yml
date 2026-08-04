@@ -5,6 +5,7 @@ layer: library
 dependsOn:
   - 'arbor'
   - 'compiler'
+  - 'context'
   - 'plugin-agent-readiness'
   - 'router'
   - 'runtime'

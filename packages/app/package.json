@@ -29,6 +29,7 @@
   },
   "peerDependencies": {
     "@aihu/arbor": "workspace:*",
+    "@aihu/context": "workspace:*",
     "@aihu/router": "workspace:*",
     "@aihu/runtime": "workspace:*",
     "@aihu/server": "workspace:*",

@@ -64,6 +64,7 @@ bun add @aihu/app
 **Peer dependencies:**
 
 - `@aihu/arbor` — `workspace:*`
+- `@aihu/context` — `workspace:*`
 - `@aihu/router` — `workspace:*`
 - `@aihu/runtime` — `workspace:*`
 - `@aihu/server` — `workspace:*`
