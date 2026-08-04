@@ -134,19 +134,23 @@ export interface SsrOptions {
   /**
    * Optional per-render context setup hook. When provided alongside a prior call
    * to _setContextFns, ssr.ts will:
-   *   1. Call contextSetup(activateFn, deactivateFn) so the caller can do
-   *      per-request setup (e.g. pre-populate the context map).
-   *   2. Activate a fresh context Map before the tree walk.
+   *   1. Activate a fresh context Map (per-render isolation).
+   *   2. Call contextSetup(activateFn, deactivateFn) so the caller can do
+   *      per-request setup — including replacing that map with a pre-populated
+   *      one, which is the point of the hook.
    *   3. Clear it in a finally block after the walk.
    *
    * ssr.ts never imports @aihu/context — the hard boundary is preserved.
    * The activate/deactivate functions are wired via _setContextFns at startup.
    *
-   * Minimal usage:
+   * Pre-populating (the common case — providing a context no component in the
+   * tree provides, e.g. the router's `RouteContext` during SSG):
    *   import { setSsrContextMap, clearSsrContextMap } from '@aihu/context/ssr'
    *   import { _setContextFns, renderToString } from '@aihu/server'
    *   _setContextFns(setSsrContextMap, clearSsrContextMap)
-   *   await renderToString(component, { contextSetup: () => {} })
+   *   await renderToString(component, {
+   *     contextSetup: (activate) => activate(new Map([[Token._id, value]])),
+   *   })
    */
   readonly contextSetup?: (
     activate: (map: Map<symbol, unknown>) => void,
@@ -1034,12 +1038,25 @@ export async function renderToString(
   component: ComponentDescription,
   opts?: SsrOptions,
 ): Promise<string> {
-  // Context setup: if configured, activate a fresh map before the render walk
-  // and clear it unconditionally in the finally block.
+  // Context setup: activate a fresh map, hand the caller the activate/clear
+  // pair, then run the walk; clear unconditionally in the finally block.
+  //
+  // ORDER IS LOAD-BEARING, and it used to be backwards. `contextSetup` ran
+  // FIRST and the fresh empty map was activated SECOND, so any map the caller
+  // activated was immediately discarded — `inject()` saw only token defaults
+  // during the walk. That made the hook a no-op for the one job its own doc
+  // comment gives it ("pre-populate the context map"), and nothing caught it
+  // because nothing in the repo had ever called it: the seam was built,
+  // documented, and left unexercised.
+  //
+  // Activating the fresh map first preserves the per-render isolation
+  // guarantee (a caller that only wants a clean slate does nothing and still
+  // gets one) while letting a caller that DOES pre-populate replace it with a
+  // map that survives to the walk.
   const hasContext = Boolean(opts?.contextSetup && _setContextMap && _clearContextMap)
   if (hasContext && opts?.contextSetup) {
-    opts.contextSetup(_setContextMap!, _clearContextMap!)
     _setContextMap?.(new Map<symbol, unknown>())
+    opts.contextSetup(_setContextMap!, _clearContextMap!)
   }
 
   try {

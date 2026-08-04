@@ -29,10 +29,17 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join, resolve as resolvePath } from 'node:path'
 import { compileRouteMeta } from '@aihu/compiler'
-import type { RouteSegment } from '@aihu/router'
+import { clearSsrContextMap, setSsrContextMap } from '@aihu/context/ssr'
+import type { RouteDefinition, RouteSegment } from '@aihu/router'
+import { createRouter, provideRouteContext } from '@aihu/router'
 import { readRouteSidecar, scanLayouts, scanPages } from '@aihu/router/plugin'
-import type { HeadConfig } from '@aihu/server'
-import { _setStoreSerializer, renderToString, routeHeadToSsrHead } from '@aihu/server'
+import type { HeadConfig, SsrOptions } from '@aihu/server'
+import {
+  _setContextFns,
+  _setStoreSerializer,
+  renderToString,
+  routeHeadToSsrHead,
+} from '@aihu/server'
 import { _resetStoreRegistry, serializeStores } from '@aihu/store'
 import type { ResolvedConfig } from 'vite'
 import type { AihuConfig } from './config.ts'
@@ -270,16 +277,72 @@ export async function runPrerender(opts: RunPrerenderOptions): Promise<Prerender
   // snapshot.
   _setStoreSerializer(serializeStores)
 
-  // SSR layout parity (#7): render a route's layout shell once and cache by
-  // name (param-independent; routes sharing a layout reuse it). Scoped to the
-  // composition case — only layouts whose module exposes an SSR-renderable
-  // `default` are prerendered. Compiled-SFC layouts (side-effect custom element,
-  // no default) resolve to null, so the page ships the SPA shell unchanged and
-  // the layout is applied client-side on hydration. Map value `null` = resolved
-  // but not server-renderable.
+  // Route context during SSG. `@aihu/server` never imports `@aihu/context` —
+  // the seam is `_setContextFns` + `SsrOptions.contextSetup` — so this, the
+  // SSG SSR entry, owns the wiring exactly as it owns the store serializer
+  // above.
+  //
+  // Without it `inject(RouteContext)` returned the token default (`null`) for
+  // the whole prerender, so anything route-aware — `useRoute`, `useRouter`,
+  // `$route`, an `<a>` deciding whether it is the active link — server-rendered
+  // as if no route were active, then changed on the client. That is a
+  // correctness bug that presents as a flash.
+  //
+  // No component in a prerendered tree provides this: on the client `<router>`
+  // does, and there is no `<router>` here. Pre-populating IS the mechanism.
+  _setContextFns(setSsrContextMap, clearSsrContextMap)
+
+  const routes = deriveRoutes(root, pagesDir)
+
+  // A router over the same scanned routes the loop below walks, so `current()`
+  // returns a real `MatchResult` — matched params included — rather than a
+  // hand-built stub that would drift from what the client computes.
+  const router = createRouter(
+    routes.map(
+      (r): RouteDefinition => ({
+        pattern: r.pattern,
+        segments: r.segments,
+        module: () => loadModule(r.file) as Promise<never>,
+      }),
+    ),
+  )
+
+  /**
+   * `contextSetup` for one concrete path.
+   *
+   * `provideRouteContext` writes into the map `ssr.ts` activates immediately
+   * before calling this hook, so the public provide/inject API is all that is
+   * needed — no reaching for token internals.
+   *
+   * `current` is a plain closure, not a signal: a prerender is one static
+   * snapshot, and `createRouteSignal` would attach a `popstate` listener that
+   * has nothing to listen to in Node.
+   */
+  const routeContextFor = (concretePath: string): NonNullable<SsrOptions['contextSetup']> => {
+    const match = router.match(concretePath)
+    return () => provideRouteContext({ router, current: () => match })
+  }
+
+  // SSR layout parity (#7): render a route's layout shell and cache it. Scoped
+  // to the composition case — only layouts whose module exposes an
+  // SSR-renderable `default` are prerendered. Compiled-SFC layouts (side-effect
+  // custom element, no default) resolve to null, so the page ships the SPA
+  // shell unchanged and the layout is applied client-side on hydration. Map
+  // value `null` = resolved but not server-renderable.
+  //
+  // The cache key is layout name + CONCRETE PATH, not the name alone. Keying on
+  // the name was safe only while layouts rendered route-blind; now that they
+  // see `RouteContext`, a layout with an active-nav highlight (the common case,
+  // and the reason this wiring exists) renders differently per page. A
+  // name-only key would have served every page the first page's chrome.
   const layoutShellCache = new Map<string, string | null>()
-  const renderLayoutShell = async (name: string, routePattern: string): Promise<string | null> => {
-    const cached = layoutShellCache.get(name)
+  const renderLayoutShell = async (
+    name: string,
+    routePattern: string,
+    concretePath: string,
+  ): Promise<string | null> => {
+    const cacheKey = `${name} ${concretePath}`
+    const cached = layoutShellCache.get(cacheKey)
     if (cached !== undefined) return cached
     let shell: string | null = null
     const layoutFile = scanLayouts(resolvePath(root, layoutsDir))[name]
@@ -296,7 +359,10 @@ export async function runPrerender(opts: RunPrerenderOptions): Promise<Prerender
           // shell is part of the same prerendered document and must carry
           // markers too, or the client adopts the page and rebuilds its wrapper.
           _resetStoreRegistry()
-          shell = await renderToString(layoutComponent, { hydratable: true })
+          shell = await renderToString(layoutComponent, {
+            hydratable: true,
+            contextSetup: routeContextFor(concretePath),
+          })
         } else {
           pushWarn(
             `[@aihu/app] static output: layout "${name}" has no SSR-renderable default export — ` +
@@ -311,7 +377,7 @@ export async function runPrerender(opts: RunPrerenderOptions): Promise<Prerender
         )
       }
     }
-    layoutShellCache.set(name, shell)
+    layoutShellCache.set(cacheKey, shell)
     return shell
   }
 
@@ -328,8 +394,6 @@ export async function runPrerender(opts: RunPrerenderOptions): Promise<Prerender
     )
     return result
   }
-
-  const routes = deriveRoutes(root, pagesDir)
 
   for (const route of routes) {
     let mod: PrerenderRouteModule
@@ -386,19 +450,7 @@ export async function runPrerender(opts: RunPrerenderOptions): Promise<Prerender
       continue
     }
 
-    // SSR layout parity (#7): resolve + render the route's layout shell once.
-    // The page content is injected into its `data-aihu-outlet` marker below. If
-    // the layout isn't server-renderable (compiled SFC) or has no marker, fall
-    // back to rendering the page directly (the client still wraps it on hydrate).
     const layoutName = declaredLayout
-    let layoutShell = layoutName ? await renderLayoutShell(layoutName, route.pattern) : null
-    if (layoutShell !== null && injectIntoOutletMarker(layoutShell, '') === null) {
-      pushWarn(
-        `[@aihu/app] static output: layout "${layoutName}" renders no <outlet> ` +
-          `(data-aihu-outlet) marker — route ${route.pattern} prerendered without the layout.`,
-      )
-      layoutShell = null
-    }
 
     // Build the param-path list to render: static routes render once with no
     // params; dynamic routes require getStaticPaths().
@@ -439,15 +491,34 @@ export async function runPrerender(opts: RunPrerenderOptions): Promise<Prerender
         // statically generated page's content on first load. `hydratable` is a
         // property of the DESTINATION, not of the renderer.
         _resetStoreRegistry()
-        content = await renderToString(component, { hydratable: true })
+        content = await renderToString(component, {
+          hydratable: true,
+          contextSetup: routeContextFor(concretePath),
+        })
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err)
         pushWarn(`[@aihu/app] static output: render failed for ${concretePath}: ${msg}`)
         continue
       }
 
-      // Compose the page into the layout's outlet marker (marker presence was
-      // verified above; `?? content` is a defensive fallback).
+      // SSR layout parity (#7): render the route's layout shell, then inject the
+      // page into its `data-aihu-outlet` marker. If the layout isn't
+      // server-renderable (compiled SFC) or has no marker, fall back to the page
+      // alone (the client still wraps it on hydrate).
+      //
+      // Rendered per CONCRETE PATH, not once per route pattern: the layout now
+      // sees `RouteContext`, so a dynamic route's pages get their own chrome
+      // rather than every `/posts/:slug` page reusing the first slug's.
+      let layoutShell = layoutName
+        ? await renderLayoutShell(layoutName, route.pattern, concretePath)
+        : null
+      if (layoutShell !== null && injectIntoOutletMarker(layoutShell, '') === null) {
+        pushWarn(
+          `[@aihu/app] static output: layout "${layoutName}" renders no <outlet> ` +
+            `(data-aihu-outlet) marker — route ${route.pattern} prerendered without the layout.`,
+        )
+        layoutShell = null
+      }
       if (layoutShell !== null) {
         content = injectIntoOutletMarker(layoutShell, content) ?? content
       }

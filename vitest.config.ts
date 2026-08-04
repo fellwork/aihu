@@ -53,8 +53,13 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@aihu/context': new URL('./packages/context/src/index.ts', import.meta.url).pathname,
+      // Order matters: the subpath alias must precede the package alias, or
+      // '@aihu/context' matches first and '@aihu/context/ssr' resolves to the
+      // nonexistent '<index.ts>/ssr'. Two aliases below cite THIS pair as the
+      // example to follow while it was itself inverted — nothing imported
+      // '@aihu/context/ssr' until now, so the breakage had nowhere to surface.
       '@aihu/context/ssr': new URL('./packages/context/src/ssr.ts', import.meta.url).pathname,
+      '@aihu/context': new URL('./packages/context/src/index.ts', import.meta.url).pathname,
       '@aihu/compiler': new URL('./packages/compiler/js/index.ts', import.meta.url).pathname,
       '@aihu/tsc': new URL('./packages/tsc/src/index.ts', import.meta.url).pathname,
       // Order matters: the subpath alias must precede the package alias
