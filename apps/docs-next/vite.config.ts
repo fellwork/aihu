@@ -1,6 +1,6 @@
 import { copyFileSync, readdirSync } from 'node:fs'
 import { join, resolve } from 'node:path'
-import { viteAihuPlugin } from '@aihu/app'
+import { criticalPath, viteAihuPlugin } from '@aihu/app'
 import { viteAgentReadinessIntegration } from '@aihu-plugin/agent-readiness'
 import { defineConfig, type Plugin } from 'vite'
 import { agentReadinessConfig } from './agent-readiness.config.ts'
@@ -93,9 +93,57 @@ export default defineConfig({
     viteAihuPlugin(aihuConfig),
     viteAgentReadinessIntegration(agentReadinessConfig),
     flatHtmlSiblings(),
+
+    // Guard what the client entry statically pulls in. Both rules encode a
+    // regression this site actually shipped and only caught later, by hand,
+    // from a Lighthouse score:
+    //   - `typescript` (3.4 MB) reached the entry because its CJS chunk hosted
+    //     rolldown's interop helpers and the entry imported those (#736).
+    //   - all six islands reached the entry via `import './components/x.aihu'`
+    //     side-effect lines, so every page paid for every island.
+    // Neither failed anything at the time. Now they fail the build, naming the
+    // module, its chunk, and the importer that pulled it in.
+    criticalPath({
+      deny: [
+        {
+          pattern: /node_modules[\\/]typescript[\\/]/,
+          reason: 'the 3.4 MB TS compiler must stay behind a dynamic import (see playground.aihu)',
+        },
+        {
+          pattern: /\/src\/components\/.*\.aihu$/,
+          reason:
+            'islands load per-route via virtual:aihu-components — never import one from the client entry',
+        },
+      ],
+    }),
   ],
 
   build: {
+    // Ship ONE stylesheet, statically linked — never per-chunk async CSS.
+    //
+    // Islands are lazily imported per route (the router's
+    // `virtual:aihu-components` registry), and Vite's default
+    // `cssCodeSplit: true` splits each island's `@style` out INTO ITS LAZY
+    // CHUNK. Deferring an island's JS is the goal; deferring its CSS is not —
+    // CSS that arrives after the element upgrades is a flash of unstyled
+    // content, and for anything occupying layout, a guaranteed shift. (This
+    // site already paid for one CLS regression caused by late-arriving font
+    // metrics; late-arriving component CSS is the same failure mode with a
+    // different source.)
+    //
+    // Today that hazard is latent rather than live, because these islands are
+    // not in the prerendered HTML at all — nothing reflows because nothing was
+    // there. That is an accident of the current shell being client-rendered,
+    // not a property worth depending on: the moment any island IS prerendered,
+    // split CSS becomes a visible shift.
+    //
+    // The cost of closing it permanently was measured, not assumed: all CSS
+    // combined is 8.74 kB gzipped vs 4.30 kB for the statically-linked subset
+    // — roughly +4.4 kB on the critical path, for which Lighthouse showed no
+    // change at all (perf 100, LCP 1802ms vs 1803ms, CLS 0.000), while
+    // collapsing 27 stylesheet requests into 1.
+    cssCodeSplit: false,
+
     // Keep `builtin:vite-dynamic-import-vars` away from compiled `.aihu` modules.
     //
     // That plugin re-parses, as plain JavaScript, modules in a graph containing

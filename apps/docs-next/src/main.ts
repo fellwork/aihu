@@ -7,16 +7,27 @@ import './styles/base.css'
 import './styles/api.css' // /api/** datasheet — global so generated pages need no per-page @style
 import './styles/cookbook.css' // /cookbook/<id> recipe datasheet — same reasoning
 
-// --- island + shell component registrations ---
-// Pages (src/pages) and layouts (src/layouts) are registered by the file-router
-// integration; the interactive islands referenced inside them are registered
-// here as a side effect of import.
-import './components/site-header.aihu'
-import './components/theme-toggle.aihu'
-import './components/search-box.aihu'
-import './components/toc-rail.aihu'
-import './components/counter-demo.aihu'
-import './components/weather-demo.aihu'
+// --- island component registrations: NONE, deliberately ---
+//
+// There used to be six `import './components/<x>.aihu'` side-effect lines
+// here. Every one of them put that island in the ENTRY chunk's static graph,
+// so all 75 prerendered pages downloaded all six islands — a guide page that
+// renders no demo still paid for counter-demo AND weather-demo.
+//
+// The file-router already solves this: `virtual:aihu-components` is a
+// tag -> `() => import(...)` registry, each page's `.route.json` carries the
+// component tags ITS template references, and each `virtual:aihu-layouts`
+// entry carries its layout's. `@aihu/app`'s client bootstrap loads exactly
+// that set per route, lazily. The eager imports here were bypassing all of
+// it.
+//
+// They existed because of a real gap, now fixed in the router's `genC`: the
+// registry was one level deep, and the compiler emits a nested component as a
+// bare tag with no import (`branch('search-box', ...)` inside site-header's
+// output). So `<search-box>` / `<theme-toggle>`, which live inside
+// site-header's template rather than a layout's, were never registered by
+// anything — hence the blanket manual imports. `genC` now emits each tag's
+// transitive closure, so loading `site-header` loads them too.
 
 // The WASM playground element (<playground-embed>) is deliberately NOT
 // registered here. `src/pages/playground.aihu` loads it from inside `onMount`,

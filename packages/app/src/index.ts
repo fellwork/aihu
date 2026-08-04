@@ -13,6 +13,8 @@ export type {
   VitePassthrough,
 } from './config.ts'
 export { AIHU_CONFIG_KEYS, AihuConfigError, defineConfig, validateAihuConfig } from './config.ts'
+export type { CriticalPathOptions, CriticalPathRule } from './critical-path.ts'
+export { criticalPath } from './critical-path.ts'
 export type { AihuModuleApi, AihuPluginApi, LoadedAihuConfig } from './load-config.ts'
 export {
   AIHU_CONFIG_PLUGIN,

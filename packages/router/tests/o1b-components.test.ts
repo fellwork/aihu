@@ -164,6 +164,65 @@ describe('genC()', () => {
       rmSync(tmp, { recursive: true, force: true })
     }
   })
+
+  // A component's children are emitted by the compiler as BARE TAGS with no
+  // import (`branch('search-box', …)`), so unless the registry loads them the
+  // nested element never upgrades. Apps worked around that with eager
+  // side-effect imports in their client entry, which drags every island into
+  // the entry chunk — the whole cost this registry exists to avoid.
+  it("a parent's loader also loads its transitively nested components", () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'aihu-genc-nested-'))
+    try {
+      // header → search-box → search-hit  (two levels deep)
+      writeFileSync(join(tmp, 'header.aihu'), '@template { <div><search-box/></div> }\n')
+      writeFileSync(join(tmp, 'search-box.aihu'), '@template { <div><search-hit/></div> }\n')
+      writeFileSync(join(tmp, 'search-hit.aihu'), '@template { <div/> }\n')
+      const content = genC(tmp)
+      // The parent pulls BOTH levels, not just its direct child.
+      expect(content).toMatch(
+        /"header": \(\) => Promise\.all\(\[__m\["header"\]\(\), __m\["search-box"\]\(\), __m\["search-hit"\]\(\)\]\)/,
+      )
+      // A leaf keeps the cheap single-thunk form — no needless Promise.all.
+      expect(content).toContain('"search-hit": __m["search-hit"],')
+    } finally {
+      rmSync(tmp, { recursive: true, force: true })
+    }
+  })
+
+  it('breaks cycles instead of hanging, and never self-references', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'aihu-genc-cycle-'))
+    try {
+      // a-x ↔ b-x mutual reference, plus a self-reference in a-x. Filenames
+      // must match the referenced tags — the tag is derived from the file.
+      writeFileSync(join(tmp, 'a-x.aihu'), '@template { <div><b-x/><a-x/></div> }\n')
+      writeFileSync(join(tmp, 'b-x.aihu'), '@template { <div><a-x/></div> }\n')
+      const content = genC(tmp)
+      // Terminates at all (a naive walk would recurse forever), and each side
+      // pulls the other exactly once, itself first — no repeated self-entry.
+      expect(content).toMatch(
+        /"a-x": \(\) => Promise\.all\(\[__m\["a-x"\]\(\), __m\["b-x"\]\(\)\]\)/,
+      )
+      expect(content).toMatch(
+        /"b-x": \(\) => Promise\.all\(\[__m\["b-x"\]\(\), __m\["a-x"\]\(\)\]\)/,
+      )
+    } finally {
+      rmSync(tmp, { recursive: true, force: true })
+    }
+  })
+
+  it('drops referenced tags that no component file provides', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'aihu-genc-unknown-'))
+    try {
+      // `<some-global>` is a globally-registered element the router doesn't own;
+      // emitting a __m lookup for it would be a dangling reference.
+      writeFileSync(join(tmp, 'host.aihu'), '@template { <div><some-global/></div> }\n')
+      const content = genC(tmp)
+      expect(content).not.toContain('some-global')
+      expect(content).toContain('"host": __m["host"],')
+    } finally {
+      rmSync(tmp, { recursive: true, force: true })
+    }
+  })
 })
 
 // ---------------------------------------------------------------------------
