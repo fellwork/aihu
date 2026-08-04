@@ -480,15 +480,68 @@ export function genL(d: string): string {
 /**
  * O1b: Generate the `virtual:aihu-components` module — the compile-time
  * tag → module registry. Keys are normalized custom-element tags; values are
- * bare `() => import(path)` loaders (the key IS the tag, so no `{ tag, load }`
+ * `() => Promise` loaders (the key IS the tag, so no `{ tag, load }`
  * wrapper like `genL`). Keys are sorted so output is deterministic. Consumed
  * by O1c's route-scoped component registration. Exported for tests.
+ *
+ * TRANSITIVE by construction. A page's `route.json` `components` and a
+ * layout's `genL` `components` each list only the tags THAT file's own
+ * `@template` references — one level. But the compiler emits a child
+ * component as a bare tag with NO import (`branch('search-box', …)` inside
+ * site-header's output), so nothing else ever loads a nested component's
+ * module: `<site-header>` would upgrade while the `<search-box>` inside it
+ * stayed an inert unknown element. That gap is why apps end up hand-writing
+ * `import './components/x.aihu'` side-effect lines in their client entry —
+ * which defeats this registry entirely, since every such import drags every
+ * island into the ENTRY chunk and every page then pays for every island.
+ *
+ * So each tag's loader here also loads that component's own transitive
+ * children. The closure is computed at BUILD time (cycles broken by the
+ * `seen` set, self-references dropped), so there is no runtime graph walk
+ * and no possibility of a cyclic import hanging a page. Tags that resolve to
+ * no registry entry are dropped rather than emitted as a dangling reference —
+ * a template may legitimately name a globally-registered element the router
+ * does not own.
  */
 export function genC(d: string): string {
-  return `// AUTO-GENERATED\nexport default {\n${Object.entries(scanComponents(d))
-    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
-    .map(([k, v]) => `  ${JSON.stringify(k)}: () => import(${JSON.stringify(v)}),`)
-    .join('\n')}\n};\n`
+  const mods = scanComponents(d)
+  const tags = Object.keys(mods).sort()
+
+  // Direct child tags per component, restricted to tags this registry can load.
+  const kids: Record<string, string[]> = {}
+  for (const t of tags) {
+    kids[t] = readAihuLayoutComponents(mods[t] as string).filter(
+      (c) => c !== t && mods[c] !== undefined,
+    )
+  }
+
+  /** Transitive children of `t`, excluding `t` itself. Cycle-safe. */
+  const deps = (t: string): string[] => {
+    const seen = new Set<string>()
+    const stack = [...(kids[t] ?? [])]
+    while (stack.length > 0) {
+      const c = stack.pop() as string
+      if (c === t || seen.has(c)) continue
+      seen.add(c)
+      stack.push(...(kids[c] ?? []))
+    }
+    return [...seen].sort()
+  }
+
+  const loaders = tags
+    .map((t) => `  ${JSON.stringify(t)}: () => import(${JSON.stringify(mods[t])}),`)
+    .join('\n')
+
+  const entries = tags
+    .map((t) => {
+      const d = deps(t)
+      if (d.length === 0) return `  ${JSON.stringify(t)}: __m[${JSON.stringify(t)}],`
+      const all = [t, ...d].map((x) => `__m[${JSON.stringify(x)}]()`).join(', ')
+      return `  ${JSON.stringify(t)}: () => Promise.all([${all}]),`
+    })
+    .join('\n')
+
+  return `// AUTO-GENERATED\nconst __m = {\n${loaders}\n};\nexport default {\n${entries}\n};\n`
 }
 
 /** v0.7.2: File-convention middleware discovered alongside routes. */
