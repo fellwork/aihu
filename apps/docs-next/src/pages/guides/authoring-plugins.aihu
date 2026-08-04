@@ -18,7 +18,7 @@
 
 @template {
   <div class="dn-guide">
-    <p class="dn-sec-num"><b>G · 11</b> guides</p>
+    <p class="dn-sec-num"><b>G · 15</b> guides</p>
     <p class="dn-breadcrumb dn-rail"><a href="/guides/getting-started">Guides</a> / Authoring Plugins</p>
     <article class="dn-prose dn-article" html={body}></article>
     <nav class="dn-page-nav" aria-label="Guide pagination">

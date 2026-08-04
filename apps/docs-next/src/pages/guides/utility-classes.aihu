@@ -18,17 +18,17 @@
 
 @template {
   <div class="dn-guide">
-    <p class="dn-sec-num"><b>G · 06</b> guides</p>
+    <p class="dn-sec-num"><b>G · 09</b> guides</p>
     <p class="dn-breadcrumb dn-rail"><a href="/guides/getting-started">Guides</a> / Utility Classes</p>
     <article class="dn-prose dn-article" html={body}></article>
     <nav class="dn-page-nav" aria-label="Guide pagination">
-      <a class="dn-page-prev" href="/guides/authoring-agents">
+      <a class="dn-page-prev" href="/guides/theming">
         <span>Previous</span>
-        <strong>← Authoring Agents</strong>
+        <strong>← Theming</strong>
       </a>
-      <a class="dn-page-next" href="/guides/routing-layouts">
+      <a class="dn-page-next" href="/guides/primitives">
         <span>Next</span>
-        <strong>Routing &amp; Layouts →</strong>
+        <strong>Primitives →</strong>
       </a>
     </nav>
   </div>

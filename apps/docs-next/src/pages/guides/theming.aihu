@@ -1,34 +1,34 @@
 @route {
-  path: "/guides/deployment",
-  name: "guide-deployment",
+  path: "/guides/theming",
+  name: "guide-theming",
   layout: "docs",
   head: {
-    title: "Deployment — aihu",
-    description: "Build for production and deploy to Cloudflare Workers, Vercel, Bun, Deno, or Node.js.",
-    canonical: "/guides/deployment"
+    title: "Theming — aihu",
+    description: "Design tokens, the 24-token colour contract, style packs, named themes, and the aliasing pitfall that breaks dark mode.",
+    canonical: "/guides/theming"
   }
 }
 
 @state {
   import { renderMarkdown } from '../../lib/markdown.ts'
-  import { DEPLOYMENT } from '../../data/guide-deployment.ts'
+  import { THEMING } from '../../data/guide-theming.ts'
 
-  const body = renderMarkdown(DEPLOYMENT)
+  const body = renderMarkdown(THEMING)
 }
 
 @template {
   <div class="dn-guide">
-    <p class="dn-sec-num"><b>G · 16</b> guides</p>
-    <p class="dn-breadcrumb dn-rail"><a href="/guides/getting-started">Guides</a> / Deployment</p>
+    <p class="dn-sec-num"><b>G · 08</b> guides</p>
+    <p class="dn-breadcrumb dn-rail"><a href="/guides/getting-started">Guides</a> / Theming</p>
     <article class="dn-prose dn-article" html={body}></article>
     <nav class="dn-page-nav" aria-label="Guide pagination">
-      <a class="dn-page-prev" href="/guides/authoring-plugins">
+      <a class="dn-page-prev" href="/guides/styling">
         <span>Previous</span>
-        <strong>← Authoring Plugins</strong>
+        <strong>← Styling</strong>
       </a>
-      <a class="dn-page-next" href="/guides/migration">
+      <a class="dn-page-next" href="/guides/utility-classes">
         <span>Next</span>
-        <strong>Migration →</strong>
+        <strong>Utility Classes →</strong>
       </a>
     </nav>
   </div>
