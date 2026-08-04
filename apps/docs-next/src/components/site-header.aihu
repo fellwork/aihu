@@ -1,21 +1,17 @@
 // site-header — the sticky top bar shared by every layout: wordmark, primary
-// nav, the search affordance, version, theme toggle, GitHub. Active section is
-// derived from location.pathname on the client (SSR has no location; it fills
-// on hydrate — a deliberate island seam, not a bug).
+// nav, the search affordance, version, theme toggle, GitHub. The active
+// section comes from the ROUTER (see src/lib/route-path.ts), so it tracks
+// every navigation, not just full page loads.
 
 @state {
-  let path = state('')
+  // Was a hand-rolled `state('')` + `popstate` listener, duplicated verbatim
+  // in docs.aihu — and subtly wrong here: `popstate` fires only for
+  // back/forward, not for the pushState navigation the SPA router performs,
+  // so this header's active underline went stale on every in-app link click
+  // and stayed stale until a reload. Reading the router fixes that.
+  import { useRoutePath } from '../lib/route-path.ts'
 
-  const isActive = (prefix) => path.startsWith(prefix)
-
-  onMount(() => {
-    if (typeof location !== 'undefined') path = location.pathname
-    if (typeof window !== 'undefined') {
-      window.addEventListener('popstate', () => {
-        path = location.pathname
-      })
-    }
-  })
+  const { isActive } = useRoutePath()
 }
 
 @template {

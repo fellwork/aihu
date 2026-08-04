@@ -4,39 +4,24 @@
 // location.pathname. Collapses to two columns, then one, responsively.
 
 @state {
+  // Active-link state comes from the router via the shared composable — see
+  // src/lib/route-path.ts. This block previously carried a byte-identical copy
+  // of site-header.aihu's `state('')` + `popstate` listener, PLUS an
+  // `afterNavigate(syncPath)` that existed largely to paper over the fact that
+  // `popstate` never fires for the SPA router's pushState navigation. Reading
+  // `MatchResult.pathname` reactively makes both unnecessary.
+  //
+  // The scroll-reset that `syncPath` also performed is not lost: src/main.ts
+  // installs a GLOBAL scroll-reset click handler, and its own comment notes it
+  // exists precisely because a per-layout `afterNavigate` misses cross-layout
+  // transitions (site ↔ docs). Dropping `afterNavigate` here also keeps this
+  // layout clear of the intrinsic that silently killed the site layout
+  // (aihu#744).
   import { NAV } from '../data/nav.ts'
+  import { useRoutePath } from '../lib/route-path.ts'
 
   const nav = NAV
-  let path = state('')
-
-  onMount(() => {
-    if (typeof location !== 'undefined') path = location.pathname
-    if (typeof window !== 'undefined') {
-      window.addEventListener('popstate', () => {
-        path = location.pathname
-      })
-    }
-  })
-
-  // On client-side navigation: sync the active-link path AND reset scroll to the
-  // top (unless targeting an in-page anchor) — otherwise the previous page's
-  // scroll offset carries over and pages open scrolled halfway down.
-  //
-  // Hoisted into a plain-body binding rather than written inline in the
-  // `afterNavigate(...)` argument: the guard arms of the compiler's @state
-  // emit splice their callback verbatim, so a `path = …` written there
-  // survives un-rewritten and re-assigns the `const [path, __path_set]`
-  // tuple (ILLEGAL_REASSIGNMENT at bundle time). Plain-body arrows DO take
-  // the write rewrite. Fixed compiler-side in #557 — this hoist can be
-  // inlined again once that lands.
-  const syncPath = () => {
-    if (typeof location !== 'undefined') path = location.pathname
-    if (typeof window !== 'undefined' && !location.hash) {
-      window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
-    }
-  }
-
-  afterNavigate(syncPath)
+  const { is } = useRoutePath()
 }
 
 @template {
@@ -53,7 +38,7 @@
                   if={link.ready}
                   href={link.href}
                   class="dn-nav-link"
-                  class:active={path === link.href}
+                  class:active={is(link.href)}
                 >{link.label}</a>
                 <span if={!link.ready} class="dn-nav-link dn-nav-soon">
                   {link.label}<em>soon</em>
