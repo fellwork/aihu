@@ -2,9 +2,23 @@
 # aihu.dev's security headers, agent-surface CORS, or asset caching.
 #
 # Differences from apps/docs, all because docs-next is a different app:
-#   - no `wasm-unsafe-eval` / no `cdnjs.cloudflare.com` — docs-next has no WASM
-#     playground and loads no third-party scripts or styles.
-#   - no `/playground` COOP+COEP block — that route does not exist here.
+#   - no `cdnjs.cloudflare.com` — docs-next loads no third-party scripts/styles.
+#   - `'wasm-unsafe-eval'` IS required, exactly as in apps/docs. The two notes
+#     that used to stand here ("docs-next has no WASM playground", "that route
+#     does not exist here") were written before the playground was ported in
+#     a0960786 and were never revisited. The result: /playground shipped, and
+#     every compile died on the LIVE deploy with
+#       CompileError: WebAssembly.instantiateStreaming(): ... violates the
+#       following Content Security policy directive ... 'unsafe-eval' is not an
+#       allowed source of script in ... "script-src 'self' 'unsafe-inline'"
+#     while working perfectly in local dev, which serves no _headers at all.
+#     Chrome requires this directive to instantiate ANY WebAssembly module; it
+#     is much narrower than 'unsafe-eval' and does not permit eval().
+#   - still no `/playground` COOP+COEP block, unlike apps/docs. Those exist to
+#     enable SharedArrayBuffer; the aihu compiler WASM is single-threaded and
+#     does not need them, and `COEP: require-corp` would additionally force
+#     every subresource to opt in via CORP — a real risk to the preview iframe
+#     for no benefit. CSP was the only actual blocker; verified on the preview.
 #   - no `/pagefind/*` block — docs-next does not ship pagefind.
 #   - explicit Content-Type on the extensionless `/.well-known/webmcp` alias,
 #     which apps/docs' worker set in code and Pages cannot infer from the name.
@@ -65,4 +79,4 @@
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: camera=(), microphone=(), geolocation=()
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: https:; connect-src 'self' https:; frame-ancestors 'none'; object-src 'none'
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: https:; connect-src 'self' https:; frame-ancestors 'none'; object-src 'none'
