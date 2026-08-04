@@ -9,9 +9,29 @@
  * Only @internal properties are renamed. Public API properties (kind, tag,
  * attrs, children, value, leafKind) are excluded.
  *
+ * WHAT COUNTS AS PUBLIC IS BROADER THAN THE EXPORT LIST. An arbor node is a
+ * WIRE FORMAT: other packages receive node objects and read their fields by
+ * name. Any field another package reads is public API regardless of an
+ * `@internal` tag, because renaming it here silently breaks that reader —
+ * silently, because the reader's `obj.someField === 'x'` simply becomes
+ * `undefined === 'x'` and takes the "nothing to do" path instead of throwing.
+ *
+ * That is not hypothetical. `structuralKind`, `condition`, `listGrow` and
+ * `keyFn` were on this list, and `@aihu/server`'s `_structuralSubtrees` reads
+ * all four (ssr.ts:387-396). Against the built package every branch missed and
+ * the function returned `[]` — so EVERY `each` and EVERY `if` server-rendered
+ * as an empty pair of structural markers, in every SSR and SSG build, for as
+ * long as this script has existed. The whole test suite passed throughout,
+ * because `vitest.config.ts` aliases `@aihu/arbor` to `src/`, where the long
+ * names still exist: the tests validated a shape the published package does
+ * not have. `tests/dist-contract.test.ts` now imports from `dist/` for exactly
+ * this reason — see the note there before adding any rename below.
+ *
  * Renames applied:
- *   Arbor StructuralNode: structuralKind→sk, condition→cn, listGrow→lg, keyFn→kf
  *   Arbor ChildScope:     appendedNodes→an, disposers→ds, anchor→ac, item→im, pos→p
+ *     (audited: no package outside arbor reads these off an arbor object —
+ *     the `disposers` hits in @aihu/runtime are comment text, and the
+ *     `anchor`/`item`/`pos` hits elsewhere are unrelated objects.)
  *   Inlined signals (R7-arbor — investigation-arbor-restructure.md §Q2):
  *     Subscriber: flags→fl, subsHead→sh, subsTail→st, depsHead→dh, depsTail→dt
  *     MergeSubscriber: lastWave→lw
@@ -32,15 +52,13 @@ const distPath = resolve(here, '../dist/index.js')
 let code = readFileSync(distPath, 'utf8')
 
 const replacements = [
-  // Arbor StructuralNode fields (longer names first to avoid partial matches)
-  [/\.structuralKind\b/g, '.sk'],
-  [/structuralKind:/g, 'sk:'],
-  [/\.listGrow\b/g, '.lg'],
-  [/listGrow:/g, 'lg:'],
-  [/\.keyFn\b/g, '.kf'],
-  [/keyFn:/g, 'kf:'],
-  [/\.condition\b/g, '.cn'],
-  [/condition:/g, 'cn:'],
+  // NOTE: StructuralNode's `structuralKind` / `condition` / `listGrow` /
+  // `keyFn` were renamed here and MUST NOT BE. They are read across the
+  // package boundary by @aihu/server (and are part of the node wire format
+  // generally) — see the header. Removing those four renames costs a handful
+  // of gzipped bytes and restores server-side rendering of every `each` and
+  // `if`.
+  //
   // Arbor ChildScope fields
   [/\.appendedNodes\b/g, '.an'],
   [/appendedNodes:/g, 'an:'],
