@@ -199,8 +199,12 @@ describe('genC()', () => {
       const content = genC(tmp)
       // Terminates at all (a naive walk would recurse forever), and each side
       // pulls the other exactly once, itself first — no repeated self-entry.
-      expect(content).toMatch(/"a-x": \(\) => Promise\.all\(\[__m\["a-x"\]\(\), __m\["b-x"\]\(\)\]\)/)
-      expect(content).toMatch(/"b-x": \(\) => Promise\.all\(\[__m\["b-x"\]\(\), __m\["a-x"\]\(\)\]\)/)
+      expect(content).toMatch(
+        /"a-x": \(\) => Promise\.all\(\[__m\["a-x"\]\(\), __m\["b-x"\]\(\)\]\)/,
+      )
+      expect(content).toMatch(
+        /"b-x": \(\) => Promise\.all\(\[__m\["b-x"\]\(\), __m\["a-x"\]\(\)\]\)/,
+      )
     } finally {
       rmSync(tmp, { recursive: true, force: true })
     }

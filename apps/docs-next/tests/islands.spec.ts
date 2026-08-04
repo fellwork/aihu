@@ -24,8 +24,7 @@ test('nested islands upgrade, and unused islands never load', async ({ page }) =
   // The registry resolves a parent and its children in one Promise.all, but
   // the defines land across microtasks — give them a beat before asserting.
   await page.waitForFunction(
-    () =>
-      customElements.get('search-box') != null && customElements.get('theme-toggle') != null,
+    () => customElements.get('search-box') != null && customElements.get('theme-toggle') != null,
     { timeout: 10_000 },
   )
 
