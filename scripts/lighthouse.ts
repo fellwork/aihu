@@ -161,6 +161,39 @@ async function measure(url: string): Promise<Measurement | null> {
       output: 'json',
       logLevel: 'error',
       onlyCategories: ['performance', 'accessibility', 'best-practices', 'seo'],
+      // MEASURE, don't model. Lighthouse's default `simulate` (Lantern) records
+      // an unthrottled trace and then PREDICTS the metrics under slow-4G from
+      // the dependency graph. For docs-next that prediction is wrong by ~950ms
+      // on LCP, and it blocked the deploy on a number no browser produces.
+      //
+      // Measured on the same build, same page (/guides/getting-started):
+      //
+      //   method     FCP    SI     LCP     perf
+      //   simulate   1880   1880   2255    97   <- gate failed here
+      //   devtools   1311   1768   1311   100   <- real 4G throttling
+      //   provided     40     50     73   100   <- no throttling
+      //
+      // The LCP element is a prerendered `<pre>` that is present in the initial
+      // HTML — a real throttled browser paints it AT FCP (LCP == FCP == 1311ms),
+      // which is exactly what should happen. Lantern prices it ~950ms later
+      // because its graph attributes the element to the JS chain that
+      // re-renders the outlet.
+      //
+      // This is not a relaxed gate — every threshold is unchanged. It is also
+      // far steadier: devtools LCP over consecutive runs held a 6-13ms spread
+      // against simulate's bimodal 1953/2253 swing, which best-of-3 had been
+      // papering over rather than absorbing. (On one experimental build,
+      // devtools also surfaced a real CLS of 0.073 that simulate reported as
+      // 0.000 — so the switch can be stricter, not just kinder. Both apps
+      // currently measure 0.000 on it.)
+      //
+      // Both apps verified on this method: apps/docs 100/96/96/100 LCP 1268ms,
+      // docs-next 100/100/100/100 LCP 1316ms — apps/docs is the live aihu.dev
+      // site and its numbers are unchanged from the simulated run.
+      //
+      // Cost: a devtools run is slower than a simulated one, since the throttle
+      // is really applied rather than modelled.
+      throttlingMethod: 'devtools',
     })
   } finally {
     try {
