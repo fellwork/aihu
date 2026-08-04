@@ -8,19 +8,29 @@
    Geist (sans), Geist Mono"). Self-hosted variable woff2, same-origin only (no
    CDN / no fonts.googleapis — CSP-clean). Sourced from the OFL `geist` npm
    package (public/fonts/GEIST-OFL-LICENSE.txt). One axis file per family covers
-   the whole weight range the datasheet uses (400 body → 750 display). */
+   the whole weight range the datasheet uses (400 body → 750 display).
+
+   font-display: optional (not swap) + <link rel="preload"> in index.html.
+   Neither font declares fallback-metric overrides (size-adjust/ascent-
+   override/etc.), so a LATE swap from the fallback to the real font reflows
+   text — a real, measured, deterministic CLS hit (0.217, present on every CI
+   run regardless of unrelated JS timing fixes — this is a metrics mismatch,
+   not jitter). `optional` gives the font a short window to be ready (which
+   the preload exists to make likely) and otherwise commits to the fallback
+   for that pageview rather than swapping in later — the only font-display
+   value with a hard CLS guarantee. */
 @font-face {
   font-family: "Geist";
   font-style: normal;
   font-weight: 100 900;
-  font-display: swap;
+  font-display: optional;
   src: url("/fonts/Geist-Variable.woff2") format("woff2");
 }
 @font-face {
   font-family: "Geist Mono";
   font-style: normal;
   font-weight: 100 900;
-  font-display: swap;
+  font-display: optional;
   src: url("/fonts/GeistMono-Variable.woff2") format("woff2");
 }
 
