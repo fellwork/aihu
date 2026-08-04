@@ -96,6 +96,31 @@ export default defineConfig({
   ],
 
   build: {
+    // Ship ONE stylesheet, statically linked — never per-chunk async CSS.
+    //
+    // Islands are lazily imported per route (the router's
+    // `virtual:aihu-components` registry), and Vite's default
+    // `cssCodeSplit: true` splits each island's `@style` out INTO ITS LAZY
+    // CHUNK. Deferring an island's JS is the goal; deferring its CSS is not —
+    // CSS that arrives after the element upgrades is a flash of unstyled
+    // content, and for anything occupying layout, a guaranteed shift. (This
+    // site already paid for one CLS regression caused by late-arriving font
+    // metrics; late-arriving component CSS is the same failure mode with a
+    // different source.)
+    //
+    // Today that hazard is latent rather than live, because these islands are
+    // not in the prerendered HTML at all — nothing reflows because nothing was
+    // there. That is an accident of the current shell being client-rendered,
+    // not a property worth depending on: the moment any island IS prerendered,
+    // split CSS becomes a visible shift.
+    //
+    // The cost of closing it permanently was measured, not assumed: all CSS
+    // combined is 8.74 kB gzipped vs 4.30 kB for the statically-linked subset
+    // — roughly +4.4 kB on the critical path, for which Lighthouse showed no
+    // change at all (perf 100, LCP 1802ms vs 1803ms, CLS 0.000), while
+    // collapsing 27 stylesheet requests into 1.
+    cssCodeSplit: false,
+
     // Keep `builtin:vite-dynamic-import-vars` away from compiled `.aihu` modules.
     //
     // That plugin re-parses, as plain JavaScript, modules in a graph containing
