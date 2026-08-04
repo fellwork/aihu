@@ -5,7 +5,7 @@ export const PKG: ApiPackage = {
   name: '@aihu/primitives',
   slug: 'primitives',
   tier: 'Runtime core',
-  version: '0.1.3',
+  version: '0.2.1',
   tagline:
     'aihu headless behavior primitives — WAI-ARIA APG patterns as vanilla custom elements, zero CSS.',
   note: '',
@@ -13,9 +13,17 @@ export const PKG: ApiPackage = {
 
 export const EXPORTS: readonly ApiExport[] = [
   {
+    name: 'attachHiddenInput',
+    kind: 'function',
+    signature:
+      'function attachHiddenInput(host: HTMLElement, opts: HiddenInputOptions): () => void',
+    summary:
+      'Attach a visually-hidden native input to `host`, kept in sync with the provided signals by a single effect.',
+  },
+  {
     name: 'createCollection',
     kind: 'function',
-    signature: 'function createCollection()',
+    signature: 'function createCollection(): CollectionContextValue',
     summary: 'The registration mechanism, usable standalone (roving-focus reuses it).',
   },
   {
@@ -25,75 +33,113 @@ export const EXPORTS: readonly ApiExport[] = [
     summary: 'Create a context token.',
   },
   {
+    name: 'createFocusTrap',
+    kind: 'function',
+    signature: 'function createFocusTrap(container, options = {})',
+    summary: '',
+  },
+  {
+    name: 'defineButton',
+    kind: 'function',
+    signature: 'function defineButton(tag: string): typeof AihuButton',
+    summary: 'Register a concrete button tag backed by `AihuButton` (idempotent).',
+  },
+  {
     name: 'defineCheckbox',
     kind: 'function',
-    signature: 'function defineCheckbox()',
+    signature: 'function defineCheckbox(): void',
     summary: 'Register all checkbox custom elements (idempotent).',
   },
   {
     name: 'defineCollection',
     kind: 'function',
-    signature: 'function defineCollection(tag = "aihu-collection")',
+    signature: "function defineCollection(tag = 'aihu-collection'): void",
     summary: 'Register `<aihu-collection>` (idempotent).',
   },
   {
     name: 'defineConfigProvider',
     kind: 'function',
-    signature: 'function defineConfigProvider(tag = "aihu-config-provider")',
+    signature: "function defineConfigProvider(tag = 'aihu-config-provider'): void",
     summary: 'Register `<aihu-config-provider>` (idempotent).',
+  },
+  {
+    name: 'defineDialog',
+    kind: 'function',
+    signature: "function defineDialog(prefix = 'aihu'): void",
+    summary:
+      'Register all dialog custom elements under `<prefix>-dialog-*` (idempotent per prefix).',
+  },
+  {
+    name: 'defineFormControl',
+    kind: 'function',
+    signature: "function defineFormControl(tag = 'aihu-form-control'): void",
+    summary: 'Register `<aihu-form-control>` (idempotent).',
   },
   {
     name: 'defineInput',
     kind: 'function',
-    signature: 'function defineInput(tag = "aihu-input")',
+    signature: "function defineInput(tag = 'aihu-input'): void",
     summary: 'Register `<aihu-input>` (idempotent).',
   },
   {
     name: 'defineLabel',
     kind: 'function',
-    signature: 'function defineLabel(tag = "aihu-label")',
+    signature: "function defineLabel(tag = 'aihu-label'): void",
     summary: 'Register `<aihu-label>` (idempotent).',
+  },
+  {
+    name: 'definePopover',
+    kind: 'function',
+    signature: "function definePopover(prefix = 'aihu'): void",
+    summary:
+      'Register all popover custom elements under `<prefix>-popover-*` (idempotent per prefix).',
   },
   {
     name: 'definePresenceGate',
     kind: 'function',
-    signature: 'function definePresenceGate(tag = "aihu-presence-gate")',
+    signature: "function definePresenceGate(tag = 'aihu-presence-gate'): void",
     summary: 'Register `<aihu-presence-gate>` (idempotent — safe to call repeatedly).',
   },
   {
     name: 'defineRadioGroup',
     kind: 'function',
-    signature: 'function defineRadioGroup()',
+    signature: 'function defineRadioGroup(): void',
     summary: 'Register all radio-group custom elements (idempotent).',
   },
   {
     name: 'defineRovingFocus',
     kind: 'function',
-    signature: 'function defineRovingFocus(tag = "aihu-roving-focus")',
+    signature: "function defineRovingFocus(tag = 'aihu-roving-focus'): void",
     summary: 'Register `<aihu-roving-focus>` (idempotent).',
   },
   {
     name: 'defineSeparator',
     kind: 'function',
-    signature: 'function defineSeparator(tag = "aihu-separator")',
+    signature: "function defineSeparator(tag = 'aihu-separator'): void",
     summary: 'Register `<aihu-separator>` (idempotent).',
+  },
+  {
+    name: 'defineSlider',
+    kind: 'function',
+    signature: 'function defineSlider(): void',
+    summary: 'Register all slider custom elements (idempotent).',
   },
   {
     name: 'defineSwitch',
     kind: 'function',
-    signature: 'function defineSwitch()',
+    signature: 'function defineSwitch(): void',
     summary: 'Register all switch custom elements (idempotent).',
   },
   {
     name: 'defineTextarea',
     kind: 'function',
-    signature: 'function defineTextarea(tag = "aihu-textarea")',
+    signature: "function defineTextarea(tag = 'aihu-textarea'): void",
     summary: 'Register `<aihu-textarea>` (idempotent).',
   },
   {
     name: 'defineTooltip',
     kind: 'function',
-    signature: 'function defineTooltip(prefix = "aihu")',
+    signature: "function defineTooltip(prefix = 'aihu'): void",
     summary:
       'Register all tooltip custom elements under `<prefix>-tooltip-*` (idempotent per prefix).',
   },
@@ -119,228 +165,21 @@ export const EXPORTS: readonly ApiExport[] = [
     summary: 'Provide `value` for `ctx` on `host`.',
   },
   {
-    name: 'AihuButton',
-    kind: 'const',
-    signature: 'const AihuButton',
-    summary: '',
-  },
-  {
-    name: 'AihuCheckboxIndicator',
-    kind: 'const',
-    signature: 'const AihuCheckboxIndicator',
-    summary: "Presentational styling hook: mirrors the root's state, hidden from AT.",
-  },
-  {
-    name: 'AihuCheckboxRoot',
-    kind: 'const',
-    signature: 'const AihuCheckboxRoot',
-    summary: '',
-  },
-  {
-    name: 'AihuCollection',
-    kind: 'const',
-    signature: 'const AihuCollection',
-    summary: '',
-  },
-  {
-    name: 'AihuConfigProvider',
-    kind: 'const',
-    signature: 'const AihuConfigProvider',
-    summary: '',
-  },
-  {
-    name: 'AihuDialogBackdrop',
-    kind: 'const',
-    signature: 'const AihuDialogBackdrop',
-    summary: '',
-  },
-  {
-    name: 'AihuDialogClose',
-    kind: 'const',
-    signature: 'const AihuDialogClose',
-    summary: '',
-  },
-  {
-    name: 'AihuDialogContent',
-    kind: 'const',
-    signature: 'const AihuDialogContent',
-    summary: '',
-  },
-  {
-    name: 'AihuDialogDescription',
-    kind: 'const',
-    signature: 'const AihuDialogDescription',
-    summary: '',
-  },
-  {
-    name: 'AihuDialogRoot',
-    kind: 'const',
-    signature: 'const AihuDialogRoot',
-    summary: '',
-  },
-  {
-    name: 'AihuDialogTitle',
-    kind: 'const',
-    signature: 'const AihuDialogTitle',
-    summary: '',
-  },
-  {
-    name: 'AihuDialogTrigger',
-    kind: 'const',
-    signature: 'const AihuDialogTrigger',
-    summary: '',
-  },
-  {
-    name: 'AihuFormControl',
-    kind: 'const',
-    signature: 'const AihuFormControl',
-    summary: '',
-  },
-  {
-    name: 'AihuInput',
-    kind: 'const',
-    signature: 'const AihuInput',
-    summary: '',
-  },
-  {
-    name: 'AihuLabel',
-    kind: 'const',
-    signature: 'const AihuLabel',
-    summary: '',
-  },
-  {
-    name: 'AihuPresenceGate',
-    kind: 'const',
-    signature: 'const AihuPresenceGate',
-    summary: '',
-  },
-  {
-    name: 'AihuRadioGroupIndicator',
-    kind: 'const',
-    signature: 'const AihuRadioGroupIndicator',
-    summary:
-      "Presentational styling hook: mirrors its enclosing ITEM's state (nearest `radioGroupItemContext` provider), hidden from AT.",
-  },
-  {
-    name: 'AihuRadioGroupItem',
-    kind: 'const',
-    signature: 'const AihuRadioGroupItem',
-    summary: '',
-  },
-  {
-    name: 'AihuRadioGroupRoot',
-    kind: 'const',
-    signature: 'const AihuRadioGroupRoot',
-    summary: '',
-  },
-  {
-    name: 'AihuRovingFocus',
-    kind: 'const',
-    signature: 'const AihuRovingFocus',
-    summary: '`<aihu-roving-focus>` — WAI-ARIA roving-tabindex container.',
-  },
-  {
-    name: 'AihuSeparator',
-    kind: 'const',
-    signature: 'const AihuSeparator',
-    summary: '`<aihu-separator>` — headless separator (WAI-ARIA APG Separator, static variant).',
-  },
-  {
-    name: 'AihuSwitchRoot',
-    kind: 'const',
-    signature: 'const AihuSwitchRoot',
-    summary: '',
-  },
-  {
-    name: 'AihuSwitchThumb',
-    kind: 'const',
-    signature: 'const AihuSwitchThumb',
-    summary: "Presentational styling hook: mirrors the root's state, hidden from AT.",
-  },
-  {
-    name: 'AihuTextarea',
-    kind: 'const',
-    signature: 'const AihuTextarea',
-    summary: '',
-  },
-  {
-    name: 'AihuTextControlBase',
-    kind: 'const',
-    signature: 'const AihuTextControlBase',
-    summary: '',
-  },
-  {
-    name: 'AihuTooltipContent',
-    kind: 'const',
-    signature: 'const AihuTooltipContent',
-    summary: '',
-  },
-  {
-    name: 'AihuTooltipRoot',
-    kind: 'const',
-    signature: 'const AihuTooltipRoot',
-    summary: '',
-  },
-  {
-    name: 'AihuTooltipTrigger',
-    kind: 'const',
-    signature: 'const AihuTooltipTrigger',
-    summary: '',
-  },
-  {
-    name: 'attachHiddenInput',
-    kind: 'const',
-    signature: 'const attachHiddenInput',
-    summary: '',
-  },
-  {
-    name: 'ButtonType',
-    kind: 'const',
-    signature: 'const ButtonType',
-    summary: '',
-  },
-  {
     name: 'checkboxContext',
     kind: 'const',
     signature: 'const checkboxContext',
-    summary:
-      'Headless checkbox — `<aihu-checkbox-root>` (state owner) + presentational `<aihu-checkbox-indicator>`.',
+    summary: '',
   },
   {
     name: 'collectionContext',
     kind: 'const',
     signature: 'const collectionContext',
-    summary:
-      '`<aihu-collection>` — descendant-registration substrate (the Radix `Collection` pattern) implemented over the DOM-walk context.',
+    summary: '',
   },
   {
     name: 'configContext',
     kind: 'const',
     signature: 'const configContext',
-    summary: '`<aihu-config-provider>` — app-level config propagated via reactive DOM context.',
-  },
-  {
-    name: 'createFocusTrap',
-    kind: 'const',
-    signature: 'const createFocusTrap',
-    summary: '',
-  },
-  {
-    name: 'defineButton',
-    kind: 'const',
-    signature: 'const defineButton',
-    summary: '',
-  },
-  {
-    name: 'defineDialog',
-    kind: 'const',
-    signature: 'const defineDialog',
-    summary: '',
-  },
-  {
-    name: 'defineFormControl',
-    kind: 'const',
-    signature: 'const defineFormControl',
     summary: '',
   },
   {
@@ -350,15 +189,15 @@ export const EXPORTS: readonly ApiExport[] = [
     summary: '',
   },
   {
-    name: 'DialogContextValue',
-    kind: 'const',
-    signature: 'const DialogContextValue',
-    summary: '',
-  },
-  {
     name: 'FocusTrap',
     kind: 'const',
     signature: 'const FocusTrap',
+    summary: '',
+  },
+  {
+    name: 'FocusTrapOptions',
+    kind: 'const',
+    signature: 'const FocusTrapOptions',
     summary: '',
   },
   {
@@ -368,15 +207,9 @@ export const EXPORTS: readonly ApiExport[] = [
     summary: '',
   },
   {
-    name: 'FormControlContextValue',
+    name: 'popoverContext',
     kind: 'const',
-    signature: 'const FormControlContextValue',
-    summary: '',
-  },
-  {
-    name: 'HiddenInputOptions',
-    kind: 'const',
-    signature: 'const HiddenInputOptions',
+    signature: 'const popoverContext',
     summary: '',
   },
   {
@@ -389,8 +222,7 @@ export const EXPORTS: readonly ApiExport[] = [
     name: 'radioGroupContext',
     kind: 'const',
     signature: 'const radioGroupContext',
-    summary:
-      'Headless radio group — `<aihu-radio-group-root>` (state owner, EXTENDS `AihuRovingFocus`) + `<aihu-radio-group-item>` (role="radio") + presentational `<aihu-radio-group-indicator>`.',
+    summary: '',
   },
   {
     name: 'radioGroupItemContext',
@@ -399,18 +231,215 @@ export const EXPORTS: readonly ApiExport[] = [
     summary: '',
   },
   {
+    name: 'sliderContext',
+    kind: 'const',
+    signature: 'const sliderContext',
+    summary: '',
+  },
+  {
     name: 'switchContext',
     kind: 'const',
     signature: 'const switchContext',
-    summary:
-      'Headless switch — `<aihu-switch-root>` (state owner) + presentational `<aihu-switch-thumb>`.',
+    summary: '',
   },
   {
     name: 'tooltipContext',
     kind: 'const',
     signature: 'const tooltipContext',
+    summary: '',
+  },
+  {
+    name: 'AihuButton',
+    kind: 'class',
+    signature: 'class AihuButton extends HTMLElement',
+    summary: '',
+  },
+  {
+    name: 'AihuCheckboxIndicator',
+    kind: 'class',
+    signature: 'class AihuCheckboxIndicator extends HTMLElement',
+    summary: "Presentational styling hook: mirrors the root's state, hidden from AT.",
+  },
+  {
+    name: 'AihuCheckboxRoot',
+    kind: 'class',
+    signature: 'class AihuCheckboxRoot extends HTMLElement',
+    summary: '',
+  },
+  {
+    name: 'AihuCollection',
+    kind: 'class',
+    signature: 'class AihuCollection extends HTMLElement',
+    summary: '',
+  },
+  {
+    name: 'AihuConfigProvider',
+    kind: 'class',
+    signature: 'class AihuConfigProvider extends HTMLElement',
+    summary: '',
+  },
+  {
+    name: 'AihuDialogBackdrop',
+    kind: 'class',
+    signature: 'class AihuDialogBackdrop extends DialogPiece',
+    summary: '',
+  },
+  {
+    name: 'AihuDialogClose',
+    kind: 'class',
+    signature: 'class AihuDialogClose extends DialogPiece',
+    summary: '',
+  },
+  {
+    name: 'AihuDialogContent',
+    kind: 'class',
+    signature: 'class AihuDialogContent extends DialogPiece',
+    summary: '',
+  },
+  {
+    name: 'AihuDialogDescription',
+    kind: 'class',
+    signature: 'class AihuDialogDescription extends DialogPiece',
+    summary: '',
+  },
+  {
+    name: 'AihuDialogRoot',
+    kind: 'class',
+    signature: 'class AihuDialogRoot extends HTMLElement',
+    summary: '',
+  },
+  {
+    name: 'AihuDialogTitle',
+    kind: 'class',
+    signature: 'class AihuDialogTitle extends DialogPiece',
+    summary: '',
+  },
+  {
+    name: 'AihuDialogTrigger',
+    kind: 'class',
+    signature: 'class AihuDialogTrigger extends DialogPiece',
+    summary: '',
+  },
+  {
+    name: 'AihuFormControl',
+    kind: 'class',
+    signature: 'class AihuFormControl extends HTMLElement',
+    summary: '',
+  },
+  {
+    name: 'AihuInput',
+    kind: 'class',
+    signature: 'class AihuInput extends AihuTextControlBase',
+    summary: '',
+  },
+  {
+    name: 'AihuLabel',
+    kind: 'class',
+    signature: 'class AihuLabel extends HTMLElement',
+    summary: '',
+  },
+  {
+    name: 'AihuPopoverContent',
+    kind: 'class',
+    signature: 'class AihuPopoverContent extends PopoverPiece',
+    summary: '',
+  },
+  {
+    name: 'AihuPopoverRoot',
+    kind: 'class',
+    signature: 'class AihuPopoverRoot extends HTMLElement',
+    summary: '',
+  },
+  {
+    name: 'AihuPopoverTrigger',
+    kind: 'class',
+    signature: 'class AihuPopoverTrigger extends PopoverPiece',
+    summary: '',
+  },
+  {
+    name: 'AihuPresenceGate',
+    kind: 'class',
+    signature: 'class AihuPresenceGate extends HTMLElement',
+    summary: '',
+  },
+  {
+    name: 'AihuRadioGroupIndicator',
+    kind: 'class',
+    signature: 'class AihuRadioGroupIndicator extends HTMLElement',
     summary:
-      'Headless tooltip — `<aihu-tooltip-root>` + `<aihu-tooltip-trigger>` + `<aihu-tooltip-content>`.',
+      "Presentational styling hook: mirrors its enclosing ITEM's state (nearest `radioGroupItemContext` provider), hidden from AT.",
+  },
+  {
+    name: 'AihuRadioGroupItem',
+    kind: 'class',
+    signature: 'class AihuRadioGroupItem extends HTMLElement',
+    summary: '',
+  },
+  {
+    name: 'AihuRadioGroupRoot',
+    kind: 'class',
+    signature: 'class AihuRadioGroupRoot extends AihuRovingFocus',
+    summary: '',
+  },
+  {
+    name: 'AihuRovingFocus',
+    kind: 'class',
+    signature: 'class AihuRovingFocus extends HTMLElement',
+    summary: '',
+  },
+  {
+    name: 'AihuSeparator',
+    kind: 'class',
+    signature: 'class AihuSeparator extends HTMLElement',
+    summary: '',
+  },
+  {
+    name: 'AihuSliderRoot',
+    kind: 'class',
+    signature: 'class AihuSliderRoot extends HTMLElement',
+    summary: '',
+  },
+  {
+    name: 'AihuSwitchRoot',
+    kind: 'class',
+    signature: 'class AihuSwitchRoot extends HTMLElement',
+    summary: '',
+  },
+  {
+    name: 'AihuSwitchThumb',
+    kind: 'class',
+    signature: 'class AihuSwitchThumb extends HTMLElement',
+    summary: "Presentational styling hook: mirrors the root's state, hidden from AT.",
+  },
+  {
+    name: 'AihuTextarea',
+    kind: 'class',
+    signature: 'class AihuTextarea extends AihuTextControlBase',
+    summary: '',
+  },
+  {
+    name: 'AihuTextControlBase',
+    kind: 'class',
+    signature: 'abstract class AihuTextControlBase extends HTMLElement',
+    summary: '',
+  },
+  {
+    name: 'AihuTooltipContent',
+    kind: 'class',
+    signature: 'class AihuTooltipContent extends HTMLElement',
+    summary: '',
+  },
+  {
+    name: 'AihuTooltipRoot',
+    kind: 'class',
+    signature: 'class AihuTooltipRoot extends HTMLElement',
+    summary: '',
+  },
+  {
+    name: 'AihuTooltipTrigger',
+    kind: 'class',
+    signature: 'class AihuTooltipTrigger extends HTMLElement',
+    summary: '',
   },
   {
     name: 'MissingContextError',
@@ -422,21 +451,28 @@ export const EXPORTS: readonly ApiExport[] = [
     name: 'CheckboxContextValue',
     kind: 'interface',
     signature:
-      'interface CheckboxContextValue {\n  readonly state: Read<CheckboxState>;\n  readonly disabled: Read<boolean>;\n}',
+      'interface CheckboxContextValue {\n  readonly state: Read<CheckboxState>\n  readonly disabled: Read<boolean>\n}',
     summary: '',
   },
   {
     name: 'CollectionContextValue',
     kind: 'interface',
     signature:
-      'interface CollectionContextValue {\n  /** Register `el`; returns a disposer that unregisters it. */\n  register(el: Element): () => void;\n  /** Registered descendants, kept in DOM order. */\n  readonly items: Read<Element[]>;\n}',
+      'interface CollectionContextValue {\n  /** Register `el`; returns a disposer that unregisters it. */\n  register(el: Element): () => void\n  /** Registered descendants, kept in DOM order. */\n  readonly items: Read<Element[]>\n}',
     summary: '',
   },
   {
     name: 'ConfigContextValue',
     kind: 'interface',
     signature:
-      'interface ConfigContextValue {\n  readonly colorScheme: Read<ColorScheme>;\n  readonly density: Read<Density>;\n  readonly dir: Read<Direction>;\n}',
+      'interface ConfigContextValue {\n  readonly colorScheme: Read<ColorScheme>\n  readonly density: Read<Density>\n  readonly dir: Read<Direction>\n}',
+    summary: '',
+  },
+  {
+    name: 'DialogContextValue',
+    kind: 'interface',
+    signature:
+      'interface DialogContextValue {\n  readonly open: Read<boolean>\n  readonly modal: Read<boolean>\n  readonly contentId: Read<string>\n  readonly titleId: Read<string | null>\n  readonly descriptionId: Read<string | null>\n  setTitleId(id: string): void\n  setDescriptionId(id: string): void\n  setOpen(next: boolean): void\n  close(): void\n  toggle(): void\n}',
     summary: '',
   },
   {
@@ -447,74 +483,114 @@ export const EXPORTS: readonly ApiExport[] = [
     summary: 'Opaque token identifying a context slot.',
   },
   {
+    name: 'FormControlContextValue',
+    kind: 'interface',
+    signature:
+      'interface FormControlContextValue {\n  readonly disabled: Read<boolean>\n  readonly required: Read<boolean>\n  readonly invalid: Read<boolean>\n  readonly controlId: Read<string>\n  readonly describedById: Read<string | null>\n  readonly labelId: Read<string | null>\n}',
+    summary: '',
+  },
+  {
+    name: 'HiddenInputOptions',
+    kind: 'interface',
+    signature:
+      "interface HiddenInputOptions {\n  type: 'checkbox' | 'radio'\n  name: Read<string | null>\n  value: Read<string>\n  checked: Read<boolean>\n  required: Read<boolean>\n  disabled: Read<boolean>\n}",
+    summary: '',
+  },
+  {
+    name: 'PopoverContextValue',
+    kind: 'interface',
+    signature:
+      'interface PopoverContextValue {\n  readonly open: Read<boolean>\n  readonly contentId: Read<string>\n  readonly placement: Read<Placement>\n  /** Resolved position written by the content after each `position()` call. */\n  readonly coords: Read<PopoverCoords | null>\n  setCoords(next: PopoverCoords): void\n  /** Programmatic write — signal + reflected attribute, does NOT emit. */\n  setOpen(next: boolean): void\n  /** User-driven toggle (trigger click / Enter / Space) — emits. */\n  toggle(): void\n  /** User-driven close WITHOUT returning focus (outside pointerdown). */\n  close(): void\n  /** User-driven close that RETURNS focus to the trigger (Escape). */\n  dismiss(): void\n  registerTrigger(el: Element): void\n  registerContent(el: Element): void\n  triggerEl(): Element | null\n}',
+    summary: '',
+  },
+  {
+    name: 'PopoverCoords',
+    kind: 'interface',
+    signature: 'interface PopoverCoords {\n  x: number\n  y: number\n  placement: Placement\n}',
+    summary: 'The position the shim actually applied (post viewport-collision flip).',
+  },
+  {
     name: 'RadioGroupContextValue',
     kind: 'interface',
     signature:
-      'interface RadioGroupContextValue {\n  /** Currently selected item value; null when nothing is selected. */\n  readonly value: Read<string | null>;\n  /** Group-effective disabled (own attribute ∥ inherited form-control). */\n  readonly disabled: Read<boolean>;\n  readonly required: Read<boolean>;\n  /** Programmatic write: signal + reflected `value` attribute. NO event. */\n  setValue(next: string | null): void;\n  /** USER-driven selection of `item` (click path): moves the tab stop to the\n   * item WITHOUT stealing focus, selects its value, emits `value-change`. */\n  selectItem(item: Element): void;\n}',
+      'interface RadioGroupContextValue {\n  /** Currently selected item value; null when nothing is selected. */\n  readonly value: Read<string | null>\n  /** Group-effective disabled (own attribute ∥ inherited form-control). */\n  readonly disabled: Read<boolean>\n  readonly required: Read<boolean>\n  /** Programmatic write: signal + reflected `value` attribute. NO event. */\n  setValue(next: string | null): void\n  /** USER-driven selection of `item` (click path): moves the tab stop to the\n   * item WITHOUT stealing focus, selects its value, emits `value-change`. */\n  selectItem(item: Element): void\n}',
     summary: '',
   },
   {
     name: 'RadioGroupItemContextValue',
     kind: 'interface',
     signature:
-      'interface RadioGroupItemContextValue {\n  readonly checked: Read<boolean>;\n  readonly disabled: Read<boolean>;\n}',
+      'interface RadioGroupItemContextValue {\n  readonly checked: Read<boolean>\n  readonly disabled: Read<boolean>\n}',
     summary:
       'Per-item context so `<aihu-radio-group-indicator>` mirrors its OWN item (nearest-provider-wins walk lands on the enclosing item, not the root).',
+  },
+  {
+    name: 'SliderContextValue',
+    kind: 'interface',
+    signature:
+      'interface SliderContextValue {\n  readonly value: Read<number>\n  readonly min: Read<number>\n  readonly max: Read<number>\n  readonly step: Read<number>\n  readonly disabled: Read<boolean>\n}',
+    summary: '',
   },
   {
     name: 'SwitchContextValue',
     kind: 'interface',
     signature:
-      'interface SwitchContextValue {\n  readonly checked: Read<boolean>;\n  readonly disabled: Read<boolean>;\n}',
+      'interface SwitchContextValue {\n  readonly checked: Read<boolean>\n  readonly disabled: Read<boolean>\n}',
     summary: '',
   },
   {
     name: 'TooltipContextValue',
     kind: 'interface',
     signature:
-      'interface TooltipContextValue {\n  readonly open: Read<boolean>;\n  readonly contentId: Read<string>;\n  readonly placement: Read<Placement>;\n  readonly openDelay: Read<number>;\n  readonly closeDelay: Read<number>;\n  setOpen(next: boolean): void;\n  /** Schedule open/close honoring the configured delays. */\n  scheduleOpen(): void;\n  scheduleClose(): void;\n  /** Immediate dismiss (Escape). */\n  dismiss(): void;\n  registerTrigger(el: Element): void;\n  triggerEl(): Element | null;\n}',
+      'interface TooltipContextValue {\n  readonly open: Read<boolean>\n  readonly contentId: Read<string>\n  readonly placement: Read<Placement>\n  readonly openDelay: Read<number>\n  readonly closeDelay: Read<number>\n  setOpen(next: boolean): void\n  /** Schedule open/close honoring the configured delays. */\n  scheduleOpen(): void\n  scheduleClose(): void\n  /** Immediate dismiss (Escape). */\n  dismiss(): void\n  registerTrigger(el: Element): void\n  triggerEl(): Element | null\n}',
     summary: '',
   },
   {
     name: 'TooltipCoords',
     kind: 'interface',
-    signature: 'interface TooltipCoords {\n  x: number;\n  y: number;\n  placement: Placement;\n}',
+    signature: 'interface TooltipCoords {\n  x: number\n  y: number\n  placement: Placement\n}',
+    summary: '',
+  },
+  {
+    name: 'ButtonType',
+    kind: 'type',
+    signature: "type ButtonType = 'button' | 'submit' | 'reset'",
     summary: '',
   },
   {
     name: 'CheckboxState',
     kind: 'type',
-    signature: "type CheckboxState = 'checked' | 'unchecked' | 'indeterminate';",
+    signature: "type CheckboxState = 'checked' | 'unchecked' | 'indeterminate'",
     summary: '',
   },
   {
     name: 'ColorScheme',
     kind: 'type',
-    signature: "type ColorScheme = 'light' | 'dark' | 'system';",
+    signature: "type ColorScheme = 'light' | 'dark' | 'system'",
     summary: '',
   },
   {
     name: 'Density',
     kind: 'type',
-    signature: "type Density = 'comfortable' | 'compact';",
+    signature: "type Density = 'comfortable' | 'compact'",
     summary: '',
   },
   {
     name: 'Direction',
     kind: 'type',
-    signature: "type Direction = 'ltr' | 'rtl';",
+    signature: "type Direction = 'ltr' | 'rtl'",
     summary: '',
   },
   {
     name: 'Orientation',
     kind: 'type',
-    signature: "type Orientation = 'horizontal' | 'vertical' | 'both';",
+    signature: "type Orientation = 'horizontal' | 'vertical' | 'both'",
     summary: '',
   },
   {
     name: 'SeparatorOrientation',
     kind: 'type',
-    signature: "type SeparatorOrientation = 'horizontal' | 'vertical';",
+    signature: "type SeparatorOrientation = 'horizontal' | 'vertical'",
     summary: '',
   },
 ]

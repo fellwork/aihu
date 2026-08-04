@@ -15,7 +15,8 @@
     "dev": "vite --port 5175",
     "build": "vite build",
     "preview": "vite preview --port 5176",
-    "shots": "bun scripts/shots.ts"
+    "shots": "bun scripts/shots.ts",
+    "test:e2e": "bunx playwright test"
   },
   "dependencies": {
     "@aihu/agent": "workspace:*",

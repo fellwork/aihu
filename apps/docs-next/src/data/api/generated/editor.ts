@@ -5,7 +5,7 @@ export const PKG: ApiPackage = {
   name: '@aihu/editor',
   slug: 'editor',
   tier: 'Authoring & UI',
-  version: '0.1.0',
+  version: '0.1.2',
   tagline:
     'Hand-rolled, dependency-free, GX-governed rich-text editor — JSON doc model, invertible transactions, markdown (web-v1 dialect) round-trip, contenteditable view with IME-safe read-back, agent read/suggest/write surface.',
   note: '',

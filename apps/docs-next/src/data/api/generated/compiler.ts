@@ -5,7 +5,7 @@ export const PKG: ApiPackage = {
   name: '@aihu/compiler',
   slug: 'compiler',
   tier: 'Compiler & tooling',
-  version: '1.0.0',
+  version: '1.1.6',
   tagline: 'Single File Component (.aihu) compiler — Rust binary + JS glue.',
   note: '',
 }
@@ -87,9 +87,10 @@ export const EXPORTS: readonly ApiExport[] = [
   {
     name: '_injectShadowMode',
     kind: 'function',
-    signature: "function _injectShadowMode(code: string, mode: 'light' | 'shadow'): string",
+    signature:
+      "function _injectShadowMode( code: string, mode: 'light' | 'shadow', lightScopeId?: string, ): string",
     summary:
-      "Inject `{ shadowMode: '...' }` as the third argument to the emitted `defineElement('tag', defineComponent(...))` call.",
+      "Inject `{ shadowMode: '...' }` (and, for light mode, `lightScopeId: '...'` in the SAME options object) as the third argument to the emitted `defineElement('tag', defineComponent(...))` call.",
   },
   {
     name: '_isLayoutFile',
@@ -102,6 +103,13 @@ export const EXPORTS: readonly ApiExport[] = [
     kind: 'function',
     signature: 'function _layoutTag(stem: string): string',
     summary: 'Layout custom-element tag for a filename stem.',
+  },
+  {
+    name: '_lightScopeId',
+    kind: 'function',
+    signature: 'function _lightScopeId(id: string): string',
+    summary:
+      "Deterministic 8-hex-char scope id for a light-DOM component's `data-a` attribute (light-DOM leaf flip, LDF §10 step 1 / step 3).",
   },
   {
     name: '_parseExtractMarker',
@@ -163,7 +171,7 @@ export const EXPORTS: readonly ApiExport[] = [
     name: 'compileSidecar',
     kind: 'function',
     signature:
-      'function compileSidecar( source: string, id?: string, options?: { /** * #486 step 4 — emit the attribute/component-prop type layer * (`--strict-templates`). Default off: the surface stays byte-identical * to the pre-#486 sidecar. */ strictTemplates?: boolean }, ): string',
+      "function compileSidecar( source: string, id?: string, options?: { /** * #486 step 4 — emit the attribute/component-prop type layer * (`--strict-templates`). Default off: the surface stays byte-identical * to the pre-#486 sidecar. */ strictTemplates?: boolean /** * Build target threaded to the compiler binary (`--target`), same flag * `transform()` passes. Defaults to the binary's own default * (`universal`) when omitted. * * This is NOT cosmetic: `--target` changes what `compile_full_with_options` * produces (packages/compiler/src/bin/main.rs), which `sidecar_ts` is * derived from — e.g. a `target: 'client'` build elides server-only * artifacts. A caller that never passes this always type-checks against * the `universal` surface regardless of the project's actual configured * target, which can pass tsc on code the real build would elide or * reject. `islands`/`shadowMode` are deliberately NOT parameters here: * both are applied as JS-side post-processing on the RUNTIME JS output * (see `transform()`), never touch `sidecar_ts`, and have no bearing on * type-check accuracy. */ target?: 'client' | 'server' | 'universal' }, ): string",
     summary:
       "Compile an SFC to its TYPE-CHECK SURFACE and return it as a string — the `.aihu.ts` sidecar's content, without writing a file.",
     agent: true,
@@ -239,7 +247,7 @@ export const EXPORTS: readonly ApiExport[] = [
     name: 'SfcAst',
     kind: 'interface',
     signature:
-      'interface SfcAst {\n  /** Resolved custom-element tag name (meta.name → route.name → file stem). */\n  tag: string\n  /** AST schema version — bumped on any breaking shape change (semver-tied). */\n  astVersion: 1\n  /** The @style block, if the SFC declared one. */\n  style: SfcStyleBlock | null\n  /** Parsed template tree. null when the SFC has no @template block. */\n  template: SfcNode[] | null\n  /** SFC-level metadata. */\n  meta: SfcMeta\n}',
+      "interface SfcAst {\n  /** Resolved custom-element tag name (meta.name → route.name → file stem). */\n  tag: string\n  /** AST schema version — bumped on any breaking shape change (semver-tied). */\n  astVersion: 1\n  /** The @style block, if the SFC declared one. */\n  style: SfcStyleBlock | null\n  /** Parsed template tree. null when the SFC has no @template block. */\n  template: SfcNode[] | null\n  /** SFC-level metadata. */\n  meta: SfcMeta\n  /**\n   * The compiler-assigned light-DOM scope id for this component's `data-a`\n   * attribute, present only when it resolved to `shadowMode: 'light'`\n   * (light-DOM leaf flip, LDF §10 step 1). Absent (not just `undefined`, the\n   * key itself omitted on the wire) for shadow-mode components — additive,\n   * mirrors `aihu-css-core`'s `SfcAst.light_scope_id: Option<String>`.\n   */\n  lightScopeId?: string\n}",
     summary: 'Top-level AST export — one per .aihu SFC.',
   },
   {

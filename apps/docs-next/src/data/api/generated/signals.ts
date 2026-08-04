@@ -5,12 +5,18 @@ export const PKG: ApiPackage = {
   name: '@aihu/signals',
   slug: 'signals',
   tier: 'Runtime core',
-  version: '0.3.0',
+  version: '0.5.0',
   tagline: 'Tiny reactive signals — the reactive primitive at the core of aihu.',
   note: '',
 }
 
 export const EXPORTS: readonly ApiExport[] = [
+  {
+    name: '_attachLifecycleHost',
+    kind: 'function',
+    signature: 'function _attachLifecycleHost(scope: EffectScope, host: LifecycleHost): void',
+    summary: '',
+  },
   {
     name: 'batch',
     kind: 'function',
@@ -30,6 +36,45 @@ export const EXPORTS: readonly ApiExport[] = [
     kind: 'function',
     signature: 'function effect(fn: EffectFn): Dispose',
     summary: '',
+  },
+  {
+    name: 'effectScope',
+    kind: 'function',
+    signature: 'function effectScope(detached?: boolean): EffectScope',
+    summary:
+      'Create an effect scope: a disposal owner that collects every `effect()`, `computed()`, child `effectScope()`, and `onScopeDispose()` registered while it is current (via `run`/`runWithScope`), and disposes them all in LIFO order on `stop()`.',
+  },
+  {
+    name: 'getCurrentScope',
+    kind: 'function',
+    signature: 'function getCurrentScope(): EffectScope | undefined',
+    summary: 'The scope currently collecting registrations, or `undefined` when none is active.',
+  },
+  {
+    name: 'getLifecycleHost',
+    kind: 'function',
+    signature: 'function getLifecycleHost(): LifecycleHost | undefined',
+    summary:
+      'The lifecycle host owning the current scope, or `undefined` when there is none — a scopeless caller, non-component code, or inside an `effect()` body where the current scope is deliberately cleared (signals P0-1).',
+  },
+  {
+    name: 'onScopeDispose',
+    kind: 'function',
+    signature: 'function onScopeDispose(fn: () => void): void',
+    summary: 'Register `fn` to run when the current scope is stopped.',
+  },
+  {
+    name: 'runWithoutScope',
+    kind: 'function',
+    signature: 'function runWithoutScope<T>(fn: () => T): T',
+    summary: 'Run `fn` with NO current scope — the explicit opt-out mirror of `runWithScope`.',
+  },
+  {
+    name: 'runWithScope',
+    kind: 'function',
+    signature: 'function runWithScope<T>(scope: EffectScope, fn: () => T): T',
+    summary:
+      'Run `fn` with an explicit `scope` as the current scope — the async re-entry primitive: capture `getCurrentScope()` before an `await`, then `runWithScope(captured, ...)` after it to keep registering into the same owner.',
   },
   {
     name: 'signal',
@@ -63,6 +108,20 @@ export const EXPORTS: readonly ApiExport[] = [
     summary: '',
   },
   {
+    name: 'EffectScope',
+    kind: 'interface',
+    signature:
+      'interface EffectScope {\n  /** Run `fn` with this scope as the current scope. Returns `undefined`\n   * WITHOUT executing `fn` when the scope is already stopped (Vue\n   * semantics — anything created inside would be unowned and leak). */\n  run<T>(fn: () => T): T | undefined\n  /** Dispose everything the scope owns — effects, computeds, child scopes,\n   * `onScopeDispose` callbacks — in LIFO (reverse-registration) order.\n   * Idempotent; re-entrant calls (a cleanup stopping its own scope) and a\n   * parent-cascade reaching an already-stopped child are no-ops. Every\n   * disposer runs even if an earlier one throws; the first error is\n   * rethrown after all have run. */\n  stop(): void\n  readonly active: boolean\n}',
+    summary: '',
+  },
+  {
+    name: 'LifecycleHost',
+    kind: 'interface',
+    signature:
+      "interface LifecycleHost {\n  /** Liveness of THIS connection; latches `false` at disconnect and never\n   * re-arms. A reconnect gets a fresh setup with a fresh host. */\n  readonly connected: () => boolean\n  /** Post-layout, pre-paint, once per connection; the entry is skipped if\n   * the connection has already ended by the time the frame fires. A\n   * returned teardown is registered into the owning scope. Valid whenever\n   * this scope is current — i.e. during setup OR inside an `onMount`\n   * body — which is deliberately a WIDER window than the bare\n   * `@aihu/runtime` `onCommit` export's setup-only gate: this method is\n   * reached through `getCurrentScope()`, not that export's internal\n   * setup-only pointer, so calling it from `onMount` is legal. */\n  onCommit(fn: () => void | (() => void)): void\n}",
+    summary: 'What a component runtime offers to code owned by its scope.',
+  },
+  {
     name: 'SignalOptions',
     kind: 'interface',
     signature:
@@ -78,8 +137,8 @@ export const EXPORTS: readonly ApiExport[] = [
   {
     name: 'EffectFn',
     kind: 'type',
-    signature: 'type EffectFn = () => void',
-    summary: '',
+    signature: 'type EffectFn = (onCleanup: (fn: () => void) => void) => void',
+    summary: 'The effect body.',
   },
   {
     name: 'Read',

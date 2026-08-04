@@ -5,7 +5,7 @@ export const PKG: ApiPackage = {
   name: '@aihu/tsc',
   slug: 'tsc',
   tier: 'Compiler & tooling',
-  version: '0.2.4',
+  version: '0.3.1',
   tagline:
     'aihu-tsc — `tsc` for projects containing .aihu Single File Components. Type-checks .aihu sources as virtual TypeScript, with no .aihu.ts files written to disk.',
   note: '',
@@ -41,6 +41,13 @@ export const EXPORTS: readonly ApiExport[] = [
       'The one diagnostic-suppression policy, shared with the language server (step 5): an editor squiggle and a CI failure must apply the SAME filter, or the split-brain this unification removes would creep back in as editor-only implicit-any noise.',
   },
   {
+    name: 'loadTscProjectConfig',
+    kind: 'function',
+    signature:
+      "async function loadTscProjectConfig( root: string, ): Promise<{ target?: 'client' | 'server' | 'universal'; strictTemplates?: boolean }>",
+    summary: "Load `{ target, strictTemplates }` from `root`'s `vite.config.ts`.",
+  },
+  {
     name: 'run',
     kind: 'function',
     signature: 'function run(options: RunOptions = {}): number',
@@ -56,7 +63,7 @@ export const EXPORTS: readonly ApiExport[] = [
     name: 'AihuLanguagePluginOptions',
     kind: 'interface',
     signature:
-      "interface AihuLanguagePluginOptions {\n  /**\n   * #486 step 4 — switch the sidecar's attribute/component-prop type layer on\n   * (`aihu-tsc --strict-templates`). Default off: the virtual code is\n   * byte-identical to the pre-#486 surface.\n   */\n  strictTemplates?: boolean\n}",
+      "interface AihuLanguagePluginOptions {\n  /**\n   * #486 step 4 — switch the sidecar's attribute/component-prop type layer on\n   * (`aihu-tsc --strict-templates`). Default off: the virtual code is\n   * byte-identical to the pre-#486 surface.\n   */\n  strictTemplates?: boolean\n  /**\n   * Build target threaded to `compileSidecar` (`--target`) — see its own doc\n   * comment in `@aihu/compiler` for why this affects type-check accuracy.\n   * Sourced from the project's `vite.config.ts` (`AihuConfig.compiler.target`)\n   * by `run()`/the language server's project-config loader; a caller with no\n   * config to read leaves this unset and gets the binary's own default\n   * (`universal`).\n   */\n  target?: 'client' | 'server' | 'universal'\n}",
     summary: '',
   },
   {
@@ -70,7 +77,7 @@ export const EXPORTS: readonly ApiExport[] = [
     name: 'RunOptions',
     kind: 'interface',
     signature:
-      'interface RunOptions {\n  /** Path to a tsconfig.json, or a directory containing one. Defaults to cwd. */\n  project?: string\n  /** Report implicit-`any` inside .aihu files too. */\n  strictTemplates?: boolean\n  cwd?: string\n}',
+      "interface RunOptions {\n  /** Path to a tsconfig.json, or a directory containing one. Defaults to cwd. */\n  project?: string\n  /** Report implicit-`any` inside .aihu files too. */\n  strictTemplates?: boolean\n  cwd?: string\n  /**\n   * Build target threaded to `compileSidecar` (`--target`) — sourced from the\n   * project's `vite.config.ts` (`AihuConfig.compiler.target`) by the CLI\n   * entry (`bin/aihu-tsc.mjs`) via `loadTscProjectConfig()`, since `run()`\n   * itself is synchronous. See `compileSidecar`'s doc comment in\n   * `@aihu/compiler` for why this affects type-check accuracy.\n   */\n  target?: 'client' | 'server' | 'universal'\n}",
     summary: '',
   },
 ]

@@ -5,7 +5,7 @@ export const PKG: ApiPackage = {
   name: '@aihu/language-server',
   slug: 'language-server',
   tier: 'Compiler & tooling',
-  version: '0.3.0',
+  version: '0.3.6',
   tagline:
     'Cross-editor Language Server (aihu-language-server) for .aihu Single File Components — diagnostics, hover, completion, and quick-fix code actions.',
   note: '',
@@ -28,7 +28,8 @@ export const EXPORTS: readonly ApiExport[] = [
   {
     name: 'createAihuLanguagePlugin',
     kind: 'function',
-    signature: 'function createAihuLanguagePlugin(): LanguagePlugin<URI, AihuVirtualCode>',
+    signature:
+      "function createAihuLanguagePlugin(options?: { strictTemplates?: boolean target?: 'client' | 'server' | 'universal' }): LanguagePlugin<URI, AihuVirtualCode>",
     summary: 'Create the Volar LanguagePlugin for .aihu files.',
   },
   {
@@ -104,6 +105,19 @@ export const EXPORTS: readonly ApiExport[] = [
     summary: "Top-level block completions (triggered by '@' at top level).",
   },
   {
+    name: 'COMPOSABLE_COMPLETIONS',
+    kind: 'const',
+    signature: 'const COMPOSABLE_COMPLETIONS: LspCompletionItem[]',
+    summary:
+      "`@aihu/use` composable completions, offered inside `@state` (FEL-342): the compiler auto-imports a bare `useMouse()`-style call (`use_registry.rs`), which previously meant no completion suggested the name existed at all, and TypeScript had no declaration for it until the sidecar's ambient decl landed — the two together made auto-import look like a red squiggle, invisible build magic instead of a feature.",
+  },
+  {
+    name: 'COMPOSABLE_REGISTRY',
+    kind: 'const',
+    signature: 'const COMPOSABLE_REGISTRY: readonly ComposableRegistryEntry[]',
+    summary: '',
+  },
+  {
     name: 'MIGRATE_CODES',
     kind: 'const',
     signature: 'const MIGRATE_CODES',
@@ -148,6 +162,14 @@ export const EXPORTS: readonly ApiExport[] = [
     signature:
       'interface CompileResult {\n  code: string | null\n  diagnostics: AihuDiagnostic[]\n}',
     summary: '',
+  },
+  {
+    name: 'ComposableRegistryEntry',
+    kind: 'interface',
+    signature:
+      "interface ComposableRegistryEntry {\n  /** Bare call name, e.g. `useMouse`. */\n  name: string\n  /** Module specifier the compiler auto-imports, e.g. `@aihu/use/useMouse`. */\n  specifier: string\n  /** One-line purpose, extracted from the composable's doc comment. */\n  description: string\n}",
+    summary:
+      'packages/language-server/src/core/composable-registry.ts GENERATED — do not hand-edit.',
   },
   {
     name: 'LspCompletionItem',

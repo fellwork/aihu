@@ -5,7 +5,7 @@ export const PKG: ApiPackage = {
   name: '@aihu-plugin/agent-readiness',
   slug: 'plugin-agent-readiness',
   tier: 'Plugins',
-  version: '2.2.0',
+  version: '2.2.2',
   tagline: 'Discovery + readiness manifest emitter so agents can introspect aihu apps.',
   note: '',
 }
@@ -19,12 +19,17 @@ export const EXPORTS: readonly ApiExport[] = [
     agent: true,
   },
   {
+    name: 'componentsFromManifestJson',
+    kind: 'function',
+    signature: 'function componentsFromManifestJson(text: string): ReadonlyArray<AgentMetadata>',
+    summary: "Parse one sidecar's JSON text into registry metadata.",
+  },
+  {
     name: 'createAgentReadinessRoutes',
     kind: 'function',
     signature:
-      'function createAgentReadinessRoutes(config: AgentReadinessConfig): { readonly llmsTxt: RouteHandler readonly llmsFullTxt: RouteHandler readonly mcpServerCard: RouteHandler readonly robotsTxt: RouteHandler readonly a2aCard: RouteHandler readonly mcpDiscovery: RouteHandler readonly sitemapXml: RouteHandler }',
-    summary: 'Create fetch-API route handlers for all agent-readiness endpoints.',
-    agent: true,
+      'function createAgentReadinessRoutes( config: AgentReadinessConfig, sources: AgentReadinessSources = {}, ): { readonly llmsTxt: RouteHandler readonly llmsFullTxt: RouteHandler readonly mcpServerCard: RouteHandler readonly robotsTxt: RouteHandler readonly a2aCard: RouteHandler readonly mcpDiscovery: RouteHandler readonly sitemapXml: RouteHandler }',
+    summary: '',
   },
   {
     name: 'createContentNegotiationHandler',
@@ -98,6 +103,15 @@ export const EXPORTS: readonly ApiExport[] = [
     agent: true,
   },
   {
+    name: 'readAgentManifestDir',
+    kind: 'function',
+    signature:
+      'async function readAgentManifestDir(dir: string): Promise<ReadonlyArray<AgentMetadata>>',
+    summary:
+      'Read every `*.agent-manifest.json` in `dir` (non-recursive) and return the components they describe, sorted by tag so the emitted document is byte-stable across runs regardless of directory-read order.',
+    agent: true,
+  },
+  {
     name: 'seoLlmsSections',
     kind: 'function',
     signature:
@@ -116,8 +130,16 @@ export const EXPORTS: readonly ApiExport[] = [
   {
     name: 'viteAgentReadinessIntegration',
     kind: 'function',
-    signature: 'function viteAgentReadinessIntegration(config: AgentReadinessConfig): VitePlugin',
+    signature:
+      'function viteAgentReadinessIntegration( config: AgentReadinessConfig, sources: ViteAgentReadinessSources = {}, ): VitePlugin',
     summary: 'The `viteAgentReadinessIntegration()` Vite plugin (v0.7.4 canonical name).',
+  },
+  {
+    name: 'AGENT_MANIFEST_SUFFIX',
+    kind: 'const',
+    signature: 'const AGENT_MANIFEST_SUFFIX',
+    summary: 'Filename suffix the compiler writes per agent component.',
+    agent: true,
   },
   {
     name: 'agentReadiness',
@@ -198,6 +220,14 @@ export const EXPORTS: readonly ApiExport[] = [
     signature:
       'interface A2aSkill {\n  readonly id: string\n  readonly name: string\n  readonly description?: string\n}',
     summary: '',
+    agent: true,
+  },
+  {
+    name: 'AgentReadinessSources',
+    kind: 'interface',
+    signature:
+      "interface AgentReadinessSources {\n  /**\n   * Component-metadata reader, mirroring `RouteMarkdownResolverOptions`'\n   * seam of the same name. Defaults to `getAllAgentMetadata` — the live\n   * registry.\n   *\n   * FEL-434b: the registry is EMPTY on a client-target build, because the\n   * compiler elides `registerAgentMetadata` from client JS. Point this at\n   * `readAgentManifestDir(<compiler out dir>)` to build the `## Components`\n   * section from the on-disk agent-meta sidecars instead.\n   */\n  readonly readComponents?: () => ReadonlyArray<AgentMetadata>\n}",
+    summary: 'Injectable sources for the generators, alongside the declarative config.',
     agent: true,
   },
   {
@@ -308,7 +338,7 @@ export const EXPORTS: readonly ApiExport[] = [
     name: 'McpServerCardConfig',
     kind: 'interface',
     signature:
-      "interface McpServerCardConfig {\n  readonly name: string\n  readonly version: string\n  readonly endpoint: string\n  readonly skills?: ReadonlyArray<AgentSkill>\n  readonly auth?: McpAuthConfig\n  readonly description?: string\n  readonly homepage?: string\n  /** Default: '2025-06-18'. */\n  readonly protocolVersion?: string\n  /** Default: 'streamable-http'. */\n  readonly transportType?: 'streamable-http' | 'sse'\n}",
+      "interface McpServerCardConfig {\n  readonly name: string\n  readonly version: string\n  readonly endpoint: string\n  readonly skills?: ReadonlyArray<AgentSkill>\n  /**\n   * Component metadata to derive skills from. Defaults to the live\n   * `@aihu/agent` registry.\n   *\n   * FEL-434b: on a client-target build the registry is empty (the compiler\n   * elides `registerAgentMetadata` from client JS), so the caller passes the\n   * components read back from the on-disk agent-meta sidecars instead. Same\n   * `extract` filtering applies either way — see `skillsFromRegistry`.\n   */\n  readonly components?: ReadonlyArray<AgentMetadata>\n  readonly auth?: McpAuthConfig\n  readonly description?: string\n  readonly homepage?: string\n  /** Default: '2025-06-18'. */\n  readonly protocolVersion?: string\n  /** Default: 'streamable-http'. */\n  readonly transportType?: 'streamable-http' | 'sse'\n}",
     summary: '',
     agent: true,
   },
@@ -369,6 +399,14 @@ export const EXPORTS: readonly ApiExport[] = [
     signature:
       'interface SitemapUrl {\n  readonly url: string\n  readonly lastmod?: string\n  readonly changefreq?: SitemapChangefreq\n  readonly priority?: number\n}',
     summary: '',
+  },
+  {
+    name: 'ViteAgentReadinessSources',
+    kind: 'interface',
+    signature:
+      "interface ViteAgentReadinessSources extends AgentReadinessSources {\n  /**\n   * Directory the compiler wrote its `<tag>.agent-manifest.json` sidecars to\n   * (the `--out` dir). When set, the `## Components` section and the MCP\n   * server card's skills are derived from those files instead of the live\n   * registry — the fix for a client-target build listing nothing (FEL-434b).\n   * Overrides `readComponents`. A missing directory reads as zero components.\n   */\n  readonly agentManifestDir?: string\n}",
+    summary: '`AgentReadinessSources` plus the build-time-only sidecar directory.',
+    agent: true,
   },
   {
     name: 'AgentReadinessConfig',

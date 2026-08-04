@@ -5,7 +5,7 @@ export const PKG: ApiPackage = {
   name: '@aihu/store',
   slug: 'store',
   tier: 'Runtime core',
-  version: '0.1.0',
+  version: '0.1.2',
   tagline:
     'Pinia-style global stores on aihu signals — defineStore, SSR-safe per-request instances, registry-based serialize/hydrate, plugins.',
   note: '',
@@ -159,7 +159,7 @@ export const EXPORTS: readonly ApiExport[] = [
     signature:
       'type SetupStateKeys<SS> = {\n  [K in keyof SS & string]: SS[K] extends Read<unknown>\n    ? `set${Capitalize<K>}` extends keyof SS\n      ? K\n      : never\n    : never\n}[keyof SS & string]',
     summary:
-      'State detection for setup-style stores — mirrored at runtime in `store.ts` (`collectSetupShape`): a key `k` is a state entry when the setup returns a zero-arg read function under `k` AND a setter under `set${Capitalize<k>}`.',
+      'State detection for setup-style stores — mirrored at runtime in `store.ts` (`instantiateSetup`, pass 1): a key `k` is a state entry when the setup returns a zero-arg read function under `k` AND a setter under `set${Capitalize<k>}`.',
   },
   {
     name: 'SetupStore',

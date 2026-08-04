@@ -79,7 +79,7 @@
     letter-spacing: 0.06em;
   }
   .dn-page-next strong {
-    color: var(--accent);
+    color: var(--accent-strong);
     font-weight: 600;
   }
 }

@@ -5,7 +5,7 @@ export const PKG: ApiPackage = {
   name: '@aihu-plugin/data',
   slug: 'plugin-data',
   tier: 'Plugins',
-  version: '2.0.3',
+  version: '2.0.5',
   tagline: 'Reactive data loaders and resource primitives for aihu.',
   note: '',
 }

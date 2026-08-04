@@ -390,11 +390,21 @@ function entryFiles(dir: string): string[] {
   const files: string[] = []
   for (const t of targets) {
     if (!/\.(ts|js)$/.test(t)) continue
+    const srcFile = t
+      .replace('/dist/', '/src/')
+      .replace(/\.d\.ts$/, '.ts')
+      .replace(/\.js$/, '.ts')
     const cands = [
-      t
-        .replace('/dist/', '/src/')
-        .replace(/\.d\.ts$/, '.ts')
-        .replace(/\.js$/, '.ts'),
+      srcFile,
+      // A subpath export's dist target is often a directory's rolled-up entry
+      // (`dist/useAsync.js` ← `src/useAsync/index.ts`), not a same-named file —
+      // e.g. every one of @aihu/use's ~30 composables. Without this candidate
+      // entryFiles falls through straight to the `dist/*.d.ts` fallback below,
+      // which needs a build and (being already-typed .d.ts) loses JSDoc
+      // summaries — confirmed against packages/use: 113 of 114 exports came
+      // back with an empty summary and most signatures untyped until this
+      // candidate was added.
+      srcFile.replace(/\.ts$/, '/index.ts'),
       t
         .replace('/dist/', '/js/')
         .replace(/\.d\.ts$/, '.ts')

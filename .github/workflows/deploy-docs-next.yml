@@ -153,6 +153,21 @@ jobs:
           # See the note on the docs-next build step below — same reason.
           AIHU_COMPILE_BIN: ${{ github.workspace }}/packages/compiler/bin/aihu-compile
 
+      # Doc-coverage gate equivalent for docs-next. Unlike apps/docs's
+      # check-doc-coverage.ts (existence-only: does a page file exist), this is
+      # a DRIFT check — gen-api.ts re-derives every documentable package's
+      # export surface from source via the TypeScript AST and fails if the
+      # committed src/pages/api/*.aihu + src/data/api/generated/*.ts disagree
+      # with it. MUST run after "Build workspace packages", not right after
+      # checkout: for a package whose `exports` target has no `src/` sibling,
+      # gen-api.ts's entryFiles falls back to the built `dist/*.d.ts`/`dist/*.js`
+      # (apps/docs-next/scripts/gen-api.ts's extractPackage), and a fresh
+      # checkout has no dist/ at all (.gitignore'd) — running this any earlier
+      # manufactures false drift on those packages every time.
+      - name: Doc-coverage gate (gen:api --check)
+        run: bun scripts/gen-api.ts --check
+        working-directory: apps/docs-next
+
       - name: Build docs-next
         # prebuild (gen:css + gen:preview + gen:wasm) then vite build → dist.
         # public/ is copied into dist/ by vite as static assets — that covers
@@ -171,6 +186,40 @@ jobs:
           # compiler fix would then be invisible to its own CI. This is what hid
           # the TDZ bug in apps/docs; deploy-docs.yml carries the same two hunks.
           AIHU_COMPILE_BIN: ${{ github.workspace }}/packages/compiler/bin/aihu-compile
+
+      - name: Install Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+
+      - name: Install Playwright Chromium
+        run: bunx playwright install --with-deps chromium
+        working-directory: apps/docs-next
+
+      # Smoke tests against the real built dist/ (vite preview, not the SSG dev
+      # server) — homepage, guide + API-datasheet navigation, and the WASM
+      # playground island (boots with no error banner, zero console errors,
+      # ?preset= deep link). See apps/docs-next/playwright.config.ts.
+      - name: Run smoke tests
+        run: bunx playwright test --reporter=line
+        working-directory: apps/docs-next
+
+      # Lighthouse quality gate — same script + thresholds as deploy-docs.yml,
+      # pointed at docs-next's dist and its canonical content page
+      # (/guides/getting-started, the closest analog to /docs/introduction).
+      # Runs in this single build+deploy job (docs-next has no separate
+      # always-on `test` job like deploy-docs.yml) so a perf/a11y regression
+      # blocks the deploy step below outright.
+      - name: Lighthouse gate
+        run: bun scripts/lighthouse.ts --app docs-next
+
+      - name: Upload Lighthouse results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: lighthouse-results-docs-next
+          path: scripts/lighthouse-results-docs-next.json
+          if-no-files-found: ignore
 
       - name: Ensure Pages project exists
         # Idempotent: creates aihu-docs-next on first run; continue-on-error lets

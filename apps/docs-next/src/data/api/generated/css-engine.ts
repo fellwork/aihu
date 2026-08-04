@@ -5,7 +5,7 @@ export const PKG: ApiPackage = {
   name: '@aihu/css-engine',
   slug: 'css-engine',
   tier: 'Runtime core',
-  version: '0.4.6',
+  version: '0.6.0',
   tagline: 'aihu CSS engine — Tailwind v4 hard fork with WC-native scoped output.',
   note: '',
 }
@@ -34,7 +34,7 @@ export const EXPORTS: readonly ApiExport[] = [
   {
     name: 'compileSfc',
     kind: 'function',
-    signature: 'function compileSfc(source: string, id?: string): string',
+    signature: 'function compileSfc(source: string, id?: string, lightScopeId?: string): string',
     summary: 'Compile a `.aihu` SFC source string to scoped, shadow-DOM-embedded CSS.',
   },
   {
@@ -92,6 +92,12 @@ export const EXPORTS: readonly ApiExport[] = [
     summary: 'All built-in packs, keyed by name — handy for registry/iteration.',
   },
   {
+    name: 'DARK_SELECTOR',
+    kind: 'const',
+    signature: 'const DARK_SELECTOR',
+    summary: 'The selector the dark overrides are emitted under.',
+  },
+  {
     name: 'PositionOptions',
     kind: 'interface',
     signature:
@@ -102,14 +108,14 @@ export const EXPORTS: readonly ApiExport[] = [
     name: 'StylePack',
     kind: 'interface',
     signature:
-      'interface StylePack {\n  readonly name: string\n  readonly tokens: TokenMap\n  readonly dark: TokenMap\n  /**\n   * Serialize the pack to a `:root { … }` (+ `.dark { … }`) CSS string — the\n   * same shape as the shipped `styles/*.css` bundles.\n   */\n  toCss(): string\n}',
+      'interface StylePack {\n  readonly name: string\n  readonly tokens: TokenMap\n  readonly dark: TokenMap\n  /** Named themes, keyed by theme name. Empty when the pack declares none. */\n  readonly themes: Record<string, TokenMap>\n  /** The named themes this pack offers, in declaration order. */\n  readonly themeNames: readonly string[]\n  /**\n   * Serialize the pack to a `:root { … }` (+ dark, + named-theme) CSS string —\n   * the same shape as the shipped `styles/*.css` bundles.\n   */\n  toCss(): string\n}',
     summary: 'A registered, validated style-pack descriptor.',
   },
   {
     name: 'StylePackInput',
     kind: 'interface',
     signature:
-      "interface StylePackInput {\n  /** Pack name, e.g. `'acme'` (used for registration / debugging). */\n  name: string\n  /** Light-theme tokens (the `:root` block). Names without the `--` prefix. */\n  tokens: TokenMap\n  /** Optional dark-theme overrides (the `.dark` block). */\n  dark?: TokenMap\n}",
+      'interface StylePackInput {\n  /** Pack name, e.g. `\'acme\'` (used for registration / debugging). */\n  name: string\n  /** Light-theme tokens (the `:root` block). Names without the `--` prefix. */\n  tokens: TokenMap\n  /**\n   * Optional dark-theme overrides. Emitted under {@link DARK_SELECTOR} — i.e.\n   * both `.dark` and `[data-theme="dark"]`.\n   */\n  dark?: TokenMap\n  /**\n   * Optional named themes, each emitted as its own `[data-theme="<name>"]`\n   * block. This is the dimension a swappable theme catalog (daisyUI\'s `light`/\n   * `cupcake`/`dracula`/… set) transcribes into.\n   *\n   * Each entry is an OVERRIDE layer over `tokens`, not a standalone theme: only\n   * the names that differ from the base need listing, exactly as `dark` works\n   * today. A theme is selected by putting `data-theme="<name>"` on an ancestor\n   * (per Founder-decision #3, `<html>`).\n   *\n   * `\'dark\'` is reserved — use the `dark` field, which is dual-keyed.\n   */\n  themes?: Record<string, TokenMap>\n}',
     summary: '',
   },
   {

@@ -5,7 +5,7 @@ export const PKG: ApiPackage = {
   name: '@aihu/server',
   slug: 'server',
   tier: 'App & routing',
-  version: '0.3.0',
+  version: '0.4.1',
   tagline: 'Server runtime + native renderer (napi-rs) for aihu SSR.',
   note: '',
 }
@@ -36,6 +36,12 @@ export const EXPORTS: readonly ApiExport[] = [
     signature:
       'function _setContextFns(set: (map: Map<symbol, unknown>) => void, clear: () => void): void',
     summary: 'Inject context activation/deactivation functions from',
+  },
+  {
+    name: '_setNativeState',
+    kind: 'function',
+    signature: 'function _setNativeState(state: NativeState): void',
+    summary: 'Inject a native loader state (e.g.',
   },
   {
     name: '_setStoreSerializer',
