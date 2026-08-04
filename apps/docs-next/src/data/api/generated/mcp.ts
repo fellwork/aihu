@@ -5,7 +5,7 @@ export const PKG: ApiPackage = {
   name: '@aihu/mcp',
   slug: 'mcp',
   tier: 'Agents & governance',
-  version: '0.1.1',
+  version: '0.2.0',
   tagline:
     'MCP server for aihu — exposes aihu_example and aihu_validate tools via stdio transport.',
   note: '',

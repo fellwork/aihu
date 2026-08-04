@@ -39,7 +39,17 @@ import './components/weather-demo.aihu'
 
 // Boot the SPA. On an output:'static' build the prerendered per-route HTML is
 // already in the document; createApp hydrates and adopts it in place.
-createApp()
+//
+// `site.url` MUST mirror aihu.config.ts's `site.url` (the prerender path reads
+// it from there directly). Without it, `updateHead`'s first call — which runs
+// during this same hydration, not just on later navigation — resolves
+// `canonical`/OG/Twitter with `siteUrl: undefined` and REWRITES the
+// prerendered absolute `https://aihu.dev/...` canonical down to the page's
+// relative path. Confirmed live: every route's canonical downgrades to
+// relative the instant the client boots, which is a real Lighthouse SEO
+// failure (score 92, "canonical is not an absolute URL"), not a preview-only
+// artifact.
+createApp({ site: { url: 'https://aihu.dev' } })
 
 // --- delegated "copy code" handler ---
 // One listener serves every `.cb-copy` button (prerendered pages AND markdown

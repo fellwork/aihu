@@ -1,16 +1,18 @@
 /**
- * Lighthouse quality gate runner — aihu docs site.
- * Usage: bun scripts/lighthouse.ts
+ * Lighthouse quality gate runner — aihu docs sites.
+ * Usage: bun scripts/lighthouse.ts [--app docs|docs-next]
  *
- * Serves the pre-built apps/docs/dist via a deterministic static server
- * (apps/docs/scripts/serve-dist.ts — not wrangler; see issue #314) and runs
- * Lighthouse against the docs introduction page, asserting 95+ on
+ * Serves the pre-built dist of the selected app via a deterministic static
+ * server (apps/docs/scripts/serve-dist.ts — not wrangler; see issue #314;
+ * the server is generic over DIST_DIR/PORT so both apps reuse it) and runs
+ * Lighthouse against that app's canonical content page, asserting 95+ on
  * performance / accessibility / best-practices / SEO plus Core Web Vitals.
- * Writes results to scripts/lighthouse-results.json, exits non-zero on
+ * Writes results to scripts/lighthouse-results-<app>.json, exits non-zero on
  * any threshold miss.
  *
- * Prerequisite: `bun run build` must have been run in apps/docs so that
- * apps/docs/dist exists. The CI deploy workflow builds docs before this gate.
+ * `--app` defaults to `docs` (unchanged behavior). Prerequisite: `bun run
+ * build` must have been run in the target app so its dist/ exists. The CI
+ * deploy workflows build each app before this gate.
  */
 
 import { existsSync, writeFileSync } from 'node:fs'
@@ -21,13 +23,51 @@ import lighthouse from 'lighthouse'
 const PORT = 8788
 const BASE_URL = `http://localhost:${PORT}`
 
-// The docs site is a hash-routed SPA served by the Cloudflare Pages worker;
-// any unmatched path falls through to the SPA shell, which renders the
-// `introduction` page by default. /docs/introduction is the canonical IA URL
-// for the introduction content (arch-1-website.md §1.1).
-const URLS = [`${BASE_URL}/docs/introduction`]
-const RESULTS_PATH = join(process.cwd(), 'scripts', 'lighthouse-results.json')
-const DIST_DIR = join(process.cwd(), 'apps', 'docs', 'dist')
+type AppName = 'docs' | 'docs-next'
+
+function parseApp(): AppName {
+  // Accept both `--app docs-next` (space) and `--app=docs-next` (equals) —
+  // argv.indexOf alone silently falls through to the default on the equals
+  // form, which would make a bad flag look like a passing default run.
+  const eqArg = process.argv.find((a) => a.startsWith('--app='))
+  let raw: string | undefined
+  if (eqArg) {
+    raw = eqArg.slice('--app='.length)
+  } else {
+    const flagIdx = process.argv.indexOf('--app')
+    raw = flagIdx !== -1 ? process.argv[flagIdx + 1] : undefined
+  }
+  raw ??= process.env.LIGHTHOUSE_APP ?? 'docs'
+  if (raw !== 'docs' && raw !== 'docs-next') {
+    console.error(`Unknown --app "${raw}" — expected "docs" or "docs-next".`)
+    process.exit(1)
+  }
+  return raw
+}
+
+const APP = parseApp()
+
+// The docs site (apps/docs) is a hash-routed SPA served by the Cloudflare
+// Pages worker; any unmatched path falls through to the SPA shell, which
+// renders the `introduction` page by default. docs-next is a real per-route
+// SSG build, so its canonical content page is the getting-started guide —
+// the closest analog to docs' introduction page (arch-1-website.md §1.1).
+const APPS: Record<AppName, { distDir: string; urlPath: string }> = {
+  docs: { distDir: join('apps', 'docs', 'dist'), urlPath: '/docs/introduction' },
+  'docs-next': { distDir: join('apps', 'docs-next', 'dist'), urlPath: '/guides/getting-started' },
+}
+
+const URLS = [`${BASE_URL}${APPS[APP].urlPath}`]
+// The `docs` default keeps the ORIGINAL filename (no suffix) — deploy-docs.yml
+// already uploads `scripts/lighthouse-results.json` as a build artifact, and
+// renaming it out from under that step would make the existing gate silently
+// stop publishing results (exit code unaffected, but the artifact vanishes).
+const RESULTS_PATH = join(
+  process.cwd(),
+  'scripts',
+  APP === 'docs' ? 'lighthouse-results.json' : `lighthouse-results-${APP}.json`,
+)
+const DIST_DIR = join(process.cwd(), APPS[APP].distDir)
 
 const THRESHOLDS = {
   performance: 95,
@@ -44,8 +84,8 @@ const CWV = {
 // ── 0. Sanity-check the build output exists ─────────────────────────────────
 
 if (!existsSync(DIST_DIR)) {
-  console.error(`apps/docs/dist not found at ${DIST_DIR}.`)
-  console.error("Run 'bun run build' in apps/docs first (CI builds docs before this gate).")
+  console.error(`${APPS[APP].distDir} not found at ${DIST_DIR}.`)
+  console.error(`Run 'bun run build' in apps/${APP} first (CI builds it before this gate).`)
   process.exit(1)
 }
 
@@ -54,9 +94,11 @@ if (!existsSync(DIST_DIR)) {
 // A deterministic Bun static server (mirrors CF Pages ASSETS: dir-index + SPA
 // fallback) replaces `wrangler pages dev`, which would not start reliably on CI
 // runners (compat-date drift past workerd's max + bunx cold-download) — see
-// apps/docs/scripts/serve-dist.ts + issue #314. Serving the prerendered dist/
-// statically is faithful for the perf measurement AND removes workerd startup
-// variance from the number.
+// apps/docs/scripts/serve-dist.ts + issue #314. It takes DIST_DIR/PORT purely
+// via env and has no apps/docs-specific logic, so both apps reuse the same
+// script rather than each shipping its own copy. Serving the prerendered
+// dist/ statically is faithful for the perf measurement AND removes workerd
+// startup variance from the number.
 
 const server = Bun.spawn(['bun', join('apps', 'docs', 'scripts', 'serve-dist.ts')], {
   cwd: process.cwd(),

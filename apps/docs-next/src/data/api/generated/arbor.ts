@@ -5,7 +5,7 @@ export const PKG: ApiPackage = {
   name: '@aihu/arbor',
   slug: 'arbor',
   tier: 'Runtime core',
-  version: '2.0.0',
+  version: '4.0.0',
   tagline: 'Reactive component tree (the rendering layer that consumes @aihu/signals).',
   note: '',
 }
@@ -30,7 +30,7 @@ export const EXPORTS: readonly ApiExport[] = [
     kind: 'function',
     signature:
       'function each<T>( list: Signal<T[]>, key: (item: T) => string | number, grow: (item: T, index: number) => Node, ): StructuralNode',
-    summary: '',
+    summary: 'Keyed list reconciler.',
   },
   {
     name: 'hydrate',

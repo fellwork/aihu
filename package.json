@@ -44,6 +44,7 @@
     "check:composable-registry": "bun scripts/gen-composable-hover-registry.ts --check",
     "check:runtime-purity": "bun scripts/check-runtime-purity.ts",
     "test:quality": "bun scripts/lighthouse.ts",
+    "test:quality:docs-next": "bun scripts/lighthouse.ts --app docs-next",
     "swarm:install": "cargo build --release --manifest-path packages/swarm/Cargo.toml && mkdir -p \"$HOME/.swarm/bin\" && install -m 755 target/release/swarm-bus \"$HOME/.swarm/bin/swarm-bus\" && \"$HOME/.swarm/bin/swarm-bus\" --version",
     "check:deps": "bun scripts/dep-check.ts",
     "check:moon-graph": "bun scripts/check-moon-graph.ts",

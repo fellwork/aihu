@@ -5,7 +5,7 @@ export const PKG: ApiPackage = {
   name: '@aihu/runtime',
   slug: 'runtime',
   tier: 'Runtime core',
-  version: '3.0.0',
+  version: '5.1.0',
   tagline:
     'Single File Component (.aihu) runtime — registers custom elements compiled by @aihu/compiler.',
   note: '',
@@ -133,6 +133,12 @@ export const EXPORTS: readonly ApiExport[] = [
     summary: '',
   },
   {
+    name: 'onCommit',
+    kind: 'function',
+    signature: 'function _onCommit(fn: () => void | (() => void)): void',
+    summary: "Run `fn` after the browser's next layout opportunity, before paint.",
+  },
+  {
     name: 'onMount',
     kind: 'function',
     signature: 'function _onMount(fn: () => void | (() => void)): void',
@@ -197,7 +203,7 @@ export const EXPORTS: readonly ApiExport[] = [
     name: 'DefineOptions',
     kind: 'interface',
     signature:
-      'interface DefineOptions {\n  shadowMode?: ShadowMode\n  /** When true, connectedCallback checks window.__aihu_state__[name] and calls the injected hydrate fn. Plan 3.2. */\n  hydrate?: boolean\n}',
+      "interface DefineOptions {\n  shadowMode?: ShadowMode\n  /** When true, connectedCallback checks window.__aihu_state__[name] and calls the injected hydrate fn. Plan 3.2. */\n  hydrate?: boolean\n  /**\n   * D5 `$form` — register as a form-associated custom element. The flag has to\n   * reach the constructor BEFORE `customElements.define` runs: the definition\n   * algorithm reads `formAssociated` off the constructor once, at define time,\n   * so assigning the static afterwards is silently ignored.\n   */\n  formAssociated?: boolean\n  /**\n   * Light-DOM leaf flip (LDF §10 step 3) — the compiler-computed 8-hex-char\n   * scope id this component's authored CSS is `@scope`d to\n   * (`aihu-css-core`'s `light_scope.rs`). `define-element.ts`'s `wrapClass`\n   * stamps it as `data-a=\"<id>\"` on the element itself at construction time,\n   * ONLY when `shadowMode` is `'light'` — a shadow-mode component has no use\n   * for it (shadow DOM already provides real scoping).\n   */\n  lightScopeId?: string\n}",
     summary: '',
   },
   {
@@ -240,7 +246,7 @@ export const EXPORTS: readonly ApiExport[] = [
     name: 'SetupContext',
     kind: 'interface',
     signature:
-      'interface SetupContext {\n  readonly host: ShadowRoot | Element\n  readonly element: HTMLElement\n}',
+      'interface SetupContext {\n  readonly host: ShadowRoot | Element\n  readonly element: HTMLElement\n  readonly connected: () => boolean\n}',
     summary: 'Context passed to a `defineComponent` setup function.',
   },
   {

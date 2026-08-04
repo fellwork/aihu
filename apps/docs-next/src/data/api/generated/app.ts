@@ -5,17 +5,30 @@ export const PKG: ApiPackage = {
   name: '@aihu/app',
   slug: 'app',
   tier: 'App & routing',
-  version: '5.0.0',
+  version: '8.1.0',
   tagline: 'Top-level app integration — wires runtime, router, and adapters into a Vite app.',
   note: '',
 }
 
 export const EXPORTS: readonly ApiExport[] = [
   {
+    name: 'collectAihuModules',
+    kind: 'function',
+    signature: 'function collectAihuModules(plugins: ReadonlyArray<unknown>): Map<string, unknown>',
+    summary: "Collect every aihu module's resolved options from a plugin array.",
+  },
+  {
     name: 'createApp',
     kind: 'function',
     signature: 'function createApp(config?: AppConfig): AppHandle',
     summary: '',
+  },
+  {
+    name: 'declareAihuModule',
+    kind: 'function',
+    signature:
+      'function declareAihuModule<TOptions, TPlugins extends readonly unknown[]>( aihuModule: string, options: TOptions, plugins: TPlugins, ): TPlugins',
+    summary: 'Attach the module contract to a plugin (or plugin array).',
   },
   {
     name: 'defineConfig',
@@ -24,16 +37,41 @@ export const EXPORTS: readonly ApiExport[] = [
     summary: 'Define the aihu application configuration.',
   },
   {
+    name: 'loadAihuConfig',
+    kind: 'function',
+    signature:
+      "async function loadAihuConfig( root: string, options: { readonly mode?: string; readonly command?: 'build' | 'serve' } = {}, ): Promise<LoadedAihuConfig | null>",
+    summary: "Load an aihu project's config from its Vite config file.",
+  },
+  {
+    name: 'validateAihuConfig',
+    kind: 'function',
+    signature: 'function validateAihuConfig(config: AihuConfig): void',
+    summary: 'Validate a config object without the `defineConfig` ceremony.',
+  },
+  {
     name: 'viteAihuPlugin',
     kind: 'function',
     signature: 'function viteAihuPlugin(config?: AihuConfig): PluginOption[]',
     summary: 'viteAihuPlugin() — composed Vite plugin for aihu SPA projects.',
   },
   {
+    name: 'AIHU_CONFIG_KEYS',
+    kind: 'const',
+    signature: 'const AIHU_CONFIG_KEYS: ReadonlyArray<string>',
+    summary: 'Keys aihu owns, derived from the schema rather than hand-listed.',
+  },
+  {
+    name: 'AIHU_CONFIG_PLUGIN',
+    kind: 'const',
+    signature: 'const AIHU_CONFIG_PLUGIN',
+    summary: 'Plugin name carrying the config handle.',
+  },
+  {
     name: 'AihuConfigError',
     kind: 'class',
     signature: 'class AihuConfigError extends Error',
-    summary: 'Thrown by defineConfig when configuration validation fails.',
+    summary: 'Thrown by `defineConfig` when configuration validation fails.',
   },
   {
     name: 'AdapterContext',
@@ -53,8 +91,22 @@ export const EXPORTS: readonly ApiExport[] = [
     name: 'AihuConfig',
     kind: 'interface',
     signature:
-      "interface AihuConfig {\n  /** Directory layout overrides. */\n  readonly dir?: DirConfig\n  /**\n   * Output mode. Supports `'spa'` (default) and `'static'` (SSG prerender).\n   * defineConfig throws AihuConfigError for any other value.\n   */\n  readonly output?: OutputMode\n  /**\n   * Site-level configuration. `site.url` is the absolute base URL used by the\n   * `'static'` output mode to resolve relative canonical/OG/Twitter URLs.\n   */\n  readonly site?: SiteConfig\n  /**\n   * Aihu plugins. Order is preserved.\n   * Appended after the three framework plugins (compiler, router, agent-readiness).\n   */\n  readonly plugins?: ReadonlyArray<AihuPlugin>\n  /** Runtime configuration split — public values are inlined in the client bundle. */\n  readonly runtimeConfig?: RuntimeConfig\n  /**\n   * App-level values made available to all components as bare identifiers.\n   * Declared here for documentation and future build-time validation; the\n   * values are hoisted into globalThis by createApp() at runtime.\n   *\n   * @example\n   * export default defineConfig({ provide: { supabase, checkAuth } })\n   */\n  readonly provide?: Record<string, unknown>\n  /** HTML <head> metadata. */\n  readonly app?: AppHeadConfig\n  /** Passthrough to Vite's UserConfig. Merged via Vite's config() hook. */\n  readonly vite?: VitePassthrough\n  /**\n   * Opt-in agent-readiness integration.\n   * Requires { name: string } at minimum.\n   * When absent or false, a no-op plugin is substituted.\n   */\n  readonly agentReadiness?: AgentReadinessConfig | false\n  /**\n   * Deployment adapter. Transforms the Vite build output into the target\n   * platform's required format. Called after vite build completes.\n   * When absent, no post-build transformation is applied (manual deployment).\n   */\n  readonly adapter?: AihuAdapter\n  /**\n   * Router-related app config (arch-5 M1).\n   * Currently exposes the `viewTransitions` opt-in for `<a>`.\n   */\n  readonly router?: RouterConfig\n  /**\n   * CSS / styling integration. Currently surfaces the project-wide\n   * `shadowMode` forwarded to the compiler. Set to `{ shadowMode: 'light' }`\n   * when using a cascade-dependent CSS framework (Tailwind, UnoCSS, Pico).\n   */\n  readonly css?: CssConfig\n}",
+      "interface AihuConfig {\n  /** Directory layout overrides. */\n  readonly dir?: DirConfig\n  /**\n   * Output mode. Supports `'spa'` (default) and `'static'` (SSG prerender).\n   * defineConfig throws AihuConfigError for any other value.\n   */\n  readonly output?: OutputMode\n  /**\n   * Site-level configuration. `site.url` is the absolute base URL used by the\n   * `'static'` output mode to resolve relative canonical/OG/Twitter URLs.\n   */\n  readonly site?: SiteConfig\n  /**\n   * Aihu plugins. Order is preserved.\n   * Appended after the three framework plugins (compiler, router, agent-readiness).\n   */\n  readonly plugins?: ReadonlyArray<AihuPlugin>\n  /** Runtime configuration split — public values are inlined in the client bundle. */\n  readonly runtimeConfig?: RuntimeConfig\n  /**\n   * App-level values made available to all components as bare identifiers.\n   * Declared here for documentation and future build-time validation; the\n   * values are hoisted into globalThis by createApp() at runtime.\n   *\n   * @example\n   * export default defineConfig({ provide: { supabase, checkAuth } })\n   */\n  readonly provide?: Record<string, unknown>\n  /** HTML <head> metadata. */\n  readonly app?: AppHeadConfig\n  /** Passthrough to Vite's UserConfig. Merged via Vite's config() hook. */\n  readonly vite?: VitePassthrough\n  /**\n   * Opt-in agent-readiness integration.\n   * Requires { name: string } at minimum.\n   * When absent or false, a no-op plugin is substituted.\n   */\n  readonly agentReadiness?: AgentReadinessConfig | false\n  /**\n   * Deployment adapter. Transforms the Vite build output into the target\n   * platform's required format. Called after vite build completes.\n   * When absent, no post-build transformation is applied (manual deployment).\n   */\n  readonly adapter?: AihuAdapter\n  /**\n   * Router-related app config (arch-5 M1).\n   *\n   * WARNING: `router.viewTransitions` is declared but NOT wired — nothing\n   * forwards it from here to the router runtime, so setting it has no effect.\n   * `defineConfig` warns when you do. The working lever is the\n   * `<router viewTransitions>` prop. Tracked for wiring or removal.\n   */\n  readonly router?: RouterConfig\n  /** Compiler options forwarded to `aihuCompilerPlugin`. */\n  readonly compiler?: CompilerConfig\n  /** `aihu dev` options. Read by the CLI, not by Vite. */\n  readonly dev?: DevConfig\n  /** `aihu build` / `aihu dev` build options. Read by the CLI, not by Vite. */\n  readonly build?: BuildConfig\n  /** `aihu-tsc` options. Read by the CLI, not by Vite. */\n  readonly typecheck?: TypecheckConfig\n  /**\n   * CSS / styling integration. Currently surfaces the project-wide\n   * `shadowMode` forwarded to the compiler. Set to `{ shadowMode: 'light' }`\n   * when using a cascade-dependent CSS framework (Tailwind, UnoCSS, Pico).\n   */\n  readonly css?: CssConfig\n}",
     summary: '',
+  },
+  {
+    name: 'AihuModuleApi',
+    kind: 'interface',
+    signature:
+      "interface AihuModuleApi<TOptions = unknown> {\n  /**\n   * Stable module id — the package name, e.g. `'@aihu/ui'`.\n   *\n   * Keyed on this rather than the plugin `name` because a package may\n   * contribute several plugins (Vite has no dedupe and a factory returning an\n   * array is the norm), and consumers want the package, not each plugin.\n   */\n  readonly aihuModule: string\n  /** The resolved options for this module, after its own defaults. */\n  getOptions(): TOptions\n}",
+    summary: 'The contract EVERY aihu package that contributes build behaviour satisfies.',
+  },
+  {
+    name: 'AihuPluginApi',
+    kind: 'interface',
+    signature:
+      'interface AihuPluginApi {\n  /** The config object the user passed to `viteAihuPlugin()`. */\n  getAihuConfig(): AihuConfig\n}',
+    summary: "The public API handle attached to aihu's marker plugin.",
   },
   {
     name: 'AppConfig',
@@ -87,7 +139,7 @@ export const EXPORTS: readonly ApiExport[] = [
     name: 'DirConfig',
     kind: 'interface',
     signature:
-      "interface DirConfig {\n  /** Directory to scan for page routes. Default: 'pages' */\n  readonly pages?: string\n  /** Directory to scan for layout files. Default: 'src/layouts' */\n  readonly layouts?: string\n  /** Public static assets directory. Default: 'public' */\n  readonly public?: string\n}",
+      "interface DirConfig {\n  /** Directory to scan for page routes. Default: 'pages' */\n  readonly pages?: string\n  /** Directory to scan for layout files. Default: 'src/layouts' */\n  readonly layouts?: string\n  /** Public static assets directory. Default: 'public' */\n  readonly public?: string\n  /**\n   * Directory to scan for components. Default: 'src/components'\n   *\n   * `@aihu/router`'s `componentsDir` has always existed but was unreachable\n   * from here: `viteAihuPlugin` forwarded only `pagesDir` and `layoutsDir`, so\n   * changing it meant calling `viteRouterIntegration()` yourself — i.e.\n   * abandoning `viteAihuPlugin` entirely.\n   */\n  readonly components?: string\n}",
     summary: '',
   },
   {
@@ -95,6 +147,13 @@ export const EXPORTS: readonly ApiExport[] = [
     kind: 'interface',
     signature:
       "interface HeadConfig {\n  readonly title?: string\n  /** Default: 'UTF-8' */\n  readonly charset?: string\n  /** Default: 'width=device-width, initial-scale=1' */\n  readonly viewport?: string\n  readonly meta?: ReadonlyArray<Record<string, string>>\n}",
+    summary: '',
+  },
+  {
+    name: 'LoadedAihuConfig',
+    kind: 'interface',
+    signature:
+      "interface LoadedAihuConfig {\n  /** The evaluated config. `{}` when the plugin was called with no argument. */\n  readonly config: AihuConfig\n  /** Absolute path of the Vite config file it came from. */\n  readonly configFile: string\n  /**\n   * Files the config depends on, from Vite's own dependency tracking. A watcher\n   * should invalidate when any of these change — this is what makes a dev\n   * server restart on config edits.\n   */\n  readonly dependencies: ReadonlyArray<string>\n  /**\n   * Every aihu module registered in the Vite config, keyed by `aihuModule`.\n   *\n   * This is what gives the CLI coverage that grows on its own: a new package\n   * that ships a plugin with an `AihuModuleApi` handle shows up here with no\n   * change to `@aihu/app`, to this function, or to any consumer.\n   */\n  readonly modules: ReadonlyMap<string, unknown>\n}",
     summary: '',
   },
   {

@@ -86,7 +86,7 @@
   }
   .dn-page-prev strong,
   .dn-page-next strong {
-    color: var(--accent);
+    color: var(--accent-strong);
     font-weight: 600;
   }
 }

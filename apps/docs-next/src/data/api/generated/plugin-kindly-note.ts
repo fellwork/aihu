@@ -5,7 +5,7 @@ export const PKG: ApiPackage = {
   name: '@aihu-plugin/kindly-note',
   slug: 'plugin-kindly-note',
   tier: 'Plugins',
-  version: '0.2.2',
+  version: '0.2.4',
   tagline:
     'Runtime syntax highlighting + markdown rendering for aihu — <aihu-code>/<aihu-markdown> custom elements + signal-aware highlight()/renderMarkdown() helpers, powered by published @kindly-note/* packages with lazy loading.',
   note: '',

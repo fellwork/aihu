@@ -123,7 +123,7 @@
           <span class="dn-status dn-status-accent">
             <span class="dn-dot"></span>humans / experience
           </span>
-          <h3>Experience, governed</h3>
+          <h2>Experience, governed</h2>
           <p>Static-first HTML that hydrates into interactive islands. Accessible
              primitives, theming, and a real css-engine — the fast, crafted
              surface people actually touch.</p>
@@ -132,7 +132,7 @@
           <span class="dn-status dn-status-graphite">
             <span class="dn-dot dn-dot-graphite"></span>AI / security
           </span>
-          <h3>Security, governed</h3>
+          <h2>Security, governed</h2>
           <p>Every prop and action can carry <code>describe</code> /
              <code>expose</code> and scope guards, so agents discover and invoke
              exactly what you permit — over MCP, A2A, and ACP.</p>
@@ -146,19 +146,19 @@
       <div class="dn-jobs">
         <a class="dn-job" href="/guides/getting-started">
           <span class="dn-job-num dn-rail">G · 8</span>
-          <h3>Guides</h3>
+          <h2>Guides</h2>
           <p>Learn the model — state, templates, routing, SSR, and the agent surface.</p>
           <span class="dn-job-go">Start learning →</span>
         </a>
         <a class="dn-job" href="/api">
           <span class="dn-job-num dn-rail">API · 37</span>
-          <h3>API Reference</h3>
+          <h2>API Reference</h2>
           <p>Typed signatures for every export across all 37 packages.</p>
           <span class="dn-job-go">Read the API →</span>
         </a>
         <a class="dn-job" href="/examples">
           <span class="dn-job-num dn-rail">EX · 9 + 12</span>
-          <h3>Examples &amp; Cookbook</h3>
+          <h2>Examples &amp; Cookbook</h2>
           <p>A governed example set and a fluency cookbook — with a live playground.</p>
           <span class="dn-job-go">Explore →</span>
         </a>
@@ -454,7 +454,7 @@
     border: 1px solid var(--border);
     background: var(--surface);
   }
-  .dn-duality-card h3 {
+  .dn-duality-card h2 {
     font-size: var(--fs-xl);
     letter-spacing: var(--tracking-tight);
     margin: 0.85rem 0 0.6rem;
@@ -503,7 +503,7 @@
   .dn-job-num {
     color: var(--accent);
   }
-  .dn-job h3 {
+  .dn-job h2 {
     font-size: var(--fs-lg);
     letter-spacing: var(--tracking-tight);
     margin: 0.35rem 0 0;

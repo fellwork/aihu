@@ -5,7 +5,7 @@ export const PKG: ApiPackage = {
   name: '@aihu/cli',
   slug: 'cli',
   tier: 'Compiler & tooling',
-  version: '1.0.0',
+  version: '1.2.0',
   tagline: 'Aihu CLI (`aihu`, `create-aihu`) — scaffolding, dev, build commands.',
   note: '',
 }
@@ -77,8 +77,8 @@ export const EXPORTS: readonly ApiExport[] = [
     name: 'appViteConfig',
     kind: 'function',
     signature:
-      "function appViteConfig( appName = 'app', withCssEngine = false, shadowMode: ShadowChoice = 'shadow', ): string",
-    summary: 'vite.config.ts for a new aihu application.',
+      "function appViteConfig( appName = 'app', withCssEngine = false, shadowMode?: ShadowChoice, ): string",
+    summary: 'vite.config.ts for a new aihu application (`minimal` and `docs`).',
   },
   {
     name: 'appVscodeExtensions',
@@ -120,7 +120,7 @@ export const EXPORTS: readonly ApiExport[] = [
     name: 'scaffoldApp',
     kind: 'function',
     signature:
-      "function scaffoldApp( name: string, outDir?: string, opts?: { pm?: PkgManager template?: AppTemplate /** `'engine'` includes `@aihu/css-engine` OOTB; `'none'` (default) is the plain scaffold. */ css?: CssChoice /** Shadow mode when css-engine is opted in. Default `'shadow'` (scoped shadow fold). */ shadowMode?: ShadowChoice }, ): ScaffoldResult",
+      "function scaffoldApp( name: string, outDir?: string, opts?: { pm?: PkgManager template?: AppTemplate /** `'engine'` includes `@aihu/css-engine` OOTB; `'none'` (default) is the plain scaffold. */ css?: CssChoice /** * Explicit shadow-mode choice when css-engine is opted in. `undefined` * (default) emits NO plugin-global `css: { shadowMode }` block, so the * DA4 framework defaults apply (pages/layouts light, leaves shadow) — * only a genuine user choice is written out (FEL-425). */ shadowMode?: ShadowChoice | undefined /** * Coding-assistant files (AGENTS.md, CLAUDE.md, .mcp.json) — on by * default, `--no-agent-tooling` opts out. This governs ONLY the * developer-environment files; the app's own runtime agent surface * (`$action`, llms.txt, the cards) is the product thesis and is never * affected by this flag. */ agentTooling?: boolean }, ): ScaffoldResult",
     summary: 'Scaffold a new aihu application at `<outDir>/<name>/`.',
   },
   {
