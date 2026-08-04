@@ -13,20 +13,11 @@
   // PRESETS is pure data (generated from the cookbook corpus), so it is safe to
   // import at module scope: it renders into the prerendered HTML below.
   //
-  // The playground ELEMENT is deliberately NOT imported here. It is registered
-  // from `src/main.ts` alongside the other islands, for two reasons:
-  //   1. `playground-embed.ts` defines custom-element classes at module scope
-  //      (`extends HTMLElement`), which the output:'static' prerender pass
-  //      would evaluate under Node.
-  //   2. A dynamic import expression inside an `@state` block does not survive
-  //      the build at all. Vite's `builtin:vite-dynamic-import-vars` text-scans
-  //      for the dynamic-import token and then re-parses the whole module as
-  //      JavaScript — but a compiled `.aihu` module is still TypeScript
-  //      (`import type { Signal }`, `let __aihu_setup__: ((ctx: any) => any) |
-  //      undefined`), so it dies with a PARSE_ERROR. The scan is textual, so
-  //      even writing that token in a COMMENT here is enough to trigger it;
-  //      that is why this note spells it out longhand. main.ts is plain TS,
-  //      transpiled before the plugin sees it, and has neither problem.
+  // The playground ELEMENT must NOT be a static import: `playground-embed.ts`
+  // defines its custom-element classes at module scope (`extends HTMLElement`),
+  // and the output:'static' prerender pass would evaluate that under Node.
+  // It is loaded lazily in onMount below — browser-only by construction, and
+  // only on this route.
   import { PRESETS } from '../../playground/presets.ts'
 
   // COMPILER WORKAROUND — build the deep link through this helper rather than
@@ -43,6 +34,34 @@
     href: presetHref(p.id),
     lines: p.source.trimEnd().split('\n').length,
   }))
+
+  // Register <playground-embed> — browser-only, /playground-only.
+  //
+  // The `typeof window` guard is load-bearing twice over:
+  //   1. It keeps the `extends HTMLElement` module scope away from the
+  //      output:'static' prerender pass, which runs under bare Node.
+  //   2. `onMount` ITSELF cannot be called during that pass. A page root has no
+  //      runtime owner while SSR-rendering (components like search-box.aihu do,
+  //      which is why the island convention works there), so an unguarded
+  //      onMount in a page `@state` throws RuntimeError SCR-R0010 "no owner"
+  //      and the route silently drops out of dist — /playground went missing
+  //      from the build exactly this way. Worth fixing upstream in
+  //      @aihu/runtime; the guard is correct regardless.
+  //
+  // The element in the template above is already in the DOM by the time this
+  // resolves; `customElements.define` upgrades existing instances, so late
+  // registration renders identically — it just costs the other 73 routes
+  // nothing. Doing it here rather than on the client entry is also what makes
+  // client-side SPA navigation INTO /playground work; a `location` check on the
+  // entry module would only have fired on a hard load.
+  //
+  // This module in turn lazy-loads CodeMirror, the `typescript` TS-stripper and
+  // the ~1 MB compiler WASM only once an embed actually connects.
+  if (typeof window !== 'undefined') {
+    onMount(() => {
+      void import('../../playground/playground-embed.ts')
+    })
+  }
 }
 
 @template {

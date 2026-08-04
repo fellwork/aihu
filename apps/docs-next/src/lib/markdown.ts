@@ -31,7 +31,14 @@ function buildRenderer(): Renderer {
     const plain = inline.replace(/<[^>]*>/g, '')
     const id = slugify(plain)
     if (depth === 1) return `<h1>${inline}</h1>`
-    return `<h${depth} id="${id}"><a class="dn-anchor" href="#${id}" aria-hidden="true">#</a>${inline}</h${depth}>`
+    // `tabindex="-1"` alongside `aria-hidden="true"` is required, not optional.
+    // The "#" is decorative — a mouse affordance revealed on heading hover — so
+    // it is hidden from the a11y tree; but an <a href> is focusable by default,
+    // and a focusable element inside an aria-hidden subtree is axe
+    // `aria-hidden-focus` (impact: serious): keyboard users tab to something
+    // screen readers refuse to announce. This fired on EVERY h2/h3 of every
+    // prose page. Taking it out of the tab order makes the two agree.
+    return `<h${depth} id="${id}"><a class="dn-anchor" href="#${id}" aria-hidden="true" tabindex="-1">#</a>${inline}</h${depth}>`
   }
 
   return r

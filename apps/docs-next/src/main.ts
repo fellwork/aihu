@@ -18,22 +18,24 @@ import './components/toc-rail.aihu'
 import './components/counter-demo.aihu'
 import './components/weather-demo.aihu'
 
-// The WASM playground (/playground). Not an .aihu SFC — a plain custom element
-// ported from apps/docs — but registered the same way, as an import side effect
-// on the client entry. It must be registered HERE rather than from
-// playground.aihu, for two reasons:
-//   1. The module defines its classes with `extends HTMLElement`, which the
-//      output:'static' prerender pass would evaluate under Node.
-//   2. A dynamic import inside an `@state` block breaks the build outright:
-//      `builtin:vite-dynamic-import-vars` re-parses any module containing
-//      `import(` as JavaScript, while the compiled `.aihu` output is still
-//      TypeScript (`import type { Signal }`, `let __aihu_setup__: …`).
-// main.ts is plain TS on the client entry and has neither problem.
+// The WASM playground element (<playground-embed>) is deliberately NOT
+// registered here. `src/pages/playground.aihu` loads it from inside `onMount`,
+// so it is fetched only on /playground and only in a browser.
 //
-// Only this small module is eager. Everything expensive it needs — CodeMirror,
-// the `typescript` TS-stripper, and the ~1 MB compiler WASM — is fetched lazily
-// by the element itself, and only once a <playground-embed> actually connects.
-import '../playground/playground-embed.ts'
+// It used to be eager on this entry, as a workaround for a build bug:
+// `builtin:vite-dynamic-import-vars` re-parsed compiled `.aihu` modules as
+// JavaScript once a dynamic import became reachable from them, and died on the
+// TypeScript those modules still contain. That is fixed at the config level now
+// (`build.dynamicImportVarsOptions.exclude: [/\.aihu$/]` in vite.config.ts), so
+// the page can own its island again — which is what the element's own SSR NOTE
+// always prescribed.
+//
+// The eager import cost every one of the 73 non-playground pages a download of
+// the `strip-ts` chunk (714 KB — the whole `typescript` package). Being in the
+// entry's STATIC graph is enough to be fetched; filtering the chunk out of
+// modulePreload (which is still done, for the same chunks, in vite.config.ts)
+// only stopped it being preloaded early. Measured live on
+// /guides/getting-started with the eager import: perf 64, FCP 4.2s, LCP 6.6s.
 
 // Boot the SPA. On an output:'static' build the prerendered per-route HTML is
 // already in the document; createApp hydrates and adopts it in place.

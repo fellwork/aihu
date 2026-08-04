@@ -21,7 +21,15 @@
   --fg: #1a1d24; /* brand ink — cool near-black text */
   --fg-strong: #101319;
   --muted: #5a5a55; /* secondary text — brand warm-grey */
-  --faint: #938a7f; /* tertiary / meta */
+  /* tertiary / meta. The raw warm-grey #938a7f is 3.20:1 on --paper, 3.40:1 on
+     --surface and 2.99:1 on --surface-2 — all under the 4.5:1 WCAG 2 AA floor
+     for normal text, and every use of this token in the app is a text colour
+     (.dn-sec-num, .dn-breadcrumb/.dn-rail, .dn-kbd, .cb-meta, li::marker,
+     .dn-anchor). Lighthouse flagged three of those by name. Mixing 30% --fg in
+     keeps the warm-grey character and lifts the worst ground to 4.93:1.
+     Strengthening the TOKEN rather than each call site is what stops the next
+     tertiary-text element re-introducing the same failure. */
+  --faint: color-mix(in oklab, #938a7f 70%, var(--fg));
   --border: #ece9e2; /* hairlines — brand warm neutral */
   --border-strong: #ddd4c8;
   --hover-bg: #f3eee7;
@@ -117,7 +125,13 @@
   --fg: #ece9e2; /* brand warm off-white text */
   --fg-strong: #faf8f4; /* brand paper as strongest text */
   --muted: #9a9ca3;
-  --faint: #70727a;
+  /* Same remedy as light (see the note there). Raw #70727a is 3.77/3.52/3.23:1
+     on paper/surface/surface-2; the mix lifts the worst to 5.12:1. Mixing
+     toward --fg moves LIGHTER here, which is the correct direction on a dark
+     ground. Note this necessarily narrows the gap to --muted — the dark ramp
+     has no room for three AA-passing greys plus the body colour, and AA
+     compliance wins over the extra hierarchy step. */
+  --faint: color-mix(in oklab, #70727a 70%, var(--fg));
   --border: #282b33;
   --border-strong: #3a3e48;
   --hover-bg: #21242c;
