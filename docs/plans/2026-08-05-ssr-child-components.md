@@ -1,6 +1,7 @@
 # SSR child custom-element resolution — light DOM and shadow DOM
 
-Status: **design agreed, not started.** Plan of record.
+Status: **steps 1-2 merged (#770, #772). Step 3 REDESIGNED 2026-08-05** — see
+"There are four renderers" and "Step 3, expanded". Plan of record.
 
 ## The defect
 
@@ -61,6 +62,43 @@ The seam is even pre-named: `tests/integration/server-emission-ssr.test.ts`
 describes `@aihu/app`'s `resolveComponent` finding `mod.default`. It was
 designed, documented, and never written — the same shape as `contextSetup`
 (#749) and `_injectLightScopeId` (#758).
+
+> **Amended 2026-08-05.** That pre-named seam is the wrong shape and must not be
+> built as written — see "There are four renderers" below. Resolution belongs to
+> the CALLER as a pre-resolved registry, not to the renderer as a callback. The
+> test comment gets updated in step 3c, so the repo does not accrete one more
+> documented-but-never-wired callback named only in a test comment.
+
+## There are four renderers, not two — CORRECTION
+
+The sequencing below originally named `_renderNode` (`ssr.ts:503`) and
+`renderNodeAsync` (`ssr.ts:581`) as "both render paths". That is wrong on both
+counts, and the correction is what shapes step 3.
+
+| # | renderer | reached by |
+|---|---|---|
+| 1 | compiled string fast path (`__aihu_ssr_string__`, Rust `ssr_string_emit.rs`) | **all production traffic** — `ssr.ts:1011`, via the Workers handler (`router/server.ts:254`) and SSG prerender (`app/prerender.ts:40`) |
+| 2 | TS async walker (`renderNodeAsync`) | hand-built `dataSource` trees; `AIHU_SSR_STRING=0` |
+| 3 | TS sync walker (`_renderNode`) | **nothing — dead since `ec24d411`** |
+| 4 | native napi (`renderToStringNative`) | components with no string renderer, when the `loader.ts:67` guard lets them through |
+
+Two consequences:
+
+- **`_renderNode` is unreachable.** Not exported, no caller, only self-recursion;
+  no lint rule covers it. Successive waves (Wave 3, LDF §10, structural SSR) kept
+  dutifully updating it anyway. It is the newest instance of this repo's named
+  failure mode — a contract asserted in two places where only one is tested — and
+  step 3 as originally written directed new feature work INTO it. It gets deleted,
+  not extended.
+- **A JS-side resolver would only run on the path production does not take.** The
+  Rust emitter renders a component reference as its kebab tag with only
+  reference-site children (`ssr_string_emit.rs:651`), and templates reference
+  children by tag with no import, so the emitter has no cross-module view.
+
+`loader.ts:67-75` is a live trap: its guard already falls through to TS for
+`lightScopeId` precisely because the napi `renderTree(treeJson, hydratable)`
+signature would SILENTLY DROP it. Any new `SsrOptions` member that cannot cross
+FFI must join that guard in the same commit that adds it.
 
 ## Both modes are in scope
 
@@ -142,13 +180,59 @@ Ordered so nothing is ever half-wired; 1 and 2 are dormant until 3 lands.
    consumes it yet.
 2. **Runtime** — DSD-safe `attachShadow` guard + adopt-into-existing-root.
    Additive; no server emits DSD yet, so it is dormant.
-3. **Server** — `resolveComponent` on `SsrOptions`, light-DOM child emission,
-   both render paths (`_renderNode` sync at :517 and `renderNodeAsync` at :642 —
-   divergence here is what the `AIHU_SSR_STRING=0` differential suite exists to
-   catch). Proven end-to-end with a `shadow: 'light'` fixture.
-4. **Server + css-engine** — DSD emission plus styles-into-template.
-5. **Wire-up** — `@aihu/app` prerender supplies the resolver; aihu.dev's
-   `<site-header>` filling in is the acceptance test.
+3. **One shared child renderer** — see the four sub-steps below. Replaces the
+   original step 3 wholesale.
+4. **Server + css-engine** — DSD styles. The `<template>` is emitted by
+   `__aihu_schild`, so the child's compiled CSS travels on the module channel as
+   `__aihu_css__` beside `__aihu_shadow__` and is inlined as `<style>` INSIDE the
+   template by the helper. One emission point makes the #754 lesson — never ship
+   DSD without its styles in the same template — enforceable in one place.
+5. **Wire-up** — the callers build the registry: SSG via `ssrLoadModule` over
+   discovered components, the Worker via a generated tag→module manifest.
+   aihu.dev's `<site-header>` filling in is the acceptance test.
+
+### Step 3, expanded
+
+The rejected alternative was to decline the fast path whenever a resolver is
+supplied and implement resolution only in the walker. It is cheaper now and
+much more expensive later: every real page has child components, so "decline
+when a resolver is present" means the fast path never runs in production again,
+and the Rust emitter plus its differential gate become `_renderNode` at scale —
+maintained forever, exercised only by tests. The decision in one line: under the
+chosen design the byte-identity gate stays true and grows stronger; under the
+rejected one it has to be repealed.
+
+- **3a. Compiler (Rust).** Component-reference sites in `ssr_string_emit.rs` emit
+  `__aihu_schild(tag, attrs, path, __opts)` through the existing `helpers`
+  channel (`:68`/`:177`), and the module exports `__aihu_child_tags__` — the
+  static set of referenced component tags — beside `__aihu_tag__` /
+  `__aihu_shadow__` / `__aihu_light_scope__`. With no registry the helper emits
+  today's empty element, byte-identical to current output.
+- **3b. Runtime.** `__aihu_schild` in `packages/runtime/src/ssr-string.ts`:
+  registry lookup, recursive render through the CHILD's own `__ssrString`, host
+  wrapping per the child's `__aihu_shadow__` — light gets `data-a` +
+  `data-aihu-ssr` on host children, shadow gets `<template shadowrootmode>`. This
+  is the single serialization point for a resolved child, in both modes. It
+  imports `SHADOW_ROOT_MODE` from `./types.ts` directly — same package — so the
+  "documented single-source plus divergence test" fallback this plan braced for is
+  no longer needed.
+- **3c. Server.** `SsrOptions.children?: ReadonlyMap<string, ChildModule>` —
+  SYNC and pre-resolved, not an async callback; module loading is the caller's
+  job, which keeps the fast path synchronous. Forwarded into the fast-path opts
+  (`ssr.ts:1015`) and through `attachSsrString`; the walker's branch arm calls the
+  same `__aihu_schild`. **Add `children` to `loader.ts`'s fall-through guard.**
+  **Delete `_renderNode`.** Update the `resolveComponent` seam comment in
+  `server-emission-ssr.test.ts:24` to the registry shape.
+- **3d. Gate.** Extend `ssr-string-differential.test.ts` with parent+child
+  fixtures: light child, shadow child, child-of-child, unresolved tag, sibling
+  mix, and a bail-listed child (the fast path declines; walker+helper output is
+  canonical). Plus a closure test: a cyclic tag graph fails LOUDLY at registry
+  build time, never at render time.
+
+Why a registry and not a callback: resolution is async (module loading), the fast
+path is sync, and the cycle guard wants to run once over the whole graph rather
+than at every render. Hoisting all three to the caller is what lets the fast path
+survive.
 
 ## Scope boundaries for v1
 
@@ -166,6 +250,20 @@ Ordered so nothing is ever half-wired; 1 and 2 are dormant until 3 lands.
 - Node-survivor count does not regress from #762's 320/393.
 - Lighthouse perf stays 100 / LCP ~1480ms — with the styles present, per the
   #754/#758 lesson.
-- `AIHU_SSR_STRING=0` differential suite green (sync and async paths agree).
-- A parity test pinning the emitted `shadowrootmode` value to the runtime's
-  `attachShadow` mode.
+- `AIHU_SSR_STRING=0` differential suite green — now covering RESOLVED CHILDREN
+  in both modes at depth, not just the parent's own template. This criterion
+  survives the amendment and is strengthened by it; under the rejected design it
+  would have had to be weakened to "identical unless a resolver is present."
+- ~~A parity test pinning the emitted `shadowrootmode` to the runtime's
+  `attachShadow` mode.~~ Unnecessary under 3b: the helper lives in `@aihu/runtime`
+  and imports `SHADOW_ROOT_MODE` directly, so there is one literal, not two to
+  keep in agreement.
+
+## The invariant
+
+For any component and any pre-resolved child registry, the compiled string
+renderer and the tree walker produce BYTE-IDENTICAL markup — including every
+resolved child subtree, in both shadow modes, at any nesting depth. A tag absent
+from the registry renders as an empty custom element identically on both paths.
+The emitted `shadowrootmode` value is the runtime's `SHADOW_ROOT_MODE` by import,
+never by literal.
