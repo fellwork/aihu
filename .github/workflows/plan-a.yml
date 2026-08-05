@@ -289,6 +289,23 @@ jobs:
           AIHU_CONFIG_LOADER_E2E: '1'
       - run: bun run test --coverage
       - run: bun run build
+      # API datasheet drift, caught on the PR that causes it.
+      #
+      # The sheets are DERIVED from every documentable package's export surface,
+      # so any change to a public interface under packages/*/src makes them
+      # stale — five separate times in one week: `SsrOptions.contextSetup`, the
+      # `useSwarm` removal, `SsrOptions.wrapTag`, `DefineOptions.hydrate`, and
+      # arbor's new `./hydrate` subpath. Each was caught only by the docs deploy
+      # workflow, i.e. AFTER the causing change had already landed on main, so
+      # the next unrelated PR inherited a red gate.
+      #
+      # MUST come after `bun run build` above: for a package whose `exports`
+      # target has no `src/` sibling, gen-api falls back to the built
+      # `dist/*.d.ts`, and a tree with no dist manufactures false drift. This is
+      # the same ordering constraint deploy-docs.yml documents on its own copy.
+      - name: API datasheets are up to date
+        run: bun scripts/gen-api.ts --check
+        working-directory: apps/docs
       # b3b-sidecar-tsc (#445 audit): excluded at root and previously invoked
       # NOWHERE. It needs the built aihu-compile binary (staged above) AND
       # packages/*/dist type surfaces (its tsc pass maps @aihu/* ->

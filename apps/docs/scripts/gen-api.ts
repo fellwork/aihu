@@ -27,8 +27,25 @@
  *      hand-authored `@aihu/signals` exemplar page, whose curated data lives in
  *      `src/data/api-signals.ts` and is left untouched.
  *
- * Extraction is AST-only (no type-checker / no dependency graph): it reads the
- * repo `src` that is always present, so `--check` is reproducible without a build.
+ * Extraction is AST-only — no type-checker, no dependency graph, no module
+ * resolution — so it is fast and deterministic.
+ *
+ * BUT IT IS NOT BUILD-INDEPENDENT. Step 2's fallback chain reaches into
+ * `dist/*.d.ts` for any package whose `exports` target has no `src/` sibling,
+ * and `dist/` is gitignored. Run `--check` on a tree that has never been built
+ * and those packages report drift every single time — false drift, on files
+ * nobody touched. Every CI caller must therefore run it AFTER the workspace
+ * build step; see the note on the gate in `.github/workflows/deploy-docs.yml`
+ * and the matching step in `plan-a.yml`'s `check` job.
+ *
+ * Output is normalized through biome (see `biomeFormat`), so the committed
+ * artifact is byte-identical to `biome ci` output. That normalization is what
+ * makes `--check` a real comparison — and it means these files must NOT be
+ * added to biome.json's `files.includes` ignore list. An ignored path makes
+ * `biome format` a pass-through at exit 0, `biomeFormat` silently emits
+ * unformatted text, and `--check` then reports drift that regenerating can
+ * never fix. Lint noise from the generated `${...}` signatures is handled by
+ * the dedicated `overrides` entry for this directory instead.
  */
 import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
