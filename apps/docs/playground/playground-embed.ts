@@ -1,11 +1,13 @@
 /**
- * <playground-embed> — interactive .aihu playground for the homepage.
+ * <playground-embed> — the interactive .aihu playground.
  *
- * Implements Directive 1 (homepage interactive playground per
- * `docs/roadmap/_user-directives.md`). The element splits a CodeMirror
- * source editor on the left from a sandboxed live-preview iframe on
- * the right; the WASM-built `aihu-compile` compiles the user's source on
- * every (debounced) edit and executes the compiled component in the iframe.
+ * Ported from `apps/docs/playground/` (Directive 1, `docs/roadmap/
+ * _user-directives.md`) so the docs-next → docs promotion keeps the
+ * "Edit. Compile. Inspect. All in your browser" capability. The element
+ * splits a CodeMirror source editor on the left from a sandboxed
+ * live-preview iframe on the right; the WASM-built `aihu-compile` compiles
+ * the user's source on every (debounced) edit and executes the compiled
+ * component in the iframe.
  *
  * Acceptance criteria (Directive 1 §2-§3):
  *   - Compile latency < 200ms p50 for a 50-line `.aihu` fixture.
@@ -14,12 +16,20 @@
  * Attributes:
  *   initial-source — starter source displayed in the editor on mount.
  *
- * The WASM bundle is staged at build time by
- * `scripts/build-wasm-bundle.ts` (built from the workspace compiler so
- * the playground grammar matches the checkout — #491) and lives at
- * `./wasm/` relative to the docs root. If the bundle is unavailable
- * (no wasm toolchain and no release), the playground renders a clear
- * fallback message.
+ * SSR NOTE: this module defines custom-element classes at module scope
+ * (`class … extends HTMLElement`), so it MUST NOT be imported statically
+ * from a page's `@state` block — the docs app is an `output: 'static'` app and
+ * the prerender pass would evaluate it under Node, where `HTMLElement` is
+ * undefined. `/playground` imports it dynamically inside `onMount`, the same
+ * island convention `search-box.aihu` uses, which also keeps CodeMirror and
+ * `typescript` out of every other route's bundle.
+ *
+ * The WASM bundle is staged into `public/wasm/` before `vite build` by
+ * `apps/docs/scripts/stage-wasm.ts` → `scripts/build-wasm-bundle.ts`
+ * (built from the workspace compiler so the playground grammar matches the
+ * checkout — #491); Vite copies `public/` to the dist root verbatim. If the
+ * bundle is unavailable (no wasm toolchain and no release), the playground
+ * renders a clear fallback message.
  *
  * The preview iframe uses `sandbox="allow-scripts"` (no allow-same-origin).
  * Each compile resets `iframe.srcdoc` to a fresh HTML document containing:
@@ -200,14 +210,27 @@ interface WasmModule {
 let wasmPromise: Promise<WasmModule | null> | null = null
 let bundlePromise: Promise<string | null> | null = null
 
+/**
+ * Both assets are staged into `public/`, which Vite copies to the dist ROOT —
+ * so they are always served from `/wasm/` and `/aihu-preview-bundle.js`
+ * regardless of which route embeds this element.
+ *
+ * PORT NOTE: apps/docs used a document-RELATIVE `./wasm/` because it was a
+ * single-page, hash-routed SPA served at the site root, where `./` was always
+ * the root. the docs app is a file-routed SSG app: `/playground` prerenders to
+ * `playground/index.html`, which Pages serves at BOTH `/playground` and
+ * `/playground/`. Under the trailing-slash form `./wasm/` would resolve to
+ * `/playground/wasm/` and 404 (falling back to the "WASM unavailable" notice),
+ * so the defaults are root-absolute here. `data-wasm-base` still overrides.
+ */
 function wasmBaseUrl(host: PlaygroundEmbed): string {
   const override = host.getAttribute('data-wasm-base')
   if (override) return override.replace(/\/?$/, '/')
-  return './wasm/'
+  return '/wasm/'
 }
 
 function bundleUrl(host: PlaygroundEmbed): string {
-  // Bundle lives at the docs root, one level above the wasm/ subdir.
+  // Bundle lives at the site root, one level above the wasm/ subdir.
   return `${wasmBaseUrl(host).replace(/wasm\/$/, '')}aihu-preview-bundle.js`
 }
 
@@ -380,8 +403,9 @@ function buildPreviewDoc(bundle: string, userJs: string): string {
  *   ?preset=<id>            — load a named preset
  *   ?src=<encodeURIComponent(source)> — load arbitrary source
  *
- * Uses the query string (not the hash) because `docs-shell.aihu` owns
- * `location.hash` for page routing (`#playground`, `#introduction`, etc.).
+ * Uses the query string (not the hash) so the hash stays free for in-page
+ * anchors — in the docs app the router owns `location.pathname` and the hash
+ * addresses headings within a page (`/examples#playground`).
  *
  * Returns null if no recognized param is present (caller falls back to default).
  */
@@ -406,7 +430,8 @@ function readHash(): { presetId: string; source: string } | null {
  *
  * Active preset (unmodified) → `?preset=<id>` (omitted when id === default)
  * Diverged draft            → `?src=<encodeURIComponent(source)>`
- * Preserves the current hash so docs-shell's page routing keeps working.
+ * Preserves the current pathname + hash so the router and in-page anchors
+ * keep working.
  */
 function writeHash(presetId: string, source: string): void {
   if (typeof window === 'undefined') return
@@ -585,7 +610,7 @@ export class PlaygroundEmbed extends HTMLElement {
     const [mod, bundle] = await Promise.all([loadWasm(this), loadBundle(this)])
     if (mod === null) {
       this.setError(
-        'WASM bundle unavailable. Install wasm-pack + the wasm32 target and rebuild docs (scripts/build-wasm-bundle.ts) to populate ./wasm/.',
+        'WASM bundle unavailable. Install wasm-pack + the wasm32-unknown-unknown target and rebuild the docs app (bun run prebuild) to populate public/wasm/.',
       )
       return
     }

@@ -1,8 +1,0 @@
-# ai.txt — AI Training Policy for aihu.dev (docs-next)
-# Specification: https://site.spawning.ai/spawning-ai-txt
-
-User-agent: *
-Allow: /
-
-# Content is open-source and freely available for AI training.
-# See LICENSE at https://github.com/fellwork/aihu for terms.

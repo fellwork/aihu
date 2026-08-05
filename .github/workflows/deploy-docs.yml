@@ -1,11 +1,18 @@
 name: Deploy aihu-docs
 
-# Deploys apps/docs to Cloudflare Pages (project: aihu-docs).
+# Deploys apps/docs to Cloudflare Pages (project: aihu-docs) — the live site.
 #
 # Production deploy: push to main → branch "main" → aihu.dev
 # Preview deploy:    pull_request  → branch name   → <branch>.aihu-docs.pages.dev
 #
-# Required repository secrets:
+# This workflow began life as deploy-docs-next.yml, deploying the rebuilt docs
+# to a separate zero-risk Pages project while the old apps/docs still served
+# aihu.dev. At the cutover the rebuilt app became apps/docs, this file replaced
+# the old deploy-docs.yml, and the project name moved back to aihu-docs — so
+# the domain and the Pages project never moved, only the source directory.
+#
+# Required repository secrets (reused from deploy-docs.yml — same Cloudflare
+# account, different Pages project):
 #   CLOUDFLARE_API_TOKEN   — CF API token with Pages:Edit permission
 #   CLOUDFLARE_ACCOUNT_ID  — Cloudflare account ID
 
@@ -13,32 +20,58 @@ name: Deploy aihu-docs
   push:
     branches:
       - main
+    # NOTE: this list is duplicated verbatim under `pull_request` below.
+    # GitHub Actions does not support YAML anchors in workflow files, so the
+    # two must be edited together — keep them identical.
     paths:
       - 'apps/docs/**'
-      - 'packages/arbor/**'
-      - 'packages/compiler/**'
-      - 'packages/plugin-agent-readiness/**'
+      - '.github/workflows/deploy-docs.yml'
+      # The framework packages this app BUILDS THROUGH. Watching only
+      # `apps/docs/**` was backwards: the docs app dogfoods @aihu/app + vite
+      # SSG and resolves every @aihu/* import through package.json `exports` →
+      # dist/*, so a change to the prerenderer or the SSR renderer changes what
+      # the docs app emits without touching a single file under apps/docs.
+      # deploy-docs.yml watched five framework packages for apps/docs, which
+      # has its OWN bespoke build.ts and barely touches that path — so the more
+      # framework-sensitive app was the one watching nothing.
+      #
+      # This is not hypothetical: #748 (prerender layout recovery) and #749
+      # (SSR route context) both changed the SSG path the docs app builds through,
+      # and neither triggered this workflow. Since the doc-coverage, Playwright
+      # and Lighthouse gates all live in THIS file, all three sat dark for both.
+      - 'packages/app/**'
       - 'packages/server/**'
-      # Version-bearing manifests. `apps/docs/build.ts` reads
-      # `packages/runtime/package.json` to render the nav version badge
-      # (build.ts ~L296: `>v0<` -> `>v${runtimeVersion}<`), and a
-      # `chore(release): version packages` merge rewrites these manifests.
-      # Without this entry a release that bumps versions but touches none of
-      # the paths above would leave the published badge stale — 7 of aihu's
-      # 49 release merges historically missed the deploy for exactly this
-      # reason (the other 42 tripped `packages/arbor/**` only incidentally,
-      # via changesets' README rewrites). See
-      # docs/plans/2026-07-25-docs-release-deploy-research.md.
+      - 'packages/router/**'
+      - 'packages/arbor/**'
+      - 'packages/runtime/**'
+      - 'packages/signals/**'
+      - 'packages/store/**'
+      - 'packages/context/**'
+      - 'packages/compiler/**'
+      - 'packages/css-engine/**'
+      - 'packages/plugin-agent-readiness/**'
+      # Version-bearing manifests: a `chore(release): version packages` merge
+      # rewrites these without touching source (same reasoning as
+      # deploy-docs.yml's entry, which was added after 7 of 49 release merges
+      # shipped a stale docs build).
       - 'packages/*/package.json'
-      - '.github/workflows/deploy-docs.yml'
   pull_request:
+    # Keep identical to the `push` list above (no anchors in Actions YAML).
     paths:
       - 'apps/docs/**'
-      - 'packages/arbor/**'
-      - 'packages/compiler/**'
-      - 'packages/plugin-agent-readiness/**'
-      - 'packages/server/**'
       - '.github/workflows/deploy-docs.yml'
+      - 'packages/app/**'
+      - 'packages/server/**'
+      - 'packages/router/**'
+      - 'packages/arbor/**'
+      - 'packages/runtime/**'
+      - 'packages/signals/**'
+      - 'packages/store/**'
+      - 'packages/context/**'
+      - 'packages/compiler/**'
+      - 'packages/css-engine/**'
+      - 'packages/plugin-agent-readiness/**'
+      - 'packages/*/package.json'
   workflow_dispatch:
 
 permissions:
@@ -46,47 +79,103 @@ permissions:
   deployments: write
   pull-requests: write
 
-env:
-  # W2: oxc_parser 0.139 needs rustc >= 1.94; keep in sync with rust-toolchain.toml.
-  RUSTUP_TOOLCHAIN: "1.95"
-
 jobs:
-  test:
-    name: Smoke tests
+  deploy:
+    # NOT "Build & deploy". deploy-docs.yml's deploy job already emits a check
+    # by that exact name, and a required status check is matched by NAME — so
+    # requiring "Build & deploy" (which the cutover plan calls for) could be
+    # satisfied by the OLD docs deploying on a PR where this workflow never
+    # ran. Green, and meaningless. The name is the thing that has to be
+    # unambiguous, so it says which app it built.
+    name: Build & deploy
+    # Dependabot PRs run with GITHUB_TOKEN only — repo Actions secrets (incl.
+    # CLOUDFLARE_API_TOKEN) are deliberately withheld by GitHub for security,
+    # a separate store from regular repo secrets (Settings > Secrets >
+    # Dependabot). Deploying THAT would mean any dependency-bump PR carries
+    # real Cloudflare deploy credentials — not a tradeoff to make for an
+    # actions-version bump that touches no app code. This is the docs app's ONLY
+    # job (build+deploy combined, unlike deploy-docs.yml's separate `test`),
+    # so skipping it loses the build-verification signal too for Dependabot
+    # PRs specifically; acceptable for the same reason.
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-22.04
-    timeout-minutes: 45
+    timeout-minutes: 25
     steps:
       - name: Checkout
         uses: actions/checkout@v7
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c
         with:
-          toolchain: "1.95" # W2: oxc_parser 0.139 needs rustc >= 1.94; sync with rust-toolchain.toml
-          # wasm32: the docs prebuild builds the playground WASM from the
-          # WORKSPACE compiler (scripts/build-wasm-bundle.ts) so the playground
-          # grammar always matches the checkout — the old release-fetch served
-          # a stale grammar and broke every preset with C306 (#491).
+          # Full history so `moon run :build` can resolve `main` + the merge-base
+          # to compute affected packages. A shallow checkout makes moon's git
+          # diff fail with "fatal: ambiguous argument 'main'" (exit 128).
+          fetch-depth: 0
+
+      # The docs app dogfoods @aihu/app + vite SSG, which resolves every @aihu/*
+      # workspace import through package.json `exports` → dist/*. Unlike
+      # apps/docs (its own bespoke build.ts), there is no bundler-level
+      # source-alias fallback here — the workspace packages' dist/ must exist
+      # on disk before `vite build` runs, so this job builds the whole
+      # packages/* graph first (mirrors the `examples` / `governed-examples`
+      # jobs in plan-a.yml, the closest existing precedent for an apps/*
+      # build that depends on built workspace packages).
+      - uses: moonrepo/setup-toolchain@v0
+        with:
+          auto-install: true
+
+      # aihu-compile (the .aihu SFC compiler) is a native Rust binary, needed
+      # here for the vite-plugin compiler pass.
+      #
+      # The docs app also carries the in-browser WASM playground (/playground,
+      # ported from apps/docs), whose `prebuild` builds the compiler to
+      # wasm32-unknown-unknown from THIS checkout via scripts/build-wasm-bundle.ts
+      # — so this job needs the same wasm32 target + wasm-pack that
+      # deploy-docs.yml installs. Building from the checkout rather than fetching
+      # a release is deliberate: a released bundle lags the workspace grammar and
+      # every preset then fails to compile with C306 (#491).
+      #
+      # This is not optional-with-a-soft-landing in CI: apps/docs/scripts/
+      # stage-wasm.ts passes --strict whenever $CI is set, so a missing toolchain
+      # fails the deploy here instead of silently shipping a playground that
+      # cannot compile anything.
+      - name: Install Rust toolchain (+ wasm32 for the playground bundle)
+        uses: dtolnay/rust-toolchain@1482605bfc5719782e1267fd0c0cc350fe7646b8
+        with:
+          toolchain: "1.95" # sync with rust-toolchain.toml
           targets: wasm32-unknown-unknown
 
       - name: Install wasm-pack
         run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 
-      # MUST build aihu-compile fresh from current source so docs are compiled
-      # with the latest @style emission. The old actions/cache (restore-keys
-      # prefix fallback) would restore a stale packages/compiler/target with an
-      # old binary that cargo would not refresh (mtime trap) — building docs
-      # with a compiler that PREDATES the @style backtick-escape fix (#312).
-      # docs-shell's @style contains a backtick (the `.kn` selector comment), so
-      # a stale compiler emits an unescaped `replaceSync(`…`)` template literal
-      # → customElements.define('docs-shell') throws → hydration never happens →
-      # the e2e waitForFunction times out. Swatinem/rust-cache cleans the local
-      # workspace crate (aihu-compile) before save, so it always rebuilds.
       - name: Cache Rust build (deps only; aihu-compile always rebuilds)
         uses: Swatinem/rust-cache@v2
 
       - name: Build compiler binary
         run: cargo build --release --manifest-path packages/compiler/Cargo.toml
+        env:
+          CARGO_TERM_COLOR: always
+
+      # aihu-css-compile (the css-engine's native CSS compiler) is the SECOND
+      # native binary this job needs, and unlike aihu-compile above it was never
+      # built here — the docs app's `prebuild` → `gen:css` → `compile()` calls it
+      # directly (apps/docs/gen-css.ts), and the vite plugin's compileSfc()
+      # pass calls it again. deploy-docs.yml gets away without this step because
+      # apps/docs has no gen:css and never touches @aihu/css-engine at build time.
+      #
+      # Until now this job resolved the binary from the PUBLISHED
+      # @aihu/css-engine-<platform> optionalDependency instead. That is a silent
+      # single point of failure: optionalDependencies are dropped WITHOUT error
+      # when unresolvable, so the moment packages/css-engine/package.json pinned
+      # a version that had not been published yet (0.1.4 in #725, then 0.1.17),
+      # installs kept "succeeding" and the job died much later with
+      # "Native CSS compiler binary not found for this platform" — red since
+      # 2026-08-01, green through 2026-07-30 on the last published pin (0.1.3).
+      #
+      # Building from source removes the coupling to release cadence entirely:
+      # resolveBinary() checks target/release/aihu-css-compile as a dev fallback
+      # (it is named in that very error message's "Checked dev fallback paths"),
+      # so a source build satisfies both call sites and an unpublished pin can
+      # never break docs deploys again. Same shape as the compiler step above.
+      - name: Build css-engine binary
+        run: cargo build --release -p aihu-css-core
         env:
           CARGO_TERM_COLOR: always
 
@@ -108,18 +197,62 @@ jobs:
         env:
           AIHU_SKIP_POSTINSTALL: "1"
 
+      # Builds every packages/* project (moon run :build) in dependency order:
+      # compiler → css-engine/arbor/runtime/signals/... → server/router → app.
+      # The docs app's own build only compiles ITS OWN .aihu/.ts sources; it never
+      # rebuilds its @aihu/* workspace deps.
+      - name: Build workspace packages
+        run: bun run build
+        env:
+          # See the note on the docs build step below — same reason.
+          AIHU_COMPILE_BIN: ${{ github.workspace }}/packages/compiler/bin/aihu-compile
+
+      # Doc-coverage gate. The retired apps/docs shipped an existence-only
+      # check (does a page file exist); this is a DRIFT check — gen-api.ts re-derives every documentable package's
+      # export surface from source via the TypeScript AST and fails if the
+      # committed src/pages/api/*.aihu + src/data/api/generated/*.ts disagree
+      # with it. MUST run after "Build workspace packages", not right after
+      # checkout: for a package whose `exports` target has no `src/` sibling,
+      # gen-api.ts's entryFiles falls back to the built `dist/*.d.ts`/`dist/*.js`
+      # (apps/docs/scripts/gen-api.ts's extractPackage), and a fresh
+      # checkout has no dist/ at all (.gitignore'd) — running this any earlier
+      # manufactures false drift on those packages every time.
+      - name: Doc-coverage gate (gen:api --check)
+        run: bun scripts/gen-api.ts --check
+        working-directory: apps/docs
+
       - name: Build docs
+        # prebuild (gen:css + gen:preview + gen:wasm) then vite build → dist.
+        # public/ is copied into dist/ by vite as static assets — that covers
+        # both the agent-discovery surface (ai.txt, agents.json, openapi.json,
+        # .well-known/*) and the two playground artifacts the prebuild stages
+        # there (wasm/ and aihu-preview-bundle.js), which is why the playground
+        # needs no custom vite plugin.
         run: bun run build
         working-directory: apps/docs
         env:
+          # WITHOUT this, the two steps above ("Build compiler binary" / "Stage
+          # compiler binary") are dead weight. packages/compiler/js/envelope.ts
+          # gates on `AIHU_COMPILER_NATIVE === '0' || AIHU_COMPILE_BIN` — an
+          # `||` — so with neither set it loads the PUBLISHED napi addon
+          # in-process and never spawns the binary this job just built. A
+          # compiler fix would then be invisible to its own CI. This is what hid
+          # the TDZ bug in apps/docs; deploy-docs.yml carries the same two hunks.
           AIHU_COMPILE_BIN: ${{ github.workspace }}/packages/compiler/bin/aihu-compile
 
-      # Doc-coverage gate (default/non-strict): hard-fails on undocumented
-      # A1-owned packages; A3/A4 doc gaps are a tracked WARNING (exit 0) so an
-      # A1 docs deploy is not blocked on other tracks. A3/A4 closeout PRs run
-      # this with --strict to block their own landing on missing docs.
-      - name: Doc-coverage gate
-        run: bun apps/docs/scripts/check-doc-coverage.ts
+      # Redirect map — verified against the BUILT dist, before anything slower
+      # runs (it needs only the emitted pages, and it is the cheapest gate here).
+      #
+      # `_redirects` is a static file copied verbatim into dist, so nothing else
+      # in this job looks at it: not the build, not Playwright, not Lighthouse.
+      # A rule pointing at a page that does not exist is therefore completely
+      # silent — Cloudflare serves the 301 and the visitor lands on a 404. These
+      # particular rules carry ~27 URLs that are live on aihu.dev today across
+      # the docs IA move, and they are in the published sitemap, so a
+      # broken one converts an indexed URL into a 404 rather than preserving it.
+      - name: Redirect map gate
+        run: bun scripts/check-redirects.ts
+        working-directory: apps/docs
 
       - name: Install Node.js
         uses: actions/setup-node@v7
@@ -130,17 +263,20 @@ jobs:
         run: bunx playwright install --with-deps chromium
         working-directory: apps/docs
 
+      # Smoke tests against the real built dist/ (vite preview, not the SSG dev
+      # server) — homepage, guide + API-datasheet navigation, and the WASM
+      # playground island (boots with no error banner, zero console errors,
+      # ?preset= deep link). See apps/docs/playwright.config.ts.
       - name: Run smoke tests
         run: bunx playwright test --reporter=line
         working-directory: apps/docs
 
-      # Lighthouse quality gate — serves apps/docs/dist (wrangler pages dev) and
-      # asserts 95+ on perf/a11y/best-practices/SEO + CWV for /docs/introduction.
-      # Lives in the always-run `test` job (no Cloudflare secrets needed) so it
-      # BLOCKS every PR on a perf regression, independent of the deploy job.
-      # Keeps scripts/lighthouse.ts's best-of-3 retry (a temporary stopgap
-      # retired separately once CI confirms deterministic perf — see
-      # docs/plans/2026-05-29-docs-dogfood-overhaul.md §WS5).
+      # Lighthouse quality gate — same script + thresholds as deploy-docs.yml,
+      # pointed at the docs app's dist and its canonical content page
+      # (/guides/getting-started, the closest analog to /docs/introduction).
+      # Runs in this single build+deploy job (this app has no separate
+      # always-on `test` job like deploy-docs.yml) so a perf/a11y regression
+      # blocks the deploy step below outright.
       - name: Lighthouse gate
         run: bun scripts/lighthouse.ts
 
@@ -152,76 +288,16 @@ jobs:
           path: scripts/lighthouse-results.json
           if-no-files-found: ignore
 
-      - name: Upload compiler binary
-        uses: actions/upload-artifact@v7
+      - name: Ensure Pages project exists
+        # Idempotent: creates aihu-docs on first run; continue-on-error lets
+        # re-runs pass when it already exists. Pages:Edit on the token covers
+        # creation. Separate project from live aihu-docs — never touches aihu.dev.
+        continue-on-error: true
+        uses: cloudflare/wrangler-action@v4
         with:
-          name: aihu-compile-linux-x64
-          path: packages/compiler/bin/aihu-compile
-
-      # The docs prebuild (scripts/build-wasm-bundle.ts) built pkg-wasm from
-      # the workspace compiler during "Build docs". Hand it to the deploy job
-      # (which has no Rust toolchain) — the build stamp inside lets the deploy
-      # job's prebuild verify it matches the checkout and reuse it.
-      - name: Upload WASM bundle
-        uses: actions/upload-artifact@v7
-        with:
-          name: aihu-compile-wasm-pkg
-          path: packages/compiler/pkg-wasm
-
-  deploy:
-    name: Build & deploy
-    needs: test
-    # Dependabot PRs run with GITHUB_TOKEN only — repo Actions secrets (incl.
-    # CLOUDFLARE_API_TOKEN) are deliberately withheld by GitHub for security,
-    # a separate store from regular repo secrets (Settings > Secrets >
-    # Dependabot). Deploying THAT would mean any dependency-bump PR carries
-    # real Cloudflare deploy credentials — not a tradeoff to make for an
-    # actions-version bump that touches no app code. `test` above still runs
-    # (no secrets needed) so a real build break still surfaces.
-    if: github.actor != 'dependabot[bot]'
-    runs-on: ubuntu-22.04
-    timeout-minutes: 30
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-
-      - name: Download compiler binary
-        uses: actions/download-artifact@v8
-        with:
-          name: aihu-compile-linux-x64
-          path: packages/compiler/bin
-
-      - run: chmod 0755 packages/compiler/bin/aihu-compile
-
-      # Reuse the test job's workspace-built WASM bundle: this job installs no
-      # Rust toolchain, and scripts/build-wasm-bundle.ts verifies the bundle's
-      # build stamp against the checkout before reusing it (same commit → same
-      # stamp), so the deployed playground grammar matches the deployed docs.
-      - name: Download WASM bundle
-        uses: actions/download-artifact@v8
-        with:
-          name: aihu-compile-wasm-pkg
-          path: packages/compiler/pkg-wasm
-
-      - name: Install Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: "1.3.8"
-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-        env:
-          AIHU_SKIP_POSTINSTALL: "1"
-
-      - name: Build docs
-        run: bun run build
-        working-directory: apps/docs
-        env:
-          AIHU_COMPILE_BIN: ${{ github.workspace }}/packages/compiler/bin/aihu-compile
-
-      # The Lighthouse quality gate runs in the always-on `test` job (above),
-      # which this deploy job `needs:` — so a perf regression already blocks the
-      # pipeline before deploy. No need to re-run it here.
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages project create aihu-docs --production-branch main
 
       - name: Deploy to Cloudflare Pages
         id: deploy
@@ -242,5 +318,5 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `📄 Docs preview: ${url}`,
+              body: `📄 docs preview: ${url}`,
             })

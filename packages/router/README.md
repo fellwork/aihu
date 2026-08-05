@@ -78,7 +78,7 @@ bun add @aihu/router
 <!-- regenerate: bun scripts/sync-readme.ts (also runs in pre-commit + CI) -->
 
 - [arch-1 (website)](../../docs/roadmap/arch-1-website.md)
-- [Routing & layouts guide](../../apps/docs/src/content/docs/guides/routing-layouts.md)
+- [Routing & layouts guide](https://aihu.dev/guides/routing-layouts)
 - [@aihu/server](../server)
 - [Aihu framework root](../../README.md)
 

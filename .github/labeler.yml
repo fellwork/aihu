@@ -64,5 +64,4 @@ documentation:
       - any-glob-to-any-file:
           - "docs/**"
           - "apps/docs/**"
-          - "apps/docs-next/**"
           - "**/*.md"

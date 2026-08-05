@@ -1,18 +1,20 @@
 /**
- * Lighthouse quality gate runner — aihu docs sites.
- * Usage: bun scripts/lighthouse.ts [--app docs|docs-next]
+ * Lighthouse quality gate runner — the aihu docs site.
  *
- * Serves the pre-built dist of the selected app via a deterministic static
- * server (apps/docs/scripts/serve-dist.ts — not wrangler; see issue #314;
- * the server is generic over DIST_DIR/PORT so both apps reuse it) and runs
- * Lighthouse against that app's canonical content page, asserting 95+ on
- * performance / accessibility / best-practices / SEO plus Core Web Vitals.
- * Writes results to scripts/lighthouse-results-<app>.json, exits non-zero on
- * any threshold miss.
+ * Serves the pre-built dist via a deterministic static server
+ * (scripts/serve-dist.ts — not wrangler; see issue #314) and runs
+ * Lighthouse against the canonical content page, asserting 95+ on performance
+ * / accessibility / best-practices / SEO plus Core Web Vitals. Writes results
+ * to scripts/lighthouse-results-docs.json, exits non-zero on any threshold
+ * miss.
  *
- * `--app` defaults to `docs` (unchanged behavior). Prerequisite: `bun run
- * build` must have been run in the target app so its dist/ exists. The CI
- * deploy workflows build each app before this gate.
+ * This took an `--app docs|docs-next` flag while the rebuilt docs lived beside
+ * the old ones. At the cutover the rebuilt app BECAME apps/docs, so there is
+ * one app again and the flag is gone rather than left as a vestigial
+ * single-valued switch.
+ *
+ * Prerequisite: `bun run build` in apps/docs, so its dist/ exists. The deploy
+ * workflow builds before running this gate.
  */
 
 import { existsSync, writeFileSync } from 'node:fs'
@@ -23,51 +25,19 @@ import lighthouse from 'lighthouse'
 const PORT = 8788
 const BASE_URL = `http://localhost:${PORT}`
 
-type AppName = 'docs' | 'docs-next'
+// The canonical content page: the getting-started guide (arch-1-website.md
+// §1.1). A per-route SSG build, so this is a real prerendered document rather
+// than an SPA shell that renders it client-side.
+const DIST_DIR = join('apps', 'docs', 'dist')
+const URL_PATH = '/guides/getting-started'
 
-function parseApp(): AppName {
-  // Accept both `--app docs-next` (space) and `--app=docs-next` (equals) —
-  // argv.indexOf alone silently falls through to the default on the equals
-  // form, which would make a bad flag look like a passing default run.
-  const eqArg = process.argv.find((a) => a.startsWith('--app='))
-  let raw: string | undefined
-  if (eqArg) {
-    raw = eqArg.slice('--app='.length)
-  } else {
-    const flagIdx = process.argv.indexOf('--app')
-    raw = flagIdx !== -1 ? process.argv[flagIdx + 1] : undefined
-  }
-  raw ??= process.env.LIGHTHOUSE_APP ?? 'docs'
-  if (raw !== 'docs' && raw !== 'docs-next') {
-    console.error(`Unknown --app "${raw}" — expected "docs" or "docs-next".`)
-    process.exit(1)
-  }
-  return raw
-}
-
-const APP = parseApp()
-
-// The docs site (apps/docs) is a hash-routed SPA served by the Cloudflare
-// Pages worker; any unmatched path falls through to the SPA shell, which
-// renders the `introduction` page by default. docs-next is a real per-route
-// SSG build, so its canonical content page is the getting-started guide —
-// the closest analog to docs' introduction page (arch-1-website.md §1.1).
-const APPS: Record<AppName, { distDir: string; urlPath: string }> = {
-  docs: { distDir: join('apps', 'docs', 'dist'), urlPath: '/docs/introduction' },
-  'docs-next': { distDir: join('apps', 'docs-next', 'dist'), urlPath: '/guides/getting-started' },
-}
-
-const URLS = [`${BASE_URL}${APPS[APP].urlPath}`]
+const URLS = [`${BASE_URL}${URL_PATH}`]
 // The `docs` default keeps the ORIGINAL filename (no suffix) — deploy-docs.yml
 // already uploads `scripts/lighthouse-results.json` as a build artifact, and
 // renaming it out from under that step would make the existing gate silently
 // stop publishing results (exit code unaffected, but the artifact vanishes).
-const RESULTS_PATH = join(
-  process.cwd(),
-  'scripts',
-  APP === 'docs' ? 'lighthouse-results.json' : `lighthouse-results-${APP}.json`,
-)
-const DIST_DIR = join(process.cwd(), APPS[APP].distDir)
+const RESULTS_PATH = join(process.cwd(), 'scripts', 'lighthouse-results.json')
+const DIST_ABS = join(process.cwd(), DIST_DIR)
 
 const THRESHOLDS = {
   performance: 95,
@@ -83,9 +53,9 @@ const CWV = {
 
 // ── 0. Sanity-check the build output exists ─────────────────────────────────
 
-if (!existsSync(DIST_DIR)) {
-  console.error(`${APPS[APP].distDir} not found at ${DIST_DIR}.`)
-  console.error(`Run 'bun run build' in apps/${APP} first (CI builds it before this gate).`)
+if (!existsSync(DIST_ABS)) {
+  console.error(`Build output not found at ${DIST_ABS}.`)
+  console.error(`Run 'bun run build' in apps/docs first (CI builds it before this gate).`)
   process.exit(1)
 }
 
@@ -94,13 +64,13 @@ if (!existsSync(DIST_DIR)) {
 // A deterministic Bun static server (mirrors CF Pages ASSETS: dir-index + SPA
 // fallback) replaces `wrangler pages dev`, which would not start reliably on CI
 // runners (compat-date drift past workerd's max + bunx cold-download) — see
-// apps/docs/scripts/serve-dist.ts + issue #314. It takes DIST_DIR/PORT purely
+// scripts/serve-dist.ts + issue #314. It takes DIST_DIR/PORT purely
 // via env and has no apps/docs-specific logic, so both apps reuse the same
 // script rather than each shipping its own copy. Serving the prerendered
 // dist/ statically is faithful for the perf measurement AND removes workerd
 // startup variance from the number.
 
-const server = Bun.spawn(['bun', join('apps', 'docs', 'scripts', 'serve-dist.ts')], {
+const server = Bun.spawn(['bun', join('scripts', 'serve-dist.ts')], {
   cwd: process.cwd(),
   stdout: 'pipe',
   stderr: 'pipe',
@@ -163,7 +133,7 @@ async function measure(url: string): Promise<Measurement | null> {
       onlyCategories: ['performance', 'accessibility', 'best-practices', 'seo'],
       // MEASURE, don't model. Lighthouse's default `simulate` (Lantern) records
       // an unthrottled trace and then PREDICTS the metrics under slow-4G from
-      // the dependency graph. For docs-next that prediction is wrong by ~950ms
+      // the dependency graph. For this app that prediction is wrong by ~950ms
       // on LCP, and it blocked the deploy on a number no browser produces.
       //
       // Measured on the same build, same page (/guides/getting-started):
@@ -188,7 +158,7 @@ async function measure(url: string): Promise<Measurement | null> {
       // currently measure 0.000 on it.)
       //
       // Both apps verified on this method: apps/docs 100/96/96/100 LCP 1268ms,
-      // docs-next 100/100/100/100 LCP 1316ms — apps/docs is the live aihu.dev
+      // the rebuilt docs 100/100/100/100 LCP 1316ms — now the live aihu.dev
       // site and its numbers are unchanged from the simulated run.
       //
       // Cost: a devtools run is slower than a simulated one, since the throttle
