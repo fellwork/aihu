@@ -15,7 +15,14 @@
  * new, heavier edge. They ship as the SEPARATE `@aihu/runtime/ssr` subpath
  * entry (dist/ssr-string.js) so these server-only bytes never count against
  * the client bundle's size gate. All helpers are pure and DOM-free.
+ *
+ * `__aihu_schild` (below) is the exception to "consumed only by generated
+ * code": @aihu/server's tree walker calls it too, deliberately, so that a
+ * resolved child is serialized by ONE function no matter which renderer is
+ * running. See its doc comment.
  */
+
+import { SHADOW_ROOT_MODE, type ShadowMode } from './types.ts'
 
 const escText = (s: string): string =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -62,3 +69,135 @@ export const __aihu_key = (v: unknown): string => String(v).replace(/\./g, '_')
  * (`-` → `_` so arbitrary list keys can't terminate the comment early).
  */
 export const __aihu_cpath = (p: string): string => p.replace(/-/g, '_')
+
+// ---------------------------------------------------------------------------
+// Child component resolution — the SINGLE serialization point.
+// ---------------------------------------------------------------------------
+
+/**
+ * A compiled `--target server` module, as far as child rendering cares. Every
+ * field is optional because a module that is missing any of them is simply not
+ * renderable as a child (see `__aihu_schild`'s fail-closed rule).
+ */
+export interface SsrChildModule {
+  /** The compiled string renderer, `__ssrString(props, opts)`. */
+  readonly __ssrString?: (props: unknown, opts?: SsrChildRenderOpts) => string
+  /** `__aihu_light_scope__` — the compiler-assigned light-DOM scope id. */
+  readonly __aihu_light_scope__?: string
+  /**
+   * `__aihu_shadow__` (#770). aihu's OWN vocabulary — `'light' | 'shadow'` —
+   * never the DOM's `ShadowRootMode`.
+   */
+  readonly __aihu_shadow__?: ShadowMode
+}
+
+/** The opts a compiled `__ssrString` accepts, plus the child registry. */
+export interface SsrChildRenderOpts {
+  readonly hydratable?: boolean
+  readonly lightScopeId?: string
+  /**
+   * tag → compiled module, PRE-RESOLVED by the caller (SSG prerender or the
+   * Workers handler). A Map and not a callback on purpose: module loading is
+   * async while this path is synchronous, and hoisting resolution to the caller
+   * is what lets the compiled fast path survive child rendering at all. It is
+   * also where the cycle guard belongs — once, over the whole graph, at build
+   * time, rather than at every render.
+   */
+  readonly children?: ReadonlyMap<string, SsrChildModule>
+  /** @internal Recursion depth, incremented per nested child. */
+  readonly __depth?: number
+}
+
+/**
+ * Belt-and-braces bound on nesting. The registry builder rejects cyclic tag
+ * graphs before any render happens, so reaching this cap means the guard was
+ * bypassed or a registry was hand-built. Emitting the bare element (rather
+ * than throwing) keeps a prerender from being taken down by one bad subtree —
+ * the failure degrades to today's empty-shell behaviour.
+ */
+const MAX_CHILD_DEPTH = 32
+
+/**
+ * Render a referenced child component, or emit the empty element unchanged.
+ *
+ * This is the ONE place a resolved child is serialized. The compiled string
+ * renderer calls it from every component-reference site, and `@aihu/server`'s
+ * tree walker calls it from its branch arm, so the two paths cannot drift in
+ * capability the way they previously could in bytes. Both DOM modes are handled
+ * here, together, for the same reason.
+ *
+ * FAIL-CLOSED, three ways — each returns byte-identical output to the
+ * pre-child-resolution renderer, so a site that supplies no registry, or an
+ * incompletely compiled child, sees no change at all:
+ *   1. no registry entry for `tag`;
+ *   2. the module carries no `__ssrString` (the emitter's bail list, e.g. a
+ *      template shape the string emitter declines);
+ *   3. **the module declares no `__aihu_shadow__`.** This one is deliberate and
+ *      not defensive padding: emitting a `<template shadowrootmode>` for a
+ *      component that is actually light DOM (or host children for one that is
+ *      actually shadow) produces markup the client can never adopt. There is no
+ *      safe default to guess, so an unknown mode renders nothing.
+ *
+ * SCOPE (v1): the caller emits a `__aihu_schild` call only for a reference with
+ * no attributes and no children. Attributes at a reference site are the child's
+ * props, and forwarding them means rendering the child with real prop values —
+ * a separate slice. Children at a reference site are slot content, and slot
+ * projection is explicitly unimplemented. Both cases keep emitting the plain
+ * element.
+ */
+export const __aihu_schild = (
+  tag: string,
+  attrsHtml: string,
+  opts?: SsrChildRenderOpts,
+): string => {
+  const bare = `<${tag}${attrsHtml}></${tag}>`
+  const mod = opts?.children?.get(tag)
+  const render = mod?.__ssrString
+  const shadow = mod?.__aihu_shadow__
+  if (typeof render !== 'function' || (shadow !== 'light' && shadow !== 'shadow')) return bare
+
+  const depth = opts?.__depth ?? 0
+  if (depth >= MAX_CHILD_DEPTH) return bare
+
+  // The child's OWN render never receives `lightScopeId`: `data-a` belongs on
+  // the host, which is what the client stamps (`define-element.ts`'s
+  // connectedCallback) and what `@scope([data-a=…]) to ([data-a])` needs. Two
+  // stamps would make the child's template root a nested scope root and cut its
+  // own rules off at its first child — the same reasoning `renderToString`'s
+  // `wrapTag` block already applies to the top-level render.
+  const hydratable = opts?.hydratable ?? false
+  let inner: string
+  try {
+    inner = render(
+      {},
+      {
+        hydratable,
+        ...(opts?.children ? { children: opts.children } : {}),
+        __depth: depth + 1,
+      },
+    )
+  } catch {
+    // A child that throws must not take the whole page down with it; the parent
+    // still renders, and the child fills in on the client as it does today.
+    return bare
+  }
+
+  // `data-aihu-ssr` is the adoption marker AND arbor's hydration path boundary
+  // (each wrapped render restarts `data-aihu-path` at ROOT_PATH). Hydratable
+  // renders only — like the path markers it is a property of the DESTINATION,
+  // so terminal output carries no adoption bytes.
+  const adopt = hydratable ? ' data-aihu-ssr=""' : ''
+
+  if (shadow === 'light') {
+    const scope = mod?.__aihu_light_scope__
+    const scopeAttr = scope !== undefined ? ` data-a="${__aihu_eattr(scope)}"` : ''
+    return `<${tag}${attrsHtml}${scopeAttr}${adopt}>${inner}</${tag}>`
+  }
+
+  // Shadow: the tree goes inside a declarative shadow root, which the browser
+  // attaches during parsing — before the element upgrades. `SHADOW_ROOT_MODE`
+  // is imported, not spelled, so this and the runtime's `attachShadow` cannot
+  // name different modes; a closed root would null out `this.shadowRoot` and
+  // break the very adoption this markup exists for.
+  return `<${tag}${attrsHtml}${adopt}><template shadowrootmode="${SHADOW_ROOT_MODE}">${inner}</template></${tag}>`
+}
