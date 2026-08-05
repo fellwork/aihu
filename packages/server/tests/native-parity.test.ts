@@ -319,4 +319,15 @@ describe('loader: JS fall-throughs always use TS implementation', () => {
     }
     await expect(nativeImpl(factory)).rejects.toThrow('boom')
   })
+
+  it('opts.lightScopeId set routes to TS (root data-a stamped, never dropped by FFI)', async () => {
+    // The napi addon's renderTree(treeJson, hydratable) has no lightScopeId
+    // parameter — routing a stamped render to Rust would silently ship
+    // unstamped markup whose scoped CSS matches nothing until hydration.
+    const out = await nativeImpl(
+      () => ({ kind: 'branch', tag: 'div', attrs: { class: 'card' }, children: [] }),
+      { hydratable: true, lightScopeId: 'a1b2c3d4' },
+    )
+    expect(out).toContain('<div class="card" data-a="a1b2c3d4" data-aihu-path="0">')
+  })
 })

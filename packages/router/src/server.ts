@@ -250,7 +250,16 @@ export function createServerRouter(
           : raw
       // `governed: true` — the P5/I2s guard: governed trees are not streamed;
       // a pending dataSource inside this render is refused fail-closed.
-      const html = await renderToString(component, { hydratable: true, governed: true })
+      const lightScope = (mod as { __aihu_light_scope__?: string }).__aihu_light_scope__
+      const html = await renderToString(component, {
+        hydratable: true,
+        governed: true,
+        // LDF §10 step 3: stamp the component's `data-a` scope id on the
+        // rendered root so its `@scope([data-a="…"])` CSS applies at first
+        // paint (before the client bundle re-stamps the host). Exported by
+        // the compiler's server-target transform for light-DOM components.
+        ...(lightScope !== undefined ? { lightScopeId: lightScope } : {}),
+      })
       // Granted → the Entitled<T> payload; withheld → ONLY the Withheld<T>
       // shape. The granted payload never exists in a withheld response.
       const body = `${html}<script type="application/json" id="__aihu_loader__">${JSON.stringify(emission.data)}</script>`
@@ -307,7 +316,12 @@ export function createServerRouter(
     //
     // `hydratable` is a property of the DESTINATION, not of the renderer, which is
     // why it is explicit at every call site rather than defaulted from "this is SSR".
-    const html = await renderToString(component, { hydratable: true })
+    const ungovLightScope = (mod as { __aihu_light_scope__?: string }).__aihu_light_scope__
+    const html = await renderToString(component, {
+      hydratable: true,
+      // Same `data-a` first-paint stamp as the governed path above.
+      ...(ungovLightScope !== undefined ? { lightScopeId: ungovLightScope } : {}),
+    })
 
     const body =
       loaderData !== undefined

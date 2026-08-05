@@ -58,6 +58,17 @@ interface PrerenderRouteModule {
   default?: unknown
   /** Dynamic-route param sets to prerender. Absent → route is skipped + warned. */
   getStaticPaths?: () => StaticPathEntry[] | Promise<StaticPathEntry[]>
+  /**
+   * The compiler-assigned light-DOM scope id (LDF §10 step 3), exported by
+   * `@aihu/compiler`'s server-target transform for `shadowMode: 'light'`
+   * components. Passed to `renderToString` as `SsrOptions.lightScopeId` so
+   * the prerendered root carries `data-a="<id>"` and the component's
+   * `@scope([data-a="…"])` CSS applies at first paint — before the client
+   * bundle loads and the runtime re-stamps the host. Absent for shadow-mode
+   * components and hand-authored modules: nothing is stamped, which is the
+   * pre-existing behavior.
+   */
+  __aihu_light_scope__?: string
 }
 
 /** A loader that resolves a route file path to its evaluated module. */
@@ -353,7 +364,8 @@ export async function runPrerender(opts: RunPrerenderOptions): Promise<Prerender
       )
     } else {
       try {
-        const layoutComponent = resolveComponent(await loadModule(layoutFile))
+        const layoutMod = await loadModule(layoutFile)
+        const layoutComponent = resolveComponent(layoutMod)
         if (layoutComponent) {
           // See the `hydratable` note on the page render below — the layout
           // shell is part of the same prerendered document and must carry
@@ -362,6 +374,16 @@ export async function runPrerender(opts: RunPrerenderOptions): Promise<Prerender
           shell = await renderToString(layoutComponent, {
             hydratable: true,
             contextSetup: routeContextFor(concretePath),
+            // Stamp the layout's `data-a` scope id on its prerendered root so
+            // the layout's scoped CSS (grid columns, the mobile media query
+            // that hides the sidebar, …) applies at FIRST PAINT. Without it
+            // the prerendered chrome renders unstyled until the layout chunk
+            // loads — measured on apps/docs-next: the unstyled sidebar filled
+            // the mobile viewport, pushed the article (the LCP element) below
+            // the fold, and cost ~1.9s of throttled LCP.
+            ...(layoutMod.__aihu_light_scope__ !== undefined
+              ? { lightScopeId: layoutMod.__aihu_light_scope__ }
+              : {}),
           })
         } else {
           pushWarn(
@@ -494,6 +516,14 @@ export async function runPrerender(opts: RunPrerenderOptions): Promise<Prerender
         content = await renderToString(component, {
           hydratable: true,
           contextSetup: routeContextFor(concretePath),
+          // Same first-paint stamp as the layout shell above: the page's own
+          // `@scope([data-a="…"])` CSS must match the prerendered content
+          // before any client JS runs. Also the scope BOUNDARY (`to
+          // ([data-a])`): the page root's `data-a` is what stops the layout's
+          // scope from leaking into page content.
+          ...(mod.__aihu_light_scope__ !== undefined
+            ? { lightScopeId: mod.__aihu_light_scope__ }
+            : {}),
         })
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err)
