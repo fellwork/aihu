@@ -331,8 +331,8 @@ export const PACKAGES: readonly ApiPackageMeta[] = [
       'aihu headless behavior primitives — WAI-ARIA APG patterns as vanilla custom elements, zero CSS.',
     note: '',
     exportCount: 93,
-    valueCount: 71,
-    typeCount: 22,
+    valueCount: 69,
+    typeCount: 24,
     agent: false,
   },
   {
