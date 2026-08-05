@@ -9,12 +9,45 @@ export interface LlmsTxtLink {
 
 export interface LlmsTxtSection {
   readonly title: string
-  readonly links: ReadonlyArray<LlmsTxtLink>
+  /**
+   * Link list for this section. Optional since v2.3 — a section may carry
+   * `body` prose instead of, or in addition to, links.
+   */
+  readonly links?: ReadonlyArray<LlmsTxtLink>
+  /**
+   * Free markdown prose for this section, emitted between the `##` heading and
+   * the link list.
+   *
+   * WHY THIS EXISTS. Until v2.3 a section was a title plus a list of links, and
+   * nothing else could be said. That is enough for a docs site whose llms.txt
+   * is a table of contents, and not enough for a site whose llms.txt has to
+   * TEACH an agent something before the links are useful — a wire protocol and
+   * its transport, a REST route table, the reference grammar for addressing
+   * content. Those are paragraphs and non-link bullets, and every site that
+   * needed them had to abandon the generator and hand-roll the whole document,
+   * which is how a "canonical" format ends up with as many dialects as
+   * consumers.
+   *
+   * Emitted verbatim — it is markdown going into a markdown document, so it is
+   * NOT escaped. Treat it as authored content, never as interpolated user
+   * input.
+   */
+  readonly body?: string
 }
 
 export interface LlmsTxtConfig {
   readonly name: string
   readonly summary?: string
+  /**
+   * Free markdown prose emitted after the `>` summary and before the first
+   * section heading — the document's opening paragraph(s).
+   *
+   * The summary is one blockquoted line by convention (llmstxt.org); this is
+   * where a site says the thing that does not fit there, e.g. "three ways to
+   * access the data, setup instructions are at /connect". Emitted verbatim,
+   * unescaped, same contract as `LlmsTxtSection.body`.
+   */
+  readonly intro?: string
   readonly sections: ReadonlyArray<LlmsTxtSection>
   readonly optional?: ReadonlyArray<LlmsTxtLink>
   /**
@@ -138,10 +171,22 @@ const renderDocument = (config: LlmsTxtConfig, optionalHeading: string): string 
   if (config.summary) {
     lines.push(`> ${config.summary}`, '')
   }
+  if (config.intro) {
+    lines.push(config.intro.trimEnd(), '')
+  }
   for (const section of config.sections) {
-    if (section.links.length === 0) continue
+    // A section with neither prose nor links is still omitted entirely — the
+    // pre-v2.3 behaviour, just widened from "no links" to "nothing to say", so
+    // a link-only config renders byte-identically to before.
+    const links = section.links ?? []
+    if (!section.body && links.length === 0) continue
     lines.push(`## ${section.title}`)
-    for (const link of section.links) lines.push(renderLink(link))
+    if (section.body) {
+      // Blank line after the heading so the prose is a paragraph, not a
+      // lazy-continuation of the ATX heading in strict markdown parsers.
+      lines.push('', section.body.trimEnd(), '')
+    }
+    for (const link of links) lines.push(renderLink(link))
     lines.push('')
   }
   // GX Phase 3: derived route listing — from the compiled declarations only.

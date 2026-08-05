@@ -33,13 +33,22 @@ export interface AgentReadinessConfig {
   }
 
   // ── llms.txt ─────────────────────────────────────────────────────────
+  /**
+   * `intro` and each section's `body` carry free markdown prose, for llms.txt
+   * documents that must teach an agent something (a wire protocol, a route
+   * table, a reference grammar) before a link list means anything. Both are
+   * emitted verbatim and unescaped — authored content, never interpolated
+   * input. A section needs `body` or `links`; one with neither is omitted.
+   */
+  readonly llmsIntro?: string
   readonly llmsSections?: ReadonlyArray<{
     readonly title: string
-    readonly links: ReadonlyArray<{
+    readonly links?: ReadonlyArray<{
       readonly title: string
       readonly url: string
       readonly description?: string
     }>
+    readonly body?: string
   }>
   readonly llmsOptional?: ReadonlyArray<{
     readonly title: string

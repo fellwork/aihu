@@ -113,6 +113,7 @@ export function createAgentReadinessRoutes(
       ...llmsDerivationInputs,
       ...(config.summary !== undefined ? { summary: config.summary } : {}),
       ...(config.llmsOptional !== undefined ? { optional: config.llmsOptional } : {}),
+      ...(config.llmsIntro !== undefined ? { intro: config.llmsIntro } : {}),
     })
     return new Response(txt, {
       status: 200,
@@ -129,6 +130,7 @@ export function createAgentReadinessRoutes(
       ...llmsDerivationInputs,
       ...(config.summary !== undefined ? { summary: config.summary } : {}),
       ...(config.llmsOptional !== undefined ? { optional: config.llmsOptional } : {}),
+      ...(config.llmsIntro !== undefined ? { intro: config.llmsIntro } : {}),
     })
     return new Response(txt, {
       status: 200,
