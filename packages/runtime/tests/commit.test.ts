@@ -15,13 +15,14 @@ import { getLifecycleHost } from '@aihu/signals/lifecycle'
 import { describe, expect, it, vi } from 'vitest'
 import { _commitQueueSize, _flushCommits } from '../src/commit.ts'
 import {
+  _setHydrate,
   _setMount,
   _setSignal,
   defineComponent,
   _onCommit as onCommit,
   _onMount as onMount,
 } from '../src/define-component.ts'
-import { _setHydrate, defineElement } from '../src/define-element.ts'
+import { defineElement } from '../src/define-element.ts'
 import { RuntimeError } from '../src/types.ts'
 
 _setMount(mount)
@@ -90,11 +91,11 @@ describe('connected() — SetupContext.connected', () => {
   })
 })
 
-describe('connected() — hydration path (define-element.ts bypasses connectedCallback)', () => {
-  it('is true right after the hydration _build() and flips false on the hydration disconnect bridge', () => {
+describe('connected() — adoption path (first-render DOM adoption, one shared connect path)', () => {
+  it('is true right after an adopted connect and flips false on disconnect', () => {
     const realMount = mount
     // The isolation strategy from hydrate-integration.test.ts stubs
-    // _hydrateFn so it never touches the real arbor hydrate implementation
+    // _hydrate so it never touches the real arbor hydrate implementation
     // — but here we DO invoke the passed builder (unlike those tests),
     // because the point is to run the real `_build()` so a real component
     // scope + connected signal + LifecycleHost get created and registered.
@@ -110,10 +111,11 @@ describe('connected() — hydration path (define-element.ts bypasses connectedCa
       captured = ctx.connected
       return leaf('hydrate-connected')
     })
-    defineElement(t, Cmp, { hydrate: true })
-    ;(globalThis as Record<string, unknown>).__aihu_state__ = { [t]: {} }
+    defineElement(t, Cmp, { shadowMode: 'light' })
 
     const el = document.createElement(t)
+    el.setAttribute('data-aihu-ssr', '')
+    el.innerHTML = '<p data-aihu-path="0">srv</p>'
     document.body.appendChild(el)
 
     expect(hydrateSpy).toHaveBeenCalledTimes(1)
@@ -122,7 +124,7 @@ describe('connected() — hydration path (define-element.ts bypasses connectedCa
     el.remove()
     expect(captured?.()).toBe(false)
 
-    _setHydrate(null as unknown as Parameters<typeof _setHydrate>[0])
+    _setHydrate(null)
     _setMount(mount)
   })
 })
@@ -232,7 +234,7 @@ describe('onCommit — bare @aihu/runtime export (setup-only, _cur-gated)', () =
     el.remove()
   })
 
-  it('registered in setup, still fires after hydration — a genuine asymmetry with onMount, which never runs under hydration', () => {
+  it('registered in setup, still fires on an ADOPTED connect — and so does onMount (the old hydration fork skipped it; adoption shares the one connect path)', () => {
     const realMount = mount
     const hydrateSpy = vi.fn((component: () => unknown, host: Element | ShadowRoot) => {
       const tree = component()
@@ -241,23 +243,29 @@ describe('onCommit — bare @aihu/runtime export (setup-only, _cur-gated)', () =
     _setHydrate(hydrateSpy as unknown as Parameters<typeof _setHydrate>[0])
 
     const commitSpy = vi.fn()
+    const mountSpy = vi.fn()
     const t = tag()
     const Cmp = defineComponent(() => {
       onCommit(commitSpy)
+      onMount(mountSpy)
       return leaf('hydrate-commit')
     })
-    defineElement(t, Cmp, { hydrate: true })
-    ;(globalThis as Record<string, unknown>).__aihu_state__ = { [t]: {} }
+    defineElement(t, Cmp, { shadowMode: 'light' })
 
     const el = document.createElement(t)
+    el.setAttribute('data-aihu-ssr', '')
+    el.innerHTML = '<p data-aihu-path="0">srv</p>'
     document.body.appendChild(el)
 
+    expect(hydrateSpy).toHaveBeenCalledTimes(1)
+    // onMount runs synchronously at connect on the adopted path too.
+    expect(mountSpy).toHaveBeenCalledTimes(1)
     expect(commitSpy).not.toHaveBeenCalled()
     _flushCommits()
     expect(commitSpy).toHaveBeenCalledTimes(1)
 
     el.remove()
-    _setHydrate(null as unknown as Parameters<typeof _setHydrate>[0])
+    _setHydrate(null)
     _setMount(mount)
   })
 })

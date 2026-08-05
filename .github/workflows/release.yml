@@ -65,7 +65,7 @@ permissions:
 # expressions): oxc_parser 0.139 requires rustc >= 1.94; keep in sync with
 # rust-toolchain.toml and deploy-docs.yml.
 env:
-  RUSTUP_TOOLCHAIN: "1.95"
+  RUSTUP_TOOLCHAIN: "1.95.0"
 
 jobs:
   build:
@@ -116,7 +116,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c # stable @ 2024-10-25
         with:
-          toolchain: "1.95"
+          toolchain: "1.95.0"
           targets: ${{ matrix.target }}
 
       - name: Install cross (aarch64-linux only)
@@ -185,7 +185,7 @@ jobs:
       - name: Install Rust toolchain (wasm32)
         uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c # stable @ 2024-10-25
         with:
-          toolchain: "1.95"
+          toolchain: "1.95.0"
           targets: wasm32-unknown-unknown
 
       - name: Install wasm-pack
@@ -372,7 +372,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c # stable @ 2024-10-25
         with:
-          toolchain: "1.95"
+          toolchain: "1.95.0"
           targets: ${{ matrix.target }}
 
       - name: Setup Node
@@ -549,7 +549,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c # stable @ 2024-10-25
         with:
-          toolchain: "1.95"
+          toolchain: "1.95.0"
           targets: ${{ matrix.target }}
 
       - name: Build release binary (cargo)
@@ -860,7 +860,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c # stable @ 2024-10-25
         with:
-          toolchain: "1.95"
+          toolchain: "1.95.0"
           targets: ${{ matrix.target }}
 
       - name: Install cross (aarch64-linux only)

@@ -410,3 +410,71 @@ describe('hydrate() — adjacent reactive text leaves', () => {
     scope.dispose()
   })
 })
+
+// ---------------------------------------------------------------------------
+// First-render DOM adoption — nested-render path boundary + live-element refs
+// ---------------------------------------------------------------------------
+
+describe('hydrate() — nested `data-aihu-ssr` render boundary', () => {
+  it('B1: a nested marked host restarting at the root path does not hijack the outer path map', () => {
+    // Shape mirrors a prerendered layout with a page inside its outlet
+    // marker: BOTH renders were wrapped by the server (`wrapTag`), so both
+    // restart their `data-aihu-path` keys at the root. Without boundary
+    // pruning the nested render's root OVERWRITES the outer root in the
+    // path map (document order) and the outer walk wires onto the wrong
+    // element.
+    const host = document.createElement('aihu-layout-x')
+    host.setAttribute('data-aihu-ssr', '')
+    host.innerHTML =
+      '<div class="outer" data-aihu-path="0">' +
+      '<div class="marker" data-aihu-path="0.0">' +
+      '<page-x data-aihu-ssr=""><div class="inner" data-aihu-path="0">page</div></page-x>' +
+      '</div>' +
+      '</div>'
+
+    const [cls, setCls] = signal('outer')
+    // The outer component's tree: root div with a reactive class, one child
+    // div (the passive marker — no children of its own in the outer tree).
+    const scope = hydrate(
+      () =>
+        branch('div', { class: [cls, setCls] as never }, [branch('div', { class: 'marker' }, [])]),
+      host,
+      {},
+    )
+
+    const outer = host.querySelector('.outer') as HTMLElement
+    const inner = host.querySelector('.inner') as HTMLElement
+    // The reactive class effect must drive the OUTER root — not the page's
+    // root that shares the '0' path key.
+    setCls('outer-updated')
+    expect(outer.getAttribute('class')).toBe('outer-updated')
+    expect(inner.getAttribute('class')).toBe('inner')
+    // Nothing was rebuilt beside the server DOM.
+    expect(host.querySelectorAll('.marker').length).toBe(1)
+
+    scope.dispose()
+  })
+
+  it('B2: a host WITHOUT markers keeps the original behavior (all paths mapped)', () => {
+    const host = document.createElement('div')
+    host.innerHTML = '<p data-aihu-path="0">x</p>'
+    const [t, setT] = signal('x')
+    const scope = hydrate(() => branch('p', undefined, [leaf([t, setT] as never)]), host, {})
+    setT('y')
+    expect(host.querySelector('p')?.textContent).toBe('y')
+    expect(host.querySelectorAll('p').length).toBe(1)
+    scope.dispose()
+  })
+})
+
+describe('hydrate() — live-element refs (`branch.el`)', () => {
+  it('E1: adopted branches carry .el, mirroring _materialize (class:/html effects and the link boundary read it)', () => {
+    const host = document.createElement('div')
+    host.innerHTML = '<section data-aihu-path="0"><p data-aihu-path="0.0">x</p></section>'
+    const root = branch('section', undefined, [branch('p', undefined, [leaf('x')])])
+    const scope = hydrate(() => root, host, {})
+    expect(root.el).toBe(host.querySelector('section'))
+    expect((root.children[0] as { el?: Element }).el).toBe(host.querySelector('p'))
+    scope.dispose()
+  })
+})

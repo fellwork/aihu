@@ -528,3 +528,86 @@ fn w3_default_is_ast_end_to_end() {
         "the default emission rewrites template-literal holes:\n{implicit}"
     );
 }
+
+// ─── grammar-v2 `each` binders are template-scoped declarations ──────────────
+//
+// `warn_undeclared_template_refs` flags `@template` identifiers that are not
+// declared in `@state`. A loop binder introduced by `each={item of list}` is
+// declared by the TEMPLATE and cannot appear in `@state` — so it must not warn.
+//
+// `collect_each_aliases` gathered binders from `$each=` and
+// `{#each list as item}`, both RETIRED v1 spellings, and missed the only form
+// grammar v2 accepts. Every correct `each` loop therefore warned: 618 of them
+// in apps/docs alone. The warning is documented to become a hard ERROR in v0.4,
+// which would have rejected every valid `each` in the ecosystem.
+
+/// Compile and return anything the compiler wrote to stderr.
+fn warnings_for(src: &str) -> String {
+    let out = std::process::Command::new(env!("CARGO_BIN_EXE_aihu-compile"))
+        .args(["--stdin", "--tag", "x-each", "--path", "/x/x-each.aihu"])
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .and_then(|mut c| {
+            use std::io::Write;
+            c.stdin.as_mut().unwrap().write_all(src.as_bytes())?;
+            c.wait_with_output()
+        })
+        .expect("compiler spawn");
+    String::from_utf8_lossy(&out.stderr).into_owned()
+}
+
+#[test]
+fn each_binder_is_not_an_undeclared_reference() {
+    let src = r#"@state {
+  const rows = ['a', 'b']
+}
+
+@template {
+  <ul>
+    <li each={row of rows} key={row}>{row}</li>
+  </ul>
+}
+"#;
+    let stderr = warnings_for(src);
+    assert!(
+        !stderr.contains("Undeclared cross-block"),
+        "an `each={{row of rows}}` binder must not warn as undeclared; got:\n{stderr}"
+    );
+}
+
+#[test]
+fn each_binder_with_index_is_not_undeclared() {
+    let src = r#"@state {
+  const rows = ['a']
+}
+
+@template {
+  <li each={row, i of rows} key={row}>{i}: {row}</li>
+}
+"#;
+    let stderr = warnings_for(src);
+    assert!(
+        !stderr.contains("Undeclared cross-block"),
+        "both binders of `each={{row, i of rows}}` must be declared; got:\n{stderr}"
+    );
+}
+
+#[test]
+fn a_genuinely_undeclared_reference_still_warns() {
+    // The guard must keep its teeth: this is the case the warning exists for.
+    let src = r#"@state {
+  const rows = ['a']
+}
+
+@template {
+  <li each={row of rows}>{row} {mysteryValue}</li>
+}
+"#;
+    let stderr = warnings_for(src);
+    assert!(
+        stderr.contains("mysteryValue"),
+        "a genuinely undeclared name must still warn; got:\n{stderr}"
+    );
+}

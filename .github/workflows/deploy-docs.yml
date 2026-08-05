@@ -139,7 +139,7 @@ jobs:
       - name: Install Rust toolchain (+ wasm32 for the playground bundle)
         uses: dtolnay/rust-toolchain@1482605bfc5719782e1267fd0c0cc350fe7646b8
         with:
-          toolchain: "1.95" # sync with rust-toolchain.toml
+          toolchain: "1.95.0" # sync with rust-toolchain.toml
           targets: wasm32-unknown-unknown
 
       - name: Install wasm-pack

@@ -1,5 +1,4 @@
 export { branch } from './branch.ts'
-export { hydrate } from './hydrate.ts'
 export { leaf } from './leaf.ts'
 export type { MountScope } from './mount.ts'
 export { _getComponentInstanceRegistry, mount } from './mount.ts'

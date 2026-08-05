@@ -28,8 +28,6 @@ export type ShadowMode = 'light' | 'shadow'
 
 export interface DefineOptions {
   shadowMode?: ShadowMode
-  /** When true, connectedCallback checks window.__aihu_state__[name] and calls the injected hydrate fn. Plan 3.2. */
-  hydrate?: boolean
   /**
    * D5 `$form` — register as a form-associated custom element. The flag has to
    * reach the constructor BEFORE `customElements.define` runs: the definition

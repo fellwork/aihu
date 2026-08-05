@@ -15,6 +15,12 @@ const external = [
   '@aihu/server',
   '@aihu/server/head-lowering',
   '@aihu/arbor',
+  // The subpath needs its OWN entry: rolldown's `external` matches exact
+  // specifiers, so listing '@aihu/arbor' alone does not cover
+  // '@aihu/arbor/hydrate' and the whole hydration walker gets inlined into
+  // client.js (observed: 4.8 kB -> 13.2 kB, blowing the size row by 3 kB).
+  // Same failure shape as '@aihu/context/ssr' and '@aihu/signals/lifecycle'.
+  '@aihu/arbor/hydrate',
   '@aihu/signals',
   '@aihu/store',
   '@aihu/runtime',
@@ -28,6 +34,10 @@ const external = [
   'virtual:aihu-routes',
   'virtual:aihu-layouts',
 ]
+
+// `__DEV__ = false` in the published build so rolldown DCEs author-only
+// diagnostics (see client.ts's no-<outlet> warning). Mirrors arbor's config.
+const transform = { define: { __DEV__: 'false' } }
 
 export default defineConfig([
   // Main entry — build/config-time only. No DOM. No size-limit row.
@@ -46,6 +56,7 @@ export default defineConfig([
   // Client entry — browser runtime. Measured by .size-limit.json (≤400 B gz).
   {
     input: { client: 'src/client.ts' },
+    transform,
     external,
     checks: { circularDependency: true },
     output: {

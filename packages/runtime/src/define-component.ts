@@ -29,8 +29,86 @@ import { RuntimeError } from './types.ts'
 
 type _ScopeRef = ReturnType<MountFn>
 
+/**
+ * Injected hydration function (arbor's `hydrate`). Same injection posture as
+ * `_mount` (`_setHydrate` / `_setMount`): wired by `@aihu/app`'s client
+ * bootstrap for 'ssr'/'hybrid' rendering, left `null` for 'spa' builds and
+ * bare test harnesses. Lives HERE — not in define-element.ts — because
+ * hydration is not a separate lifecycle: the single connect path below
+ * chooses its renderer (`_hydrate` vs `_mount`) and everything else
+ * (`onMount`, slot projection, scope registration, teardown) is shared, so
+ * the two paths cannot drift apart again.
+ */
+type HydrateFn = (
+  component: () => ReturnType<Setup>,
+  host: Element | ShadowRoot,
+  snapshot: Record<string, unknown>,
+) => ReturnType<MountFn>
+
 let _mount: MountFn | null = null
+let _hydrate: HydrateFn | null = null
 let _signal: typeof SignalFactory | null = null
+
+/**
+ * First-render DOM adoption — the server's template marker.
+ *
+ * A WIRE-PROTOCOL attribute (like `data-aihu-path`): `@aihu/server`'s
+ * `renderToString({ wrapTag })` stamps it on the component's own host element
+ * in hydratable renders, declaring "this host's children are its OWN
+ * server-rendered template". That declaration is what makes adoption safe to
+ * detect at all: under light DOM the host's children at connect time are
+ * otherwise the SLOT-PROJECTION source (user-slotted content), and slotted
+ * content that itself came from a parent's server render carries
+ * `data-aihu-path` markers too — path presence alone cannot tell the two
+ * apart. The marker can, because it only ever rides the host of a render the
+ * server produced FOR that host; slotted content arrives inside a parent's
+ * template and its receiving host is never marked.
+ *
+ * Consequences, both directions:
+ *   - marked host → children are NEVER slot-projected. Adopt them when
+ *     possible; DISCARD them when not (shadow mode, no hydrate fn wired) —
+ *     re-projecting a server template as slot content would double-render it.
+ *   - unmarked host → children are ALWAYS the slot source (existing carve).
+ *
+ * The attribute is deliberately NOT consumed on adoption: sibling renders
+ * hydrate in load order, and an outer component's `hydrate()` needs the
+ * nested host's marker as a path-map boundary (see arbor's hydrate.ts) even
+ * if the nested host adopted first. A disconnect→reconnect over a marked host
+ * is safe because the adopted scope's dispose clears the host's children
+ * (parity with mount()'s DOM removal), so re-adoption over the empty host
+ * degrades to a fresh materialize — i.e. a clean mount.
+ */
+const ADOPT_ATTR = 'data-aihu-ssr'
+
+/**
+ * Adopt a marked host's server-rendered children: wire the component's tree
+ * onto the existing DOM via the injected `_hydrate` instead of building fresh
+ * nodes. The signal snapshot — if the app published one under this tag
+ * (`__aihu_state__[tag]`, see @aihu/app client.ts) — pre-seeds writable
+ * signals; its ABSENCE no longer gates adoption (static pages have no
+ * serialized state but every reason to keep their prerendered DOM).
+ *
+ * The returned scope's dispose removes the host's children after the effect
+ * teardown — mount()-parity (its dispose removes the mounted roots last).
+ * hydrate()'s own scope deliberately leaves DOM intact, but for a COMPONENT
+ * host that would break reconnect: the first hydration consumes structural
+ * comment markers, so a second hydration over the stale DOM would append
+ * fresh structural content beside the stale copy. Clearing makes any later
+ * reconnect a clean re-render.
+ */
+function _adoptSsrTemplate(el: HTMLElement, tree: ReturnType<Setup>): _ScopeRef {
+  const state = (globalThis as { __aihu_state__?: Record<string, unknown> }).__aihu_state__
+  const snapshot = (state?.[el.tagName.toLowerCase()] as Record<string, unknown> | undefined) ?? {}
+  const inner = _hydrate!(() => tree, el, snapshot)
+  return {
+    dispose(): void {
+      inner.dispose()
+      el.replaceChildren()
+    },
+    agent: inner.agent,
+    serialize: () => inner.serialize(),
+  }
+}
 
 // Lifecycle: current-instance pointer set during setup() calls.
 // R2 (Director r6 §3): four-callback $lifecycle extension. `a` (adopted) and
@@ -105,6 +183,13 @@ export function _setSignal(s: typeof SignalFactory): void {
 /** @internal */
 export function _setMount(fn: MountFn): void {
   _mount = fn
+}
+
+/** @internal — wire the hydration renderer (arbor's `hydrate`). Null-safe to
+ * re-call; passing `null` unwires it (tests). When unwired, marked hosts fall
+ * back to discard-and-mount (never slot-projection of a server template). */
+export function _setHydrate(fn: HydrateFn | null): void {
+  _hydrate = fn
 }
 
 const _scopes = new WeakMap<HTMLElement, _ScopeRef>()
@@ -468,16 +553,23 @@ export function defineComponent(setupOrOptions: Setup | ComponentOptions): typeo
           // attributable signal, then re-throw to preserve fail-loud behavior
           // (so SCR-R0002/0003 invariants and any other throw still propagate).
           try {
+            // First-render DOM adoption: a `data-aihu-ssr` marker on the host
+            // (stamped by @aihu/server's wrapTag render) declares the existing
+            // children to be this component's OWN server-rendered template —
+            // see ADOPT_ATTR's doc comment. Marked children are NEVER the
+            // slot-projection source.
+            const isReal = _isRealElement(this)
+            const ssrTemplate = isReal && this.hasAttribute(ADOPT_ATTR)
             // Bug D — light-DOM slot projection. Under `shadowMode: 'light'` the
             // host has no shadow root, so the browser's native <slot> projection
             // does not run. Carve any existing light-DOM children BEFORE _mount
             // appends the layout template (otherwise the layout's nodes land
             // after them) and reinsert at the <slot> position after mount.
-            // Shadow-DOM path is untouched (`host !== this`).
-            const isLightDom = _isRealElement(this) && this.shadowRoot === null
-            const lightDomChildren: ChildNode[] | null = isLightDom
-              ? Array.from(this.childNodes)
-              : null
+            // Shadow-DOM path is untouched (`host !== this`). A marked host is
+            // exempt: its children are the server template, not slot content.
+            const isLightDom = isReal && this.shadowRoot === null
+            const lightDomChildren: ChildNode[] | null =
+              isLightDom && !ssrTemplate ? Array.from(this.childNodes) : null
             if (lightDomChildren !== null) {
               for (const c of lightDomChildren) this.removeChild(c)
             }
@@ -489,7 +581,22 @@ export function defineComponent(setupOrOptions: Setup | ComponentOptions): typeo
             // lands in arbor's componentInstanceRegistry — the headless gate path.
             // Client builds never register one (undefined → mount() no-ops it).
             const ab = _takeAgentServerBinding(this)
-            const scope = ab ? _mount(tree!, host, { agentBinding: ab }) : _mount(tree!, host)
+            let scope: _ScopeRef
+            if (ssrTemplate && isLightDom && _hydrate !== null && !ab) {
+              // Adopt: wire effects onto the server's DOM instead of rebuilding.
+              // Everything after this branch is byte-identical to the mount
+              // path, so onMount, scope registration and teardown are shared.
+              scope = _adoptSsrTemplate(this, tree!)
+            } else {
+              // Marked but unadoptable (shadow mode — no declarative shadow
+              // DOM to adopt into; or no hydrate fn wired — 'spa' bootstrap
+              // served a prerendered page): the children are a server
+              // template, and the ONLY safe fallback is to discard them
+              // before mounting fresh. Carving them into slot projection
+              // would render the template twice.
+              if (ssrTemplate) this.replaceChildren()
+              scope = ab ? _mount(tree!, host, { agentBinding: ab }) : _mount(tree!, host)
+            }
             this[S] = scope
             _scopes.set(this, scope)
             if (lightDomChildren !== null) _projectLightDomSlot(this, lightDomChildren)
@@ -826,13 +933,16 @@ export function defineComponent(setupOrOptions: Setup | ComponentOptions): typeo
           // prototype (the DOM lib can't type `super.connectedCallback`); a no-op
           // when the base is HTMLElement, so existing components are unaffected.
           _baseProto.connectedCallback?.call(this)
-          // Bug D — light-DOM slot projection (see function-form for the full
-          // rationale). Mirrored here so options/props-form components behave
-          // identically under `shadowMode: 'light'`.
-          const isLightDom = _isRealElement(this) && this.shadowRoot === null
-          const lightDomChildren: ChildNode[] | null = isLightDom
-            ? Array.from(this.childNodes)
-            : null
+          // First-render DOM adoption + Bug D slot projection — mirrored from
+          // the function-form connectedCallback (see it for the full
+          // rationale): a `data-aihu-ssr`-marked host's children are its own
+          // server-rendered template (adopt or discard, never slot-project);
+          // an unmarked light-DOM host's children are the slot source (carve).
+          const isReal = _isRealElement(this)
+          const ssrTemplate = isReal && this.hasAttribute(ADOPT_ATTR)
+          const isLightDom = isReal && this.shadowRoot === null
+          const lightDomChildren: ChildNode[] | null =
+            isLightDom && !ssrTemplate ? Array.from(this.childNodes) : null
           if (lightDomChildren !== null) {
             for (const c of lightDomChildren) this.removeChild(c)
           }
@@ -843,7 +953,13 @@ export function defineComponent(setupOrOptions: Setup | ComponentOptions): typeo
           // (registered in setup, keyed by `this`) to mount() so the headless gate
           // sees a LiveBinding. Client builds never register one.
           const ab = _takeAgentServerBinding(this)
-          const scope = ab ? _mount?.(tree!, host, { agentBinding: ab }) : _mount?.(tree!, host)
+          let scope: _ScopeRef
+          if (ssrTemplate && isLightDom && _hydrate !== null && !ab) {
+            scope = _adoptSsrTemplate(this, tree!)
+          } else {
+            if (ssrTemplate) this.replaceChildren()
+            scope = ab ? _mount(tree!, host, { agentBinding: ab }) : _mount(tree!, host)
+          }
           this[S] = scope
           _scopes.set(this, scope)
           if (lightDomChildren !== null) _projectLightDomSlot(this, lightDomChildren)

@@ -48,6 +48,19 @@ html {
   scroll-padding-top: calc(var(--header-h) + 1rem);
 }
 
+/* Reserve the header island's box before its chunk mounts. <site-header>
+ * prerenders as an EMPTY custom element (its internals are client-built), so
+ * without a reserved height everything below it sat 60px too high at first
+ * paint and shifted down when the header mounted. The old full-rebuild
+ * hydration hid that from CLS (freshly inserted nodes score no shift);
+ * first-render DOM adoption keeps the prerendered nodes alive across the
+ * mount, so the metric finally sees the real jump — measured CLS 0.014 →
+ * 0.089 on /guides/getting-started until this reserve landed. */
+site-header {
+  display: block;
+  height: var(--header-h);
+}
+
 body {
   font-family: var(--font-sans);
   font-size: var(--fs-base);

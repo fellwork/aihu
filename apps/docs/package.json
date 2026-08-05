@@ -10,7 +10,7 @@
     "gen:gallery": "bun scripts/gen-gallery.ts",
     "gen:preview": "rolldown -c rolldown.preview.config.ts",
     "gen:wasm": "bun scripts/stage-wasm.ts",
-    "prebuild": "bun run gen:css && bun run gen:preview && bun run gen:wasm",
+    "prebuild": "bun run gen:api && bun run gen:css && bun run gen:preview && bun run gen:wasm",
     "predev": "bun run gen:css && bun run gen:preview && bun run gen:wasm",
     "dev": "vite --port 5175",
     "build": "vite build",
