@@ -55,6 +55,12 @@ export const EXPORTS: readonly ApiExport[] = [
     summary: '`when()` and `each()` — v1 reconciler per spec §2 (Plan 1.1).',
   },
   {
+    name: '_ROOT_PATH',
+    kind: 'const',
+    signature: 'const _ROOT_PATH',
+    summary: 'The root path key of the `data-aihu-path` addressing scheme.',
+  },
+  {
     name: 'leaf',
     kind: 'const',
     signature: 'const leaf: LeafFactory',
