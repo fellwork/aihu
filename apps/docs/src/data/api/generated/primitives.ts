@@ -35,7 +35,8 @@ export const EXPORTS: readonly ApiExport[] = [
   {
     name: 'createFocusTrap',
     kind: 'function',
-    signature: 'function createFocusTrap(container, options = {})',
+    signature:
+      'function createFocusTrap(container: Element, options: FocusTrapOptions = {}): FocusTrap',
     summary: '',
   },
   {
@@ -186,18 +187,6 @@ export const EXPORTS: readonly ApiExport[] = [
     name: 'dialogContext',
     kind: 'const',
     signature: 'const dialogContext',
-    summary: '',
-  },
-  {
-    name: 'FocusTrap',
-    kind: 'const',
-    signature: 'const FocusTrap',
-    summary: '',
-  },
-  {
-    name: 'FocusTrapOptions',
-    kind: 'const',
-    signature: 'const FocusTrapOptions',
     summary: '',
   },
   {
@@ -481,6 +470,19 @@ export const EXPORTS: readonly ApiExport[] = [
     signature:
       'interface DomContext<T> {\n  readonly _key: symbol\n  readonly _name: string\n  readonly _default: T | undefined\n}',
     summary: 'Opaque token identifying a context slot.',
+  },
+  {
+    name: 'FocusTrap',
+    kind: 'interface',
+    signature: 'interface FocusTrap {\n  activate(): void\n  deactivate(): void\n}',
+    summary: '',
+  },
+  {
+    name: 'FocusTrapOptions',
+    kind: 'interface',
+    signature:
+      "interface FocusTrapOptions {\n  /**\n   * CSS selector, resolved against the container's COMPOSED subtree (so it can\n   * match into a nested open shadow root), naming the element to focus on\n   * `activate()`. Falls back to the first tabbable — the default behavior —\n   * when absent or when the selector matches nothing.\n   */\n  initialFocus?: string | null\n  /**\n   * Restore focus to whatever was focused before `activate()` when the trap is\n   * deactivated. Defaults to `true`; pass `false` to opt out (the trap then\n   * leaves focus wherever it currently is).\n   */\n  returnFocus?: boolean\n}",
+    summary: '',
   },
   {
     name: 'FormControlContextValue',

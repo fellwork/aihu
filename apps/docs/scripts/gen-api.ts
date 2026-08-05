@@ -32,7 +32,7 @@
  */
 import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
-import { dirname, join, relative, resolve } from 'node:path'
+import { basename, dirname, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
 
@@ -371,6 +371,39 @@ function exportsOfFile(file: string, stack: Set<string>): Map<string, Entry> {
   return out
 }
 
+/**
+ * Every `src/**` file whose basename matches the export target's, nearest
+ * first. See the call site in `entryFiles` for why: a subpath's source does not
+ * always live at the path the export name implies.
+ *
+ * Returns paths RELATIVE to the package dir, matching the other candidates'
+ * shape. Ordered by directory depth so a top-level `src/x.ts` beats a nested
+ * `src/a/b/x.ts`, and `index.ts` files are skipped (a directory's rolled-up
+ * entry is already covered by the `srcFile/index.ts` candidate above).
+ */
+function srcByBasename(dir: string, target: string): string[] {
+  const want = basename(target)
+    .replace(/\.d\.ts$/, '')
+    .replace(/\.(ts|js)$/, '')
+  const srcRoot = join(dir, 'src')
+  if (!existsSync(srcRoot)) return []
+  const hits: string[] = []
+  const walk = (d: string, depth: number): void => {
+    if (depth > 4) return
+    for (const e of readdirSync(d, { withFileTypes: true })) {
+      const full = join(d, e.name)
+      if (e.isDirectory()) walk(full, depth + 1)
+      else if (e.isFile() && e.name === `${want}.ts`) hits.push(full)
+    }
+  }
+  try {
+    walk(srcRoot, 0)
+  } catch {
+    return []
+  }
+  return hits.sort((a, b) => a.split(sep).length - b.split(sep).length).map((h) => relative(dir, h))
+}
+
 /** Resolve a package's entry source files from its package.json `exports`/`types`. */
 function entryFiles(dir: string): string[] {
   const pj = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8'))
@@ -409,6 +442,17 @@ function entryFiles(dir: string): string[] {
         .replace('/dist/', '/js/')
         .replace(/\.d\.ts$/, '.ts')
         .replace(/\.js$/, '.ts'),
+      // Same basename anywhere under `src/`. A subpath's source does not
+      // always sit at the path the export name implies: `@aihu/primitives`
+      // exports `./focus-trap` from `src/dialog/focus-trap.ts`, because the
+      // trap started as a dialog internal and was promoted to its own subpath
+      // without moving the file. Neither candidate above finds it, so
+      // resolution fell through to `dist/focus-trap.js` — whose signatures are
+      // COMPILED, i.e. stripped of types: `createFocusTrap(container, options
+      // = {})` instead of `(container: Element, options: FocusTrapOptions =
+      // {}): FocusTrap`. Silent degradation, and it re-degrades on every
+      // regeneration, so the committed sheet and a fresh run disagree forever.
+      ...srcByBasename(dir, t),
       t, // built dist/*.d.ts fallback (e.g. `.aihu`-only packages once built)
     ]
     for (const c of cands) {
