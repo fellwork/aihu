@@ -343,11 +343,6 @@ export const COMPOSABLE_REGISTRY: readonly ComposableRegistryEntry[] = [
     description: 'wrap a feature-detection predicate into a reactive boolean getter',
   },
   {
-    name: 'useSwarm',
-    specifier: '@aihu/use/useSwarm',
-    description: "reactive view of the swarm command-center's local bus HTTP API",
-  },
-  {
     name: 'useTextDirection',
     specifier: '@aihu/use/useTextDirection',
     description:

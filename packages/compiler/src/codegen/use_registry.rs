@@ -92,7 +92,6 @@ pub(crate) const USE_COMPOSABLES: &[(&str, &str)] = &[
     ("useActiveElement", "@aihu/use/useActiveElement"),
     ("useHover", "@aihu/use/useHover"),
     ("useMouseInElement", "@aihu/use/useMouseInElement"),
-    ("useSwarm", "@aihu/use/useSwarm"),
     ("useKeyedAsync", "@aihu/use/useKeyedAsync"),
     ("useTypewriter", "@aihu/use/motion/useTypewriter"),
     ("useCountTo", "@aihu/use/motion/useCountTo"),

@@ -223,10 +223,6 @@
       "types": "./dist/useSupported.d.ts",
       "import": "./dist/useSupported.js"
     },
-    "./useSwarm": {
-      "types": "./dist/useSwarm.d.ts",
-      "import": "./dist/useSwarm.js"
-    },
     "./useTextDirection": {
       "types": "./dist/useTextDirection.d.ts",
       "import": "./dist/useTextDirection.js"

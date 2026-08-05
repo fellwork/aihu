@@ -470,10 +470,10 @@ export const PACKAGES: readonly ApiPackageMeta[] = [
     tagline:
       'aihu utility/sensor/state composables — SSR-safe, scope-aware, per-composable subpath entries.',
     note: '',
-    exportCount: 235,
-    valueCount: 84,
-    typeCount: 151,
-    agent: true,
+    exportCount: 222,
+    valueCount: 83,
+    typeCount: 139,
+    agent: false,
   },
   {
     name: 'create-aihu',

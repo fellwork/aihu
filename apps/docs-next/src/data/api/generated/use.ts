@@ -459,14 +459,6 @@ export const EXPORTS: readonly ApiExport[] = [
     summary: 'Feature-detect once on the client via `predicate` (e.g.',
   },
   {
-    name: 'useSwarm',
-    kind: 'function',
-    signature: 'function useSwarm(options: UseSwarmOptions = {}): UseSwarmReturn',
-    summary:
-      "Open a live connection to the swarm command-center bus's `/stream` endpoint and expose its state reactively.",
-    agent: true,
-  },
-  {
     name: 'useTextDirection',
     kind: 'function',
     signature:
@@ -591,35 +583,6 @@ export const EXPORTS: readonly ApiExport[] = [
       'Alias — VueUse names this composable `onClickOutside`; both names are exported so callers can use either the house `useX` convention or the upstream-familiar spelling.',
   },
   {
-    name: 'AgentEntry',
-    kind: 'interface',
-    signature:
-      'interface AgentEntry {\n  role: string\n  flags: string[]\n  [k: string]: unknown\n}',
-    summary:
-      'OPEN: only `role` and `flags` are required (the UI reads `a.flags.length` unconditionally); every other field is dashboard-defined and may vary.',
-    agent: true,
-  },
-  {
-    name: 'ContractEntry',
-    kind: 'interface',
-    signature:
-      'interface ContractEntry {\n  id: string\n  issue: string | null\n  owner: string | null\n  status: string\n  recon: string\n}',
-    summary: '',
-  },
-  {
-    name: 'DecideEntry',
-    kind: 'interface',
-    signature:
-      'interface DecideEntry {\n  from: string\n  contract: string | null\n  ago: string\n  question: string\n}',
-    summary: '',
-  },
-  {
-    name: 'ErrorEntry',
-    kind: 'interface',
-    signature: 'interface ErrorEntry {\n  from: string\n  ago: string\n  msg: string\n}',
-    summary: '',
-  },
-  {
     name: 'FieldCell',
     kind: 'interface',
     signature:
@@ -627,45 +590,11 @@ export const EXPORTS: readonly ApiExport[] = [
     summary: "One grid cell's mutable state.",
   },
   {
-    name: 'OrphanEntry',
-    kind: 'interface',
-    signature: 'interface OrphanEntry {\n  contract: string\n}',
-    summary: '',
-  },
-  {
     name: 'Particle',
     kind: 'interface',
     signature:
       'interface Particle {\n  x: number\n  y: number\n  /** Horizontal velocity, px/sec. */\n  vx: number\n  /** Vertical velocity, px/sec. */\n  vy: number\n  /** Draw radius in CSS pixels. */\n  radius: number\n  /** Base alpha before any twinkle modulation. */\n  opacity: number\n  /** Fill style, drawn from `colors`. */\n  color: string\n  /** Twinkle phase offset in radians, so the field does not pulse in unison. */\n  phase: number\n}',
     summary: "One particle's mutable state, in CSS pixels / pixels-per-second.",
-  },
-  {
-    name: 'ReviewEntry',
-    kind: 'interface',
-    signature:
-      'interface ReviewEntry {\n  contract: string\n  owner: string | null\n  status: string\n  /** dashboard.py surface: the string `"PR #641"` or null — not a number. */\n  pr: string | null\n}',
-    summary: '',
-  },
-  {
-    name: 'SwarmParseError',
-    kind: 'interface',
-    signature:
-      'interface SwarmParseError {\n  /** One human line for the console banner. */\n  message: string\n  /** Every field path that failed, e.g. `decide[0].question` — this is what\n   * makes the drift diagnosable rather than a blank panel. */\n  fields: string[]\n}',
-    summary: 'The loud, field-naming result of a failed `/state` validation.',
-  },
-  {
-    name: 'SwarmState',
-    kind: 'interface',
-    signature:
-      'interface SwarmState {\n  /** Formatted clock string from the server (`"20:31:10"`), not an epoch. */\n  t: string\n  supervisor_up: boolean\n  decide: DecideEntry[]\n  orphan: OrphanEntry[]\n  reviews: ReviewEntry[]\n  errors: ErrorEntry[]\n  backlog?: SwarmBacklog\n  agents: AgentEntry[]\n  contracts: ContractEntry[]\n  activity: ActivityEntry[]\n}',
-    summary: '',
-  },
-  {
-    name: 'SwarmYourMove',
-    kind: 'interface',
-    signature:
-      'interface SwarmYourMove {\n  decide: DecideEntry[]\n  orphan: OrphanEntry[]\n  reviews: ReviewEntry[]\n  errors: ErrorEntry[]\n}',
-    summary: '',
   },
   {
     name: 'UseActiveElementReturn',
@@ -1291,20 +1220,6 @@ export const EXPORTS: readonly ApiExport[] = [
     summary: '',
   },
   {
-    name: 'UseSwarmOptions',
-    kind: 'interface',
-    signature:
-      'interface UseSwarmOptions {\n  /** Base URL of the bus (no trailing slash). Default\n   * `http://127.0.0.1:8791`; `/stream` is appended to open the SSE\n   * connection. */\n  url?: string\n  /** The `window` used to gate client-ness. Default the global `window`.\n   * Passing `undefined` explicitly forces the SSR-style no-op path, same as\n   * `useLocalStorage`. */\n  window?: Window\n}',
-    summary: '',
-  },
-  {
-    name: 'UseSwarmReturn',
-    kind: 'interface',
-    signature:
-      'interface UseSwarmReturn {\n  /** Reactive getter — read as `{state()}` in templates (parens required).\n   * The latest full {@link SwarmState} frame; a static empty default under\n   * SSR / before the first frame arrives. */\n  readonly state: () => SwarmState\n  /** Reactive getter — `state().agents`. */\n  readonly agents: () => AgentEntry[]\n  /** Reactive getter — `state().contracts`. */\n  readonly contracts: () => ContractEntry[]\n  /** Reactive getter — the `decide`/`orphan`/`reviews`/`errors` slice of\n   * `state()`, grouped for a "what needs a move" view. */\n  readonly yourMove: () => SwarmYourMove\n  /** Reactive getter — whether the `/stream` connection is currently open.\n   * Always `false` under SSR. */\n  readonly connected: () => boolean\n  /** Reactive getter — the LOUD drift signal. `null` when the latest `/state`\n   * frame validated; a {@link SwarmParseError} naming the failed field(s) when\n   * it did not. The UI MUST render this: `/state` is produced by out-of-tree\n   * `dashboard.py`, so a renamed Python field is caught only here, and a\n   * silent empty panel (rendering as though there is nothing to decide) is\n   * indistinguishable from real drift. A validation failure NEVER blanks data —\n   * `state()` keeps the last good frame and `error()` explains the drift. */\n  readonly error: () => SwarmParseError | null\n  /** Tear down the underlying `EventSource`. Idempotent; a no-op under\n   * SSR. */\n  close: () => void\n}',
-    summary: '',
-  },
-  {
     name: 'UseTextDirectionOptions',
     kind: 'interface',
     signature:
@@ -1506,13 +1421,6 @@ export const EXPORTS: readonly ApiExport[] = [
     kind: 'type',
     signature: "type ReducedTransparencyPreference = 'reduce' | 'no-preference'",
     summary: "The `prefers-reduced-transparency` media-feature's value vocabulary.",
-  },
-  {
-    name: 'SwarmRecord',
-    kind: 'type',
-    signature: 'type SwarmRecord = Record<string, unknown>',
-    summary: '',
-    deprecated: true,
   },
   {
     name: 'TextDirection',
