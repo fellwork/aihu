@@ -43,7 +43,7 @@ export const EXPORTS: readonly ApiExport[] = [
   {
     name: '_setHydrate',
     kind: 'function',
-    signature: 'function _setHydrate(fn: HydrateFn): void',
+    signature: 'function _setHydrate(fn: HydrateFn | null): void',
     summary: '',
   },
   {
@@ -209,7 +209,7 @@ export const EXPORTS: readonly ApiExport[] = [
     name: 'DefineOptions',
     kind: 'interface',
     signature:
-      "interface DefineOptions {\n  shadowMode?: ShadowMode\n  /** When true, connectedCallback checks window.__aihu_state__[name] and calls the injected hydrate fn. Plan 3.2. */\n  hydrate?: boolean\n  /**\n   * D5 `$form` — register as a form-associated custom element. The flag has to\n   * reach the constructor BEFORE `customElements.define` runs: the definition\n   * algorithm reads `formAssociated` off the constructor once, at define time,\n   * so assigning the static afterwards is silently ignored.\n   */\n  formAssociated?: boolean\n  /**\n   * Light-DOM leaf flip (LDF §10 step 3) — the compiler-computed 8-hex-char\n   * scope id this component's authored CSS is `@scope`d to\n   * (`aihu-css-core`'s `light_scope.rs`). `define-element.ts`'s `wrapClass`\n   * stamps it as `data-a=\"<id>\"` on the element itself at construction time,\n   * ONLY when `shadowMode` is `'light'` — a shadow-mode component has no use\n   * for it (shadow DOM already provides real scoping).\n   */\n  lightScopeId?: string\n}",
+      "interface DefineOptions {\n  shadowMode?: ShadowMode\n  /**\n   * D5 `$form` — register as a form-associated custom element. The flag has to\n   * reach the constructor BEFORE `customElements.define` runs: the definition\n   * algorithm reads `formAssociated` off the constructor once, at define time,\n   * so assigning the static afterwards is silently ignored.\n   */\n  formAssociated?: boolean\n  /**\n   * Light-DOM leaf flip (LDF §10 step 3) — the compiler-computed 8-hex-char\n   * scope id this component's authored CSS is `@scope`d to\n   * (`aihu-css-core`'s `light_scope.rs`). `define-element.ts`'s `wrapClass`\n   * stamps it as `data-a=\"<id>\"` on the element itself at construction time,\n   * ONLY when `shadowMode` is `'light'` — a shadow-mode component has no use\n   * for it (shadow DOM already provides real scoping).\n   */\n  lightScopeId?: string\n}",
     summary: '',
   },
   {
