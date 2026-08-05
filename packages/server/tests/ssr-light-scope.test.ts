@@ -52,3 +52,55 @@ describe('SsrOptions.lightScopeId — root data-a stamp', () => {
     expect(html).toContain('<p data-aihu-path="0.0">x</p>')
   })
 })
+
+// ─── wrapTag — rendering the component's own host element ────────────────────
+//
+// SSR renders a component's TEMPLATE, not the component: output is the
+// template root while the client builds `document.createElement(tag)` and
+// mounts the template inside it. The shapes never matched, so the client
+// replaced the prerendered subtree instead of adopting it (measured on
+// apps/docs: 0 of 391 nodes survived). `wrapTag` emits the host.
+
+describe('renderToString — wrapTag', () => {
+  const tree = () => ({
+    kind: 'branch',
+    tag: 'div',
+    attrs: { class: 'shell' },
+    children: [{ kind: 'leaf', leafKind: 'text', value: 'hi' }],
+  })
+
+  it('wraps the render in the component tag', async () => {
+    const html = await renderToString(tree)
+    expect(html).toBe('<div class="shell">hi</div>')
+
+    const wrapped = await renderToString(tree, { wrapTag: 'aihu-layout-docs' })
+    expect(wrapped).toBe('<aihu-layout-docs><div class="shell">hi</div></aihu-layout-docs>')
+  })
+
+  // The wrapper is the HOST, and the host is where the client stamps `data-a`
+  // (define-element.ts, in the constructor). Stamping BOTH would make the
+  // template root a nested scope root and cut the component's own rules off at
+  // its first child, since `@scope … to ([data-a])` stops at the next stamp.
+  it('moves the scope stamp onto the wrapper, leaving the template root bare', async () => {
+    const html = await renderToString(tree, { wrapTag: 'aihu-layout-docs', lightScopeId: 'abc123' })
+    expect(html).toBe(
+      '<aihu-layout-docs data-a="abc123"><div class="shell">hi</div></aihu-layout-docs>',
+    )
+    // Exactly one stamp, on the host.
+    expect(html.match(/data-a=/g)).toHaveLength(1)
+  })
+
+  // The host is not a node in the component's arbor tree, so it takes no path
+  // and every hydration path below it is unchanged.
+  it('gives the wrapper no data-aihu-path and leaves inner paths untouched', async () => {
+    const bare = await renderToString(tree, { hydratable: true })
+    const wrapped = await renderToString(tree, { hydratable: true, wrapTag: 'x-page' })
+    expect(bare).toContain('data-aihu-path="0"')
+    expect(wrapped).toBe(`<x-page>${bare}</x-page>`)
+  })
+
+  it('wraps the { toHtml } escape hatch too', async () => {
+    const html = await renderToString({ toHtml: () => '<p>x</p>' }, { wrapTag: 'x-page' })
+    expect(html).toBe('<x-page><p>x</p></x-page>')
+  })
+})
