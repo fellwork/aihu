@@ -69,6 +69,19 @@ interface PrerenderRouteModule {
    * pre-existing behavior.
    */
   __aihu_light_scope__?: string
+  /**
+   * The component's registered custom-element tag, exported by the same
+   * server-target transform. Passed as `SsrOptions.wrapTag` so the prerendered
+   * output is wrapped in the REAL host element the client builds, instead of
+   * the bare template root.
+   *
+   * Without it the shapes cannot match: SSR emits `<div class="dn-docs">`
+   * while the client builds `<aihu-layout-docs>`, so the client replaces the
+   * whole subtree rather than adopting it (measured: 0 of 391 prerendered
+   * nodes survived hydration). Absent on hand-authored modules — nothing is
+   * wrapped, which is the pre-existing behavior.
+   */
+  __aihu_tag__?: string
 }
 
 /** A loader that resolves a route file path to its evaluated module. */
@@ -384,6 +397,11 @@ export async function runPrerender(opts: RunPrerenderOptions): Promise<Prerender
             ...(layoutMod.__aihu_light_scope__ !== undefined
               ? { lightScopeId: layoutMod.__aihu_light_scope__ }
               : {}),
+            // …and wrap it in the layout's own element, so the prerendered
+            // shape is the one the client builds. `data-a` rides the wrapper
+            // rather than the template root — that is where the client stamps
+            // it (define-element.ts, in the host constructor).
+            ...(layoutMod.__aihu_tag__ !== undefined ? { wrapTag: layoutMod.__aihu_tag__ } : {}),
           })
         } else {
           pushWarn(
@@ -524,6 +542,9 @@ export async function runPrerender(opts: RunPrerenderOptions): Promise<Prerender
           ...(mod.__aihu_light_scope__ !== undefined
             ? { lightScopeId: mod.__aihu_light_scope__ }
             : {}),
+          // …and the page's own element, matching what the client builds
+          // (`document.createElement(tag)` in client.ts's route render).
+          ...(mod.__aihu_tag__ !== undefined ? { wrapTag: mod.__aihu_tag__ } : {}),
         })
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err)

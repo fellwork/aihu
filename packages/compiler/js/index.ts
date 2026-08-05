@@ -1647,6 +1647,26 @@ export function aihuCompilerPlugin(options?: AihuCompilerPluginOptions): VitePlu
           if (lightScopeId) {
             out += `\nexport const __aihu_light_scope__ = '${lightScopeId}'\n`
           }
+          // The component's registered custom-element tag, exported for the
+          // same reason and on the same channel as the scope id above.
+          //
+          // SSR renders a component's TEMPLATE, not the component: the output
+          // is the template root (`<div class="dn-docs">`), while the client
+          // builds `document.createElement('aihu-layout-docs')` and puts the
+          // template inside it. The two shapes therefore never match, so the
+          // client cannot adopt the prerendered subtree and replaces it
+          // wholesale — measured on apps/docs: 0 of 391 prerendered nodes
+          // survive hydration.
+          //
+          // Exporting the tag lets an SSG/SSR caller wrap the render in the
+          // real host element (`SsrOptions.wrapTag`). It also puts `data-a`
+          // where the client puts it: `define-element.ts` stamps the HOST in
+          // its constructor, and its comment already asserts "a server-rendered
+          // element already carries `data-a`" — which only becomes true once
+          // the host exists in server output.
+          if (elementTag !== null) {
+            out += `\nexport const __aihu_tag__ = '${elementTag}'\n`
+          }
         } else if (
           islandsEnabled &&
           elementTag !== null &&

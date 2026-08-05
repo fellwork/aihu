@@ -188,6 +188,33 @@ export interface SsrOptions {
    * byte-identical output to the pre-option renderer.
    */
   readonly lightScopeId?: string
+
+  /**
+   * Wrap the render in the component's own custom-element tag.
+   *
+   * WHY. SSR renders a component's TEMPLATE, not the component. Output is the
+   * template root — `<div class="dn-docs">` — while the client does
+   * `document.createElement('aihu-layout-docs')` and mounts the template
+   * INSIDE it. The two shapes never match, so the client cannot adopt the
+   * prerendered subtree and replaces it wholesale. Measured on apps/docs by
+   * tagging every prerendered node before hydration: 0 of 391 survived.
+   *
+   * Read the tag from the compiled module's `__aihu_tag__` export; never
+   * hand-derive it from a filename (`layoutTagFor`/`componentTagFor` are the
+   * client's own derivation and can drift from what `defineElement` actually
+   * registered).
+   *
+   * The wrapper carries `data-a` and the template root does NOT, because that
+   * is where the CLIENT puts it: `define-element.ts` stamps the HOST in its
+   * constructor. Its comment already asserts "a server-rendered element
+   * already carries `data-a`" — true only once the host exists in server
+   * output. The wrapper takes no `data-aihu-path`: the host is not a node in
+   * the component's arbor tree, so the template root keeps ROOT_PATH and every
+   * hydration path below it is unchanged.
+   *
+   * Undefined (the default) emits exactly what the pre-option renderer did.
+   */
+  readonly wrapTag?: string
 }
 
 /**
@@ -1110,8 +1137,22 @@ export async function renderToString(
     opts.contextSetup(_setContextMap!, _clearContextMap!)
   }
 
+  // `wrapTag` moves the scope stamp from the template root onto the host
+  // element, so the inner render must NOT also stamp it — two `data-a`
+  // attributes would make the template root a nested scope root and cut the
+  // component's own rules off at its first child (`@scope … to ([data-a])`
+  // stops descending at the next stamped element).
+  const wrapTag = opts?.wrapTag
+  let innerOpts: SsrOptions | undefined = opts
+  if (wrapTag && opts) {
+    // OMIT the key rather than set it to `undefined` — `exactOptionalPropertyTypes`
+    // treats those as different, and so does the `!== undefined` check downstream.
+    const { lightScopeId: _dropped, ...rest } = opts
+    innerOpts = rest
+  }
+
   try {
-    const stream = renderToStream(component, opts)
+    const stream = renderToStream(component, innerOpts)
     const reader = stream.getReader()
     const chunks: string[] = []
     try {
@@ -1123,7 +1164,11 @@ export async function renderToString(
     } finally {
       reader.releaseLock()
     }
-    return chunks.join('')
+    const html = chunks.join('')
+    if (!wrapTag) return html
+    const scopeAttr =
+      opts?.lightScopeId !== undefined ? ` data-a="${escapeAttr(opts.lightScopeId)}"` : ''
+    return `<${wrapTag}${scopeAttr}>${html}</${wrapTag}>`
   } finally {
     if (hasContext) {
       _clearContextMap?.()
