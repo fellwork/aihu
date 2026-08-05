@@ -1,7 +1,12 @@
 import componentRegistry from 'virtual:aihu-components'
 import layouts from 'virtual:aihu-layouts'
 import routes from 'virtual:aihu-routes'
-import { hydrate, mount } from '@aihu/arbor'
+import { mount } from '@aihu/arbor'
+import { hydrate } from '@aihu/arbor/hydrate'
+
+/** Replaced with `false` by rolldown in the published build (see rolldown.config.ts). */
+declare const __DEV__: boolean
+
 import type { MatchResult, RouteContextValue, RouteDefinition, RouteHead } from '@aihu/router'
 import { bindRouteSignalWriter, createRouter, provideRouteContext } from '@aihu/router'
 import { _setHydrate, _setMount, _setSignal, _withOwnerContext } from '@aihu/runtime'
@@ -165,6 +170,15 @@ function registerComponents(tags: readonly string[] | undefined): Promise<unknow
  * const app = createApp()
  * app.setLayout('compact') // switch layout on the current route
  */
+/**
+ * Flat per-attribute route params (A4 protocol — replaces the JSON route
+ * attribute). Written out three times: on the adopted page element, on an
+ * adopted layout-less page, and on a freshly created one.
+ */
+function stampParams(el: Element, params: Record<string, string> | undefined): void {
+  for (const key in params) el.setAttribute(key, String(params[key]))
+}
+
 export function createApp(config?: AppConfig): AppHandle {
   // Hoist provided values into globalThis before any component runs so that
   // @state blocks can reference them as bare identifiers.
@@ -379,23 +393,15 @@ export function createApp(config?: AppConfig): AppHandle {
     let adopting = false
     if (mayAdopt && tag?.includes('-')) {
       const first = outlet.firstElementChild
-      if (entry && first && first.tagName.toLowerCase() === entry.tag) {
+      if (entry && first && first.localName === entry.tag) {
         const marker = first.querySelector('[data-aihu-outlet]')
         const pageEl = marker?.firstElementChild
-        if (pageEl && pageEl.tagName.toLowerCase() === tag) {
-          if (match.params) {
-            for (const [key, val] of Object.entries(match.params)) {
-              pageEl.setAttribute(key, String(val))
-            }
-          }
+        if (pageEl && pageEl.localName === tag) {
+          stampParams(pageEl, match.params)
           adopting = true
         }
-      } else if (!entry && first && first.tagName.toLowerCase() === tag) {
-        if (match.params) {
-          for (const [key, val] of Object.entries(match.params)) {
-            first.setAttribute(key, String(val))
-          }
-        }
+      } else if (!entry && first && first.localName === tag) {
+        stampParams(first, match.params)
         adopting = true
       }
     }
@@ -424,11 +430,7 @@ export function createApp(config?: AppConfig): AppHandle {
     const el = document.createElement(tag)
 
     // Flat per-attribute route params (A4 protocol — replaces JSON route attribute)
-    if (match.params) {
-      for (const [key, val] of Object.entries(match.params)) {
-        el.setAttribute(key, String(val))
-      }
-    }
+    stampParams(el, match.params)
 
     // Layout wrapping: if the matched route declares a `layout` and that layout
     // exists in the generated map, render the layout into the root outlet and
@@ -445,8 +447,12 @@ export function createApp(config?: AppConfig): AppHandle {
         marker.replaceChildren(el)
       } else {
         // Misconfigured layout (no <outlet>) — keep it visible + surface it
-        // rather than silently dropping the page.
-        console.warn(`[@aihu/app] layout "${layoutName}" has no <outlet>`)
+        // rather than silently dropping the page. The warning is an AUTHOR
+        // diagnostic (it names the layout to fix), so it is `__DEV__`-gated the
+        // way arbor gates its telemetry: rolldown defines `__DEV__ = false` for
+        // the published build and DCEs the branch. The recovery — appending the
+        // page anyway — is NOT gated; production still renders.
+        if (__DEV__) console.warn(`[@aihu/app] layout "${layoutName}" has no <outlet>`)
         root.appendChild(el)
       }
       return
