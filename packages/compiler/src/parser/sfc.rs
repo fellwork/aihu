@@ -568,6 +568,38 @@ fn collect_each_aliases(template: &str) -> std::collections::BTreeSet<String> {
         }
     };
 
+    // Grammar-v2 form: `each={item of list}` / `each={item, i of list}` —
+    // item-first, `of`-separated (C606). THIS IS THE ONLY FORM THE COMPILER
+    // STILL ACCEPTS; the two below are retired v1 spellings kept so migrating
+    // sources do not warn spuriously.
+    //
+    // Its absence made the checker warn on every correct `each` loop in every
+    // app — `each={c of constructs}` binds `c` in TEMPLATE scope, where it
+    // cannot possibly be declared in `@state`. 618 such warnings in apps/docs
+    // alone, all false. That matters beyond noise: this warning is documented
+    // to become a hard ERROR in v0.4, and as written it would reject every
+    // valid `each` in the ecosystem.
+    let mut search = template;
+    while let Some(pos) = search.find("each={") {
+        // Require a preceding ASCII whitespace so `$each={`, `foreach={`, and
+        // any other suffix match is not mistaken for the naked attribute.
+        let is_attr_start = search[..pos]
+            .chars()
+            .next_back()
+            .is_none_or(|c| c.is_ascii_whitespace());
+        let after = &search[pos + "each=".len()..];
+        if is_attr_start {
+            if let Some(j) = crate::parser::expr_scan::find_matching_close_brace(after, 1) {
+                // `<binders> of <list>` — take everything before the LAST ` of `
+                // so a list expression containing ` of ` cannot truncate it.
+                if let Some((binders, _)) = after[1..j].rsplit_once(" of ") {
+                    register(binders);
+                }
+            }
+        }
+        search = &search[pos + "each=".len()..];
+    }
+
     // Attribute form: `$each=` followed by a quoted string or curly expression.
     let mut search = template;
     while let Some(pos) = search.find("$each=") {

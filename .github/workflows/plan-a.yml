@@ -38,6 +38,30 @@ permissions:
   contents: read
 jobs:
   check:
+    # Test the compiler THIS PR builds, not the one npm published.
+    #
+    # `@aihu/compiler` resolves its backend in this order: `AIHU_COMPILER_NATIVE=0`
+    # (spawn the CLI) -> `AIHU_COMPILER_NATIVE_ADDON` (explicit path) -> otherwise
+    # `require('@aihu/compiler-native-<platform>')` from node_modules, i.e. the
+    # PUBLISHED npm package. This job runs `cargo build --release` and stages the
+    # CLI binary, but that build produces no napi addon — so without this env the
+    # published addon wins and every gate below validates a compiler the PR never
+    # touched. A Rust change could go green having never executed.
+    #
+    # It has been safe only by accident: the platform pins currently lead their
+    # published versions, so bun drops the unresolvable optionalDependency and
+    # the CLI is used by default. That protection disappears the moment those
+    # versions publish.
+    #
+    # `check:skill-samples` already documents this hazard for itself ("must never
+    # be pointed at the published napi addon, which is a stale v1 compiler"). The
+    # reasoning was always job-wide.
+    #
+    # The napi path is NOT left untested: `packages/server/tests/native-parity.
+    # test.ts` and the string-differential suite cover it where a real addon is
+    # present.
+    env:
+      AIHU_COMPILER_NATIVE: '0'
     # Skip CI on draft PRs to keep the inner Builder loop cheap.
     # Skip the heavy build on doc-only PRs (changes.code == 'false') — the
     # always-on `ci-ok` job still reports green for branch protection.
@@ -88,6 +112,10 @@ jobs:
           # Do NOT clobber the freshly-built aihu-compile with the stale
           # release download — it predates the --ast-json hook.
           AIHU_SKIP_POSTINSTALL: "1"
+      # One Rust pin, enforced: rust-toolchain.toml is the source of truth and
+      # every other copy (.prototools, the dtolnay steps, RUSTUP_TOOLCHAIN)
+      # must match it EXACTLY. Cheap, and it runs before anything expensive.
+      - run: bun run check:rust-pin
       - run: bun run check:deps
       # Guard (FEL-411): the Moon project graph must describe the REAL
       # build-order dependencies, DERIVED from what each package imports. A
@@ -920,6 +948,30 @@ jobs:
         run: bun run bench:gate
 
   examples:
+    # Test the compiler THIS PR builds, not the one npm published.
+    #
+    # `@aihu/compiler` resolves its backend in this order: `AIHU_COMPILER_NATIVE=0`
+    # (spawn the CLI) -> `AIHU_COMPILER_NATIVE_ADDON` (explicit path) -> otherwise
+    # `require('@aihu/compiler-native-<platform>')` from node_modules, i.e. the
+    # PUBLISHED npm package. This job runs `cargo build --release` and stages the
+    # CLI binary, but that build produces no napi addon — so without this env the
+    # published addon wins and every gate below validates a compiler the PR never
+    # touched. A Rust change could go green having never executed.
+    #
+    # It has been safe only by accident: the platform pins currently lead their
+    # published versions, so bun drops the unresolvable optionalDependency and
+    # the CLI is used by default. That protection disappears the moment those
+    # versions publish.
+    #
+    # `check:skill-samples` already documents this hazard for itself ("must never
+    # be pointed at the published napi addon, which is a stale v1 compiler"). The
+    # reasoning was always job-wide.
+    #
+    # The napi path is NOT left untested: `packages/server/tests/native-parity.
+    # test.ts` and the string-differential suite cover it where a real addon is
+    # present.
+    env:
+      AIHU_COMPILER_NATIVE: '0'
     # Build and smoke-test all polished examples (arch-2 M1 gate).
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
@@ -986,6 +1038,30 @@ jobs:
           done
 
   governed-examples:
+    # Test the compiler THIS PR builds, not the one npm published.
+    #
+    # `@aihu/compiler` resolves its backend in this order: `AIHU_COMPILER_NATIVE=0`
+    # (spawn the CLI) -> `AIHU_COMPILER_NATIVE_ADDON` (explicit path) -> otherwise
+    # `require('@aihu/compiler-native-<platform>')` from node_modules, i.e. the
+    # PUBLISHED npm package. This job runs `cargo build --release` and stages the
+    # CLI binary, but that build produces no napi addon — so without this env the
+    # published addon wins and every gate below validates a compiler the PR never
+    # touched. A Rust change could go green having never executed.
+    #
+    # It has been safe only by accident: the platform pins currently lead their
+    # published versions, so bun drops the unresolvable optionalDependency and
+    # the CLI is used by default. That protection disappears the moment those
+    # versions publish.
+    #
+    # `check:skill-samples` already documents this hazard for itself ("must never
+    # be pointed at the published napi addon, which is a stale v1 compiler"). The
+    # reasoning was always job-wide.
+    #
+    # The napi path is NOT left untested: `packages/server/tests/native-parity.
+    # test.ts` and the string-differential suite cover it where a real addon is
+    # present.
+    env:
+      AIHU_COMPILER_NATIVE: '0'
     # Phase 2a — the governed example set under live conditions.
     #
     # Path-gated (needs.changes.outputs.governed): only pays out when a subsystem
