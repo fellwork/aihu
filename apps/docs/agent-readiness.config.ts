@@ -6,16 +6,28 @@ import type { AgentReadinessConfig } from '@aihu-plugin/agent-readiness'
 /**
  * The agent-discovery surface for the docs app.
  *
- * `apps/docs` serves these nine documents from its `_worker.js` at request
- * time. the docs app is `output: 'static'` with no server runtime, so the same
+ * `apps/docs` serves these documents from its `_worker.js` at request time.
+ * the docs app is `output: 'static'` with no server runtime, so the same
  * documents have to be emitted as real files at build time — otherwise Pages'
  * SPA fallback answers `/llms.txt` with `index.html` at HTTP 200, which is
  * worse than a 404 because agents cannot tell it apart from real content.
  *
- * `viteAgentReadinessIntegration` (wired in `vite.config.ts`) emits eight of
- * them from this config via its `generateBundle` hook. The two it does not
- * model — the `/.well-known/agents.json` directory and the extensionless
- * `/.well-known/webmcp` alias — are checked in under `public/`.
+ * `viteAgentReadinessIntegration` (wired in `vite.config.ts`) emits most of
+ * them from this config via its `generateBundle` hook. The one it does not
+ * model — the `/.well-known/agents.json` directory — is checked in under
+ * `public/`.
+ *
+ * There is deliberately NO `/.well-known/webmcp`. Two checked-in files used to
+ * serve one there, declaring `"spec": "webmcp/0.1"` and a `tools[]` array of
+ * url/method/parameters. That was not WebMCP in any sense: the real API is
+ * `document.modelContext.registerTool({ name, description, inputSchema,
+ * execute })`, called from JavaScript at runtime, and the spec defines no
+ * discovery endpoint at all — the W3C repo contains zero occurrences of
+ * `well-known`. Tools exist only once JS has run and registered them, which is
+ * why `docs/domain-hints/seo-and-agent-discoverability.md` §7.6 calls emitting
+ * them statically a category error. Publishing an invented manifest under a
+ * real spec's name is worse than publishing nothing, so it is gone. If aihu
+ * ever exposes WebMCP tools it belongs in the runtime, not here.
  *
  * Every URL here is absolute against the production origin. the docs app already
  * declares `site.url` as https://aihu.dev (see `vite.config.ts`) and emits its

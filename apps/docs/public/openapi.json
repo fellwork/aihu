@@ -61,26 +61,6 @@
         }
       }
     },
-    "/.well-known/webmcp.json": {
-      "get": {
-        "operationId": "getWebmcpJson",
-        "summary": "WebMCP tool manifest",
-        "description": "Returns the WebMCP (webmcp/0.1) tool manifest for in-browser agent tool-calling against this site.",
-        "tags": ["AI Discovery"],
-        "responses": {
-          "200": {
-            "description": "webmcp.json content",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/.well-known/ai-plugin.json": {
       "get": {
         "operationId": "getAiPluginJson",
