@@ -656,6 +656,59 @@ impl Emitter {
             tag.to_string()
         };
 
+        // Child component resolution — step 3a of
+        // `docs/plans/2026-08-05-ssr-child-components.md`.
+        //
+        // A reference to another component compiles to an EMPTY element: the
+        // child's template lives in its own module, which this compilation
+        // never sees, so there is nothing to inline. That is why every
+        // prerendered page ships an empty `<site-header>`.
+        //
+        // The fix is a call, not an inline: `__aihu_schild` (in
+        // `@aihu/runtime/ssr`) looks the tag up in the registry the CALLER
+        // pre-resolved onto `__opts` and renders the child through the child's
+        // OWN compiled renderer. @aihu/server's tree walker calls the same
+        // function, so a resolved child is serialized in exactly one place
+        // rather than once per renderer — the two paths could already only
+        // drift in bytes (the differential suite pins that); this keeps them
+        // from drifting in capability, which nothing pins.
+        //
+        // With no registry the helper emits this same empty element, so every
+        // site that has not wired one up is byte-identical to before.
+        //
+        // Emitted through `expr` (not `expr_h`) because the helper reads
+        // `__opts.hydratable` itself — one call serves both variants.
+        //
+        // v1 BOUNDARIES, each of which simply keeps today's emission:
+        //   - `attrs.is_empty()` — attributes at a reference site are the
+        //     child's props, and rendering a child with default props while the
+        //     client renders it with real ones is a hydration mismatch. Prop
+        //     forwarding is its own slice.
+        //   - `children.is_empty()` — children are slot content, and slot
+        //     projection is explicitly unimplemented.
+        //   - static path only — a reference inside `{#each}` has a runtime
+        //     path; building its host attrs is extra machinery for a rare shape.
+        //   - not at ROOT_PATH — the root element carries the PARENT's
+        //     `data-a` stamp (`root_scope_attr`), which the host attrs here do
+        //     not model.
+        if crate::tags::is_component_tag(tag)
+            && attrs.is_empty()
+            && children.is_empty()
+            && path.base.is_none()
+            && path.tail != "0"
+        {
+            self.helper("__aihu_schild");
+            // The host keeps its own `data-aihu-path`: it IS a node in this
+            // component's tree. The child's tree restarts at ROOT_PATH behind
+            // the `data-aihu-ssr` boundary the helper stamps, which is what
+            // arbor's `hydrate()` already expects of a nested marked host.
+            self.expr(format!(
+                "__aihu_schild('{}', __h ? ' data-aihu-path=\"{}\"' : '', __opts)",
+                rendered_tag, path.tail
+            ));
+            return;
+        }
+
         // `html={expr}` is a mount-time effect on the client (the element's
         // children are `replaceChildren`'d from a parsed fragment), so it used
         // to be SSR-transparent: the element serialized empty and the content
