@@ -81,6 +81,15 @@ jobs:
           #                            inventory cache. Without this, every
           #                            Release-PR ships drift that downstream
           #                            CI's sync-readme --check would flag.
+          #   4. gen-api.ts         — regenerate the API datasheets, which embed
+          #                            each package's `version` and so are
+          #                            invalidated by a bump for exactly the
+          #                            same reason the READMEs are. Added after
+          #                            a Release PR went red on `gen:api
+          #                            --check` with five stale sheets; step 3
+          #                            had covered the READMEs since forever,
+          #                            and the datasheets were simply never
+          #                            added alongside them.
           # MUST be a single command: changesets/action runs the `version` input
           # as one command (it does NOT shell-chain a multi-line block — a `|`
           # block collapses to space-joined args and `changeset version` then
