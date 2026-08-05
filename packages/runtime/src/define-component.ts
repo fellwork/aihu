@@ -95,19 +95,59 @@ const ADOPT_ATTR = 'data-aihu-ssr'
  * comment markers, so a second hydration over the stale DOM would append
  * fresh structural content beside the stale copy. Clearing makes any later
  * reconnect a clean re-render.
+ *
+ * `container` is where the server template actually LIVES, which is not always
+ * the element: under light DOM it is `el` itself, and under Declarative Shadow
+ * DOM it is `el.shadowRoot` (see `_hasDeclarativeShadowTemplate`). It is
+ * always `el.shadowRoot ?? el` — the same `host` the mount path uses — so
+ * adopt and mount write to one place. `el` is still the snapshot key, since
+ * `__aihu_state__` is keyed by tag name in both modes.
  */
-function _adoptSsrTemplate(el: HTMLElement, tree: ReturnType<Setup>): _ScopeRef {
+function _adoptSsrTemplate(
+  el: HTMLElement,
+  tree: ReturnType<Setup>,
+  container: Element | ShadowRoot,
+): _ScopeRef {
   const state = (globalThis as { __aihu_state__?: Record<string, unknown> }).__aihu_state__
   const snapshot = (state?.[el.tagName.toLowerCase()] as Record<string, unknown> | undefined) ?? {}
-  const inner = _hydrate!(() => tree, el, snapshot)
+  const inner = _hydrate!(() => tree, container, snapshot)
   return {
     dispose(): void {
       inner.dispose()
-      el.replaceChildren()
+      container.replaceChildren()
     },
     agent: inner.agent,
     serialize: () => inner.serialize(),
   }
+}
+
+/**
+ * Does this host's server template live in a DECLARATIVE shadow root?
+ *
+ * Only meaningful on a `data-aihu-ssr`-marked host. Under DSD the browser
+ * parses `<template shadowrootmode="open">` into a real shadow root and moves
+ * the server's tree inside it, so the template is in `shadowRoot`, not in the
+ * host's children — the mirror of the light-DOM case, and the reason
+ * `isLightDom` alone cannot gate adoption for shadow components.
+ *
+ * Non-emptiness IS the discriminator, and it is exact for the roots aihu
+ * attaches: `define-element.ts` attaches in the constructor and puts nothing
+ * in it, so a root of ours is always empty when `connectedCallback` decides.
+ * Populated therefore means the parser filled it. This also correctly re-reads
+ * as `false` after a disconnect, because the adopted scope's dispose clears
+ * the container — so a reconnect degrades to a clean fresh mount rather than
+ * re-adopting consumed markers.
+ *
+ * The one thing it cannot distinguish is a base primitive or userland subclass
+ * that populates the shadow root before this point. Nothing in aihu does —
+ * primitives touch the host's role/tabindex/aria and its listeners, never its
+ * root's children (see the class-form `connectedCallback`) — and the failure
+ * is soft anyway: `hydrate()` over non-matching DOM degrades to materialising
+ * fresh nodes.
+ */
+function _hasDeclarativeShadowTemplate(el: HTMLElement): boolean {
+  const root = el.shadowRoot
+  return root !== null && root.childNodes.length > 0
 }
 
 // Lifecycle: current-instance pointer set during setup() calls.
@@ -581,20 +621,34 @@ export function defineComponent(setupOrOptions: Setup | ComponentOptions): typeo
             // lands in arbor's componentInstanceRegistry — the headless gate path.
             // Client builds never register one (undefined → mount() no-ops it).
             const ab = _takeAgentServerBinding(this)
+            // Adoptable in EITHER mode: the server template is the host's own
+            // children (light DOM) or the contents of a declarative shadow
+            // root (shadow DOM). `host` is where it lives in both cases.
+            const adoptable = isLightDom || _hasDeclarativeShadowTemplate(this)
             let scope: _ScopeRef
-            if (ssrTemplate && isLightDom && _hydrate !== null && !ab) {
+            if (ssrTemplate && adoptable && _hydrate !== null && !ab) {
               // Adopt: wire effects onto the server's DOM instead of rebuilding.
               // Everything after this branch is byte-identical to the mount
               // path, so onMount, scope registration and teardown are shared.
-              scope = _adoptSsrTemplate(this, tree!)
+              scope = _adoptSsrTemplate(this, tree!, host)
             } else {
-              // Marked but unadoptable (shadow mode — no declarative shadow
-              // DOM to adopt into; or no hydrate fn wired — 'spa' bootstrap
-              // served a prerendered page): the children are a server
-              // template, and the ONLY safe fallback is to discard them
-              // before mounting fresh. Carving them into slot projection
-              // would render the template twice.
-              if (ssrTemplate) this.replaceChildren()
+              // Marked but unadoptable (shadow mode with an EMPTY root — the
+              // server emitted the tree as light children with no declarative
+              // template to adopt into; or no hydrate fn wired — 'spa'
+              // bootstrap served a prerendered page): the existing nodes are a
+              // server template, and the ONLY safe fallback is to discard them
+              // before mounting fresh. Carving them into slot projection would
+              // render the template twice.
+              //
+              // Clear BOTH sides: `this` for the light children a pre-DSD
+              // server emits on a shadow host, and `host` for a declarative
+              // root we could not adopt (mount targets `host`, so leaving its
+              // stale tree in place would double-render). One of the two is
+              // always already empty, making the extra call a no-op.
+              if (ssrTemplate) {
+                this.replaceChildren()
+                if (host !== this) host.replaceChildren()
+              }
               scope = ab ? _mount(tree!, host, { agentBinding: ab }) : _mount(tree!, host)
             }
             this[S] = scope
@@ -953,11 +1007,17 @@ export function defineComponent(setupOrOptions: Setup | ComponentOptions): typeo
           // (registered in setup, keyed by `this`) to mount() so the headless gate
           // sees a LiveBinding. Client builds never register one.
           const ab = _takeAgentServerBinding(this)
+          // See the function-form connectedCallback: adoptable in either mode —
+          // light-DOM children, or a declarative shadow root's contents.
+          const adoptable = isLightDom || _hasDeclarativeShadowTemplate(this)
           let scope: _ScopeRef
-          if (ssrTemplate && isLightDom && _hydrate !== null && !ab) {
-            scope = _adoptSsrTemplate(this, tree!)
+          if (ssrTemplate && adoptable && _hydrate !== null && !ab) {
+            scope = _adoptSsrTemplate(this, tree!, host)
           } else {
-            if (ssrTemplate) this.replaceChildren()
+            if (ssrTemplate) {
+              this.replaceChildren()
+              if (host !== this) host.replaceChildren()
+            }
             scope = ab ? _mount(tree!, host, { agentBinding: ab }) : _mount(tree!, host)
           }
           this[S] = scope
