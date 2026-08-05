@@ -157,7 +157,7 @@ The island pattern gives you SSR performance for the outer shell while preservin
 
 ## <code>hydrate()</code> vs <code>mount()</code> — the distinction
 
-Both functions come from <code>@aihu/arbor</code> and return a <code>MountScope</code> (with <code>.dispose()</code> and <code>.serialize()</code> methods). They differ in what happens to the DOM:
+Both return a <code>MountScope</code> (with <code>.dispose()</code> and <code>.serialize()</code> methods), but they ship from different entry points: <code>mount</code> from <code>@aihu/arbor</code>, <code>hydrate</code> from <code>@aihu/arbor/hydrate</code>. The split keeps hydration code out of client-only bundles, which never call it. They differ in what happens to the DOM:
 
 - <b><code>mount(component, host)</code></b> — creates DOM elements from scratch and appends them to <code>host</code>. Used for pure client-side rendering (no prior SSR output).
 - <b><code>hydrate(component, host, snapshot)</code></b> — attaches reactive effects to <i>existing</i> DOM nodes under <code>host</code> without re-creating elements. It walks the arbor node tree and uses <code>data-aihu-path</code> attributes on pre-rendered elements as anchors to wire signal bindings. If a path anchor is missing (DOM mismatch), that subtree falls back to full <code>_materialize()</code>.
@@ -165,7 +165,7 @@ Both functions come from <code>@aihu/arbor</code> and return a <code>MountScope<
 <code>hydrate()</code> is the right choice when the server has already emitted HTML for a component. The <code>snapshot</code> parameter is the pre-parsed JSON state previously emitted by <code>MountScope.serialize()</code> (typically injected as <code>window.__aihu_state__[tag]</code> by the SSR renderer).
 
 ~~~typescript
-import { hydrate } from '@aihu/arbor'
+import { hydrate } from '@aihu/arbor/hydrate'
 
 // In the browser, for an SSR-rendered island:
 const scope = hydrate(

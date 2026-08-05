@@ -17,7 +17,7 @@
 import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { hydrate } from '@aihu/arbor'
+import { hydrate } from '@aihu/arbor/hydrate'
 import { transform } from '@aihu/compiler'
 import { _setStoreSerializer, renderToString } from '@aihu/server'
 import { computed, signal } from '@aihu/signals'

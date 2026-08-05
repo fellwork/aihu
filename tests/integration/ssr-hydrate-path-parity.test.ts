@@ -22,7 +22,8 @@
  * identity) and TEXT-APPEARS-EXACTLY-ONCE, not "the text is present".
  */
 
-import { branch, hydrate, leaf } from '@aihu/arbor'
+import { branch, leaf } from '@aihu/arbor'
+import { hydrate } from '@aihu/arbor/hydrate'
 import { renderToString } from '@aihu/server'
 import { signal } from '@aihu/signals'
 import { describe, expect, it } from 'vitest'

@@ -17,7 +17,8 @@
  *     once, in position.
  */
 
-import { branch, each, hydrate, leaf, when } from '@aihu/arbor'
+import { branch, each, leaf, when } from '@aihu/arbor'
+import { hydrate } from '@aihu/arbor/hydrate'
 import { renderToString } from '@aihu/server'
 import type { Signal } from '@aihu/signals'
 import { signal } from '@aihu/signals'

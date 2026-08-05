@@ -31,6 +31,14 @@ export default defineConfig({
       // @aihu/arbor signal pre-seeding.
       '@aihu/store': new URL('../packages/store/src/index.ts', import.meta.url).pathname,
       '@aihu/context': new URL('../packages/context/src/index.ts', import.meta.url).pathname,
+      // Subpath before package, same rule as '@aihu/runtime/ssr' below:
+      // '@aihu/arbor' is a prefix match, so listed first it would rewrite
+      // '@aihu/arbor/hydrate' to '<index.ts>/hydrate'. `hydrate` moved out of
+      // the root entry so the client bundle stops pulling it in; without this
+      // alias these suites resolve it through node_modules to the BUILT dist,
+      // which is exactly the src/dist blind spot this repo keeps getting bitten
+      // by. The root vitest.config.ts carries the same pair.
+      '@aihu/arbor/hydrate': new URL('../packages/arbor/src/hydrate.ts', import.meta.url).pathname,
       '@aihu/arbor': new URL('../packages/arbor/src/index.ts', import.meta.url).pathname,
       // Subpath before package (wave-3): '@aihu/runtime/ssr' must not resolve
       // through the package alias as '<index.ts>/ssr'.

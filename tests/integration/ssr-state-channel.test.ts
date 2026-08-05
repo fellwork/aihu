@@ -27,7 +27,8 @@
  */
 
 import type { AttrMap } from '@aihu/arbor'
-import { branch, hydrate, leaf } from '@aihu/arbor'
+import { branch, leaf } from '@aihu/arbor'
+import { hydrate } from '@aihu/arbor/hydrate'
 import { _setStoreSerializer, renderToString } from '@aihu/server'
 import { computed, type Signal, signal } from '@aihu/signals'
 import {
