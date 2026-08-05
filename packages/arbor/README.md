@@ -156,6 +156,7 @@ bun add @aihu/arbor
 | Subpath | ESM | CJS |
 |---|---|---|
 | `.` | `./dist/index.js` | `—` |
+| `./hydrate` | `./dist/hydrate.js` | `—` |
 
 <sub><i>Auto-generated against `@aihu/arbor@4.0.0`.</i></sub>
 

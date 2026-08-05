@@ -75,6 +75,11 @@ export default defineConfig({
       // stays small); this alias makes that self-import resolvable when
       // vitest loads the source directly.
       '@aihu/reactive': new URL('./packages/reactive/src/index.ts', import.meta.url).pathname,
+      // Order matters: the subpath alias must precede the package alias, or
+      // '@aihu/arbor' matches first and '@aihu/arbor/hydrate' resolves to a
+      // nonexistent '<index.ts>/hydrate' (the same inversion that silently
+      // broke '@aihu/context/ssr').
+      '@aihu/arbor/hydrate': new URL('./packages/arbor/src/hydrate.ts', import.meta.url).pathname,
       '@aihu/arbor': new URL('./packages/arbor/src/index.ts', import.meta.url).pathname,
       // Order matters: the subpath alias must precede the package alias or
       // '@aihu/runtime/ssr' resolves as '<index.ts>/ssr' (same pattern as

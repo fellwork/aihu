@@ -42,14 +42,22 @@
  * Applied AFTER minification so all renames hit the single-char parameter
  * forms (e.g. condition:e from the when() factory).
  */
-import { readFileSync, writeFileSync } from 'node:fs'
+import { readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const here = dirname(fileURLToPath(import.meta.url))
-const distPath = resolve(here, '../dist/index.js')
+const distDir = resolve(here, '../dist')
 
-let code = readFileSync(distPath, 'utf8')
+// EVERY emitted chunk, not just index.js. arbor builds two entries now
+// (`.` and `./hydrate`), so rolldown hoists their shared code into a
+// `mount-<hash>.js` chunk — and the code this script renames lives THERE.
+// Rewriting only index.js silently stopped mangling the moment the second
+// entry was added: `appendedNodes` and `disposers` came back unmangled in the
+// shared chunk while index.js, now a 344 B re-export shim, matched nothing.
+// Globbing the directory means adding an entry can never quietly disable this
+// again.
+const files = readdirSync(distDir).filter((f) => f.endsWith('.js'))
 
 const replacements = [
   // NOTE: StructuralNode's `structuralKind` / `condition` / `listGrow` /
@@ -149,9 +157,12 @@ const replacements = [
   [/\bfn(?=[=;,}])/g, 'f'],
 ]
 
-for (const [regex, replacement] of replacements) {
-  code = code.replace(regex, replacement)
+for (const file of files) {
+  const filePath = resolve(distDir, file)
+  let code = readFileSync(filePath, 'utf8')
+  for (const [regex, replacement] of replacements) {
+    code = code.replace(regex, replacement)
+  }
+  writeFileSync(filePath, code, 'utf8')
 }
-
-writeFileSync(distPath, code, 'utf8')
-console.log('mangle-dist: property mangling applied to dist/index.js')
+console.log(`mangle-dist: property mangling applied to ${files.length} chunk(s)`)

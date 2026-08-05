@@ -171,7 +171,9 @@ export function applyHeadToHtml(html: string, head: HeadConfig): string {
 export function clearManagedHead(doc: Document = document): void {
   const head = doc.head
   if (!head) return
-  for (const el of Array.from(head.querySelectorAll(`[${MANAGED_HEAD_ATTR}]`))) {
+  // `querySelectorAll` returns a STATIC NodeList, so removing during
+  // iteration is safe and the `Array.from` copy was unnecessary.
+  for (const el of head.querySelectorAll(`[${MANAGED_HEAD_ATTR}]`)) {
     el.remove()
   }
 }
@@ -208,51 +210,55 @@ export function applyHeadToDocument(head: HeadConfig, doc: Document = document):
 
   for (const meta of metas) {
     const key = metaKey(meta)
-    let el: HTMLMetaElement | null = null
-    if (key) {
-      el = headEl.querySelector<HTMLMetaElement>(`meta[${key.attr}="${cssEscape(key.value)}"]`)
-    }
-    if (!el) {
-      el = doc.createElement('meta')
-      el.setAttribute(MANAGED_HEAD_ATTR, '')
-      headEl.appendChild(el)
-    } else {
-      // Re-stamp so an upserted source/global tag is cleaned up with the rest.
-      el.setAttribute(MANAGED_HEAD_ATTR, '')
-    }
-    setAttrs(el, meta)
+    setAttrs(
+      upsert(headEl, doc, 'meta', key && `meta[${key.attr}="${cssEscape(key.value)}"]`),
+      meta,
+    )
   }
 
   for (const link of links) {
-    const isCanonical = (link.rel ?? '').toLowerCase() === 'canonical'
-    let el: HTMLLinkElement | null = null
-    if (isCanonical) {
-      el = headEl.querySelector<HTMLLinkElement>('link[rel="canonical"]')
-    }
-    if (!el) {
-      el = doc.createElement('link')
-      el.setAttribute(MANAGED_HEAD_ATTR, '')
-      headEl.appendChild(el)
-    } else {
-      el.setAttribute(MANAGED_HEAD_ATTR, '')
-    }
-    setAttrs(el, link)
+    const canonical = (link.rel ?? '').toLowerCase() === 'canonical'
+    setAttrs(upsert(headEl, doc, 'link', canonical && 'link[rel="canonical"]'), link)
   }
 
   for (const script of scripts) {
-    let el = headEl.querySelector<HTMLScriptElement>(`script[type="${cssEscape(script.type)}"]`)
-    if (!el) {
-      el = doc.createElement('script')
-      el.type = script.type
-      el.setAttribute(MANAGED_HEAD_ATTR, '')
-      headEl.appendChild(el)
-    } else {
-      el.setAttribute(MANAGED_HEAD_ATTR, '')
-    }
+    const el = upsert(
+      headEl,
+      doc,
+      'script',
+      `script[type="${cssEscape(script.type)}"]`,
+    ) as HTMLScriptElement
+    el.type = script.type
     // textContent — the DOM never re-parses script text as HTML, so JSON-LD is
     // safe verbatim (no `</script>` escaping needed, unlike the string path).
     el.textContent = script.content
   }
+}
+
+/**
+ * Find an existing head tag by `selector`, or create one — stamping it as
+ * managed either way, so an upserted source/global tag is cleaned up with the
+ * rest on the next navigation.
+ *
+ * The meta, link and script paths were three structurally identical blocks
+ * differing only in tag name and selector, each repeating the create-append
+ * and BOTH stamp branches (the stamp was unconditional in effect, written
+ * twice). A falsy `selector` means "no identity to match on" — an unkeyed
+ * meta, a non-canonical link — so always create.
+ */
+function upsert(
+  headEl: HTMLHeadElement,
+  doc: Document,
+  tag: string,
+  selector: string | false | null | undefined,
+): Element {
+  let el = selector ? headEl.querySelector(selector) : null
+  if (!el) {
+    el = doc.createElement(tag)
+    headEl.appendChild(el)
+  }
+  el.setAttribute(MANAGED_HEAD_ATTR, '')
+  return el
 }
 
 /** Set/refresh attributes on an element from a plain record. */

@@ -106,7 +106,10 @@
       "@aihu/runtime",
       "@aihu/server/head-lowering",
       "virtual:aihu-routes",
-      "virtual:aihu-layouts"
+      "virtual:aihu-layouts",
+      "@aihu/arbor/hydrate",
+      "@aihu/store",
+      "virtual:aihu-components"
     ]
   },
   {

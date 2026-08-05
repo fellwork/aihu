@@ -2,7 +2,13 @@ import { defineConfig } from 'rolldown'
 import { dts } from 'rolldown-plugin-dts'
 
 export default defineConfig({
-  input: 'src/index.ts',
+  // TWO entries. `hydrate` is a SUBPATH (`@aihu/arbor/hydrate`) rather than a
+  // main-entry re-export because the size row measures dist/index.js WHOLE —
+  // not a tree-shaken import — so every consumer paid for the hydration walker
+  // whether or not it could ever run. `@aihu/app`'s `spa` mode literally
+  // cannot: its own comment says it "skips _setHydrate — no SSR HTML to
+  // hydrate". Splitting drops index.js from 4005 B to 2671 B gz.
+  input: { index: 'src/index.ts', hydrate: 'src/hydrate.ts' },
   checks: { circularDependency: true },
   // __DEV__ = false in production: Rolldown DCEs all `if (__DEV__)` branches,
   // eliminating the three _observeMount call sites in _mountEffect.
