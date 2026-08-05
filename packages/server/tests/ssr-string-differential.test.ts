@@ -470,3 +470,135 @@ describe.skipIf(!hasBinary)('SSR string fast path — differential byte-identity
     expect(chunks.join('')).toBe('<div id="ds">data</div>')
   })
 })
+
+// ─── Child component resolution (SSR children step 3d) ──────────────────────
+//
+// The gate that made the whole design worth its cost. A resolved child must
+// come out byte-identical from BOTH renderers, because both call the same
+// `__aihu_schild`. The rejected alternative — implementing resolution only in
+// the walker and declining the fast path whenever a registry was supplied —
+// would have forced this suite's contract to be WEAKENED to "identical unless
+// a registry is present". Here it is instead strengthened: identity now covers
+// resolved child subtrees, in both shadow modes, at depth.
+
+/** Byte-identity with a child registry threaded into both renderers. */
+async function expectByteIdentityWithChildren(
+  mod: CompiledModule,
+  children: ReadonlyMap<string, unknown>,
+) {
+  expect(typeof mod.__ssrString).toBe('function')
+  for (const hydratable of [true, false]) {
+    const opts = { hydratable, children } as Parameters<typeof renderToString>[1]
+    const walker = await renderToString(() => mod.__ssr(), opts)
+    const fast = (mod.__ssrString as (p: unknown, o?: unknown) => string)(
+      {},
+      { hydratable, children },
+    )
+    expect(fast).toBe(markup(walker))
+  }
+}
+
+describe.skipIf(!hasBinary)('SSR string fast path — resolved child components', () => {
+  const PARENT = `@template {
+  <main class="page"><h1>Title</h1><x-kid></x-kid></main>
+}
+`
+  const CHILD = `@template {
+  <nav class="kid"><span>nav</span></nav>
+}
+`
+
+  it('a light-DOM child renders identically on both paths', async () => {
+    const parent = await compileToModule('diff-parent-light', PARENT)
+    const kid = await compileToModule('diff-kid-light', CHILD)
+    const children = new Map([
+      ['x-kid', { ...kid.mod, __aihu_shadow__: 'light', __aihu_light_scope__: 'k1' }],
+    ])
+    await expectByteIdentityWithChildren(parent.mod, children)
+
+    // …and it is actually FILLED IN, not just consistently empty. Two renderers
+    // agreeing on nothing would satisfy byte-identity while shipping the very
+    // bug this work exists to fix.
+    const html = (parent.mod.__ssrString as (p: unknown, o?: unknown) => string)(
+      {},
+      { hydratable: true, children },
+    )
+    expect(html).toContain('<nav class="kid"')
+    expect(html).toContain('data-a="k1"')
+    expect(html).toContain('data-aihu-ssr=""')
+  })
+
+  it('a shadow-DOM child renders identically on both paths', async () => {
+    const parent = await compileToModule('diff-parent-shadow', PARENT)
+    const kid = await compileToModule('diff-kid-shadow', CHILD)
+    const children = new Map([['x-kid', { ...kid.mod, __aihu_shadow__: 'shadow' }]])
+    await expectByteIdentityWithChildren(parent.mod, children)
+
+    const html = (parent.mod.__ssrString as (p: unknown, o?: unknown) => string)(
+      {},
+      { hydratable: true, children },
+    )
+    expect(html).toContain('<template shadowrootmode="open">')
+    expect(html).toContain('<nav class="kid"')
+  })
+
+  it('a grandchild resolves through the child, identically on both paths', async () => {
+    const parent = await compileToModule('diff-parent-deep', PARENT)
+    const kid = await compileToModule(
+      'diff-kid-deep',
+      `@template {
+  <nav class="kid"><x-grandkid></x-grandkid></nav>
+}
+`,
+    )
+    const grandkid = await compileToModule(
+      'diff-grandkid',
+      `@template {
+  <b class="gk">deep</b>
+}
+`,
+    )
+    const children = new Map<string, unknown>([
+      ['x-kid', { ...kid.mod, __aihu_shadow__: 'light' }],
+      ['x-grandkid', { ...grandkid.mod, __aihu_shadow__: 'light' }],
+    ])
+    await expectByteIdentityWithChildren(parent.mod, children)
+
+    const html = (parent.mod.__ssrString as (p: unknown, o?: unknown) => string)(
+      {},
+      { hydratable: true, children },
+    )
+    expect(html).toContain('<b class="gk" data-aihu-path="0">deep</b>')
+    // Each nested host restarts its own path space at ROOT_PATH behind its own
+    // `data-aihu-ssr` boundary — which is what makes the paths non-colliding
+    // and is exactly what arbor's hydrate() expects of a nested marked host.
+    expect(html).toContain('<x-grandkid data-aihu-path="0.0" data-aihu-ssr="">')
+  })
+
+  it('an unresolved tag stays an empty element on both paths', async () => {
+    const parent = await compileToModule('diff-parent-unresolved', PARENT)
+    // A registry that does not know this tag — the common case for any
+    // third-party custom element on the page.
+    const children = new Map<string, unknown>([['x-other', {}]])
+    await expectByteIdentityWithChildren(parent.mod, children)
+
+    const html = (parent.mod.__ssrString as (p: unknown, o?: unknown) => string)(
+      {},
+      { hydratable: true, children },
+    )
+    expect(html).toContain('<x-kid')
+    expect(html).not.toContain('<nav class="kid"')
+  })
+
+  it('no registry at all is byte-identical to the pre-resolution renderer', async () => {
+    // The safety property that lets 3a/3b/3c ship ahead of the callers that
+    // populate the registry: every existing site renders exactly as before.
+    const parent = await compileToModule('diff-parent-noreg', PARENT)
+    await expectByteIdentity(parent.mod)
+    const html = (parent.mod.__ssrString as (p: unknown, o?: unknown) => string)(
+      {},
+      { hydratable: true },
+    )
+    expect(html).toContain('<x-kid data-aihu-path="0.1"></x-kid>')
+  })
+})

@@ -2,6 +2,22 @@
 /**
  * CRITICAL CONSTRAINTS:
  * 1. Zero client runtime imports. Zero DOM globals (no window, document, HTMLElement).
+ *    ONE EXCEPTION, added deliberately: `@aihu/runtime/ssr`. That is not the
+ *    client runtime — it is the SERVER-ONLY subpath entry (`dist/ssr-string.js`),
+ *    which exists precisely so these bytes stay out of client bundles, and whose
+ *    every helper is pure and DOM-free. It is imported for `__aihu_schild`
+ *    alone, so that a resolved child component is serialized by the SAME
+ *    function the compiled string renderer calls. Duplicating that logic here
+ *    would let the two renderers drift in CAPABILITY, which nothing tests —
+ *    the byte-level differential suite only pins them when both render the same
+ *    things. `@aihu/runtime` is a devDependency, not a dependency: rolldown's
+ *    narrow external list means the helper is INLINED into `dist`, so consumers
+ *    install nothing extra and there is still exactly one source file. Verified
+ *    after the build: no `dist` chunk imports `@aihu/runtime`, and the helper
+ *    lands in the node entry beside the rest of this file — `dist/index.js`,
+ *    the entry a browser/edge/Deno bundle pulls, gains nothing. Unlike
+ *    `@aihu/signals` (external, because a private copy would break scope
+ *    identity) the helper is pure, so a bundled copy is safe.
  * 2. Runs in: Workers, Deno, Bun, Node ESM.
  * 3. NEVER import @aihu/context at module level — use injection slots (_setContextFns).
  * 4. NEVER import @aihu/store at module level — its registry rides @aihu/context,
@@ -22,6 +38,10 @@
 // NOT covered by constraints 1/3/4 above. It MUST stay `external` in the
 // rolldown build (see rolldown.config.ts): scope adoption rides the
 // module-global `_currentScope`, so server and app must share ONE instance.
+// See CRITICAL CONSTRAINT 1 above for why this one client-package specifier is
+// permitted: the server-only, DOM-free subpath, imported so the walker and the
+// compiled string renderer share ONE child serializer.
+import { __aihu_schild, type SsrChildModule } from '@aihu/runtime/ssr'
 import { effectScope } from '@aihu/signals'
 import type { StreamOptions } from './stream-types.ts'
 
@@ -215,6 +235,35 @@ export interface SsrOptions {
    * Undefined (the default) emits exactly what the pre-option renderer did.
    */
   readonly wrapTag?: string
+
+  /**
+   * Child components, keyed by the custom-element tag they register under —
+   * the fix for `<site-header>` prerendering empty on every page.
+   *
+   * A component referenced inside another component's template renders as an
+   * empty shell, because the child's template lives in its own module and only
+   * materialises when the element upgrades in the browser. Supplying this map
+   * lets both renderers fill it in: the compiled string renderer receives it on
+   * its opts and the tree walker reads it here, and BOTH hand it to the same
+   * `__aihu_schild`, so a resolved child is serialized in exactly one place.
+   *
+   * PRE-RESOLVED, and a Map rather than a callback, for three reasons that all
+   * point the same way: module loading is async while the compiled fast path is
+   * synchronous (a callback would force the fast path off, which is the whole
+   * thing this design avoids); the cycle guard wants to run once over the tag
+   * graph rather than at every render; and resolution needs the caller's module
+   * loader, which `@aihu/server` has no business owning.
+   *
+   * The caller builds it by walking each module's `__aihu_child_tags__`
+   * transitively — SSG prerender via `ssrLoadModule`, the Workers handler via a
+   * generated tag→module manifest — and REJECTS a cyclic graph there, loudly,
+   * before any render begins.
+   *
+   * Omitted (the default) renders every reference as the empty element it
+   * renders today — byte-identical output, which is what makes this safe to
+   * ship ahead of the callers that populate it.
+   */
+  readonly children?: ReadonlyMap<string, SsrChildModule>
 }
 
 /**
@@ -500,52 +549,6 @@ function _isFragment(obj: Record<string, unknown>): boolean {
   return obj.tag === null || obj.tag === ''
 }
 
-function _renderNode(
-  node: unknown,
-  path: string,
-  hydratable: boolean,
-  rootScopeId?: string,
-): string {
-  if (typeof node !== 'object' || node === null) return ''
-  const obj = node as Record<string, unknown>
-  if (!('kind' in obj)) return ''
-
-  if (obj.kind === 'leaf') {
-    return renderLeaf(obj)
-  }
-
-  if (obj.kind === 'branch') {
-    const children = Array.isArray(obj.children) ? obj.children : []
-    let inner = ''
-    for (let i = 0; i < children.length; i++) {
-      inner += _textBoundaryBefore(children, i, hydratable)
-      inner += _renderNode(children[i], `${path}.${i}`, hydratable, rootScopeId)
-    }
-    if (_isFragment(obj)) return inner
-    const tag = typeof obj.tag === 'string' ? obj.tag : 'div'
-    let attrStr = serializeAttrs(asAttrMap(obj.attrs))
-    // LDF §10 step 3 — `data-a` on the ROOT element only, mirroring the
-    // compiled string renderer's `root_scope_attr` (ssr_string_emit.rs):
-    // static attrs first, then `data-a`, then the path marker, so the two
-    // paths stay byte-identical. Child paths are always `0.…`, so the
-    // `path === ROOT_PATH` guard fires at most once per render.
-    if (rootScopeId && path === ROOT_PATH) attrStr += ` data-a="${escapeAttr(rootScopeId)}"`
-    if (hydratable) attrStr += ` data-aihu-path="${escapeAttr(path)}"`
-    return `<${tag}${attrStr}>${inner}</${tag}>`
-  }
-
-  if (obj.kind === 'structural') {
-    const { open, close } = _structuralMarkers(path, hydratable)
-    let inner = ''
-    for (const sub of _structuralSubtrees(obj, path)) {
-      inner += _renderNode(sub.node, sub.path, hydratable, rootScopeId)
-    }
-    return open + inner + close
-  }
-
-  return ''
-}
-
 function buildHead(head: HeadConfig): string {
   const parts: string[] = []
   if (head.title) parts.push(`<title>${head.title}</title>`)
@@ -652,6 +655,35 @@ async function renderNodeAsync(
     if (hydratable) attrStr += ` data-aihu-path="${escapeAttr(path)}"`
 
     const children = Array.isArray(obj.children) ? obj.children : []
+
+    // Child component resolution. Hand the node to the SAME helper the compiled
+    // string renderer calls, so a resolved child's markup is produced by one
+    // function on both paths — the differential suite pins that they agree
+    // byte-for-byte, and it can only do that if they render the same things.
+    //
+    // The v1 boundaries mirror the emitter's exactly (`ssr_string_emit.rs`):
+    // zero children (slot projection is unimplemented), no attrs (attributes at
+    // a reference site are the child's props, and rendering with defaults while
+    // the client renders with real values is a hydration mismatch), and not at
+    // ROOT_PATH (which carries the parent's `data-a` stamp, already folded into
+    // `attrStr` above). A mismatch here would show up as a differential
+    // failure, which is the point of keeping the two lists identical.
+    //
+    // `attrStr` — the reference site's own attrs plus its path marker — is
+    // passed through as the host attrs, so the host keeps its position in THIS
+    // component's path space while the child's tree restarts at ROOT_PATH
+    // behind the `data-aihu-ssr` boundary the helper stamps.
+    const childRegistry = pendingState.opts?.children
+    if (
+      childRegistry &&
+      children.length === 0 &&
+      path !== ROOT_PATH &&
+      Object.keys(asAttrMap(obj.attrs)).length === 0 &&
+      childRegistry.has(tag)
+    ) {
+      controller.enqueue(__aihu_schild(tag, attrStr, { hydratable, children: childRegistry }))
+      return
+    }
 
     // Check for DataSource boundary (duck-type check — no arbor type changes needed)
     const dataSource = obj.dataSource as
@@ -786,14 +818,14 @@ function _collectAttrSignals(attrs: unknown, path: string, out: Record<string, u
  * sources on the client) at the exact path keys the hydration walker wires:
  *   - reactive text leaf   → `<path>.text`
  *   - reactive attr        → `<path>.attr:<key>`  (branch and element leaf)
- * Path construction mirrors `_renderNode` (children at `<path>.<i>`,
+ * Path construction mirrors `renderNodeAsync` (children at `<path>.<i>`,
  * fragments transparent). Structural (`when()`/`each()`) subtrees are
  * deliberately skipped: hydration rebuilds structural segments from live
  * state (adopt-by-replace), and re-invoking `grow()` closures purely for
  * serialization would re-run authored code the render already ran.
  *
- * This is a SECOND walk, kept fully separate from `_renderNode` /
- * `renderNodeAsync` so the render dispatch stays untouched (coordination
+ * This is a SECOND walk, kept fully separate from `renderNodeAsync` so
+ * the render dispatch stays untouched (coordination
  * contract with the compiled string-renderer fast path).
  */
 function _collectSignals(node: unknown, path: string, out: Record<string, unknown>): void {
@@ -920,7 +952,12 @@ function emitStateScriptAndClose(
  * BYTE-IDENTICAL to the tree walk for the same component+state — enforced by
  * the differential suite — so taking it changes latency, never bytes.
  */
-type SsrStringRenderer = (opts?: { hydratable?: boolean; lightScopeId?: string }) => string
+type SsrStringRenderer = (opts?: {
+  hydratable?: boolean
+  lightScopeId?: string
+  /** The pre-resolved child registry — see `SsrOptions.children`. */
+  children?: ReadonlyMap<string, SsrChildModule>
+}) => string
 
 /**
  * Resolve the compiled string renderer for `component`, if any.
@@ -949,14 +986,9 @@ export function attachSsrString<T extends () => unknown>(
   props: unknown,
 ): T {
   if (typeof ssrString === 'function') {
-    ;(component as T & { __aihu_ssr_string__?: SsrStringRenderer }).__aihu_ssr_string__ = (opts?: {
-      hydratable?: boolean
-      lightScopeId?: string
-    }) =>
-      (ssrString as (p: unknown, o?: { hydratable?: boolean; lightScopeId?: string }) => string)(
-        props,
-        opts,
-      )
+    ;(component as T & { __aihu_ssr_string__?: SsrStringRenderer }).__aihu_ssr_string__ = (
+      opts?: Parameters<SsrStringRenderer>[0],
+    ) => (ssrString as (p: unknown, o?: Parameters<SsrStringRenderer>[0]) => string)(props, opts)
   }
   return component
 }
@@ -1018,6 +1050,12 @@ export function renderToStream(
             // `__opts.lightScopeId` to stamp `data-a` on the root element —
             // forward it so the string path matches the walker's stamp.
             ...(opts?.lightScopeId !== undefined ? { lightScopeId: opts.lightScopeId } : {}),
+            // The child registry the compiled renderer's `__aihu_schild` calls
+            // resolve against. Forwarded for exactly the same reason as
+            // `lightScopeId` above: the walker reads it too, and a value that
+            // reaches only one of them is a byte divergence the differential
+            // suite would fail on.
+            ...(opts?.children !== undefined ? { children: opts.children } : {}),
           })
         } catch (err) {
           controller.error(err)
