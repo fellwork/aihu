@@ -416,6 +416,46 @@ function _reconcileEach(
   }
 }
 
+/**
+ * Wire the reconcile effect + scope-teardown disposer for a structural node
+ * onto an existing anchor comment, with caller-supplied child-scope state.
+ * `_materializeStructural` passes FRESH state (empty `st`/`sc`); hydration's
+ * in-place adoption (`_adoptStructural` in hydrate.ts) passes state it seeded
+ * from the server-rendered segment, so the effect's first run confirms the
+ * adopted DOM instead of rebuilding it. The state objects are the SAME shapes
+ * `_reconcileWhen`/`_reconcileEach` mutate on every later update — seeding
+ * them is the whole adoption contract.
+ * @internal
+ */
+export function _wireStructural(
+  node: StructuralNode,
+  anc: Comment,
+  disp: Dispose[],
+  pb: string,
+  mfn: MountEffectFn,
+  eh: ErrorHandler | undefined,
+  st: { c: ChildScope | null },
+  sc: Map<string | number, ChildScope>,
+): void {
+  if (node.structuralKind === 'conditional') {
+    const cond = node.condition as Signal<boolean>
+    const grow = node.grow as () => Node
+    mfn(disp, () => _reconcileWhen(cond, grow, anc, pb, mfn, eh, st), `${pb}.conditional`, eh)
+    disp.push(() => {
+      st.c && (_teardownChildScope(st.c), (st.c = null))
+    })
+  } else {
+    const ls = node.list as Signal<unknown[]>
+    const kf = node.keyFn as (i: unknown) => string | number
+    const lg = node.listGrow as (i: unknown, idx: number) => Node
+    mfn(disp, () => _reconcileEach(ls, kf, lg, anc, pb, mfn, eh, sc), `${pb}.list`, eh)
+    disp.push(() => {
+      sc.forEach(_teardownChildScope)
+      sc.clear()
+    })
+  }
+}
+
 /** @internal */
 export function _materializeStructural(
   node: StructuralNode,
@@ -425,27 +465,8 @@ export function _materializeStructural(
   mfn: MountEffectFn,
   eh: ErrorHandler | undefined,
 ): globalThis.Node[] {
-  const isWhen = node.structuralKind === 'conditional'
-  const anc = document.createComment(isWhen ? 'when' : 'each')
+  const anc = document.createComment(node.structuralKind === 'conditional' ? 'when' : 'each')
   host.appendChild(anc)
-  if (isWhen) {
-    const cond = node.condition as Signal<boolean>
-    const grow = node.grow as () => Node
-    const st: { c: ChildScope | null } = { c: null }
-    mfn(disp, () => _reconcileWhen(cond, grow, anc, pb, mfn, eh, st), `${pb}.conditional`, eh)
-    disp.push(() => {
-      st.c && (_teardownChildScope(st.c), (st.c = null))
-    })
-  } else {
-    const ls = node.list as Signal<unknown[]>
-    const kf = node.keyFn as (i: unknown) => string | number
-    const lg = node.listGrow as (i: unknown, idx: number) => Node
-    const sc = new Map<string | number, ChildScope>()
-    mfn(disp, () => _reconcileEach(ls, kf, lg, anc, pb, mfn, eh, sc), `${pb}.list`, eh)
-    disp.push(() => {
-      sc.forEach(_teardownChildScope)
-      sc.clear()
-    })
-  }
+  _wireStructural(node, anc, disp, pb, mfn, eh, { c: null }, new Map())
   return [anc]
 }

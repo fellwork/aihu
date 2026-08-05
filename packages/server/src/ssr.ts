@@ -472,9 +472,12 @@ function _commentPath(path: string): string {
  * HYDRATABLE renders only: `<!--aihu:s:PATH-->` … `<!--aihu:/s:PATH-->`.
  * They serve two roles:
  *   1. The client walker locates the server-rendered structural segment by
- *      exact path match and REPLACES it in position (adopt-by-replace — see
- *      the structural case in `arbor/src/hydrate.ts`), so hydration never
- *      duplicates content beside the server's DOM.
+ *      exact path match and ADOPTS it in place — claiming the segment's DOM
+ *      into live reconciler child scopes (`_adoptStructural` in
+ *      `arbor/src/hydrate.ts`), with a remove-and-rebuild-in-position
+ *      fallback (adopt-by-replace) when the segment cannot be claimed
+ *      safely — so hydration never duplicates content beside the server's
+ *      DOM.
  *   2. As comments they keep a text leaf before the structural node and one
  *      after it from coalescing into a single DOM Text node (the same
  *      cursor-alignment concern `TEXT_LEAF_BOUNDARY` covers).
