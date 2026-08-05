@@ -1667,6 +1667,36 @@ export function aihuCompilerPlugin(options?: AihuCompilerPluginOptions): VitePlu
           if (elementTag !== null) {
             out += `\nexport const __aihu_tag__ = '${elementTag}'\n`
           }
+          // The component's RESOLVED shadow mode, on the same channel and for
+          // the same single-source reason as the two exports above.
+          //
+          // An SSR caller rendering a nested custom element has to emit two
+          // different shapes: a light-DOM component's tree is the host's own
+          // children, while a shadow component's tree belongs inside a
+          // `<template shadowrootmode="open">` so the browser attaches a
+          // declarative shadow root while parsing. Getting that wrong is not a
+          // cosmetic error — light children under a host that later calls
+          // `attachShadow` are discarded on upgrade ("adopt or discard, never
+          // slot-project", define-component.ts), so the content would paint and
+          // then vanish.
+          //
+          // `effectiveShadow` is the value that ALREADY drives both
+          // `_injectShadowMode` and the css-fold branch, so exporting it keeps
+          // one resolution (plugin config > per-file directive > page/layout
+          // default) rather than letting a consumer re-derive from the presence
+          // of `__aihu_light_scope__` — which is an inference, not a signal.
+          //
+          // Deliberately aihu's OWN vocabulary ('light' | 'shadow'), never the
+          // DOM's ShadowRootMode ('open' | 'closed'). Those are different enums
+          // that share the word "mode"; the translation to `shadowrootmode`
+          // happens once, at serialization, in the renderer.
+          // Guarded on non-null for the same reason `_injectShadowMode` is
+          // (`effectiveShadow != null`, below): when no mode resolves there is
+          // nothing to assert, and emitting the string 'undefined' would be a
+          // lie a consumer would branch on.
+          if (effectiveShadow != null) {
+            out += `\nexport const __aihu_shadow__ = '${effectiveShadow}'\n`
+          }
         } else if (
           islandsEnabled &&
           elementTag !== null &&
