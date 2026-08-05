@@ -1,5 +1,16 @@
 # @aihu/example-ssg-site
 
+## 0.0.7
+
+### Patch Changes
+
+- Updated dependencies [[`ac9c045`](https://github.com/fellwork/aihu/commit/ac9c04599b2fbf57c9f39a39e1c9db7fe1388028), [`ac9c045`](https://github.com/fellwork/aihu/commit/ac9c04599b2fbf57c9f39a39e1c9db7fe1388028), [`ac9c045`](https://github.com/fellwork/aihu/commit/ac9c04599b2fbf57c9f39a39e1c9db7fe1388028)]:
+  - @aihu/arbor@4.1.0
+  - @aihu/app@9.0.0
+  - @aihu/runtime@6.0.0
+  - @aihu/server@0.5.0
+  - @aihu/router@0.4.4
+
 ## 0.0.6
 
 ### Patch Changes

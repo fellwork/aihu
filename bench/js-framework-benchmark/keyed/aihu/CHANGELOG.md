@@ -1,5 +1,13 @@
 # js-framework-benchmark-aihu
 
+## 0.1.13
+
+### Patch Changes
+
+- Updated dependencies [[`ac9c045`](https://github.com/fellwork/aihu/commit/ac9c04599b2fbf57c9f39a39e1c9db7fe1388028), [`ac9c045`](https://github.com/fellwork/aihu/commit/ac9c04599b2fbf57c9f39a39e1c9db7fe1388028), [`ac9c045`](https://github.com/fellwork/aihu/commit/ac9c04599b2fbf57c9f39a39e1c9db7fe1388028)]:
+  - @aihu/arbor@4.1.0
+  - @aihu/runtime@6.0.0
+
 ## 0.1.12
 
 ### Patch Changes

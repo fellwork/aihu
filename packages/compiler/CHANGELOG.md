@@ -1,5 +1,100 @@
 # @aihu/compiler
 
+## 1.2.0
+
+### Minor Changes
+
+- [#756](https://github.com/fellwork/aihu/pull/756) [`88bbdad`](https://github.com/fellwork/aihu/commit/88bbdad9f57364f160bda7f49c35facf44cf09aa) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Remove `useSwarm` and the `@aihu/use/useSwarm` subpath export.
+
+  **Breaking for `@aihu/use`:** the `./useSwarm` entry point is gone, along with
+  the `useSwarm` value export from the package root and its `SwarmRecord` /
+  `SwarmState` / `SwarmYourMove` / `UseSwarmOptions` / `UseSwarmReturn` types.
+
+  `useSwarm` was never a general-purpose composable. It spoke a private HTTP/SSE
+  protocol on `http://127.0.0.1:8791` — the local swarm command-center bus — and
+  carried 250 lines of schema validation for that one wire format. `@aihu/use` is
+  the library of composables that apply to any aihu app; a client for one
+  internal dev tool does not belong in it, and shipping it published a
+  maintenance surface no external consumer could use.
+
+  Its only consumer, `apps/swarm-console`, is removed in the same change. That app
+  was private, had no moon project, and ran in no CI workflow.
+
+  `@aihu/compiler` and `@aihu/language-server` drop their corresponding registry
+  entries, so `useSwarm` no longer appears in auto-import resolution or editor
+  hover. Both are minor rather than major: nothing they exported changed shape,
+  one row left a lookup table.
+
+- [#762](https://github.com/fellwork/aihu/pull/762) [`ac9c045`](https://github.com/fellwork/aihu/commit/ac9c04599b2fbf57c9f39a39e1c9db7fe1388028) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Adopt the server-rendered DOM on first render instead of rebuilding it.
+
+  Prerendering used to buy first paint and crawlability but zero client work: the
+  client discarded the entire server-rendered subtree and rebuilt it. Measured on
+  apps/docs by tagging every prerendered node before hydration and counting
+  survivors — **0 of 393**. It is now **320 of 393**, with no duplication (total
+  node count identical to a pure client render) and Lighthouse unchanged at
+  perf 100 / LCP 1480ms.
+
+  **BREAKING (`@aihu/runtime`):** `DefineOptions.hydrate` is removed. It gated a
+  hydration branch in `define-element.ts` that nothing in production ever set —
+  the compiler never emitted it — and that branch bypassed `defineComponent`'s
+  connect path entirely, so `onMount` never ran under hydration. Rather than
+  enable a lifecycle-skipping bypass, the fork is deleted: `defineComponent`'s
+  `connectedCallback` is now the single connect path and chooses its renderer
+  (`_adoptSsrTemplate` vs `_mount`). Everything downstream — `onMount`, slot
+  projection, scope registration, teardown — is byte-identical, so the lifecycle
+  cannot drift again.
+
+  The adoptable boundary is server-declared, not client-guessed:
+  `renderToString({ wrapTag, hydratable })` stamps `data-aihu-ssr` on the host it
+  wraps, meaning "these children are this host's own rendered template". That
+  resolves an ambiguity `data-aihu-path` could not — slotted content from a
+  parent's server render carries paths too, but its receiving host is never
+  marked.
+
+  Three latent bugs surfaced only once adoption ran, and are fixed here: arbor's
+  `hydrate()` pathMap collided across nested wrapped renders (the page overwrote
+  the layout's root key); `hydrate()` never assigned `branch.el`, silently
+  no-op'ing `class:`/`html={}` effects on adopted trees; and the compiler wrapped
+  enhanced `<a>` multi-children in a fragment the server never renders,
+  duplicating every prerendered link's children.
+
+  Remaining ceiling: structural `each`/`if` segments still use arbor's
+  adopt-by-replace, which is why 73 nodes do not survive.
+
+### Patch Changes
+
+- [#733](https://github.com/fellwork/aihu/pull/733) [`7c3a654`](https://github.com/fellwork/aihu/commit/7c3a654fc7093f12d882c1c643022f0ec1ce8e4e) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Recognize `onCleanup` as an alias for `onDispose` in the wrapper dialect's statement-call surface, so it no longer silently compiles to an unimported identifier.
+
+  `onCleanup` is a real, importable `@aihu/runtime` export — the runtime primitive `onDispose` itself lowers to. A bare call to it inside a wrapper-dialect `@state` body therefore reads as legitimate code, but only `onDispose` was in the compiler's recognized statement-call surface (`onMount`/`onDispose`/`onAdopt`/`onAttributeChange`), so the codegen never wired the runtime import for a bare `onCleanup(...)`. It compiled cleanly (no error, no warning — the type-check surface separately declares `onCleanup` as an ambient global for a different reason, so `aihu-tsc` doesn't catch it either) and threw `ReferenceError: onCleanup is not defined` in `setup()` on every mount.
+
+  This isn't hypothetical: fellwork-web shipped a real fix for a window-listener leak (docs/state-layer-audit-2026-07-31.md, L8) using a bare `onCleanup(...)` call across 8 route pages on 2026-07-31, and every one of them has thrown on every page load in production since — the entire client-side interactive layer (word-click study, notes, highlights, bookmarks, verse nav) dead behind a static SSR-rendered page, unnoticed for ~3 days because nothing exercises a real custom-element boot in a browser.
+
+  `onCleanup(...)` and `onDispose(...)` now lower to the identical `dispose` lifecycle entry — same codegen, same import wiring. Regression test: `state_wrappers::tests::on_cleanup_is_recognized_as_an_on_dispose_alias`.
+
+- [#762](https://github.com/fellwork/aihu/pull/762) [`ac9c045`](https://github.com/fellwork/aihu/commit/ac9c04599b2fbf57c9f39a39e1c9db7fe1388028) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Stop warning that an `each` loop's binder is undeclared.
+
+  `warn_undeclared_template_refs` flags `@template` identifiers not declared in
+  `@state`. `collect_each_aliases` fed it the loop binders to exempt — but only
+  from `$each=` and `{#each list as item}`, both RETIRED v1 spellings. It never
+  learned `each={item of list}`, the only form grammar v2 accepts (C606).
+
+  So every correct `each` loop warned that its binder was undeclared, in a scope
+  where the binder CANNOT be declared: `each={c of constructs}` binds `c` in
+  template scope. 618 such warnings in apps/docs alone — `c`, `p`, `a`, `rel`,
+  `ex` — all false.
+
+  This mattered beyond noise. The warning's own doc comment says "a false
+  positive here will reject a valid app once it becomes a hard error", and its
+  text promises exactly that: "Undeclared cross-block references will become
+  errors in v0.4." As written it would have rejected every valid `each` in the
+  ecosystem at the v0.4 boundary.
+
+  The binder scan now handles the v2 form, requiring a preceding whitespace so
+  `$each={` and other suffix matches are not mistaken for the naked attribute,
+  and splitting on the LAST `of` so a list expression containing `of` cannot
+  truncate the binder list. Three tests pin it: single binder, `item, i` pair,
+  and a genuinely undeclared name that must STILL warn.
+
 ## 1.1.4
 
 ### Patch Changes

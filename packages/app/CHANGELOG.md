@@ -1,5 +1,91 @@
 # @aihu/app
 
+## 9.0.0
+
+### Minor Changes
+
+- [#762](https://github.com/fellwork/aihu/pull/762) [`ac9c045`](https://github.com/fellwork/aihu/commit/ac9c04599b2fbf57c9f39a39e1c9db7fe1388028) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Adopt the server-rendered DOM on first render instead of rebuilding it.
+
+  Prerendering used to buy first paint and crawlability but zero client work: the
+  client discarded the entire server-rendered subtree and rebuilt it. Measured on
+  apps/docs by tagging every prerendered node before hydration and counting
+  survivors — **0 of 393**. It is now **320 of 393**, with no duplication (total
+  node count identical to a pure client render) and Lighthouse unchanged at
+  perf 100 / LCP 1480ms.
+
+  **BREAKING (`@aihu/runtime`):** `DefineOptions.hydrate` is removed. It gated a
+  hydration branch in `define-element.ts` that nothing in production ever set —
+  the compiler never emitted it — and that branch bypassed `defineComponent`'s
+  connect path entirely, so `onMount` never ran under hydration. Rather than
+  enable a lifecycle-skipping bypass, the fork is deleted: `defineComponent`'s
+  `connectedCallback` is now the single connect path and chooses its renderer
+  (`_adoptSsrTemplate` vs `_mount`). Everything downstream — `onMount`, slot
+  projection, scope registration, teardown — is byte-identical, so the lifecycle
+  cannot drift again.
+
+  The adoptable boundary is server-declared, not client-guessed:
+  `renderToString({ wrapTag, hydratable })` stamps `data-aihu-ssr` on the host it
+  wraps, meaning "these children are this host's own rendered template". That
+  resolves an ambiguity `data-aihu-path` could not — slotted content from a
+  parent's server render carries paths too, but its receiving host is never
+  marked.
+
+  Three latent bugs surfaced only once adoption ran, and are fixed here: arbor's
+  `hydrate()` pathMap collided across nested wrapped renders (the page overwrote
+  the layout's root key); `hydrate()` never assigned `branch.el`, silently
+  no-op'ing `class:`/`html={}` effects on adopted trees; and the compiler wrapped
+  enhanced `<a>` multi-children in a fragment the server never renders,
+  duplicating every prerendered link's children.
+
+  Remaining ceiling: structural `each`/`if` segments still use arbor's
+  adopt-by-replace, which is why 73 nodes do not survive.
+
+### Patch Changes
+
+- [#762](https://github.com/fellwork/aihu/pull/762) [`ac9c045`](https://github.com/fellwork/aihu/commit/ac9c04599b2fbf57c9f39a39e1c9db7fe1388028) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Move `hydrate` to its own subpath export, `@aihu/arbor/hydrate`.
+
+  The size row measures `dist/index.js`'s whole entry graph, so every consumer
+  paid for the hydration walker whether or not it could run — including
+  `@aihu/app`'s `spa` mode, whose own comment says it "skips `_setHydrate` — no
+  SSR HTML to hydrate". Splitting drops the main entry from 4005 B to 2671 B gz.
+
+  **Migration:** `import { hydrate } from '@aihu/arbor'` becomes
+  `import { hydrate } from '@aihu/arbor/hydrate'`. Everything else on the main
+  entry is unchanged, which is why this is minor rather than major — but the
+  named export did move.
+
+  Two things the split broke and this fixes:
+
+  - `scripts/mangle-dist.mjs` only rewrote `dist/index.js`. A second entry makes
+    rolldown hoist shared code into a `mount-<hash>.js` chunk, so property
+    mangling silently stopped applying (`appendedNodes`, `disposers` came back
+    unmangled) while index.js — now a 344 B re-export shim — matched nothing.
+    It globs `dist/*.js` now, so adding an entry can never quietly disable it.
+
+  - `@aihu/app` did not externalise the new subpath. Rolldown's `external`
+    matches exact specifiers, so listing `@aihu/arbor` alone let the entire
+    walker inline into client.js (4.8 kB → 13.2 kB). Same failure shape as
+    `@aihu/context/ssr` and `@aihu/signals/lifecycle`.
+
+  `@aihu/app`'s client also drops below its budget again (30 B over → 29 B
+  headroom) through four changes that are each a readability win on their own:
+  `Array.from` removed from a static NodeList walk; three near-identical
+  meta/link/script upsert blocks folded into one helper; three copies of the
+  route-param loop folded into `stampParams`; and `tagName.toLowerCase()`
+  replaced with `localName`. The author-facing "layout has no `<outlet>`"
+  warning is now `__DEV__`-gated the way arbor gates telemetry — the recovery
+  path is not gated, so production still renders.
+
+  The `@aihu/app` size row was also counting `@aihu/store` (a declared peer, like
+  every other ignored entry) and `virtual:aihu-components` (a router virtual,
+  like the two already listed). Both omissions were oversights.
+
+- Updated dependencies [[`ac9c045`](https://github.com/fellwork/aihu/commit/ac9c04599b2fbf57c9f39a39e1c9db7fe1388028), [`ac9c045`](https://github.com/fellwork/aihu/commit/ac9c04599b2fbf57c9f39a39e1c9db7fe1388028), [`ac9c045`](https://github.com/fellwork/aihu/commit/ac9c04599b2fbf57c9f39a39e1c9db7fe1388028)]:
+  - @aihu/arbor@4.1.0
+  - @aihu/runtime@6.0.0
+  - @aihu/server@0.5.0
+  - @aihu/router@0.4.4
+
 ## 8.1.0
 
 ### Minor Changes

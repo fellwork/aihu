@@ -1,6 +1,6 @@
 {
   "name": "@aihu/server",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",
