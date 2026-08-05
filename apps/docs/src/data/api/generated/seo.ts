@@ -5,7 +5,7 @@ export const PKG: ApiPackage = {
   name: '@aihu/seo',
   slug: 'seo',
   tier: 'App & routing',
-  version: '1.0.3',
+  version: '1.0.4',
   tagline:
     'DEPRECATED compatibility shim over @aihu-plugin/agent-readiness (sitemap.xml, robots.txt, llms.txt, JSON-LD).',
   note: '',

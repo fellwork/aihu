@@ -5,7 +5,7 @@ export const PKG: ApiPackage = {
   name: '@aihu/compiler',
   slug: 'compiler',
   tier: 'Compiler & tooling',
-  version: '1.1.6',
+  version: '1.2.0',
   tagline: 'Single File Component (.aihu) compiler — Rust binary + JS glue.',
   note: '',
 }

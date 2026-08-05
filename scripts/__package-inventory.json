@@ -1,7 +1,7 @@
 [
   {
     "name": "@aihu-plugin/agent-readiness",
-    "version": "2.2.2",
+    "version": "2.2.3",
     "dir": "packages/plugin-agent-readiness",
     "isPlatform": false
   },
@@ -13,7 +13,7 @@
   },
   {
     "name": "@aihu-plugin/drizzle",
-    "version": "0.1.4",
+    "version": "0.1.5",
     "dir": "packages/plugin-drizzle",
     "isPlatform": false
   },
@@ -25,13 +25,13 @@
   },
   {
     "name": "@aihu/adapter-cloudflare",
-    "version": "11.0.0",
+    "version": "12.0.0",
     "dir": "packages/adapter-cloudflare",
     "isPlatform": false
   },
   {
     "name": "@aihu/adapter-vercel",
-    "version": "11.0.0",
+    "version": "12.0.0",
     "dir": "packages/adapter-vercel",
     "isPlatform": false
   },
@@ -55,13 +55,13 @@
   },
   {
     "name": "@aihu/agent-readiness",
-    "version": "2.0.2",
+    "version": "2.0.3",
     "dir": "packages/_moved/agent-readiness",
     "isPlatform": false
   },
   {
     "name": "@aihu/agent-server",
-    "version": "0.4.2",
+    "version": "0.4.3",
     "dir": "packages/agent-server",
     "isPlatform": false
   },
@@ -79,13 +79,13 @@
   },
   {
     "name": "@aihu/app",
-    "version": "8.1.0",
+    "version": "9.0.0",
     "dir": "packages/app",
     "isPlatform": false
   },
   {
     "name": "@aihu/arbor",
-    "version": "4.0.0",
+    "version": "4.1.0",
     "dir": "packages/arbor",
     "isPlatform": false
   },
@@ -103,7 +103,7 @@
   },
   {
     "name": "@aihu/compiler",
-    "version": "1.1.6",
+    "version": "1.2.0",
     "dir": "packages/compiler",
     "isPlatform": false
   },
@@ -217,7 +217,7 @@
   },
   {
     "name": "@aihu/language-server",
-    "version": "0.3.6",
+    "version": "0.4.0",
     "dir": "packages/language-server",
     "isPlatform": false
   },
@@ -247,7 +247,7 @@
   },
   {
     "name": "@aihu/primitives",
-    "version": "0.2.1",
+    "version": "0.2.2",
     "dir": "packages/primitives",
     "isPlatform": false
   },
@@ -259,13 +259,13 @@
   },
   {
     "name": "@aihu/router",
-    "version": "0.4.3",
+    "version": "0.4.4",
     "dir": "packages/router",
     "isPlatform": false
   },
   {
     "name": "@aihu/runtime",
-    "version": "5.1.0",
+    "version": "6.0.0",
     "dir": "packages/runtime",
     "isPlatform": false
   },
@@ -277,13 +277,13 @@
   },
   {
     "name": "@aihu/seo",
-    "version": "1.0.3",
+    "version": "1.0.4",
     "dir": "packages/seo",
     "isPlatform": false
   },
   {
     "name": "@aihu/server",
-    "version": "0.4.1",
+    "version": "0.5.0",
     "dir": "packages/server",
     "isPlatform": false
   },
@@ -331,7 +331,7 @@
   },
   {
     "name": "@aihu/tsc",
-    "version": "0.3.1",
+    "version": "0.3.2",
     "dir": "packages/tsc",
     "isPlatform": false
   },
@@ -343,7 +343,7 @@
   },
   {
     "name": "@aihu/use",
-    "version": "0.6.0",
+    "version": "1.0.0",
     "dir": "packages/use",
     "isPlatform": false
   },

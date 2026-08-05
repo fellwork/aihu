@@ -1,5 +1,13 @@
 # @aihu/seo
 
+## 1.0.4
+
+### Patch Changes
+
+- Updated dependencies [[`ac9c045`](https://github.com/fellwork/aihu/commit/ac9c04599b2fbf57c9f39a39e1c9db7fe1388028)]:
+  - @aihu/server@0.5.0
+  - @aihu-plugin/agent-readiness@2.2.3
+
 ## 1.0.3
 
 ### Patch Changes

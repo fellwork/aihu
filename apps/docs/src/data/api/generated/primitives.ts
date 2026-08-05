@@ -5,7 +5,7 @@ export const PKG: ApiPackage = {
   name: '@aihu/primitives',
   slug: 'primitives',
   tier: 'Runtime core',
-  version: '0.2.1',
+  version: '0.2.2',
   tagline:
     'aihu headless behavior primitives — WAI-ARIA APG patterns as vanilla custom elements, zero CSS.',
   note: '',

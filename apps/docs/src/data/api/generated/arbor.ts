@@ -5,7 +5,7 @@ export const PKG: ApiPackage = {
   name: '@aihu/arbor',
   slug: 'arbor',
   tier: 'Runtime core',
-  version: '4.0.0',
+  version: '4.1.0',
   tagline: 'Reactive component tree (the rendering layer that consumes @aihu/signals).',
   note: '',
 }
