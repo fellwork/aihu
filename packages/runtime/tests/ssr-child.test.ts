@@ -16,7 +16,7 @@
  */
 
 import { describe, expect, it, vi } from 'vitest'
-import { __aihu_schild, type SsrChildModule } from '../src/ssr-string.ts'
+import { __aihu_schild, type SsrChildModule, type SsrChildRenderOpts } from '../src/ssr-string.ts'
 import { SHADOW_ROOT_MODE } from '../src/types.ts'
 
 const lightChild = (html = '<nav>n</nav>'): SsrChildModule => ({
@@ -103,7 +103,7 @@ describe('light-DOM child', () => {
     // second stamp on the template root would make it a nested scope root and
     // cut the child's own `@scope(…) to ([data-a])` rules off at its first
     // child.
-    const render = vi.fn(() => '<nav>n</nav>')
+    const render = vi.fn((_props: unknown, _opts?: SsrChildRenderOpts) => '<nav>n</nav>')
     const mod: SsrChildModule = {
       __ssrString: render,
       __aihu_shadow__: 'light',
@@ -164,17 +164,17 @@ describe('shadow-DOM child', () => {
 
 describe('recursion', () => {
   it('threads the registry into the child so grandchildren resolve', () => {
-    const render = vi.fn(() => '<nav>n</nav>')
+    const render = vi.fn((_props: unknown, _opts?: SsrChildRenderOpts) => '<nav>n</nav>')
     const children = registry({ __ssrString: render, __aihu_shadow__: 'light' })
     __aihu_schild('site-header', '', { hydratable: true, children })
     expect(render.mock.calls[0]![1]).toMatchObject({ hydratable: true, children })
   })
 
   it('increments depth on the way down', () => {
-    const render = vi.fn(() => '')
+    const render = vi.fn((_props: unknown, _opts?: SsrChildRenderOpts) => '')
     const children = registry({ __ssrString: render, __aihu_shadow__: 'light' })
     __aihu_schild('site-header', '', { children, __depth: 4 })
-    expect((render.mock.calls[0]![1] as { __depth?: number }).__depth).toBe(5)
+    expect(render.mock.calls[0]![1]?.__depth).toBe(5)
   })
 
   it('a self-referencing child terminates instead of hanging the build', () => {
