@@ -198,6 +198,13 @@ export const EXPORTS: readonly ApiExport[] = [
     summary: '',
   },
   {
+    name: 'SHADOW_ROOT_MODE',
+    kind: 'const',
+    signature: 'const SHADOW_ROOT_MODE',
+    summary:
+      'The DOM `ShadowRootMode` aihu attaches with — the SINGLE SOURCE for that value across the whole framework.',
+  },
+  {
     name: 'ComponentOptions',
     kind: 'interface',
     signature:
