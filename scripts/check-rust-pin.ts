@@ -28,11 +28,15 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
-const WORKFLOW_DIR = '.github/workflows'
+// Root the scan somewhere else for the negative-fixture proof
+// (check:gate-wiring). Changes WHERE the gate reads and nothing else — same
+// shape as MOON_GRAPH_ROOT.
+const ROOT = process.env.RUST_PIN_ROOT ?? '.'
+const WORKFLOW_DIR = join(ROOT, '.github/workflows')
 
 /** The declared truth: `channel = "x.y.z"` in rust-toolchain.toml. */
 function sourceOfTruth(): string {
-  const toml = readFileSync('rust-toolchain.toml', 'utf8')
+  const toml = readFileSync(join(ROOT, 'rust-toolchain.toml'), 'utf8')
   const m = /^\s*channel\s*=\s*"([^"]+)"/m.exec(toml)
   if (!m?.[1]) {
     console.error('check-rust-pin: rust-toolchain.toml has no `channel = "..."`.')
@@ -70,7 +74,7 @@ function scan(file: string, patterns: RegExp[]): void {
 }
 
 // `.prototools` — what `moonrepo/setup-toolchain` installs.
-scan('.prototools', [/^\s*rust\s*=\s*"([^"]+)"/])
+scan(join(ROOT, '.prototools'), [/^\s*rust\s*=\s*"([^"]+)"/])
 
 // Workflows — `dtolnay/rust-toolchain`'s input and the RUSTUP_TOOLCHAIN env.
 // Deliberately NOT matched: `targets:` (wasm32 etc.) and action SHAs.

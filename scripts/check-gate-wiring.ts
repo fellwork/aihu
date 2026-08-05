@@ -148,6 +148,20 @@ const NEGATIVE_FIXTURES: Record<string, Fixture> = {
   // went unseen for the whole life of the gate because check:gate-wiring ran in
   // no workflow. `MOON_GRAPH_ROOT` (added with this entry) repoints its scan at
   // a fixture tree; it changes WHERE the gate reads and nothing else.
+  // One-Rust-pin guard. `RUST_PIN_ROOT` repoints the scan at a fixture tree
+  // (same shape as MOON_GRAPH_ROOT): red is a workflow pinning the minor
+  // SERIES "1.95" while rust-toolchain.toml declares the exact "1.95.0" —
+  // the real drift this gate was written for, since rustup resolves a series
+  // to the latest patch and CI ends up installing a toolchain the repo never
+  // declared. Green is every pin matching exactly.
+  'check:rust-pin': {
+    cmd: ['bun', 'scripts/check-rust-pin.ts'],
+    env: { RUST_PIN_ROOT: 'scripts/fixtures/rust-pin/should-flag' },
+    green: {
+      cmd: ['bun', 'scripts/check-rust-pin.ts'],
+      env: { RUST_PIN_ROOT: 'scripts/fixtures/rust-pin/should-not-flag' },
+    },
+  },
   'check:moon-graph': {
     cmd: ['bun', 'scripts/check-moon-graph.ts'],
     env: { MOON_GRAPH_ROOT: 'scripts/fixtures/moon-graph/should-flag' },
