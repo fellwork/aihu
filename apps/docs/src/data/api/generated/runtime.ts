@@ -178,6 +178,13 @@ export const EXPORTS: readonly ApiExport[] = [
       'One serialized attribute (` k="v"` / ` k` / nothing), mirroring the walker\'s `serializeAttrs` value rules for a RESOLVED value: functions (event handlers) never serialize, `true` renders the bare attribute, `false`/`undefined` render nothing, everything else stringifies escaped.',
   },
   {
+    name: '__aihu_schild',
+    kind: 'const',
+    signature:
+      'const __aihu_schild = (tag: string, attrsHtml: string, opts?: SsrChildRenderOpts): string => …',
+    summary: 'Render a referenced child component, or emit the empty element unchanged.',
+  },
+  {
     name: '__aihu_stext',
     kind: 'const',
     signature: 'const __aihu_stext = (v: unknown): string => …',
@@ -261,6 +268,20 @@ export const EXPORTS: readonly ApiExport[] = [
     signature:
       'interface SetupContext {\n  readonly host: ShadowRoot | Element\n  readonly element: HTMLElement\n  readonly connected: () => boolean\n}',
     summary: 'Context passed to a `defineComponent` setup function.',
+  },
+  {
+    name: 'SsrChildModule',
+    kind: 'interface',
+    signature:
+      "interface SsrChildModule {\n  /** The compiled string renderer, `__ssrString(props, opts)`. */\n  readonly __ssrString?: (props: unknown, opts?: SsrChildRenderOpts) => string\n  /** `__aihu_light_scope__` — the compiler-assigned light-DOM scope id. */\n  readonly __aihu_light_scope__?: string\n  /**\n   * `__aihu_shadow__` (#770). aihu's OWN vocabulary — `'light' | 'shadow'` —\n   * never the DOM's `ShadowRootMode`.\n   */\n  readonly __aihu_shadow__?: ShadowMode\n}",
+    summary: 'A compiled `--target server` module, as far as child rendering cares.',
+  },
+  {
+    name: 'SsrChildRenderOpts',
+    kind: 'interface',
+    signature:
+      'interface SsrChildRenderOpts {\n  readonly hydratable?: boolean\n  readonly lightScopeId?: string\n  /**\n   * tag → compiled module, PRE-RESOLVED by the caller (SSG prerender or the\n   * Workers handler). A Map and not a callback on purpose: module loading is\n   * async while this path is synchronous, and hoisting resolution to the caller\n   * is what lets the compiled fast path survive child rendering at all. It is\n   * also where the cycle guard belongs — once, over the whole graph, at build\n   * time, rather than at every render.\n   */\n  readonly children?: ReadonlyMap<string, SsrChildModule>\n  /** @internal Recursion depth, incremented per nested child. */\n  readonly __depth?: number\n}',
+    summary: 'The opts a compiled `__ssrString` accepts, plus the child registry.',
   },
   {
     name: 'StreamHandle',

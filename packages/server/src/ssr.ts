@@ -254,10 +254,18 @@ export interface SsrOptions {
    * graph rather than at every render; and resolution needs the caller's module
    * loader, which `@aihu/server` has no business owning.
    *
-   * The caller builds it by walking each module's `__aihu_child_tags__`
-   * transitively — SSG prerender via `ssrLoadModule`, the Workers handler via a
-   * generated tag→module manifest — and REJECTS a cyclic graph there, loudly,
-   * before any render begins.
+   * How the caller builds it is step 5's job — SSG prerender via
+   * `ssrLoadModule`, the Workers handler via a generated tag→module manifest —
+   * and that is also where a cyclic tag graph must be REJECTED, loudly, before
+   * any render begins. (`__aihu_schild` carries a depth cap as a backstop, not
+   * as the guard.)
+   *
+   * NOT YET EMITTED, and deliberately not described here as if it were: the
+   * plan has the compiler export `__aihu_child_tags__` — each module's static
+   * set of referenced component tags — to drive that transitive walk. It is a
+   * prerequisite of step 5, not of this option, which works with any map the
+   * caller assembles. Naming an export in a doc comment before it exists is how
+   * `contextSetup` and `resolveComponent` each read as done while unbuilt.
    *
    * Omitted (the default) renders every reference as the empty element it
    * renders today — byte-identical output, which is what makes this safe to

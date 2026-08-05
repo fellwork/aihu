@@ -208,6 +208,10 @@ rejected one it has to be repealed.
   static set of referenced component tags — beside `__aihu_tag__` /
   `__aihu_shadow__` / `__aihu_light_scope__`. With no registry the helper emits
   today's empty element, byte-identical to current output.
+  **STATUS: the `__aihu_schild` lowering landed in #773; `__aihu_child_tags__`
+  did NOT.** It is only needed to drive step 5's transitive registry walk, so it
+  is carried there rather than left implied — nothing in 3a–3d depends on it,
+  and `SsrOptions.children` accepts any map the caller assembles.
 - **3b. Runtime.** `__aihu_schild` in `packages/runtime/src/ssr-string.ts`:
   registry lookup, recursive render through the CHILD's own `__ssrString`, host
   wrapping per the child's `__aihu_shadow__` — light gets `data-a` +
