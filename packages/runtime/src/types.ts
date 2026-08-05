@@ -26,6 +26,30 @@ import type { Signal } from '@aihu/signals'
  */
 export type ShadowMode = 'light' | 'shadow'
 
+/**
+ * The DOM `ShadowRootMode` aihu attaches with — the SINGLE SOURCE for that
+ * value across the whole framework.
+ *
+ * `ShadowMode` above ('light' | 'shadow') is aihu's AUTHORING vocabulary;
+ * `ShadowRootMode` ('open' | 'closed') is a different DOM enum that merely
+ * shares the word "mode". They meet in exactly one place — the moment a root
+ * is actually attached — and `'open'` is never something an author writes.
+ *
+ * Declarative Shadow DOM makes that boundary reachable from a second place:
+ * the server's `<template shadowrootmode="…">` must name the SAME value the
+ * client attaches with, or a prerendered component adopts into a root the
+ * runtime cannot see. Two bare `"open"` literals in two packages would be one
+ * invariant encoded twice with nothing testing that they agree — the shape
+ * that already produced the mangled arbor wire format, `_injectLightScopeId`,
+ * and `contextSetup`.
+ *
+ * `@aihu/server` does not (and should not) depend on this browser package, so
+ * the SSR emitter cannot import this constant. It therefore declares its own
+ * and is pinned to this one by a cross-package parity test — the documented
+ * single-source arrangement, never an unwatched duplicate.
+ */
+export const SHADOW_ROOT_MODE = 'open' as const
+
 export interface DefineOptions {
   shadowMode?: ShadowMode
   /**

@@ -1,4 +1,4 @@
-import { type DefineOptions, RuntimeError, type ShadowMode } from './types.ts'
+import { type DefineOptions, RuntimeError, SHADOW_ROOT_MODE, type ShadowMode } from './types.ts'
 
 function wrapClass(
   Ctor: typeof HTMLElement,
@@ -31,8 +31,27 @@ function wrapClass(
   class Wrapped extends Ctor {
     constructor() {
       super()
-      if (attachShadow) {
-        this.attachShadow({ mode: 'open' })
+      // `!this.shadowRoot` is the Declarative Shadow DOM guard. When a server
+      // emits `<template shadowrootmode="open">` the browser attaches the root
+      // during parsing, BEFORE this element upgrades — so by the time the
+      // constructor runs, `this.shadowRoot` is already the server's populated
+      // root. Attaching again is not a no-op: per the HTML spec, attachShadow
+      // over an existing DECLARATIVE root empties it and returns it, which
+      // would silently delete the very DOM the component is meant to adopt.
+      // (Over a non-declarative root it throws `NotSupportedError` outright.)
+      // Skipping the call leaves the server's tree intact for
+      // define-component's adopt path; when no root exists — every client-only
+      // mount, which is every mount today — this is byte-identical to before.
+      //
+      // Ordering caveat, deliberately not worked around: this only holds when
+      // the definition is registered AFTER parsing (a deferred `<script
+      // type="module">`, which is how @aihu/app bootstraps). A synchronously
+      // registered definition upgrades at the host's start tag, before the
+      // parser reaches the inner template — we would attach first and the
+      // browser would drop the declarative root. That degrades to a fresh
+      // client mount, not a crash.
+      if (attachShadow && !this.shadowRoot) {
+        this.attachShadow({ mode: SHADOW_ROOT_MODE })
       }
       // NOT here: the Custom Elements spec forbids mutating attributes
       // inside a custom element constructor (an element's attributes must
