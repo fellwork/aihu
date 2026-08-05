@@ -107,10 +107,13 @@ npm install @aihu/app@0.0.0-canary-abc1234  # exact snapshot pin
 
 Note: the `packages/_moved/*` legacy-name stubs are excluded from the
 catch-all (frozen at their 1.x stable versions; the live publish's idempotency
-check skips them). The compiler `postinstall`
-GitHub-release fallback still points at the latest stable Release assets;
-canary consumers get canary binaries via the `@aihu/compiler-<platform>`
-optionalDependencies path, which is the primary resolution route.
+check skips them). Canary consumers get canary binaries via the
+`@aihu/compiler-<platform>` optionalDependencies path, which is the only
+resolution route — `packages/compiler/js/resolve-binary.ts` performs no
+network fetch. (This note previously described a compiler `postinstall`
+GitHub-release fallback pointing at the latest stable Release assets. No such
+script exists: `packages/compiler` declares no `postinstall`, so there was no
+fallback and canaries could not have silently picked up a stable binary.)
 
 ## Pre-release channels (alpha / beta / rc)
 

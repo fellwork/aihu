@@ -26,8 +26,16 @@ name: Release aihu-compile binaries
 #     created for canaries.
 #
 # Consumed by:
-#   - packages/compiler/js/postinstall.ts via the
-#     `releases/latest/download/<asset>` redirect (verifies SHA256).
+#   - NOT by a compiler postinstall script. This comment used to name
+#     `packages/compiler/js/postinstall.ts` as the consumer that fetched
+#     `releases/latest/download/<asset>` and verified the SHA256. That file no
+#     longer exists and `packages/compiler` declares no `postinstall` script;
+#     the binary now reaches consumers exclusively through the
+#     `@aihu/compiler-<platform>` optionalDependencies, resolved by
+#     `packages/compiler/js/resolve-binary.ts` — which performs no network
+#     fetch at all. The per-platform `aihu-compile-*` assets and their .sha256
+#     sidecars are therefore published for out-of-band/manual verification and
+#     as a human-fetchable escape hatch, not for an automated install path.
 #   - apps/docs/ playground (arch-1 §3.5 + arch-4 §4.6) — FALLBACK ONLY since
 #     #491: scripts/build-wasm-bundle.ts builds the WASM from the workspace
 #     compiler and fetches `releases/latest/download/aihu-compile-wasm.tar.gz`
@@ -143,9 +151,39 @@ jobs:
           # Cargo workspace, so cargo emits to ./target, not packages/compiler/target.
           cp target/${{ matrix.target }}/release/aihu-compile artifact/${{ matrix.asset }}
           chmod 0755 artifact/${{ matrix.asset }}
-          # SHA256 sidecar — postinstall.ts verifies digest before placing binary on disk.
-          sha256sum artifact/${{ matrix.asset }} | awk '{print $1}' > artifact/${{ matrix.asset }}.sha256
-          echo "Generated SHA256: $(cat artifact/${{ matrix.asset }}.sha256)"
+          # SHA256 sidecar, for out-of-band verification of the Release asset.
+          #
+          # macOS runners ship `shasum`, NOT `sha256sum`, and the darwin targets
+          # in this matrix build on macOS. The previous one-liner
+          #
+          #   sha256sum "$asset" | awk '{print $1}' > "$asset.sha256"
+          #
+          # failed there in the quietest possible way. A pipeline's exit status
+          # is its LAST command's, so `awk` returning 0 meant `set -e` never
+          # fired on the missing `sha256sum`; the redirect still created the
+          # sidecar, empty; `if-no-files-found: error` saw a file and was
+          # satisfied; and the flatten step below skipped it as empty. Result:
+          # every darwin release shipped with no checksum while CI stayed green.
+          # v0.4.61 is the release where that was finally noticed.
+          #
+          # So: pick the tool that exists, keep the digest out of a pipeline's
+          # exit status, and assert it is non-empty before writing.
+          asset="artifact/${{ matrix.asset }}"
+          if command -v sha256sum >/dev/null 2>&1; then
+            digest="$(sha256sum "$asset" | awk '{print $1}')"
+          elif command -v shasum >/dev/null 2>&1; then
+            digest="$(shasum -a 256 "$asset" | awk '{print $1}')"
+          else
+            echo "::error::neither sha256sum nor shasum is available on $(uname -s) — cannot checksum ${{ matrix.asset }}"
+            exit 1
+          fi
+          if [ -z "$digest" ]; then
+            echo "::error::computed an empty SHA256 for ${{ matrix.asset }}"
+            exit 1
+          fi
+          # No trailing newline, matching the Windows step's -NoNewline.
+          printf '%s' "$digest" > "$asset.sha256"
+          echo "Generated SHA256: $digest"
 
       - name: Stage asset (Windows)
         if: runner.os == 'Windows'
@@ -154,7 +192,9 @@ jobs:
           New-Item -ItemType Directory -Force -Path artifact | Out-Null
           # Workspace-root target/ — see the Unix stage step above.
           Copy-Item -Path "target/${{ matrix.target }}/release/aihu-compile.exe" -Destination "artifact/${{ matrix.asset }}"
-          # SHA256 sidecar — postinstall.ts verifies digest before placing binary on disk.
+          # SHA256 sidecar, for out-of-band verification (see the header note —
+          # there is no postinstall consumer). PowerShell's Get-FileHash has no
+          # equivalent of the Unix side's missing-tool trap.
           $hash = (Get-FileHash -Algorithm SHA256 "artifact/${{ matrix.asset }}").Hash.ToLower()
           $hash | Out-File -FilePath "artifact/${{ matrix.asset }}.sha256" -Encoding ascii -NoNewline
           Write-Host "Generated SHA256: $hash"
@@ -295,6 +335,18 @@ jobs:
             cp "$f" "$dest"
           done < <(find artifacts -type f ! -empty | sort)
           ls -la release-assets/
+          # An empty artifact file means a producer step failed silently — it
+          # wrote a redirect target but never filled it. Skipping those (which
+          # the `! -empty` filter above does) is what let the darwin .sha256
+          # sidecars vanish from every release without one job going red. The
+          # filter stays, because a zero-byte asset is genuinely not shippable;
+          # what changes is that it is now an ERROR rather than a silent drop.
+          empty_files="$(find artifacts -type f -empty | sort)"
+          if [ -n "$empty_files" ]; then
+            echo "::error::empty artifact file(s) — the step that produced each one failed without failing the job:"
+            echo "$empty_files" | sed 's/^/  /'
+            exit 1
+          fi
           # Sanity count: one asset per upload-artifact step is expected at
           # minimum (some, like aihu-compile-<platform>, upload 2 — binary +
           # .sha256). A run with fewer files than artifact directories means
