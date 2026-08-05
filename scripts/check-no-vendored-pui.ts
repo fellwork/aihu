@@ -29,11 +29,7 @@ const ALLOWLIST = [
 // which none of these match: a real vendored class shows up as a CSS
 // selector (`.pui-foo`), an HTML/JSX class attribute value, or the
 // `--pui-*` custom-property namespace.
-const USAGE_PATTERNS = [
-  String.raw`--pui-[a-zA-Z]`,
-  String.raw`\.pui-[a-zA-Z]`,
-  String.raw`class(Name)?=.pui-`,
-]
+const USAGE_PATTERNS = ['--pui-[a-zA-Z]', String.raw`\.pui-[a-zA-Z]`, 'class(Name)?=.pui-']
 
 function grep(): string[] {
   try {

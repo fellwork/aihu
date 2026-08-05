@@ -23,7 +23,8 @@
  * `packages/use/src` on disk, so this can't be read at the LSP's runtime).
  */
 import { spawnSync } from 'node:child_process'
-import { readFileSync, writeFileSync } from 'node:fs'
+import { readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -155,14 +156,24 @@ function main(): void {
   // repo enforces via `check:lint` — write raw, then let it reformat, so the
   // committed file always matches what `bun run check:lint` expects rather
   // than this script's own guess at formatting.
-  writeFileSync(OUT_FILE, output)
-  spawnSync('bunx', ['biome', 'format', '--write', OUT_FILE], { stdio: 'inherit' })
+  // `--check` must be READ-ONLY. It used to write OUT_FILE, format it in
+  // place, compare, then restore — which left the tracked file dirty if the
+  // process died between write and restore, and printed a confusing
+  // "Fixed 1 file" into every CI run for a step that is supposed to inspect,
+  // not mutate. Format a temp copy instead; the real file is only written on a
+  // genuine (non-check) regeneration.
+  // The temp copy MUST keep a .ts extension — biome picks its formatter from
+  // the file extension, and a `.tmp` name is left unformatted, which made the
+  // comparison report a false 'stale'. Placed in the OS temp dir so a crash
+  // cannot leave a stray .ts file inside the package for tsc to pick up.
+  const target = check ? join(tmpdir(), `aihu-composable-registry.check.ts`) : OUT_FILE
+  writeFileSync(target, output)
+  spawnSync('bunx', ['biome', 'format', '--write', target], { stdio: 'inherit' })
 
   if (check) {
-    const formatted = readFileSync(OUT_FILE, 'utf8')
-    const before = existing
-    if (before !== formatted) {
-      writeFileSync(OUT_FILE, before) // leave the tree as we found it
+    const formatted = readFileSync(target, 'utf8')
+    rmSync(target, { force: true })
+    if (existing !== formatted) {
       console.error(
         `[gen-composable-registry] ${basename(OUT_FILE)} is stale — run: bun scripts/gen-composable-hover-registry.ts`,
       )

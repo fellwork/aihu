@@ -103,7 +103,7 @@ export const Open = {
 }
 
 export const OpenWithLongContent = {
-  render: (): string => FAB('<p>' + 'A much longer chat panel body. '.repeat(30) + '</p>'),
+  render: (): string => FAB(`<p>${'A much longer chat panel body. '.repeat(30)}</p>`),
   play: async ({ canvasElement }: { canvasElement: HTMLElement }): Promise<void> => {
     const { trigger, content } = parts(canvasElement)
     await userEvent.click(trigger)
