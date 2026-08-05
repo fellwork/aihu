@@ -658,8 +658,34 @@ Gemini CLI, Copilot, and Windsurf do not.
 ### 7.6 Capabilities are runtime, not build-time **[VERIFIED]**
 
 - **WebMCP** ([Chrome origin trial, 2026-06-09](https://developer.chrome.com/blog/ai-webmcp-origin-trial),
-  Chrome 149; W3C Web ML CG draft, **not Standards Track**) exposes `navigator.modelContext`
-  so pages register tools **in JavaScript, reflecting live page state**.
+  Chrome 149; W3C Web ML CG draft, **not Standards Track**) exposes `document.modelContext`
+  so pages register tools **in JavaScript, reflecting live page state**:
+
+  ```js
+  const controller = new AbortController()
+  await document.modelContext.registerTool(
+    {
+      name: 'add-todo',
+      description: "Add a new item to the user's active todo list",
+      inputSchema: { type: 'object', properties: { text: { type: 'string' } }, required: ['text'] },
+      async execute({ text }) {
+        await addTodoItemToCollection(text)
+        return { content: [{ type: 'text', text: `Added todo item: "${text}" successfully.` }] }
+      },
+    },
+    { signal: controller.signal }, // controller.abort() unregisters
+  )
+  ```
+
+  Also `document.modelContext.getTools()`, `.executeTool()`, and a `toolchange` event.
+  **The global is `document`, not `navigator`** — re-verified 2026-08-05 against both
+  [Chrome's imperative-API docs](https://developer.chrome.com/docs/ai/webmcp/imperative-api)
+  and the [W3C explainer](https://github.com/webmachinelearning/webmcp); this doc previously
+  said `navigator.modelContext`, which no longer resolves. Note the `execute` return is an
+  **MCP content-block array**, the same shape `packages/mcp` already speaks.
+
+  **There is no discovery file.** The spec repo contains zero occurrences of `well-known`
+  (checked 2026-08-05). Tools exist only once JS has run and registered them.
 - **Web Bot Auth** ([draft-meunier-web-bot-auth-architecture](https://datatracker.ietf.org/doc/html/draft-meunier-web-bot-auth-architecture),
   ⚠️ **v05 EXPIRED**, replaced by `draft-meunier-webbotauth-httpsig-protocol`) authenticates
   via **RFC 9421 signatures per request** with a `Signature-Agent` header. The draft
