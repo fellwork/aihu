@@ -1168,7 +1168,24 @@ export async function renderToString(
     if (!wrapTag) return html
     const scopeAttr =
       opts?.lightScopeId !== undefined ? ` data-a="${escapeAttr(opts.lightScopeId)}"` : ''
-    return `<${wrapTag}${scopeAttr}>${html}</${wrapTag}>`
+    // `data-aihu-ssr` — the ADOPTION marker (first-render DOM adoption). A
+    // wire-protocol attribute shared with two client consumers:
+    //   - `@aihu/runtime`'s defineComponent connectedCallback reads it as the
+    //     host's declaration that "my children are my OWN server-rendered
+    //     template" — the one fact that disambiguates server template from
+    //     user-slotted light-DOM content (slotted content arrives via a PARENT
+    //     render and never carries the marker on ITS host). Marked hosts adopt
+    //     via arbor `hydrate()` instead of rebuilding; marked-but-unadoptable
+    //     children are discarded, never slot-projected.
+    //   - `@aihu/arbor`'s `hydrate()` treats a nested marked host as a path
+    //     boundary: each wrapped render restarts `data-aihu-path` at ROOT_PATH
+    //     ('0'), so without the boundary an outer component's path map would
+    //     collide with every nested wrapped render (e.g. the page inside a
+    //     layout's outlet marker).
+    // Hydratable renders only — like the path markers, this is a property of
+    // the DESTINATION; terminal output carries no adoption bytes.
+    const adoptAttr = opts?.hydratable ? ' data-aihu-ssr=""' : ''
+    return `<${wrapTag}${scopeAttr}${adoptAttr}>${html}</${wrapTag}>`
   } finally {
     if (hasContext) {
       _clearContextMap?.()

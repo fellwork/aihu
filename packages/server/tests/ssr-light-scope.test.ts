@@ -91,12 +91,25 @@ describe('renderToString — wrapTag', () => {
   })
 
   // The host is not a node in the component's arbor tree, so it takes no path
-  // and every hydration path below it is unchanged.
-  it('gives the wrapper no data-aihu-path and leaves inner paths untouched', async () => {
+  // and every hydration path below it is unchanged. What a HYDRATABLE wrap
+  // does carry is the `data-aihu-ssr` ADOPTION marker: the host's declaration
+  // that its children are its own server-rendered template, read by
+  // @aihu/runtime's connectedCallback (adopt-vs-mount choice) and by arbor's
+  // hydrate() (nested-render path boundary).
+  it('gives the wrapper no data-aihu-path, stamps the adoption marker, and leaves inner paths untouched', async () => {
     const bare = await renderToString(tree, { hydratable: true })
     const wrapped = await renderToString(tree, { hydratable: true, wrapTag: 'x-page' })
     expect(bare).toContain('data-aihu-path="0"')
-    expect(wrapped).toBe(`<x-page>${bare}</x-page>`)
+    expect(wrapped).toBe(`<x-page data-aihu-ssr="">${bare}</x-page>`)
+  })
+
+  // …but only on hydratable output: like the path markers, the adoption
+  // marker is a property of the DESTINATION. Terminal (non-hydratable)
+  // output carries no adoption bytes — pinned by the exact-byte assertions
+  // in the non-hydratable tests above.
+  it('omits the adoption marker on non-hydratable output', async () => {
+    const wrapped = await renderToString(tree, { wrapTag: 'x-page' })
+    expect(wrapped).not.toContain('data-aihu-ssr')
   })
 
   it('wraps the { toHtml } escape hatch too', async () => {

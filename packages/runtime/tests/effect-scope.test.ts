@@ -20,15 +20,16 @@
 
 import { branch, leaf, type MountScope, mount } from '@aihu/arbor'
 import { effect, effectScope, runWithScope, signal } from '@aihu/signals'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
+  _setHydrate,
   _setMount,
   _setSignal,
   defineComponent,
   _onCleanup as onCleanup,
   _onMount as onMount,
 } from '../src/define-component.ts'
-import { _setHydrate, defineElement } from '../src/define-element.ts'
+import { defineElement } from '../src/define-element.ts'
 import { RuntimeError } from '../src/types.ts'
 
 _setMount(mount)
@@ -334,21 +335,21 @@ describe('component effect scope — setup-throw + fail-loud contract (finding F
   })
 })
 
-describe('component effect scope — hydration disconnect bridge (finding C)', () => {
-  let originalState: unknown
-  beforeEach(() => {
-    originalState = (globalThis as Record<string, unknown>).__aihu_state__
-  })
-  afterEach(() => {
-    ;(globalThis as Record<string, unknown>).__aihu_state__ = originalState
-  })
+describe('component effect scope — adoption path teardown (finding C, now the shared connect path)', () => {
+  /** A marked light-DOM host carrying a server-rendered template. */
+  function adoptableEl(t: string): HTMLElement {
+    const el = document.createElement(t)
+    el.setAttribute('data-aihu-ssr', '')
+    el.innerHTML = '<p data-aihu-path="0">srv</p>'
+    return el
+  }
 
-  it('a hydrated component stops its scope on disconnect — no leak', () => {
+  it('an adopted component stops its scope on disconnect — no leak', () => {
     const order: string[] = []
-    // Stub hydrateFn with the real contract's shape: call component() (which
-    // runs _build → opens the component scope) and hand back a MountScope.
-    _setHydrate((component) => {
-      component()
+    // Stub _hydrate with the real contract's shape: the tree is already built
+    // by connectedCallback (the shared path opened the component scope);
+    // hand back a MountScope whose dispose we can observe.
+    _setHydrate(() => {
       return { dispose: () => order.push('hs.dispose') } as unknown as MountScope
     })
     try {
@@ -363,27 +364,24 @@ describe('component effect scope — hydration disconnect bridge (finding C)', (
         return leaf('h')
       })
       const t = tag()
-      ;(globalThis as Record<string, unknown>).__aihu_state__ = { [t]: {} }
-      defineElement(t, Cmp, { hydrate: true })
-      const el = document.createElement(t)
+      defineElement(t, Cmp, { shadowMode: 'light' })
+      const el = adoptableEl(t)
       document.body.appendChild(el)
       expect(runs).toBe(1)
       el.remove()
-      // The bridge stopped the component scope (user cleanups first), then
-      // disposed the hydrate MountScope (DOM teardown last).
+      // disconnectedCallback stopped the component scope (user cleanups
+      // first), then disposed the adopted MountScope (DOM teardown last).
       expect(order).toEqual(['scope-cleanup', 'hs.dispose'])
       setN(1)
       expect(runs).toBe(1) // the setup-time effect did not leak
     } finally {
-      _setHydrate(null as unknown as Parameters<typeof _setHydrate>[0])
+      _setHydrate(null)
     }
   })
 
-  it('a _build throw in the hydrate path stops the scope', () => {
-    _setHydrate((component) => {
-      component() // rethrows the _build error, like real hydrate without onError
-      return { dispose: () => {} } as unknown as MountScope
-    })
+  it('a _build throw on an adoptable connect stops the scope', () => {
+    const hydrateSpy = vi.fn(() => ({ dispose: () => {} }) as unknown as MountScope)
+    _setHydrate(hydrateSpy)
     try {
       const cleanup = vi.fn()
       const Cmp = defineComponent(() => {
@@ -391,13 +389,33 @@ describe('component effect scope — hydration disconnect bridge (finding C)', (
         throw new Error('hydrate build boom')
       })
       const t = tag()
-      ;(globalThis as Record<string, unknown>).__aihu_state__ = { [t]: {} }
-      defineElement(t, Cmp, { hydrate: true })
-      const el = document.createElement(t) as HTMLElement & { connectedCallback(): void }
+      defineElement(t, Cmp, { shadowMode: 'light' })
+      const el = adoptableEl(t) as HTMLElement & { connectedCallback(): void }
       expect(() => el.connectedCallback()).toThrow('hydrate build boom')
       expect(cleanup).toHaveBeenCalledTimes(1) // scope stopped on the throw path
+      expect(hydrateSpy).not.toHaveBeenCalled() // the throw preceded the renderer choice
     } finally {
-      _setHydrate(null as unknown as Parameters<typeof _setHydrate>[0])
+      _setHydrate(null)
+    }
+  })
+
+  it('a hydrate throw on an adoptable connect stops the scope', () => {
+    _setHydrate(() => {
+      throw new Error('hydrate wire boom')
+    })
+    try {
+      const cleanup = vi.fn()
+      const Cmp = defineComponent(() => {
+        onCleanup(cleanup)
+        return leaf('h')
+      })
+      const t = tag()
+      defineElement(t, Cmp, { shadowMode: 'light' })
+      const el = adoptableEl(t) as HTMLElement & { connectedCallback(): void }
+      expect(() => el.connectedCallback()).toThrow('hydrate wire boom')
+      expect(cleanup).toHaveBeenCalledTimes(1)
+    } finally {
+      _setHydrate(null)
     }
   })
 })

@@ -1,27 +1,8 @@
-import type { MountScope } from '@aihu/arbor'
-import { _stopComponentScope } from './define-component.ts'
 import { type DefineOptions, RuntimeError, type ShadowMode } from './types.ts'
-
-const _HS = Symbol()
-
-type HydrateFn = (
-  component: () => unknown,
-  host: Element | ShadowRoot,
-  snapshot: Record<string, unknown>,
-) => MountScope
-
-let _hydrateFn: HydrateFn | null = null
-
-/** @internal */
-export function _setHydrate(fn: HydrateFn): void {
-  _hydrateFn = fn
-}
 
 function wrapClass(
   Ctor: typeof HTMLElement,
   mode: ShadowMode,
-  name: string,
-  enableHydration: boolean,
   lightScopeId?: string,
 ): typeof HTMLElement {
   // DA4 (#437): the mode is BINARY. `'shadow'` attaches an OPEN root — open
@@ -30,17 +11,24 @@ function wrapClass(
   // as light DOM). `'light'` attaches nothing, so `this.shadowRoot === null`
   // is an unambiguous light-DOM detection.
   //
-  // The fast path below skips wrapping entirely for the common non-hydrated
-  // light case — EXCEPT when `lightScopeId` is set (light-DOM leaf flip,
-  // LDF §10 step 3): stamping `data-a` needs a constructor override, so a
-  // scoped component must always be wrapped even though it neither attaches
-  // a shadow root nor hydrates.
-  if (mode === 'light' && !enableHydration && !lightScopeId) return Ctor
+  // The fast path below skips wrapping entirely for the common light case —
+  // EXCEPT when `lightScopeId` is set (light-DOM leaf flip, LDF §10 step 3):
+  // stamping `data-a` needs a connectedCallback override, so a scoped
+  // component must always be wrapped even though it attaches no shadow root.
+  //
+  // NOTE there is no hydration branch here any more. Hydration used to be a
+  // SEPARATE connect path in this wrapper (`options.hydrate` +
+  // `__aihu_state__[name]` gating a direct `_hydrateFn(...)` call) that
+  // bypassed defineComponent's whole mount phase — no lifecycle host, no
+  // `onMount`, no slot projection. First-render DOM adoption deleted the fork:
+  // defineComponent's connectedCallback is the ONE connect path and chooses
+  // its renderer (`_hydrate` vs `_mount`) itself, keyed on the server's
+  // `data-aihu-ssr` host marker — see `_setHydrate`/`ADOPT_ATTR` in
+  // define-component.ts.
+  if (mode === 'light' && !lightScopeId) return Ctor
   const attachShadow = mode === 'shadow'
 
   class Wrapped extends Ctor {
-    [_HS]: MountScope | null = null
-
     constructor() {
       super()
       if (attachShadow) {
@@ -61,69 +49,7 @@ function wrapClass(
       if (lightScopeId) {
         this.setAttribute('data-a', lightScopeId)
       }
-      if (enableHydration && _hydrateFn !== null) {
-        const state = (globalThis as Record<string, unknown>).__aihu_state__ as
-          | Record<string, unknown>
-          | undefined
-        const snapshot = state?.[name] as Record<string, unknown> | undefined
-        if (snapshot) {
-          const host: Element | ShadowRoot = this.shadowRoot ?? this
-          const ctor = this as unknown as { _build?(): unknown }
-          if (typeof ctor._build === 'function') {
-            try {
-              this[_HS] = _hydrateFn(() => ctor._build?.(), host, snapshot)
-            } catch (err) {
-              // _build() opened the component effect scope before the throw —
-              // stop it so pre-throw effects don't leak. A throwing disposer
-              // must not mask the ORIGINAL error.
-              try {
-                _stopComponentScope(this)
-              } catch (stopErr) {
-                console.error(`[aihu] scope stop failed for <${name}>:`, stopErr)
-              }
-              throw err
-            }
-            return
-          }
-        }
-      }
       ;(_proto.connectedCallback as (() => void) | undefined)?.call(this)
-    }
-
-    // FEL-396: opt-in marker for `moveBefore()` state preservation — see
-    // define-component.ts for the full rationale and the DI/context CAVEAT.
-    // `Ctor` (produced by defineComponent) already defines its own
-    // connectedMoveCallback, which Wrapped instances inherit through the
-    // prototype chain regardless — this override is not load-bearing for the
-    // platform's detection. Declared anyway for explicitness/symmetry with
-    // the connectedCallback/disconnectedCallback overrides right below, and
-    // so a future non-empty base implementation is forwarded rather than
-    // silently shadowed.
-    connectedMoveCallback(): void {
-      ;(_proto.connectedMoveCallback as (() => void) | undefined)?.call(this)
-    }
-
-    disconnectedCallback(): void {
-      const hs = this[_HS]
-      if (hs !== null) {
-        // Hydration disconnect bridge (effect-scope plan §4, P0): the
-        // hydrate branch above ran `_build()` — which opened the component
-        // effect scope — but this early return never reaches
-        // define-component's disconnectedCallback, so the scope would leak.
-        // Stop it FIRST (user cleanups before DOM teardown), with the
-        // hydrate-scope dispose in `finally` for throw containment.
-        // NOTE: onMount/_runMounts never ran under hydration (pre-existing
-        // separate gap — hydrate skips the mount phase entirely); we only
-        // stop the scope here, we do not resurrect the mount lifecycle.
-        try {
-          _stopComponentScope(this)
-        } finally {
-          hs.dispose()
-          this[_HS] = null
-        }
-        return
-      }
-      ;(_proto.disconnectedCallback as (() => void) | undefined)?.call(this)
     }
   }
   const _proto = Object.getPrototypeOf(Wrapped.prototype) as Record<string, unknown>
@@ -141,13 +67,12 @@ export function defineElement(
   // Leaf default: 'shadow'. Pages/layouts receive an explicit
   // `{ shadowMode: 'light' }` from the compiler plugin (DA4 #437).
   const mode: ShadowMode = options?.shadowMode ?? 'shadow'
-  const enableHydration = options?.hydrate === true
   // Only meaningful in light mode — see the doc comment on
   // `DefineOptions.lightScopeId`. A shadow-mode component ignores it even if
   // present (shouldn't happen: `_injectShadowMode` only ever sets it
   // alongside `shadowMode: 'light'`), rather than trusting caller intent.
   const lightScopeId = mode === 'light' ? options?.lightScopeId : undefined
-  const Wrapped = wrapClass(Ctor, mode, name, enableHydration, lightScopeId)
+  const Wrapped = wrapClass(Ctor, mode, lightScopeId)
   // D5 — must be stamped BEFORE define(); the definition algorithm reads it
   // off the constructor there and never looks again.
   if (options?.formAssociated) {

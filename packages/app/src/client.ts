@@ -178,8 +178,9 @@ export function createApp(config?: AppConfig): AppHandle {
   // component setup — createApp runs before any route module is imported
   // (and so before any custom element is defined or connected), which is
   // that guarantee. The `signals` record is held and published under the
-  // initial route's tag (see render()) so `defineElement`'s hydration
-  // branch passes it to arbor's `hydrate()` for signal pre-seeding.
+  // initial route's tag (see render()) so the runtime's first-render
+  // adoption path (defineComponent's connectedCallback) hands it to
+  // arbor's `hydrate()` for signal pre-seeding.
   let ssrSignals: Record<string, unknown> | null = null
   try {
     const env = JSON.parse(document.getElementById('__aihu_state__')?.textContent ?? '') as {
@@ -296,8 +297,16 @@ export function createApp(config?: AppConfig): AppHandle {
   let currentMatch: MatchResult | null = null
   let layoutOverride: string | null | undefined
 
+  // First-render DOM adoption: only the VERY FIRST render may adopt the
+  // document's prerendered outlet content (later renders are client
+  // navigations over client-built DOM). Read-and-clear at the top of render()
+  // so a failed probe can never re-arm.
+  let firstRender = true
+
   async function render(match: MatchResult | null): Promise<void> {
     currentMatch = match
+    const mayAdopt = firstRender
+    firstRender = false
     // Publish to the route context BEFORE any page/layout element is created,
     // so a component's `useRoute()` — read during its synchronous setup — sees
     // the match it is being rendered for, not the previous one.
@@ -330,22 +339,86 @@ export function createApp(config?: AppConfig): AppHandle {
     // its element, so title/meta/canonical/JSON-LD match the page being shown.
     updateHead(match.route.head)
 
-    // Import the page module — registers its custom element + auto-wires runtime.
-    // O1c: also import every component the route references (route.json
-    // `components` → virtual:aihu-components), so child custom elements are
-    // defined before the page element is created and mounted below.
-    await Promise.all([match.route.module(), ...registerRouteComponents(match.route)])
     const tag = match.route.name
-    if (!tag?.includes('-')) return
 
-    // First render only: publish the SSR signal snapshot under this page's
-    // tag so defineElement's hydration branch (`__aihu_state__[tag]`) hands
-    // it to arbor's `hydrate()` for pre-seeding. Consumed once — later
-    // navigations are client renders with no server snapshot.
-    if (ssrSignals) {
+    // First render only: publish the SSR signal snapshot under this page's tag
+    // so the runtime's adoption path (`__aihu_state__[tag]` in
+    // defineComponent's connectedCallback) hands it to arbor's `hydrate()` for
+    // pre-seeding. MUST happen BEFORE the module imports below: when the
+    // prerendered element is already in the document, `customElements.define`
+    // (a side effect of the import) upgrades it and runs its connectedCallback
+    // synchronously — adoption reads the snapshot then, not at
+    // createElement time. Consumed once — later navigations are client
+    // renders with no server snapshot.
+    if (ssrSignals && tag?.includes('-')) {
       const g = globalThis as { __aihu_state__?: Record<string, unknown> }
       ;(g.__aihu_state__ ??= {})[tag] = ssrSignals
       ssrSignals = null
+    }
+
+    // Layout resolution — needed BEFORE the imports so the adoption probe can
+    // compare the prerendered shape against what this render would build.
+    // Override (dynamic switch) wins over the route's declared layout.
+    const layoutName =
+      layoutOverride === undefined ? match.route.layout : (layoutOverride ?? undefined)
+    const entry = layoutName ? layouts[layoutName] : undefined
+
+    // ── First-render DOM adoption probe ──────────────────────────────────────
+    //
+    // If the outlet already holds EXACTLY the shape this render would build —
+    // `<aihu-layout-x>…<div data-aihu-outlet><page-tag>…` (or the bare page
+    // when the route has no layout) — keep it. The elements are still inert
+    // (not yet defined); the imports below define them, which UPGRADES them in
+    // place, and the runtime's connectedCallback adopts each host's
+    // server-rendered children via its `data-aihu-ssr` marker. Route params
+    // are stamped on the existing page element FIRST, so its setup reads them
+    // at upgrade exactly as it would on a client-created element.
+    //
+    // Any mismatch falls through to the replace path below, which discards the
+    // prerendered subtree — the pre-adoption behavior, still correct.
+    let adopting = false
+    if (mayAdopt && tag?.includes('-')) {
+      const first = outlet.firstElementChild
+      if (entry && first && first.tagName.toLowerCase() === entry.tag) {
+        const marker = first.querySelector('[data-aihu-outlet]')
+        const pageEl = marker?.firstElementChild
+        if (pageEl && pageEl.tagName.toLowerCase() === tag) {
+          if (match.params) {
+            for (const [key, val] of Object.entries(match.params)) {
+              pageEl.setAttribute(key, String(val))
+            }
+          }
+          adopting = true
+        }
+      } else if (!entry && first && first.tagName.toLowerCase() === tag) {
+        if (match.params) {
+          for (const [key, val] of Object.entries(match.params)) {
+            first.setAttribute(key, String(val))
+          }
+        }
+        adopting = true
+      }
+    }
+
+    // Import the page module — registers its custom element + auto-wires
+    // runtime. O1c: also import every component the route references
+    // (route.json `components` → virtual:aihu-components), and — when the
+    // route has a layout — the layout module plus ITS referenced components
+    // (F2, `entry.components` from `virtual:aihu-layouts`), so child custom
+    // elements are defined before the page/layout element mounts (or, on the
+    // adoption path, before the prerendered elements upgrade).
+    await Promise.all([
+      match.route.module(),
+      ...registerRouteComponents(match.route),
+      ...(entry ? [entry.load(), ...registerComponents(entry.components)] : []),
+    ])
+    if (!tag?.includes('-')) return
+
+    if (adopting) {
+      // The defines above upgraded the prerendered layout + page elements in
+      // place; each adopted its own server-rendered subtree (runtime
+      // `data-aihu-ssr` path). Nothing to build, nothing to replace.
+      return
     }
 
     const el = document.createElement(tag)
@@ -361,17 +434,7 @@ export function createApp(config?: AppConfig): AppHandle {
     // exists in the generated map, render the layout into the root outlet and
     // mount the page into the layout's `data-aihu-outlet` marker. Otherwise the
     // page mounts directly into the root outlet (original behavior).
-    // Override (dynamic switch) wins over the route's declared layout.
-    const layoutName =
-      layoutOverride === undefined ? match.route.layout : (layoutOverride ?? undefined)
-    const entry = layoutName ? layouts[layoutName] : undefined
     if (entry) {
-      // Register the layout's `aihu-layout-<name>` custom element (import side
-      // effect) AND — F2, mirroring the page path above — the layout's OWN
-      // referenced components (`entry.components`, scanned from the layout
-      // SFC's template by the router's `genL`), so children used inside the
-      // layout are defined before the layout element mounts.
-      await Promise.all([entry.load(), ...registerComponents(entry.components)])
       const layoutEl = document.createElement(entry.tag)
       // Connect the layout first so its template — including the passive outlet
       // marker — mounts synchronously, then place the page inside the marker.

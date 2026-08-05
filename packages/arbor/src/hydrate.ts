@@ -345,6 +345,14 @@ function _hydrateNode(
   // TypeScript needs an explicit cast since it can't narrow through the early-returns.
   const branchNode = node as Branch
 
+  // Live-element ref, mirroring `_materialize` (`node.el = el`): compiled
+  // `class:`/`html={…}` effects and the router's link boundary (`onMount` →
+  // `node.el` for prefetch/aria-current) read the branch's `.el`. Without the
+  // assignment those bindings silently no-op on ADOPTED trees — the server
+  // DOM looks right at first paint but never reacts (observed: an adopted
+  // page's active link never received `aria-current`).
+  branchNode.el = existingEl
+
   // Wire reactive attrs to the existing element.
   if (branchNode.attrs) {
     _applyAttrs(
@@ -419,9 +427,24 @@ export function hydrate(
   // seeds nothing — byte-identical behavior to the pre-seeding walker.
   const errorHandler = options?.onError
   // Build path→element map inline (per spec §5: `data-aihu-path` anchors).
+  //
+  // Nested-render boundary: a server render wrapped in its own host element
+  // carries `data-aihu-ssr` on that host (@aihu/server's `wrapTag` path) and
+  // restarts its `data-aihu-path` keys at `_ROOT_PATH` — so a nested wrapped
+  // render (e.g. the PAGE element sitting inside a LAYOUT's outlet marker)
+  // duplicates the outer render's key space. Without pruning, the nested
+  // render's root would OVERWRITE the outer root in the map ('0' → the page's
+  // root instead of the layout's), mis-wiring effects and cascading into
+  // mismatch-fallback materializes. An element whose nearest marked ancestor
+  // is not this hydration's own host belongs to a nested render and is the
+  // nested component's job to hydrate; skip it. Hosts without markers (plain
+  // client-side hydrate calls, tests) resolve no boundary and keep the
+  // original behavior exactly.
   const pathMap = new Map<string, Element>()
   const root = host as Element
   for (const el of root.querySelectorAll?.('[data-aihu-path]') ?? []) {
+    const boundary = el.closest?.('[data-aihu-ssr]')
+    if (boundary != null && boundary !== root && root.contains(boundary)) continue
     const p = el.getAttribute('data-aihu-path')
     if (p != null) pathMap.set(p, el)
   }

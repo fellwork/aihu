@@ -25,13 +25,14 @@ export {
   _onCleanup as onCleanup,
   _onCommit as onCommit,
   _onMount as onMount,
+  _setHydrate,
   _setMount,
   _setSignal,
   _withOwnerContext,
   defineComponent,
 } from './define-component.ts'
 /** @internal */
-export { _setHydrate, defineElement } from './define-element.ts'
+export { defineElement } from './define-element.ts'
 /** @internal */
 export { _hydrateOnVisible } from './hydrate-on-visible.ts'
 export type { ResourceHandle } from './resource.ts'

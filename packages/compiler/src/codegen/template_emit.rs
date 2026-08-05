@@ -764,8 +764,11 @@ fn emit_html_block(expr: &str, indent: &str) -> String {
     // a placeholder element whose content gets replaced reactively. The
     // `onMount` registration is try/catch-guarded for the same owner-less
     // contexts as `ElemEffect::wrap` (SSR render, loop item factories).
+    // Same adoption-aware first run as `ElemEffect::Html` above: confirm
+    // existing server children inside an adopted (`[data-aihu-ssr]`) subtree
+    // rather than re-parse + replace them; subscriptions still form.
     format!(
-        "(() => {{ const _n = branch('span', {{ 'data-aihu-html': '' }}, []); try {{ onMount(() => {{ const _el = _n && _n.el; if (!_el) return () => {{}}; const _s = effect(() => {{ _el.replaceChildren(document.createRange().createContextualFragment({})); }}); return () => {{ _s && _s(); }}; }}); }} catch {{}} return _n; }})(){}",
+        "(() => {{ const _n = branch('span', {{ 'data-aihu-html': '' }}, []); try {{ onMount(() => {{ const _el = _n && _n.el; if (!_el) return () => {{}}; let _a0 = true; const _s = effect(() => {{ const _h = ({}); const _skip = _a0 && _el.childNodes.length > 0 && _el.closest('[data-aihu-ssr]') !== null; _a0 = false; if (_skip) return; _el.replaceChildren(document.createRange().createContextualFragment(_h)); }}); return () => {{ _s && _s(); }}; }}); }} catch {{}} return _n; }})(){}",
         expr,
         if indent.is_empty() { "" } else { "" }
     )
@@ -1277,11 +1280,25 @@ fn emit_enhanced_anchor(
         .cloned()
         .collect();
     let attrs_obj = emit_attrs(&forwarded, state_names, signal_map, mode);
+    // Children are emitted as a FLAT array — one entry per child, NOT the
+    // `emit_nodes` collapse (which wraps 2+ children in a `branch(null, …)`
+    // fragment). The fragment wrapper is invisible to client rendering but
+    // NOT to hydration: the SSR string emitter (`ssr_string_emit.rs`'s
+    // enhanced-anchor arm) numbers the anchor's children flat
+    // (`<a data-aihu-path="P"><span data-aihu-path="P.0">…`), while a
+    // fragment child shifts the client walk to `P.0.0` — every path lookup
+    // under the anchor then misses and arbor's hydrate falls back to
+    // `_materialize`, silently DUPLICATING the link's children beside the
+    // server-rendered ones (observed on every prerendered pager link).
     let children_subtree = if children.is_empty() {
         "[]".to_string()
     } else {
-        let inner = emit_nodes(children, signal_map, state_names, &next_indent, mode, RefHoist::none());
-        format!("[{}]", inner)
+        let parts: Vec<String> = children
+            .iter()
+            .map(|n| emit_node(n, signal_map, state_names, &next_indent, mode, RefHoist::none()))
+            .filter(|s| !s.is_empty())
+            .collect();
+        format!("[{}]", parts.join(", "))
     };
     format!(
         "createLinkBoundary({}, {}, {}, {}, {})",
@@ -2478,8 +2495,18 @@ impl ElemEffect {
                 "{}(() => {{ const _n = {}; try {{ onMount(() => {{ const _el = _n && _n.el; if (!_el) return () => {{}}; const _s = effect(() => {{ _el.toggleAttribute('hidden', !({})) }}); return () => {{ _s && _s(); }}; }}); }} catch {{}} return _n; }})()",
                 indent, inner, expr
             ),
+            // First-render DOM adoption: the FIRST effect run over an element
+            // that (a) already has server-rendered children and (b) sits
+            // inside an adopted subtree (`[data-aihu-ssr]` host marker, see
+            // @aihu/server ssr.ts) CONFIRMS the server's content instead of
+            // re-parsing + replacing it — the same doctrine as arbor's signal
+            // pre-seeding (the server rendered this expression from the same
+            // initial state, so the bytes match by construction). The
+            // expression is still READ first, so reactive subscriptions form
+            // and every later run replaces normally. Client-created elements
+            // start empty, so they take the replace path on the first run too.
             ElemEffect::Html(expr) => format!(
-                "{}(() => {{ const _n = {}; try {{ onMount(() => {{ const _el = _n && _n.el; if (!_el) return () => {{}}; const _s = effect(() => {{ _el.replaceChildren(document.createRange().createContextualFragment({})); }}); return () => {{ _s && _s(); }}; }}); }} catch {{}} return _n; }})()",
+                "{}(() => {{ const _n = {}; try {{ onMount(() => {{ const _el = _n && _n.el; if (!_el) return () => {{}}; let _a0 = true; const _s = effect(() => {{ const _h = ({}); const _skip = _a0 && _el.childNodes.length > 0 && _el.closest('[data-aihu-ssr]') !== null; _a0 = false; if (_skip) return; _el.replaceChildren(document.createRange().createContextualFragment(_h)); }}); return () => {{ _s && _s(); }}; }}); }} catch {{}} return _n; }})()",
                 indent, inner, expr
             ),
             ElemEffect::Class(class_name, expr) => format!(
