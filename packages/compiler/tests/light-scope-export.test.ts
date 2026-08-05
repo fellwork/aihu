@@ -93,3 +93,53 @@ describe('__aihu_light_scope__ export (server target)', () => {
     expect(code).not.toMatch(/__AIHU_LIGHT_SCOPE_ID__ = ["']/)
   })
 })
+
+/**
+ * `__aihu_shadow__` — the server-target shadow-mode export.
+ *
+ * An SSR caller rendering a NESTED custom element must emit two different
+ * shapes: a light component's tree is the host's own children, a shadow
+ * component's tree belongs inside `<template shadowrootmode="open">`. Guessing
+ * wrong is not cosmetic — light children under a host that later calls
+ * `attachShadow` are discarded on upgrade, so the content paints and vanishes.
+ *
+ * These assert aihu's OWN vocabulary crosses the wire ('light' | 'shadow'),
+ * never the DOM's ShadowRootMode ('open' | 'closed'). Those are different enums
+ * sharing the word "mode"; the translation happens once, in the renderer.
+ */
+describe('__aihu_shadow__ export (server target)', () => {
+  it("exports 'light' when the component resolves to light DOM", async () => {
+    const { code } = await runPlugin(SERVER_ENV, { shadowMode: 'light' })
+    expect(code).toMatch(/export const __aihu_shadow__ = ["']light["']/)
+  })
+
+  it("exports 'shadow' when the component resolves to shadow DOM", async () => {
+    const { code } = await runPlugin(SERVER_ENV, { shadowMode: 'shadow' })
+    expect(code).toMatch(/export const __aihu_shadow__ = ["']shadow["']/)
+  })
+
+  // The DOM's vocabulary must not leak into the module contract.
+  it('never emits the DOM ShadowRootMode vocabulary', async () => {
+    for (const mode of ['light', 'shadow'] as const) {
+      const { code } = await runPlugin(SERVER_ENV, { shadowMode: mode })
+      expect(code).not.toMatch(/__aihu_shadow__ = ["'](open|closed)["']/)
+    }
+  })
+
+  // A lie a consumer would branch on: `'undefined'` is a truthy string, so an
+  // unguarded emission would read as a real mode.
+  it("never emits the string 'undefined'", async () => {
+    const { code } = await runPlugin(SERVER_ENV, { shadowMode: 'shadow' })
+    expect(code).not.toContain("__aihu_shadow__ = 'undefined'")
+  })
+
+  // Client target stamps its mode into defineElement options directly and needs
+  // no export — same rule the scope-id export follows.
+  it('is absent from the client target', async () => {
+    const { code } = await runPlugin(
+      { environment: { config: { consumer: 'client' } } },
+      { shadowMode: 'shadow' },
+    )
+    expect(code).not.toContain('__aihu_shadow__')
+  })
+})
