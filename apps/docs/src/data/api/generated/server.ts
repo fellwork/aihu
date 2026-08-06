@@ -64,6 +64,14 @@ export const EXPORTS: readonly ApiExport[] = [
     summary: '',
   },
   {
+    name: 'buildChildRegistry',
+    kind: 'function',
+    signature:
+      'function buildChildRegistry( components: Iterable<DiscoveredComponent>, onWarn?: (message: string) => void, ): ReadonlyMap<string, ChildModuleLike>',
+    summary: 'Index discovered components by tag, after verifying the graph is acyclic.',
+    agent: true,
+  },
+  {
     name: 'checkEntitlement',
     kind: 'function',
     signature:
@@ -306,6 +314,12 @@ export const EXPORTS: readonly ApiExport[] = [
     summary: '',
   },
   {
+    name: 'ChildCycleError',
+    kind: 'class',
+    signature: 'class ChildCycleError extends Error',
+    summary: 'Thrown when the component graph contains a cycle.',
+  },
+  {
     name: 'AgentReadinessConfig',
     kind: 'interface',
     signature:
@@ -326,6 +340,14 @@ export const EXPORTS: readonly ApiExport[] = [
     signature:
       "interface BuildConfig {\n  /** Build target. Default: 'universal' */\n  target?: BuildTarget\n}",
     summary: '',
+  },
+  {
+    name: 'ChildModuleLike',
+    kind: 'interface',
+    signature:
+      "interface ChildModuleLike extends SsrChildModule {\n  /** `__aihu_child_tags__` — every component tag this module's template references. */\n  readonly __aihu_child_tags__?: ReadonlyArray<string>\n}",
+    summary:
+      'A component module as the registry sees it: whatever `__aihu_schild` needs, plus the child-tag set that drives the walk.',
   },
   {
     name: 'CorsConfig',
@@ -363,6 +385,14 @@ export const EXPORTS: readonly ApiExport[] = [
     signature:
       "interface DefinedLoader<T> {\n  readonly _brand: 'DefinedLoader'\n  /** @internal */\n  readonly fn: LoaderFn<T>\n}",
     summary: '',
+  },
+  {
+    name: 'DiscoveredComponent',
+    kind: 'interface',
+    signature:
+      'interface DiscoveredComponent {\n  readonly tag: string\n  readonly module: ChildModuleLike\n}',
+    summary: 'One discovered component: the tag it registers under, and its module.',
+    agent: true,
   },
   {
     name: 'EntitlementContext',

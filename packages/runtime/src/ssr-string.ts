@@ -188,12 +188,22 @@ export const __aihu_schild = (
   const depth = opts?.__depth ?? 0
   if (depth >= MAX_CHILD_DEPTH) return bare
 
-  // The child's OWN render never receives `lightScopeId`: `data-a` belongs on
-  // the host, which is what the client stamps (`define-element.ts`'s
-  // connectedCallback) and what `@scope([data-a=…]) to ([data-a])` needs. Two
-  // stamps would make the child's template root a nested scope root and cut its
-  // own rules off at its first child — the same reasoning `renderToString`'s
-  // `wrapTag` block already applies to the top-level render.
+  // `data-a` belongs on the HOST — that is where the client stamps it
+  // (`define-element.ts`'s connectedCallback) and where
+  // `@scope([data-a=…]) to ([data-a])` has to start. Two stamps make the child's
+  // template root a nested scope root and cut the child's own rules off at its
+  // first child, the same hazard `renderToString`'s `wrapTag` block guards at
+  // the top level.
+  //
+  // Passing the EMPTY STRING, not omitting the option, is what actually
+  // suppresses the second stamp — and this was a real bug before it was a
+  // comment. A compiled `__ssrString` resolves its opts as
+  // `lightScopeId: opts.lightScopeId ?? __AIHU_LIGHT_SCOPE_ID__`, the module's
+  // own injected id, so OMITTING the option lets that fallback stamp the
+  // template root anyway; aihu.dev prerendered `<site-header>` with `data-a` in
+  // both places. `''` survives `??` (it is not nullish) and is falsy at the
+  // emitter's `__opts.lightScopeId ? … : ''` test, so the child renders
+  // unstamped and the host carries the only `data-a`.
   const hydratable = opts?.hydratable ?? false
   let inner: string
   try {
@@ -201,6 +211,7 @@ export const __aihu_schild = (
       {},
       {
         hydratable,
+        lightScopeId: '',
         ...(opts?.children ? { children: opts.children } : {}),
         __depth: depth + 1,
       },

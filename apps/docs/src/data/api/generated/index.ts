@@ -406,9 +406,9 @@ export const PACKAGES: readonly ApiPackageMeta[] = [
     version: '0.5.0',
     tagline: 'Server runtime + native renderer (napi-rs) for aihu SSR.',
     note: '',
-    exportCount: 111,
-    valueCount: 43,
-    typeCount: 68,
+    exportCount: 115,
+    valueCount: 45,
+    typeCount: 70,
     agent: true,
   },
   {

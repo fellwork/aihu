@@ -26,7 +26,7 @@
  * does NOT get a `.size-limit.json` row.
  */
 
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join, resolve as resolvePath } from 'node:path'
 import { compileRouteMeta } from '@aihu/compiler'
 import { clearSsrContextMap, setSsrContextMap } from '@aihu/context/ssr'
@@ -37,6 +37,9 @@ import type { HeadConfig, SsrOptions } from '@aihu/server'
 import {
   _setContextFns,
   _setStoreSerializer,
+  buildChildRegistry,
+  type ChildModuleLike,
+  type DiscoveredComponent,
   renderToString,
   routeHeadToSsrHead,
 } from '@aihu/server'
@@ -82,6 +85,11 @@ interface PrerenderRouteModule {
    * wrapped, which is the pre-existing behavior.
    */
   __aihu_tag__?: string
+  /**
+   * `__aihu_child_tags__` — every component tag this module's template
+   * references. Drives the cycle check when the child registry is built.
+   */
+  __aihu_child_tags__?: ReadonlyArray<string>
 }
 
 /** A loader that resolves a route file path to its evaluated module. */
@@ -139,6 +147,61 @@ function segmentsToPattern(segs: RouteSegment[]): string {
   return `/${segs
     .map((s) => (s.kind === 'static' ? s.path : s.kind === 'param' ? `:${s.name}` : '*'))
     .join('/')}`
+}
+
+/**
+ * Discover every component under `componentsDir` and index it by the tag it
+ * actually registers under.
+ *
+ * Indexed by the module's OWN `__aihu_tag__` export, never derived from the
+ * filename. `layoutTagFor`/`componentTagFor` are the CLIENT's derivations and
+ * can drift from what `defineElement` registered; a registry keyed on a guess
+ * would silently miss exactly the components whose tag does not match their
+ * file stem.
+ *
+ * Every component is loaded, rather than walking `__aihu_child_tags__`
+ * transitively from each page. The walk's only advantage is loading fewer
+ * modules, and the tags cannot be read without loading them anyway. The
+ * child-tag sets still do the work that matters — they are the edges of
+ * `buildChildRegistry`'s cycle check.
+ *
+ * A module that fails to load is warned about and skipped, not fatal: one
+ * broken component should cost that component's markup, not the whole
+ * prerender. `__aihu_schild` then fails closed on its tag, which is exactly
+ * today's behaviour.
+ */
+async function discoverComponents(
+  root: string,
+  componentsDir: string,
+  loadModule: SsrModuleLoader,
+  pushWarn: (msg: string) => void,
+): Promise<DiscoveredComponent[]> {
+  const abs = resolvePath(root, componentsDir)
+  let files: string[]
+  try {
+    files = (await readdir(abs, { recursive: true, withFileTypes: true }))
+      .filter((e) => e.isFile() && e.name.endsWith('.aihu'))
+      .map((e) => join(e.parentPath ?? abs, e.name))
+  } catch {
+    // No components directory is normal — a site can be pages-only.
+    return []
+  }
+  const found: DiscoveredComponent[] = []
+  for (const file of files.sort()) {
+    try {
+      const mod = (await loadModule(file)) as PrerenderRouteModule
+      const tag = mod.__aihu_tag__
+      if (tag === undefined) continue
+      found.push({ tag, module: mod as unknown as ChildModuleLike })
+    } catch (err) {
+      pushWarn(
+        `[@aihu/app] static output: component "${file}" failed to load (${
+          err instanceof Error ? err.message : String(err)
+        }); it will render as an empty element.`,
+      )
+    }
+  }
+  return found
 }
 
 function deriveRoutes(root: string, pagesDir: string): ScannedRoute[] {
@@ -291,6 +354,25 @@ export async function runPrerender(opts: RunPrerenderOptions): Promise<Prerender
     warn(msg)
   }
 
+  // SSR child components (plan step 5). Built ONCE, before any render: the
+  // renderers take a pre-resolved map and load nothing themselves, because
+  // module loading is async while the compiled string fast path — the path
+  // every prerendered page actually takes — is synchronous.
+  //
+  // This is also where a cyclic component graph is rejected. Loudly, and here,
+  // because render-time recursion is already bounded by `__aihu_schild`'s depth
+  // cap: a cycle would not hang the build, it would quietly emit 32 nested
+  // copies of the same subtree and write them to disk.
+  const componentsDir = config?.dir?.components ?? 'src/components'
+  const childRegistry = buildChildRegistry(
+    await discoverComponents(root, componentsDir, loadModule, pushWarn),
+    pushWarn,
+  )
+  // Omitted entirely when nothing was discovered, so a site with no components
+  // renders byte-identically to before.
+  const childOpts: Pick<SsrOptions, 'children'> =
+    childRegistry.size > 0 ? { children: childRegistry } : {}
+
   // Wave-3 state channel: this is @aihu/app's SSG SSR entry, so it owns the
   // store-serializer wiring (@aihu/server never imports @aihu/store — the
   // injection-slot posture of _setContextFns). Each hydratable page render
@@ -387,6 +469,10 @@ export async function runPrerender(opts: RunPrerenderOptions): Promise<Prerender
           shell = await renderToString(layoutComponent, {
             hydratable: true,
             contextSetup: routeContextFor(concretePath),
+            // Referenced components (e.g. <site-header>) render their real
+            // content instead of an empty shell. Layouts are where most of them
+            // live, which is why the site nav was missing from every page.
+            ...childOpts,
             // Stamp the layout's `data-a` scope id on its prerendered root so
             // the layout's scoped CSS (grid columns, the mobile media query
             // that hides the sidebar, …) applies at FIRST PAINT. Without it
@@ -534,6 +620,9 @@ export async function runPrerender(opts: RunPrerenderOptions): Promise<Prerender
         content = await renderToString(component, {
           hydratable: true,
           contextSetup: routeContextFor(concretePath),
+          // See the layout shell above — a page's own template can reference
+          // components too.
+          ...childOpts,
           // Same first-paint stamp as the layout shell above: the page's own
           // `@scope([data-a="…"])` CSS must match the prerendered content
           // before any client JS runs. Also the scope BOUNDARY (`to

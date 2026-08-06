@@ -1,6 +1,8 @@
 export type { AgentReadinessConfig } from './agent-readiness-config.ts'
 export type { ApiHandler } from './api.ts'
 export { badRequest, defineApiRoute, json, methodNotAllowed, notFound, serverError } from './api.ts'
+export type { ChildModuleLike, DiscoveredComponent } from './child-registry.ts'
+export { buildChildRegistry, ChildCycleError } from './child-registry.ts'
 export type {
   AihuConfig,
   BuildConfig,
