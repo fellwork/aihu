@@ -20,8 +20,19 @@
  *      hard DOM dependency) is elided: styles never reach server HTML;
  *   4. `export const __ssr` / `export default` expose the host-less arbor-tree
  *      factory — the `ComponentDescription` (`() => arborTree`) shape that
- *      `@aihu/server`'s `renderToString` accepts and `@aihu/app`'s
- *      `resolveComponent` finds as `mod.default`.
+ *      `@aihu/server`'s `renderToString` accepts, and which the caller's child
+ *      registry holds for a component referenced by tag inside another
+ *      template.
+ *
+ *      (This used to describe a `resolveComponent` callback on `@aihu/app`.
+ *      That seam was never built, and it turned out to be the wrong shape:
+ *      resolution is async while the compiled fast path is synchronous, so a
+ *      per-render callback would have forced every page off the fast path. The
+ *      caller pre-resolves a `ReadonlyMap<tag, module>` instead — see
+ *      `SsrOptions.children` and
+ *      `docs/plans/2026-08-05-ssr-child-components.md`. Naming a mechanism in a
+ *      comment and never wiring it is how `contextSetup` and
+ *      `_injectLightScopeId` each sat unbuilt for a release.)
  *
  * These tests run the REAL pipeline: Rust compiler binary → emitted server
  * artifact written to a scratch file → dynamic import in a node (DOM-less)

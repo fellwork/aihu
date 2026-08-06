@@ -7,6 +7,12 @@
       "@aihu/signals/lifecycle": ["./packages/signals/src/lifecycle.ts"],
       "@aihu/arbor": ["./packages/arbor/src/index.ts"],
       "@aihu/runtime": ["./packages/runtime/src/index.ts"],
+      // The server-only SSR helper subpath. Without this mapping the
+      // specifier resolves through package exports to runtime/dist, which
+      // only exists after a build — so any package that typechecks
+      // @aihu/server's source (auth, mcp, …) fails TS2307 on a clean tree.
+      // Same shape as @aihu/context/ssr below.
+      "@aihu/runtime/ssr": ["./packages/runtime/src/ssr-string.ts"],
       "@aihu/primitives/focus-trap": ["./packages/primitives/src/dialog/focus-trap.ts"],
       "@aihu/agent": ["./packages/agent/src/index.ts"],
       "@aihu/context": ["./packages/context/src/index.ts"],

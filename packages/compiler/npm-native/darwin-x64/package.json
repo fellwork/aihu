@@ -1,6 +1,6 @@
 {
   "name": "@aihu/compiler-native-darwin-x64",
-  "version": "0.1.15",
+  "version": "0.1.16",
   "license": "MIT",
   "os": [
     "darwin"
@@ -12,5 +12,5 @@
   "files": [
     "aihu-compiler-native.darwin-x64.node"
   ],
-  "description": "aihu compiler native addon (napi) — darwin-x64 platform binary."
+  "description": "aihu compiler native addon (napi) \u2014 darwin-x64 platform binary."
 }

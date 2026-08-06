@@ -12,43 +12,12 @@
 import type { Branch, Leaf, MountOptions, MountScope } from '@aihu/arbor'
 import type { Signal } from '@aihu/signals'
 
-/**
- * Rendering mode for the custom element — a BINARY choice (DA4 #437).
- *
- * - `'shadow'` → `attachShadow({ mode: 'open' })`. `this.shadowRoot` is the
- *                root (non-null). Open is the only browser mode aihu uses:
- *                composition and hydration read `this.shadowRoot`, which a
- *                closed root nulls out — that is why no `'closed'` value
- *                exists. **Default for leaf components.**
- * - `'light'`  → No shadow root; content renders into the element itself.
- *                `this.shadowRoot` is `null` — detection is unambiguous.
- *                No style scoping. **Default for pages and layouts.**
- */
-export type ShadowMode = 'light' | 'shadow'
+// Re-exported from the zero-import leaf module so `@aihu/runtime/ssr` can take
+// `SHADOW_ROOT_MODE` without dragging this file's cross-package type imports
+// behind it. See shadow-mode.ts for why that matters.
+export { SHADOW_ROOT_MODE, type ShadowMode } from './shadow-mode.ts'
 
-/**
- * The DOM `ShadowRootMode` aihu attaches with — the SINGLE SOURCE for that
- * value across the whole framework.
- *
- * `ShadowMode` above ('light' | 'shadow') is aihu's AUTHORING vocabulary;
- * `ShadowRootMode` ('open' | 'closed') is a different DOM enum that merely
- * shares the word "mode". They meet in exactly one place — the moment a root
- * is actually attached — and `'open'` is never something an author writes.
- *
- * Declarative Shadow DOM makes that boundary reachable from a second place:
- * the server's `<template shadowrootmode="…">` must name the SAME value the
- * client attaches with, or a prerendered component adopts into a root the
- * runtime cannot see. Two bare `"open"` literals in two packages would be one
- * invariant encoded twice with nothing testing that they agree — the shape
- * that already produced the mangled arbor wire format, `_injectLightScopeId`,
- * and `contextSetup`.
- *
- * `@aihu/server` does not (and should not) depend on this browser package, so
- * the SSR emitter cannot import this constant. It therefore declares its own
- * and is pinned to this one by a cross-package parity test — the documented
- * single-source arrangement, never an unwatched duplicate.
- */
-export const SHADOW_ROOT_MODE = 'open' as const
+import type { ShadowMode } from './shadow-mode.ts'
 
 export interface DefineOptions {
   shadowMode?: ShadowMode

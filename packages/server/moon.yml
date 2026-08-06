@@ -15,6 +15,7 @@ dependsOn:
   - 'arbor'
   - 'context'
   - 'plugin'
+  - 'runtime'
   - 'signals'
   - 'store'
 

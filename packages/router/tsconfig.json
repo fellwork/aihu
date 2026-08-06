@@ -8,6 +8,7 @@
     "declarationDir": "./dist",
     "baseUrl": ".",
     "paths": {
+      "@aihu/runtime/ssr": ["../runtime/src/ssr-string.ts"],
       "@aihu/server": ["../server/src/index.ts"],
       "@aihu/agent-service": ["../agent-service/src/index.ts"],
       "@aihu/agent": ["../agent/src/index.ts"],

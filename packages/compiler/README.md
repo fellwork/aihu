@@ -21,7 +21,7 @@ npm install @aihu/compiler
 bun add @aihu/compiler
 ```
 
-<sub><i>Auto-generated against `@aihu/compiler@1.2.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/compiler@1.2.1`.</i></sub>
 
 <!-- END_AUTOGEN: install -->
 
@@ -32,12 +32,12 @@ bun add @aihu/compiler
 
 | | |
 |---|---|
-| **Version** | `1.2.0` |
+| **Version** | `1.2.1` |
 | **Tier** | D — Compiler — Single-File Component (.aihu) → Web Component |
 | **Published files** | 4 entries |
 | **License** | MIT |
 
-<sub><i>Auto-generated against `@aihu/compiler@1.2.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/compiler@1.2.1`.</i></sub>
 
 <!-- END_AUTOGEN: stats -->
 
@@ -50,7 +50,7 @@ bun add @aihu/compiler
 |---|---|---|
 | `.` | `./dist/index.js` | `—` |
 
-<sub><i>Auto-generated against `@aihu/compiler@1.2.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/compiler@1.2.1`.</i></sub>
 
 <!-- END_AUTOGEN: exports -->
 
@@ -65,18 +65,18 @@ bun add @aihu/compiler
 
 **Optional dependencies (platform-specific):**
 
-- `@aihu/compiler-darwin-arm64` — `0.1.50`
-- `@aihu/compiler-darwin-x64` — `0.1.50`
-- `@aihu/compiler-linux-x64-gnu` — `0.1.50`
-- `@aihu/compiler-linux-arm64-gnu` — `0.1.50`
-- `@aihu/compiler-win32-x64-msvc` — `0.1.50`
-- `@aihu/compiler-native-darwin-arm64` — `0.1.15`
-- `@aihu/compiler-native-darwin-x64` — `0.1.15`
-- `@aihu/compiler-native-linux-x64-gnu` — `0.1.15`
-- `@aihu/compiler-native-linux-arm64-gnu` — `0.1.15`
-- `@aihu/compiler-native-win32-x64-msvc` — `0.1.15`
+- `@aihu/compiler-darwin-arm64` — `0.1.51`
+- `@aihu/compiler-darwin-x64` — `0.1.51`
+- `@aihu/compiler-linux-x64-gnu` — `0.1.51`
+- `@aihu/compiler-linux-arm64-gnu` — `0.1.51`
+- `@aihu/compiler-win32-x64-msvc` — `0.1.51`
+- `@aihu/compiler-native-darwin-arm64` — `0.1.16`
+- `@aihu/compiler-native-darwin-x64` — `0.1.16`
+- `@aihu/compiler-native-linux-x64-gnu` — `0.1.16`
+- `@aihu/compiler-native-linux-arm64-gnu` — `0.1.16`
+- `@aihu/compiler-native-win32-x64-msvc` — `0.1.16`
 
-<sub><i>Auto-generated against `@aihu/compiler@1.2.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/compiler@1.2.1`.</i></sub>
 
 <!-- END_AUTOGEN: deps -->
 
@@ -90,7 +90,7 @@ bun add @aihu/compiler
 - [Macro Vocabulary spec](../../docs/superpowers/specs/2026-05-02-spec-macro-vocabulary.md)
 - [Aihu framework root](../../README.md)
 
-<sub><i>Auto-generated against `@aihu/compiler@1.2.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/compiler@1.2.1`.</i></sub>
 
 <!-- END_AUTOGEN: see-also -->
 
@@ -101,6 +101,6 @@ bun add @aihu/compiler
 
 MIT — see [LICENSE](../../LICENSE).
 
-<sub><i>Auto-generated against `@aihu/compiler@1.2.0`.</i></sub>
+<sub><i>Auto-generated against `@aihu/compiler@1.2.1`.</i></sub>
 
 <!-- END_AUTOGEN: license -->

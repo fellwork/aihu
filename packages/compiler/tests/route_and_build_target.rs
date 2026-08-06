@@ -744,3 +744,147 @@ fn raw_attr_still_suppresses_html_binding_in_ssr() {
         );
     }
 }
+
+// ─── Child component resolution (SSR children step 3a) ───────────────────────
+//
+// A reference to another component used to compile to an empty element: the
+// child's template lives in a module this compilation never sees. That is why
+// every prerendered page shipped an empty `<site-header>`. The reference now
+// compiles to a `__aihu_schild(...)` call, which renders the child through the
+// registry the caller pre-resolved onto `__opts` — and emits the same empty
+// element when no registry is supplied, so nothing changes for a site that has
+// not wired one up.
+
+/// Find the emitted `__ssrString` chunk (the single `__out +=` line).
+fn ssr_chunk(js: &str) -> String {
+    js.lines()
+        .find(|l| l.contains("__out +="))
+        .unwrap_or_else(|| panic!("no __ssrString chunk emitted:\n{js}"))
+        .to_string()
+}
+
+fn compile_server_js(src: &str) -> String {
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full_with_target(&parsed, BuildTarget::Server).unwrap();
+    emit(&unit, "x-page").js
+}
+
+#[test]
+fn component_reference_compiles_to_a_child_render_call() {
+    let js = compile_server_js(
+        r#"
+@template {
+  <div class="wrap"><site-header></site-header></div>
+}
+"#,
+    );
+    let ssr = ssr_chunk(&js);
+
+    assert!(
+        ssr.contains("__aihu_schild('site-header'"),
+        "component reference must lower to a child render call, got: {ssr}"
+    );
+    assert!(
+        !ssr.contains("<site-header></site-header>"),
+        "the empty-element literal must be gone, got: {ssr}"
+    );
+    // The helper import rides the same channel as every other SSR helper —
+    // the server-only subpath, so these bytes never enter a client bundle.
+    assert!(
+        js.contains("import { __aihu_schild } from '@aihu/runtime/ssr'"),
+        "helper import missing:\n{js}"
+    );
+}
+
+#[test]
+fn the_host_keeps_its_own_hydration_path() {
+    // The host IS a node in THIS component's tree, so it keeps its parent-space
+    // `data-aihu-path`. The child's tree restarts at ROOT_PATH behind the
+    // `data-aihu-ssr` boundary the helper stamps — which is what arbor's
+    // hydrate() already expects of a nested marked host.
+    let js = compile_server_js(
+        r#"
+@template {
+  <div class="wrap"><h1>Hi</h1><site-header></site-header></div>
+}
+"#,
+    );
+    let ssr = ssr_chunk(&js);
+    assert!(
+        ssr.contains(r#"__aihu_schild('site-header', __h ? ' data-aihu-path="0.1"' : '', __opts)"#),
+        "host must carry its own path attr in hydratable output only, got: {ssr}"
+    );
+}
+
+#[test]
+fn pascal_case_reference_is_kebabed_before_lookup() {
+    // The registry is keyed by the tag the element actually registers under,
+    // so the emitted lookup key must be the normalized name, never the source
+    // spelling.
+    let js = compile_server_js(
+        r#"
+@template {
+  <div><SiteHeader></SiteHeader></div>
+}
+"#,
+    );
+    assert!(
+        ssr_chunk(&js).contains("__aihu_schild('site-header'"),
+        "PascalCase reference must look up the kebab tag:\n{js}"
+    );
+}
+
+#[test]
+fn v1_boundaries_keep_emitting_the_plain_element() {
+    // Each of these is a shape the child renderer deliberately does NOT handle
+    // yet, and each must fall back to exactly today's output rather than render
+    // a child with wrong props or drop slot content on the floor.
+    let cases: [(&str, &str); 3] = [
+        // Attributes at a reference site are the child's PROPS. Rendering the
+        // child with defaults while the client renders it with real values is a
+        // hydration mismatch, so prop forwarding is its own slice.
+        (
+            r#"@template { <div><site-header title="x"></site-header></div> }"#,
+            "attrs",
+        ),
+        // Children at a reference site are SLOT CONTENT, and slot projection is
+        // explicitly unimplemented.
+        (
+            r#"@template { <div><site-header>hi</site-header></div> }"#,
+            "children",
+        ),
+        // The root element carries the PARENT's `data-a` stamp, which the host
+        // attrs passed to the helper do not model.
+        (r#"@template { <site-header></site-header> }"#, "root path"),
+    ];
+    for (src, label) in cases {
+        // Assert on the emitted CHUNK, not the whole module: the opts-alias
+        // comment names `__aihu_schild` in every artifact, so a module-wide
+        // substring check would pass vacuously here and fail vacuously above.
+        let ssr = ssr_chunk(&compile_server_js(src));
+        assert!(
+            !ssr.contains("__aihu_schild"),
+            "{label}: must not lower to a child render call yet, got: {ssr}"
+        );
+        assert!(
+            ssr.contains("<site-header"),
+            "{label}: must still emit the plain element, got: {ssr}"
+        );
+    }
+}
+
+#[test]
+fn the_opts_type_is_spelled_once() {
+    // It appears in four positions in the emitted artifact, and `children` has
+    // to reach all of them. A named alias is the difference between one
+    // declaration and four that can drift.
+    let js = compile_server_js(r#"@template { <div>hi</div> }"#);
+    assert!(
+        js.contains("type __AihuSsrOpts = import('@aihu/runtime/ssr').SsrChildRenderOpts;"),
+        "opts alias missing:\n{js}"
+    );
+    assert!(
+        !js.contains("hydratable?: boolean; lightScopeId?: string"),
+        "the inline opts type must be gone — it cannot carry `children`:\n{js}"
+    );
+}

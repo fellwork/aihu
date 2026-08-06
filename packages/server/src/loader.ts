@@ -64,10 +64,18 @@ export async function renderToString(
   // light-DOM markup whose `@scope([data-a="…"])` CSS matches nothing until
   // hydration (the docs-next LCP regression this option exists to fix). When
   // the native surface grows the parameter, this guard can be lifted.
+  // SSR children step 3c: `children` falls through for the SAME reason as
+  // `lightScopeId` directly above — `renderTree(treeJson, hydratable)` has
+  // nowhere to put a map of JS module objects, and they could not cross the FFI
+  // boundary intact even if it did. Without this line the napi path would
+  // silently render every child component as an empty element while the TS
+  // paths filled them in, which is precisely the class of bug the lightScopeId
+  // guard was added to stop.
   if (
     opts?.serializer ||
     opts?.contextSetup ||
     opts?.lightScopeId !== undefined ||
+    opts?.children !== undefined ||
     typeof component !== 'function' ||
     typeof (component as { __aihu_ssr_string__?: unknown }).__aihu_ssr_string__ === 'function'
   ) {

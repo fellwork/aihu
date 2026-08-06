@@ -56,5 +56,8 @@
   "bugs": "https://github.com/fellwork/aihu/issues",
   "publishConfig": {
     "access": "public"
+  },
+  "devDependencies": {
+    "@aihu/runtime": "workspace:*"
   }
 }
