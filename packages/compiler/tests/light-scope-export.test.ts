@@ -143,3 +143,93 @@ describe('__aihu_shadow__ export (server target)', () => {
     expect(code).not.toContain('__aihu_shadow__')
   })
 })
+
+// ─── __aihu_child_tags__ ─────────────────────────────────────────────────────
+//
+// The transitive walk that builds `SsrOptions.children` starts here: load a
+// module, read its child tags, load those, repeat — and reject a cycle before
+// any render begins.
+//
+// The export is DERIVED from the emitted `__aihu_schild` call sites rather than
+// recomputed from the template, because the set that matters is exactly the set
+// of tags the compiled renderer will look up at runtime. The parity test below
+// is what keeps that true: if the derivation and the emission ever disagree, a
+// registry built from this export would miss a lookup and that child would
+// silently render empty.
+
+const CHILD_SFC = `@template {
+  <main class="page">
+    <h1>Title</h1>
+    <y-kid></y-kid>
+    <x-kid></x-kid>
+    <x-kid></x-kid>
+  </main>
+}
+`
+
+async function runWith(source: string, thisArg: unknown): Promise<string> {
+  const tmp = mkdtempSync(join(tmpdir(), 'aihu-child-tags-'))
+  try {
+    const plugin = aihuCompilerPlugin()
+    const transform = plugin.transform as unknown as TransformFn
+    const res = await transform.call(thisArg, source, join(tmp, 'x-page.aihu'))
+    if (res == null) throw new Error('plugin returned no result')
+    return res.code
+  } finally {
+    rmSync(tmp, { recursive: true, force: true })
+  }
+}
+
+/** The declared child-tag set, parsed out of the emitted module. */
+function childTagsOf(code: string): string[] {
+  const m = /__aihu_child_tags__\s*=\s*(\[[^\]]*\])/.exec(code)
+  if (!m) return []
+  // Quote-agnostic: oxc decides the final quote style, and this test is about
+  // the tag set, not the formatter.
+  return (m[1].match(/["']([^"']+)["']/g) ?? []).map((q) => q.slice(1, -1)).sort()
+}
+
+/** The tags the emitted renderer will actually look up at runtime. */
+function calledTagsOf(code: string): string[] {
+  return [
+    ...new Set(
+      Array.from(code.matchAll(/__aihu_schild\(\s*["']([^"']+)["']/g), (m) => m[1] as string),
+    ),
+  ].sort()
+}
+
+describe('__aihu_child_tags__ export (server target)', () => {
+  it('lists every referenced component tag, deduped and sorted', async () => {
+    const code = await runWith(CHILD_SFC, SERVER_ENV)
+    // Parsed, not string-matched: the emitted module goes through oxc after
+    // this export is appended, which renormalises quotes and spacing. Asserting
+    // on the literal text would pin a formatter, not the contract.
+    expect(childTagsOf(code)).toEqual(['x-kid', 'y-kid'])
+  })
+
+  it('agrees exactly with the emitted __aihu_schild call sites', async () => {
+    // The parity check the derivation rests on. A registry built from the
+    // export must cover every lookup the renderer performs; anything the
+    // renderer looks up but the export omits renders empty with no error.
+    const code = await runWith(CHILD_SFC, SERVER_ENV)
+    const called = calledTagsOf(code)
+    expect(childTagsOf(code)).toEqual(called)
+    // Guard against the whole check passing because BOTH sides are empty —
+    // agreeing on nothing is the failure mode this test exists to catch.
+    expect(called.length).toBeGreaterThan(0)
+  })
+
+  it('is omitted when the template references no component', async () => {
+    // "No export" and "empty" must mean the same thing to a consumer, so the
+    // empty array is never emitted.
+    const code = await runWith(SFC, SERVER_ENV)
+    expect(code).not.toContain('__aihu_child_tags__')
+  })
+
+  it('is absent from a client build', async () => {
+    // Same reasoning as the sibling exports: the registry is a server-side
+    // build input, and the client resolves children by upgrading elements.
+    const code = await runWith(CHILD_SFC, {})
+    expect(code).not.toContain('__aihu_child_tags__')
+  })
+})
