@@ -26,8 +26,8 @@
  * does NOT get a `.size-limit.json` row.
  */
 
-import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
-import { dirname, join, resolve as resolvePath } from 'node:path'
+import { mkdir, readdir, readFile, realpath, writeFile } from 'node:fs/promises'
+import { dirname, join, resolve as resolvePath, sep } from 'node:path'
 import { compileRouteMeta } from '@aihu/compiler'
 import { clearSsrContextMap, setSsrContextMap } from '@aihu/context/ssr'
 import type { RouteDefinition, RouteSegment } from '@aihu/router'
@@ -179,9 +179,39 @@ async function discoverComponents(
   const abs = resolvePath(root, componentsDir)
   let files: string[]
   try {
-    files = (await readdir(abs, { recursive: true, withFileTypes: true }))
-      .filter((e) => e.isFile() && e.name.endsWith('.aihu'))
-      .map((e) => join(e.parentPath ?? abs, e.name))
+    const entries = await readdir(abs, { recursive: true, withFileTypes: true })
+    const candidates: string[] = []
+    for (const e of entries) {
+      if (!e.isFile() || !e.name.endsWith('.aihu')) continue
+      // `e.parentPath` is required, not optional. The old `?? abs` fallback
+      // silently FLATTENED nested paths on a runtime that lacks it — loading
+      // the wrong file rather than none, which is worse than a miss.
+      if (typeof e.parentPath !== 'string') continue
+      candidates.push(join(e.parentPath, e.name))
+    }
+    // Symlink containment. `readdir({recursive:true})` FOLLOWS symlinked
+    // directories under bun — the toolchain this repo builds with — and does
+    // not under Node. Every match here is about to be compiled AND EVALUATED by
+    // Vite, so one symlink under the components dir would execute `.aihu`
+    // modules from outside the project at build time. Resolve each path and
+    // keep only what really lives under the directory we were asked to scan.
+    const rootReal = await realpath(abs)
+    files = []
+    for (const f of candidates) {
+      try {
+        const real = await realpath(f)
+        if (real === rootReal || real.startsWith(rootReal + sep)) files.push(f)
+        else {
+          pushWarn(
+            `[@aihu/app] static output: skipping "${f}" — it resolves to "${real}", ` +
+              `outside the components directory. Component discovery does not follow ` +
+              `symlinks out of the project.`,
+          )
+        }
+      } catch {
+        // Vanished between readdir and realpath; nothing to load.
+      }
+    }
   } catch {
     // No components directory is normal — a site can be pages-only.
     return []
@@ -191,7 +221,17 @@ async function discoverComponents(
     try {
       const mod = (await loadModule(file)) as PrerenderRouteModule
       const tag = mod.__aihu_tag__
-      if (tag === undefined) continue
+      if (tag === undefined) {
+        // Silently skipping this made a component unrenderable-as-a-child with
+        // no signal at all — the empty-element failure this feature exists to
+        // remove, reintroduced at the edge.
+        pushWarn(
+          `[@aihu/app] static output: component "${file}" exports no __aihu_tag__, ` +
+            `so it cannot be resolved by tag and will render as an empty element. ` +
+            `(A non-component module under the components directory is the usual cause.)`,
+        )
+        continue
+      }
       found.push({ tag, module: mod as unknown as ChildModuleLike })
     } catch (err) {
       pushWarn(
@@ -258,12 +298,18 @@ function injectContent(html: string, content: string, outletId: string): string 
     'i',
   )
   if (emptyRe.test(html)) {
-    return html.replace(emptyRe, `$1${content}$3`)
+    // The FUNCTION form, deliberately. Rendered content goes in as the
+    // REPLACEMENT, and a replacement STRING expands `$&`, `` $` ``, `$'` and
+    // `$n` as backreferences — so any page whose prose contains one of those
+    // sequences re-splices the layout shell into itself. `/api/store` does it
+    // today (its text contains `` $` ``). The function form performs no
+    // expansion at all.
+    return html.replace(emptyRe, (_m, p1: string, _p2: string, p3: string) => p1 + content + p3)
   }
   // Fallback: open-tag only — insert content right after it.
   const openRe = new RegExp(`(<[a-zA-Z]+\\b[^>]*\\bid="${escaped}"[^>]*>)`, 'i')
   if (openRe.test(html)) {
-    return html.replace(openRe, `$1${content}`)
+    return html.replace(openRe, (_m, p1: string) => p1 + content)
   }
   return html
 }
@@ -280,12 +326,21 @@ function injectIntoOutletMarker(layoutHtml: string, content: string): string | n
   // Empty marker `<div data-aihu-outlet></div>` (the passive-marker shape).
   const emptyRe = new RegExp(`(<[a-zA-Z]+\\b[^>]*\\b${attr}[^>]*>)(\\s*)(</[a-zA-Z]+>)`, 'i')
   if (emptyRe.test(layoutHtml)) {
-    return layoutHtml.replace(emptyRe, `$1${content}$3`)
+    // The FUNCTION form, deliberately. Rendered content goes in as the
+    // REPLACEMENT, and a replacement STRING expands `$&`, `` $` ``, `$'` and
+    // `$n` as backreferences — so any page whose prose contains one of those
+    // sequences re-splices the layout shell into itself. `/api/store` does it
+    // today (its text contains `` $` ``). The function form performs no
+    // expansion at all.
+    return layoutHtml.replace(
+      emptyRe,
+      (_m, p1: string, _p2: string, p3: string) => p1 + content + p3,
+    )
   }
   // Open-tag only — insert content right after it.
   const openRe = new RegExp(`(<[a-zA-Z]+\\b[^>]*\\b${attr}[^>]*>)`, 'i')
   if (openRe.test(layoutHtml)) {
-    return layoutHtml.replace(openRe, `$1${content}`)
+    return layoutHtml.replace(openRe, (_m, p1: string) => p1 + content)
   }
   return null
 }
@@ -372,6 +427,32 @@ export async function runPrerender(opts: RunPrerenderOptions): Promise<Prerender
   // renders byte-identically to before.
   const childOpts: Pick<SsrOptions, 'children'> =
     childRegistry.size > 0 ? { children: childRegistry } : {}
+
+  // Every tag a discovered component REFERENCES but the registry cannot supply.
+  //
+  // Without this, an unresolvable reference is completely silent: the component
+  // renders as an empty element, which is indistinguishable from one nobody
+  // registered, which is indistinguishable from correct output for a
+  // third-party custom element. A component colocated with pages, imported from
+  // a package, or keyed by `@meta { name }` rather than its file stem (the
+  // client's scanner keys on the former, this registry on the latter) would
+  // prerender empty forever with nothing to grep for.
+  //
+  // Warned once per tag, not per reference site. Unknown tags are NOT
+  // necessarily errors — a genuine third-party element belongs on this list —
+  // so the wording says what happened rather than asserting a mistake.
+  const referenced = new Set<string>()
+  for (const mod of childRegistry.values()) {
+    for (const t of mod.__aihu_child_tags__ ?? []) referenced.add(t)
+  }
+  for (const tag of [...referenced].sort()) {
+    if (childRegistry.has(tag)) continue
+    pushWarn(
+      `[@aihu/app] static output: <${tag}> is referenced but was not found under ` +
+        `"${componentsDir}", so it prerenders as an empty element and fills in on the ` +
+        `client. Move it there, or ignore this if it is not an aihu component.`,
+    )
+  }
 
   // Wave-3 state channel: this is @aihu/app's SSG SSR entry, so it owns the
   // store-serializer wiring (@aihu/server never imports @aihu/store — the

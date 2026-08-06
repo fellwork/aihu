@@ -167,10 +167,14 @@ const CHILD_SFC = `@template {
 }
 `
 
-async function runWith(source: string, thisArg: unknown): Promise<string> {
+async function runWith(
+  source: string,
+  thisArg: unknown,
+  options?: Parameters<typeof aihuCompilerPlugin>[0],
+): Promise<string> {
   const tmp = mkdtempSync(join(tmpdir(), 'aihu-child-tags-'))
   try {
-    const plugin = aihuCompilerPlugin()
+    const plugin = aihuCompilerPlugin(options)
     const transform = plugin.transform as unknown as TransformFn
     const res = await transform.call(thisArg, source, join(tmp, 'x-page.aihu'))
     if (res == null) throw new Error('plugin returned no result')
@@ -231,5 +235,54 @@ describe('__aihu_child_tags__ export (server target)', () => {
     // build input, and the client resolves children by upgrading elements.
     const code = await runWith(CHILD_SFC, {})
     expect(code).not.toContain('__aihu_child_tags__')
+  })
+})
+
+// ─── _injectShadowMode must not corrupt the module it edits ─────────────────
+
+const COND_SFC = `@state {
+  const [n, setN] = signal(9)
+}
+
+@template {
+  <div><span if={n > 5}>big</span></div>
+}
+`
+
+describe('_injectShadowMode anchors on defineElement, not the last paren', () => {
+  // HONEST SCOPE. A review reported that the previous greedy anchor
+  // (`defineComponent\([^]*\)\s*\)` — `[^]` crosses newlines) ran past
+  // defineElement on a server-target module and matched the LAST `))` in the
+  // file, which for a component with an `if=` is the emitted condition:
+  // `if (n > 5, { shadowMode: "light", … })`, always truthy via the comma
+  // operator, so a dead branch rendered.
+  //
+  // I could NOT reproduce that with this fixture — the old regex leaves it
+  // intact — so these tests do not prove the corruption is fixed, and the
+  // finding stays open in the follow-ups doc. The anchor was replaced anyway:
+  // a balanced-paren scan from the `defineComponent(` open cannot run past its
+  // own call, and an unbounded `[^]*` in a whole-module regex is the wrong tool
+  // regardless of whether a shape that exploits it has been found.
+  //
+  // What these DO pin: injection still lands on defineElement (a scan that
+  // bailed silently would "fix" corruption by doing nothing, costing every
+  // light component its scope id), on both targets, without touching a
+  // condition.
+  it('leaves an if= condition intact on the server target', async () => {
+    const code = await runWith(COND_SFC, SERVER_ENV, { shadowMode: 'light' })
+    expect(code).not.toMatch(/if\s*\([^)]*shadowMode/)
+  })
+
+  it('still injects the options onto defineElement', async () => {
+    // The other half: a scan that bails silently would "fix" the corruption by
+    // doing nothing, and light-mode components would lose their scope id.
+    const code = await runWith(COND_SFC, SERVER_ENV, { shadowMode: 'light' })
+    expect(code).toMatch(/defineElement\([\s\S]*?shadowMode/)
+  })
+
+  it('injects on a client build too', async () => {
+    const code = await runWith(COND_SFC, {}, { shadowMode: 'light' })
+    expect(code).toMatch(/defineElement\([\s\S]*?shadowMode/)
+    expect(code).not.toMatch(/if\s*\([^)]*shadowMode/)
   })
 })

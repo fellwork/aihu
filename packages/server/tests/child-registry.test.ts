@@ -11,11 +11,7 @@
  */
 
 import { describe, expect, it, vi } from 'vitest'
-import {
-  buildChildRegistry,
-  ChildCycleError,
-  type DiscoveredComponent,
-} from '../src/child-registry.ts'
+import { buildChildRegistry, type DiscoveredComponent } from '../src/child-registry.ts'
 
 const comp = (tag: string, children: string[] = []): DiscoveredComponent => ({
   tag,
@@ -47,62 +43,80 @@ describe('indexing', () => {
   })
 })
 
-describe('cycle rejection', () => {
-  it('accepts a plain tree', () => {
-    expect(() =>
-      buildChildRegistry([comp('a-one', ['b-two']), comp('b-two', ['c-three']), comp('c-three')]),
-    ).not.toThrow()
+describe('cycle reporting', () => {
+  // Cycles WARN, they do not fail the build. `__aihu_schild` bounds them with a
+  // depth cap and an output budget, so they render finitely — and the detection
+  // has unavoidable false positives (below), so a hard failure rejected legal,
+  // ordinary component shapes.
+  const warnings = (comps: DiscoveredComponent[]): string[] => {
+    const out: string[] = []
+    buildChildRegistry(comps, (m) => out.push(m))
+    return out
+  }
+
+  it('never throws, whatever the graph', () => {
+    expect(() => buildChildRegistry([comp('a-one', ['a-one'])])).not.toThrow()
   })
 
-  it('accepts a DIAMOND — two paths to one shared child', () => {
-    // The reason cycle detection is a three-colour walk and not a `seen` set:
-    // a set alone reports this as a cycle, and diamonds are ordinary (a header
-    // and a footer both using the same logo component).
-    expect(() =>
-      buildChildRegistry([
+  it('says nothing about a plain tree', () => {
+    expect(
+      warnings([comp('a-one', ['b-two']), comp('b-two', ['c-three']), comp('c-three')]),
+    ).toEqual([])
+  })
+
+  it('says nothing about a DIAMOND — two paths to one shared child', () => {
+    // Why detection is a three-colour walk and not a `seen` set: a set alone
+    // reports this as a cycle, and diamonds are ordinary (a header and a footer
+    // both using one logo component).
+    expect(
+      warnings([
         comp('a-one', ['b-two', 'c-three']),
         comp('b-two', ['d-four']),
         comp('c-three', ['d-four']),
         comp('d-four'),
       ]),
-    ).not.toThrow()
+    ).toEqual([])
   })
 
-  it('rejects direct self-reference', () => {
-    expect(() => buildChildRegistry([comp('a-one', ['a-one'])])).toThrow(ChildCycleError)
+  it('warns about direct self-reference', () => {
+    const w = warnings([comp('a-one', ['a-one'])])
+    expect(w).toHaveLength(1)
+    expect(w[0]).toContain('a-one → a-one')
   })
 
-  it('rejects a transitive cycle, naming the loop', () => {
-    let err: ChildCycleError | undefined
-    try {
-      buildChildRegistry([
-        comp('a-one', ['b-two']),
-        comp('b-two', ['c-three']),
-        comp('c-three', ['a-one']),
-      ])
-    } catch (e) {
-      err = e as ChildCycleError
-    }
-    expect(err).toBeInstanceOf(ChildCycleError)
-    // The cycle itself, not the whole traversal path — those are the edges the
-    // author has to break.
-    expect(err?.cycle).toEqual(['a-one', 'b-two', 'c-three', 'a-one'])
-    expect(err?.message).toContain('a-one → b-two → c-three → a-one')
+  it('warns about a transitive cycle, naming the loop', () => {
+    const w = warnings([
+      comp('a-one', ['b-two']),
+      comp('b-two', ['c-three']),
+      comp('c-three', ['a-one']),
+    ])
+    expect(w).toHaveLength(1)
+    expect(w[0]).toContain('a-one → b-two → c-three → a-one')
   })
 
-  it('reports a cycle that is not reachable from the first tag walked', () => {
-    // Every tag is a walk root, so a cycle in a disconnected part of the graph
-    // is still found.
-    expect(() =>
-      buildChildRegistry([comp('a-one'), comp('b-two', ['c-three']), comp('c-three', ['b-two'])]),
-    ).toThrow(ChildCycleError)
+  it('BUILDS a registry for a recursive component instead of failing', () => {
+    // The regression this downgrade exists to fix. A tree, a nested menu, a
+    // comment thread — `<group if={kids.length}><tree-node>` — is reported as a
+    // self-edge because the tag set is derived from reference SITES and cannot
+    // see the guard. It terminates fine at runtime, and its build used to fail
+    // with a message asserting a component "cannot render itself", which on the
+    // client is untrue.
+    const reg = buildChildRegistry([comp('tree-node', ['tree-node'])])
+    expect(reg.has('tree-node')).toBe(true)
+  })
+
+  it('reports each distinct loop once', () => {
+    expect(warnings([comp('a-one', ['b-two']), comp('b-two', ['a-one'])])).toHaveLength(1)
+  })
+
+  it('reports a cycle unreachable from the first tag walked', () => {
+    expect(
+      warnings([comp('a-one'), comp('b-two', ['c-three']), comp('c-three', ['b-two'])]),
+    ).toHaveLength(1)
   })
 
   it('treats an unknown tag as an edge out of the graph', () => {
-    // Third-party custom elements, or components the caller did not discover.
-    // `__aihu_schild` already fails closed on them, so they terminate the walk
-    // rather than failing the build.
-    expect(() => buildChildRegistry([comp('a-one', ['not-discovered'])])).not.toThrow()
+    expect(warnings([comp('a-one', ['not-discovered'])])).toEqual([])
   })
 
   it('handles a component with no child-tag export at all', () => {

@@ -314,12 +314,6 @@ export const EXPORTS: readonly ApiExport[] = [
     summary: '',
   },
   {
-    name: 'ChildCycleError',
-    kind: 'class',
-    signature: 'class ChildCycleError extends Error',
-    summary: 'Thrown when the component graph contains a cycle.',
-  },
-  {
     name: 'AgentReadinessConfig',
     kind: 'interface',
     signature:
@@ -340,6 +334,13 @@ export const EXPORTS: readonly ApiExport[] = [
     signature:
       "interface BuildConfig {\n  /** Build target. Default: 'universal' */\n  target?: BuildTarget\n}",
     summary: '',
+  },
+  {
+    name: 'ChildCycle',
+    kind: 'interface',
+    signature:
+      'interface ChildCycle {\n  /** The loop, first recurrence to recurrence: `a → b → c → a`. */\n  readonly cycle: ReadonlyArray<string>\n  /** Human-readable, for a build log. */\n  readonly message: string\n}',
+    summary: 'A component reference cycle, reported (not thrown) by `buildChildRegistry`.',
   },
   {
     name: 'ChildModuleLike',

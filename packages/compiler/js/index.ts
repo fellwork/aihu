@@ -157,17 +157,37 @@ export function _injectShadowMode(
   mode: 'light' | 'shadow',
   lightScopeId?: string,
 ): string {
-  // Match the trailing `))` that closes `defineElement(tag, defineComponent(setup))`.
-  // The compiler always emits this exact two-paren close as the final tokens of
-  // the defineElement call — we anchor on it and append the options object.
-  // biome-ignore lint/correctness/noEmptyCharacterClassInRegex: [^] is valid JS — matches any char including newlines
-  const re = /(defineElement\(\s*['"][^'"]+['"]\s*,\s*defineComponent\([^]*\))\s*\)/
+  // Anchor on the `))` that closes `defineElement(tag, defineComponent(setup))`.
+  //
+  // This used to be `defineComponent\([^]*\)\s*\)` — greedy, and `[^]` crosses
+  // newlines, so on a SERVER-target module it ran clean past `defineElement`
+  // and anchored on the LAST `))` in the file. For any component with an `if=`
+  // that is the emitted condition, which then became
+  // `if (n > 5, { shadowMode: "light", … })` — the comma operator, always
+  // truthy, so a dead branch rendered. Harmless-looking when it leaked one
+  // stray empty element; with child rendering it materialises the child's
+  // entire subtree (measured: 33 nested hosts from a branch that should not
+  // have run).
+  //
+  // Balanced-paren scan from the `defineComponent(` open instead. Slower than a
+  // regex and correct, which is the trade `_injectLightScopeId` already makes by
+  // using a literal replace.
+  const head = /defineElement\(\s*['"][^'"]+['"]\s*,\s*defineComponent\(/.exec(code)
+  if (head == null) return code
+  let depth = 1
+  let i = head.index + head[0].length
+  for (; i < code.length && depth > 0; i++) {
+    const c = code[i]
+    if (c === '(') depth++
+    else if (c === ')') depth--
+  }
+  if (depth !== 0) return code
+  // `i` is now just past `defineComponent(...)`'s close. The next `)` closes
+  // defineElement; anything between is whitespace.
+  const close = code.indexOf(')', i)
+  if (close === -1 || code.slice(i, close).trim() !== '') return code
   const scopeIdField = lightScopeId ? `, lightScopeId: '${lightScopeId}'` : ''
-  const replaced = code.replace(
-    re,
-    (_m, inner: string) => `${inner}, { shadowMode: '${mode}'${scopeIdField} })`,
-  )
-  return replaced
+  return `${code.slice(0, i)}, { shadowMode: '${mode}'${scopeIdField} })${code.slice(close + 1)}`
 }
 
 /**

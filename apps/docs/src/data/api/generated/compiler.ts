@@ -41,7 +41,7 @@ export const EXPORTS: readonly ApiExport[] = [
     name: '_foldCssEngineStyles',
     kind: 'function',
     signature: 'function _foldCssEngineStyles(compiledCode: string, css: string): string',
-    summary: 'Fold css-engine-produced scoped CSS into a compiled `.aihu` module.',
+    summary: '',
   },
   {
     name: '_foldCssEngineStylesGlobal',
@@ -49,6 +49,12 @@ export const EXPORTS: readonly ApiExport[] = [
     signature:
       'function _foldCssEngineStylesGlobal( compiledCode: string, css: string, id: string, ): { code: string; virtualId: string } | null',
     summary: "Bug 6 — `shadowMode === 'light'` branch.",
+  },
+  {
+    name: '_foldSsrCssExport',
+    kind: 'function',
+    signature: 'function _foldSsrCssExport(compiledCode: string, css: string): string',
+    summary: "Fold css-engine utility CSS into the SERVER target's `__aihu_css__` export.",
   },
   {
     name: '_formatExtractCensus',
