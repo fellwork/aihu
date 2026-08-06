@@ -146,9 +146,12 @@ describe('__aihu_shadow__ export (server target)', () => {
 
 // ─── __aihu_child_tags__ ─────────────────────────────────────────────────────
 //
-// The transitive walk that builds `SsrOptions.children` starts here: load a
-// module, read its child tags, load those, repeat — and reject a cycle before
-// any render begins.
+// The edges of the component graph. `buildChildRegistry` indexes every
+// discovered component once — it does NOT walk this transitively per page —
+// and uses these edges to DETECT cycles, which it reports as a warning rather
+// than rejecting: the derivation cannot see a guarded reference, so an ordinary
+// recursive component (tree, nested menu, comment thread) would otherwise fail
+// its build. See `@aihu/server`'s `child-registry.ts`.
 //
 // The export is DERIVED from the emitted `__aihu_schild` call sites rather than
 // recomputed from the template, because the set that matters is exactly the set

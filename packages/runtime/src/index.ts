@@ -52,6 +52,6 @@ export type {
   ShadowMode,
 } from './types.ts'
 // The one DOM `ShadowRootMode` aihu attaches with. Exported so the SSR
-// emitter's `<template shadowrootmode="…">` value can be pinned to it by a
-// parity test rather than duplicated as a bare literal — see its doc comment.
+// emitter's `<template shadowrootmode="…">` value (`ssr-string.ts`) can import
+// it directly rather than duplicate it as a bare literal — see its doc comment.
 export { SHADOW_ROOT_MODE } from './types.ts'

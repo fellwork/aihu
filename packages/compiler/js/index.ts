@@ -1849,10 +1849,15 @@ export function aihuCompilerPlugin(options?: AihuCompilerPluginOptions): VitePlu
             out += `\nexport const __aihu_shadow__ = '${effectiveShadow}'\n`
           }
           // Every component tag this module's template references, on the same
-          // channel as the three exports above. It is what an SSG/SSR caller
-          // walks TRANSITIVELY to build `SsrOptions.children` — load this
-          // module, read its child tags, load those, repeat — and where a
-          // cyclic tag graph must be rejected before any render begins.
+          // channel as the three exports above. `buildChildRegistry`
+          // (`@aihu/server`) reads it as the edge set for its cycle check over
+          // the WHOLE discovered component graph — not a per-page transitive
+          // walk; the caller indexes every discovered module once rather than
+          // loading a subset by following these tags (see child-registry.ts's
+          // module docblock for why). A cycle found there is reported, not
+          // rejected: `__aihu_schild` bounds it with a depth cap and an output
+          // budget, so a build no longer has to refuse a legal recursive shape
+          // to stay safe.
           //
           // DERIVED FROM THE EMITTED CALLS, not re-computed from the template.
           // The set that matters is precisely the set of tags the compiled
@@ -1861,8 +1866,10 @@ export function aihuCompilerPlugin(options?: AihuCompilerPluginOptions): VitePlu
           // template again and reapplying the emitter's v1 boundaries (no
           // attrs, no children, static non-root path) — would be one rule
           // written in two places, and the halves would drift the first time a
-          // boundary moved. The parity test in `route_and_build_target.rs`
-          // pins that the export and the call sites agree.
+          // boundary moved. The parity test in
+          // `packages/compiler/tests/light-scope-export.test.ts` (the
+          // `__aihu_child_tags__ export` describe block) pins that the export
+          // and the call sites agree.
           //
           // Omitted entirely when the template references no component, so a
           // consumer can treat "no export" and "empty" identically.

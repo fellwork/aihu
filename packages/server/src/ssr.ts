@@ -567,33 +567,52 @@ function _isFragment(obj: Record<string, unknown>): boolean {
 }
 
 /**
- * Is this a fully STATIC path — every segment a plain index?
+ * Is this path a COMPILE-TIME LITERAL — the emitter's `path.base.is_none()`,
+ * reconstructed from the finished path string?
  *
- * The fourth v1 boundary, and the one that drifted. The emitter declines a
- * reference whose path is runtime-built (`path.base.is_none()` in
- * `ssr_string_emit.rs`) — i.e. anything inside `{#each}`, where the key is only
- * known at render time. The walker had no mirror for it, so a component
- * referenced inside a loop resolved on the walker and stayed an empty element
- * on the compiled fast path: a byte divergence with a registry present, which
- * is exactly the contract the differential suite exists to defend.
+ * The fourth v1 boundary, and the one that drifted twice. The emitter declines
+ * a reference whose path is runtime-built; only an `{#each}` item boundary
+ * makes it so (`P { base: Some(pv), … }` in `ssr_string_emit.rs`), because only
+ * there is a segment a runtime value. The walker had no mirror at all, so a
+ * component referenced inside a loop resolved here and stayed an empty element
+ * on the compiled fast path.
  *
- * That is the repo's named failure mode wearing the design's own clothes — the
- * ELIGIBILITY rule is one contract expressed in two languages, Rust at compile
- * time and TypeScript at render time, and only their intersection was covered.
- * The durable guard is a differential fixture per boundary line, asserting the
- * two paths agree on DECLINING; see `ssr-string-differential.test.ts`.
+ * The first mirror read "every segment is digits", which was a PROXY for
+ * literalness rather than the thing itself — and too strict by exactly one
+ * shape. `{#if}` bodies continue at `PATH.conditional.true`, a suffix fixed at
+ * compile time, so the emitter resolves there while the digits rule declined:
+ * `<div if={ready}><site-header></site-header></div>` — an entirely ordinary
+ * template — became a fresh divergence in the act of fixing `{#each}`.
  *
- * Structural segments carry words (`list`, `conditional`, `true`), and list
- * items carry arbitrary keys, so "every segment is digits" is the conservative
- * reading of "static". Declining too much only costs a child its server
- * markup — the client still renders it — while declining too little costs
- * byte-identity.
+ * So test the real property. `_structuralSubtrees` above builds every non-index
+ * segment, and it builds exactly two shapes: `conditional` + `true` (fixed) and
+ * `list` + KEY (runtime). A path is literal iff it contains no `list` segment;
+ * checking for the literal `list` is sound even against hostile keys, because
+ * the key always FOLLOWS it — `each={x of ['list']} key={x}` yields
+ * `…list.list`, which this rejects at the first of the two.
+ *
+ * Anything unrecognized is rejected: declining too much only costs a child its
+ * server markup, while declining too little costs byte-identity.
+ *
+ * Note this can only ever be a mirror, never the same code — the emitter tests
+ * a struct field it built, this tests a string. The enforcement is the
+ * per-boundary differential fixture set in `ssr-string-differential.test.ts`.
  */
-function _isStaticPath(path: string): boolean {
-  for (const seg of path.split('.')) {
+function _isLiteralPath(path: string): boolean {
+  const segs = path.split('.')
+  for (let i = 0; i < segs.length; i++) {
+    // `noUncheckedIndexedAccess` types this `string | undefined`; `??` keeps the
+    // loop honest without an assertion, and an empty segment fails below anyway.
+    const seg = segs[i] ?? ''
+    // The one fixed structural pair. Consumed together so a bare `conditional`
+    // or a bare `true` (only reachable as a list key) still fails.
+    if (seg === 'conditional' && segs[i + 1] === 'true') {
+      i++
+      continue
+    }
     if (seg.length === 0) return false
-    for (let i = 0; i < seg.length; i++) {
-      const c = seg.charCodeAt(i)
+    for (let j = 0; j < seg.length; j++) {
+      const c = seg.charCodeAt(j)
       if (c < 48 || c > 57) return false
     }
   }
@@ -712,13 +731,24 @@ async function renderNodeAsync(
     // function on both paths — the differential suite pins that they agree
     // byte-for-byte, and it can only do that if they render the same things.
     //
-    // The v1 boundaries mirror the emitter's exactly (`ssr_string_emit.rs`):
-    // zero children (slot projection is unimplemented), no attrs (attributes at
-    // a reference site are the child's props, and rendering with defaults while
-    // the client renders with real values is a hydration mismatch), and not at
-    // ROOT_PATH (which carries the parent's `data-a` stamp, already folded into
-    // `attrStr` above). A mismatch here would show up as a differential
-    // failure, which is the point of keeping the two lists identical.
+    // The v1 boundaries mirror the emitter's (`ssr_string_emit.rs`): zero
+    // children (slot projection is unimplemented), no attrs (attributes at a
+    // reference site are the child's props, and rendering with defaults while
+    // the client renders with real values is a hydration mismatch), a literal
+    // path (see `_isLiteralPath`), and not at ROOT_PATH (which carries the
+    // parent's `data-a` stamp, already folded into `attrStr` above).
+    //
+    // "Mirror" is the strongest word available: the two gates read DIFFERENT
+    // inputs — Rust over the raw template AST, this over the lowered node — and
+    // the lowering is lossy. Directive macros (`show`, `class:`, `ref`, `once`,
+    // `raw`, `html`, `if`) and whitespace-only text are already gone by the
+    // time they reach here, so this arm CANNOT decline on them however much it
+    // would like to; the emitter has to be the side that agrees, and it is (see
+    // `attr_survives_lowering` / `node_is_dropped` there). They cannot be made
+    // structurally identical. What keeps them honest is the per-boundary
+    // fixture set in `ssr-string-differential.test.ts`, one case per line of
+    // this condition, each asserting the two renderers reach the SAME verdict —
+    // including when that verdict is to decline.
     //
     // `attrStr` — the reference site's own attrs plus its path marker — is
     // passed through as the host attrs, so the host keeps its position in THIS
@@ -729,7 +759,7 @@ async function renderNodeAsync(
       childRegistry &&
       children.length === 0 &&
       path !== ROOT_PATH &&
-      _isStaticPath(path) &&
+      _isLiteralPath(path) &&
       Object.keys(asAttrMap(obj.attrs)).length === 0 &&
       childRegistry.has(tag)
     ) {

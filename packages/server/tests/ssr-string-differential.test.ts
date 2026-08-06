@@ -685,3 +685,366 @@ describe.skipIf(!hasBinary)('SSR string fast path — resolved child components'
     expect(html).toContain('<x-kid data-aihu-path="0.1"></x-kid>')
   })
 })
+
+// ─── Child eligibility — one fixture per BOUNDARY LINE ──────────────────────
+//
+// Why these exist, in one sentence: the eligibility rule is written twice — in
+// Rust against the raw template AST (`ssr_string_emit.rs`) and in TypeScript
+// against the LOWERED arbor node (`renderNodeAsync`'s child arm) — and the two
+// gates read different inputs, so they can only be kept equal by being tested
+// equal.
+//
+// They cannot be made structurally identical, and it is worth being blunt about
+// why rather than hoping a future refactor closes it: the lowering is LOSSY.
+// `show=`, `class:`, `ref=`, `once`, `raw`, `html=`, `if=` and a whitespace-only
+// body are all gone by the time the walker sees a node — `<x-kid show={on()}>`
+// and `<x-kid>\n</x-kid>` both arrive as `branch('x-kid', undefined, [])`,
+// indistinguishable from a bare `<x-kid>`. The walker therefore CANNOT decline
+// on them; the emitter is the side that has to agree, and the only thing that
+// can prove it does is a differential fixture.
+//
+// The suite above varies only the CHILD, against a single parent shape (one
+// line, no whitespace, no attrs, no directives, static non-root path). Every
+// divergence found in the 2026-08-06 review round lived in the parent shape,
+// which is exactly why they drifted unseen. These vary the PARENT.
+//
+// Each case asserts the two renderers reach the same VERDICT — and asserts what
+// the verdict is, because "both empty" satisfies byte-identity while shipping
+// the bug this whole design exists to remove.
+
+const KID = `@template {
+  <nav class="kid"><span>nav</span></nav>
+}
+`
+
+/** The child's markup, present iff a renderer actually resolved the reference. */
+const KID_MARK = '<nav class="kid"'
+
+let boundarySeq = 0
+
+/**
+ * Compile `template` as a parent, render it through BOTH renderers with the
+ * given registry, assert byte-identity in both hydration modes, and assert the
+ * agreed verdict is the expected one.
+ *
+ * The `@state` preamble is shared so a case is one line of template.
+ */
+async function expectAgreedVerdict(
+  template: string,
+  verdict: 'resolves' | 'declines',
+  registry?: ReadonlyMap<string, unknown>,
+): Promise<string> {
+  const kid = await compileToModule(`bkid-${boundarySeq}`, KID)
+  const children =
+    registry ??
+    new Map<string, unknown>([
+      ['x-kid', { ...kid.mod, __aihu_shadow__: 'light', __aihu_light_scope__: 'k1' }],
+    ])
+  const { mod } = await compileToModule(
+    `bparent-${boundarySeq++}`,
+    `@state {
+  const [on, setOn] = signal(true)
+  const [txt, setTxt] = signal('t')
+  let el = null
+  const frag = '<i>hi</i>'
+  const items = ['a']
+  const bump = () => setOn(!on())
+}
+
+@template {
+  ${template}
+}
+`,
+  )
+  expect(typeof mod.__ssrString).toBe('function')
+  const ssrString = mod.__ssrString as (p: unknown, o?: unknown) => string
+  let hydratableHtml = ''
+  for (const hydratable of [true, false]) {
+    const opts = { hydratable, children } as Parameters<typeof renderToString>[1]
+    const walker = markup(await renderToString(() => mod.__ssr(), opts))
+    const fast = ssrString({}, { hydratable, children })
+    expect(fast).toBe(walker)
+    if (hydratable) hydratableHtml = fast
+  }
+  // Direction, not just agreement.
+  if (verdict === 'resolves') expect(hydratableHtml).toContain(KID_MARK)
+  else expect(hydratableHtml).not.toContain(KID_MARK)
+  return hydratableHtml
+}
+
+describe.skipIf(!hasBinary)('SSR child eligibility — the boundary lines agree', () => {
+  // ── boundary 1: attributes ────────────────────────────────────────────────
+  //
+  // The emitter's rule is not "no attributes written" but "no attribute that
+  // SURVIVES LOWERING", because that is all the walker can see. Real props
+  // block (rendering the child with defaults while the client renders it with
+  // real values is a hydration mismatch); element-level directives do not.
+
+  it.each([
+    ['id="p"', 'declines'],
+    ['data-x="1"', 'declines'],
+    ['title={txt}', 'declines'],
+    // An event handler occupies a key in the lowered attrs object even though
+    // nothing serializes it — the walker counts KEYS, so it declines, and so
+    // must the emitter.
+    ['onclick={bump}', 'declines'],
+    ['on:click.prevent={bump}', 'declines'],
+    // `bind:` lowers to a real attribute (and serializes).
+    ['bind:value={txt}', 'declines'],
+    // Directives: mount effects on the HOST, lowered outside the attrs object.
+    // The walker sees zero attrs and resolves; before this reconciliation the
+    // emitter counted the raw `Attr::Macro` and shipped an empty element beside
+    // the walker's filled one.
+    ['show={on()}', 'resolves'],
+    ['class:active={on()}', 'resolves'],
+    ['ref={el}', 'resolves'],
+    ['once', 'resolves'],
+    ['memo={on()}', 'resolves'],
+    ['raw', 'resolves'],
+  ] as const)('a reference carrying %s — both %s', async (attr, verdict) => {
+    await expectAgreedVerdict(
+      `<main class="page"><h1>T</h1><x-kid ${attr}></x-kid></main>`,
+      verdict,
+    )
+  })
+
+  it('a directive plus a real prop still declines on both', async () => {
+    // The directive relaxation must not leak: one surviving attribute is enough.
+    await expectAgreedVerdict(
+      `<main class="page"><h1>T</h1><x-kid show={on()} id="p"></x-kid></main>`,
+      'declines',
+    )
+  })
+
+  // ── boundary 2: children (slot content) ───────────────────────────────────
+
+  it('a reference with slot children declines on both', async () => {
+    await expectAgreedVerdict(
+      `<main class="page"><h1>T</h1><x-kid><b>s</b></x-kid></main>`,
+      'declines',
+    )
+  })
+
+  it('a whitespace-only body SPANNING LINES resolves on both', async () => {
+    // Template indentation, normalized to nothing by `normalize_text_node`. The
+    // walker's node has no children at all; the emitter used to count the text
+    // node it was about to drop.
+    const html = await expectAgreedVerdict(
+      `<main class="page"><h1>T</h1><x-kid>\n  </x-kid></main>`,
+      'resolves',
+    )
+    expect(html).toContain('data-aihu-ssr=""')
+  })
+
+  it('a whitespace body on ONE line declines on both', async () => {
+    // The counterpart, and the reason the rule is `node_is_dropped` and not
+    // `trim().isEmpty()`: a single-line run is a significant inline space, kept
+    // by both renderers, so it is real slot content and must block.
+    const html = await expectAgreedVerdict(
+      `<main class="page"><h1>T</h1><x-kid> </x-kid></main>`,
+      'declines',
+    )
+    expect(html).toContain('<x-kid data-aihu-path="0.1"> </x-kid>')
+  })
+
+  it('raw discards written children, so a raw reference resolves on both', async () => {
+    // `raw` erases its children during lowering — the walker sees an empty node
+    // whatever was written between the tags — so counting the AST children here
+    // was another emitter-only decline.
+    await expectAgreedVerdict(
+      `<main class="page"><h1>T</h1><x-kid raw><b>s</b></x-kid></main>`,
+      'resolves',
+    )
+  })
+
+  // ── boundary 3: the path ──────────────────────────────────────────────────
+  //
+  // The emitter's condition is "the path is a compile-time LITERAL"; only an
+  // `{#each}` item boundary makes it otherwise. `_isLiteralPath` reconstructs
+  // that from the path string.
+
+  it('a reference inside {#each} declines on both', async () => {
+    await expectAgreedVerdict(
+      `<main class="page"><ul><li each={x of items}><x-kid></x-kid></li></ul></main>`,
+      'declines',
+    )
+  })
+
+  it('list keys that spell structural words still decline', async () => {
+    // `_isLiteralPath` reads a STRING, so a hostile key is the way to fool it.
+    // It cannot be fooled: the runtime key always follows a literal `list`
+    // segment, which is rejected first — `…list.conditional`, `…list.true`.
+    const html = await expectAgreedVerdict(
+      `<main class="page"><ul><li each={x of ['conditional', 'true', 'list']} key={x}><x-kid></x-kid></li></ul></main>`,
+      'declines',
+    )
+    expect(html).toContain('data-aihu-path="0.0.0.list.conditional"')
+    expect(html).toContain('data-aihu-path="0.0.0.list.list"')
+  })
+
+  it.each([
+    // A lone `if=` on the reference itself: the parser folds it into an
+    // IfBlock, so the path picks up `.conditional.true` but stays literal.
+    ['lone if on the reference', `<main class="page"><h1>T</h1><x-kid if={on()}></x-kid></main>`],
+    // A full chain adds a fragment index under the branch.
+    [
+      'an if/else chain',
+      `<main class="page"><h1>T</h1><x-kid if={on()}></x-kid><p else>e</p></main>`,
+    ],
+    // The reference in the ELSE arm.
+    [
+      'the else arm',
+      `<main class="page"><h1>T</h1><p if={!on()}>no</p><x-kid else></x-kid></main>`,
+    ],
+    // The ordinary shape, and the one that matters: a plain reference nested
+    // inside a conditional block. `<div if={ready}><site-header></site-header>`
+    // is everyday template code; the first `_isStaticPath` (digits-only)
+    // declined it on the walker while the emitter resolved it.
+    [
+      'a plain reference nested under {#if}',
+      `<main class="page"><h1>T</h1><div if={on()}><x-kid></x-kid></div><p else>e</p></main>`,
+    ],
+  ])('%s keeps a literal path — both resolve', async (_name, template) => {
+    const html = await expectAgreedVerdict(template, 'resolves')
+    expect(html).toContain('conditional.true')
+  })
+
+  it('an {#each} nested under {#if} still declines (list beats conditional)', async () => {
+    const html = await expectAgreedVerdict(
+      `<main class="page"><div if={on()}><ul><li each={x of items}><x-kid></x-kid></li></ul></div><p else>e</p></main>`,
+      'declines',
+    )
+    expect(html).toContain('conditional.true')
+    expect(html).toContain('.list.')
+  })
+
+  it('an {#if} nested under {#each} still declines', async () => {
+    await expectAgreedVerdict(
+      `<main class="page"><ul><li each={x of items}><div if={on()}><x-kid></x-kid></div><p else>e</p></li></ul></main>`,
+      'declines',
+    )
+  })
+
+  // ── boundary 4: root position ─────────────────────────────────────────────
+
+  it('a reference at ROOT_PATH declines on both', async () => {
+    // The root element carries the PARENT's `data-a` stamp, which the host
+    // attrs the helper is handed do not model.
+    const html = await expectAgreedVerdict(`<x-kid></x-kid>`, 'declines')
+    expect(html).toBe('<x-kid data-aihu-path="0"></x-kid>')
+  })
+
+  it('a root reference with a whitespace-only body still declines', async () => {
+    // Two boundaries at once: the body relaxation must not smuggle a root
+    // reference past the root check.
+    await expectAgreedVerdict(`<x-kid>\n</x-kid>`, 'declines')
+  })
+
+  // ── boundary 5: the registry ──────────────────────────────────────────────
+
+  it('a child module the compiler BAILED on declines on both', async () => {
+    // A registry entry with no `__ssrString` — `__aihu_schild` fails closed on
+    // it. Both renderers reach the helper, so they fail closed together; the
+    // fixture pins that neither declines EARLIER than the other, which is what
+    // would put an empty element beside a filled one.
+    const bailed = await compileToModule(
+      'bkid-bailed',
+      `@state {
+  const src = { status: 'ready', value: 1, onReady: () => () => {} }
+}
+
+@template {
+  <div><suspense source={src}><p>loaded</p></suspense></div>
+}
+`,
+    )
+    expect(bailed.mod.__ssrString).toBeUndefined()
+    await expectAgreedVerdict(
+      `<main class="page"><h1>T</h1><x-kid></x-kid></main>`,
+      'declines',
+      new Map<string, unknown>([['x-kid', { ...bailed.mod, __aihu_shadow__: 'light' }]]),
+    )
+  })
+
+  it('a tag missing from the registry declines on both', async () => {
+    await expectAgreedVerdict(
+      `<main class="page"><h1>T</h1><x-kid></x-kid></main>`,
+      'declines',
+      new Map<string, unknown>([['x-other', {}]]),
+    )
+  })
+
+  // ── the mix ───────────────────────────────────────────────────────────────
+
+  it('a sibling mix of eligible and ineligible references agrees position by position', async () => {
+    // Per-case fixtures cannot catch an ordering or index skew, because each
+    // renders one reference. Here four references sit side by side — resolve,
+    // decline, resolve, decline — so a verdict applied to the wrong sibling
+    // shows up as a byte difference rather than passing on both.
+    const html = await expectAgreedVerdict(
+      `<main class="page"><x-kid></x-kid><x-kid id="p"></x-kid><x-kid show={on()}></x-kid><x-kid><b>s</b></x-kid></main>`,
+      'resolves',
+    )
+    expect(html).toContain('<x-kid data-aihu-path="0.0" data-a="k1" data-aihu-ssr="">')
+    expect(html).toContain('<x-kid id="p" data-aihu-path="0.1"></x-kid>')
+    expect(html).toContain('<x-kid data-aihu-path="0.2" data-a="k1" data-aihu-ssr="">')
+    expect(html).toContain('<x-kid data-aihu-path="0.3"><b data-aihu-path="0.3.0">s</b></x-kid>')
+    // Exactly two resolved.
+    expect(html.match(/data-aihu-ssr=""/g)).toHaveLength(2)
+  })
+
+  it('a resolving reference beside an {#each} one agrees', async () => {
+    const html = await expectAgreedVerdict(
+      `<main class="page"><x-kid></x-kid><ul><li each={x of items}><x-kid></x-kid></li></ul></main>`,
+      'resolves',
+    )
+    expect(html.match(/data-aihu-ssr=""/g)).toHaveLength(1)
+  })
+
+  // ── html={…}: reconciled at the boundary, still open in general ───────────
+
+  it('html={…} on a bare reference resolves the child on both', async () => {
+    // The reported worst case: two DIFFERENT non-empty trees. `html` is a
+    // directive, so the walker always resolved the child and never saw the
+    // binding; the emitter interpolated the html instead. They now agree on the
+    // walker's answer, which is also what the client does — the lowered node is
+    // `branch('x-kid', undefined, [])` exactly as for a bare reference, and the
+    // `html` mount effect skips its first run inside a `data-aihu-ssr`
+    // boundary.
+    const html = await expectAgreedVerdict(
+      `<main class="page"><h1>T</h1><x-kid html={frag}></x-kid></main>`,
+      'resolves',
+    )
+    expect(html).not.toContain('<i>hi</i>')
+  })
+
+  it('KNOWN GAP — html={…} still diverges wherever the child gate declines', async () => {
+    // NOT a child-boundary divergence, and the counterfactual proves it: a
+    // plain `<div html={frag}>` — no component anywhere — diverges identically.
+    // The emitter interpolates the binding (deliberately: templates whose BODY
+    // is an `html` binding otherwise prerender empty, #docs-next guides); the
+    // walker cannot, because `html` is a mount effect and never enters the tree
+    // it walks. Reconciling it means changing what `html` MEANS to SSR, which
+    // is a different slice than child eligibility.
+    //
+    // Characterized rather than left silent. WHEN THIS TEST FAILS someone has
+    // closed §6's html bullet in general — delete it and add the identity
+    // assertion in its place.
+    const { mod } = await compileToModule(
+      'bhtml-gap',
+      `@state {
+  const frag = '<i>hi</i>'
+}
+
+@template {
+  <main><div html={frag}></div></main>
+}
+`,
+    )
+    const fast = (mod.__ssrString as (p: unknown, o?: unknown) => string)({}, { hydratable: true })
+    const walker = markup(await renderToString(() => mod.__ssr(), { hydratable: true }))
+    expect(fast).toContain('<i>hi</i>')
+    expect(walker).not.toContain('<i>hi</i>')
+    expect(fast).not.toBe(walker)
+  })
+})

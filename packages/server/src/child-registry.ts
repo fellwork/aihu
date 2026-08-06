@@ -5,7 +5,8 @@
  * The renderers take a pre-resolved `ReadonlyMap<tag, module>` and never load
  * anything themselves: module loading is async while the compiled fast path is
  * synchronous, so resolution has to happen before a render begins. This is
- * where it happens, and where a cyclic component graph is rejected.
+ * where it happens, and where a cyclic component graph is detected and
+ * reported — a warning, not a rejection; see `ChildCycle` below for why.
  *
  * Deliberately loader-agnostic. SSG hands it a Vite `ssrLoadModule` walk over
  * discovered `.aihu` files; a Workers build hands it a generated tag→module
@@ -64,9 +65,13 @@ export interface ChildCycle {
  * Index discovered components by tag, after verifying the graph is acyclic.
  *
  * `components` is every component the caller found — the whole set, not a
- * per-page subset. Indexing everything once beats walking `__aihu_child_tags__`
- * transitively per render: the walk's only advantage is loading fewer modules,
- * and the caller has already loaded them to read their tags. The child-tag sets
+ * per-page subset, and not a transitive walk from each page's own tags out to
+ * only the modules it can reach. Load-everything is simpler than a walk with
+ * its own visited-set and load-order bookkeeping; the cycle check wants a
+ * global view of the graph regardless (a cycle unreachable from any single
+ * page is still a cycle); and for SSG the cost this trades away — loading a
+ * component no rendered page references — is negligible next to the modules
+ * already loaded to discover the tags in the first place. The child-tag sets
  * still earn their keep here as the edges of the cycle check.
  *
  * A tag claimed twice is a real conflict — two modules cannot both register it,

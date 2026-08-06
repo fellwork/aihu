@@ -27,12 +27,12 @@
  */
 
 import { mkdir, readdir, readFile, realpath, writeFile } from 'node:fs/promises'
-import { dirname, join, resolve as resolvePath, sep } from 'node:path'
+import { basename, dirname, join, resolve as resolvePath, sep } from 'node:path'
 import { compileRouteMeta } from '@aihu/compiler'
 import { clearSsrContextMap, setSsrContextMap } from '@aihu/context/ssr'
 import type { RouteDefinition, RouteSegment } from '@aihu/router'
 import { createRouter, provideRouteContext } from '@aihu/router'
-import { readRouteSidecar, scanLayouts, scanPages } from '@aihu/router/plugin'
+import { readAihuComponentTag, readRouteSidecar, scanLayouts, scanPages } from '@aihu/router/plugin'
 import type { HeadConfig, SsrOptions } from '@aihu/server'
 import {
   _setContextFns,
@@ -149,6 +149,23 @@ function segmentsToPattern(segs: RouteSegment[]): string {
     .join('/')}`
 }
 
+/** One component file whose module failed to evaluate, deferred (not yet
+ * warned about) until the caller knows whether anything actually references
+ * it. See `discoverComponents`'s return doc and §18 of
+ * `docs/plans/2026-08-06-ssr-child-followups.md`. */
+interface ComponentLoadFailure {
+  readonly file: string
+  readonly error: unknown
+}
+
+/** `discoverComponents`'s result: the components that loaded, and the ones
+ * that didn't (warn-gating for the latter is the caller's job — see
+ * `ComponentLoadFailure`). */
+interface DiscoverComponentsResult {
+  readonly found: DiscoveredComponent[]
+  readonly failures: readonly ComponentLoadFailure[]
+}
+
 /**
  * Discover every component under `componentsDir` and index it by the tag it
  * actually registers under.
@@ -160,22 +177,39 @@ function segmentsToPattern(segs: RouteSegment[]): string {
  * file stem.
  *
  * Every component is loaded, rather than walking `__aihu_child_tags__`
- * transitively from each page. The walk's only advantage is loading fewer
- * modules, and the tags cannot be read without loading them anyway. The
- * child-tag sets still do the work that matters — they are the edges of
- * `buildChildRegistry`'s cycle check.
+ * transitively from each page. This is simplicity, not necessity — the real
+ * reasons, not the circular "the tags cannot be read without loading them
+ * anyway" this docblock used to give (true, but only because load-all was
+ * already the design):
+ *   - `buildChildRegistry`'s cycle check wants a GLOBAL view of the component
+ *     graph. A cycle that runs through a component no page directly
+ *     references is still a cycle; a per-page transitive walk would only see
+ *     the components reachable from that one page and could miss it.
+ *   - The extra cost is negligible for an SSG build: every `.aihu` file under
+ *     the components dir is already compiled by Vite as part of the build,
+ *     so loading it too is marginal, not additive (§17 also overlaps it with
+ *     `Promise.all` instead of paying it serially).
+ * That trade is WRONG for a Workers build, which cannot bundle every
+ * component artifact whether or not a live request ever reaches it — this
+ * function is the SSG-only caller. `packages/server/src/child-registry.ts`'s
+ * docblock is explicit that a Workers build supplies its own tag→module
+ * manifest instead of a discovery walk like this one.
  *
- * A module that fails to load is warned about and skipped, not fatal: one
- * broken component should cost that component's markup, not the whole
- * prerender. `__aihu_schild` then fails closed on its tag, which is exactly
- * today's behaviour.
+ * A module that fails to load does not fail the whole prerender: one broken
+ * component should cost that component's markup, not the build.
+ * `__aihu_schild` then fails closed on its tag, which is exactly today's
+ * behaviour. The failure is reported in `failures` rather than warned here —
+ * whether it deserves a warning depends on whether anything discovered
+ * actually references its tag (§18), which needs the full set of
+ * successfully-loaded components' `__aihu_child_tags__` and so can only be
+ * decided by the caller, after this function returns.
  */
 async function discoverComponents(
   root: string,
   componentsDir: string,
   loadModule: SsrModuleLoader,
   pushWarn: (msg: string) => void,
-): Promise<DiscoveredComponent[]> {
+): Promise<DiscoverComponentsResult> {
   const abs = resolvePath(root, componentsDir)
   let files: string[]
   try {
@@ -214,34 +248,60 @@ async function discoverComponents(
     }
   } catch {
     // No components directory is normal — a site can be pages-only.
-    return []
+    return { found: [], failures: [] }
   }
-  const found: DiscoveredComponent[] = []
-  for (const file of files.sort()) {
-    try {
-      const mod = (await loadModule(file)) as PrerenderRouteModule
-      const tag = mod.__aihu_tag__
-      if (tag === undefined) {
-        // Silently skipping this made a component unrenderable-as-a-child with
-        // no signal at all — the empty-element failure this feature exists to
-        // remove, reintroduced at the edge.
-        pushWarn(
-          `[@aihu/app] static output: component "${file}" exports no __aihu_tag__, ` +
-            `so it cannot be resolved by tag and will render as an empty element. ` +
-            `(A non-component module under the components directory is the usual cause.)`,
-        )
-        continue
+
+  // §17: overlap module loading instead of paying ~9ms/module serially. The
+  // SORT happens before the fan-out, and `Promise.all` returns results in the
+  // SAME order as its input array regardless of which promise settles first —
+  // so the loop below still sees files in sorted order and the duplicate-tag
+  // "keep the first" tie-break in `buildChildRegistry` stays deterministic.
+  // Pushing into `found`/`failures` DURING each load (e.g. from inside the
+  // `.map` callback) would have reintroduced resolution-order nondeterminism;
+  // collecting into an array first and iterating that after `Promise.all`
+  // settles is what preserves it.
+  type LoadOutcome =
+    | { readonly file: string; readonly ok: true; readonly mod: PrerenderRouteModule }
+    | { readonly file: string; readonly ok: false; readonly error: unknown }
+  const sorted = files.sort()
+  const outcomes = await Promise.all(
+    sorted.map(async (file): Promise<LoadOutcome> => {
+      try {
+        const mod = (await loadModule(file)) as PrerenderRouteModule
+        return { file, ok: true, mod }
+      } catch (error) {
+        return { file, ok: false, error }
       }
-      found.push({ tag, module: mod as unknown as ChildModuleLike })
-    } catch (err) {
-      pushWarn(
-        `[@aihu/app] static output: component "${file}" failed to load (${
-          err instanceof Error ? err.message : String(err)
-        }); it will render as an empty element.`,
-      )
+    }),
+  )
+
+  const found: DiscoveredComponent[] = []
+  const failures: ComponentLoadFailure[] = []
+  for (const outcome of outcomes) {
+    if (!outcome.ok) {
+      // Deferred — see the docblock and §18. Not warned here.
+      failures.push({ file: outcome.file, error: outcome.error })
+      continue
     }
+    const tag = outcome.mod.__aihu_tag__
+    if (tag === undefined) {
+      // Silently skipping this made a component unrenderable-as-a-child with
+      // no signal at all — the empty-element failure this feature exists to
+      // remove, reintroduced at the edge. Unlike a load failure, this one
+      // fires unconditionally: the module DID load, so this is a real
+      // authoring mistake (or a non-component file under the components
+      // directory) rather than an environment limitation, and it deserves a
+      // warning whether or not anything currently references it.
+      pushWarn(
+        `[@aihu/app] static output: component "${outcome.file}" exports no __aihu_tag__, ` +
+          `so it cannot be resolved by tag and will render as an empty element. ` +
+          `(A non-component module under the components directory is the usual cause.)`,
+      )
+      continue
+    }
+    found.push({ tag, module: outcome.mod as unknown as ChildModuleLike })
   }
-  return found
+  return { found, failures }
 }
 
 function deriveRoutes(root: string, pagesDir: string): ScannedRoute[] {
@@ -419,10 +479,13 @@ export async function runPrerender(opts: RunPrerenderOptions): Promise<Prerender
   // cap: a cycle would not hang the build, it would quietly emit 32 nested
   // copies of the same subtree and write them to disk.
   const componentsDir = config?.dir?.components ?? 'src/components'
-  const childRegistry = buildChildRegistry(
-    await discoverComponents(root, componentsDir, loadModule, pushWarn),
+  const { found: discoveredComponents, failures: componentLoadFailures } = await discoverComponents(
+    root,
+    componentsDir,
+    loadModule,
     pushWarn,
   )
+  const childRegistry = buildChildRegistry(discoveredComponents, pushWarn)
   // Omitted entirely when nothing was discovered, so a site with no components
   // renders byte-identically to before.
   const childOpts: Pick<SsrOptions, 'children'> =
@@ -445,6 +508,54 @@ export async function runPrerender(opts: RunPrerenderOptions): Promise<Prerender
   for (const mod of childRegistry.values()) {
     for (const t of mod.__aihu_child_tags__ ?? []) referenced.add(t)
   }
+
+  // §18: a component that failed to load (e.g. `weather-demo.aihu` under SSR:
+  // `CSSStyleSheet is not defined`) is only worth a build warning if some
+  // discovered component actually references it — otherwise it is dead weight
+  // under the components directory and the warning fires on every build for
+  // no actionable reason.
+  //
+  // The catch: a load failure means the module never evaluated, so its real
+  // `__aihu_tag__` — the compiler-assigned tag, what the registry above is
+  // keyed on — is unknowable here. There is no way to look it up in
+  // `referenced` directly. Falling back to `readAihuComponentTag`, which
+  // derives a tag from the SOURCE TEXT (`@meta.name` → `@route.name` → file
+  // stem, the same precedence the compiler applies) without evaluating the
+  // module, gives a best-effort stand-in: good enough to decide "does
+  // anything plausibly point at this file", not good enough to trust as a
+  // registry key (that mismatch is exactly why the registry above never uses
+  // it). When even that can't be determined — the file vanished, is
+  // unreadable, whatever — this fails OPEN and warns anyway: silence is the
+  // wrong default for "a component broke and we can't tell if it matters".
+  for (const { file, error } of componentLoadFailures) {
+    // TWO candidate tags, not one, because the two derivations in this repo
+    // disagree. `readAihuComponentTag` applies `@meta.name → @route.name →
+    // stem`; the compiler's `defineElement` — and therefore the tag a template
+    // actually references — currently uses the stem. So a component declaring
+    // `@meta { name: "custom-thing" }` in `x-plain.aihu` derives as
+    // `custom-thing` here while `referenced` holds `x-plain`, and checking only
+    // the first would silently skip a broken component that IS referenced.
+    // (That disagreement is a real pre-existing bug, tracked as §7a of
+    // `docs/plans/2026-08-06-ssr-child-followups.md`; until it is settled,
+    // consulting both is the only way not to inherit it here.)
+    const candidates = new Set<string>()
+    try {
+      candidates.add(readAihuComponentTag(file))
+    } catch {
+      // Unreadable source — leave `candidates` short and fail open below.
+    }
+    const stem = basename(file).replace(/\.aihu$/, '')
+    if (stem) candidates.add(stem)
+    // Fails OPEN when nothing could be determined: silence is the wrong default
+    // for "a component broke and we cannot tell whether it matters".
+    if (candidates.size > 0 && ![...candidates].some((t) => referenced.has(t))) continue
+    pushWarn(
+      `[@aihu/app] static output: component "${file}" failed to load (${
+        error instanceof Error ? error.message : String(error)
+      }); it will render as an empty element.`,
+    )
+  }
+
   for (const tag of [...referenced].sort()) {
     if (childRegistry.has(tag)) continue
     pushWarn(

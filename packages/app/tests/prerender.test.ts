@@ -510,6 +510,106 @@ describe('runPrerender — edge cases', () => {
   })
 })
 
+// ─── runPrerender — component discovery (SSR follow-ups §17/§18) ─────────────
+//
+// `docs/plans/2026-08-06-ssr-child-followups.md` §17/§18: `discoverComponents`
+// used to load every `.aihu` file under the components dir one at a time
+// (`for (const file of files.sort()) { await loadModule(file) }`), and warned
+// on EVERY build about every component that failed to load under SSR —
+// including demo/example components nothing on the site references.
+
+describe('runPrerender — component discovery', () => {
+  let fx: Fixture
+  afterEach(async () => {
+    if (fx) await rm(fx.root, { recursive: true, force: true })
+  })
+
+  it('§17: loads discovered components concurrently, not one at a time', async () => {
+    fx = await makeFixture()
+    await writeRoute(fx.root, 'index.ts', { name: 'home' })
+    const componentsDir = join(fx.root, 'src', 'components')
+    await mkdir(componentsDir, { recursive: true })
+    const COUNT = 5
+    const DELAY_MS = 60
+    for (let i = 0; i < COUNT; i++) {
+      await writeFile(join(componentsDir, `widget-${i}.aihu`), '<div/>\n')
+    }
+
+    // OBSERVE CONCURRENCY, don't time it. A wall-clock threshold
+    // (`elapsed < COUNT * DELAY_MS * 0.6`) is the obvious assertion and the
+    // wrong one: it is a flake waiting for a loaded CI box, and it only
+    // measures the property indirectly. Counting how many loads are in flight
+    // at once tests the actual claim — the loop fans out — and is immune to how
+    // fast the machine happens to be.
+    let inFlight = 0
+    let maxInFlight = 0
+    const loadModule: SsrModuleLoader = async (file) => {
+      const f = file.replace(/\\/g, '/')
+      if (f.endsWith('/index.ts')) return { default: { toHtml: () => '<p>home</p>' } }
+      inFlight++
+      maxInFlight = Math.max(maxInFlight, inFlight)
+      try {
+        // Stands in for real per-module cost (Vite transform + I/O). The delay
+        // only has to be long enough that a serial loop cannot overlap.
+        await new Promise((r) => setTimeout(r, DELAY_MS))
+        const stem = f.slice(f.lastIndexOf('/') + 1).replace(/\.aihu$/, '')
+        return { __aihu_tag__: stem }
+      } finally {
+        inFlight--
+      }
+    }
+
+    await runPrerender({
+      resolvedViteConfig: fx.resolvedViteConfig,
+      config: { output: 'static', dir: { pages: 'pages', components: 'src/components' } },
+      loadModule,
+      warn: fx.warn,
+    })
+
+    // A serial loop can never exceed 1. Asserting the exact fan-out (rather
+    // than `> 1`) also pins that nothing silently throttles it later.
+    expect(maxInFlight).toBe(COUNT)
+  })
+
+  it('§18: warns about a component that fails to load ONLY when something references it', async () => {
+    fx = await makeFixture()
+    await writeRoute(fx.root, 'index.ts', { name: 'home' })
+    const componentsDir = join(fx.root, 'src', 'components')
+    await mkdir(componentsDir, { recursive: true })
+    // Loads fine, and declares a reference to `weather-demo` — the tag
+    // `weather-demo.aihu` registers under (its file stem; no @meta/@route
+    // name override, so `readAihuComponentTag` derives the same tag).
+    await writeFile(join(componentsDir, 'nav-bar.aihu'), '<nav/>\n')
+    // Fails to load (mirrors `weather-demo.aihu`'s real SSR failure:
+    // `CSSStyleSheet is not defined`) and IS referenced above.
+    await writeFile(join(componentsDir, 'weather-demo.aihu'), '<weather/>\n')
+    // Fails to load too, but nothing references it.
+    await writeFile(join(componentsDir, 'orphan-demo.aihu'), '<orphan/>\n')
+
+    const loadModule: SsrModuleLoader = async (file) => {
+      const f = file.replace(/\\/g, '/')
+      if (f.endsWith('/index.ts')) return { default: { toHtml: () => '<p>home</p>' } }
+      if (f.endsWith('/nav-bar.aihu')) {
+        return { __aihu_tag__: 'nav-bar', __aihu_child_tags__: ['weather-demo'] }
+      }
+      if (f.endsWith('/weather-demo.aihu')) throw new Error('CSSStyleSheet is not defined')
+      if (f.endsWith('/orphan-demo.aihu')) throw new Error('CSSStyleSheet is not defined')
+      throw new Error(`unexpected file: ${file}`)
+    }
+
+    const result = await runPrerender({
+      resolvedViteConfig: fx.resolvedViteConfig,
+      config: { output: 'static', dir: { pages: 'pages', components: 'src/components' } },
+      loadModule,
+      warn: fx.warn,
+    })
+
+    const warnings = result.warnings.join('\n')
+    expect(warnings).toMatch(/component "[^"]*weather-demo\.aihu" failed to load/)
+    expect(warnings).not.toMatch(/component "[^"]*orphan-demo\.aihu" failed to load/)
+  })
+})
+
 // ─── prerenderClose — real Vite SSR module loading by file path ───────────────
 
 describe('prerenderClose — loads real route modules via Vite SSR', () => {

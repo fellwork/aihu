@@ -46,9 +46,10 @@ export type ShadowMode = 'light' | 'shadow'
  * that already produced the mangled arbor wire format, `_injectLightScopeId`,
  * and `contextSetup`.
  *
- * `@aihu/server` does not (and should not) depend on this browser package, so
- * the SSR emitter cannot import this constant. It therefore declares its own
- * and is pinned to this one by a cross-package parity test — the documented
- * single-source arrangement, never an unwatched duplicate.
+ * `@aihu/server` does not (and should not) depend on this browser package, but
+ * it does not need to: the SSR emitter (`ssr-string.ts`, `@aihu/runtime/ssr`)
+ * imports this constant directly, and `@aihu/server` reaches it transitively
+ * through that subpath. One literal, one import chain — no second declaration
+ * to keep in sync, so there is nothing here for a parity test to pin.
  */
 export const SHADOW_ROOT_MODE = 'open' as const
