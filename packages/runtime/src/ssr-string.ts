@@ -89,6 +89,19 @@ export interface SsrChildModule {
    * never the DOM's `ShadowRootMode`.
    */
   readonly __aihu_shadow__?: ShadowMode
+  /**
+   * `__aihu_css__` — the component's own CSS as a plain string.
+   *
+   * Used ONLY on the shadow path, where it is inlined as `<style>` inside the
+   * declarative template. A shadow root is style-isolated by construction, so
+   * prerendered markup whose styles are not inside it paints unstyled until the
+   * component's chunk loads — the #754 failure, where content rendering ahead
+   * of its scoped CSS pushed the LCP element below the fold.
+   *
+   * Light-DOM children ignore it: their rules arrive through the app
+   * stylesheet's `@scope([data-a=…])` blocks (#758).
+   */
+  readonly __aihu_css__?: string
 }
 
 /** The opts a compiled `__ssrString` accepts, plus the child registry. */
@@ -116,6 +129,22 @@ export interface SsrChildRenderOpts {
  * the failure degrades to today's empty-shell behaviour.
  */
 const MAX_CHILD_DEPTH = 32
+
+/**
+ * Make CSS safe as `<style>` RAW TEXT.
+ *
+ * `<style>` has no entity parsing — the only thing that ends it is the literal
+ * `</style`, so authored CSS containing that sequence (in a comment, or in a
+ * `content:` string) would close the element early and spill the rest of the
+ * stylesheet into the document as markup.
+ *
+ * Escaping `</` as `<\/` is correct in both places it can legitimately appear:
+ * inside a `/* … *\/` comment the CSS parser copies the text verbatim, so the
+ * backslash is inert; inside a string literal `\/` is a valid CSS escape for
+ * `/`, so `content: "<\/style>"` still renders `</style>`. Same shape as the
+ * `</script>` escaping `@aihu/server`'s `ScriptTag` doc records for JSON-LD.
+ */
+const escapeStyleText = (css: string): string => css.replace(/<\//g, '<\\/')
 
 /**
  * Render a referenced child component, or emit the empty element unchanged.
@@ -199,5 +228,14 @@ export const __aihu_schild = (
   // is imported, not spelled, so this and the runtime's `attachShadow` cannot
   // name different modes; a closed root would null out `this.shadowRoot` and
   // break the very adoption this markup exists for.
-  return `<${tag}${attrsHtml}${adopt}><template shadowrootmode="${SHADOW_ROOT_MODE}">${inner}</template></${tag}>`
+  //
+  // Styles go INSIDE the template, first, and this is not optional polish: a
+  // shadow root is style-isolated, so a declarative one whose CSS lives outside
+  // it renders its content unstyled until the component's chunk loads. That is
+  // exactly the #754 regression — content painting ahead of its scoped CSS,
+  // stacking wrong and pushing LCP below the fold. Emitting the tree without
+  // the styles would trade an empty header for a broken one.
+  const css = mod?.__aihu_css__
+  const style = css ? `<style>${escapeStyleText(css)}</style>` : ''
+  return `<${tag}${attrsHtml}${adopt}><template shadowrootmode="${SHADOW_ROOT_MODE}">${style}${inner}</template></${tag}>`
 }

@@ -136,6 +136,54 @@ pub struct EmitResult {
     pub sidecar_ts: Option<String>,
 }
 
+/// Escape CSS for interpolation into a JS template literal.
+///
+/// Any backtick, `${`, or backslash in the source CSS (e.g. inside a comment
+/// that mentions a `.foo` selector) would otherwise terminate the literal
+/// early — throwing at runtime and aborting `customElements.define`.
+///
+/// Shared by the client's `CSSStyleSheet` declaration and the server target's
+/// `__aihu_css__` export: the two carry the SAME bytes to two renderers, and an
+/// escape applied in one place only would make a shadow component's server
+/// markup differ from what the client adopts.
+fn escape_css_for_js_literal(css: &str) -> String {
+    css.replace('\\', "\\\\")
+        .replace('`', "\\`")
+        .replace("${", "\\${")
+}
+
+/// The component's own CSS, exported as a plain string on the SERVER target.
+///
+/// The client declaration is elided there because `new CSSStyleSheet()` is a
+/// DOM dependency, not because the CSS needs processing — `emit_style_block`
+/// applies no scoping transform, since a shadow component's isolation is
+/// structural (the shadow root itself). So the same bytes can ride the module
+/// channel as a string.
+///
+/// This exists for Declarative Shadow DOM. A shadow root is style-isolated by
+/// construction, so a prerendered `<template shadowrootmode="open">` whose
+/// styles are not INSIDE it paints unstyled until the component's chunk loads —
+/// the #754 failure, where content rendering before its scoped CSS applied
+/// pushed the LCP element below the fold. `__aihu_schild` inlines this as
+/// `<style>` in the same template.
+///
+/// Light-DOM components do not need it: their rules arrive via the app
+/// stylesheet's `@scope([data-a=…])` blocks (#758). Emitted for both anyway —
+/// the mode can be reconfigured per build, and an export the renderer ignores
+/// costs nothing next to a missing one it needed.
+fn emit_ssr_css_export(style: &StyleBlock) -> String {
+    // Global styles belong to the document, not to any shadow root; inlining
+    // them into a child's template would scope them to that child and silently
+    // change what they match.
+    if style.scope == StyleScope::Global {
+        return String::new();
+    }
+    format!(
+        "\nexport const __aihu_css__ = `{}`\n",
+        escape_css_for_js_literal(style.content)
+    )
+}
+
 fn emit_style_block(style: &StyleBlock) -> (String, String) {
     // Amendment 02: when the style block is global and the content contains
     // `$reactive(expr)` call patterns, extract them and emit JS effects targeting
@@ -168,10 +216,7 @@ fn emit_style_block(style: &StyleBlock) -> (String, String) {
     // that mentions a `.foo` selector) would otherwise terminate the literal
     // early — throwing at runtime and aborting `customElements.define`. Escape
     // backslashes first, then backticks and `${` interpolation starts.
-    let escaped_css = css_content
-        .replace('\\', "\\\\")
-        .replace('`', "\\`")
-        .replace("${", "\\${");
+    let escaped_css = escape_css_for_js_literal(&css_content);
     let module_decl = format!(
         "const __style__ = new CSSStyleSheet();\n__style__.replaceSync(`{}`);\n",
         escaped_css
@@ -1050,7 +1095,17 @@ pub(crate) fn emit_function_form(
     // CSSStyleSheet()` + `document.adoptedStyleSheets`). Gate it OUT of the
     // standalone-SSR artifacts entirely.
     let (module_decl, style_injection) = if ssr_no_dom {
-        (String::new(), String::new())
+        // The CLIENT declaration stays elided (CSSStyleSheet is a DOM
+        // dependency), but the CSS itself now rides the module channel as a
+        // plain string so a declarative shadow root can carry its own styles.
+        // See emit_ssr_css_export.
+        let css_export = unit
+            .source
+            .style
+            .as_ref()
+            .map(emit_ssr_css_export)
+            .unwrap_or_default();
+        (css_export, String::new())
     } else if let Some(style) = &unit.source.style {
         let (decl, injection) = emit_style_block(style);
         (decl, format!("  {}\n", injection))
@@ -1370,7 +1425,7 @@ pub(crate) fn emit_function_form(
                 "props: Record<string, unknown> = {}",
             );
             format!(
-                "{merged_imports}\n\n{helpers_decl}const __aihu_setup__ = ({ctx_param}) => {{\n{body}}}\n\n// DOM registration — side-effect only where custom elements exist (browser\n// or a DOM-shimmed host); a plain Node/Bun SSR import skips it.\nif (typeof HTMLElement !== 'undefined' && typeof customElements !== 'undefined') {{\n  defineElement('{tag_name}', defineComponent({{\n{config_block}\n  setup: __aihu_setup__,\n  }}))\n}}\n\n/** SSR entry (GX P4) — standalone arbor-tree factory with prop threading.\n * Host-less server SetupContext: no element, no shadow root; lifecycle\n * registration is not reachable from here (server render never mounts).\n * `props` values arrive plain (e.g. `{{ route: {{ params, data }} }}`) and are\n * wrapped as inert PropSignal-shaped getters — reads work, writes no-op. */\nconst __aihu_ssr_prop = (v: unknown) => Object.assign(() => v, {{ set: (_v: unknown) => {{}} }})\nexport const __ssr = (props: Record<string, unknown> = {{}}) => __aihu_setup__({{ host: null, element: null, attrs: {{}}, props: {{ {ssr_props} }} }})\nexport default __ssr\n{string_export}",
+                "{merged_imports}\n{module_decl}\n{helpers_decl}const __aihu_setup__ = ({ctx_param}) => {{\n{body}}}\n\n// DOM registration — side-effect only where custom elements exist (browser\n// or a DOM-shimmed host); a plain Node/Bun SSR import skips it.\nif (typeof HTMLElement !== 'undefined' && typeof customElements !== 'undefined') {{\n  defineElement('{tag_name}', defineComponent({{\n{config_block}\n  setup: __aihu_setup__,\n  }}))\n}}\n\n/** SSR entry (GX P4) — standalone arbor-tree factory with prop threading.\n * Host-less server SetupContext: no element, no shadow root; lifecycle\n * registration is not reachable from here (server render never mounts).\n * `props` values arrive plain (e.g. `{{ route: {{ params, data }} }}`) and are\n * wrapped as inert PropSignal-shaped getters — reads work, writes no-op. */\nconst __aihu_ssr_prop = (v: unknown) => Object.assign(() => v, {{ set: (_v: unknown) => {{}} }})\nexport const __ssr = (props: Record<string, unknown> = {{}}) => __aihu_setup__({{ host: null, element: null, attrs: {{}}, props: {{ {ssr_props} }} }})\nexport default __ssr\n{string_export}",
                 merged_imports = merged_imports,
                 helpers_decl = helpers_decl,
                 ctx_param = ctx_param,
@@ -1431,7 +1486,7 @@ pub(crate) fn emit_function_form(
             "_props: Record<string, unknown> = {}",
         );
         format!(
-            "{merged_imports}\n\n{helpers_decl}const __aihu_setup__ = ({ctx_param}) => {{\n{body}}}\n\n// DOM registration — side-effect only where custom elements exist (browser\n// or a DOM-shimmed host); a plain Node/Bun SSR import skips it.\nif (typeof HTMLElement !== 'undefined' && typeof customElements !== 'undefined') {{\n  defineElement('{tag_name}', defineComponent(__aihu_setup__))\n}}\n\n/** SSR entry (GX P3) — standalone arbor-tree factory. Host-less server\n * SetupContext: no element, no shadow root; lifecycle registration is not\n * reachable from here (server render never mounts). */\nexport const __ssr = () => __aihu_setup__({{ host: null, element: null, attrs: {{}}, props: {{}} }})\nexport default __ssr\n{string_export}",
+            "{merged_imports}\n{module_decl}\n{helpers_decl}const __aihu_setup__ = ({ctx_param}) => {{\n{body}}}\n\n// DOM registration — side-effect only where custom elements exist (browser\n// or a DOM-shimmed host); a plain Node/Bun SSR import skips it.\nif (typeof HTMLElement !== 'undefined' && typeof customElements !== 'undefined') {{\n  defineElement('{tag_name}', defineComponent(__aihu_setup__))\n}}\n\n/** SSR entry (GX P3) — standalone arbor-tree factory. Host-less server\n * SetupContext: no element, no shadow root; lifecycle registration is not\n * reachable from here (server render never mounts). */\nexport const __ssr = () => __aihu_setup__({{ host: null, element: null, attrs: {{}}, props: {{}} }})\nexport default __ssr\n{string_export}",
             merged_imports = merged_imports,
             helpers_decl = helpers_decl,
             ctx_param = ctx_param,
