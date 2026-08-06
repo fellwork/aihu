@@ -72,6 +72,19 @@ export interface ChildCycle {
  * A tag claimed twice is a real conflict — two modules cannot both register it,
  * and the client's `customElements.define` would throw on the second. Reported
  * rather than silently last-wins.
+ *
+ * KEEPS THE FIRST, over a sorted file list, so the winner is deterministic.
+ * Note `@aihu/router`'s `scanComponents` keeps the LAST, over unsorted
+ * `readdirSync` order — the two disagree, which would mean the page ships one
+ * module's markup while the client upgrades with the other's.
+ *
+ * Deliberately NOT reconciled here. The two sides do not merely break ties
+ * differently, they key on different tags: this registry uses the compiled
+ * `__aihu_tag__` (what `defineElement` actually registers) while the router
+ * re-derives a name from source with a `@meta` → `@route` → stem precedence the
+ * compiler does not apply. Aligning tie-breaks before that is settled would
+ * align the wrong thing. See §7a/§7b of
+ * `docs/plans/2026-08-06-ssr-child-followups.md`.
  */
 export function buildChildRegistry(
   components: Iterable<DiscoveredComponent>,

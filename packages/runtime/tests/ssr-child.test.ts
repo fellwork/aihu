@@ -280,3 +280,30 @@ describe('shadow child styles (step 4)', () => {
     expect(out.match(/<\/style>/g)?.length).toBe(1)
   })
 })
+
+describe('a renderer that returns a non-string', () => {
+  it('does not ship [object Promise] into the page', async () => {
+    // A server renderer is synchronous by construction — nothing on this path
+    // can await. An async one used to stringify into the markup, which is worse
+    // than an empty element because it looks like content and ships.
+    const mod: SsrChildModule = {
+      // `as never`: the point is a module that LIES about its contract, which
+      // the type system would otherwise forbid us from constructing.
+      __ssrString: (() => Promise.resolve('<nav>n</nav>')) as never,
+      __aihu_shadow__: 'light',
+    }
+    const out = __aihu_schild('site-header', '', { children: registry(mod) })
+    expect(out).not.toContain('[object Promise]')
+    expect(out).toBe('<site-header></site-header>')
+  })
+
+  it('degrades on any other non-string too', () => {
+    const mod: SsrChildModule = {
+      __ssrString: (() => 42) as never,
+      __aihu_shadow__: 'light',
+    }
+    expect(__aihu_schild('site-header', '', { children: registry(mod) })).toBe(
+      '<site-header></site-header>',
+    )
+  })
+})

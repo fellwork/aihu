@@ -310,6 +310,21 @@ export const __aihu_schild = (
       console.error(`[aihu] SSR child <${tag}> threw; rendering it empty:`, err)
       return bare
     }
+    // A renderer that returns anything but a string is a broken module, not a
+    // render to embed. An async `__ssrString` used to reach the page as the
+    // literal text `[object Promise]` — worse than the empty element, because it
+    // LOOKS like content and ships. Nothing here can await it: this whole path
+    // is synchronous by construction.
+    if (typeof inner !== 'string') {
+      console.error(
+        `[aihu] SSR child <${tag}> returned ${
+          inner !== null && typeof inner === 'object' && 'then' in (inner as object)
+            ? 'a promise — a server renderer must be synchronous'
+            : `a ${typeof inner}`
+        }; rendering it empty.`,
+      )
+      return bare
+    }
     memo.set(memoKey, inner)
   }
 

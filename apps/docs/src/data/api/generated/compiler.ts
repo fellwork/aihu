@@ -103,7 +103,7 @@ export const EXPORTS: readonly ApiExport[] = [
     signature:
       "function _injectShadowMode( code: string, mode: 'light' | 'shadow', lightScopeId?: string, ): string",
     summary:
-      "Inject `{ shadowMode: '...' }` (and, for light mode, `lightScopeId: '...'` in the SAME options object) as the third argument to the emitted `defineElement('tag', defineComponent(...))` call.",
+      "Inject `shadowMode: '...'` (and, for light mode, `lightScopeId: '...'` in the SAME options object) into the third argument of the emitted `defineElement('tag', defineComponent(...))` call — appending the options object when the call has two arguments, or merging the fields into an existing third argument (`$form` emits `, { formAssociated: true }`).",
   },
   {
     name: '_isLayoutFile',

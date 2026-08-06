@@ -103,7 +103,36 @@ so the eligible sets differ. `{#each}` is fixed; still divergent:
 agree on DECLINING. That is the enforceable form of "the lists mirror exactly";
 prose in a comment is not.
 
-### 7. Tag-collision tie-breaks disagree
+### 7a. The compiler and the router derive DIFFERENT tags — REFRAMED
+
+Reported as "`@meta { name }` tags never resolve in the registry". Probed, and
+the framing was wrong in a way that matters. For `@meta { name: "custom-thing" }`
+in `x-plain.aihu`:
+
+| source | tag |
+|---|---|
+| compiler `__aihu_tag__` | `x-plain` |
+| router `readAihuComponentTag` | `custom-thing` |
+
+`__aihu_tag__` is read off the emitted `defineElement('…')` call, so it is what
+the browser ACTUALLY registers. The SSR registry keys on it and therefore agrees
+with the runtime. The ROUTER's scan is the one that disagrees — it re-derives a
+name from source with a `@meta` → `@route` → stem precedence the compiler does
+not apply to `defineElement`.
+
+So this is a **pre-existing compiler/router inconsistency**, not a registry bug,
+and it is worse than an SSR miss: a component declaring `@meta { name }`
+registers under its file stem, so `<custom-thing>` never upgrades on the client
+either. Whoever fixes it has to decide which side is authoritative — the
+compiler honouring `@meta { name }` in `defineElement`, or the router dropping
+its own derivation — and that decision does not belong inside this SSR work.
+
+Until then the SSR registry is correct to key on `__aihu_tag__`: matching the
+router's map would make prerendered markup register under a tag nothing
+actually defines. The new unresolved-tag diagnostic (§3, landed) now reports the
+mismatch at build time instead of leaving it silent.
+
+### 7b. Tag-collision tie-breaks disagree
 
 `child-registry.ts` keeps the FIRST (over `files.sort()`);
 `router/src/vite-plugin.ts` keeps the LAST (over raw `readdirSync` order). The
