@@ -22,7 +22,7 @@
  * running. See its doc comment.
  */
 
-import { SHADOW_ROOT_MODE, type ShadowMode } from './types.ts'
+import { SHADOW_ROOT_MODE, type ShadowMode } from './shadow-mode.ts'
 
 const escText = (s: string): string =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
