@@ -213,7 +213,7 @@ export const PACKAGES: readonly ApiPackageMeta[] = [
     name: '@aihu/compiler',
     slug: 'compiler',
     tier: 'Compiler & tooling',
-    version: '1.2.1',
+    version: '1.2.2',
     tagline: 'Single File Component (.aihu) compiler — Rust binary + JS glue.',
     note: '',
     exportCount: 42,
