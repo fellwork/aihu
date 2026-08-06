@@ -125,6 +125,44 @@ export interface SsrChildRenderOpts {
   readonly children?: ReadonlyMap<string, SsrChildModule>
   /** @internal Recursion depth, incremented per nested child. */
   readonly __depth?: number
+  /**
+   * @internal Per-render memo of already-serialized children, keyed by tag +
+   * hydration mode.
+   *
+   * Bounds FAN-OUT, which the depth cap alone does not. A depth cap limits how
+   * DEEP the recursion goes, not how WIDE: with each of 14 components
+   * referencing the next three times, a perfectly acyclic graph expands to
+   * 3^13 renders — measured at 67 MB of output in 0.2 s, and tens of GB a few
+   * components later. The cycle guard cannot see this either, because
+   * `__aihu_child_tags__` is a SET while the emitter emits one call per
+   * reference site.
+   *
+   * Safe because a child render is deterministic within one top-level render:
+   * it always receives `{}` props, `lightScopeId: ''`, and the same registry,
+   * and its tree restarts at ROOT_PATH behind its own `data-aihu-ssr` boundary,
+   * so two reference sites legitimately produce identical inner markup. Scoped
+   * PER RENDER, not module-global — component setup can read stores or context
+   * that differ between requests.
+   */
+  readonly __memo?: Map<string, string>
+  /**
+   * @internal Remaining child expansions for this top-level render.
+   *
+   * The memo bounds the WORK of fan-out; it cannot bound the OUTPUT. Three
+   * references repeated 13 deep is 3^13 reference sites, and each legitimately
+   * emits the child's markup — memoized, that is 89 MB in 16 ms rather than
+   * 67 MB in 217 ms. Faster, and still a build-killer.
+   *
+   * So the budget counts BYTES, not expansions. Counting expansions does not
+   * work once the memo exists: only one render happens per tag, but each
+   * RETURNS three times its child's string, so output grows exponentially
+   * while the render count stays linear — measured at 89 MB from 14 renders.
+   * Bytes are the thing that actually gets large, so bytes are what is bounded.
+   *
+   * Past the budget a reference renders as the empty element it rendered before
+   * this feature existed: degraded, loudly reported, and finite.
+   */
+  readonly __budget?: { bytes: number; reported: boolean }
 }
 
 /**
@@ -135,6 +173,16 @@ export interface SsrChildRenderOpts {
  * the failure degrades to today's empty-shell behaviour.
  */
 const MAX_CHILD_DEPTH = 32
+
+const hydratableOf = (o?: { hydratable?: boolean }): boolean => o?.hydratable ?? false
+
+/**
+ * Total child markup allowed per top-level render. Generous for any real page
+ * — aihu.dev's largest prerenders under 100 kB of child content — and small
+ * enough that a pathological graph fails in milliseconds instead of exhausting
+ * memory.
+ */
+const MAX_CHILD_BYTES = 8 * 1024 * 1024
 
 /**
  * Make CSS safe as `<style>` RAW TEXT.
@@ -186,6 +234,11 @@ export const __aihu_schild = (
   opts?: SsrChildRenderOpts,
 ): string => {
   const bare = `<${tag}${attrsHtml}></${tag}>`
+  // Only a custom-element name can name a component. A registry keyed on a
+  // plain tag (`div`) would otherwise make the walker child-render an ordinary
+  // element that the compiled emitter never lowers — a renderer divergence
+  // handed to us by a malformed registry rather than by the template.
+  if (!tag.includes('-')) return bare
   const mod = opts?.children?.get(tag)
   const render = mod?.__ssrString
   const shadow = mod?.__aihu_shadow__
@@ -193,6 +246,14 @@ export const __aihu_schild = (
 
   const depth = opts?.__depth ?? 0
   if (depth >= MAX_CHILD_DEPTH) return bare
+
+  // One memo and one budget per top-level render, created on first use and
+  // threaded down together.
+  const budget = opts?.__budget ?? { bytes: MAX_CHILD_BYTES, reported: false }
+  if (budget.bytes <= 0) return bare
+  const memo = opts?.__memo ?? new Map<string, string>()
+  const memoKey = `${tag}\u0000${hydratableOf(opts)}`
+  const cached = memo.get(memoKey)
 
   // `data-a` belongs on the HOST — that is where the client stamps it
   // (`define-element.ts`'s connectedCallback) and where
@@ -210,36 +271,60 @@ export const __aihu_schild = (
   // both places. `''` survives `??` (it is not nullish) and is falsy at the
   // emitter's `__opts.lightScopeId ? … : ''` test, so the child renders
   // unstamped and the host carries the only `data-a`.
-  const hydratable = opts?.hydratable ?? false
+  const hydratable = hydratableOf(opts)
+
   let inner: string
-  try {
-    // The child's setup runs inside a server-render lifecycle window: it is
-    // called directly, not through `defineComponent`, so `onMount` and friends
-    // have no owner to register against. Without this, ANY child using a
-    // lifecycle hook threw `SCR-R0010` and rendered empty — which is exactly
-    // how `<search-box>` came out blank while its `onMount`-free sibling did
-    // not. Synchronous by contract; see `_withSsrLifecycle`.
-    inner = _withSsrLifecycle(() =>
-      render(
-        {},
-        {
-          hydratable,
-          lightScopeId: '',
-          ...(opts?.children ? { children: opts.children } : {}),
-          __depth: depth + 1,
-        },
-      ),
-    )
-  } catch (err) {
-    // A child that throws must not take the whole page down with it; the parent
-    // still renders and the child fills in on the client, exactly as today.
-    //
-    // But it must not be SILENT either. Swallowing the reason turns a broken
-    // component into an empty element that looks identical to one nobody
-    // registered — and a prerender that quietly drops content is the failure
-    // mode this whole plan exists to fix. Reported once, with the tag, so a
-    // build log names what to look at.
-    console.error(`[aihu] SSR child <${tag}> threw; rendering it empty:`, err)
+  if (cached !== undefined) {
+    inner = cached
+  } else {
+    try {
+      // The child's setup runs inside a server-render lifecycle window: it is
+      // called directly, not through `defineComponent`, so `onMount` and friends
+      // have no owner to register against. Without this, ANY child using a
+      // lifecycle hook threw `SCR-R0010` and rendered empty — which is exactly
+      // how `<search-box>` came out blank while its `onMount`-free sibling did
+      // not. Synchronous by contract; see `_withSsrLifecycle`.
+      inner = _withSsrLifecycle(() =>
+        render(
+          {},
+          {
+            hydratable,
+            lightScopeId: '',
+            ...(opts?.children ? { children: opts.children } : {}),
+            __depth: depth + 1,
+            __memo: memo,
+            __budget: budget,
+          },
+        ),
+      )
+    } catch (err) {
+      // A child that throws must not take the whole page down with it; the
+      // parent still renders and the child fills in on the client, exactly as
+      // today.
+      //
+      // But it must not be SILENT either. Swallowing the reason turns a broken
+      // component into an empty element that looks identical to one nobody
+      // registered — and a prerender that quietly drops content is the failure
+      // mode this whole plan exists to fix. Reported with the tag, so a build
+      // log names what to look at.
+      console.error(`[aihu] SSR child <${tag}> threw; rendering it empty:`, err)
+      return bare
+    }
+    memo.set(memoKey, inner)
+  }
+
+  // Charge the budget for EVERY reference site, cached or not: the bytes reach
+  // the page either way, and it is the emission that has to be bounded.
+  budget.bytes -= inner.length
+  if (budget.bytes <= 0) {
+    if (!budget.reported) {
+      budget.reported = true
+      console.error(
+        `[aihu] SSR child budget (${MAX_CHILD_BYTES} bytes) exhausted at <${tag}>; ` +
+          `further children render empty. This usually means a component graph fans out ` +
+          `exponentially — look for a component that references itself transitively.`,
+      )
+    }
     return bare
   }
 
@@ -267,7 +352,11 @@ export const __aihu_schild = (
   // exactly the #754 regression — content painting ahead of its scoped CSS,
   // stacking wrong and pushing LCP below the fold. Emitting the tree without
   // the styles would trade an empty header for a broken one.
-  const css = mod?.__aihu_css__
+  // Type-guarded, not just truthy: a malformed module whose `__aihu_css__` is
+  // not a string would throw `css.replace is not a function` HERE — outside the
+  // try/catch above — and take the whole page down. Every other failure in this
+  // function degrades to the bare element; this one escaped that contract.
+  const css = typeof mod?.__aihu_css__ === 'string' ? mod.__aihu_css__ : ''
   const style = css ? `<style>${escapeStyleText(css)}</style>` : ''
   return `<${tag}${attrsHtml}${adopt}><template shadowrootmode="${SHADOW_ROOT_MODE}">${style}${inner}</template></${tag}>`
 }

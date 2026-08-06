@@ -622,6 +622,57 @@ describe.skipIf(!hasBinary)('SSR string fast path — resolved child components'
     expect(html).toContain('<template shadowrootmode="open"><style>.kid { color: red; }</style>')
   })
 
+  it('a reference inside {#each} DECLINES on both paths', async () => {
+    // The v1 boundary that drifted. The emitter declines a runtime-built path;
+    // the walker had no mirror, so this resolved on one renderer and stayed an
+    // empty element on the other — a byte divergence with a registry present.
+    //
+    // The assertion that matters is that the two paths AGREE ON DECLINING.
+    // Every boundary needs one of these: the eligibility rule is written twice,
+    // in Rust and in TypeScript, and only their intersection was covered.
+    const parent = await compileToModule(
+      'diff-parent-each',
+      `@state {
+  const items = ['a', 'b']
+}
+
+@template {
+  <ul><li each={x of items}><x-kid></x-kid></li></ul>
+}
+`,
+    )
+    const kid = await compileToModule('diff-kid-each', CHILD)
+    const children = new Map([
+      ['x-kid', { ...kid.mod, __aihu_shadow__: 'light', __aihu_light_scope__: 'k1' }],
+    ])
+    await expectByteIdentityWithChildren(parent.mod, children)
+
+    const html = (parent.mod.__ssrString as (p: unknown, o?: unknown) => string)(
+      {},
+      { hydratable: true, children },
+    )
+    expect(html).toContain('<x-kid')
+    expect(html).not.toContain('<nav class="kid"')
+  })
+
+  it('stamps data-a exactly once for a resolved light child', async () => {
+    // The `lightScopeId: \'\'` sentinel is a contract with the Rust emitter, and
+    // byte-identity alone cannot defend it: both renderers call the same
+    // helper, so a double stamp changes both identically and stays "identical".
+    // Counting is what catches it — and this exact bug already shipped once,
+    // double-stamping <site-header> on aihu.dev.
+    const parent = await compileToModule('diff-parent-count', PARENT)
+    const kid = await compileToModule('diff-kid-count', CHILD)
+    const children = new Map([
+      ['x-kid', { ...kid.mod, __aihu_shadow__: 'light', __aihu_light_scope__: 'k1' }],
+    ])
+    const html = (parent.mod.__ssrString as (p: unknown, o?: unknown) => string)(
+      {},
+      { hydratable: true, children },
+    )
+    expect(html.match(/data-a=/g)?.length).toBe(1)
+  })
+
   it('no registry at all is byte-identical to the pre-resolution renderer', async () => {
     // The safety property that lets 3a/3b/3c ship ahead of the callers that
     // populate the registry: every existing site renders exactly as before.

@@ -789,6 +789,52 @@ function _escapeForTemplateLiteral(css: string): string {
  *
  * @internal
  */
+/**
+ * Fold css-engine utility CSS into the SERVER target's `__aihu_css__` export.
+ *
+ * The shadow-DOM sibling of `_foldCssEngineStyles`. That one rewrites the
+ * client's `__style__.replaceSync(...)`; the server target has no `__style__`
+ * (`CSSStyleSheet` is a DOM dependency and the Rust codegen elides it), it has
+ * `export const __aihu_css__` — the string `__aihu_schild` inlines as `<style>`
+ * inside a declarative shadow template.
+ *
+ * Without this, that template shipped the authored `@style` block ALONE: no
+ * utility classes, no design tokens, no reset. A shadow child prerendered
+ * partially unstyled and repainted once its chunk loaded — precisely the #754
+ * failure the DSD `<style>` exists to prevent. (The step-4 scoping note claimed
+ * no css-engine work was needed. That was true of the Rust emitter, which
+ * applies no scoping transform, and wrong about the pipeline: the per-component
+ * utility CSS is folded HERE, in the JS layer, and the server target was simply
+ * never wired to it.)
+ *
+ * REPLACES rather than appends, for the same reason shape 1 above does: the
+ * css-engine output already contains the authored `@style` rules, so appending
+ * would duplicate them.
+ *
+ * Light-DOM components never reach this — their utilities go through the global
+ * cascade via `_foldCssEngineStylesGlobal`, and their prerendered markup is
+ * covered by the app stylesheet's `@scope([data-a=…])` blocks.
+ */
+export function _foldSsrCssExport(compiledCode: string, css: string): string {
+  if (!css.trim()) return compiledCode
+  const escaped = _escapeForTemplateLiteral(css)
+
+  // Shape 1 — an authored @style block already produced the export.
+  // biome-ignore lint/correctness/noEmptyCharacterClassInRegex: [^] matches any char incl. newlines
+  const bodyRe = /(export const __aihu_css__ = `)[^]*?(`)/
+  if (bodyRe.test(compiledCode)) {
+    return compiledCode.replace(bodyRe, (_m, open: string, close: string) => {
+      return `${open}${escaped}${close}`
+    })
+  }
+
+  // Shape 2 — no authored @style, so the Rust codegen emitted no export at all.
+  // The utility CSS still has to reach the shadow root, so declare it. Appended
+  // at the end: the server artifact's exports are order-independent, and this
+  // avoids guessing at an anchor the way shape 2 above has to.
+  return `${compiledCode}\nexport const __aihu_css__ = \`${escaped}\`\n`
+}
+
 export function _foldCssEngineStyles(compiledCode: string, css: string): string {
   if (!css.trim()) return compiledCode
   const escaped = _escapeForTemplateLiteral(css)
@@ -1598,6 +1644,11 @@ export function aihuCompilerPlugin(options?: AihuCompilerPluginOptions): VitePlu
             // `shadowMode: 'shadow'`: fold into the
             // per-component `CSSStyleSheet` adopted by the shadow root.
             compiled = _foldCssEngineStyles(compiled, utilityCss)
+            // …and into the SERVER target's `__aihu_css__`, which carries the
+            // same rules into the declarative shadow template. A shadow root is
+            // style-isolated, so anything missing here paints unstyled until
+            // the component's chunk loads.
+            if (isServerEnv) compiled = _foldSsrCssExport(compiled, utilityCss)
           }
         }
 

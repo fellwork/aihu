@@ -801,7 +801,24 @@ export function hydrate(
   const pathMap = new Map<string, Element>()
   const root = host as Element
   for (const el of root.querySelectorAll?.('[data-aihu-path]') ?? []) {
-    const boundary = el.closest?.('[data-aihu-ssr]')
+    // The boundary is the nearest marked PROPER ANCESTOR — start the search at
+    // the parent, never at `el` itself.
+    //
+    // `closest()` matches the element it is called on, and a child host now
+    // carries BOTH attributes: `data-aihu-path` (its position in the PARENT's
+    // key space) and `data-aihu-ssr` (the marker for its own inner tree). It is
+    // the first element in the codebase to carry both — `wrapTag`'s nested
+    // hosts never got a path marker, which is why this went unnoticed.
+    //
+    // Matching on `el` made every SSR'd child host its own boundary, so it was
+    // pruned from the parent's map, missed the `existingEl` lookup, and got
+    // re-materialized as a DUPLICATE appended at the end of the host: the child
+    // rendered twice, the second copy in the wrong place.
+    //
+    // Searching from the parent keeps the host in the map (its boundary
+    // resolves to `root`), still prunes everything INSIDE it (their boundary
+    // resolves to the host), and leaves the `wrapTag` case unchanged.
+    const boundary = el === root ? null : el.parentElement?.closest?.('[data-aihu-ssr]')
     if (boundary != null && boundary !== root && root.contains(boundary)) continue
     const p = el.getAttribute('data-aihu-path')
     if (p != null) pathMap.set(p, el)

@@ -566,6 +566,40 @@ function _isFragment(obj: Record<string, unknown>): boolean {
   return obj.tag === null || obj.tag === ''
 }
 
+/**
+ * Is this a fully STATIC path — every segment a plain index?
+ *
+ * The fourth v1 boundary, and the one that drifted. The emitter declines a
+ * reference whose path is runtime-built (`path.base.is_none()` in
+ * `ssr_string_emit.rs`) — i.e. anything inside `{#each}`, where the key is only
+ * known at render time. The walker had no mirror for it, so a component
+ * referenced inside a loop resolved on the walker and stayed an empty element
+ * on the compiled fast path: a byte divergence with a registry present, which
+ * is exactly the contract the differential suite exists to defend.
+ *
+ * That is the repo's named failure mode wearing the design's own clothes — the
+ * ELIGIBILITY rule is one contract expressed in two languages, Rust at compile
+ * time and TypeScript at render time, and only their intersection was covered.
+ * The durable guard is a differential fixture per boundary line, asserting the
+ * two paths agree on DECLINING; see `ssr-string-differential.test.ts`.
+ *
+ * Structural segments carry words (`list`, `conditional`, `true`), and list
+ * items carry arbitrary keys, so "every segment is digits" is the conservative
+ * reading of "static". Declining too much only costs a child its server
+ * markup — the client still renders it — while declining too little costs
+ * byte-identity.
+ */
+function _isStaticPath(path: string): boolean {
+  for (const seg of path.split('.')) {
+    if (seg.length === 0) return false
+    for (let i = 0; i < seg.length; i++) {
+      const c = seg.charCodeAt(i)
+      if (c < 48 || c > 57) return false
+    }
+  }
+  return true
+}
+
 function buildHead(head: HeadConfig): string {
   const parts: string[] = []
   if (head.title) parts.push(`<title>${head.title}</title>`)
@@ -695,6 +729,7 @@ async function renderNodeAsync(
       childRegistry &&
       children.length === 0 &&
       path !== ROOT_PATH &&
+      _isStaticPath(path) &&
       Object.keys(asAttrMap(obj.attrs)).length === 0 &&
       childRegistry.has(tag)
     ) {
@@ -1059,44 +1094,55 @@ export function renderToStream(
       // below, preserving flush/suspend semantics unchanged.
       const ssrString = _ssrStringOf(component)
       if (ssrString) {
+        // The fast path needs BOTH halves of the server-render environment, and
+        // used to have only one.
+        //
+        // A DETACHED effect scope: `onCleanup` — and everything built on it,
+        // `$stream`, `$controller`, router boundaries, most composables —
+        // resolves through `getCurrentScope()`, not the lifecycle owner
+        // pointer, so the lifecycle sink alone never reaches it. Without a
+        // scope here, the path essentially all production traffic takes threw
+        // SCR-R0011 for any component using a stream or a composable; as a
+        // CHILD that became a silently empty element.
+        //
+        // And the lifecycle window: setup runs outside `defineComponent`, so
+        // `onMount` has no owner to register against.
+        //
+        // The walker branch below now opens both too. Neither path may hold
+        // half the environment — that asymmetry is invisible until a component
+        // happens to use the hook the other path forgot.
+        const fastScope = effectScope(true)
         let html: string
         try {
-          // Top-level parity with the child path: a compiled string renderer
-          // runs the component's setup directly, so lifecycle registration has
-          // no owner. Synchronous — the compiled renderer never awaits.
-          html = _withSsrLifecycle(() =>
-            ssrString({
-              hydratable: opts?.hydratable ?? false,
-              // LDF §10 step 3: the compiled renderer's `root_scope_attr` reads
-              // `__opts.lightScopeId` to stamp `data-a` on the root element —
-              // forward it so the string path matches the walker's stamp.
-              ...(opts?.lightScopeId !== undefined ? { lightScopeId: opts.lightScopeId } : {}),
-              // The child registry the compiled renderer's `__aihu_schild` calls
-              // resolve against. Forwarded for exactly the same reason as
-              // `lightScopeId` above: the walker reads it too, and a value that
-              // reaches only one of them is a byte divergence the differential
-              // suite would fail on.
-              ...(opts?.children !== undefined ? { children: opts.children } : {}),
-            }),
-          )
+          html = fastScope.run(() =>
+            _withSsrLifecycle(() =>
+              ssrString({
+                hydratable: opts?.hydratable ?? false,
+                // LDF §10 step 3: the compiled renderer's `root_scope_attr`
+                // reads `__opts.lightScopeId` to stamp `data-a` on the root
+                // element — forward it so the string path matches the walker.
+                ...(opts?.lightScopeId !== undefined ? { lightScopeId: opts.lightScopeId } : {}),
+                // The child registry `__aihu_schild` resolves against, for the
+                // same reason as `lightScopeId`: a value reaching only one
+                // renderer is a byte divergence the differential suite fails on.
+                ...(opts?.children !== undefined ? { children: opts.children } : {}),
+              }),
+            ),
+          ) as string
         } catch (err) {
+          fastScope.stop()
           controller.error(err)
           return
         }
         controller.enqueue(html)
-        // Wave-3 state channel under the string fast path. We emit through the
-        // SAME activated helper as the walker so string-rendered pages ship an
-        // identical `__aihu_state__` envelope — stores adopt on the client with
-        // no re-derivation. `root` is `null` DELIBERATELY: the string renderer
-        // never materializes an arbor tree, so `_collectSignals`'s post-render
-        // walk has nothing to walk. STORE state is arbor-independent
-        // (`serializeStores` via the injected store serializer) and rides along
-        // regardless. Component-local SIGNALS are therefore an empty map here —
-        // a known v1 limitation: they re-derive on the client (correct, just
-        // not the optimized adopt-in-place the walker path gets). See the seam
-        // proof in tests/integration/ssr-string-hydrate-parity.test.ts
-        // ("store state adopts under the string renderer").
+        // Wave-3 state channel under the string fast path: emitted through the
+        // SAME helper as the walker so string-rendered pages ship an identical
+        // `__aihu_state__` envelope. `root` is `null` DELIBERATELY — the string
+        // renderer materializes no arbor tree, so there is nothing to walk;
+        // STORE state is arbor-independent and rides along regardless.
         emitStateScriptAndClose(controller, opts, null)
+        // Effects the setup created are per-render and must not outlive it.
+        fastScope.stop()
         return
       }
 
@@ -1135,7 +1181,11 @@ export function renderToStream(
 
       let root: unknown
       try {
-        root = scope.run(() => component())
+        // The walker had the effect SCOPE but no lifecycle WINDOW, while the
+        // fast path below had the window but no scope — each path held half the
+        // server-render environment, so `onMount` threw here and `onCleanup`
+        // threw there. Both halves, both paths.
+        root = scope.run(() => _withSsrLifecycle(() => component()))
       } catch (err) {
         disposeScope()
         controller.error(err)
