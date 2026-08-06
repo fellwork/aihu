@@ -216,9 +216,16 @@ export const __aihu_schild = (
         __depth: depth + 1,
       },
     )
-  } catch {
+  } catch (err) {
     // A child that throws must not take the whole page down with it; the parent
-    // still renders, and the child fills in on the client as it does today.
+    // still renders and the child fills in on the client, exactly as today.
+    //
+    // But it must not be SILENT either. Swallowing the reason turns a broken
+    // component into an empty element that looks identical to one nobody
+    // registered — and a prerender that quietly drops content is the failure
+    // mode this whole plan exists to fix. Reported once, with the tag, so a
+    // build log names what to look at.
+    console.error(`[aihu] SSR child <${tag}> threw; rendering it empty:`, err)
     return bare
   }
 

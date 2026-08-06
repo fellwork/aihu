@@ -296,3 +296,37 @@ resolved child subtree, in both shadow modes, at any nesting depth. A tag absent
 from the registry renders as an empty custom element identically on both paths.
 The emitted `shadowrootmode` value is the runtime's `SHADOW_ROOT_MODE` by import,
 never by literal.
+
+
+## Follow-up: `onMount` components cannot be server-rendered (pre-existing)
+
+Found while verifying step 5 against a real `apps/docs` build. `search-box` and
+`toc-rail` render empty; `theme-toggle`, their sibling with an identical
+reference shape, renders fine. The difference is `onMount`.
+
+Diagnosis — the error is `SCR-R0010 'no owner'` from
+`define-component.ts:1266`, thrown when `_onMount` runs with no current
+component (`_cur === null`). The server-target entry calls `__aihu_setup__`
+DIRECTLY rather than through `defineComponent`, so `_cur` is null by
+construction and any lifecycle registration in a `@state` block throws.
+
+This is not caused by child rendering — child rendering only made it visible,
+one component at a time, because `__aihu_schild` catches and degrades. The
+emitted SSR entry's own comment asserts the opposite ("lifecycle registration is
+not reachable from here — server render never mounts"), and that assumption is
+what is false: it is reachable, it just has nowhere to register.
+
+The semantics are not in doubt: `onMount` means "when mounted in the DOM", and a
+server render never mounts, so registration should be a silent NO-OP rather than
+a throw. What needs deciding is where:
+
+- A `_cur`-null no-op in `_onMount` is one line, but it would also silence a
+  genuine authoring error (calling `onMount` outside setup in a browser).
+- An SSR-scoped lifecycle sink — set `_cur` to a throwaway `_LC` for the
+  duration of a server setup — keeps the browser check strict. It cannot live in
+  `ssr-string.ts`: importing `define-component.ts` from there re-creates the
+  tsconfig-paths cascade that made `shadow-mode.ts` a zero-import leaf.
+
+Until it is fixed, `__aihu_schild` reports the throw (`[aihu] SSR child <tag>
+threw; rendering it empty`) instead of swallowing it — a prerender that quietly
+drops content is the failure mode this whole plan exists to fix.
