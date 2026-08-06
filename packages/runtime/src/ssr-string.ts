@@ -24,6 +24,12 @@
 
 import { SHADOW_ROOT_MODE, type ShadowMode } from './shadow-mode.ts'
 
+// Re-exported so `@aihu/server` can open the same window around the TOP-LEVEL
+// render without importing the client runtime's main entry.
+export { _inSsrLifecycle, _withSsrLifecycle } from './ssr-lifecycle.ts'
+
+import { _withSsrLifecycle } from './ssr-lifecycle.ts'
+
 const escText = (s: string): string =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 
@@ -207,14 +213,22 @@ export const __aihu_schild = (
   const hydratable = opts?.hydratable ?? false
   let inner: string
   try {
-    inner = render(
-      {},
-      {
-        hydratable,
-        lightScopeId: '',
-        ...(opts?.children ? { children: opts.children } : {}),
-        __depth: depth + 1,
-      },
+    // The child's setup runs inside a server-render lifecycle window: it is
+    // called directly, not through `defineComponent`, so `onMount` and friends
+    // have no owner to register against. Without this, ANY child using a
+    // lifecycle hook threw `SCR-R0010` and rendered empty — which is exactly
+    // how `<search-box>` came out blank while its `onMount`-free sibling did
+    // not. Synchronous by contract; see `_withSsrLifecycle`.
+    inner = _withSsrLifecycle(() =>
+      render(
+        {},
+        {
+          hydratable,
+          lightScopeId: '',
+          ...(opts?.children ? { children: opts.children } : {}),
+          __depth: depth + 1,
+        },
+      ),
     )
   } catch (err) {
     // A child that throws must not take the whole page down with it; the parent

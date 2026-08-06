@@ -25,6 +25,12 @@ export const EXPORTS: readonly ApiExport[] = [
     summary: '',
   },
   {
+    name: '_inSsrLifecycle',
+    kind: 'function',
+    signature: 'function _inSsrLifecycle(): boolean',
+    summary: 'Is a server render currently running setup on this thread?',
+  },
+  {
     name: '_registerAgentDispatcher',
     kind: 'function',
     signature:
@@ -78,6 +84,12 @@ export const EXPORTS: readonly ApiExport[] = [
     kind: 'function',
     signature: 'function _withOwnerContext<R>(node: object, fn: () => R): R',
     summary: '',
+  },
+  {
+    name: '_withSsrLifecycle',
+    kind: 'function',
+    signature: 'function _withSsrLifecycle<R>(fn: () => R): R',
+    summary: 'Run `fn` inside a server-render lifecycle window.',
   },
   {
     name: 'announce',

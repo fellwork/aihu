@@ -50,7 +50,7 @@
 // See CRITICAL CONSTRAINT 1 above for why this one client-package specifier is
 // permitted: the server-only, DOM-free subpath, imported so the walker and the
 // compiled string renderer share ONE child serializer.
-import { __aihu_schild, type SsrChildModule } from '@aihu/runtime/ssr'
+import { __aihu_schild, _withSsrLifecycle, type SsrChildModule } from '@aihu/runtime/ssr'
 import { effectScope } from '@aihu/signals'
 import type { StreamOptions } from './stream-types.ts'
 
@@ -1061,19 +1061,24 @@ export function renderToStream(
       if (ssrString) {
         let html: string
         try {
-          html = ssrString({
-            hydratable: opts?.hydratable ?? false,
-            // LDF §10 step 3: the compiled renderer's `root_scope_attr` reads
-            // `__opts.lightScopeId` to stamp `data-a` on the root element —
-            // forward it so the string path matches the walker's stamp.
-            ...(opts?.lightScopeId !== undefined ? { lightScopeId: opts.lightScopeId } : {}),
-            // The child registry the compiled renderer's `__aihu_schild` calls
-            // resolve against. Forwarded for exactly the same reason as
-            // `lightScopeId` above: the walker reads it too, and a value that
-            // reaches only one of them is a byte divergence the differential
-            // suite would fail on.
-            ...(opts?.children !== undefined ? { children: opts.children } : {}),
-          })
+          // Top-level parity with the child path: a compiled string renderer
+          // runs the component's setup directly, so lifecycle registration has
+          // no owner. Synchronous — the compiled renderer never awaits.
+          html = _withSsrLifecycle(() =>
+            ssrString({
+              hydratable: opts?.hydratable ?? false,
+              // LDF §10 step 3: the compiled renderer's `root_scope_attr` reads
+              // `__opts.lightScopeId` to stamp `data-a` on the root element —
+              // forward it so the string path matches the walker's stamp.
+              ...(opts?.lightScopeId !== undefined ? { lightScopeId: opts.lightScopeId } : {}),
+              // The child registry the compiled renderer's `__aihu_schild` calls
+              // resolve against. Forwarded for exactly the same reason as
+              // `lightScopeId` above: the walker reads it too, and a value that
+              // reaches only one of them is a byte divergence the differential
+              // suite would fail on.
+              ...(opts?.children !== undefined ? { children: opts.children } : {}),
+            }),
+          )
         } catch (err) {
           controller.error(err)
           return
