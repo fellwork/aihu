@@ -1697,6 +1697,32 @@ export function aihuCompilerPlugin(options?: AihuCompilerPluginOptions): VitePlu
           if (effectiveShadow != null) {
             out += `\nexport const __aihu_shadow__ = '${effectiveShadow}'\n`
           }
+          // Every component tag this module's template references, on the same
+          // channel as the three exports above. It is what an SSG/SSR caller
+          // walks TRANSITIVELY to build `SsrOptions.children` — load this
+          // module, read its child tags, load those, repeat — and where a
+          // cyclic tag graph must be rejected before any render begins.
+          //
+          // DERIVED FROM THE EMITTED CALLS, not re-computed from the template.
+          // The set that matters is precisely the set of tags the compiled
+          // renderer will look up at runtime, and reading the `__aihu_schild`
+          // call sites IS that set. Deriving it a second way — walking the
+          // template again and reapplying the emitter's v1 boundaries (no
+          // attrs, no children, static non-root path) — would be one rule
+          // written in two places, and the halves would drift the first time a
+          // boundary moved. The parity test in `route_and_build_target.rs`
+          // pins that the export and the call sites agree.
+          //
+          // Omitted entirely when the template references no component, so a
+          // consumer can treat "no export" and "empty" identically.
+          const childTags = [
+            ...new Set(
+              Array.from(out.matchAll(/__aihu_schild\('([^']+)'/g), (m) => m[1] as string),
+            ),
+          ].sort()
+          if (childTags.length > 0) {
+            out += `\nexport const __aihu_child_tags__ = ${JSON.stringify(childTags)}\n`
+          }
         } else if (
           islandsEnabled &&
           elementTag !== null &&
