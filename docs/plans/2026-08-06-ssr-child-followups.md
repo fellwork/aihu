@@ -308,3 +308,42 @@ duplicate-host bug.
 
 Related: text-node adoption is positional, so a shadow child whose template
 begins with a text node could mis-adopt past the injected `<style>`. Untested.
+
+
+---
+
+## 22. Both new diagnostics are blind to page→component references (found by re-observation)
+
+**Introduced by the Wave 1 warn-gating; found by rebuilding `apps/docs` and
+reading the output AFTER the fix landed, not by any test.**
+
+`runPrerender` builds its `referenced` tag set from `childRegistry.values()`
+only — i.e. tags referenced BY DISCOVERED COMPONENTS. Pages and layouts also
+reference components, and their modules are loaded later, inside the render
+loop, so their `__aihu_child_tags__` never reach the set.
+
+Two consequences, both silent:
+
+- **§18's warn-gate suppresses a legitimately referenced broken component.**
+  `weather-demo.aihu` fails to load under SSR (`CSSStyleSheet is not defined`)
+  and is referenced from `pages/index.aihu` and `pages/cookbook/agent-weather.aihu`
+  — pages, not components — so it is judged unreferenced and says nothing. The
+  build is now quieter than before the fix, for the wrong reason.
+- **§3's unresolved-tag diagnostic has the same hole.** A tag referenced only by
+  a page, and absent from the registry, is never reported.
+
+**Do:** accumulate referenced tags from every module the prerender loads —
+pages and layouts included — and emit both diagnostics AFTER the render loop
+rather than before it. The information exists; it is only collected too early.
+
+Note `<weather-demo city="London">` carries an attribute, so it would decline
+child rendering under the v1 boundaries regardless — its emptiness is by design.
+The defect is the missing WARNING about a component that cannot load, not the
+empty element.
+
+**Method note.** Every fix in this round was verified against the fix and
+against the existing suite, and this defect passed both: it is a gap in what the
+suite covers, so no test could have caught it. It surfaced only by re-running
+the real build and comparing observed output against a recorded baseline. That
+step belongs after every correction, not just at the end — a green suite proves
+nothing about behaviour the fix newly makes reachable.
