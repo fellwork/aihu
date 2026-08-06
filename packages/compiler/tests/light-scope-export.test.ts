@@ -249,40 +249,87 @@ const COND_SFC = `@state {
 }
 `
 
+// A `(` in TEXT CONTENT lands in the emitted module as a string literal —
+// `leaf('(open ')` on the client target, where the whole setup body sits
+// INSIDE `defineComponent(...)`'s argument span.
+const PAREN_TEXT_SFC = `@state {
+  const [n, setN] = signal(1)
+}
+
+@template {
+  <p>(open {n}</p>
+}
+`
+
+// $form is the one shape whose Rust emit ALREADY carries a third defineElement
+// argument: `defineComponent(...), { formAssociated: true })`.
+const FORM_SFC = `@state {
+  const [name, setName] = signal('')
+  $form: { value: name }
+}
+
+@template {
+  <div><em if={name() !== ''}>set</em></div>
+}
+`
+
 describe('_injectShadowMode anchors on defineElement, not the last paren', () => {
-  // HONEST SCOPE. A review reported that the previous greedy anchor
-  // (`defineComponent\([^]*\)\s*\)` — `[^]` crosses newlines) ran past
-  // defineElement on a server-target module and matched the LAST `))` in the
-  // file, which for a component with an `if=` is the emitted condition:
-  // `if (n > 5, { shadowMode: "light", … })`, always truthy via the comma
-  // operator, so a dead branch rendered.
+  // The corruption the SSR-child review reported is REAL and these tests
+  // reproduce it: the original greedy anchor (`defineComponent\([^]*\)\s*\)` —
+  // `[^]` crosses newlines) matched the LAST `)\s*)` pair in the module, and
+  // on a server-target module the string renderer is emitted AFTER the
+  // registration, so for a component with an `if=` the injection landed in the
+  // emitted condition: `if ((n() > 5), { shadowMode: 'light', … })` — comma
+  // operator, always truthy, dead branch renders.
   //
-  // I could NOT reproduce that with this fixture — the old regex leaves it
-  // intact — so these tests do not prove the corruption is fixed, and the
-  // finding stays open in the follow-ups doc. The anchor was replaced anyway:
-  // a balanced-paren scan from the `defineComponent(` open cannot run past its
-  // own call, and an unbounded `[^]*` in a whole-module regex is the wrong tool
-  // regardless of whether a shape that exploits it has been found.
+  // The first repro attempt concluded the old anchor was clean because its
+  // probe, `/if \([^)]*shadowMode/`, can NEVER match the real corruption:
+  // the emitted condition `(n() > 5)` contains `)`, which `[^)]` forbids.
+  // The detection below is line-scoped (`.` stops at newline) instead, and
+  // DOES fail against the old anchor.
   //
-  // What these DO pin: injection still lands on defineElement (a scan that
-  // bailed silently would "fix" corruption by doing nothing, costing every
-  // light component its scope id), on both targets, without touching a
-  // condition.
-  it('leaves an if= condition intact on the server target', async () => {
+  // The first replacement (a bare balanced-paren count) had the opposite
+  // failure: it read parens inside string literals — `leaf('(')` — drifted,
+  // and silently bailed on client/universal modules, stripping the injection
+  // entirely (no shadowMode, no lightScopeId). The PAREN_TEXT_SFC test fails
+  // against that version. The current implementation lexes strings, template
+  // literals, and comments while matching, and merges into `$form`'s existing
+  // options object rather than bailing on it.
+  it('server target: options land on defineElement, never in the string renderer’s if-condition', async () => {
     const code = await runWith(COND_SFC, SERVER_ENV, { shadowMode: 'light' })
-    expect(code).not.toMatch(/if\s*\([^)]*shadowMode/)
+    expect(code).not.toMatch(/if\s*\(.*shadowMode/)
+    expect(code).toMatch(/defineComponent\(__aihu_setup__\)\s*,\s*\{\s*shadowMode:\s*["']light["']/)
   })
 
-  it('still injects the options onto defineElement', async () => {
-    // The other half: a scan that bails silently would "fix" the corruption by
-    // doing nothing, and light-mode components would lose their scope id.
-    const code = await runWith(COND_SFC, SERVER_ENV, { shadowMode: 'light' })
-    expect(code).toMatch(/defineElement\([\s\S]*?shadowMode/)
-  })
-
-  it('injects on a client build too', async () => {
+  it('client build: injects too, outside any condition', async () => {
     const code = await runWith(COND_SFC, {}, { shadowMode: 'light' })
-    expect(code).toMatch(/defineElement\([\s\S]*?shadowMode/)
-    expect(code).not.toMatch(/if\s*\([^)]*shadowMode/)
+    expect(code).toMatch(/,\s*\{\s*shadowMode:\s*["']light["']/)
+    expect(code).not.toMatch(/if\s*\(.*shadowMode/)
+  })
+
+  it('a `(` in text content must not starve the client injection', async () => {
+    // A silent bail here costs the component its shadowMode AND lightScopeId —
+    // strictly worse than the corruption the anchor change was fixing.
+    const code = await runWith(PAREN_TEXT_SFC, {}, { shadowMode: 'light' })
+    expect(code).toMatch(/,\s*\{\s*shadowMode:\s*["']light["']/)
+  })
+
+  it('…and on the server target the same shape stays uncorrupted', async () => {
+    // The old anchor's other server casualty: the last `)\s*)` after an
+    // interpolated text node is the `__aihu_stext(n())` call, which became
+    // `__aihu_stext(n(), { shadowMode: … })`.
+    const code = await runWith(PAREN_TEXT_SFC, SERVER_ENV, { shadowMode: 'light' })
+    expect(code).toMatch(/defineComponent\(__aihu_setup__\)\s*,\s*\{\s*shadowMode:\s*["']light["']/)
+    expect(code).not.toMatch(/__aihu_stext\(.*shadowMode/)
+  })
+
+  it('$form: merges into the existing formAssociated options, leaves setFormValue alone', async () => {
+    // Old anchor: landed inside `setFormValue(name(), …)` on EVERY target.
+    // Naive scan: bailed on the existing `, { formAssociated: true }` arg.
+    for (const env of [SERVER_ENV, {}]) {
+      const code = await runWith(FORM_SFC, env, { shadowMode: 'light' })
+      expect(code).toMatch(/shadowMode:\s*["']light["'][^}]*formAssociated:\s*true/)
+      expect(code).not.toMatch(/setFormValue\(.*shadowMode/)
+    }
   })
 })

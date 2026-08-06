@@ -125,24 +125,59 @@ Emits `[object Promise]` into the page.
 
 ## P3 — pre-existing, amplified by this work
 
-### 10. `_injectShadowMode`'s greedy regex corrupts `if=` conditions — NOT REPRODUCED
+### 10. `_injectShadowMode`'s greedy regex corrupts `if=` conditions — CONFIRMED, FIXED
 
-**Status: the anchor was replaced with a balanced-paren scan, but the reported
-corruption could not be reproduced.** A server-target component with
-`<span if={n > 5}>` compiles cleanly under the OLD regex. Either the review's
-repro used a shape I did not find, or the finding was wrong. The scan is a
-better anchor either way — an unbounded `[^]*` across a whole module cannot be
-reasoned about — but nothing here proves a bug was fixed, and the tests say so.
-Someone should find the reproducing shape or close this as invalid.
+**Status: the finding is REAL, reproduced, and fixed — and the first
+balanced-paren replacement was ALSO broken, in the opposite direction.**
 
-Original report:
+Reproduction (raw server-target emit of `<span if={n > 5}>` under the old
+regex, `AIHU_COMPILER_NATIVE=0`, freshly built binary):
 
-`compiler/js/index.ts` — `[^]*` runs past `defineElement` and anchors on the
-module's LAST `))`, which for any component with an `if=` is the emitted
-condition: `if (n > 5, { shadowMode: "light", … })` — always truthy. Used to
-leak one stray empty element; now materializes the child's entire subtree
-(measured: 2,211 bytes, 33 nested hosts, from a dead branch).
-`_injectLightScopeId` does the same job correctly with a literal replace.
+```js
+if ((n() > 5), { shadowMode: 'light', lightScopeId: '…' }) {
+```
+
+The earlier NOT-REPRODUCED verdict was a detection error, not an absence of
+corruption: the probe regex `/if \([^)]*shadowMode/` can never match the real
+shape because the emitted condition `(n() > 5)` contains `)`, which `[^)]`
+forbids. The corruption was present in that repro's output and the grep was
+blind to it. (The reviewer's illustration `if (n > 5, …)` was idealized — real
+emit calls the signal, so any detection must cross a `)`.)
+
+Full extent, established by probing old vs new injection across shapes:
+
+- Server + `if=` — the reviewed corruption (comma operator, dead branch
+  renders). The string renderer is emitted AFTER `defineElement`, so its
+  `if ((…))` is the module's last `)\s*)` pair.
+- Server + interpolated text following a `(` in text content — old anchor
+  landed inside `__aihu_stext(n(), { shadowMode: … })`.
+- `$form`, ALL targets — old anchor landed inside
+  `setFormValue(name(), { shadowMode: … })`.
+- Layouts: NOT affected in practice (their server emit has no string renderer,
+  so the last `))` is defineElement's own) — the review's layout emphasis was
+  wrong, but the bug did not need it.
+
+The first replacement (bare balanced-paren count, commit c0d5ddc1) fixed the
+server shapes but silently BAILED — no `shadowMode`, no `lightScopeId` at all —
+on any client/universal module whose inlined setup body carries an unbalanced
+`(` inside a string literal (`<p>(</p>` → `leaf('(')`, `title="("`,
+`signal('(')`), and on every `$form` component (the existing
+`, { formAssociated: true }` third argument failed its whitespace check).
+
+Fix as landed: `_matchParen` — a small lexer that matches the
+`defineComponent(` close while skipping string literals, template literals
+(with `${…}` frames), and comments — plus a merge path that folds
+`shadowMode`/`lightScopeId` into `$form`'s existing options object instead of
+bailing. Known accepted miss: a regex literal with an unbalanced paren in user
+`@state` code reads as division; the landing-site validation turns that into a
+no-op, never a corruption.
+
+Tests: `packages/compiler/tests/light-scope-export.test.ts`, the
+`_injectShadowMode anchors on defineElement` block. Verified against both
+counterfactuals: the old regex fails 3 of the 5 tests (if-condition,
+`__aihu_stext`, `setFormValue`); the naive scan fails 2 (paren-in-text bail,
+`$form` bail); the landed implementation passes all, plus the full compiler
+suite (237 tests).
 
 ### 11. `$`-expansion in the prerender content splice
 

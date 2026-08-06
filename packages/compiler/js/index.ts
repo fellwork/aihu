@@ -134,21 +134,110 @@ export interface AihuCompilerPluginOptions {
 }
 
 /**
- * Inject `{ shadowMode: '...' }` (and, for light mode, `lightScopeId: '...'`
- * in the SAME options object) as the third argument to the emitted
- * `defineElement('tag', defineComponent(...))` call. The compiler emits
- * exactly two arguments today; this rewrites the closing of the
- * defineElement call to include the options object. Idempotent — leaves
- * code untouched when the closer is not in the expected shape.
+ * Find the `)` matching the `(` at `open`, skipping string literals
+ * (`'…'`/`"…"` with `\` escapes), template literals (including nested
+ * `${ … }` interpolations, tracked with a frame stack), and `//`/`/* *​/`
+ * comments. Returns -1 when no match is found before end of input.
  *
- * `lightScopeId` is folded into this SAME regex operation rather than a
- * second independent injection pass, deliberately: it is only ever set when
- * `mode === 'light'` (see the call site, `index.ts`'s `transform` hook), so
- * every call that needs it ALSO needs a shadowMode injection at the exact
- * same spot — a second pass would just re-match (and fight) the text this
- * one already rewrote. Stamps `data-a` on the root element at runtime
- * (light-DOM leaf flip, LDF §10 step 3) — `packages/runtime/src/
- * define-element.ts`'s `wrapClass` reads `options.lightScopeId`.
+ * Why a lexer and not a bare paren count: on the client/universal targets the
+ * ENTIRE setup body is inlined inside `defineComponent((ctx) => { … })`, and
+ * that body carries user template text as string literals — `leaf('(')` for a
+ * `(` text node, `{ title: '(unclosed' }` for an attribute — so a count that
+ * reads parens inside strings drifts and the caller silently bails, costing
+ * the component its `shadowMode`/`lightScopeId` injection entirely.
+ *
+ * Known miss, accepted: a regex literal in user `@state` code containing an
+ * unbalanced paren (`/\(/`) reads as division + parens. The caller validates
+ * the landing site and bails to a no-op rather than corrupting.
+ */
+function _matchParen(code: string, open: number): number {
+  // Frames: 'code' (with its own `{}` depth, so a `}` inside a template
+  // interpolation knows whether it closes the interpolation) or 'tpl'.
+  const frames: Array<{ kind: 'code'; brace: number } | { kind: 'tpl' }> = [
+    { kind: 'code', brace: 0 },
+  ]
+  let paren = 0
+  for (let i = open; i < code.length; i++) {
+    const top = frames[frames.length - 1]
+    // Unreachable: the root frame never pops (a code-frame `}` pops only when
+    // `frames.length > 1`, a tpl frame pops only itself) — checker appeasement.
+    if (top === undefined) return -1
+    const c = code[i]
+    if (top.kind === 'tpl') {
+      if (c === '\\') i++
+      else if (c === '`') frames.pop()
+      else if (c === '$' && code[i + 1] === '{') {
+        frames.push({ kind: 'code', brace: 0 })
+        i++
+      }
+      continue
+    }
+    if (c === "'" || c === '"') {
+      i++
+      while (i < code.length && code[i] !== c) {
+        if (code[i] === '\\') i++
+        i++
+      }
+    } else if (c === '`') {
+      frames.push({ kind: 'tpl' })
+    } else if (c === '/' && code[i + 1] === '/') {
+      while (i < code.length && code[i] !== '\n') i++
+    } else if (c === '/' && code[i + 1] === '*') {
+      i += 2
+      while (i < code.length && !(code[i] === '*' && code[i + 1] === '/')) i++
+      i++
+    } else if (c === '(') {
+      paren++
+    } else if (c === ')') {
+      paren--
+      if (paren === 0) return i
+    } else if (c === '{') {
+      top.brace++
+    } else if (c === '}') {
+      if (top.brace === 0 && frames.length > 1) frames.pop()
+      else top.brace--
+    }
+  }
+  return -1
+}
+
+/**
+ * Inject `shadowMode: '...'` (and, for light mode, `lightScopeId: '...'` in
+ * the SAME options object) into the third argument of the emitted
+ * `defineElement('tag', defineComponent(...))` call — appending the options
+ * object when the call has two arguments, or merging the fields into an
+ * existing third argument (`$form` emits `, { formAssociated: true }`).
+ * Idempotent — leaves code untouched when the call is not in a recognized
+ * shape or the options already carry a `shadowMode`.
+ *
+ * `lightScopeId` is folded into this SAME injection rather than a second
+ * independent pass, deliberately: it is only ever set when `mode === 'light'`
+ * (see the call site, `index.ts`'s `transform` hook), so every call that
+ * needs it ALSO needs a shadowMode injection at the exact same spot — a
+ * second pass would just re-match (and fight) the text this one already
+ * rewrote. Stamps `data-a` on the root element at runtime (light-DOM leaf
+ * flip, LDF §10 step 3) — `packages/runtime/src/define-element.ts`'s
+ * `wrapClass` reads `options.lightScopeId`.
+ *
+ * History, because this anchor has now been wrong twice:
+ *
+ * 1. The original regex anchor (`defineComponent\([^]*\)\s*\)` — greedy, and
+ *    `[^]` crosses newlines) ran past `defineElement` and matched the LAST
+ *    `)\s*)` pair in the module. On a SERVER-target module the string
+ *    renderer (`__ssrString`) is emitted AFTER the registration, so for any
+ *    component with an `if=` the last such pair is the emitted condition,
+ *    which became `if ((n() > 5), { shadowMode: 'light', … })` — the comma
+ *    operator, always truthy, so a dead branch rendered (the SSR-child
+ *    review's 33-nested-hosts measurement). Same corruption landed inside
+ *    `__aihu_stext(...)` calls (a `(` in text content) and, on ALL targets,
+ *    inside `$form`'s `setFormValue(...)`. The repro was missed at first
+ *    because the probe regex `/if \([^)]*shadowMode/` cannot cross the `)`
+ *    in `(n() > 5)` — evidence in light-scope-export.test.ts.
+ *
+ * 2. The first replacement — a bare balanced-paren count — read parens inside
+ *    string literals (`leaf('(')`), drifted, and silently bailed on
+ *    client/universal modules, stripping the injection those components need.
+ *    Hence `_matchParen`'s lexer, and the tests that pin every shape above.
  *
  * @internal
  */
@@ -157,37 +246,28 @@ export function _injectShadowMode(
   mode: 'light' | 'shadow',
   lightScopeId?: string,
 ): string {
-  // Anchor on the `))` that closes `defineElement(tag, defineComponent(setup))`.
-  //
-  // This used to be `defineComponent\([^]*\)\s*\)` — greedy, and `[^]` crosses
-  // newlines, so on a SERVER-target module it ran clean past `defineElement`
-  // and anchored on the LAST `))` in the file. For any component with an `if=`
-  // that is the emitted condition, which then became
-  // `if (n > 5, { shadowMode: "light", … })` — the comma operator, always
-  // truthy, so a dead branch rendered. Harmless-looking when it leaked one
-  // stray empty element; with child rendering it materialises the child's
-  // entire subtree (measured: 33 nested hosts from a branch that should not
-  // have run).
-  //
-  // Balanced-paren scan from the `defineComponent(` open instead. Slower than a
-  // regex and correct, which is the trade `_injectLightScopeId` already makes by
-  // using a literal replace.
   const head = /defineElement\(\s*['"][^'"]+['"]\s*,\s*defineComponent\(/.exec(code)
   if (head == null) return code
-  let depth = 1
-  let i = head.index + head[0].length
-  for (; i < code.length && depth > 0; i++) {
-    const c = code[i]
-    if (c === '(') depth++
-    else if (c === ')') depth--
+  // Index of the `(` that opens defineComponent's argument list.
+  const open = head.index + head[0].length - 1
+  const close = _matchParen(code, open)
+  if (close === -1) return code
+  const fields = `shadowMode: '${mode}'${lightScopeId ? `, lightScopeId: '${lightScopeId}'` : ''}`
+  const rest = code.slice(close + 1)
+  // Two-argument call: `defineComponent(...)` followed directly by
+  // defineElement's own `)`. Append the options object.
+  if (/^\s*\)/.test(rest)) {
+    return `${code.slice(0, close + 1)}, { ${fields} }${rest}`
   }
-  if (depth !== 0) return code
-  // `i` is now just past `defineComponent(...)`'s close. The next `)` closes
-  // defineElement; anything between is whitespace.
-  const close = code.indexOf(')', i)
-  if (close === -1 || code.slice(i, close).trim() !== '') return code
-  const scopeIdField = lightScopeId ? `, lightScopeId: '${lightScopeId}'` : ''
-  return `${code.slice(0, i)}, { shadowMode: '${mode}'${scopeIdField} })${code.slice(close + 1)}`
+  // Existing third argument (`$form`'s `, { formAssociated: true }`): merge
+  // the fields into it — unless a shadowMode is already present (idempotency).
+  const existing = /^\s*,\s*\{/.exec(rest)
+  if (existing && !/^\s*,\s*\{[^}]*\bshadowMode\b/.test(rest)) {
+    const braceEnd = close + 1 + existing[0].length
+    return `${code.slice(0, braceEnd)} ${fields},${code.slice(braceEnd)}`
+  }
+  // Unrecognized landing site (or already injected) — no-op rather than guess.
+  return code
 }
 
 /**
