@@ -187,6 +187,31 @@ Ordered so nothing is ever half-wired; 1 and 2 are dormant until 3 lands.
    `__aihu_css__` beside `__aihu_shadow__` and is inlined as `<style>` INSIDE the
    template by the helper. One emission point makes the #754 lesson — never ship
    DSD without its styles in the same template — enforceable in one place.
+
+   **SCOPED 2026-08-05, and smaller than this plan assumed — no css-engine work.**
+   The client path (`emit_style_block`, `emit.rs:139`) emits
+   `new CSSStyleSheet(); replaceSync(\`<css>\`)` from `style.content`, applying
+   NO scoping transform: a shadow component's isolation is structural, the
+   shadow root itself. The server target elides that block only because
+   `CSSStyleSheet` is a DOM dependency (`ssr_no_dom`, `emit.rs:1052`), not
+   because the CSS needs processing. So step 4 is: emit the SAME escaped string
+   as `export const __aihu_css__` on the server target, and have `__aihu_schild`
+   inline it as `<style>` inside the template. Three cautions:
+   - Light-DOM children need NOTHING here — `@scope([data-a=…])` from the app
+     stylesheet already covers them (#758). This is shadow-only.
+   - The CSS is already escaped for a JS template literal; it needs a SECOND
+     escape for HTML raw-text context. A literal `</style` in authored CSS (a
+     comment, a `content:` string) terminates the element early. `ssr.ts`'s
+     `ScriptTag` doc records the same hazard for `</script>` and the `</`
+     escaping the SEO mapper uses — follow that precedent.
+   - Utility classes inside a shadow root do not resolve from the app
+     stylesheet. That is pre-existing and orthogonal; do not try to fix it here.
+
+   **Step 4 MUST land before step 5's acceptance.** aihu.dev's `<site-header>`
+   takes the default `shadow` mode, so wiring the registry first would prerender
+   it into a styleless declarative shadow root — content painting before its CSS
+   applies, which is exactly the #754 regression this plan cites as its
+   cautionary tale.
 5. **Wire-up** — the callers build the registry: SSG via `ssrLoadModule` over
    discovered components, the Worker via a generated tag→module manifest.
    aihu.dev's `<site-header>` filling in is the acceptance test.
