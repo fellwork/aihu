@@ -14,6 +14,7 @@
       "@aihu/plugin": ["../plugin/src/index.ts"],
       "@aihu/router": ["../router/src/index.ts"],
       "@aihu/agent-service": ["../agent-service/src/index.ts"],
+      "@aihu/runtime/ssr": ["../runtime/src/ssr-string.ts"],
       "@aihu/server": ["../server/src/index.ts"],
       "@aihu/signals": ["../signals/src/index.ts"]
     }

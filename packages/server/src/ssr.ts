@@ -18,6 +18,15 @@
  *    the entry a browser/edge/Deno bundle pulls, gains nothing. Unlike
  *    `@aihu/signals` (external, because a private copy would break scope
  *    identity) the helper is pure, so a bundled copy is safe.
+ *
+ *    COST, stated plainly: every package whose tsconfig maps `@aihu/server` to
+ *    SOURCE must also map `@aihu/runtime/ssr` to source, or it fails TS2307 on
+ *    a clean tree — TypeScript replaces a base config's `paths` rather than
+ *    merging them, so this cannot be inherited from `tsconfig.base.json`. That
+ *    is 13 files today (the 12 package tsconfigs that map `@aihu/server`, plus
+ *    the root). A new package that maps `@aihu/server` and skips this will
+ *    break, and nothing derives the mapping the way `check-moon-graph.ts`
+ *    derives build edges — a gap worth closing if this pattern spreads.
  * 2. Runs in: Workers, Deno, Bun, Node ESM.
  * 3. NEVER import @aihu/context at module level — use injection slots (_setContextFns).
  * 4. NEVER import @aihu/store at module level — its registry rides @aihu/context,
