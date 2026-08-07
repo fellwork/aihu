@@ -478,6 +478,23 @@ Two items carry probe-first gates, to be reported rather than guessed:
   factory. If not, stop; the fallback needs a decision.
 - **§2** — whether the router plugin's hooks run in real Worker builds.
 
+### Scope ruling addendum (2026-08-07) — §16 is split out too
+
+**Founder ruling: §16 (minify `__aihu_css__`) leaves #778 and stacks as its own
+PR, alongside §2.** The argument that removed §2 applies to it word for word:
+
+- it ADDS new surface — `packages/css-engine` was confirmed to contain no
+  minifier, so this is "write one", not "call one";
+- a minifier's correctness surface is unbounded, and its failures are silent —
+  a semantically-wrong-but-plausible reduction corrupts styles without erroring;
+- **nothing in this repo's verification loop can catch that.** The docs-build
+  diff compares emitted HTML, and a minifier bug that produces different-but-
+  valid CSS passes it. There is no acceptance test for "the styles still mean
+  the same thing".
+
+It is also the only remaining P4 performance item in a PR that is otherwise
+correctness fixes, so it is the one piece whose absence costs nothing.
+
 ### Wave assignments
 
 File ownership is strict because the lanes run CONCURRENTLY in one worktree. No
