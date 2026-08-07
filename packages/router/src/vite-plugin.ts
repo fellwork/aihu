@@ -806,8 +806,31 @@ export function genSC(
     reachable = [...seen].sort()
   }
 
+  // Re-assert the shape AT THE SINK, on the same values that get emitted.
+  //
+  // `safe()` already checked every tag that reached `reachable`, so this cannot
+  // drop anything in practice — but it is not redundant. `safe()` validates
+  // `tag` and then the emit read `mods[t]` separately, so nothing tied the
+  // checked value to the emitted one: a reader (and CodeQL's dataflow, which
+  // flagged this as `js/bad-code-sanitization`) could not tell they were the
+  // same string, and a future edit that mutated `mods` between the walk and the
+  // emit would silently bypass the check.
+  //
+  // It matters more here than in `genC`. There the tags come from a directory
+  // walk; here they come from `deriveChildTags`, i.e. from a REGEX OVER
+  // COMPILED FILE CONTENT — an `.aihu` file's own text reaches this string
+  // concatenation, which builds JavaScript source. `JSON.stringify` does escape
+  // correctly, but "the sanitizer happens to be adequate" is weaker than "the
+  // value cannot contain anything needing escaping", and only the second is
+  // checkable at a glance. Same principle as `genC`'s codegen-boundary comment.
   const entries = reachable
-    .map((t) => `  ${JSON.stringify(t)}: () => import(${JSON.stringify(mods[t])}),`)
+    .flatMap((t) => {
+      const path = mods[t]
+      if (path === undefined || !CUSTOM_ELEMENT_TAG.test(t) || !SAFE_MODULE_PATH.test(path)) {
+        return []
+      }
+      return [`  ${JSON.stringify(t)}: () => import(${JSON.stringify(path)}),`]
+    })
     .join('\n')
 
   return `// AUTO-GENERATED\nexport default {\n${entries}\n};\n`

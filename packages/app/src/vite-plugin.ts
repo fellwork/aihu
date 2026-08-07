@@ -43,7 +43,19 @@ import {
  * renames `dist` does not silently get a `dist-server` unrelated to it.
  */
 function ssrOutDirFor(clientOutDir: string): string {
-  return `${clientOutDir.replace(/[/\\]+$/, '')}-server`
+  // Trailing separators stripped by scanning backwards, NOT by `/[/\\]+$/`.
+  // That regex is a polynomial-ReDoS sink (CodeQL js/polynomial-redos, high):
+  // the `+` is anchored at the end, so on a value ending in many separators the
+  // engine retries the quantifier from each start position — O(n^2) on input
+  // that arrives from user config (`build.outDir`). A backwards scan is O(n)
+  // and cannot backtrack at all.
+  let end = clientOutDir.length
+  while (end > 0) {
+    const ch = clientOutDir[end - 1]
+    if (ch !== '/' && ch !== '\\') break
+    end--
+  }
+  return `${clientOutDir.slice(0, end)}-server`
 }
 
 /** Build input name → `dist-server/_worker.js`. */
