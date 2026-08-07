@@ -11,6 +11,9 @@
  * own assertions rather than riding on the e2e.
  */
 
+import { existsSync, readFileSync } from 'node:fs'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import type { Plugin } from 'vite'
 import { describe, expect, it, vi } from 'vitest'
 import type { AihuAdapter } from '../src/adapter.ts'
@@ -353,12 +356,61 @@ describe('node:module stub (D-1)', () => {
     expect(stub('ssr').enforce).toBe('pre')
   })
 
+  /**
+   * What `resolveId` should hand back: the shipped stub ARTIFACT's path.
+   *
+   * Derived the same unnatural way as the plugin's own copy — see the comment
+   * there. `new URL('…', import.meta.url)` is Vite's asset-URL sugar and gets
+   * rewritten to an http: specifier under vitest.
+   */
+  const STUB_FILE = resolve(dirname(fileURLToPath(import.meta.url)), '../src/node-module-stub.js')
+
   it("intercepts node:module in the 'ssr' environment", () => {
     const r = (stub('ssr').resolveId as (i: string) => unknown).call(
       { environment: { name: 'ssr' } } as never,
       'node:module',
     )
-    expect(r).toBe('\0aihu:node-module-stub')
+    expect(r).toBe(STUB_FILE)
+  })
+
+  it('intercepts the un-prefixed `module` specifier too', () => {
+    // The prefix-strip comparison in the plugin replaced an explicit
+    // `id === 'node:module' || id === 'module'`. Both arms are still live.
+    const r = (stub('ssr').resolveId as (i: string) => unknown).call(
+      { environment: { name: 'ssr' } } as never,
+      'module',
+    )
+    expect(r).toBe(STUB_FILE)
+  })
+
+  it('does not swallow unrelated node: builtins or lookalike specifiers', () => {
+    // Prefix-strip must not widen the match: `node:fs` must stay external, and
+    // `some-module` / `node:module/x` must not be mistaken for the builtin.
+    for (const id of ['node:fs', 'node:path', 'some-module', 'node:module/x', 'modules']) {
+      const r = (stub('ssr').resolveId as (i: string) => unknown).call(
+        { environment: { name: 'ssr' } } as never,
+        id,
+      )
+      expect(r, id).toBeNull()
+    }
+  })
+
+  it('resolves to a file that actually exists — the artifact is shipped, not virtual', () => {
+    // The stub is a real build artifact (dist/node-module-stub.js, its own
+    // rolldown entry) rather than source text in a `load` hook, so that
+    // `createRequire` — which the stub cannot rename, because native.js
+    // imports that binding by name — is not string data inside @aihu/app's own
+    // bundle where `check:runtime-purity` cannot tell it from a real symbol.
+    // If this path is wrong, a consumer's SSR build fails to resolve it.
+    expect(existsSync(STUB_FILE)).toBe(true)
+  })
+
+  it('carries no node: specifier of its own — it ships into the Worker bundle', () => {
+    // The point of the stub is that the emitted worker contains NO node:
+    // builtin (workers-ssr-e2e assertion 4). A stub that named one, even in a
+    // comment, would defeat its own purpose. Also enforced in CI by the
+    // `builtin-stub` tier in scripts/check-runtime-purity.ts.
+    expect(readFileSync(STUB_FILE, 'utf8')).not.toMatch(/["'`]node:[a-z/]+/)
   })
 
   it('leaves the client environment untouched', () => {
@@ -379,12 +431,13 @@ describe('node:module stub (D-1)', () => {
     }
   })
 
-  it('throws rather than no-oping, so a future reachable call names itself', () => {
-    const src = (stub('ssr').load as (i: string) => string).call(
-      {} as never,
-      '\0aihu:node-module-stub',
-    )
-    expect(src).toContain('throw new Error')
-    expect(src).toContain('createRequire')
+  it('throws rather than no-oping, so a future reachable call names itself', async () => {
+    const mod = await import(/* @vite-ignore */ pathToFileURL(STUB_FILE).href)
+    // Named exactly as the builtin names it — native.js imports this binding.
+    expect(typeof mod.createRequire).toBe('function')
+    expect(() => mod.createRequire()).toThrow(/unavailable in the SSR \(Worker\) bundle/)
+    // …and via the default export, which is how a default-import consumer
+    // (`import module from 'node:module'`) reaches it.
+    expect(() => mod.default.createRequire()).toThrow()
   })
 })

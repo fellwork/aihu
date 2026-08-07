@@ -68,4 +68,30 @@ export default defineConfig([
     },
     plugins: [dts({ outFile: 'dist/client.d.ts' })],
   },
+  // The `node:module` stub the SSR plugin resolves to (see vite-plugin.ts,
+  // "D-1"). Its own artifact rather than a string inside the main entry: the
+  // export name is load-bearing and cannot be renamed, and carrying it as
+  // source text inside `dist/index.js` would trip `check:runtime-purity`'s
+  // token scan on data that is never imported and never executed. As a
+  // declared boundary artifact it is scanned on its own terms instead — see
+  // the `builtin-stub` tier in scripts/check-runtime-purity.ts.
+  //
+  // NOT minified and NOT source-mapped: it is ~3 lines of code, it is read by
+  // whoever is debugging a Worker bundle that unexpectedly contains it, and a
+  // `.map` sibling would be a second file to ship for no benefit.
+  //
+  // NO `external` here. The stub imports nothing, and inheriting the shared
+  // list (which externalizes /^node:/) would be actively wrong for a file
+  // whose entire job is to keep a node: builtin out of a bundle.
+  {
+    input: { 'node-module-stub': 'src/node-module-stub.js' },
+    checks: { circularDependency: true },
+    output: {
+      dir: 'dist',
+      format: 'esm',
+      sourcemap: false,
+      minify: false,
+      entryFileNames: '[name].js',
+    },
+  },
 ])

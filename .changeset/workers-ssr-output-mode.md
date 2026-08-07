@@ -43,6 +43,14 @@ Load-bearing and non-obvious: a `virtual:` id works as a build entry ONLY via
   lazy `import('./native.js')`, is unreachable at runtime (the loader
   short-circuits to the TS walker whenever `children` is passed), but is still
   uploaded and fails on workerd without `nodejs_compat`.
+  The stub ships as its OWN artifact, `dist/node-module-stub.js`, rather than as
+  source text inside a `load` hook. Its export name is fixed by the binding
+  `native.js` imports, so inlining it put that identifier into `dist/index.js`
+  as inert string data that `check:runtime-purity`'s token scan cannot tell from
+  a real symbol. The fix is a declared boundary artifact — the same shape the
+  guard already uses for `@aihu/server`'s `dist/native.js` — checked under its
+  own `builtin-stub` tier (no quoted `node:` specifier of any kind), not an
+  exception that would blind the guard to a real leak elsewhere in the plugin.
 - **D-2** — the SSR environment writes to a SIBLING of the client outDir
   (`dist` → `dist-server`). Cloudflare's ASSETS binding serves the client outDir
   verbatim; SSR chunks written there are downloadable server code.
