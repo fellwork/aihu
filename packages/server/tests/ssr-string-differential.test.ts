@@ -590,6 +590,38 @@ describe.skipIf(!hasBinary)('SSR string fast path — resolved child components'
     expect(html).not.toContain('<nav class="kid"')
   })
 
+  it('a shadow child carries its own compiled CSS into the template (step 4)', async () => {
+    // The end-to-end join: the compiler exports __aihu_css__, and the helper
+    // inlines it inside the declarative template. Asserted through the REAL
+    // pipeline rather than a hand-built module, because the failure mode is the
+    // two halves not meeting — an export nothing reads, or a reader with
+    // nothing to read.
+    const parent = await compileToModule('diff-parent-css', PARENT)
+    const kid = await compileToModule(
+      'diff-kid-css',
+      `@template {
+  <nav class="kid"><span>nav</span></nav>
+}
+
+@style {
+  .kid { color: red; }
+}
+`,
+    )
+    expect((kid.mod as unknown as { __aihu_css__?: string }).__aihu_css__).toContain('color: red')
+
+    const children = new Map([['x-kid', { ...kid.mod, __aihu_shadow__: 'shadow' }]])
+    await expectByteIdentityWithChildren(parent.mod, children)
+
+    const html = (parent.mod.__ssrString as (p: unknown, o?: unknown) => string)(
+      {},
+      { hydratable: true, children },
+    )
+    // Styles INSIDE the template and ahead of the content — without that, the
+    // prerendered subtree paints unstyled until the chunk loads (#754).
+    expect(html).toContain('<template shadowrootmode="open"><style>.kid { color: red; }</style>')
+  })
+
   it('no registry at all is byte-identical to the pre-resolution renderer', async () => {
     // The safety property that lets 3a/3b/3c ship ahead of the callers that
     // populate the registry: every existing site renders exactly as before.

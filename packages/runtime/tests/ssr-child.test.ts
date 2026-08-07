@@ -193,3 +193,68 @@ describe('recursion', () => {
     expect(out).toContain('<site-header>')
   })
 })
+
+describe('shadow child styles (step 4)', () => {
+  const styled = (css: string): SsrChildModule => ({
+    __ssrString: () => '<nav class="kid">n</nav>',
+    __aihu_shadow__: 'shadow',
+    __aihu_css__: css,
+  })
+
+  it('inlines the CSS inside the template, ahead of the content', () => {
+    // Not cosmetic ordering: a shadow root is style-isolated, so a declarative
+    // one whose CSS lives outside it paints unstyled until the component's
+    // chunk loads — the #754 regression, content rendering ahead of its scoped
+    // CSS. Emitting the tree without the styles trades an empty header for a
+    // broken one.
+    const out = __aihu_schild('site-header', '', {
+      hydratable: true,
+      children: registry(styled('.kid{color:red}')),
+    })
+    expect(out).toBe(
+      '<site-header data-aihu-ssr=""><template shadowrootmode="open"><style>.kid{color:red}</style><nav class="kid">n</nav></template></site-header>',
+    )
+  })
+
+  it('emits no <style> when the module carries no CSS', () => {
+    const out = __aihu_schild('site-header', '', { children: registry(shadowChild()) })
+    expect(out).not.toContain('<style>')
+  })
+
+  it('a light-DOM child ignores __aihu_css__ entirely', () => {
+    // Light-DOM rules arrive through the app stylesheet's @scope([data-a=…])
+    // blocks (#758); inlining a <style> here would duplicate them into the
+    // document at every reference site.
+    const mod: SsrChildModule = {
+      __ssrString: () => '<nav>n</nav>',
+      __aihu_shadow__: 'light',
+      __aihu_css__: '.kid{color:red}',
+    }
+    const out = __aihu_schild('site-header', '', { children: registry(mod) })
+    expect(out).not.toContain('<style>')
+    expect(out).toBe('<site-header><nav>n</nav></site-header>')
+  })
+
+  it('escapes </style in a CSS comment so the element cannot close early', () => {
+    // <style> is RAW TEXT — no entities, and the only terminator is the literal
+    // `</style`. Unescaped, the rest of the stylesheet would spill into the
+    // document as markup.
+    const out = __aihu_schild('site-header', '', {
+      children: registry(styled('/* </style> */ .a{}')),
+    })
+    expect(out).not.toContain('</style> */')
+    expect(out).toContain('<\\/style>')
+    // Exactly one real closing tag: the one this helper wrote.
+    expect(out.match(/<\/style>/g)?.length).toBe(1)
+  })
+
+  it('escapes </style inside a CSS string, where it still renders correctly', () => {
+    // `\/` is a valid CSS escape for `/` inside a string, so the authored
+    // `content: "</style>"` still produces `</style>` at paint time.
+    const out = __aihu_schild('site-header', '', {
+      children: registry(styled('.a{content:"</style>"}')),
+    })
+    expect(out).toContain('content:"<\\/style>"')
+    expect(out.match(/<\/style>/g)?.length).toBe(1)
+  })
+})
