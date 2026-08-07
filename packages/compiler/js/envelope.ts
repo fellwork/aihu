@@ -45,6 +45,7 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { type CompilerNativeState, loadCompilerNative, nativePlatformDescriptor } from './native.ts'
 import { resolveCompilerBinary } from './resolve-binary.ts'
+import { compileSpawnBounds, describeSpawnFailure } from './spawn-bounds.ts'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -321,9 +322,20 @@ export function _compileViaBackend(
     const envelope = JSON.parse(backend.compileEnvelope(source, optionsJson)) as CompileEnvelope
     return { kind: 'envelope', envelope }
   }
-  const stdout = execFileSync(resolveSpawnBinPath(), [...legacyArgs, '--envelope', optionsJson], {
-    input: source,
-    encoding: 'utf8',
-  })
+  // Bounded — an unbounded spawn here is the hang that left two
+  // `aihu-compile --stdin` children alive for 2.5 days. See spawn-bounds.ts.
+  const bin = resolveSpawnBinPath()
+  const spawnArgs = [...legacyArgs, '--envelope', optionsJson]
+  const startedAt = Date.now()
+  let stdout: string
+  try {
+    stdout = execFileSync(bin, spawnArgs, {
+      input: source,
+      encoding: 'utf8',
+      ...compileSpawnBounds(source.length),
+    })
+  } catch (err) {
+    throw describeSpawnFailure(err, bin, spawnArgs, source.length, Date.now() - startedAt) ?? err
+  }
   return parseEnvelopeReply(stdout)
 }

@@ -58,6 +58,75 @@ Worker would bundle every component's server artifact, so the transitive
 `__aihu_child_tags__` walk earns its keep in that path even though SSG does not
 need it.
 
+#### §2 PROBED (2026-08-07): the premise is wrong on all three consumers
+
+The gate ("do the router plugin's hooks run in a real Worker build?") has two
+answers, and the split between them is the finding.
+
+**In a Vite SSR environment: YES.** Observed by building a minimal SSR bundle —
+`resolveId`/`load` both fire with `env=ssr`. Nothing gates the plugin (no
+`apply`, no `enforce`, no environment check). The emitted registry code-splits
+each loader into its own chunk, which in a Worker is still uploaded — so the
+"load ALL is the wrong trade here" note is confirmed by observation.
+
+**In fellwork-web's actual production Worker: NO — Vite never touches it.**
+`wrangler.toml` has `main = "src/main.ts"` (source, not a build artifact) and
+the deploy runs `wrangler deploy`, so wrangler's own esbuild bundles the
+Worker. `@cloudflare/vite-plugin` is in the plugin list but emits no worker
+artifact. **And wrangler's esbuild cannot compile `.aihu` at all**, so there is
+no seam into that pipeline — not a virtual module, not a generated file.
+
+Three further facts, each independently fatal to the §2 text above:
+
+1. **fellwork never reaches `packages/router/src/server.ts`.** Its Worker
+   imports `createRequestRouter` (`packages/server/src/router.ts`), which
+   contains no `renderToString`. `createServerRouter` appears nowhere in
+   fellwork's source. Its SSR handlers hand-build HTML; the one
+   `renderToString` call is on a hand-constructed branch/leaf tree, never a
+   compiled component, so `__aihu_schild` never runs.
+2. **`@aihu/adapter-cloudflare` is a declared dependency of fellwork-web and
+   never imported.**
+3. **Neither adapter can consume a virtual module even in principle.** Both
+   emit their entry as a RAW STRING at `closeBundle` (`packages/app/src/vite-plugin.ts:70-75`),
+   so the text never enters Vite's module graph and a `virtual:` specifier in
+   it is an unresolvable bare import. They also wire `createRequestRouter`, and
+   every route gets a `notFound` placeholder — **neither adapter renders
+   anything today.** They ship empty children by not rendering.
+
+So "adapter-cloudflare, adapter-vercel and fellwork.com still ship empty
+children" was true only in the trivial sense. **§2 has no consumer that could
+accept it.**
+
+**A constraint the plan did not account for.** The transitive walk wants
+`__aihu_child_tags__` (render edges), but that is a MODULE EXPORT, readable
+only after loading the module. `genC` runs at codegen time and cannot load
+anything — today it derives edges from `readAihuLayoutComponents`, a source
+REGEX over `@template` whose semantics match `__aihu_referenced_tags__` (every
+reference site) rather than the render edges. `buildChildRegistry` can use the
+real export only because SSG hands it already-loaded modules. Options: a
+compiler-written sidecar (clean, new surface); an async `genC` doing
+`ssrLoadModule` (pulls SSG's cost model into the plugin); or accept the
+source-scan superset (over-bundles vs ideal, still far better than
+load-everything, matches what `genC` already ships). **Do NOT substitute
+`__aihu_referenced_tags__`** — it deliberately includes references the emitter
+declined, which `__aihu_schild` can never look up.
+
+**Re-scoped into three:**
+- **§2a — forward `children` in `server.ts`.** Small, additive, unit-testable,
+  byte-identical when omitted. Land it; do not claim it fixes fellwork.
+- **§2b — a server-target virtual module (`virtual:aihu-server-components`,
+  NOT the client one) plus a Vite-worker-environment example in `examples/`.**
+  The example is what makes §2 verifiable at all. Own PR.
+- **§2c — not aihu's work.** fellwork-web would have to move its Worker onto
+  the `@cloudflare/vite-plugin` worker environment and adopt
+  `createServerRouter` first. Its `import.meta.env` guards exist *because* the
+  Worker is esbuild-bundled, so that migration carries its own risk.
+
+Secondary: there are now THREE tag derivations (Rust `collect_component_tags` →
+`__aihu_child_tags__`; `__aihu_referenced_tags__`; the router's
+`readAihuLayoutComponents` regex). That is a §7a-shaped divergence §7a did not
+close, and §2b would make it load-bearing on the server.
+
 ### 3. No unresolved-tag diagnostic
 
 `discoverComponents` scans exactly one directory (`dir.components`). A component

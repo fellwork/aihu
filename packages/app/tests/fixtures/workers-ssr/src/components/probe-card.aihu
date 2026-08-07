@@ -1,0 +1,6 @@
+@template {
+  <section>
+    <span>CARD-OK</span>
+    <probe-inner />
+  </section>
+}

@@ -19,6 +19,7 @@ interface VitePlugin {
 const RR = '\0virtual:aihu-routes'
 const LR = '\0virtual:aihu-layouts'
 const CR = '\0virtual:aihu-components'
+const SCR = '\0virtual:aihu-server-components'
 
 export interface RouterPluginOptions {
   pagesDir?: string
@@ -36,6 +37,18 @@ export interface RouterPluginOptions {
    * to reading `name`+`layout` from the `@route` block via regex.
    */
   compileRouteMeta?: (source: string, id: string) => RouteSidecar | null
+  /**
+   * Build-time child-tag derivation — `@aihu/compiler`'s `_deriveChildTags`
+   * applied to the SERVER-target compile of an SFC. Wired by `@aihu/app`
+   * (which pairs the compiler + router plugins), exactly like
+   * `compileRouteMeta` above and for the same reason: the router keeps zero
+   * compiler dependency.
+   *
+   * Consumed ONLY by `genSC` (`virtual:aihu-server-components`). When absent,
+   * `genSC` cannot prune and falls back to the whole component directory with
+   * a warning — see its docblock.
+   */
+  deriveChildTags?: (source: string, id: string) => string[]
 }
 
 /** Fields from a .route.json compiler sidecar (v0.6.3). */
@@ -655,6 +668,174 @@ export function genC(d: string): string {
   return `// AUTO-GENERATED\nconst __m = {\n${loaders}\n};\nexport default {\n${entries}\n};\n`
 }
 
+/**
+ * Generate `virtual:aihu-server-components` — the SERVER-side child registry
+ * source, for `output: 'ssr'` builds.
+ *
+ * A FLAT `{ tag: () => import(path) }` map, deliberately not `genC`'s shape.
+ * `genC` emits a TRANSITIVE bundle per tag (`() => Promise.all([…])`) because
+ * its consumer registers custom elements as a side effect and only needs "load
+ * everything reachable from this one". The server consumer is
+ * `buildChildRegistry`, which indexes tag → MODULE: it has to be able to name
+ * every module individually, and a `Promise.all` of side-effect imports has no
+ * tag to index by and no module to hand back.
+ *
+ * REACHABILITY, not "every component". The walk starts at the PAGES and follows
+ * `__aihu_child_tags__` edges — the tags the compiled string renderer will
+ * actually look up — via the injected `deriveChildTags`. Three derivations were
+ * measured on a fixture that separates the sets (a leaf, a nested child, an
+ * orphan no page reaches, and a reference the emitter DECLINES because it
+ * carries an attribute):
+ *
+ *   | derivation                                    | modules bundled |
+ *   |-----------------------------------------------|-----------------|
+ *   | every component (what the SSG path does)       | 4               |
+ *   | source regex (`readAihuLayoutComponents`)      | 3               |
+ *   | `__aihu_child_tags__` render edges (this)      | 2               |
+ *
+ * The source regex pulls in the attribute-bearing component, which
+ * `__aihu_schild` can never look up — confirmed empty in the rendered HTML
+ * while its module was in the bundle. Upload weight for zero benefit, and
+ * upload weight is the currency on a Worker.
+ *
+ * ACCEPTED TRADE, stated because it is real: a pruned registry sees only the
+ * subgraph reachable from the pages, so `buildChildRegistry`'s cycle check
+ * loses the GLOBAL view its docblock describes. A cycle among components no
+ * page reaches goes unreported. That is the correct trade for a Worker — the
+ * cycle report is advisory (`ChildCycle` documents at length why it warns
+ * rather than throws), `__aihu_schild` is depth- and budget-bounded at render
+ * time, and an unreachable cycle cannot affect a response. The SSG path still
+ * loads everything and still gets the global check.
+ *
+ * `deriveChildTags` ABSENT (standalone `viteRouterIntegration` with no compiler
+ * wired) falls back to the whole component directory and warns. Emitting an
+ * empty registry instead would be the silently-empty-children failure again,
+ * one layer up.
+ *
+ * Exported for tests.
+ */
+export function genSC(
+  pageFiles: ReadonlyArray<string>,
+  componentsDir: string,
+  deriveChildTags?: (source: string, id: string) => string[],
+  /**
+   * Layout files, walked as ROOTS alongside the pages.
+   *
+   * Layouts are where a site's nav, header and footer live, and
+   * `@aihu/router/server` now composes them into every live SSR response.
+   * Rooting the walk at pages alone excluded every component a layout
+   * references, so the shell would server-render with all of them as empty
+   * elements — this module's own failure mode, relocated into the part of the
+   * page that appears on EVERY route.
+   *
+   * Defaulted to empty so the pre-layout call shape keeps its exact behaviour.
+   */
+  layoutFiles: ReadonlyArray<string> = [],
+): string {
+  const mods = scanComponents(componentsDir)
+
+  // Same codegen-boundary validation as `genC`: everything below is
+  // concatenated into JavaScript SOURCE from values read off disk. See
+  // CUSTOM_ELEMENT_TAG / SAFE_MODULE_PATH for why this is a shape check and
+  // not a trust-the-escaping.
+  const safe = (tag: string): boolean => {
+    const path = mods[tag]
+    if (path === undefined) return false
+    if (!CUSTOM_ELEMENT_TAG.test(tag)) {
+      console.warn(
+        `[aihu-router] skipping server component "${tag}" (${path}): not a valid ` +
+          `custom-element tag — must be lowercase [a-z0-9-] and contain a hyphen.`,
+      )
+      return false
+    }
+    if (!SAFE_MODULE_PATH.test(path)) {
+      console.warn(
+        `[aihu-router] skipping server component "${tag}": module path contains a quote, ` +
+          `backslash, or line terminator (${JSON.stringify(path)}).`,
+      )
+      return false
+    }
+    return true
+  }
+
+  /** Child tags of one SFC file, or `[]` for a non-SFC route (a .ts page). */
+  const edges = (file: string): ReadonlyArray<string> => {
+    if (deriveChildTags === undefined || !file.endsWith('.aihu')) return []
+    let source: string
+    try {
+      source = readFileSync(file, 'utf8')
+    } catch {
+      return []
+    }
+    // Deliberately NOT swallowed. A compile failure here is a compile failure
+    // of a file the build is about to compile anyway; reporting it as "this
+    // component has no children" would prune the registry silently, which is
+    // the failure mode this module exists to avoid.
+    return deriveChildTags(source, file)
+  }
+
+  let reachable: string[]
+  if (deriveChildTags === undefined) {
+    console.warn(
+      '[aihu-router] virtual:aihu-server-components was generated WITHOUT a ' +
+        '`deriveChildTags` option, so the reachable-subgraph walk cannot run — falling back ' +
+        'to every component under the components dir. The server bundle will carry modules ' +
+        'no page references. Wire the router through `viteAihuPlugin` (@aihu/app), which ' +
+        'injects it from @aihu/compiler.',
+    )
+    reachable = Object.keys(mods).filter(safe).sort()
+  } else {
+    const seen = new Set<string>()
+    // Roots are the PAGES and the LAYOUTS, not the components — rooting at the
+    // components is what would keep an orphan; rooting only at the pages is
+    // what would drop the site chrome.
+    const stack: string[] = []
+    for (const page of pageFiles) stack.push(...edges(page))
+    for (const layout of layoutFiles) stack.push(...edges(layout))
+    while (stack.length > 0) {
+      const tag = stack.pop() as string
+      if (seen.has(tag)) continue
+      // A tag the components dir does not claim is an edge out of the graph —
+      // a globally-registered third-party element, or a component living
+      // elsewhere. Terminate rather than error: `__aihu_schild` already fails
+      // closed on an unresolved tag.
+      if (!safe(tag)) continue
+      seen.add(tag)
+      stack.push(...edges(mods[tag] as string))
+    }
+    reachable = [...seen].sort()
+  }
+
+  // Re-assert the shape AT THE SINK, on the same values that get emitted.
+  //
+  // `safe()` already checked every tag that reached `reachable`, so this cannot
+  // drop anything in practice — but it is not redundant. `safe()` validates
+  // `tag` and then the emit read `mods[t]` separately, so nothing tied the
+  // checked value to the emitted one: a reader (and CodeQL's dataflow, which
+  // flagged this as `js/bad-code-sanitization`) could not tell they were the
+  // same string, and a future edit that mutated `mods` between the walk and the
+  // emit would silently bypass the check.
+  //
+  // It matters more here than in `genC`. There the tags come from a directory
+  // walk; here they come from `deriveChildTags`, i.e. from a REGEX OVER
+  // COMPILED FILE CONTENT — an `.aihu` file's own text reaches this string
+  // concatenation, which builds JavaScript source. `JSON.stringify` does escape
+  // correctly, but "the sanitizer happens to be adequate" is weaker than "the
+  // value cannot contain anything needing escaping", and only the second is
+  // checkable at a glance. Same principle as `genC`'s codegen-boundary comment.
+  const entries = reachable
+    .flatMap((t) => {
+      const path = mods[t]
+      if (path === undefined || !CUSTOM_ELEMENT_TAG.test(t) || !SAFE_MODULE_PATH.test(path)) {
+        return []
+      }
+      return [`  ${JSON.stringify(t)}: () => import(${JSON.stringify(path)}),`]
+    })
+    .join('\n')
+
+  return `// AUTO-GENERATED\nexport default {\n${entries}\n};\n`
+}
+
 /** v0.7.2: File-convention middleware discovered alongside routes. */
 export interface MiddlewareScan {
   /** Route files (non-underscore page files). */
@@ -702,7 +883,8 @@ export function viteRouterPlugin(opts?: RouterPluginOptions): VitePlugin {
   let root = process.cwd(),
     cr: string | null = null,
     cl: string | null = null,
-    cc: string | null = null
+    cc: string | null = null,
+    csc: string | null = null
   return {
     name: 'aihu-router',
     resolveId: (id) =>
@@ -712,7 +894,9 @@ export function viteRouterPlugin(opts?: RouterPluginOptions): VitePlugin {
           ? LR
           : id === 'virtual:aihu-components'
             ? CR
-            : null,
+            : id === 'virtual:aihu-server-components'
+              ? SCR
+              : null,
     load(id) {
       if (id === RR) {
         if (!cr) {
@@ -724,6 +908,16 @@ export function viteRouterPlugin(opts?: RouterPluginOptions): VitePlugin {
       }
       if (id === LR) return (cl ??= genL(resolve(root, ld)))
       if (id === CR) return (cc ??= genC(resolve(root, cd)))
+      if (id === SCR) {
+        return (csc ??= genSC(
+          scanPages(root, pd).routes,
+          resolve(root, cd),
+          opts?.deriveChildTags,
+          // Layout FILES, not the tag map: `genSC` walks source for child-tag
+          // edges, and the layouts are roots of that walk (see its docblock).
+          Object.values(scanLayouts(resolve(root, ld))),
+        ))
+      }
       return null
     },
     configureServer(server) {
@@ -761,17 +955,42 @@ export function viteRouterPlugin(opts?: RouterPluginOptions): VitePlugin {
             cc = null
           },
           CR,
+        ),
+        // `virtual:aihu-server-components` is reachability-walked from the
+        // PAGES and the LAYOUTS over the COMPONENTS, so it is the one virtual
+        // module a change in any of the three directories can invalidate —
+        // hence three entries, not one.
+        iscp = mk(
+          pa,
+          () => {
+            csc = null
+          },
+          SCR,
+        ),
+        iscc = mk(
+          ca,
+          () => {
+            csc = null
+          },
+          SCR,
+        ),
+        iscl = mk(
+          la,
+          () => {
+            csc = null
+          },
+          SCR,
         )
-      server.watcher.on('add', (p) => {
+      const invalidateAll = (p: string): void => {
         ir(p)
         il(p)
         ic(p)
-      })
-      server.watcher.on('unlink', (p) => {
-        ir(p)
-        il(p)
-        ic(p)
-      })
+        iscp(p)
+        iscc(p)
+        iscl(p)
+      }
+      server.watcher.on('add', invalidateAll)
+      server.watcher.on('unlink', invalidateAll)
     },
   }
 }

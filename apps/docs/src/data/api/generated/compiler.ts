@@ -38,6 +38,13 @@ export const EXPORTS: readonly ApiExport[] = [
     summary: 'Run one compile through the active backend.',
   },
   {
+    name: '_deriveChildTags',
+    kind: 'function',
+    signature: 'function _deriveChildTags(compiledCode: string): string[]',
+    summary:
+      "Derive the `__aihu_child_tags__` set from SERVER-TARGET compiled code: the tags the compiled string renderer will actually look up, read off the `__aihu_schild('<tag>'` call sites the Rust codegen emitted.",
+  },
+  {
     name: '_foldCssEngineStyles',
     kind: 'function',
     signature: 'function _foldCssEngineStyles(compiledCode: string, css: string): string',

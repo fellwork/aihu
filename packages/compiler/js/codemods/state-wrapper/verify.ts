@@ -23,6 +23,7 @@ import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { dirname, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { compileSpawnBounds } from '../../spawn-bounds.ts'
 
 /** Escape every regex-special char, not just `$` — the identifiers this
  * escapes (getter/setter/binding names) never actually contain a
@@ -50,6 +51,9 @@ function compile(source: string, relPath: string): { js: string; err: string } {
       input: source,
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'pipe'],
+      // Bounded — this codemod verifier walks every .aihu in the repo, so one
+      // wedged child would stall the whole run silently. See spawn-bounds.ts.
+      ...compileSpawnBounds(source.length),
     })
     return { js, err: '' }
   } catch (e) {

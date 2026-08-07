@@ -1,4 +1,9 @@
-export type { AdapterContext, AihuAdapter, CreateHandlerSourceOptions } from './adapter.ts'
+export type {
+  AdapterContext,
+  AihuAdapter,
+  CreateHandlerSourceOptions,
+  ServerEntryContext,
+} from './adapter.ts'
 export type {
   AgentReadinessConfig,
   AihuConfig,

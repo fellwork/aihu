@@ -1,0 +1,12 @@
+@route {
+  name: "probe-page"
+  layout: "app"
+}
+
+@template {
+  <main>
+    <h1>probe page</h1>
+    <probe-card />
+    <probe-attr city="London" />
+  </main>
+}

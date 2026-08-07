@@ -15,6 +15,13 @@
  * built with platform:'node' so its createRequire survives a downstream
  * re-bundle).
  *
+ * The mirror-image boundary is @aihu/app's dist/node-module-stub.js: the file
+ * substituted FOR that builtin in a Worker bundle. It has to declare the
+ * builtin's export names, so it is checked under its own `builtin-stub` tier
+ * (no quoted `node:` specifier of any kind) rather than by carving the
+ * createRequire token out of some other entry's scan. Both are declared
+ * artifacts with a stated contract; neither is an exception.
+ *
  * Exit codes:
  *   0  all checked entries are node:-builtin-free
  *   1  one or more entries leak a node: builtin (or a checked file is missing)
@@ -59,8 +66,16 @@ interface Entry {
    *   Vite plugin): general node: builtins (node:fs, node:path) are legitimate,
    *   but the createRequire / node:module leak vector is STILL forbidden so the
    *   regression class can never reappear here either.
+   * 'builtin-stub' — a declared REPLACEMENT for a node: builtin, bundled into
+   *   an edge/Worker output in that builtin's place. Its whole job is to
+   *   declare the builtin's export names, so the createRequire identifier is
+   *   permitted here and ONLY here; every quoted node: specifier is forbidden,
+   *   which is the strictness that actually matters for a file destined for
+   *   workerd. Same species of narrow, named boundary as
+   *   packages/server/dist/native.js — an artifact with a stated contract, not
+   *   an exception carved into another entry's scan.
    */
-  readonly tier: 'browser-edge' | 'build-time-node'
+  readonly tier: 'browser-edge' | 'build-time-node' | 'builtin-stub'
 }
 
 /**
@@ -78,7 +93,36 @@ const CHECKED_ENTRIES: ReadonlyArray<Entry> = [
   // / node:path are legitimate here; only the createRequire leak vector is
   // forbidden.
   { file: 'packages/app/dist/index.js', tier: 'build-time-node' },
+  // The `node:module` stub @aihu/app's SSR plugin substitutes for the builtin
+  // in the Worker bundle. It must DECLARE `createRequire` (the built
+  // native.js imports that binding by name), so the leak vector cannot apply;
+  // it is scanned instead for any quoted node: specifier, which is the
+  // property a file bundled into workerd has to hold.
+  { file: 'packages/app/dist/node-module-stub.js', tier: 'builtin-stub' },
 ]
+
+/**
+ * What each tier is scanned FOR. A total record rather than a ternary so a new
+ * tier is a compile error here instead of silently inheriting whichever branch
+ * happened to be the `else`.
+ *
+ * 'builtin-stub' shares 'browser-edge''s pattern set but not its rationale: the
+ * stub is ALLOWED the createRequire identifier — declaring it is the entire
+ * point of the artifact — and forbidden every quoted node: specifier, which is
+ * the property a file bundled into workerd actually has to hold.
+ */
+const PATTERNS_BY_TIER: Readonly<Record<Entry['tier'], ReadonlyArray<RegExp>>> = {
+  'browser-edge': [ANY_NODE_BUILTIN],
+  'build-time-node': LEAK_VECTOR,
+  'builtin-stub': [ANY_NODE_BUILTIN],
+}
+
+/** Human-readable statement of what a PASS on each tier actually asserts. */
+const SCOPE_BY_TIER: Readonly<Record<Entry['tier'], string>> = {
+  'browser-edge': 'no node: builtins',
+  'build-time-node': 'no createRequire/node:module leak',
+  'builtin-stub': 'no node: builtins (declared builtin replacement)',
+}
 
 type ScanResult =
   | { file: string; ok: true; tier: Entry['tier'] }
@@ -91,7 +135,7 @@ function scan(entry: Entry): ScanResult {
     return { file: entry.file, missing: true }
   }
   const src = readFileSync(abs, 'utf8')
-  const patterns = entry.tier === 'browser-edge' ? [ANY_NODE_BUILTIN] : LEAK_VECTOR
+  const patterns = PATTERNS_BY_TIER[entry.tier]
   const hits = new Set<string>()
   for (const re of patterns) {
     for (const m of src.matchAll(re)) hits.add(m[0])
@@ -113,8 +157,7 @@ function main(): void {
       continue
     }
     if (result.ok) {
-      const scope =
-        result.tier === 'browser-edge' ? 'no node: builtins' : 'no createRequire/node:module leak'
+      const scope = SCOPE_BY_TIER[result.tier]
       // eslint-disable-next-line no-console
       console.log(`PURE   ${result.file} [${result.tier}] — ${scope}`)
       continue
@@ -132,9 +175,11 @@ function main(): void {
       `\nruntime-purity check FAILED.\n` +
         (offences.length > 0
           ? `  ${offences.length} entr${offences.length === 1 ? 'y' : 'ies'} leak a forbidden token into a runtime/browser/edge bundle.\n` +
-            `  browser-edge entries must be fully node:-free; ALL entries must be free of the\n` +
-            `  createRequire / node:module leak vector. The only artifact allowed to carry\n` +
-            `  node:module is packages/server/dist/native.js (the @aihu/server/native boundary).\n` +
+            `  browser-edge and builtin-stub entries must be fully node:-free; build-time-node\n` +
+            `  entries must be free of the createRequire / node:module leak vector. The only\n` +
+            `  artifact allowed to carry node:module is packages/server/dist/native.js (the\n` +
+            `  @aihu/server/native boundary); the only one allowed to declare createRequire is\n` +
+            `  packages/app/dist/node-module-stub.js (the Worker-bundle builtin replacement).\n` +
             `  See investigation 4a796a8f-0f2b-4865-a498-73cf11b6f04c.\n`
           : '') +
         (missing.length > 0
@@ -147,7 +192,7 @@ function main(): void {
   // eslint-disable-next-line no-console
   console.log(
     `\nruntime-purity PASS — ${CHECKED_ENTRIES.length} runtime/browser/edge entries clean ` +
-      `(browser-edge: node:-free; build-time-node: createRequire/node:module-free).`,
+      `(browser-edge + builtin-stub: node:-free; build-time-node: createRequire/node:module-free).`,
   )
 }
 

@@ -5,6 +5,7 @@ layer: library
 dependsOn:
   - 'agent-service'
   - 'context'
+  - 'runtime'
   - 'server'
   - 'signals'
 tasks:

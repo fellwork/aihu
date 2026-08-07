@@ -74,6 +74,12 @@ export type { RouteHead, RouteHeadLowerOptions } from './head-lowering.ts'
 export { routeHeadToSsrHead } from './head-lowering.ts'
 export { renderToString } from './loader.ts'
 export { composeMiddleware, defineMiddleware } from './middleware.ts'
+// Layout ↔ page composition, shared by the SSG prerender and the live SSR
+// router so the two render paths cannot drift.
+export { injectIntoOutlet } from './outlet.ts'
+// The per-request platform context (Worker bindings and friends), threaded
+// from the adapter's `fetch` into loaders and the governed data path.
+export type { PlatformContext } from './platform.ts'
 export type {
   Route,
   RouteInput,

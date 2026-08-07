@@ -9,6 +9,7 @@ import { execFileSync } from 'node:child_process'
 import { basename } from 'node:path'
 import { _backendStampPath, _compileViaBackend } from './envelope.ts'
 import { resolveCompilerBinary } from './resolve-binary.ts'
+import { compileSpawnBounds, describeSpawnFailure } from './spawn-bounds.ts'
 import { _memoizedSpawn, _seedMemo } from './transform-memo.ts'
 
 export type { CompileEnvelope, CompileEnvelopeOptions } from './envelope.ts'
@@ -368,6 +369,46 @@ export function _parseIslandMarker(compiledCode: string): 'static' | 'interactiv
 export function _parseComponentTagsMarker(compiledCode: string): string[] {
   const m = /^\/\/ @aihu:component-tags (.+)$/m.exec(compiledCode)
   return m === null ? [] : (m[1] as string).split(',')
+}
+
+/**
+ * Derive the `__aihu_child_tags__` set from SERVER-TARGET compiled code: the
+ * tags the compiled string renderer will actually look up, read off the
+ * `__aihu_schild('<tag>'` call sites the Rust codegen emitted. Deduped, sorted.
+ *
+ * THE one derivation, deliberately. There are two consumers:
+ *
+ *   1. `aihuCompilerPlugin`'s transform, which turns the result into the
+ *      `export const __aihu_child_tags__` a compiled module carries.
+ *   2. `@aihu/router`'s `genSC`, which needs the SAME edge set at CODEGEN
+ *      time — before any module exists to read an export off — to walk from
+ *      the pages out to the components the server bundle must actually carry.
+ *
+ * `genSC` reaching for this instead of re-deriving is the whole point. The
+ * `__aihu_referenced_tags__` docblock below spends a paragraph arguing that
+ * deriving the runtime edge set a second way would be "one rule written in two
+ * places, and the halves would drift the first time a boundary moved" — and
+ * that argument does not stop applying because the second site happens to live
+ * in another package. `readAihuLayoutComponents` (the source regex) is a THIRD,
+ * differently-defined set and is not a substitute: it counts references the
+ * emitter DECLINES (an attribute, children, a dynamic path), which produce no
+ * call site, so `__aihu_schild` can never look them up. Measured on a
+ * three-way fixture, it bundled a module whose rendered output was empty.
+ *
+ * Takes compiled code, not a source string: a caller with only source runs
+ * `transform(src, id, { target: 'server' }).code` first — which is memoized, so
+ * a file already compiled in this process costs a map lookup. Client- and
+ * universal-target output carries no `__aihu_schild` call sites at all and
+ * yields `[]`, which is correct: there is no server render to feed.
+ *
+ * @internal
+ */
+export function _deriveChildTags(compiledCode: string): string[] {
+  return [
+    ...new Set(
+      Array.from(compiledCode.matchAll(/__aihu_schild\('([^']+)'/g), (m) => m[1] as string),
+    ),
+  ].sort()
 }
 
 /**
@@ -798,11 +839,21 @@ export function transform(
   // Vite build path never passes it, so the SSG double-compile still fully
   // hits.
   if (options?.sidecarOut) {
-    const code = execFileSync(resolveBinPath(), args, {
-      input: source,
-      encoding: 'utf8',
-    })
-    return { code, map: null }
+    // Bounded — an unbounded spawn here is the hang that left two
+    // `aihu-compile --stdin` children alive for 2.5 days. See spawn-bounds.ts.
+    const bin = resolveBinPath()
+    const startedAt = Date.now()
+    try {
+      const code = execFileSync(bin, args, {
+        input: source,
+        encoding: 'utf8',
+        ...compileSpawnBounds(source.length),
+      })
+      return { code, map: null }
+    } catch (err) {
+      const described = describeSpawnFailure(err, bin, args, source.length, Date.now() - startedAt)
+      throw described ?? err
+    }
   }
   // Memo key: everything that shapes the emitted code. `id` is hashed
   // separately; the fingerprint carries the explicit options (`tag` covers the
@@ -1251,15 +1302,24 @@ export function compileSidecar(
   if (options?.target) {
     args.push('--target', options.target)
   }
-  return execFileSync(resolveBinPath(), args, {
-    input: source,
-    encoding: 'utf8',
-    // Capture stderr rather than inheriting it: the compiler's warnings (unhyphenated
-    // tag names, undeclared cross-block refs) belong to `aihu build`, and would
-    // otherwise interleave with the type diagnostics a caller is trying to read.
-    // A hard compile failure still throws, carrying the message with it.
-    stdio: ['pipe', 'pipe', 'pipe'],
-  })
+  // Bounded — an unbounded spawn here is the hang that left two
+  // `aihu-compile --stdin` children alive for 2.5 days. See spawn-bounds.ts.
+  const bin = resolveBinPath()
+  const startedAt = Date.now()
+  try {
+    return execFileSync(bin, args, {
+      input: source,
+      encoding: 'utf8',
+      // Capture stderr rather than inheriting it: the compiler's warnings (unhyphenated
+      // tag names, undeclared cross-block refs) belong to `aihu build`, and would
+      // otherwise interleave with the type diagnostics a caller is trying to read.
+      // A hard compile failure still throws, carrying the message with it.
+      stdio: ['pipe', 'pipe', 'pipe'],
+      ...compileSpawnBounds(source.length),
+    })
+  } catch (err) {
+    throw describeSpawnFailure(err, bin, args, source.length, Date.now() - startedAt) ?? err
+  }
 }
 
 export function compileToAst(source: string, id?: string): SfcAst {
@@ -1904,11 +1964,10 @@ export function aihuCompilerPlugin(options?: AihuCompilerPluginOptions): VitePlu
           // one. The paragraph above argues against deriving THIS set a second
           // way; it is not an argument against a second, differently-defined
           // set, and the two must not be collapsed. See below.
-          const childTags = [
-            ...new Set(
-              Array.from(out.matchAll(/__aihu_schild\('([^']+)'/g), (m) => m[1] as string),
-            ),
-          ].sort()
+          // ONE shared derivation — `_deriveChildTags`, which `@aihu/router`'s
+          // `genSC` calls on the same channel to build the server-bundle
+          // component registry at codegen time. See its docblock.
+          const childTags = _deriveChildTags(out)
           if (childTags.length > 0) {
             out += `\nexport const __aihu_child_tags__ = ${JSON.stringify(childTags)}\n`
           }

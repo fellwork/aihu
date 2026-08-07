@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs'
-import { resolve as resolvePath } from 'node:path'
-import type { AdapterContext, AihuAdapter } from '@aihu/app'
+import { relative as relativePath, resolve as resolvePath } from 'node:path'
+import type { AdapterContext, AihuAdapter, ServerEntryContext } from '@aihu/app'
 
 /**
  * A single route as exposed on AdapterContext.routes. We derive the element
@@ -110,20 +110,96 @@ function generateSsrWorkerEntry(handlerSource: string): string {
 }
 
 /**
+ * The `output: 'ssr'` worker wrapper, contributed INTO
+ * `virtual:aihu-server-entry` rather than written to disk after the build.
+ *
+ * That relocation is the whole fix. The `ssr: true` path below emits its worker
+ * as a string at `closeBundle`, outside the module graph, where it cannot
+ * import `virtual:aihu-routes` — so `generateRoutesManifest` gives every route
+ * a 404 placeholder and the worker renders nothing. Here `handler` is a real
+ * `createServerRouter` over real route chunks, with the SSR child registry
+ * already resolved.
+ *
+ * Route priority is unchanged from `generateSsrWorkerEntry`: SSR handler →
+ * ASSETS (CDN edge) → `/index.html` (SPA shell).
+ *
+ * ## What `platform` is, and why it is `{ env, ctx }`
+ *
+ * `ServerRouter.handle` takes a second argument the framework never reads and
+ * forwards, unchanged, to route loaders, the governed provider, the live
+ * entitlement resolver and the session resolver. THE ADAPTER decides what goes
+ * in it, because the framework must not know Cloudflare's shape — a Node or
+ * Vercel host has entirely different ambient state.
+ *
+ * This adapter passes BOTH of the values a Worker's `fetch` receives, wrapped:
+ *
+ *   - `env` — the KV namespaces, D1 databases, R2 buckets, Durable Object
+ *     stubs, queue producers and secrets. These exist ONLY per request; there
+ *     is no module-scope handle a loader could have closed over, which is
+ *     precisely why a Worker had no reachable data source before this.
+ *   - `ctx` — the `ExecutionContext`, i.e. `waitUntil`. Passing `env` alone
+ *     would have been tidier to read (`platform.DB`) but would have made
+ *     background work — cache fills, analytics, revalidation — unreachable
+ *     with no way to add it later without breaking every consumer.
+ *
+ * So a loader narrows once:
+ *
+ * ```ts
+ * export const loader = async (params, { platform }) => {
+ *   const { env, ctx } = platform as { env: Env; ctx: ExecutionContext }
+ *   ctx.waitUntil(logHit(params))
+ *   return env.DB.prepare('select * from posts where slug = ?').bind(params.slug).first()
+ * }
+ * ```
+ *
+ * NOTE the deliberate difference from the deprecated `generateSsrWorkerEntry`
+ * above, which writes `handler(request, { env })`. That path wires
+ * `createRequestRouter`, whose handler takes a `Request` and nothing else — so
+ * its second argument has always been silently discarded. This one is real.
+ */
+function generateServerEntryWrapper({ handler }: ServerEntryContext): string {
+  return [
+    '// Cloudflare Workers wrapper — contributed by @aihu/adapter-cloudflare',
+    '//   1. SSR handler  — real route modules, server-rendered, with bindings',
+    '//   2. ASSETS       — client bundle + static files from the Cloudflare CDN',
+    '//   3. /index.html  — SPA shell fallback for client-side-routed pages',
+    'export default {',
+    '  async fetch(request, env, ctx) {',
+    // `{ env, ctx }` and not `env`: see the docblock. The framework treats this
+    // as opaque, so the shape is this adapter's contract with its consumers.
+    `    const response = await ${handler}(request, { env, ctx })`,
+    '    if (response.status !== 404) return response',
+    '    try {',
+    '      return await env.ASSETS.fetch(request)',
+    '    } catch {',
+    '      const url = new URL(request.url)',
+    "      return env.ASSETS.fetch(new Request(new URL('/index.html', url.origin), request))",
+    '    }',
+    '  },',
+    '}',
+  ].join('\n')
+}
+
+/**
  * Generate the source text of `routes-manifest.js`.
  *
- * The SSR worker's handler does `import routes from './routes-manifest.js'`
- * and then `createRequestRouter({ routes })`. So this module MUST provide a
- * default export that is an array of route entries, each carrying at least a
- * `pattern` (required by createRequestRouter) and a `handler`.
+ * @deprecated Superseded by `serverEntry` + `output: 'ssr'`. Kept so existing
+ * `cloudflare({ ssr: true })` configs keep building; deletion is a follow-up.
  *
- * The page component referenced by each route lives behind a non-serializable
- * `module()` thunk on AdapterContext.routes, so it cannot be inlined here.
- * Each emitted route therefore gets a placeholder handler that returns a 404,
- * which causes the worker to fall through to the ASSETS binding (pre-rendered
- * static pages) — preserving today's behavior while making the worker boot.
- * The serializable route metadata (pattern, segments, name, ssr) is preserved
- * in the manifest for transparency and future SSR wiring.
+ * CORRECTION to what this docblock used to say. It blamed the 404 placeholders
+ * on the page component living "behind a non-serializable `module()` thunk".
+ * That is false, and it sent every prior fix attempt in the wrong direction:
+ * `@aihu/app`'s `fileToRouteDefinition` builds
+ * `module: () => Promise.resolve({ default: null })`, so there was never a
+ * loadable module to serialize and no adapter-side fix was possible. Route
+ * modules can only come from `virtual:aihu-routes`, from inside the build
+ * graph — which is what `serverEntry` above does.
+ *
+ * The SSR worker's handler does `import routes from './routes-manifest.js'`
+ * and then `createRequestRouter({ routes })`, so this module provides a default
+ * export that is an array of route entries, each carrying a `pattern` and a
+ * placeholder `handler` that 404s — letting the worker fall through to the
+ * ASSETS binding (pre-rendered static pages).
  */
 function generateRoutesManifest(routes: ReadonlyArray<ContextRoute>): string {
   const serialized = routes.map((route) => {
@@ -159,18 +235,33 @@ function generateRoutesManifest(routes: ReadonlyArray<ContextRoute>): string {
   ].join('\n')
 }
 
-function generateWranglerToml(name: string): string {
+/**
+ * `main`/`[assets] directory` differ between the two shapes, and getting them
+ * wrong is a security bug, not a config nit.
+ *
+ * Legacy (`ssr`/SPA string emission): `_worker.js` is written INTO the client
+ * outDir, so `main` is relative to it and `directory = "."` is that same dir.
+ *
+ * `output: 'ssr'`: the server bundle lands in a SIBLING `dist-server/`, and the
+ * assets directory stays the client `dist/`. Pointing `[assets] directory` at a
+ * root containing SSR chunks would let Cloudflare's ASSETS binding serve server
+ * code on a public URL (D-2). Written relative to the project root, since that
+ * is where wrangler.toml lives.
+ */
+function generateWranglerToml(name: string, ssrOutput: boolean, clientOutDir: string): string {
   return `${[
     '# AUTO-GENERATED by @aihu/adapter-cloudflare',
     '# Edit this file to customize your Worker configuration.',
     '# Reference: https://developers.cloudflare.com/workers/wrangler/configuration/',
     '',
     `name = "${name}"`,
-    'main = "_worker.js"',
+    ssrOutput ? 'main = "dist-server/_worker.js"' : 'main = "_worker.js"',
     'compatibility_date = "2024-01-01"',
     '',
     '[assets]',
-    'directory = "."',
+    // Deliberately NOT the SSR outDir, and deliberately not a shared parent of
+    // both: either would publish the server bundle.
+    ssrOutput ? `directory = "${clientOutDir}"` : 'directory = "."',
     'binding = "ASSETS"',
   ].join('\n')}\n`
 }
@@ -194,8 +285,38 @@ export function cloudflare(options?: CloudflareAdapterOptions): AihuAdapter {
   return {
     name: 'cloudflare',
 
+    serverEntry: generateServerEntryWrapper,
+
     async adapt(context: AdapterContext): Promise<void> {
       const workerName = options?.name ?? readPackageJsonName(context.root) ?? 'aihu-app'
+      const ssrOutput = context.config.output === 'ssr'
+
+      // `output: 'ssr'` owns the worker entirely: it IS
+      // `virtual:aihu-server-entry`, already written by the ssr environment's
+      // build to `dist-server/_worker.js`. Emitting a second `_worker.js` into
+      // the client outDir here would shadow it with a static-only shell — and
+      // that shell is what the ASSETS binding would serve. So the only thing
+      // left to do is wrangler.toml.
+      if (ssrOutput) {
+        const wranglerPathSsr = resolvePath(context.root, 'wrangler.toml')
+        if (options?.generateWrangler !== false && !existsSync(wranglerPathSsr)) {
+          const rel = relativePath(context.root, context.outDir).replace(/\\/g, '/') || '.'
+          await context.writeFile(wranglerPathSsr, generateWranglerToml(workerName, true, rel))
+          console.log(
+            `[@aihu/adapter-cloudflare] Created wrangler.toml (name = "${workerName}", ` +
+              `main = dist-server/_worker.js, assets = ${rel})`,
+          )
+        }
+        console.log(
+          `[@aihu/adapter-cloudflare] output: 'ssr' — the worker is the build's own ` +
+            `dist-server/_worker.js; no _worker.js emitted into ${context.outDir}`,
+        )
+        console.log(
+          `[@aihu/adapter-cloudflare] Deploy with: wrangler deploy --config wrangler.toml`,
+        )
+        return
+      }
+
       const ssrEnabled = options?.ssr === true
 
       // Default specifier the handler imports. Keep in sync with the file we
@@ -225,7 +346,7 @@ export function cloudflare(options?: CloudflareAdapterOptions): AihuAdapter {
       // Step 3 — Write wrangler.toml (only if absent, never overwrites)
       const wranglerPath = resolvePath(context.root, 'wrangler.toml')
       if (options?.generateWrangler !== false && !existsSync(wranglerPath)) {
-        const toml = generateWranglerToml(workerName)
+        const toml = generateWranglerToml(workerName, false, '.')
         await context.writeFile(wranglerPath, toml)
         console.log(`[@aihu/adapter-cloudflare] Created wrangler.toml (name = "${workerName}")`)
       }

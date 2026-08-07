@@ -1,5 +1,6 @@
 import type { Plugin, UserConfig } from 'vite'
 import type { AihuAdapter } from './adapter.ts'
+import { AihuConfigError as AihuConfigErrorImpl } from './config-error.ts'
 import * as v from './config-validate.ts'
 
 /**
@@ -11,11 +12,17 @@ import * as v from './config-validate.ts'
  *   `<pattern>/index.html` with a per-page `<head>`, then hydrates into the SPA
  *   on load (progressive enhancement). Ideal for content sites on static hosts
  *   (e.g. Cloudflare Pages) — crawlers and non-JS agents see real content.
+ * - `'ssr'`: everything `'spa'` builds, PLUS a second Vite environment whose
+ *   entry is `virtual:aihu-server-entry` — a request-time server bundle that
+ *   imports `virtual:aihu-routes` and `virtual:aihu-server-components` from
+ *   INSIDE the build graph, so route modules and child components are real
+ *   chunks rather than placeholders. Targets a Worker-style runtime; the
+ *   adapter contributes the platform wrapper via `AihuAdapter.serverEntry`.
  *
- * Other rendering modes (`ssr`, `hybrid`) are tracked separately under
- * @aihu/server's RenderingMode and are not part of the app build OutputMode.
+ * `@aihu/server`'s `RenderingMode` is a DIFFERENT axis and not a build knob —
+ * its only consumer is the client's hydration path. `'ssr'` belongs here.
  */
-export type OutputMode = 'spa' | 'static'
+export type OutputMode = 'spa' | 'static' | 'ssr'
 
 /** Site-level configuration. */
 export interface SiteConfig {
@@ -177,8 +184,13 @@ export interface AihuConfig {
   /** Directory layout overrides. */
   readonly dir?: DirConfig
   /**
-   * Output mode. Supports `'spa'` (default) and `'static'` (SSG prerender).
+   * Output mode. Supports `'spa'` (default), `'static'` (SSG prerender) and
+   * `'ssr'` (client bundle + a request-time server bundle).
    * defineConfig throws AihuConfigError for any other value.
+   *
+   * `'ssr'` additionally REQUIRES `css.shadowMode` — see
+   * `requireShadowModeForSsr` below for why that is an error and not a
+   * warning.
    */
   readonly output?: OutputMode
   /**
@@ -262,7 +274,7 @@ const SCHEMA: Record<string, v.Validator> = {
     public: v.string,
     components: v.string,
   }),
-  output: v.list(['spa', 'static'], 'INVALID_OUTPUT_MODE'),
+  output: v.list(['spa', 'static', 'ssr'], 'INVALID_OUTPUT_MODE'),
   site: v.object({ url: v.string }),
   plugins: v.array,
   runtimeConfig: v.object({ public: v.passthrough, private: v.passthrough }),
@@ -342,7 +354,52 @@ function suggestTopLevel(key: string): string | undefined {
   return hints[key]
 }
 
-const validateConfig = v.object(SCHEMA, suggestTopLevel)
+const validateShape = v.object(SCHEMA, suggestTopLevel)
+
+/**
+ * `output: 'ssr'` REQUIRES `css.shadowMode`. A build error, not a warning.
+ *
+ * This is the one cross-field rule in the schema, and it earns the exception.
+ * The server child registry (`@aihu/server`'s `buildChildRegistry`) refuses any
+ * module whose `__aihu_shadow__` export is neither `'light'` nor `'shadow'` —
+ * it has no safe default to guess, because light children under a host that
+ * later calls `attachShadow` are discarded on upgrade and a declarative shadow
+ * root on a light component is never adopted.
+ *
+ * And with NO `css.shadowMode` configured, a plain component exports no
+ * `__aihu_shadow__` at all: `aihuCompilerPlugin` only injects it when
+ * `effectiveShadow != null`, and the implicit DA4 `light` default marker is
+ * emitted for `@route` units and layouts — not for leaf components. So an
+ * unconfigured `output: 'ssr'` build ships a server bundle in which EVERY child
+ * component reference renders as an empty element, with the only signal a
+ * `buildChildRegistry` warning in a build log.
+ *
+ * Silently-empty children is precisely the failure this whole feature exists to
+ * remove, and it is indistinguishable at the page from "the registry is
+ * broken". `apps/docs` sets `shadowMode: 'light'`, which is the only reason the
+ * SSG path never hit it. So the build refuses, naming the key.
+ */
+function requireShadowModeForSsr(config: AihuConfig, keypath: string): void {
+  if (config.output !== 'ssr') return
+  if (config.css?.shadowMode !== undefined) return
+  throw new AihuConfigErrorImpl(
+    `${keypath}.output is 'ssr' but ${keypath}.css.shadowMode is not set. ` +
+      "Set css.shadowMode to 'light' or 'shadow'. Without it, leaf components " +
+      'export no `__aihu_shadow__`, the server child registry refuses them, and every ' +
+      'child component reference server-renders as an EMPTY element — visually identical ' +
+      'to a broken registry. There is no safe default to guess: light children under a ' +
+      'host that later calls attachShadow are discarded on upgrade, and a declarative ' +
+      'shadow root on a light component is never adopted. ' +
+      "(Use 'light' for global-cascade CSS frameworks; 'shadow' for encapsulated styles.)",
+    'MISSING_SHADOW_MODE',
+    `${keypath}.css.shadowMode`,
+  )
+}
+
+function validateConfig(config: AihuConfig, keypath: string): void {
+  validateShape(config, keypath)
+  requireShadowModeForSsr(config, keypath)
+}
 
 /**
  * Define the aihu application configuration.

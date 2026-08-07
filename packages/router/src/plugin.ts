@@ -14,6 +14,7 @@
 export type { LayoutMap, MiddlewareScan, RouterPluginOptions, RouteSidecar } from './vite-plugin.ts'
 export {
   componentTagFor,
+  genSC,
   layoutTagFor,
   readAihuComponentTag,
   readRouteSidecar,

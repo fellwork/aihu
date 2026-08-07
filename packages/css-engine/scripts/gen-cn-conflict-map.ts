@@ -54,9 +54,24 @@ function resolveBinary(): string {
   )
 }
 
+/**
+ * Bounded spawn. An unbounded `execFileSync` against this binary is the same
+ * hang that stalled an `apps/docs` build for 10 minutes at 0% CPU (see the
+ * spawn-bounds note in `packages/css-engine/src/index.ts`): with no timer armed
+ * spawnSync's uv loop blocks in kevent with no deadline, forever. This dump
+ * completes in milliseconds, so 60 s is a generous ceiling that still turns a
+ * wedged generator into a fast, named failure.
+ */
+const DUMP_SPAWN_OPTS = {
+  encoding: 'utf-8',
+  timeout: 60_000,
+  maxBuffer: 64 * 1024 * 1024,
+  killSignal: 'SIGKILL',
+} as const
+
 const json = process.env.CN_MAP_DUMP_JSON
   ? readFileSync(resolve(repoRoot, process.env.CN_MAP_DUMP_JSON), 'utf8')
-  : execFileSync(resolveBinary(), ['--dump-conflict-groups'], { encoding: 'utf-8' })
+  : execFileSync(resolveBinary(), ['--dump-conflict-groups'], DUMP_SPAWN_OPTS)
 const groups = JSON.parse(json) as Array<[string, string]>
 
 // Compact serialization: a flat `{ prefix: group }` record. Sorted by prefix

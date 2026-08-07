@@ -40,6 +40,9 @@ import {
   buildChildRegistry,
   type ChildModuleLike,
   type DiscoveredComponent,
+  // The layout↔page outlet splice. Shared with `@aihu/router/server`'s live
+  // SSR path so the two render paths compose layouts by one rule, not two.
+  injectIntoOutlet,
   renderToString,
   routeHeadToSsrHead,
 } from '@aihu/server'
@@ -445,36 +448,12 @@ function injectContent(html: string, content: string, outletId: string): string 
   return html
 }
 
-/**
- * Inject rendered page content into a layout's `data-aihu-outlet` marker (the
- * server-side mirror of `@aihu/app`'s client renderer). Matches the element
- * carrying the `data-aihu-outlet` attribute (with or without a value). Returns
- * the composed HTML, or `null` when the layout renders no such marker (so the
- * caller can fall back to rendering the page without the layout).
- */
-function injectIntoOutletMarker(layoutHtml: string, content: string): string | null {
-  const attr = 'data-aihu-outlet(?:="[^"]*")?'
-  // Empty marker `<div data-aihu-outlet></div>` (the passive-marker shape).
-  const emptyRe = new RegExp(`(<[a-zA-Z]+\\b[^>]*\\b${attr}[^>]*>)(\\s*)(</[a-zA-Z]+>)`, 'i')
-  if (emptyRe.test(layoutHtml)) {
-    // The FUNCTION form, deliberately. Rendered content goes in as the
-    // REPLACEMENT, and a replacement STRING expands `$&`, `` $` ``, `$'` and
-    // `$n` as backreferences — so any page whose prose contains one of those
-    // sequences re-splices the layout shell into itself. `/api/store` does it
-    // today (its text contains `` $` ``). The function form performs no
-    // expansion at all.
-    return layoutHtml.replace(
-      emptyRe,
-      (_m, p1: string, _p2: string, p3: string) => p1 + content + p3,
-    )
-  }
-  // Open-tag only — insert content right after it.
-  const openRe = new RegExp(`(<[a-zA-Z]+\\b[^>]*\\b${attr}[^>]*>)`, 'i')
-  if (openRe.test(layoutHtml)) {
-    return layoutHtml.replace(openRe, (_m, p1: string) => p1 + content)
-  }
-  return null
-}
+// The layout↔page outlet splice used to live here as a private function. It is
+// now `@aihu/server`'s `injectIntoOutlet`, imported above and shared with
+// `@aihu/router/server`'s live SSR path — which had NO layout composition at
+// all, so a page that looked right prerendered lost its whole shell when the
+// same route was served from a Worker. Two implementations of one rule is how
+// that divergence would come back, so there is exactly one.
 
 // ---------------------------------------------------------------------------
 // Prerender driver
@@ -1034,7 +1013,7 @@ export async function runPrerender(opts: RunPrerenderOptions): Promise<Prerender
       let layoutShell = layoutName
         ? await renderLayoutShell(layoutName, route.pattern, concretePath)
         : null
-      if (layoutShell !== null && injectIntoOutletMarker(layoutShell, '') === null) {
+      if (layoutShell !== null && injectIntoOutlet(layoutShell, '') === null) {
         pushWarn(
           `[@aihu/app] static output: layout "${layoutName}" renders no <outlet> ` +
             `(data-aihu-outlet) marker — route ${route.pattern} prerendered without the layout.`,
@@ -1042,7 +1021,7 @@ export async function runPrerender(opts: RunPrerenderOptions): Promise<Prerender
         layoutShell = null
       }
       if (layoutShell !== null) {
-        content = injectIntoOutletMarker(layoutShell, content) ?? content
+        content = injectIntoOutlet(layoutShell, content) ?? content
       }
 
       const lowered = routeHeadToSsrHead(head, {
