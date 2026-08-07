@@ -346,6 +346,31 @@ export function _parseIslandMarker(compiledCode: string): 'static' | 'interactiv
 }
 
 /**
+ * §22 — parse the `// @aihu:component-tags a,b,c` marker the Rust codegen emits
+ * for every server/universal build, on the same channel as `@aihu:island` above.
+ *
+ * The list comes from `collect_component_tags` — the SAME walk that fills
+ * `route.json`'s `components` array — so it is already sorted, de-duplicated and
+ * kebab-normalized when it arrives here. Deliberately NOT re-sorted or
+ * re-de-duplicated: a second normalization would be a second place the rule
+ * lives, and the two would drift.
+ *
+ * Distinct from the `__aihu_child_tags__` derivation below: this is "tags the
+ * template references AT ALL", not "tags the compiled renderer will look up".
+ * See the comment on the `__aihu_referenced_tags__` export for why both exist.
+ *
+ * Returns `[]` when the marker is absent (an older binary, a client-target
+ * compile, a future emit shape) — the caller treats that identically to "the
+ * template references nothing".
+ *
+ * @internal
+ */
+export function _parseComponentTagsMarker(compiledCode: string): string[] {
+  const m = /^\/\/ @aihu:component-tags (.+)$/m.exec(compiledCode)
+  return m === null ? [] : (m[1] as string).split(',')
+}
+
+/**
  * GX Phase 1 (#437-GX) — parse the `// @aihu:extract read=<v> call=<v>` code
  * marker the Rust compiler emits for every server/universal build (the
  * resolved policy, the ratified default included). Phase 1 consumes it only
@@ -1873,6 +1898,12 @@ export function aihuCompilerPlugin(options?: AihuCompilerPluginOptions): VitePlu
           //
           // Omitted entirely when the template references no component, so a
           // consumer can treat "no export" and "empty" identically.
+          //
+          // This set answers ONE question — "what will the compiled renderer
+          // look up?" — and `__aihu_referenced_tags__` below answers a different
+          // one. The paragraph above argues against deriving THIS set a second
+          // way; it is not an argument against a second, differently-defined
+          // set, and the two must not be collapsed. See below.
           const childTags = [
             ...new Set(
               Array.from(out.matchAll(/__aihu_schild\('([^']+)'/g), (m) => m[1] as string),
@@ -1880,6 +1911,48 @@ export function aihuCompilerPlugin(options?: AihuCompilerPluginOptions): VitePlu
           ].sort()
           if (childTags.length > 0) {
             out += `\nexport const __aihu_child_tags__ = ${JSON.stringify(childTags)}\n`
+          }
+          // §22 — every component tag this module's template REFERENCES, which
+          // is a strictly larger set than `__aihu_child_tags__` above and exists
+          // for a different consumer.
+          //
+          // `__aihu_child_tags__` is the runtime edge set: the tags the compiled
+          // renderer will actually look up, which is why deriving it from the
+          // emitted `__aihu_schild(` call sites is not just convenient but
+          // CORRECT for its consumer (`buildChildRegistry`'s cycle check).
+          //
+          // But `@aihu/app`'s prerender reads a tag set for two DIAGNOSTICS —
+          // "is this broken component referenced by anything?" and "is this tag
+          // resolvable?" — and for those questions the call-site set is the
+          // wrong one. A reference the emitter DECLINES under the v1 child
+          // boundaries (an attribute, children, a root/dynamic path) produces no
+          // call site and therefore no tag, so the component is judged
+          // unreferenced and the diagnostic stays silent about a component that
+          // genuinely cannot load. Observed: `apps/docs`'s `pages/index.aihu`
+          // references `<weather-demo city="London">`, the attribute makes the
+          // emitter decline it, the page compiles to ZERO `__aihu_schild` call
+          // sites — and `weather-demo.aihu` really does fail to load under SSR
+          // (`new CSSStyleSheet()` at module top level) with the build saying
+          // nothing.
+          //
+          // So: two exports, two meanings, two derivations — NOT one rule
+          // written twice. This one comes from the template AST, via the
+          // `// @aihu:component-tags` marker `collect_component_tags` emits (the
+          // same walk that fills `route.json`'s components array), so it is
+          // independent of where the emitter's boundaries happen to sit and does
+          // not move when they do.
+          //
+          // Parsed from `compiled`, NOT `out`: the marker is a comment the Rust
+          // codegen emits, and the TS-strip at the end of this hook is free to
+          // drop comments. `_parseIslandMarker(compiled)` reads the same channel
+          // the same way for the same reason.
+          //
+          // Omitted entirely when the marker is absent or empty, so "no export"
+          // and "empty" mean the same thing — the rule `__aihu_child_tags__`
+          // already follows.
+          const referencedTags = _parseComponentTagsMarker(compiled)
+          if (referencedTags.length > 0) {
+            out += `\nexport const __aihu_referenced_tags__ = ${JSON.stringify(referencedTags)}\n`
           }
         } else if (
           islandsEnabled &&

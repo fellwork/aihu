@@ -1124,7 +1124,14 @@ describe('runPrerender — diagnostics see page + layout references (§22)', () 
           __aihu_child_tags__: ['nav-bar', 'ghost-from-page'],
         }
       }
-      return { __aihu_tag__: 'nav-bar' }
+      // A RENDERABLE component module, not just a tag claim: a real
+      // server-target artifact exports `__ssrString`, `__aihu_shadow__` and
+      // `__aihu_tag__` together, and §4 now reports a registry entry that has
+      // the tag but not the renderer — which is what a bare `{ __aihu_tag__ }`
+      // is. `nav-bar` here is the CONTROL for §3 ("a tag the registry supplies
+      // stays quiet"), so it has to be a component the registry can actually
+      // supply; otherwise the assertion below passes for the wrong reason.
+      return { __aihu_tag__: 'nav-bar', __ssrString: () => '', __aihu_shadow__: 'light' }
     }
 
     const result = await runPrerender({
@@ -1169,5 +1176,245 @@ describe('runPrerender — diagnostics see page + layout references (§22)', () 
       .map((w) => /<([a-z-]+)> is referenced but was not found/.exec(w)?.[1])
       .filter((t): t is string => t !== undefined)
     expect(tags).toEqual(['aa-early', 'mm-mid', 'zz-shared'])
+  })
+})
+
+// ─── §22 second half: a reference the EMITTER DECLINED still counts ──────────
+//
+// Moving both diagnostics after the render loop (above) was necessary and NOT
+// sufficient. `__aihu_child_tags__` is derived by scanning emitted
+// `__aihu_schild(` call sites, so a reference the emitter declines under the v1
+// child boundaries contributes no tag at all. `<weather-demo city="London">`
+// carries an attribute, is therefore declined, and `pages/index.aihu` compiles
+// to ZERO call sites — so it was STILL judged unreferenced, which is the exact
+// case §22 was written for.
+//
+// `__aihu_referenced_tags__` (the compiler's `// @aihu:component-tags` marker,
+// walked off the template AST) is the set that answers "does anything reference
+// this?". These pin that `runPrerender` reads it, prefers it, and falls back.
+describe('runPrerender — referenced tags come from the template AST (§22)', () => {
+  let fx: Fixture
+  afterEach(async () => {
+    if (fx) await rm(fx.root, { recursive: true, force: true })
+  })
+
+  it('warns about a broken component whose only reference the emitter DECLINED', async () => {
+    // The docs case in miniature: the page module exports NO
+    // `__aihu_child_tags__` at all — there are no call sites to derive one
+    // from — and names the component only via `__aihu_referenced_tags__`.
+    fx = await makeFixture()
+    await writeRoute(fx.root, 'index.ts', { name: 'home' })
+    const componentsDir = join(fx.root, 'src', 'components')
+    await mkdir(componentsDir, { recursive: true })
+    await writeFile(join(componentsDir, 'weather-demo.aihu'), '<weather/>\n')
+    // Still a gate: a second broken component nobody references stays quiet.
+    await writeFile(join(componentsDir, 'orphan-demo.aihu'), '<orphan/>\n')
+
+    const loadModule: SsrModuleLoader = async (file) => {
+      const f = file.replace(/\\/g, '/')
+      if (f.endsWith('/index.ts')) {
+        return {
+          default: { toHtml: () => '<p>home</p>' },
+          __aihu_referenced_tags__: ['weather-demo'],
+        }
+      }
+      throw new Error('CSSStyleSheet is not defined')
+    }
+
+    const result = await runPrerender({
+      resolvedViteConfig: fx.resolvedViteConfig,
+      config: { output: 'static', dir: { pages: 'pages', components: 'src/components' } },
+      loadModule,
+      warn: fx.warn,
+    })
+
+    const warnings = result.warnings.join('\n')
+    expect(warnings).toMatch(/component "[^"]*weather-demo\.aihu" failed to load/)
+    expect(warnings).not.toMatch(/component "[^"]*orphan-demo\.aihu" failed to load/)
+  })
+
+  it('falls back to __aihu_child_tags__ when the newer export is absent', async () => {
+    // A module compiled before the marker existed must still contribute what it
+    // can, rather than contributing nothing and going silent.
+    fx = await makeFixture()
+    await writeRoute(fx.root, 'index.ts', { name: 'home' })
+
+    const loadModule: SsrModuleLoader = async () => ({
+      default: { toHtml: () => '<p>home</p>' },
+      __aihu_child_tags__: ['legacy-only'],
+    })
+
+    const result = await runPrerender({
+      resolvedViteConfig: fx.resolvedViteConfig,
+      config: { output: 'static', dir: { pages: 'pages' } },
+      loadModule,
+      warn: fx.warn,
+    })
+
+    expect(result.warnings.join('\n')).toMatch(/<legacy-only> is referenced but was not found/)
+  })
+
+  it('prefers the newer export over the older one — it does not union them', async () => {
+    // `__aihu_referenced_tags__` already contains everything the call-site set
+    // does. Unioning would let a stale artifact's narrower set masquerade as new
+    // information, so the older export is not consulted when the newer is there.
+    fx = await makeFixture()
+    await writeRoute(fx.root, 'index.ts', { name: 'home' })
+
+    const loadModule: SsrModuleLoader = async () => ({
+      default: { toHtml: () => '<p>home</p>' },
+      __aihu_referenced_tags__: ['from-marker'],
+      __aihu_child_tags__: ['from-call-sites'],
+    })
+
+    const result = await runPrerender({
+      resolvedViteConfig: fx.resolvedViteConfig,
+      config: { output: 'static', dir: { pages: 'pages' } },
+      loadModule,
+      warn: fx.warn,
+    })
+
+    const warnings = result.warnings.join('\n')
+    expect(warnings).toMatch(/<from-marker> is referenced but was not found/)
+    expect(warnings).not.toMatch(/from-call-sites/)
+  })
+
+  it('reports a broken component ONCE, with the reason — not twice, with a falsehood', async () => {
+    // Found by rebuilding apps/docs after the fix above made the pair reachable.
+    // `weather-demo` produced BOTH the load-failure line and §3's unresolved-tag
+    // line, and the second says the component "was not found under
+    // src/components" and advises "move it there" — of a file already there.
+    fx = await makeFixture()
+    await writeRoute(fx.root, 'index.ts', { name: 'home' })
+    const componentsDir = join(fx.root, 'src', 'components')
+    await mkdir(componentsDir, { recursive: true })
+    await writeFile(join(componentsDir, 'weather-demo.aihu'), '<weather/>\n')
+
+    const loadModule: SsrModuleLoader = async (file) => {
+      const f = file.replace(/\\/g, '/')
+      if (f.endsWith('/index.ts')) {
+        return {
+          default: { toHtml: () => '<p>home</p>' },
+          __aihu_referenced_tags__: ['weather-demo'],
+        }
+      }
+      throw new Error('CSSStyleSheet is not defined')
+    }
+
+    const result = await runPrerender({
+      resolvedViteConfig: fx.resolvedViteConfig,
+      config: { output: 'static', dir: { pages: 'pages', components: 'src/components' } },
+      loadModule,
+      warn: fx.warn,
+    })
+
+    const about = result.warnings.filter((w) => w.includes('weather-demo'))
+    expect(about).toHaveLength(1)
+    expect(about[0]).toMatch(/failed to load \(CSSStyleSheet is not defined\)/)
+    expect(about[0]).not.toMatch(/was not found under/)
+  })
+})
+
+// ─── §4's warning is gated on "referenced", and the gate lives here ──────────
+//
+// `buildChildRegistry` warns for every discovered component that can never
+// render (no `__ssrString`, or no `__aihu_shadow__`). It runs BEFORE the render
+// loop and has no referenced set, so the gate can only live in `runPrerender`.
+// It belongs there for §18's reason: the warning describes an EMPTY ELEMENT,
+// and an unreferenced component puts no element on any page — there is no
+// symptom for it to explain.
+describe('runPrerender — the unrenderable-component warning is gated (§4)', () => {
+  let fx: Fixture
+  afterEach(async () => {
+    if (fx) await rm(fx.root, { recursive: true, force: true })
+  })
+
+  /** A component module that LOADS but that `__aihu_schild` would refuse. */
+  const unrenderable = (tag: string) => ({ __aihu_tag__: tag })
+  /** What a real server-target artifact exports. */
+  const renderable = (tag: string) => ({
+    __aihu_tag__: tag,
+    __ssrString: () => '',
+    __aihu_shadow__: 'light',
+  })
+
+  it('stays quiet about an unrenderable component nothing references', async () => {
+    fx = await makeFixture()
+    await writeRoute(fx.root, 'index.ts', { name: 'home' })
+    const componentsDir = join(fx.root, 'src', 'components')
+    await mkdir(componentsDir, { recursive: true })
+    await writeFile(join(componentsDir, 'lone-badge.aihu'), '<badge/>\n')
+
+    const loadModule: SsrModuleLoader = async (file) =>
+      file.replace(/\\/g, '/').endsWith('/index.ts')
+        ? { default: { toHtml: () => '<p>home</p>' } }
+        : unrenderable('lone-badge')
+
+    const result = await runPrerender({
+      resolvedViteConfig: fx.resolvedViteConfig,
+      config: { output: 'static', dir: { pages: 'pages', components: 'src/components' } },
+      loadModule,
+      warn: fx.warn,
+    })
+
+    expect(result.warnings.join('\n')).not.toMatch(/<lone-badge>/)
+  })
+
+  it('reports the SAME component once a page references it', async () => {
+    // The control for the test above: identical fixture, one added reference.
+    // Without this pair, "stays quiet" could pass because the warning never
+    // fires at all.
+    fx = await makeFixture()
+    await writeRoute(fx.root, 'index.ts', { name: 'home' })
+    const componentsDir = join(fx.root, 'src', 'components')
+    await mkdir(componentsDir, { recursive: true })
+    await writeFile(join(componentsDir, 'lone-badge.aihu'), '<badge/>\n')
+
+    const loadModule: SsrModuleLoader = async (file) =>
+      file.replace(/\\/g, '/').endsWith('/index.ts')
+        ? { default: { toHtml: () => '<p>home</p>' }, __aihu_referenced_tags__: ['lone-badge'] }
+        : unrenderable('lone-badge')
+
+    const result = await runPrerender({
+      resolvedViteConfig: fx.resolvedViteConfig,
+      config: { output: 'static', dir: { pages: 'pages', components: 'src/components' } },
+      loadModule,
+      warn: fx.warn,
+    })
+
+    expect(result.warnings.join('\n')).toMatch(
+      /\[@aihu\/server\] <lone-badge> exports no compiled server renderer/,
+    )
+  })
+
+  it('never gates a warning that is not about one tag rendering', async () => {
+    // A duplicate tag claim breaks `customElements.define` on the CLIENT
+    // whether or not this build prerenders a reference to it, so it must not be
+    // suppressed. The gate keys on the `[@aihu/server] <tag> ` prefix precisely
+    // so messages of any other shape replay unconditionally.
+    fx = await makeFixture()
+    await writeRoute(fx.root, 'index.ts', { name: 'home' })
+    const componentsDir = join(fx.root, 'src', 'components')
+    await mkdir(componentsDir, { recursive: true })
+    await writeFile(join(componentsDir, 'a-dup.aihu'), '<a/>\n')
+    await writeFile(join(componentsDir, 'b-dup.aihu'), '<b/>\n')
+
+    const loadModule: SsrModuleLoader = async (file) => {
+      const f = file.replace(/\\/g, '/')
+      if (f.endsWith('/index.ts')) return { default: { toHtml: () => '<p>home</p>' } }
+      // Two DISTINCT modules claiming one tag; nothing references it.
+      return f.endsWith('/a-dup.aihu') ? renderable('same-tag') : renderable('same-tag')
+    }
+
+    const result = await runPrerender({
+      resolvedViteConfig: fx.resolvedViteConfig,
+      config: { output: 'static', dir: { pages: 'pages', components: 'src/components' } },
+      loadModule,
+      warn: fx.warn,
+    })
+
+    expect(result.warnings.join('\n')).toMatch(
+      /two modules claim the custom-element tag "same-tag"/,
+    )
   })
 })

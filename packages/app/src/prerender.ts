@@ -90,6 +90,46 @@ interface PrerenderRouteModule {
    * references. Drives the cycle check when the child registry is built.
    */
   __aihu_child_tags__?: ReadonlyArray<string>
+  /**
+   * `__aihu_referenced_tags__` — every component tag this module's template
+   * references AT ALL, from the compiler's `// @aihu:component-tags` marker
+   * (the template-AST walk that also fills `route.json`'s components array).
+   *
+   * A STRICTLY LARGER set than `__aihu_child_tags__`, and the right one for the
+   * two diagnostics below. `__aihu_child_tags__` is derived from the emitted
+   * `__aihu_schild(` call sites, which makes it exactly the set of tags the
+   * compiled renderer will look up — correct for the cycle check that consumes
+   * it, wrong here: a reference the emitter DECLINES under the v1 child
+   * boundaries (an attribute, children, a root/dynamic path) produces no call
+   * site and so no tag, and the component it names is then judged unreferenced
+   * and reported to nobody. See §22.
+   *
+   * Absent on modules from a compiler that predates the marker, and on
+   * hand-authored modules; `__aihu_child_tags__` is the fallback, so an older
+   * artifact still contributes what it can rather than contributing nothing.
+   */
+  __aihu_referenced_tags__?: ReadonlyArray<string>
+}
+
+/** The reference-bearing shape shared by route modules and registry entries —
+ * `@aihu/server`'s `ChildModuleLike` declares only the older of the two exports,
+ * so this is what both are read through. See `referencesOf`. */
+interface ReferencingModule {
+  readonly __aihu_referenced_tags__?: ReadonlyArray<string>
+  readonly __aihu_child_tags__?: ReadonlyArray<string>
+}
+
+/**
+ * Every component tag `mod`'s template references, for DIAGNOSTIC purposes.
+ *
+ * Prefers `__aihu_referenced_tags__` (template AST, every reference) and falls
+ * back to `__aihu_child_tags__` (emitted call sites, the renderable subset).
+ * Not a union of the two: when the marker-derived export is present it already
+ * contains everything the call-site set does, and unioning would only let a
+ * stale artifact's narrower set look like new information.
+ */
+function referencesOf(mod: ReferencingModule): ReadonlyArray<string> {
+  return mod.__aihu_referenced_tags__ ?? mod.__aihu_child_tags__ ?? []
 }
 
 /** A loader that resolves a route file path to its evaluated module. */
@@ -529,7 +569,37 @@ export async function runPrerender(opts: RunPrerenderOptions): Promise<Prerender
     pushWarn,
     _listComponentDir ?? defaultComponentDirLister,
   )
-  const childRegistry = buildChildRegistry(discoveredComponents, pushWarn)
+  // `buildChildRegistry`'s warnings are BUFFERED, not emitted where they are
+  // raised, for the same reason the two diagnostics below are: the registry is
+  // built before the render loop, so nothing that reads "does anything reference
+  // this?" can be answered yet.
+  //
+  // Specifically §4 — a registry entry that can never render (no `__ssrString`,
+  // or no `__aihu_shadow__`). `buildChildRegistry` reports one per discovered
+  // component, and it has no referenced set to gate on; that gate can only live
+  // here. It belongs here for the same reason §18's does: the warning describes
+  // an EMPTY ELEMENT in the output, and an unreferenced component puts no
+  // element, empty or otherwise, on any page. There is no symptom for it to
+  // explain, so it is noise on every build — precisely the noise §18 removed,
+  // and leaving it ungated would mean a broken component that FAILED TO LOAD
+  // stays quiet while one that loaded-but-cannot-render shouts, for the same
+  // unreferenced state.
+  //
+  // The §22 objection — "over-gating recreates the silence this fixes" — was
+  // real, and was a defect in the referenced SET, not in the idea of gating: it
+  // is answered above by `referencesOf`, which now sees declined references too.
+  //
+  // GATED BY MESSAGE SHAPE, and this is a deliberate, narrow coupling: a
+  // `@aihu/server` warning that is about one tag's rendering starts with
+  // `[@aihu/server] <tag> `. Anything else — a tag conflict, a reference cycle,
+  // any future shape — does not match and replays UNCONDITIONALLY, which is the
+  // correct disposition for those (a duplicate `customElements.define` throws on
+  // the client whether or not this build references the tag) and the safe
+  // failure direction if the shape ever drifts: too loud, never silent.
+  const childRegistryWarnings: string[] = []
+  const childRegistry = buildChildRegistry(discoveredComponents, (m) =>
+    childRegistryWarnings.push(m),
+  )
   // Omitted entirely when nothing was discovered, so a site with no components
   // renders byte-identically to before.
   const childOpts: Pick<SsrOptions, 'children'> =
@@ -552,13 +622,20 @@ export async function runPrerender(opts: RunPrerenderOptions): Promise<Prerender
   // Registry values rather than every discovered component, deliberately: a
   // module that LOST a duplicate-tag tie-break never renders, so its references
   // are not references the prerendered output can make.
+  //
+  // Read through `referencesOf`, NOT `__aihu_child_tags__` directly: §22 was
+  // only HALF fixed by moving the diagnostics after the render loop. The other
+  // half is that the call-site-derived export cannot see a reference the emitter
+  // declined — `<weather-demo city="London">` carries an attribute, so
+  // `pages/index.aihu` compiles to zero `__aihu_schild` call sites and named
+  // nothing. `__aihu_referenced_tags__` comes from the template AST and does.
   const referenced = new Set<string>()
   for (const mod of childRegistry.values()) {
-    for (const t of mod.__aihu_child_tags__ ?? []) referenced.add(t)
+    for (const t of referencesOf(mod)) referenced.add(t)
   }
-  /** Fold one loaded module's `__aihu_child_tags__` into `referenced`. */
+  /** Fold one loaded module's referenced tags into `referenced`. */
   const noteReferences = (mod: PrerenderRouteModule): void => {
-    for (const t of mod.__aihu_child_tags__ ?? []) referenced.add(t)
+    for (const t of referencesOf(mod)) referenced.add(t)
   }
 
   /**
@@ -570,6 +647,16 @@ export async function runPrerender(opts: RunPrerenderOptions): Promise<Prerender
    * tags. Both are once-per-file / once-per-tag, never once-per-reference-site.
    */
   const emitChildDiagnostics = (): void => {
+    // §4, deferred from registry-build time — see `childRegistryWarnings`.
+    // Emitted FIRST so the registry's own report still precedes the two
+    // diagnostics that read the registry, exactly as it did when it was emitted
+    // inline.
+    for (const msg of childRegistryWarnings) {
+      const tag = /^\[@aihu\/server\] <([^>]+)> /.exec(msg)?.[1]
+      if (tag !== undefined && !referenced.has(tag)) continue
+      pushWarn(msg)
+    }
+
     // §18: a component that failed to load (e.g. `weather-demo.aihu` under SSR:
     // `CSSStyleSheet is not defined`) is only worth a build warning if
     // something actually references it — otherwise it is dead weight under the
@@ -588,6 +675,10 @@ export async function runPrerender(opts: RunPrerenderOptions): Promise<Prerender
     // it). When even that can't be determined — the file vanished, is
     // unreadable, whatever — this fails OPEN and warns anyway: silence is the
     // wrong default for "a component broke and we can't tell if it matters".
+    //
+    // Tags reported HERE are withheld from the unresolved-tag pass below — see
+    // `explainedByLoadFailure`.
+    const explainedByLoadFailure = new Set<string>()
     for (const { file, error } of componentLoadFailures) {
       // TWO candidate tags, not one, because the two derivations in this repo
       // disagree. `readAihuComponentTag` applies `@meta.name → @route.name →
@@ -610,6 +701,7 @@ export async function runPrerender(opts: RunPrerenderOptions): Promise<Prerender
       // Fails OPEN when nothing could be determined: silence is the wrong
       // default for "a component broke and we cannot tell whether it matters".
       if (candidates.size > 0 && ![...candidates].some((t) => referenced.has(t))) continue
+      for (const t of candidates) explainedByLoadFailure.add(t)
       pushWarn(
         `[@aihu/app] static output: component "${file}" failed to load (${
           error instanceof Error ? error.message : String(error)
@@ -630,8 +722,17 @@ export async function runPrerender(opts: RunPrerenderOptions): Promise<Prerender
     // Warned once per tag, not per reference site. Unknown tags are NOT
     // necessarily errors — a genuine third-party element belongs on this list —
     // so the wording says what happened rather than asserting a mistake.
+    //
+    // A tag whose component file was found and FAILED TO LOAD is skipped: the
+    // loop above already reported it, with the actual exception, and this
+    // message would contradict that report rather than add to it. It says "was
+    // not found under `src/components`" and advises "move it there" — of a file
+    // that is already there. Found by rebuilding apps/docs after the fix above
+    // made this pair reachable for the first time: `weather-demo` produced both
+    // lines, and only one of them was true.
     for (const tag of [...referenced].sort()) {
       if (childRegistry.has(tag)) continue
+      if (explainedByLoadFailure.has(tag)) continue
       pushWarn(
         `[@aihu/app] static output: <${tag}> is referenced but was not found under ` +
           `"${componentsDir}", so it prerenders as an empty element and fills in on the ` +
