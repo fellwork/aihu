@@ -718,6 +718,19 @@ export function genSC(
   pageFiles: ReadonlyArray<string>,
   componentsDir: string,
   deriveChildTags?: (source: string, id: string) => string[],
+  /**
+   * Layout files, walked as ROOTS alongside the pages.
+   *
+   * Layouts are where a site's nav, header and footer live, and
+   * `@aihu/router/server` now composes them into every live SSR response.
+   * Rooting the walk at pages alone excluded every component a layout
+   * references, so the shell would server-render with all of them as empty
+   * elements — this module's own failure mode, relocated into the part of the
+   * page that appears on EVERY route.
+   *
+   * Defaulted to empty so the pre-layout call shape keeps its exact behaviour.
+   */
+  layoutFiles: ReadonlyArray<string> = [],
 ): string {
   const mods = scanComponents(componentsDir)
 
@@ -773,9 +786,12 @@ export function genSC(
     reachable = Object.keys(mods).filter(safe).sort()
   } else {
     const seen = new Set<string>()
-    // Roots are the PAGES, not the components — that is what drops an orphan.
+    // Roots are the PAGES and the LAYOUTS, not the components — rooting at the
+    // components is what would keep an orphan; rooting only at the pages is
+    // what would drop the site chrome.
     const stack: string[] = []
     for (const page of pageFiles) stack.push(...edges(page))
+    for (const layout of layoutFiles) stack.push(...edges(layout))
     while (stack.length > 0) {
       const tag = stack.pop() as string
       if (seen.has(tag)) continue
@@ -870,7 +886,14 @@ export function viteRouterPlugin(opts?: RouterPluginOptions): VitePlugin {
       if (id === LR) return (cl ??= genL(resolve(root, ld)))
       if (id === CR) return (cc ??= genC(resolve(root, cd)))
       if (id === SCR) {
-        return (csc ??= genSC(scanPages(root, pd).routes, resolve(root, cd), opts?.deriveChildTags))
+        return (csc ??= genSC(
+          scanPages(root, pd).routes,
+          resolve(root, cd),
+          opts?.deriveChildTags,
+          // Layout FILES, not the tag map: `genSC` walks source for child-tag
+          // edges, and the layouts are roots of that walk (see its docblock).
+          Object.values(scanLayouts(resolve(root, ld))),
+        ))
       }
       return null
     },
@@ -911,8 +934,9 @@ export function viteRouterPlugin(opts?: RouterPluginOptions): VitePlugin {
           CR,
         ),
         // `virtual:aihu-server-components` is reachability-walked from the
-        // PAGES over the COMPONENTS, so it is the one virtual module a change
-        // in either directory can invalidate — hence two entries, not one.
+        // PAGES and the LAYOUTS over the COMPONENTS, so it is the one virtual
+        // module a change in any of the three directories can invalidate —
+        // hence three entries, not one.
         iscp = mk(
           pa,
           () => {
@@ -926,6 +950,13 @@ export function viteRouterPlugin(opts?: RouterPluginOptions): VitePlugin {
             csc = null
           },
           SCR,
+        ),
+        iscl = mk(
+          la,
+          () => {
+            csc = null
+          },
+          SCR,
         )
       const invalidateAll = (p: string): void => {
         ir(p)
@@ -933,6 +964,7 @@ export function viteRouterPlugin(opts?: RouterPluginOptions): VitePlugin {
         ic(p)
         iscp(p)
         iscc(p)
+        iscl(p)
       }
       server.watcher.on('add', invalidateAll)
       server.watcher.on('unlink', invalidateAll)

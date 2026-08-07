@@ -75,7 +75,7 @@ export const EXPORTS: readonly ApiExport[] = [
     name: 'checkEntitlement',
     kind: 'function',
     signature:
-      'function checkEntitlement( registry: EntitlementsHandle, principal: EntitledPrincipal, scope: string, memo?: EntitlementMemo, url?: URL, ): Promise<EntitlementVerdict>',
+      'function checkEntitlement( registry: EntitlementsHandle, principal: EntitledPrincipal, scope: string, memo?: EntitlementMemo, url?: URL, platform?: PlatformContext, ): Promise<EntitlementVerdict>',
     summary:
       "THE single live check, both axes (§4.6) — a named alias over the registry's `check` so call sites read as the spec does.",
   },
@@ -172,6 +172,12 @@ export const EXPORTS: readonly ApiExport[] = [
     agent: true,
   },
   {
+    name: 'injectIntoOutlet',
+    kind: 'function',
+    signature: 'function injectIntoOutlet(layoutHtml: string, content: string): string | null',
+    summary: "Inject rendered page content into a layout shell's `data-aihu-outlet` marker.",
+  },
+  {
     name: 'isCallAdvertised',
     kind: 'function',
     signature: 'function isCallAdvertised(extract: unknown): boolean',
@@ -259,7 +265,7 @@ export const EXPORTS: readonly ApiExport[] = [
     name: 'resolveRequestPrincipal',
     kind: 'function',
     signature:
-      'async function resolveRequestPrincipal( req: Request, auth?: GovernedRequestAuth, ): Promise<Principal>',
+      'async function resolveRequestPrincipal( req: Request, auth?: GovernedRequestAuth, platform?: PlatformContext, ): Promise<Principal>',
     summary:
       'Step 1 for the SSR/E3 transports: settle THE principal for one request from its credential material (Authorization bearer, User-Agent, host-verified session).',
     agent: true,
@@ -399,7 +405,7 @@ export const EXPORTS: readonly ApiExport[] = [
     name: 'EntitlementContext',
     kind: 'interface',
     signature:
-      "interface EntitlementContext {\n  /** Static meet already passed — never anonymous (§4.2). */\n  readonly principal: EntitledPrincipal\n  readonly scope: string\n  /** Never the raw credential. */\n  readonly request: { readonly url: URL }\n  /**\n   * Aborted when the registered `timeoutMs` (default 2000) elapses (§4.3).\n   * Deadline exhaustion is indistinguishable from a throw: `'unavailable'`.\n   */\n  readonly signal: AbortSignal\n}",
+      "interface EntitlementContext {\n  /** Static meet already passed — never anonymous (§4.2). */\n  readonly principal: EntitledPrincipal\n  readonly scope: string\n  /** Never the raw credential. */\n  readonly request: { readonly url: URL }\n  /**\n   * Aborted when the registered `timeoutMs` (default 2000) elapses (§4.3).\n   * Deadline exhaustion is indistinguishable from a throw: `'unavailable'`.\n   */\n  readonly signal: AbortSignal\n  /**\n   * The host runtime's per-request ambient state, as the adapter supplied it\n   * to `ServerRouter.handle(request, platform)`.\n   *\n   * A live entitlement check is a lookup against something — a subscriptions\n   * table in D1, a KV entry, a billing API behind a secret — and on a Worker\n   * every one of those arrives through the bindings. Without this member the\n   * resolver's only options are a module-scope handle (which does not exist\n   * on Workers: bindings are per-request) or an unauthenticated public fetch.\n   *\n   * `undefined` on the call axis (`@aihu/agent-service`'s `runGate`), which\n   * has no platform to offer, and whenever the caller passed none.\n   */\n  readonly platform?: PlatformContext\n}",
     summary: "The live per-request entitlement check's context (§3.1, §4.3).",
   },
   {
@@ -422,7 +428,7 @@ export const EXPORTS: readonly ApiExport[] = [
     name: 'GovernedFetchContext',
     kind: 'interface',
     signature:
-      'interface GovernedFetchContext {\n  readonly params: Record<string, string>\n  readonly url: URL\n  /**\n   * The SETTLED principal (§4.7): a hand-written fetch may further narrow on\n   * it, never widen. On the granted path this is always a verified principal;\n   * on the `preview` path it may be anonymous.\n   */\n  readonly principal: Principal\n}',
+      "interface GovernedFetchContext {\n  readonly params: Record<string, string>\n  readonly url: URL\n  /**\n   * The SETTLED principal (§4.7): a hand-written fetch may further narrow on\n   * it, never widen. On the granted path this is always a verified principal;\n   * on the `preview` path it may be anonymous.\n   */\n  readonly principal: Principal\n  /**\n   * The host runtime's per-request ambient state (Worker bindings, D1/KV/R2\n   * handles, secrets), as the adapter supplied it to\n   * `ServerRouter.handle(request, platform)`.\n   *\n   * A provider IS the data-source access, so this is the member that makes\n   * `data:` usable on a Worker at all: without it the only reachable data\n   * source is `fetch()` over the public internet. `undefined` when the caller\n   * passed no platform — a provider that needs one must say so, not assume.\n   */\n  readonly platform?: PlatformContext\n}",
     summary: "The context a provider's `fetch`/`preview` receives.",
     agent: true,
   },
@@ -430,7 +436,7 @@ export const EXPORTS: readonly ApiExport[] = [
     name: 'GovernedLoadContext',
     kind: 'interface',
     signature:
-      'interface GovernedLoadContext {\n  readonly params: Record<string, string>\n  readonly url: URL\n  /** Settled by `resolvePrincipal` in `handle` — step 1, once per request. */\n  readonly principal: Principal\n  /** The per-request memo (§4.4 layer 1). */\n  readonly entitlements: EntitlementMemo\n}',
+      "interface GovernedLoadContext {\n  readonly params: Record<string, string>\n  readonly url: URL\n  /** Settled by `resolvePrincipal` in `handle` — step 1, once per request. */\n  readonly principal: Principal\n  /** The per-request memo (§4.4 layer 1). */\n  readonly entitlements: EntitlementMemo\n  /**\n   * The host runtime's per-request ambient state, threaded from\n   * `ServerRouter.handle(request, platform)`. Forwarded UNREAD to both the\n   * live entitlement resolver (step 3) and the provider (step 4) — the loader\n   * is a gate, not a consumer.\n   */\n  readonly platform?: PlatformContext\n}",
     summary: 'The context the generated loader runs in (principal settled by `handle`).',
     agent: true,
   },
@@ -455,7 +461,7 @@ export const EXPORTS: readonly ApiExport[] = [
     name: 'GovernedRequestAuth',
     kind: 'interface',
     signature:
-      'interface GovernedRequestAuth extends PrincipalGateDeps {\n  /**\n   * Resolve a HOST-VERIFIED session from the request (e.g. `getAuthState`\n   * over the cookie). Same injection posture as `PrincipalSource.session`:\n   * never pass unverified cookie contents.\n   */\n  readonly resolveSession?: (\n    req: Request,\n  ) =>\n    | { readonly sub: string; readonly scopes: readonly string[] }\n    | null\n    | undefined\n    | Promise<{ readonly sub: string; readonly scopes: readonly string[] } | null | undefined>\n}',
+      "interface GovernedRequestAuth extends PrincipalGateDeps {\n  /**\n   * Resolve a HOST-VERIFIED session from the request (e.g. `getAuthState`\n   * over the cookie). Same injection posture as `PrincipalSource.session`:\n   * never pass unverified cookie contents.\n   */\n  readonly resolveSession?: (\n    req: Request,\n    /**\n     * The host runtime's per-request ambient state. A cookie-session lookup is\n     * a store read — a KV `get`, a D1 `select`, a signing secret — and on a\n     * Worker all three arrive through the bindings. Optional second parameter,\n     * so every existing single-parameter resolver keeps working unchanged.\n     */\n    platform?: PlatformContext,\n  ) =>\n    | { readonly sub: string; readonly scopes: readonly string[] }\n    | null\n    | undefined\n    | Promise<{ readonly sub: string; readonly scopes: readonly string[] } | null | undefined>\n}",
     summary: 'The host-injected auth material for principal resolution on the SSR path.',
     agent: true,
   },
@@ -751,6 +757,14 @@ export const EXPORTS: readonly ApiExport[] = [
     signature:
       "type NormalizedReadValue =\n  | 'all'\n  | 'agents'\n  | 'search'\n  | 'none'\n  | 'verified'\n  | 'human'\n  | { readonly scope: string }\n  | 'malformed'",
     summary: 'The normalized `read` value.',
+  },
+  {
+    name: 'PlatformContext',
+    kind: 'type',
+    signature: 'type PlatformContext = unknown',
+    summary:
+      "The per-request platform context — the host runtime's ambient state for one request, threaded from the adapter's `fetch` down to route loaders and the governed data path.",
+    agent: true,
   },
   {
     name: 'Principal',

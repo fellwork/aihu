@@ -163,6 +163,54 @@ describe('genSC() walks render edges from the pages', () => {
   })
 })
 
+describe('genSC() roots the walk at the LAYOUTS as well as the pages', () => {
+  /** A project with a layout that references a component no page names. */
+  function layoutFixture() {
+    const p = project({
+      'pages/index.aihu': '// @schild probe-card\n@template { <probe-card /> }',
+      'src/layouts/app.aihu': '// @schild site-nav\n@template { <site-nav /><outlet /> }',
+      'src/components/probe-card.aihu': '@template { <p>x</p> }',
+      'src/components/site-nav.aihu': '// @schild nav-link\n@template { <nav-link /> }',
+      'src/components/nav-link.aihu': '@template { <a>link</a> }',
+      'src/components/probe-orphan.aihu': '@template { <p>orphan</p> }',
+    })
+    return { ...p, layouts: [join(p.root, 'src/layouts/app.aihu').replace(/\\/g, '/')] }
+  }
+
+  it('bundles the components a LAYOUT references, transitively', () => {
+    // `@aihu/router/server` composes layouts into every live SSR response, and
+    // a layout is where a site's nav, header and footer live. Rooting the walk
+    // at pages alone left every one of those components out of the server
+    // bundle, so the shell rendered with all of them as empty elements — on
+    // EVERY route, which is worse than the page-level failure this walk exists
+    // to fix.
+    const { root, pages, layouts } = layoutFixture()
+    const out = genSC(pages, join(root, 'src/components'), fakeDerive, layouts)
+    expect(tagsOf(out)).toEqual(['nav-link', 'probe-card', 'site-nav'])
+  })
+
+  it('still drops the orphan — layouts are roots, not an escape hatch', () => {
+    // The whole point of reachability is upload weight. Adding a second root
+    // set must not quietly become "bundle everything".
+    const { root, pages, layouts } = layoutFixture()
+    expect(tagsOf(genSC(pages, join(root, 'src/components'), fakeDerive, layouts))).not.toContain(
+      'probe-orphan',
+    )
+  })
+
+  it('is byte-identical to the old call shape when no layouts are passed', () => {
+    // The parameter is defaulted, so every pre-layout caller keeps its exact
+    // behaviour. This is also the control for the assertion above: without it,
+    // "bundles the layout's components" could pass because the walk bundles
+    // everything.
+    const { root, pages, layouts } = layoutFixture()
+    const withoutLayouts = genSC(pages, join(root, 'src/components'), fakeDerive)
+    expect(tagsOf(withoutLayouts)).toEqual(['probe-card'])
+    expect(withoutLayouts).toBe(genSC(pages, join(root, 'src/components'), fakeDerive, []))
+    expect(withoutLayouts).not.toBe(genSC(pages, join(root, 'src/components'), fakeDerive, layouts))
+  })
+})
+
 describe('genSC() codegen-boundary validation', () => {
   it('drops a hyphen-less tag that could never register, and says so', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
@@ -211,6 +259,31 @@ describe('viteRouterPlugin serves virtual:aihu-server-components', () => {
     expect(resolved).toBe('\0virtual:aihu-server-components')
     const loaded = plugin.load?.(resolved as string)
     expect(tagsOf(loaded as string)).toEqual(['probe-card', 'probe-inner'])
+  })
+
+  it('scans the LAYOUTS dir and feeds it to the walk', () => {
+    // `genSC` accepting layout roots is worth nothing if the plugin never
+    // passes any. This asserts the WIRING — the one place a defaulted
+    // parameter can silently stay defaulted forever.
+    const p = project({
+      'pages/index.aihu': '// @schild probe-card\n@template { <probe-card /> }',
+      'src/layouts/app.aihu': '// @schild site-nav\n@template { <site-nav /><outlet /> }',
+      'src/components/probe-card.aihu': '@template { <p>x</p> }',
+      'src/components/site-nav.aihu': '@template { <nav>n</nav> }',
+    })
+    const plugin = viteRouterPlugin({
+      pagesDir: 'pages',
+      layoutsDir: 'src/layouts',
+      componentsDir: 'src/components',
+      deriveChildTags: fakeDerive,
+    })
+    plugin.configureServer?.({
+      config: { root: p.root },
+      watcher: { add: () => {}, on: () => {} },
+      moduleGraph: { getModuleById: () => undefined, invalidateModule: () => {} },
+    } as never)
+    const loaded = plugin.load?.(plugin.resolveId?.('virtual:aihu-server-components') as string)
+    expect(tagsOf(loaded as string)).toEqual(['probe-card', 'site-nav'])
   })
 
   it('leaves unrelated ids alone', () => {

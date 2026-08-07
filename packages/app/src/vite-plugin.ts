@@ -1,9 +1,17 @@
 import { existsSync } from 'node:fs'
 import { cp, writeFile as fsWriteFile, mkdir } from 'node:fs/promises'
-import { dirname, join, resolve as resolvePath } from 'node:path'
+import { basename, dirname, join, resolve as resolvePath } from 'node:path'
 // Build-time sub-plugin imports. These are devDependencies of @aihu/app and
 // are marked external in rolldown.config.ts — they are never bundled.
-import { _deriveChildTags, aihuCompilerPlugin, compileRouteMeta, transform } from '@aihu/compiler'
+import {
+  _deriveChildTags,
+  _isLayoutFile,
+  _layoutTag,
+  _parseComponentTagsMarker,
+  aihuCompilerPlugin,
+  compileRouteMeta,
+  transform,
+} from '@aihu/compiler'
 import type { RouteDefinition } from '@aihu/router'
 import type { RouterPluginOptions } from '@aihu/router/plugin'
 import { scanPages, viteRouterIntegration } from '@aihu/router/plugin'
@@ -48,9 +56,62 @@ const SSR_ENTRY_NAME = '_worker'
  * required: client/universal output carries no `__aihu_schild` call sites, so
  * any other target silently yields an empty edge set and prunes the whole
  * registry away.
+ *
+ * ## Why this needs the layouts dir
+ *
+ * `genSC` roots its reachability walk at the LAYOUTS as well as the pages, so
+ * this function is now handed layout files — and a layout compiles in LAYOUT
+ * MODE, under the namespaced `aihu-layout-<stem>` tag. Compiling one as an
+ * ordinary component derives its tag from the file stem instead, and the
+ * common case (`src/layouts/app.aihu`) then fails the build outright with C450:
+ * `'app'` has no hyphen, so it could never register as a custom element.
+ *
+ * That is not hypothetical — it is exactly what the Workers-SSR e2e gate
+ * caught the moment layouts became roots, and only that test caught it, because
+ * it is the only one that runs a real `vite build` over a real layout file.
+ *
+ * The layout-mode decision is `@aihu/compiler`'s `_isLayoutFile` + `_layoutTag`
+ * — the SAME pair `aihuCompilerPlugin`'s own transform uses. Reused rather than
+ * re-derived: a second definition of "is this a layout, and what does it
+ * register as" would drift from the plugin's the first time the convention
+ * moved, and the two disagreeing means a layout whose children are silently
+ * pruned from the server bundle.
  */
-function deriveChildTagsForRouter(source: string, id: string): string[] {
-  return _deriveChildTags(transform(source, id, { target: 'server' }).code)
+function makeDeriveChildTags(layoutsDir: string): (source: string, id: string) => string[] {
+  return (source, id) => {
+    const isLayout = _isLayoutFile(id, layoutsDir)
+    const compiled = transform(source, id, {
+      target: 'server',
+      ...(isLayout ? { tag: _layoutTag(basename(id, '.aihu')) } : {}),
+    }).code
+    // ── Layouts use a DIFFERENT edge set, and the reason is a compiler fact,
+    // not a preference.
+    //
+    // Measured on the server target: a compiled PAGE exports `__ssr` AND
+    // `__ssrString`; a compiled LAYOUT exports `__ssr` only. `_deriveChildTags`
+    // reads `__aihu_schild('<tag>'` call sites, which live exclusively in
+    // `__ssrString` — so for every layout it returns `[]`. Rooting the walk at
+    // layouts while deriving their edges that way would have added a root set
+    // that can never contribute anything, which is worse than not adding it:
+    // it looks done.
+    //
+    // A layout therefore renders through the WALKER, and the walker resolves a
+    // child from the registry by tag on its own (`ssr.ts`'s child-component
+    // arm), so the tags that matter for a layout are the ones its TEMPLATE
+    // references — the `// @aihu:component-tags` marker, which the layout's
+    // server output does carry.
+    //
+    // ACCEPTED TRADE, stated because it is real: the marker is the strictly
+    // LARGER set. It counts references the walker will decline at render time
+    // (one carrying attributes, one with children, one at a non-literal path),
+    // so a layout can pull a module into the server bundle for an element that
+    // renders empty. That is upload weight, and upload weight is the currency
+    // on a Worker — but the alternative for layouts is the EMPTY set, i.e. a
+    // site's entire nav and footer rendering blank on every route. Over-
+    // inclusion by a reference or two beats that, and it stops being a trade
+    // the moment the compiler emits `__ssrString` for layouts too.
+    return isLayout ? _parseComponentTagsMarker(compiled) : _deriveChildTags(compiled)
+  }
 }
 
 /** Map a pages-dir file path to a minimal RouteDefinition for adapter context. */
@@ -212,7 +273,7 @@ export function viteAihuPlugin(config?: AihuConfig): PluginOption[] {
     // Injected the same way, for the same reason: the router keeps zero
     // compiler dependency and `genSC` needs the compiler's ONE child-tag
     // derivation rather than a fourth copy of the rule.
-    deriveChildTags: deriveChildTagsForRouter,
+    deriveChildTags: makeDeriveChildTags(config?.dir?.layouts ?? 'src/layouts'),
   } satisfies RouterPluginOptions
 
   // Agent readiness: opt-in only. No safe default for `name`.

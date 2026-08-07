@@ -83,7 +83,7 @@ export const EXPORTS: readonly ApiExport[] = [
     name: 'genSC',
     kind: 'function',
     signature:
-      'function genSC( pageFiles: ReadonlyArray<string>, componentsDir: string, deriveChildTags?: (source: string, id: string) => string[], ): string',
+      "function genSC( pageFiles: ReadonlyArray<string>, componentsDir: string, deriveChildTags?: (source: string, id: string) => string[], /** * Layout files, walked as ROOTS alongside the pages. * * Layouts are where a site's nav, header and footer live, and * `@aihu/router/server` now composes them into every live SSR response. * Rooting the walk at pages alone excluded every component a layout * references, so the shell would server-render with all of them as empty * elements — this module's own failure mode, relocated into the part of the * page that appears on EVERY route. * * Defaulted to empty so the pre-layout call shape keeps its exact behaviour. */ layoutFiles: ReadonlyArray<string> = [], ): string",
     summary:
       "Generate `virtual:aihu-server-components` — the SERVER-side child registry source, for `output: 'ssr'` builds.",
   },
@@ -175,6 +175,13 @@ export const EXPORTS: readonly ApiExport[] = [
     summary: 'Layout name → absolute file path (v0.6.8).',
   },
   {
+    name: 'LayoutModuleLike',
+    kind: 'interface',
+    signature:
+      "interface LayoutModuleLike {\n  /** The renderable — `() => arbor-tree` or `{ toHtml() }`. */\n  readonly default?: unknown\n  /** LDF §10 step 3 — the compiler-assigned `data-a` scope id, for first-paint CSS. */\n  readonly __aihu_light_scope__?: string\n  /** The layout's registered custom-element tag, so SSR wraps what the client builds. */\n  readonly __aihu_tag__?: string\n}",
+    summary: '',
+  },
+  {
     name: 'MiddlewareScan',
     kind: 'interface',
     signature:
@@ -221,7 +228,7 @@ export const EXPORTS: readonly ApiExport[] = [
     name: 'ServerRouterOptions',
     kind: 'interface',
     signature:
-      "interface ServerRouterOptions {\n  /**\n   * The governed registry (`createGovernedRegistry()` from `@aihu/server`).\n   * Passing it activates the governed pipeline for every route with a\n   * compiled `data:` declaration, boot-validates the registry against the\n   * route census (spec §2.3 — a typo is a boot refusal, not a 500 at first\n   * request), and enables the E3 governed-data endpoint. Pass the SAME\n   * instance to `AgentServiceOptions.entitlements` so both axes share one\n   * live meaning per scope (§4.6).\n   */\n  readonly governed?: GovernedRegistry\n  /**\n   * Credential material for principal resolution on the SSR path: the\n   * verifying auth plugin (Bearer JWTs), the anonymous-UA classifier, and a\n   * host-verified session resolver (cookie path). Same injection posture as\n   * `AgentServiceOptions.resolveAuth` / `PrincipalGateDeps`.\n   */\n  readonly auth?: GovernedRequestAuth\n  /**\n   * §2a — the pre-resolved child-component registry, forwarded to\n   * `renderToString` as `SsrOptions.children` on BOTH render paths.\n   *\n   * Typed as `buildChildRegistry`'s own return type so the intended\n   * construction is the obvious one:\n   *\n   * ```ts\n   * const children = buildChildRegistry(discovered)\n   * export default createServerRouter(routes, { children })\n   * ```\n   *\n   * A RESOLVED map, not a loader — `__aihu_schild` runs inside the compiled\n   * string fast path, which is synchronous, so every module must already be\n   * in hand before a render begins. Awaiting belongs at module init, once.\n   *\n   * Omitting it is byte-identical to not passing it, matching this\n   * interface's existing contract: a component reference then renders as an\n   * empty element exactly as it does today.\n   *\n   * SCOPE, deliberately stated because the plan text overstated it: this\n   * closes the forwarding hole in THIS file. It does not, by itself, give any\n   * shipped adapter non-empty children. `@aihu/adapter-cloudflare` and\n   * `-vercel` emit their entry as a raw string at `closeBundle`, wire\n   * `createRequestRouter` rather than this function, and give every route a\n   * `notFound` placeholder — they render nothing at all today. A consumer\n   * still needs a way to BUILD this map on the server, which is §2b (a\n   * server-target virtual module plus a Vite-worker-environment example).\n   * See §2 of `docs/plans/2026-08-06-ssr-child-followups.md`.\n   */\n  readonly children?: ReadonlyMap<string, ChildModuleLike>\n}",
+      "interface ServerRouterOptions {\n  /**\n   * The governed registry (`createGovernedRegistry()` from `@aihu/server`).\n   * Passing it activates the governed pipeline for every route with a\n   * compiled `data:` declaration, boot-validates the registry against the\n   * route census (spec §2.3 — a typo is a boot refusal, not a 500 at first\n   * request), and enables the E3 governed-data endpoint. Pass the SAME\n   * instance to `AgentServiceOptions.entitlements` so both axes share one\n   * live meaning per scope (§4.6).\n   */\n  readonly governed?: GovernedRegistry\n  /**\n   * Credential material for principal resolution on the SSR path: the\n   * verifying auth plugin (Bearer JWTs), the anonymous-UA classifier, and a\n   * host-verified session resolver (cookie path). Same injection posture as\n   * `AgentServiceOptions.resolveAuth` / `PrincipalGateDeps`.\n   */\n  readonly auth?: GovernedRequestAuth\n  /**\n   * §2a — the pre-resolved child-component registry, forwarded to\n   * `renderToString` as `SsrOptions.children` on BOTH render paths.\n   *\n   * Typed as `buildChildRegistry`'s own return type so the intended\n   * construction is the obvious one:\n   *\n   * ```ts\n   * const children = buildChildRegistry(discovered)\n   * export default createServerRouter(routes, { children })\n   * ```\n   *\n   * A RESOLVED map, not a loader — `__aihu_schild` runs inside the compiled\n   * string fast path, which is synchronous, so every module must already be\n   * in hand before a render begins. Awaiting belongs at module init, once.\n   *\n   * Omitting it is byte-identical to not passing it, matching this\n   * interface's existing contract: a component reference then renders as an\n   * empty element exactly as it does today.\n   *\n   * SCOPE, deliberately stated because the plan text overstated it: this\n   * closes the forwarding hole in THIS file. It does not, by itself, give any\n   * shipped adapter non-empty children. `@aihu/adapter-cloudflare` and\n   * `-vercel` emit their entry as a raw string at `closeBundle`, wire\n   * `createRequestRouter` rather than this function, and give every route a\n   * `notFound` placeholder — they render nothing at all today. A consumer\n   * still needs a way to BUILD this map on the server, which is §2b (a\n   * server-target virtual module plus a Vite-worker-environment example).\n   * See §2 of `docs/plans/2026-08-06-ssr-child-followups.md`.\n   */\n  readonly children?: ReadonlyMap<string, ChildModuleLike>\n  /**\n   * Resolved layout modules, keyed by the NAME a route's `@route { layout }`\n   * declares (not by tag, not by file path) — that is the key the compiled\n   * `RouteDefinition.layout` carries.\n   *\n   * ## The divergence this closes\n   *\n   * `@aihu/app`'s SSG prerender composes layouts; this file did not, at all\n   * (`grep -c layout` over it returned 0 before this option existed). So an\n   * app that looked right prerendered lost its ENTIRE shell — nav, footer,\n   * grid — the moment the same route was served from a Worker, and nothing\n   * warned. That is a silent, visible-in-production difference between two\n   * render paths that are supposed to produce the same document.\n   *\n   * The composition RULE itself is not reimplemented here: the outlet splice\n   * is `@aihu/server`'s `injectIntoOutlet`, which the prerender calls too.\n   * What this file reproduces is the surrounding SEQUENCE (resolve → render\n   * shell → probe for a marker → inject, warning and falling back to the bare\n   * page at each step), because the two paths resolve layout MODULES\n   * differently and always will: the prerender scans the layouts directory off\n   * disk with a live Vite SSR loader, while a Worker has no filesystem and\n   * gets its modules from `virtual:aihu-layouts` inside the bundle.\n   *\n   * Omitting it leaves `handle` byte-identical to before — a route with a\n   * `layout` renders bare, exactly as it did.\n   */\n  readonly layouts?: ReadonlyMap<string, LayoutModuleLike>\n}",
     summary: 'GX Phase 4 (#466, 70-governed-data-access): options for the server router.',
     agent: true,
   },
@@ -252,6 +259,12 @@ export const EXPORTS: readonly ApiExport[] = [
     summary: 'Navigation guard `next` callback (RFC-A5-015).',
   },
   {
+    name: 'PlatformContext',
+    kind: 'type',
+    signature: 'type PlatformContext',
+    summary: '',
+  },
+  {
     name: 'PrefetchMode',
     kind: 'type',
     signature: "type PrefetchMode = 'none' | 'hover' | 'visible'",
@@ -276,7 +289,7 @@ export const EXPORTS: readonly ApiExport[] = [
     name: 'RouteModule',
     kind: 'type',
     signature:
-      "type RouteModule = {\n  default: unknown\n  /**\n   * The route's data loader. Either a plain server loader (the shipped,\n   * ungoverned contract — called with the matched params), or — GX Phase 4\n   * (#466) — the `defineGovernedFetch` escape hatch (structurally typed here\n   * so this browser-eligible file keeps zero `@aihu/server` imports): a\n   * route-local provider the generated loader gates. On a `data:`-declared\n   * route a PLAIN loader is a C486 build error (one data source per route).\n   */\n  loader?:\n    | ((params: Record<string, string>) => Promise<unknown>)\n    | { readonly _brand: 'DefinedGovernedFetch' }\n}",
+      "type RouteModule = {\n  default: unknown\n  /**\n   * The route's data loader. Either a plain server loader (the shipped,\n   * ungoverned contract — called with the matched params and, since bindings\n   * landed, a {@link LoaderContext}), or — GX Phase 4 (#466) — the\n   * `defineGovernedFetch` escape hatch (structurally typed here so this\n   * browser-eligible file keeps zero `@aihu/server` imports): a route-local\n   * provider the generated loader gates. On a `data:`-declared route a PLAIN\n   * loader is a C486 build error (one data source per route).\n   */\n  loader?:\n    | ((params: Record<string, string>, ctx: LoaderContext) => Promise<unknown>)\n    | { readonly _brand: 'DefinedGovernedFetch' }\n}",
     summary: '',
   },
   {
@@ -310,7 +323,8 @@ export const EXPORTS: readonly ApiExport[] = [
   {
     name: 'ServerRouter',
     kind: 'type',
-    signature: 'type ServerRouter = Router & {\n  handle(req: Request): Promise<Response>\n}',
+    signature:
+      "type ServerRouter = Router & {\n  /**\n   * Serve one request.\n   *\n   * `platform` is the host runtime's per-request ambient state — on Cloudflare\n   * Workers, `fetch`'s `env` (KV, D1, R2, Durable Object stubs, secrets) and\n   * `ctx` (`waitUntil`); on another host, whatever that host's adapter chooses\n   * to pass. The framework NEVER reads inside it; it forwards it, unread and\n   * untyped, to route loaders, the governed provider, the live entitlement\n   * resolver and the session resolver.\n   *\n   * OMITTING IT IS BYTE-IDENTICAL to the pre-bindings behaviour: every\n   * consumer of `platform` receives `undefined` and every one of them treats\n   * that as \"the host offered none\", which is the state they were all in\n   * before this parameter existed.\n   */\n  handle(req: Request, platform?: PlatformContext): Promise<Response>\n}",
     summary: '',
   },
 ]

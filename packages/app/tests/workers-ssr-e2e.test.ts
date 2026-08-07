@@ -261,6 +261,39 @@ describe('output: ssr produces a deployable, rendering Worker', () => {
     expect(body).toBe('ASSETS-STUB:/assets/some-chunk.js')
   })
 
+  it('7. composes the route LAYOUT, with the page inside its outlet', async () => {
+    // The SSG prerender composed layouts and live SSR did not, so an app that
+    // looked right prerendered lost its whole shell the moment a Worker served
+    // it. Everything else asserting this is a unit test over a HAND-BUILT
+    // layout module; only this one proves the real chain — a compiled `.aihu`
+    // layout exporting an SSR-renderable default under the server target,
+    // reached through `virtual:aihu-layouts` from inside the bundle, with the
+    // compiler's `<outlet>` lowering to the marker the splice looks for.
+    const { body } = await fetchThrough(built.main!.worker, 'https://e2e.test/')
+    expect(body).toContain('CHROME-OK')
+    // The page is INSIDE the layout's outlet, not merely on the same document.
+    expect(body).toMatch(/data-aihu-outlet[^>]*>.*probe page/s)
+    // …and the shell precedes it, i.e. the page did not swallow the layout.
+    expect(body.indexOf('CHROME-OK')).toBeLessThan(body.indexOf('probe page'))
+  })
+
+  it('8. a component only the LAYOUT references still ships to the server bundle', () => {
+    // `genSC` rooted its reachability walk at the PAGES alone. No page names
+    // `probe-chrome` — only the layout does — so before layouts became roots
+    // its module was pruned from the server bundle and the site nav rendered as
+    // an empty element on EVERY route. This is the control's mirror image:
+    // assertion 5 proves the walk still excludes what nothing reaches, and this
+    // proves it now includes what only a layout reaches.
+    const serverJs = walk(built.main!.serverDist)
+      .filter((f) => f.endsWith('.js'))
+      .map((f) => readFileSync(f, 'utf8'))
+      .join('\n')
+    expect(serverJs).toContain('CHROME-OK')
+    // And the orphan is STILL out — adding a second root set must not have
+    // quietly become "bundle everything".
+    expect(serverJs).not.toContain('ORPHAN-SHOULD-NOT-SHIP')
+  })
+
   it('D-2. the SSR bundle is NOT written where the ASSETS binding would serve it', () => {
     // Cloudflare's `[assets] directory` serves the client outDir verbatim. An
     // SSR chunk landing there is downloadable server code on a public URL.

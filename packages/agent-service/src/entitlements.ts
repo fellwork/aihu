@@ -75,11 +75,20 @@ export interface EntitlementsHandle {
    *
    * `url` is the request URL when the transport has one (threaded into
    * `EntitlementContext.request`); the call axis may omit it.
+   *
+   * `platform` is the host runtime's per-request ambient state (Worker
+   * bindings and the like), forwarded UNREAD into the registered resolver's
+   * context. Typed `unknown` HERE, deliberately: `@aihu/server` owns the
+   * `PlatformContext` alias, and `@aihu/server` depends on this package, not
+   * the other way round — importing the alias would invert the dependency for
+   * a type that carries no information. The SSR transport supplies it; the
+   * call axis (`runGate`) has none and omits it.
    */
   check(
     scope: string,
     principal: EntitledPrincipal,
     memo?: EntitlementMemo,
     url?: URL,
+    platform?: unknown,
   ): Promise<EntitlementVerdict>
 }

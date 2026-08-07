@@ -50,13 +50,18 @@ export const SERVER_ENTRY_RESOLVED_ID = '\0virtual:aihu-server-entry'
 export interface ServerEntryContext {
   /**
    * The identifier the generated prelude binds the request handler to. Call it
-   * as `handler(request)` — it takes a `Request` and returns a
-   * `Promise<Response>`, matching `ServerRouter.handle`.
+   * as `handler(request, platform)` — it matches `ServerRouter.handle`.
    *
-   * NOTE, honestly: there is no platform/`env` parameter. `ServerRouter.handle`
-   * accepts a `Request` and nothing else, so an adapter cannot thread Worker
-   * bindings through it today. Emitting a second argument that the framework
-   * silently drops would be worse than the gap.
+   * `platform` is the host runtime's per-request ambient state, and the
+   * adapter decides ENTIRELY what goes in it: the framework forwards the value
+   * unread and untyped to route loaders, the governed provider, the live
+   * entitlement resolver and the session resolver. `@aihu/adapter-cloudflare`
+   * passes `{ env, ctx }` — bindings plus the `ExecutionContext`. A Node or
+   * Vercel adapter has different ambient state and should pass that instead;
+   * nothing here is Cloudflare-shaped.
+   *
+   * Passing nothing is still valid and behaves exactly as it did before the
+   * parameter existed.
    */
   readonly handler: string
   /** The resolved `AihuConfig` passed to `viteAihuPlugin`. */
@@ -81,6 +86,7 @@ export function buildServerEntrySource(adapterSource?: string): string {
     "import { buildChildRegistry } from '@aihu/server'",
     "import routes from 'virtual:aihu-routes'",
     "import __components from 'virtual:aihu-server-components'",
+    "import __layouts from 'virtual:aihu-layouts'",
     '',
     '// Resolve every child module ONCE, at module init. `__aihu_schild` runs',
     '// inside the synchronous compiled string path, so nothing can be awaited',
@@ -112,10 +118,33 @@ export function buildServerEntrySource(adapterSource?: string): string {
     '}',
     '',
     'const __children = buildChildRegistry(__discovered, (m) => console.warn(m))',
-    'const __router = createServerRouter(routes, { children: __children })',
     '',
-    '/** Request handler: `(request: Request) => Promise<Response>`. */',
-    `export const ${HANDLER} = (request) => __router.handle(request)`,
+    '// Layouts, resolved at module init for the same reason the children are:',
+    '// composition happens inside a request and cannot await a dynamic import',
+    "// mid-flight. Keyed by the layout NAME, which is what a route's compiled",
+    '// `layout` field carries — `virtual:aihu-layouts` is already keyed that way.',
+    '//',
+    '// Without this the live SSR path renders every page BARE while the SSG path',
+    '// composes its shell, so the same route looks right prerendered and loses its',
+    '// nav, footer and grid the moment a Worker serves it.',
+    'const __layoutEntries = await Promise.all(',
+    '  Object.entries(__layouts).map(async ([name, entry]) => ({ name, mod: await entry.load() })),',
+    ')',
+    'const __layoutMap = new Map(__layoutEntries.map(({ name, mod }) => [name, mod]))',
+    '',
+    'const __router = createServerRouter(routes, {',
+    '  children: __children,',
+    '  layouts: __layoutMap,',
+    '})',
+    '',
+    '/**',
+    ' * Request handler: `(request: Request, platform?: unknown) => Promise<Response>`.',
+    ' *',
+    " * `platform` is the host's per-request ambient state — on Workers the adapter",
+    ' * passes `{ env, ctx }`, so a route loader reaches KV/D1/R2/secrets and',
+    ' * `waitUntil` through it. The framework never reads inside it.',
+    ' */',
+    `export const ${HANDLER} = (request, platform) => __router.handle(request, platform)`,
   ].join('\n')
 
   return adapterSource ? `${prelude}\n\n${adapterSource}\n` : `${prelude}\n`

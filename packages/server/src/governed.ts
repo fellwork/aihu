@@ -41,6 +41,7 @@ import type {
 } from '@aihu/agent-service'
 import { decideEmission, resolvePrincipal } from '@aihu/agent-service'
 import { deriveReadPolicy } from './extract-read-policy.ts'
+import type { PlatformContext } from './platform.ts'
 
 // Re-export the shared entitlement/principal contract so `@aihu/router/server`
 // (which depends on `@aihu/server`, not on `@aihu/agent-service`) can consume
@@ -99,6 +100,17 @@ export interface GovernedFetchContext {
    * on the `preview` path it may be anonymous.
    */
   readonly principal: Principal
+  /**
+   * The host runtime's per-request ambient state (Worker bindings, D1/KV/R2
+   * handles, secrets), as the adapter supplied it to
+   * `ServerRouter.handle(request, platform)`.
+   *
+   * A provider IS the data-source access, so this is the member that makes
+   * `data:` usable on a Worker at all: without it the only reachable data
+   * source is `fetch()` over the public internet. `undefined` when the caller
+   * passed no platform — a provider that needs one must say so, not assume.
+   */
+  readonly platform?: PlatformContext
 }
 
 /** WHERE a governed type's data comes from. Keyed by resource type (§4.1). */
@@ -121,6 +133,20 @@ export interface EntitlementContext {
    * Deadline exhaustion is indistinguishable from a throw: `'unavailable'`.
    */
   readonly signal: AbortSignal
+  /**
+   * The host runtime's per-request ambient state, as the adapter supplied it
+   * to `ServerRouter.handle(request, platform)`.
+   *
+   * A live entitlement check is a lookup against something — a subscriptions
+   * table in D1, a KV entry, a billing API behind a secret — and on a Worker
+   * every one of those arrives through the bindings. Without this member the
+   * resolver's only options are a module-scope handle (which does not exist
+   * on Workers: bindings are per-request) or an unauthenticated public fetch.
+   *
+   * `undefined` on the call axis (`@aihu/agent-service`'s `runGate`), which
+   * has no platform to offer, and whenever the caller passed none.
+   */
+  readonly platform?: PlatformContext
 }
 
 /** Whether a principal may have the scope's authority RIGHT NOW. Keyed by scope (§4.2). */
@@ -195,6 +221,7 @@ export function createGovernedRegistry(): GovernedRegistry {
     scope: string,
     principal: EntitledPrincipal,
     url: URL,
+    platform: PlatformContext | undefined,
   ): Promise<EntitlementVerdict> {
     // Layer 2: the cross-request TTL cache — POSITIVE verdicts only (Q2:
     // never cache negatives — a member who just paid is entitled on their
@@ -221,7 +248,17 @@ export function createGovernedRegistry(): GovernedRegistry {
       // receives the signal, but even a resolver that ignores it cannot hold
       // the request past `timeoutMs` — the race settles 'unavailable'.
       const verdict = await Promise.race([
-        reg.resolve({ principal, scope, request: { url }, signal: ac.signal }),
+        reg.resolve({
+          principal,
+          scope,
+          request: { url },
+          signal: ac.signal,
+          // Spread rather than `platform` so an absent platform leaves the key
+          // OFF the object entirely: `'platform' in ctx` then answers "did the
+          // host offer one", which a resolver that must fail closed without
+          // bindings needs to be able to ask.
+          ...(platform !== undefined ? { platform } : {}),
+        }),
         new Promise<never>((_, reject) => {
           ac.signal.addEventListener(
             'abort',
@@ -270,6 +307,7 @@ export function createGovernedRegistry(): GovernedRegistry {
       principal: EntitledPrincipal,
       memo?: EntitlementMemo,
       url?: URL,
+      platform?: PlatformContext,
     ): Promise<EntitlementVerdict> {
       const reg = entitlements.get(scope)
       // Unregistered (non-strict) or 'token-only': step 3 is a no-op — the
@@ -281,7 +319,7 @@ export function createGovernedRegistry(): GovernedRegistry {
       // (request, scope); concurrent consults share the in-flight promise.
       const memoized = memo?.verdicts.get(scope)
       if (memoized) return memoized
-      const pending = resolveLive(reg, scope, principal, url ?? new URL('gx://call-axis'))
+      const pending = resolveLive(reg, scope, principal, url ?? new URL('gx://call-axis'), platform)
       memo?.verdicts.set(scope, pending)
       return pending
     },
@@ -311,8 +349,9 @@ export function checkEntitlement(
   scope: string,
   memo?: EntitlementMemo,
   url?: URL,
+  platform?: PlatformContext,
 ): Promise<EntitlementVerdict> {
-  return registry.check(scope, principal, memo, url)
+  return registry.check(scope, principal, memo, url, platform)
 }
 
 // ─── The route's `data:` declaration (§2.1) ──────────────────────────────────
@@ -386,6 +425,13 @@ export interface GovernedLoadContext {
   readonly principal: Principal
   /** The per-request memo (§4.4 layer 1). */
   readonly entitlements: EntitlementMemo
+  /**
+   * The host runtime's per-request ambient state, threaded from
+   * `ServerRouter.handle(request, platform)`. Forwarded UNREAD to both the
+   * live entitlement resolver (step 3) and the provider (step 4) — the loader
+   * is a gate, not a consumer.
+   */
+  readonly platform?: PlatformContext
 }
 
 /** What the generated loader emits (§3.1). */
@@ -489,6 +535,11 @@ export function materializeGeneratedLoader<T>(
             params: ctx.params,
             url: ctx.url,
             principal: ctx.principal,
+            // The preview access needs bindings for the same reason the
+            // granted fetch does — it reads a data source, just a
+            // public-tier-by-declaration one. Omitting it here would make the
+            // locked state the one surface that cannot reach a database.
+            ...(ctx.platform !== undefined ? { platform: ctx.platform } : {}),
           })
           preview = filterPreview<T>(fetched, decl.preview)
         } catch {
@@ -530,6 +581,7 @@ export function materializeGeneratedLoader<T>(
         scope,
         ctx.entitlements,
         ctx.url,
+        ctx.platform,
       )
       if (verdict === 'denied') {
         return withhold('entitlement', entitlementDecision('denied', scope))
@@ -549,6 +601,7 @@ export function materializeGeneratedLoader<T>(
         params: ctx.params,
         url: ctx.url,
         principal: ctx.principal,
+        ...(ctx.platform !== undefined ? { platform: ctx.platform } : {}),
       })
     } catch {
       // Post-grant provider failure: access WAS granted, so a locked state
@@ -685,6 +738,13 @@ export interface GovernedRequestAuth extends PrincipalGateDeps {
    */
   readonly resolveSession?: (
     req: Request,
+    /**
+     * The host runtime's per-request ambient state. A cookie-session lookup is
+     * a store read — a KV `get`, a D1 `select`, a signing secret — and on a
+     * Worker all three arrive through the bindings. Optional second parameter,
+     * so every existing single-parameter resolver keeps working unchanged.
+     */
+    platform?: PlatformContext,
   ) =>
     | { readonly sub: string; readonly scopes: readonly string[] }
     | null
@@ -701,10 +761,11 @@ export interface GovernedRequestAuth extends PrincipalGateDeps {
 export async function resolveRequestPrincipal(
   req: Request,
   auth?: GovernedRequestAuth,
+  platform?: PlatformContext,
 ): Promise<Principal> {
   const authorization = req.headers.get('authorization')
   const jwt = authorization?.replace(/^Bearer\s+/i, '') ?? null
-  const session = auth?.resolveSession ? ((await auth.resolveSession(req)) ?? null) : null
+  const session = auth?.resolveSession ? ((await auth.resolveSession(req, platform)) ?? null) : null
   const source: PrincipalSource = {
     jwt,
     userAgent: req.headers.get('user-agent'),

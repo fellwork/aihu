@@ -1,5 +1,6 @@
 @route {
   name: "probe-page"
+  layout: "app"
 }
 
 @template {

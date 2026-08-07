@@ -12,12 +12,14 @@ import type {
   GovernedRegistry,
   GovernedRequestAuth,
   GovernedRouteDataDecl,
+  PlatformContext,
 } from '@aihu/server'
 import {
   attachSsrString,
   deriveReadPolicy,
   GOVERNED_RETRY_AFTER_SECONDS,
   governedHttpStatus,
+  injectIntoOutlet,
   isGovernedFetch,
   materializeGeneratedLoader,
   normalizeGovernedData,
@@ -29,15 +31,51 @@ import {
 import type { RouteDefinition, RouteModule, Router } from './router.ts'
 import { createRouter } from './router.ts'
 
+// Re-exported so a consumer wiring an adapter never has to reach past
+// `@aihu/router/server` for the type of the value it threads.
+export type { PlatformContext } from '@aihu/server'
+
 /**
- * A server-capable router: a regular {@link Router} plus a `handle(req)`
- * method that renders the matched route to an HTML `Response`. Equivalent
- * to the old `createRouter().handle` shape, but isolated behind the
- * `@aihu/router/server` subpath so SPA bundles never reach
+ * A server-capable router: a regular {@link Router} plus a
+ * `handle(req, platform?)` method that renders the matched route to an HTML
+ * `Response`. Equivalent to the old `createRouter().handle` shape, but
+ * isolated behind the `@aihu/router/server` subpath so SPA bundles never reach
  * `@aihu/server`'s native loader.
  */
 export type ServerRouter = Router & {
-  handle(req: Request): Promise<Response>
+  /**
+   * Serve one request.
+   *
+   * `platform` is the host runtime's per-request ambient state — on Cloudflare
+   * Workers, `fetch`'s `env` (KV, D1, R2, Durable Object stubs, secrets) and
+   * `ctx` (`waitUntil`); on another host, whatever that host's adapter chooses
+   * to pass. The framework NEVER reads inside it; it forwards it, unread and
+   * untyped, to route loaders, the governed provider, the live entitlement
+   * resolver and the session resolver.
+   *
+   * OMITTING IT IS BYTE-IDENTICAL to the pre-bindings behaviour: every
+   * consumer of `platform` receives `undefined` and every one of them treats
+   * that as "the host offered none", which is the state they were all in
+   * before this parameter existed.
+   */
+  handle(req: Request, platform?: PlatformContext): Promise<Response>
+}
+
+/**
+ * The subset of a layout module the live SSR path reads — the same three
+ * exports `@aihu/app`'s prerender reads off a layout, for the same reasons.
+ *
+ * A RESOLVED module, not a loader, for the same reason
+ * {@link ServerRouterOptions.children} is: the awaiting belongs at module
+ * init, once, not on the request path.
+ */
+export interface LayoutModuleLike {
+  /** The renderable — `() => arbor-tree` or `{ toHtml() }`. */
+  readonly default?: unknown
+  /** LDF §10 step 3 — the compiler-assigned `data-a` scope id, for first-paint CSS. */
+  readonly __aihu_light_scope__?: string
+  /** The layout's registered custom-element tag, so SSR wraps what the client builds. */
+  readonly __aihu_tag__?: string
 }
 
 /**
@@ -94,6 +132,33 @@ export interface ServerRouterOptions {
    * See §2 of `docs/plans/2026-08-06-ssr-child-followups.md`.
    */
   readonly children?: ReadonlyMap<string, ChildModuleLike>
+  /**
+   * Resolved layout modules, keyed by the NAME a route's `@route { layout }`
+   * declares (not by tag, not by file path) — that is the key the compiled
+   * `RouteDefinition.layout` carries.
+   *
+   * ## The divergence this closes
+   *
+   * `@aihu/app`'s SSG prerender composes layouts; this file did not, at all
+   * (`grep -c layout` over it returned 0 before this option existed). So an
+   * app that looked right prerendered lost its ENTIRE shell — nav, footer,
+   * grid — the moment the same route was served from a Worker, and nothing
+   * warned. That is a silent, visible-in-production difference between two
+   * render paths that are supposed to produce the same document.
+   *
+   * The composition RULE itself is not reimplemented here: the outlet splice
+   * is `@aihu/server`'s `injectIntoOutlet`, which the prerender calls too.
+   * What this file reproduces is the surrounding SEQUENCE (resolve → render
+   * shell → probe for a marker → inject, warning and falling back to the bare
+   * page at each step), because the two paths resolve layout MODULES
+   * differently and always will: the prerender scans the layouts directory off
+   * disk with a live Vite SSR loader, while a Worker has no filesystem and
+   * gets its modules from `virtual:aihu-layouts` inside the bundle.
+   *
+   * Omitting it leaves `handle` byte-identical to before — a route with a
+   * `layout` renders bare, exactly as it did.
+   */
+  readonly layouts?: ReadonlyMap<string, LayoutModuleLike>
 }
 
 /**
@@ -106,6 +171,38 @@ const DATA_ENDPOINT_PREFIX = '/__aihu/data'
 
 /** Per-route one-shot W48x warning latch (plain loader on a hard-read route). */
 const w48xWarned = new Set<string>()
+
+/**
+ * Per-layout one-shot warning latch. Layout composition failures are
+ * PER-LAYOUT facts, not per-request ones — a missing layout module is missing
+ * for every request that route serves — so warning once per name is the whole
+ * signal, and warning per request would bury a Worker's logs under one
+ * repeated line.
+ */
+const layoutWarned = new Set<string>()
+
+/**
+ * Resolve a module's `default` to something `renderToString` accepts, or
+ * `null`.
+ *
+ * The same two shapes `@aihu/app`'s prerender accepts (`resolveComponent`) and
+ * the same reason for accepting both: a compiled `.aihu` module's default is a
+ * render function, while hand-authored and `{ toHtml() }` modules are objects.
+ * Anything else — notably a compiled module that registers a custom element as
+ * an import side effect and exports no default — is `null`, which callers turn
+ * into a warning rather than a crash.
+ */
+function resolveRenderable(value: unknown): (() => unknown) | { toHtml(): string } | null {
+  if (typeof value === 'function') return value as () => unknown
+  if (
+    value !== null &&
+    typeof value === 'object' &&
+    typeof (value as { toHtml?: unknown }).toHtml === 'function'
+  ) {
+    return value as { toHtml(): string }
+  }
+  return null
+}
 
 /**
  * Construct a router with the server-side `handle(req)` request handler
@@ -150,14 +247,128 @@ export function createServerRouter(
     decl: GovernedRouteDataDecl,
     registry: GovernedRegistry,
     mod: RouteModule,
+    platform: PlatformContext | undefined,
   ): Promise<GovernedEmission<unknown> | 'conflict'> {
     const override = providerOverride(mod, route.pattern)
     if (override === 'conflict') return 'conflict'
     // Step 1 — THE principal, settled once per request (shipped resolver).
-    const principal = await resolveRequestPrincipal(req, options?.auth)
+    // `platform` reaches the session resolver here: a cookie-session lookup is
+    // a store read, and on a Worker the store is a binding.
+    const principal = await resolveRequestPrincipal(req, options?.auth, platform)
     const loader = materializeGeneratedLoader(registry, decl, route.extract?.read, override)
-    // Steps 2–5 — static meet → live entitlement → provider → emit.
-    return loader({ params, url, principal, entitlements: registry.createMemo() })
+    // Steps 2–5 — static meet → live entitlement → provider → emit. `platform`
+    // rides the load context to BOTH the entitlement resolver (step 3) and the
+    // provider (step 4): an app whose paywall is a D1 row and whose content is
+    // an R2 object needs it at both stages, and giving it to one only would be
+    // discovered in production.
+    return loader({
+      params,
+      url,
+      principal,
+      entitlements: registry.createMemo(),
+      ...(platform !== undefined ? { platform } : {}),
+    })
+  }
+
+  /**
+   * Compose the route's layout around already-rendered page content.
+   *
+   * Mirrors `@aihu/app`'s `runPrerender` step for step — same fallback ladder,
+   * same warning triggers — and calls the SAME `injectIntoOutlet` for the
+   * splice itself so the composition rule has one definition. The differences
+   * are the two this path cannot avoid: modules come from a pre-resolved map
+   * rather than a filesystem scan, and there is NO shell cache. The prerender
+   * caches per (layout, concrete path) because it renders a closed set of
+   * paths in one process; a Worker serves an open set and a cache keyed on
+   * anything less than the whole request would eventually serve one visitor's
+   * chrome to another.
+   *
+   * Returns `content` unchanged whenever the layout cannot be composed. A page
+   * without its shell is a degraded page; a shell without its page is a blank
+   * one, so every failure falls back in that direction.
+   */
+  async function withLayout(route: RouteDefinition, content: string): Promise<string> {
+    const layouts = options?.layouts
+    const name = route.layout
+    // No layouts map ⇒ this whole path is inert and `handle` is byte-identical
+    // to its pre-layout behaviour.
+    //
+    // TRUTHINESS, not `!== undefined`, and this is load-bearing rather than
+    // sloppy. `compileRouteMeta` emits `layout: ""` for every page that
+    // declares none — verified in a built `_worker.js` — so an
+    // `undefined`-only check treats EVERY layout-less route as declaring a
+    // layout named `""`, fails to find it, and logs a warning about a layout
+    // nobody wrote. Found by the e2e gate, which is the only test here that
+    // runs a real `vite build` and therefore the only one that sees what the
+    // compiler actually emits.
+    //
+    // Empty-string-means-none is also the CLIENT's existing convention
+    // (`client.ts`: `layoutName ? layouts[layoutName] : undefined`), so
+    // matching it is what keeps the two renderers agreeing about which routes
+    // have chrome.
+    if (layouts === undefined || !name) return content
+
+    const warnOnce = (msg: string): void => {
+      if (layoutWarned.has(name)) return
+      layoutWarned.add(name)
+      console.warn(msg)
+    }
+
+    const mod = layouts.get(name)
+    if (mod === undefined) {
+      warnOnce(
+        `[@aihu/router] ssr: layout '${name}' (route '${route.pattern}') is not in the ` +
+          'resolved layouts map — serving the page without its layout. The map is built from ' +
+          "`virtual:aihu-layouts`; a layout the router's scan did not find is the usual cause.",
+      )
+      return content
+    }
+
+    const component = resolveRenderable(mod.default)
+    if (component === null) {
+      warnOnce(
+        `[@aihu/router] ssr: layout '${name}' has no SSR-renderable default export — route ` +
+          `'${route.pattern}' serves the page without its layout (the client still wraps it ` +
+          'on hydrate). Export a default renderable to server-render the layout.',
+      )
+      return content
+    }
+
+    let shell: string
+    try {
+      shell = await renderToString(component, {
+        // Same requirement as the page render below: this shell is part of the
+        // document a live SPA hydrates into, so it needs adoption markers or
+        // the client rebuilds the chrome beside it.
+        hydratable: true,
+        // A layout is where a site's nav and footer live, so it is where most
+        // component references are. Without this the shell renders with every
+        // one of them empty — the exact failure the child registry exists to
+        // remove, reintroduced one level up.
+        ...(options?.children !== undefined ? { children: options.children } : {}),
+        ...(mod.__aihu_light_scope__ !== undefined
+          ? { lightScopeId: mod.__aihu_light_scope__ }
+          : {}),
+        ...(mod.__aihu_tag__ !== undefined ? { wrapTag: mod.__aihu_tag__ } : {}),
+      })
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      warnOnce(
+        `[@aihu/router] ssr: layout '${name}' failed to render for route '${route.pattern}': ` +
+          `${msg} — serving the page without its layout.`,
+      )
+      return content
+    }
+
+    const composed = injectIntoOutlet(shell, content)
+    if (composed === null) {
+      warnOnce(
+        `[@aihu/router] ssr: layout '${name}' renders no <outlet> (data-aihu-outlet) marker — ` +
+          `route '${route.pattern}' serves the page without its layout.`,
+      )
+      return content
+    }
+    return composed
   }
 
   /**
@@ -181,7 +392,11 @@ export function createServerRouter(
    * Serves ONLY governed routes; anything else is 404 (this endpoint never
    * becomes a second, ungated data path).
    */
-  async function handleDataRequest(req: Request, url: URL): Promise<Response> {
+  async function handleDataRequest(
+    req: Request,
+    url: URL,
+    platform: PlatformContext | undefined,
+  ): Promise<Response> {
     const registry = governed as GovernedRegistry // caller gates on presence
     const CT = { 'Content-Type': 'application/json' }
     if (req.method !== 'GET' && req.method !== 'HEAD') {
@@ -199,7 +414,19 @@ export function createServerRouter(
       return new Response(JSON.stringify({ error: 'not found' }), { status: 404, headers: CT })
     }
     const mod = await result.route.module()
-    const emission = await runGoverned(req, url, result.route, result.params, decl, registry, mod)
+    // The E3 transport gets the SAME platform the SSR transport does — the
+    // spec's "one contract, byte-equal decisions" only holds if both stages
+    // can reach the same data sources on both transports.
+    const emission = await runGoverned(
+      req,
+      url,
+      result.route,
+      result.params,
+      decl,
+      registry,
+      mod,
+      platform,
+    )
     if (emission === 'conflict') {
       return new Response(JSON.stringify({ error: 'internal error' }), {
         status: 500,
@@ -221,14 +448,14 @@ export function createServerRouter(
     })
   }
 
-  async function handle(req: Request): Promise<Response> {
+  async function handle(req: Request, platform?: PlatformContext): Promise<Response> {
     const url = new URL(req.url)
 
     // The E3 endpoint exists ONLY when a governed registry is configured —
     // without one, these paths fall through to normal matching exactly as
     // before (G7j byte-identical).
     if (governed && url.pathname.startsWith(`${DATA_ENDPOINT_PREFIX}/`)) {
-      return handleDataRequest(req, url)
+      return handleDataRequest(req, url, platform)
     }
 
     const result = router.match(url.pathname)
@@ -247,7 +474,7 @@ export function createServerRouter(
         // fails closed — never rounded to ungoverned.
         return new Response('Internal Server Error', { status: 500 })
       }
-      const emission = await runGoverned(req, url, route, params, decl, governed, mod)
+      const emission = await runGoverned(req, url, route, params, decl, governed, mod, platform)
       if (emission === 'conflict' || emission.kind === 'error') {
         // §4.3: provider failure post-grant (or a C486 backstop) is an error
         // state — never a locked state, and NEVER any governed bytes.
@@ -296,9 +523,15 @@ export function createServerRouter(
         // child work exists to remove, left behind at the live-SSR edge.
         ...(options?.children !== undefined ? { children: options.children } : {}),
       })
+      // The layout wraps the CONTENT, and the loader embed rides OUTSIDE it.
+      // `__aihu_loader__` is read by id off the document, so its nesting is
+      // irrelevant to the client — but splicing it inside the outlet would put
+      // a governed payload inside whatever region the layout's CSS scopes,
+      // and the prerender does not put it there either.
+      const composed = await withLayout(route, html)
       // Granted → the Entitled<T> payload; withheld → ONLY the Withheld<T>
       // shape. The granted payload never exists in a withheld response.
-      const body = `${html}<script type="application/json" id="__aihu_loader__">${JSON.stringify(emission.data)}</script>`
+      const body = `${composed}<script type="application/json" id="__aihu_loader__">${JSON.stringify(emission.data)}</script>`
 
       const status = governedHttpStatus(emission)
       const base: Record<string, string> = { 'Content-Type': 'text/html; charset=utf-8' }
@@ -313,6 +546,12 @@ export function createServerRouter(
     // hard-`read` route declines the generated contract but cannot escape the
     // gate — its output is withheld route-level from principals failing the
     // route's `read`.
+    // The loader's second argument, built once per request and passed on every
+    // call — including when the caller supplied no platform. Making it
+    // conditional would mean `ctx.url` works on a Worker and throws on a bare
+    // `handle(req)`, i.e. a loader's contract would depend on its host. See
+    // `LoaderContext`.
+    const loaderCtx = { request: req, url, ...(platform !== undefined ? { platform } : {}) }
     let loaderData: unknown
     if (typeof mod.loader === 'function') {
       if (governed && deriveReadPolicy(route.extract?.read).tier === 'hard') {
@@ -324,12 +563,12 @@ export function createServerRouter(
               'falling back to route-level withholding (T4)',
           )
         }
-        const principal = await resolveRequestPrincipal(req, options?.auth)
+        const principal = await resolveRequestPrincipal(req, options?.auth, platform)
         loaderData = passesRouteRead(principal, route.extract?.read)
-          ? await mod.loader(params)
+          ? await mod.loader(params, loaderCtx)
           : undefined
       } else {
-        loaderData = await mod.loader(params)
+        loaderData = await mod.loader(params, loaderCtx)
       }
     } else if (mod.loader !== undefined) {
       // A defineGovernedFetch export on a route WITHOUT a data: declaration:
@@ -363,10 +602,15 @@ export function createServerRouter(
       ...(options?.children !== undefined ? { children: options.children } : {}),
     })
 
+    // Same composition as the governed arm above. BOTH arms or neither: a
+    // layout that appears on ungoverned routes and vanishes on governed ones
+    // would make a site's chrome depend on whether a page declares `data:`.
+    const composed = await withLayout(route, html)
+
     const body =
       loaderData !== undefined
-        ? `${html}<script type="application/json" id="__aihu_loader__">${JSON.stringify(loaderData)}</script>`
-        : html
+        ? `${composed}<script type="application/json" id="__aihu_loader__">${JSON.stringify(loaderData)}</script>`
+        : composed
 
     // GX Phase 3 (#437-GX): the compliance-tier noindex signal, derived from
     // the route's compiled `extract.read` (spec §8). `read: 'none'` and every

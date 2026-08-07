@@ -20,7 +20,7 @@
  */
 
 import { __aihu_schild } from '@aihu/runtime/ssr'
-import { attachSsrString } from '@aihu/server'
+import { attachSsrString, createGovernedRegistry } from '@aihu/server'
 import { describe, expect, it } from 'vitest'
 import type { RouteDefinition } from '../src/index.ts'
 import { createServerRouter } from '../src/server.ts'
@@ -37,21 +37,27 @@ const KID = {
  * `__aihu_schild` call site the emitter lowers. `opts` is threaded through
  * verbatim — that is precisely the channel `children` has to survive.
  */
+const PAGE_SSR_STRING = (_props: unknown, opts?: Parameters<typeof __aihu_schild>[2]): string =>
+  `<div>${__aihu_schild('x-kid', '', opts)}</div>`
+
 function childRoute(pattern: string, extract?: RouteDefinition['extract']): RouteDefinition {
   const component = (): unknown => ({ toHtml: () => '' })
-  attachSsrString(
-    component,
-    (_props: unknown, opts?: Parameters<typeof __aihu_schild>[2]) =>
-      `<div>${__aihu_schild('x-kid', '', opts)}</div>`,
-    {},
-  )
+  attachSsrString(component, PAGE_SSR_STRING, {})
   return {
     pattern,
     segments: pattern
       .split('/')
       .filter(Boolean)
       .map((p) => ({ kind: 'static' as const, path: p })),
-    module: () => Promise.resolve({ default: component }),
+    // BOTH shapes, because the two arms read different ones and a fixture
+    // carrying only the first silently drops off the compiled fast path on the
+    // governed arm. `attachSsrString` puts `__aihu_ssr_string__` on the
+    // FUNCTION, which is what the ungoverned arm uses. The governed arm wraps
+    // the component to bind `route.data` — a wrapper hides that property — so
+    // it re-attaches from the MODULE export `__ssrString` (`server.ts:506`).
+    // A real compiled artifact exports both; this fixture must too, or the
+    // governed test renders empty and looks like a product bug.
+    module: () => Promise.resolve({ default: component, __ssrString: PAGE_SSR_STRING }),
     ...(extract !== undefined ? { extract } : {}),
   }
 }
@@ -80,9 +86,33 @@ describe('createServerRouter — §2a child registry forwarding', () => {
 
   it('renders the child on the GOVERNED path too', async () => {
     // Both arms or neither: if only one forwarded, child rendering would
-    // depend on whether a route happens to declare `extract`, which is a
+    // depend on whether a route happens to declare `data:`, which is a
     // difference no author would predict.
-    const html = await bodyFor(new Map([['x-kid', KID]]), { read: 'all', call: 'anonymous' })
+    //
+    // A REGISTRY AND A `data:` DECLARATION ARE BOTH REQUIRED to reach that arm
+    // — `handle` gates it on `governed && decl !== null` (`server.ts:471`).
+    // This test originally passed `extract` alone, which falls through to the
+    // UNGOVERNED path: it duplicated the test above while claiming to cover
+    // the second arm, and stayed green with the governed arm's forwarding
+    // deleted. Caught by review, not by the suite.
+    const registry = createGovernedRegistry().provider('Page', {
+      fetch: async () => ({ title: 'T' }),
+    })
+    const router = createServerRouter(
+      [
+        {
+          ...childRoute('/p', { read: 'all', call: 'anonymous' }),
+          data: { type: 'Page' },
+        },
+      ],
+      { governed: registry, children: new Map([['x-kid', KID]]) },
+    )
+    const res = await router.handle(new Request('http://localhost/p'))
+    expect(res.status).toBe(200)
+    const html = await res.text()
+    // The loader embed is what proves the governed arm ran at all — without
+    // it this is just the ungoverned test again under a different name.
+    expect(html).toContain('__aihu_loader__')
     expect(html).toContain('class="kid"')
   })
 

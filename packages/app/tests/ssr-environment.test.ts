@@ -254,7 +254,45 @@ describe('virtual:aihu-server-entry', () => {
     )
     expect(src).toContain("import routes from 'virtual:aihu-routes'")
     expect(src).toContain("import __components from 'virtual:aihu-server-components'")
-    expect(src).toContain('createServerRouter(routes, { children: __children })')
+    expect(src).toContain('createServerRouter(routes, {')
+    expect(src).toContain('children: __children,')
+  })
+
+  it('imports the LAYOUT registry too, and hands it to the router', () => {
+    // Without this the live SSR path renders pages bare while the SSG path
+    // composes their shell — the same route looking right prerendered and
+    // losing its nav/footer/grid the moment a Worker serves it.
+    const src = (entryPlugin().load as (i: string) => string).call(
+      hookCtx() as never,
+      '\0virtual:aihu-server-entry',
+    )
+    expect(src).toContain("import __layouts from 'virtual:aihu-layouts'")
+    expect(src).toContain('layouts: __layoutMap,')
+  })
+
+  it('resolves layout modules at module init, not per request', () => {
+    // `handle` composes inside a request; a dynamic import there would be an
+    // await on the hot path, and (for the child registry, which shares this
+    // reasoning) impossible inside the synchronous compiled string renderer.
+    const src = (entryPlugin().load as (i: string) => string).call(
+      hookCtx() as never,
+      '\0virtual:aihu-server-entry',
+    )
+    expect(src).toContain('await Promise.all(')
+    expect(src).toContain('await entry.load()')
+  })
+
+  it('threads a platform argument from the wrapper into handle()', () => {
+    // THE binding seam. `handle(request)` alone means a Worker's env — its KV,
+    // D1, R2, DO stubs and secrets, which exist only per request — is
+    // unreachable from any loader, which is the single biggest practical limit
+    // on deploying real work on this path.
+    const src = (entryPlugin().load as (i: string) => string).call(
+      hookCtx() as never,
+      '\0virtual:aihu-server-entry',
+    )
+    expect(src).toContain('export const handler = (request, platform) =>')
+    expect(src).toContain('__router.handle(request, platform)')
   })
 
   it("splices the adapter's serverEntry wrapper in verbatim", () => {

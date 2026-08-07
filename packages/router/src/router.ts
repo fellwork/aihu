@@ -13,18 +13,69 @@ export type RouteSegment =
   | { kind: 'param'; name: string }
   | { kind: 'catchall' }
 
+/**
+ * The second argument every plain route loader receives on the SSR path.
+ *
+ * ## Why the loader signature grew a parameter
+ *
+ * `loader(params)` could reach nothing but the matched params — not the
+ * request, not the query string, and (the reason this exists) not the host
+ * runtime's bindings. On Cloudflare Workers the KV namespaces, D1 databases,
+ * R2 buckets and secrets arrive as `fetch`'s second argument and exist ONLY
+ * per request; there is no module-scope handle a loader could have closed
+ * over. So a loader on a Worker had no data source but the public internet.
+ *
+ * ## Why it is ALWAYS passed, even when there is no platform
+ *
+ * `createServerRouter.handle` supplies this object on every call, whether or
+ * not the caller passed a platform. The alternative — omit the argument when
+ * `platform === undefined` — would make `ctx.url` throw on some deployments
+ * and not others, so a loader's contract would depend on whether the host
+ * happened to have bindings. A loader written against `params` alone ignores
+ * the extra argument and behaves exactly as before.
+ *
+ * ## Why `platform` is typed here rather than imported
+ *
+ * This file is browser-eligible and keeps zero `@aihu/server` imports (see the
+ * header note) — the same reason the governed-fetch brand below is structural
+ * rather than imported. `platform` is `@aihu/server`'s `PlatformContext`,
+ * which is itself `unknown`, so the structural copy loses nothing.
+ */
+export type LoaderContext = {
+  /** The request being served. Headers, method, cookies — previously unreachable. */
+  readonly request: Request
+  /** The parsed request URL. Query parameters, previously unreachable. */
+  readonly url: URL
+  /**
+   * The host runtime's per-request ambient state, exactly as the adapter
+   * passed it to `handle(request, platform)`. `undefined` when the caller
+   * passed none (a hand-driven `handle(req)`, a Node host with no bindings).
+   * Opaque by design — narrow it to your own platform's type at the edge of
+   * your code:
+   *
+   * ```ts
+   * export const loader = async (params, { platform }) => {
+   *   const { env } = platform as { env: Env }
+   *   return env.DB.prepare('select * from posts where slug = ?').bind(params.slug).first()
+   * }
+   * ```
+   */
+  readonly platform?: unknown
+}
+
 export type RouteModule = {
   default: unknown
   /**
    * The route's data loader. Either a plain server loader (the shipped,
-   * ungoverned contract — called with the matched params), or — GX Phase 4
-   * (#466) — the `defineGovernedFetch` escape hatch (structurally typed here
-   * so this browser-eligible file keeps zero `@aihu/server` imports): a
-   * route-local provider the generated loader gates. On a `data:`-declared
-   * route a PLAIN loader is a C486 build error (one data source per route).
+   * ungoverned contract — called with the matched params and, since bindings
+   * landed, a {@link LoaderContext}), or — GX Phase 4 (#466) — the
+   * `defineGovernedFetch` escape hatch (structurally typed here so this
+   * browser-eligible file keeps zero `@aihu/server` imports): a route-local
+   * provider the generated loader gates. On a `data:`-declared route a PLAIN
+   * loader is a C486 build error (one data source per route).
    */
   loader?:
-    | ((params: Record<string, string>) => Promise<unknown>)
+    | ((params: Record<string, string>, ctx: LoaderContext) => Promise<unknown>)
     | { readonly _brand: 'DefinedGovernedFetch' }
 }
 

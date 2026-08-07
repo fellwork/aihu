@@ -123,20 +123,51 @@ function generateSsrWorkerEntry(handlerSource: string): string {
  * Route priority is unchanged from `generateSsrWorkerEntry`: SSR handler →
  * ASSETS (CDN edge) → `/index.html` (SPA shell).
  *
- * `env`/`ctx` are accepted by the `fetch` signature but NOT threaded into
- * `handler` — `ServerRouter.handle` takes a `Request` and nothing else, so
- * Worker bindings are not reachable from a page render yet. Named here rather
- * than papered over with an ignored argument.
+ * ## What `platform` is, and why it is `{ env, ctx }`
+ *
+ * `ServerRouter.handle` takes a second argument the framework never reads and
+ * forwards, unchanged, to route loaders, the governed provider, the live
+ * entitlement resolver and the session resolver. THE ADAPTER decides what goes
+ * in it, because the framework must not know Cloudflare's shape — a Node or
+ * Vercel host has entirely different ambient state.
+ *
+ * This adapter passes BOTH of the values a Worker's `fetch` receives, wrapped:
+ *
+ *   - `env` — the KV namespaces, D1 databases, R2 buckets, Durable Object
+ *     stubs, queue producers and secrets. These exist ONLY per request; there
+ *     is no module-scope handle a loader could have closed over, which is
+ *     precisely why a Worker had no reachable data source before this.
+ *   - `ctx` — the `ExecutionContext`, i.e. `waitUntil`. Passing `env` alone
+ *     would have been tidier to read (`platform.DB`) but would have made
+ *     background work — cache fills, analytics, revalidation — unreachable
+ *     with no way to add it later without breaking every consumer.
+ *
+ * So a loader narrows once:
+ *
+ * ```ts
+ * export const loader = async (params, { platform }) => {
+ *   const { env, ctx } = platform as { env: Env; ctx: ExecutionContext }
+ *   ctx.waitUntil(logHit(params))
+ *   return env.DB.prepare('select * from posts where slug = ?').bind(params.slug).first()
+ * }
+ * ```
+ *
+ * NOTE the deliberate difference from the deprecated `generateSsrWorkerEntry`
+ * above, which writes `handler(request, { env })`. That path wires
+ * `createRequestRouter`, whose handler takes a `Request` and nothing else — so
+ * its second argument has always been silently discarded. This one is real.
  */
 function generateServerEntryWrapper({ handler }: ServerEntryContext): string {
   return [
     '// Cloudflare Workers wrapper — contributed by @aihu/adapter-cloudflare',
-    '//   1. SSR handler  — real route modules, server-rendered',
+    '//   1. SSR handler  — real route modules, server-rendered, with bindings',
     '//   2. ASSETS       — client bundle + static files from the Cloudflare CDN',
     '//   3. /index.html  — SPA shell fallback for client-side-routed pages',
     'export default {',
-    '  async fetch(request, env, _ctx) {',
-    `    const response = await ${handler}(request)`,
+    '  async fetch(request, env, ctx) {',
+    // `{ env, ctx }` and not `env`: see the docblock. The framework treats this
+    // as opaque, so the shape is this adapter's contract with its consumers.
+    `    const response = await ${handler}(request, { env, ctx })`,
     '    if (response.status !== 404) return response',
     '    try {',
     '      return await env.ASSETS.fetch(request)',
