@@ -41,7 +41,7 @@ export const EXPORTS: readonly ApiExport[] = [
     name: '_foldCssEngineStyles',
     kind: 'function',
     signature: 'function _foldCssEngineStyles(compiledCode: string, css: string): string',
-    summary: 'Fold css-engine-produced scoped CSS into a compiled `.aihu` module.',
+    summary: '',
   },
   {
     name: '_foldCssEngineStylesGlobal',
@@ -49,6 +49,12 @@ export const EXPORTS: readonly ApiExport[] = [
     signature:
       'function _foldCssEngineStylesGlobal( compiledCode: string, css: string, id: string, ): { code: string; virtualId: string } | null',
     summary: "Bug 6 — `shadowMode === 'light'` branch.",
+  },
+  {
+    name: '_foldSsrCssExport',
+    kind: 'function',
+    signature: 'function _foldSsrCssExport(compiledCode: string, css: string): string',
+    summary: "Fold css-engine utility CSS into the SERVER target's `__aihu_css__` export.",
   },
   {
     name: '_formatExtractCensus',
@@ -97,7 +103,7 @@ export const EXPORTS: readonly ApiExport[] = [
     signature:
       "function _injectShadowMode( code: string, mode: 'light' | 'shadow', lightScopeId?: string, ): string",
     summary:
-      "Inject `{ shadowMode: '...' }` (and, for light mode, `lightScopeId: '...'` in the SAME options object) as the third argument to the emitted `defineElement('tag', defineComponent(...))` call.",
+      "Inject `shadowMode: '...'` (and, for light mode, `lightScopeId: '...'` in the SAME options object) into the third argument of the emitted `defineElement('tag', defineComponent(...))` call — appending the options object when the call has two arguments, or merging the fields into an existing third argument (`$form` emits `, { formAssociated: true }`).",
   },
   {
     name: '_isLayoutFile',
@@ -117,6 +123,12 @@ export const EXPORTS: readonly ApiExport[] = [
     signature: 'function _lightScopeId(id: string): string',
     summary:
       "Deterministic 8-hex-char scope id for a light-DOM component's `data-a` attribute (light-DOM leaf flip, LDF §10 step 1 / step 3).",
+  },
+  {
+    name: '_parseComponentTagsMarker',
+    kind: 'function',
+    signature: 'function _parseComponentTagsMarker(compiledCode: string): string[]',
+    summary: '§22 — parse the `//',
   },
   {
     name: '_parseExtractMarker',

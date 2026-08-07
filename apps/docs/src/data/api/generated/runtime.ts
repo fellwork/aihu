@@ -25,6 +25,12 @@ export const EXPORTS: readonly ApiExport[] = [
     summary: '',
   },
   {
+    name: '_inSsrLifecycle',
+    kind: 'function',
+    signature: 'function _inSsrLifecycle(): boolean',
+    summary: 'Is a server render currently running setup on this thread?',
+  },
+  {
     name: '_registerAgentDispatcher',
     kind: 'function',
     signature:
@@ -78,6 +84,12 @@ export const EXPORTS: readonly ApiExport[] = [
     kind: 'function',
     signature: 'function _withOwnerContext<R>(node: object, fn: () => R): R',
     summary: '',
+  },
+  {
+    name: '_withSsrLifecycle',
+    kind: 'function',
+    signature: 'function _withSsrLifecycle<R>(fn: () => R): R',
+    summary: 'Run `fn` inside a server-render lifecycle window.',
   },
   {
     name: 'announce',
@@ -205,6 +217,31 @@ export const EXPORTS: readonly ApiExport[] = [
     summary: '',
   },
   {
+    name: '_isSerializableAttrName',
+    kind: 'const',
+    signature: 'const _isSerializableAttrName = (k: string): boolean => …',
+    summary: 'Is `k` safe to serialize as an attribute name?',
+  },
+  {
+    name: '_MAX_CHILD_BYTES',
+    kind: 'const',
+    signature: 'const _MAX_CHILD_BYTES',
+    summary: 'Total child markup allowed per top-level render.',
+  },
+  {
+    name: '_MAX_CHILD_DEPTH',
+    kind: 'const',
+    signature: 'const _MAX_CHILD_DEPTH',
+    summary: 'Belt-and-braces bound on nesting.',
+  },
+  {
+    name: '_ssrChildWrap',
+    kind: 'const',
+    signature:
+      'const _ssrChildWrap = (tag: string, attrsHtml: string, mod: SsrChildModule, inner: string, hydratable: boolean): string => …',
+    summary: "Wrap a child's rendered INNER markup in its host element.",
+  },
+  {
     name: 'SHADOW_ROOT_MODE',
     kind: 'const',
     signature: 'const SHADOW_ROOT_MODE',
@@ -273,14 +310,14 @@ export const EXPORTS: readonly ApiExport[] = [
     name: 'SsrChildModule',
     kind: 'interface',
     signature:
-      "interface SsrChildModule {\n  /** The compiled string renderer, `__ssrString(props, opts)`. */\n  readonly __ssrString?: (props: unknown, opts?: SsrChildRenderOpts) => string\n  /** `__aihu_light_scope__` — the compiler-assigned light-DOM scope id. */\n  readonly __aihu_light_scope__?: string\n  /**\n   * `__aihu_shadow__` (#770). aihu's OWN vocabulary — `'light' | 'shadow'` —\n   * never the DOM's `ShadowRootMode`.\n   */\n  readonly __aihu_shadow__?: ShadowMode\n  /**\n   * `__aihu_css__` — the component's own CSS as a plain string.\n   *\n   * Used ONLY on the shadow path, where it is inlined as `<style>` inside the\n   * declarative template. A shadow root is style-isolated by construction, so\n   * prerendered markup whose styles are not inside it paints unstyled until the\n   * component's chunk loads — the #754 failure, where content rendering ahead\n   * of its scoped CSS pushed the LCP element below the fold.\n   *\n   * Light-DOM children ignore it: their rules arrive through the app\n   * stylesheet's `@scope([data-a=…])` blocks (#758).\n   */\n  readonly __aihu_css__?: string\n}",
+      "interface SsrChildModule {\n  /** The compiled string renderer, `__ssrString(props, opts)`. */\n  readonly __ssrString?: (props: unknown, opts?: SsrChildRenderOpts) => string\n  /**\n   * The module's default export — the host-less `__ssr` factory the server\n   * target emits (`export default __ssr`), which builds an arbor tree from a\n   * setup run with empty props.\n   *\n   * Declared here purely so `@aihu/server`'s walker can reach it under\n   * `AIHU_SSR_STRING=0`, where the point is NOT to use the compiled string\n   * renderer. Nothing in this module calls it — it is synchronous to build but\n   * the walk over its result is async, and everything here is synchronous by\n   * construction. `unknown` rather than a factory type because that is all this\n   * module can honestly assert about it.\n   */\n  readonly default?: unknown\n  /** `__aihu_light_scope__` — the compiler-assigned light-DOM scope id. */\n  readonly __aihu_light_scope__?: string\n  /**\n   * `__aihu_shadow__` (#770). aihu's OWN vocabulary — `'light' | 'shadow'` —\n   * never the DOM's `ShadowRootMode`.\n   */\n  readonly __aihu_shadow__?: ShadowMode\n  /**\n   * `__aihu_css__` — the component's own CSS as a plain string.\n   *\n   * Used ONLY on the shadow path, where it is inlined as `<style>` inside the\n   * declarative template. A shadow root is style-isolated by construction, so\n   * prerendered markup whose styles are not inside it paints unstyled until the\n   * component's chunk loads — the #754 failure, where content rendering ahead\n   * of its scoped CSS pushed the LCP element below the fold.\n   *\n   * Light-DOM children ignore it: their rules arrive through the app\n   * stylesheet's `@scope([data-a=…])` blocks (#758).\n   */\n  readonly __aihu_css__?: string\n}",
     summary: 'A compiled `--target server` module, as far as child rendering cares.',
   },
   {
     name: 'SsrChildRenderOpts',
     kind: 'interface',
     signature:
-      'interface SsrChildRenderOpts {\n  readonly hydratable?: boolean\n  readonly lightScopeId?: string\n  /**\n   * tag → compiled module, PRE-RESOLVED by the caller (SSG prerender or the\n   * Workers handler). A Map and not a callback on purpose: module loading is\n   * async while this path is synchronous, and hoisting resolution to the caller\n   * is what lets the compiled fast path survive child rendering at all. It is\n   * also where the cycle guard belongs — once, over the whole graph, at build\n   * time, rather than at every render.\n   */\n  readonly children?: ReadonlyMap<string, SsrChildModule>\n  /** @internal Recursion depth, incremented per nested child. */\n  readonly __depth?: number\n}',
+      "interface SsrChildRenderOpts {\n  readonly hydratable?: boolean\n  readonly lightScopeId?: string\n  /**\n   * tag → compiled module, PRE-RESOLVED by the caller (SSG prerender or the\n   * Workers handler). A Map and not a callback on purpose: module loading is\n   * async while this path is synchronous, and hoisting resolution to the caller\n   * is what lets the compiled fast path survive child rendering at all. It is\n   * also where the cycle guard belongs — once, over the whole graph, at build\n   * time, rather than at every render.\n   */\n  readonly children?: ReadonlyMap<string, SsrChildModule>\n  /** @internal Recursion depth, incremented per nested child. */\n  readonly __depth?: number\n  /**\n   * @internal Per-render memo of already-serialized children, keyed by tag +\n   * hydration mode.\n   *\n   * Bounds FAN-OUT, which the depth cap alone does not. A depth cap limits how\n   * DEEP the recursion goes, not how WIDE: with each of 14 components\n   * referencing the next three times, a perfectly acyclic graph expands to\n   * 3^13 renders — measured at 67 MB of output in 0.2 s, and tens of GB a few\n   * components later. The cycle guard cannot see this either, because\n   * `__aihu_child_tags__` is a SET while the emitter emits one call per\n   * reference site.\n   *\n   * Safe because a child render is deterministic within one top-level render:\n   * it always receives `{}` props, `lightScopeId: ''`, and the same registry,\n   * and its tree restarts at ROOT_PATH behind its own `data-aihu-ssr` boundary,\n   * so two reference sites legitimately produce identical inner markup. Scoped\n   * PER RENDER, not module-global — component setup can read stores or context\n   * that differ between requests.\n   */\n  readonly __memo?: Map<string, string>\n  /**\n   * @internal Remaining child expansions for this top-level render.\n   *\n   * The memo bounds the WORK of fan-out; it cannot bound the OUTPUT. Three\n   * references repeated 13 deep is 3^13 reference sites, and each legitimately\n   * emits the child's markup — memoized, that is 89 MB in 16 ms rather than\n   * 67 MB in 217 ms. Faster, and still a build-killer.\n   *\n   * So the budget counts BYTES, not expansions. Counting expansions does not\n   * work once the memo exists: only one render happens per tag, but each\n   * RETURNS three times its child's string, so output grows exponentially\n   * while the render count stays linear — measured at 89 MB from 14 renders.\n   * Bytes are the thing that actually gets large, so bytes are what is bounded.\n   *\n   * Past the budget a reference renders as the empty element it rendered before\n   * this feature existed: degraded, loudly reported, and finite.\n   */\n  readonly __budget?: { bytes: number; reported: boolean }\n}",
     summary: 'The opts a compiled `__ssrString` accepts, plus the child registry.',
   },
   {

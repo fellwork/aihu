@@ -1,13 +1,13 @@
 /**
  * O1b tests for @aihu/router — the compile-time tag → module registry:
  *   - componentTagFor(): local copy of the compiler's kebabComponentTag
- *   - readAihuComponentTag(): @meta name → @route name → file-stem resolution
+ *   - readAihuComponentTag(): @route name → file-stem resolution (§7a: NOT @meta)
  *   - scanComponents() / genC(): recursive scan + virtual:aihu-components codegen
  *   - RouteSidecar `components` plumbing through genR (SK whitelist)
  *   - viteRouterPlugin resolveId/load hooks for virtual:aihu-components
  */
 
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -45,11 +45,19 @@ describe('componentTagFor()', () => {
 })
 
 // ---------------------------------------------------------------------------
-// readAihuComponentTag() — @meta name → @route name → file-stem precedence
+// readAihuComponentTag() — @route name → file-stem precedence
+//
+// §7a of docs/plans/2026-08-06-ssr-child-followups.md. `@meta { name }` is NOT
+// part of the precedence, because the COMPILER does not honour it: `SfcMeta`
+// has no `name` field (R-META-COEXIST), so `defineElement` — and therefore
+// `__aihu_tag__`, and therefore the tag the browser registers — resolves
+// `@route { name }` → file stem. Verified against the real compiler:
+// `@meta { name: "custom-thing" }` in `x-plain.aihu` emits
+// `defineElement('x-plain', …)`.
 // ---------------------------------------------------------------------------
 
 describe('readAihuComponentTag()', () => {
-  it('falls back to the (normalized) file stem when no @meta/@route name', () => {
+  it('falls back to the (normalized) file stem when no @route name', () => {
     const tmp = mkdtempSync(join(tmpdir(), 'aihu-comp-tag-'))
     try {
       const f = join(tmp, 'UserCard.aihu')
@@ -60,18 +68,43 @@ describe('readAihuComponentTag()', () => {
     }
   })
 
-  it('prefers @meta { name } over the file stem', () => {
+  // The load-bearing assertion of §7a. This file compiles to
+  // `defineElement('x-plain', …)`, so `x-plain` is the ONLY tag anything can
+  // reference or register; a router that answered `custom-thing` would key the
+  // `virtual:aihu-components` loader under a name no module defines — the
+  // element never upgrades on the client, AND the SSR child registry (which
+  // keys on `__aihu_tag__`) never matches it.
+  it('IGNORES @meta { name } — the compiler does, so the tag is the file stem', () => {
     const tmp = mkdtempSync(join(tmpdir(), 'aihu-comp-tag-'))
     try {
-      const f = join(tmp, 'Whatever.aihu')
-      writeFileSync(f, '@meta {\n  name: "x-thing"\n}\n@template { <div/> }\n')
-      expect(readAihuComponentTag(f)).toBe('x-thing')
+      const f = join(tmp, 'x-plain.aihu')
+      writeFileSync(f, '@meta {\n  name: "custom-thing"\n}\n@template { <div/> }\n')
+      expect(readAihuComponentTag(f)).toBe('x-plain')
     } finally {
       rmSync(tmp, { recursive: true, force: true })
     }
   })
 
-  it('prefers @route { name } over the file stem when no @meta', () => {
+  // …and it does not merely lose to `@route`; it is not consulted at all, so a
+  // file carrying both resolves exactly as if the `@meta` block were absent.
+  // (Same order the compiler produced for the same fixture: a file with
+  // `@meta { name: "meta-wins" }` + `@route { name: "route-thing" }` emitted
+  // `defineElement('route-thing', …)`.)
+  it('does not let @meta { name } outrank @route { name }', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'aihu-comp-tag-'))
+    try {
+      const f = join(tmp, 'Whatever.aihu')
+      writeFileSync(
+        f,
+        '@meta {\n  name: "meta-wins"\n}\n@route {\n  name: "route-thing"\n}\n@template { <div/> }\n',
+      )
+      expect(readAihuComponentTag(f)).toBe('route-thing')
+    } finally {
+      rmSync(tmp, { recursive: true, force: true })
+    }
+  })
+
+  it('prefers @route { name } over the file stem', () => {
     const tmp = mkdtempSync(join(tmpdir(), 'aihu-comp-tag-'))
     try {
       const f = join(tmp, 'Whatever.aihu')
@@ -91,7 +124,8 @@ function writeFixture(tmp: string): void {
   writeFileSync(join(tmp, 'UserCard.aihu'), '@template { <div>card</div> }\n')
   mkdirSync(join(tmp, 'widgets'))
   writeFileSync(join(tmp, 'widgets', 'my-widget.aihu'), '@template { <div>w</div> }\n')
-  // Explicit @meta name that differs from the file stem.
+  // A `@meta` name that differs from the file stem — and is ignored (§7a), so
+  // this keys as `something-else` exactly like a component with no `@meta`.
   writeFileSync(
     join(tmp, 'SomethingElse.aihu'),
     '@meta {\n  name: "x-thing"\n}\n@template { <div>x</div> }\n',
@@ -112,29 +146,67 @@ describe('scanComponents()', () => {
     try {
       writeFixture(tmp)
       const result = scanComponents(tmp)
-      expect(Object.keys(result).sort()).toEqual(['my-widget', 'user-card', 'x-thing'])
+      expect(Object.keys(result).sort()).toEqual(['my-widget', 'something-else', 'user-card'])
       expect(result['user-card']).toContain('UserCard.aihu')
       expect(result['my-widget']).toContain('widgets/my-widget.aihu')
-      expect(result['x-thing']).toContain('SomethingElse.aihu')
+      expect(result['something-else']).toContain('SomethingElse.aihu')
+      expect(result['x-thing']).toBeUndefined()
     } finally {
       rmSync(tmp, { recursive: true, force: true })
     }
   })
 
-  it('warns on a tag collision (last file wins)', () => {
+  // §7b. The tie-break has to be SORTED-FIRST, not traversal-last, because
+  // `@aihu/server`'s `buildChildRegistry` keeps the first claimant over the
+  // sorted list `@aihu/app`'s `discoverComponents` hands it. If the two picked
+  // different winners, a prerendered page would ship one module's markup and
+  // the client would upgrade the tag with the other module — a content swap on
+  // hydrate.
+  //
+  // `listDir` is substituted so the traversal order is CHOSEN, not observed.
+  // A fixture-only test cannot distinguish sorted-first from traversal-last:
+  // with two colliding files the two answers coincide whenever the filesystem
+  // happens to enumerate them in descending order, which is not something a
+  // test may leave to the filesystem.
+  it('breaks a tag collision by keeping the sorted-FIRST file, whatever order the dir lists in', () => {
     const tmp = mkdtempSync(join(tmpdir(), 'aihu-components-collide-'))
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     try {
-      writeFileSync(join(tmp, 'UserCard.aihu'), '@template { <div/> }\n')
-      mkdirSync(join(tmp, 'nested'))
-      writeFileSync(join(tmp, 'nested', 'user-card.aihu'), '@template { <div/> }\n')
-      const result = scanComponents(tmp)
-      expect(Object.keys(result)).toEqual(['user-card'])
+      mkdirSync(join(tmp, 'a-dir'))
+      mkdirSync(join(tmp, 'z-dir'))
+      writeFileSync(join(tmp, 'a-dir', 'user-card.aihu'), '@template { <div/> }\n')
+      writeFileSync(join(tmp, 'z-dir', 'user-card.aihu'), '@template { <div/> }\n')
+      // Descending order: `z-dir` is enumerated first, so traversal-LAST is
+      // `a-dir` — the same file sorted-FIRST picks. Under the old behaviour
+      // this ordering alone would agree, which is exactly why the ASCENDING
+      // case below is the one that discriminates. Both are asserted so the
+      // test pins "order-independent", not just "one order happens to work".
+      const descending = scanComponents(tmp, (dir) =>
+        [...readdirSync(dir, { withFileTypes: true })].sort((x, y) =>
+          x.name < y.name ? 1 : x.name > y.name ? -1 : 0,
+        ),
+      )
+      expect(descending['user-card']).toContain('a-dir/user-card.aihu')
+
+      warn.mockClear()
+      // Ascending: traversal-last is `z-dir`, sorted-first is still `a-dir`.
+      const ascending = scanComponents(tmp, (dir) =>
+        [...readdirSync(dir, { withFileTypes: true })].sort((x, y) =>
+          x.name < y.name ? -1 : x.name > y.name ? 1 : 0,
+        ),
+      )
+      expect(Object.keys(ascending)).toEqual(['user-card'])
+      expect(ascending['user-card']).toContain('a-dir/user-card.aihu')
+      expect(ascending['user-card']).not.toContain('z-dir')
+
+      // The warning names the winner and the loser, so a build log says which
+      // file's markup is live rather than only that a collision happened.
       expect(warn).toHaveBeenCalledTimes(1)
       const msg = String(warn.mock.calls[0]?.[0])
       expect(msg).toContain('"user-card"')
-      expect(msg).toContain('UserCard.aihu')
-      expect(msg).toContain('nested/user-card.aihu')
+      expect(msg).toContain('a-dir/user-card.aihu')
+      expect(msg).toContain('z-dir/user-card.aihu')
+      expect(msg).toMatch(/keeping .*a-dir\/user-card\.aihu/)
     } finally {
       rmSync(tmp, { recursive: true, force: true })
     }
@@ -152,14 +224,16 @@ describe('genC()', () => {
       // Bare loader thunks keyed by normalized tag — no { tag, load } wrapper.
       expect(content).toMatch(/"my-widget": \(\) => import\(".*widgets\/my-widget\.aihu"\)/)
       expect(content).toMatch(/"user-card": \(\) => import\(".*UserCard\.aihu"\)/)
-      expect(content).toMatch(/"x-thing": \(\) => import\(".*SomethingElse\.aihu"\)/)
+      // §7a: keyed by the STEM, not by the `@meta { name: "x-thing" }` it carries.
+      expect(content).toMatch(/"something-else": \(\) => import\(".*SomethingElse\.aihu"\)/)
+      expect(content).not.toContain('x-thing')
       // Deterministic output: keys in sorted order.
       const iMy = content.indexOf('"my-widget"')
+      const iSomething = content.indexOf('"something-else"')
       const iUser = content.indexOf('"user-card"')
-      const iX = content.indexOf('"x-thing"')
       expect(iMy).toBeGreaterThan(-1)
-      expect(iMy).toBeLessThan(iUser)
-      expect(iUser).toBeLessThan(iX)
+      expect(iMy).toBeLessThan(iSomething)
+      expect(iSomething).toBeLessThan(iUser)
     } finally {
       rmSync(tmp, { recursive: true, force: true })
     }
@@ -413,7 +487,7 @@ describe('viteRouterPlugin — virtual:aihu-components hooks', () => {
 // ─── genC() — codegen input validation ───────────────────────────────────────
 //
 // genC concatenates tag names and module paths into JavaScript SOURCE. Both are
-// read off disk (tags from `@meta`/`@route` `name` or the file stem), so both
+// read off disk (tags from `@route { name }` or the file stem), so both
 // are validated at the boundary rather than trusted to `JSON.stringify`. A tag
 // that fails could never have registered as a custom element anyway — the
 // compiler's C450 refuses to build one — so dropping it costs nothing.

@@ -50,7 +50,15 @@
 // See CRITICAL CONSTRAINT 1 above for why this one client-package specifier is
 // permitted: the server-only, DOM-free subpath, imported so the walker and the
 // compiled string renderer share ONE child serializer.
-import { __aihu_schild, type SsrChildModule } from '@aihu/runtime/ssr'
+import {
+  __aihu_schild,
+  _isSerializableAttrName,
+  _MAX_CHILD_BYTES,
+  _MAX_CHILD_DEPTH,
+  _ssrChildWrap,
+  _withSsrLifecycle,
+  type SsrChildModule,
+} from '@aihu/runtime/ssr'
 import { effectScope } from '@aihu/signals'
 import type { StreamOptions } from './stream-types.ts'
 
@@ -281,6 +289,27 @@ export interface SsrOptions {
    * ship ahead of the callers that populate it.
    */
   readonly children?: ReadonlyMap<string, SsrChildModule>
+
+  /**
+   * @internal Nesting depth of this render below a top-level one, incremented
+   * per child rendered through the walker's escape-hatch path (§8).
+   *
+   * Only that path sets it. The string path keeps its own `__depth` on
+   * `SsrChildRenderOpts`; both cap at `_MAX_CHILD_DEPTH`, and both exist for
+   * the same reason — the registry only WARNS about a cyclic component graph
+   * now, so the renderers are what make a cycle finite.
+   */
+  readonly __childDepth?: number
+
+  /**
+   * @internal Shared byte budget for child markup, threaded down the same path
+   * as `__childDepth`. Mutated in place; one object per top-level render.
+   *
+   * A depth cap bounds how deep a graph goes, not how wide. Three references
+   * repeated thirteen deep is `3^13` reference sites and megabytes of legal,
+   * acyclic output — see the `__budget` commentary in `ssr-string.ts`.
+   */
+  readonly __childBudget?: { bytes: number; reported: boolean }
 }
 
 /**
@@ -360,8 +389,17 @@ function serializeAttrs(attrs: Record<string, string | boolean>): string {
       val = typeof get === 'function' ? (get as () => unknown)() : get
     }
     if (typeof val === 'function') continue
+    if (val === false || val === undefined) continue
+    // §13, serialization layer. Values were escaped here from the start; KEYS
+    // never were, so `{ 'data-x/onload': 'alert(1)' }` serialized to an
+    // `onload` handler in the page. Checked AFTER the value rules so a name
+    // that was never going to serialize does not produce a warning, and
+    // through the same predicate `__aihu_sattr` uses so the two renderers drop
+    // the same keys — a divergence here is a byte-identity failure, not just a
+    // hole. See `_isSerializableAttrName` for why this drops rather than throws.
+    if (!_isSerializableAttrName(k)) continue
     if (val === true) out += ` ${k}`
-    else if (val !== false && val !== undefined) out += ` ${k}="${escapeAttr(String(val))}"`
+    else out += ` ${k}="${escapeAttr(String(val))}"`
   }
   return out
 }
@@ -566,22 +604,93 @@ function _isFragment(obj: Record<string, unknown>): boolean {
   return obj.tag === null || obj.tag === ''
 }
 
+/**
+ * Is this path a COMPILE-TIME LITERAL — the emitter's `path.base.is_none()`,
+ * reconstructed from the finished path string?
+ *
+ * The fourth v1 boundary, and the one that drifted twice. The emitter declines
+ * a reference whose path is runtime-built; only an `{#each}` item boundary
+ * makes it so (`P { base: Some(pv), … }` in `ssr_string_emit.rs`), because only
+ * there is a segment a runtime value. The walker had no mirror at all, so a
+ * component referenced inside a loop resolved here and stayed an empty element
+ * on the compiled fast path.
+ *
+ * The first mirror read "every segment is digits", which was a PROXY for
+ * literalness rather than the thing itself — and too strict by exactly one
+ * shape. `{#if}` bodies continue at `PATH.conditional.true`, a suffix fixed at
+ * compile time, so the emitter resolves there while the digits rule declined:
+ * `<div if={ready}><site-header></site-header></div>` — an entirely ordinary
+ * template — became a fresh divergence in the act of fixing `{#each}`.
+ *
+ * So test the real property. `_structuralSubtrees` above builds every non-index
+ * segment, and it builds exactly two shapes: `conditional` + `true` (fixed) and
+ * `list` + KEY (runtime). A path is literal iff it contains no `list` segment;
+ * checking for the literal `list` is sound even against hostile keys, because
+ * the key always FOLLOWS it — `each={x of ['list']} key={x}` yields
+ * `…list.list`, which this rejects at the first of the two.
+ *
+ * Anything unrecognized is rejected: declining too much only costs a child its
+ * server markup, while declining too little costs byte-identity.
+ *
+ * Note this can only ever be a mirror, never the same code — the emitter tests
+ * a struct field it built, this tests a string. The enforcement is the
+ * per-boundary differential fixture set in `ssr-string-differential.test.ts`.
+ */
+function _isLiteralPath(path: string): boolean {
+  const segs = path.split('.')
+  for (let i = 0; i < segs.length; i++) {
+    // `noUncheckedIndexedAccess` types this `string | undefined`; `??` keeps the
+    // loop honest without an assertion, and an empty segment fails below anyway.
+    const seg = segs[i] ?? ''
+    // The one fixed structural pair. Consumed together so a bare `conditional`
+    // or a bare `true` (only reachable as a list key) still fails.
+    if (seg === 'conditional' && segs[i + 1] === 'true') {
+      i++
+      continue
+    }
+    if (seg.length === 0) return false
+    for (let j = 0; j < seg.length; j++) {
+      const c = seg.charCodeAt(j)
+      if (c < 48 || c > 57) return false
+    }
+  }
+  return true
+}
+
+/**
+ * Serialize one head element's attribute bag.
+ *
+ * §12: the names were emitted verbatim. Values were escaped from the start, so
+ * `{ 'x/http-equiv': 'refresh' }` — or anything else with a space in it — was
+ * the one shape that could still put an attribute of its own choosing into the
+ * document head. Same predicate as `serializeAttrs`, same drop-and-warn.
+ */
+function serializeHeadAttrs(bag: Record<string, unknown>): string {
+  return Object.entries(bag)
+    .filter(([k, v]) => v !== undefined && _isSerializableAttrName(k))
+    .map(([k, v]) => `${k}="${escapeAttr(String(v))}"`)
+    .join(' ')
+}
+
 function buildHead(head: HeadConfig): string {
   const parts: string[] = []
-  if (head.title) parts.push(`<title>${head.title}</title>`)
+  // ESCAPED. `<title>` is RCDATA — entities are parsed, and the only thing that
+  // ends it is `</title` — so an unescaped title carrying `</title><script>`
+  // closed the element and ran script.
+  //
+  // SSG never hit this, and NOT because it escapes first: `@aihu/app`'s
+  // `applyHeadToHtml` builds its own `<title>` (with its own `escapeText`) and
+  // never calls this function. The two are parallel implementations of the same
+  // markup, which is why one could be escaped for its whole life while the other
+  // was not. This one's caller is `renderToStream`, reached by the documented
+  // `renderToString(component, { head })` — so nothing escaped it before here,
+  // and no double-escaping is introduced by escaping it here.
+  if (head.title) parts.push(`<title>${escapeText(head.title)}</title>`)
   for (const meta of head.meta ?? []) {
-    const attrs = Object.entries(meta)
-      .filter(([, v]) => v !== undefined)
-      .map(([k, v]) => `${k}="${escapeAttr(v as string)}"`)
-      .join(' ')
-    parts.push(`<meta ${attrs}>`)
+    parts.push(`<meta ${serializeHeadAttrs(meta as Record<string, unknown>)}>`)
   }
   for (const link of head.links ?? []) {
-    const attrs = Object.entries(link)
-      .filter(([, v]) => v !== undefined)
-      .map(([k, v]) => `${k}="${escapeAttr(v as string)}"`)
-      .join(' ')
-    parts.push(`<link ${attrs}>`)
+    parts.push(`<link ${serializeHeadAttrs(link as Record<string, unknown>)}>`)
   }
   for (const script of head.scripts ?? []) {
     // The script body is element text (not an attribute), so it is emitted
@@ -598,24 +707,178 @@ function buildHead(head: HeadConfig): string {
 // Internal async tree-walker for renderToStream
 // ---------------------------------------------------------------------------
 
+/**
+ * The per-render bookkeeping `__aihu_schild` keeps on its own opts, kept here
+ * for the walker's escape-hatch child path (§8) instead.
+ *
+ * It CANNOT live in a module-global. `@aihu/server` inlines `ssr-string.ts`
+ * into its own bundle, so a module-global in either place exists twice; more
+ * basically, a budget shared across concurrent requests would let one page's
+ * fan-out starve another's. Threaded through opts, mutated in place, one object
+ * per top-level render.
+ */
+interface ChildWalkState {
+  /** Remaining child markup bytes for this top-level render. */
+  bytes: number
+  /** Has the exhaustion been reported? One message, not one per reference. */
+  reported: boolean
+}
+
+/** The state-script's opening tag — see `_buildStateScript`, and `_dropStateScript`. */
+const STATE_SCRIPT_OPEN = '<script type="application/json" id="__aihu_state__">'
+
+interface WalkPendingState {
+  count: number
+  walkDone: boolean
+  opts: StreamOptions | undefined
+  root: unknown
+  /** §8's byte budget, one object per top-level render. */
+  childWalk: ChildWalkState
+  /** Stop-once disposer for the per-render effect scope (SSR ownership,
+   * effect-scope plan §3). Set by renderToStream's factory branch; every
+   * TERMINAL path of the render — walk done, boundary close, boundary
+   * error, walk error, factory throw, consumer cancel — must call it.
+   * Idempotent by construction (the wrapper carries a `scopeStopped`
+   * flag), so overlapping terminals are safe. */
+  dispose: () => void
+}
+
+/**
+ * Render a child component's inner tree WITH THE WALKER and wrap it — the
+ * `AIHU_SSR_STRING=0` arm of the child path (§8).
+ *
+ * Returns `undefined` for "not renderable this way; use `__aihu_schild`". That
+ * is not a failure signal, it is how markup identity between hatch-on and
+ * hatch-off is preserved: this function's eligibility must be a SUBSET of
+ * `__aihu_schild`'s, never a superset. Where it declines, the caller falls back
+ * to the string path and the page is byte-identical to a hatch-off render.
+ *
+ * The gate therefore repeats `__aihu_schild`'s: a compiled `__ssrString` must
+ * exist (a module whose emitter BAILED renders bare on the string path, so it
+ * must render bare here too, even though the walker could happily render it),
+ * and `__aihu_shadow__` must be known (there is no safe DOM mode to guess).
+ * `default` must be a factory, which for a real server artifact follows from
+ * the first condition — the emitter attaches `__aihu_ssr_string__` to `__ssr`
+ * in the same breath as it exports `__ssrString` — but a hand-built registry
+ * entry can violate it, and then falling back is again the identity-preserving
+ * answer.
+ *
+ * NO MEMO, unlike the string path. The memo is a pure speed optimization there
+ * (identical inputs, identical bytes) and this is the DEBUGGING path — the one
+ * you take when you suspect the fast path of lying to you, where rendering each
+ * reference site independently is the more useful behaviour. The BYTE BUDGET is
+ * kept, because it is not an optimization: without it a fan-out graph produces
+ * gigabytes, and the depth cap alone cannot bound width.
+ */
+async function _renderChildViaWalker(
+  tag: string,
+  attrsHtml: string,
+  mod: SsrChildModule,
+  hydratable: boolean,
+  children: ReadonlyMap<string, SsrChildModule>,
+  pendingState: WalkPendingState,
+): Promise<string | undefined> {
+  const shadow = mod.__aihu_shadow__
+  if (
+    typeof mod.__ssrString !== 'function' ||
+    (shadow !== 'light' && shadow !== 'shadow') ||
+    typeof mod.default !== 'function'
+  ) {
+    return undefined
+  }
+
+  const bare = `<${tag}${attrsHtml}></${tag}>`
+  // Past either bound the reference renders as the empty element it rendered
+  // before child resolution existed — the same degradation `__aihu_schild`
+  // applies, reached through the same two limits so the hatch does not move
+  // where a pathological graph gives up.
+  const depth = pendingState.opts?.__childDepth ?? 0
+  if (depth >= _MAX_CHILD_DEPTH) return bare
+  const budget = pendingState.childWalk
+  if (budget.bytes <= 0) return bare
+
+  let inner: string
+  try {
+    inner = await _walkChildInner(mod.default as () => unknown, hydratable, children, depth, budget)
+  } catch (err) {
+    // Same contract as `__aihu_schild`'s catch: one broken child must not take
+    // the page down, and must not be silent either.
+    console.error(`[aihu] SSR child <${tag}> threw; rendering it empty:`, err)
+    return bare
+  }
+
+  budget.bytes -= inner.length
+  if (budget.bytes <= 0) {
+    if (!budget.reported) {
+      budget.reported = true
+      console.error(
+        `[aihu] SSR child budget (${_MAX_CHILD_BYTES} bytes) exhausted at <${tag}>; ` +
+          `further children render empty. This usually means a component graph fans out ` +
+          `exponentially — look for a component that references itself transitively.`,
+      )
+    }
+    return bare
+  }
+
+  return _ssrChildWrap(tag, attrsHtml, mod, inner, hydratable)
+}
+
+/**
+ * Drain a nested `renderToStream` into the child's INNER markup.
+ *
+ * `renderToStream`, not `renderToString`: the latter layers `wrapTag` and
+ * `contextSetup` on top, and both are wrong here — the host element is wrapped
+ * by `_ssrChildWrap` from the child's own `__aihu_shadow__`, and activating a
+ * fresh context map mid-render would blank the PARENT's.
+ *
+ * `lightScopeId: ''` for the reason `__aihu_schild` documents at length: the
+ * `data-a` stamp belongs on the HOST, and an omitted option lets a fallback
+ * stamp the template root as well. Empty string is falsy at the walker's
+ * `if (rootScopeId && …)` test, so the child's root renders unstamped.
+ *
+ * The trailing state script is DROPPED. `emitStateScriptAndClose` enqueues it
+ * as its own final chunk, so this is a chunk-boundary check and not a regex
+ * over the markup. It has to go: the envelope is per-DOCUMENT channel data that
+ * the top-level render emits once, and a copy of it buried inside a child's
+ * subtree would be markup the string path never produces — a byte divergence,
+ * and a second `id="__aihu_state__"` in the page.
+ */
+async function _walkChildInner(
+  factory: () => unknown,
+  hydratable: boolean,
+  children: ReadonlyMap<string, SsrChildModule>,
+  depth: number,
+  budget: ChildWalkState,
+): Promise<string> {
+  const stream = renderToStream(factory, {
+    hydratable,
+    lightScopeId: '',
+    children,
+    __childDepth: depth + 1,
+    __childBudget: budget,
+  })
+  const reader = stream.getReader()
+  const chunks: string[] = []
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      chunks.push(value)
+    }
+  } finally {
+    reader.releaseLock()
+  }
+  const last = chunks[chunks.length - 1]
+  if (last?.startsWith(STATE_SCRIPT_OPEN)) chunks.pop()
+  return chunks.join('')
+}
+
 async function renderNodeAsync(
   node: unknown,
   path: string,
   hydratable: boolean,
   controller: ReadableStreamDefaultController<string>,
-  pendingState: {
-    count: number
-    walkDone: boolean
-    opts: StreamOptions | undefined
-    root: unknown
-    /** Stop-once disposer for the per-render effect scope (SSR ownership,
-     * effect-scope plan §3). Set by renderToStream's factory branch; every
-     * TERMINAL path of the render — walk done, boundary close, boundary
-     * error, walk error, factory throw, consumer cancel — must call it.
-     * Idempotent by construction (the wrapper carries a `scopeStopped`
-     * flag), so overlapping terminals are safe. */
-    dispose: () => void
-  },
+  pendingState: WalkPendingState,
 ): Promise<void> {
   if (typeof node !== 'object' || node === null) {
     controller.enqueue('')
@@ -678,13 +941,40 @@ async function renderNodeAsync(
     // function on both paths — the differential suite pins that they agree
     // byte-for-byte, and it can only do that if they render the same things.
     //
-    // The v1 boundaries mirror the emitter's exactly (`ssr_string_emit.rs`):
-    // zero children (slot projection is unimplemented), no attrs (attributes at
-    // a reference site are the child's props, and rendering with defaults while
-    // the client renders with real values is a hydration mismatch), and not at
-    // ROOT_PATH (which carries the parent's `data-a` stamp, already folded into
-    // `attrStr` above). A mismatch here would show up as a differential
-    // failure, which is the point of keeping the two lists identical.
+    // The v1 boundaries mirror the emitter's (`ssr_string_emit.rs`): zero
+    // children (slot projection is unimplemented), no attrs (attributes at a
+    // reference site are the child's props, and rendering with defaults while
+    // the client renders with real values is a hydration mismatch), a literal
+    // path (see `_isLiteralPath`), and not at ROOT_PATH.
+    //
+    // ROOT_PATH carries TWO hazards, and only the second is unconditional: the
+    // parent's `data-a` stamp is already folded into `attrStr` above, so a
+    // resolved child would carry a SECOND one from `_ssrChildWrap`; and a
+    // resolved reference is a marked host, while arbor's `hydrate()` registers
+    // its container under `_ROOT_PATH` and refuses any other value on it — a
+    // marked host that itself sits at `'0'` is the one case that guard cannot
+    // distinguish, so `'0'` would name two elements in one path map.
+    //
+    // A STRUCTURAL template root does not reach this check (followups §24):
+    // `<x-kid if={…}>` as the whole template resolves at `0.conditional.true`,
+    // where neither hazard exists, and both renderers agree. The parent's
+    // `lightScopeId` reaching no element in that shape is real but is a
+    // property of the stamp's PLACEMENT, not of this gate — a plain
+    // `<div if={…}>` root loses it identically with no component anywhere, and
+    // `wrapTag` (the stamp on the HOST, where the client puts it) is what
+    // answers it. Fixtures: `ssr-string-differential.test.ts` boundary 4b.
+    //
+    // "Mirror" is the strongest word available: the two gates read DIFFERENT
+    // inputs — Rust over the raw template AST, this over the lowered node — and
+    // the lowering is lossy. Directive macros (`show`, `class:`, `ref`, `once`,
+    // `raw`, `html`, `if`) and whitespace-only text are already gone by the
+    // time they reach here, so this arm CANNOT decline on them however much it
+    // would like to; the emitter has to be the side that agrees, and it is (see
+    // `attr_survives_lowering` / `node_is_dropped` there). They cannot be made
+    // structurally identical. What keeps them honest is the per-boundary
+    // fixture set in `ssr-string-differential.test.ts`, one case per line of
+    // this condition, each asserting the two renderers reach the SAME verdict —
+    // including when that verdict is to decline.
     //
     // `attrStr` — the reference site's own attrs plus its path marker — is
     // passed through as the host attrs, so the host keeps its position in THIS
@@ -695,9 +985,45 @@ async function renderNodeAsync(
       childRegistry &&
       children.length === 0 &&
       path !== ROOT_PATH &&
+      _isLiteralPath(path) &&
       Object.keys(asAttrMap(obj.attrs)).length === 0 &&
       childRegistry.has(tag)
     ) {
+      // §8 — the escape hatch reaches child subtrees too.
+      //
+      // `__aihu_schild` calls `mod.__ssrString` directly, so the compiled string
+      // renderer stayed engaged for every child even under `AIHU_SSR_STRING=0`.
+      // Two costs: the documented way to route a render back through the walker
+      // did not actually do so below the top level, and the differential suite
+      // could never exercise a walker-rendered child (the walker's child arm
+      // called the string renderer, so both sides of the comparison were the
+      // string renderer).
+      //
+      // `_ssrStringOf` is the hatch, so ASK IT — the same function the top-level
+      // fast path asks, about the same module's default export, which the server
+      // target attaches `__aihu_ssr_string__` to. When it answers `undefined`
+      // the hatch is open and this branch walks the child instead.
+      const childMod = childRegistry.get(tag)
+      if (childMod !== undefined && _ssrStringOf(childMod.default) === undefined) {
+        const walked = await _renderChildViaWalker(
+          tag,
+          attrStr,
+          childMod,
+          hydratable,
+          childRegistry,
+          pendingState,
+        )
+        // `undefined` means "this module is not walker-renderable after all"
+        // (see the helper). Falling through to `__aihu_schild` then keeps the
+        // MARKUP identical to the hatch-off render, which matters more than
+        // hatch purity: `AIHU_SSR_STRING=0` is documented to change the engine,
+        // never the bytes, and a component whose eligibility differed between
+        // the two settings would silently break that promise.
+        if (walked !== undefined) {
+          controller.enqueue(walked)
+          return
+        }
+      }
       controller.enqueue(__aihu_schild(tag, attrStr, { hydratable, children: childRegistry }))
       return
     }
@@ -920,7 +1246,7 @@ export function _buildStateScript(root: unknown, opts: SsrOptions | undefined): 
   if (!hasSignals && !hasStores) return ''
   const state: Record<string, unknown> = { v: 1, stores: hasStores ? stores : {} }
   if (hasSignals) state.signals = signals
-  return `<script type="application/json" id="__aihu_state__">${_safeStateJson(state)}</script>`
+  return `${STATE_SCRIPT_OPEN}${_safeStateJson(state)}</script>`
 }
 
 /**
@@ -1034,11 +1360,15 @@ export function renderToStream(
 
   return new ReadableStream<string>({
     start(controller) {
-      const pendingState = {
+      const pendingState: WalkPendingState = {
         count: 0,
         walkDone: false,
         opts,
         root: null as unknown,
+        // Inherited when this render IS a child (the hatch path passes the
+        // parent's object down), created fresh when it is the top level. One
+        // budget per page, shared by every child under it.
+        childWalk: opts?.__childBudget ?? { bytes: _MAX_CHILD_BYTES, reported: false },
         dispose: () => disposeScope?.(),
       }
 
@@ -1059,39 +1389,55 @@ export function renderToStream(
       // below, preserving flush/suspend semantics unchanged.
       const ssrString = _ssrStringOf(component)
       if (ssrString) {
+        // The fast path needs BOTH halves of the server-render environment, and
+        // used to have only one.
+        //
+        // A DETACHED effect scope: `onCleanup` — and everything built on it,
+        // `$stream`, `$controller`, router boundaries, most composables —
+        // resolves through `getCurrentScope()`, not the lifecycle owner
+        // pointer, so the lifecycle sink alone never reaches it. Without a
+        // scope here, the path essentially all production traffic takes threw
+        // SCR-R0011 for any component using a stream or a composable; as a
+        // CHILD that became a silently empty element.
+        //
+        // And the lifecycle window: setup runs outside `defineComponent`, so
+        // `onMount` has no owner to register against.
+        //
+        // The walker branch below now opens both too. Neither path may hold
+        // half the environment — that asymmetry is invisible until a component
+        // happens to use the hook the other path forgot.
+        const fastScope = effectScope(true)
         let html: string
         try {
-          html = ssrString({
-            hydratable: opts?.hydratable ?? false,
-            // LDF §10 step 3: the compiled renderer's `root_scope_attr` reads
-            // `__opts.lightScopeId` to stamp `data-a` on the root element —
-            // forward it so the string path matches the walker's stamp.
-            ...(opts?.lightScopeId !== undefined ? { lightScopeId: opts.lightScopeId } : {}),
-            // The child registry the compiled renderer's `__aihu_schild` calls
-            // resolve against. Forwarded for exactly the same reason as
-            // `lightScopeId` above: the walker reads it too, and a value that
-            // reaches only one of them is a byte divergence the differential
-            // suite would fail on.
-            ...(opts?.children !== undefined ? { children: opts.children } : {}),
-          })
+          html = fastScope.run(() =>
+            _withSsrLifecycle(() =>
+              ssrString({
+                hydratable: opts?.hydratable ?? false,
+                // LDF §10 step 3: the compiled renderer's `root_scope_attr`
+                // reads `__opts.lightScopeId` to stamp `data-a` on the root
+                // element — forward it so the string path matches the walker.
+                ...(opts?.lightScopeId !== undefined ? { lightScopeId: opts.lightScopeId } : {}),
+                // The child registry `__aihu_schild` resolves against, for the
+                // same reason as `lightScopeId`: a value reaching only one
+                // renderer is a byte divergence the differential suite fails on.
+                ...(opts?.children !== undefined ? { children: opts.children } : {}),
+              }),
+            ),
+          ) as string
         } catch (err) {
+          fastScope.stop()
           controller.error(err)
           return
         }
         controller.enqueue(html)
-        // Wave-3 state channel under the string fast path. We emit through the
-        // SAME activated helper as the walker so string-rendered pages ship an
-        // identical `__aihu_state__` envelope — stores adopt on the client with
-        // no re-derivation. `root` is `null` DELIBERATELY: the string renderer
-        // never materializes an arbor tree, so `_collectSignals`'s post-render
-        // walk has nothing to walk. STORE state is arbor-independent
-        // (`serializeStores` via the injected store serializer) and rides along
-        // regardless. Component-local SIGNALS are therefore an empty map here —
-        // a known v1 limitation: they re-derive on the client (correct, just
-        // not the optimized adopt-in-place the walker path gets). See the seam
-        // proof in tests/integration/ssr-string-hydrate-parity.test.ts
-        // ("store state adopts under the string renderer").
+        // Wave-3 state channel under the string fast path: emitted through the
+        // SAME helper as the walker so string-rendered pages ship an identical
+        // `__aihu_state__` envelope. `root` is `null` DELIBERATELY — the string
+        // renderer materializes no arbor tree, so there is nothing to walk;
+        // STORE state is arbor-independent and rides along regardless.
         emitStateScriptAndClose(controller, opts, null)
+        // Effects the setup created are per-render and must not outlive it.
+        fastScope.stop()
         return
       }
 
@@ -1130,7 +1476,11 @@ export function renderToStream(
 
       let root: unknown
       try {
-        root = scope.run(() => component())
+        // The walker had the effect SCOPE but no lifecycle WINDOW, while the
+        // fast path below had the window but no scope — each path held half the
+        // server-render environment, so `onMount` threw here and `onCleanup`
+        // threw there. Both halves, both paths.
+        root = scope.run(() => _withSsrLifecycle(() => component()))
       } catch (err) {
         disposeScope()
         controller.error(err)

@@ -98,11 +98,17 @@ describe('light-DOM child', () => {
     expect(out).toBe('<site-header data-a="a1b2c3"><nav>n</nav></site-header>')
   })
 
-  it('does NOT pass lightScopeId down to the child render', () => {
+  it("passes lightScopeId: '' so the child does not stamp its own template root", () => {
     // `data-a` belongs on the host — that is where the client stamps it. A
     // second stamp on the template root would make it a nested scope root and
     // cut the child's own `@scope(…) to ([data-a])` rules off at its first
     // child.
+    //
+    // The empty string, not omission, is what achieves that. This test used to
+    // assert the option was ABSENT, which encoded the bug: a compiled
+    // `__ssrString` resolves `opts.lightScopeId ?? __AIHU_LIGHT_SCOPE_ID__`, so
+    // omitting it lets the module's own injected id stamp the root anyway.
+    // aihu.dev prerendered `<site-header>` with `data-a` in both places.
     const render = vi.fn((_props: unknown, _opts?: SsrChildRenderOpts) => '<nav>n</nav>')
     const mod: SsrChildModule = {
       __ssrString: render,
@@ -110,7 +116,23 @@ describe('light-DOM child', () => {
       __aihu_light_scope__: 'a1b2c3',
     }
     __aihu_schild('site-header', '', { hydratable: true, children: registry(mod) })
-    expect(render.mock.calls[0]![1]).not.toHaveProperty('lightScopeId')
+    // The empty string specifically — `undefined` would let the module's own
+    // `?? __AIHU_LIGHT_SCOPE_ID__` fallback fire, which is the bug.
+    expect(render.mock.calls[0]![1]?.lightScopeId).toBe('')
+  })
+
+  it('stamps data-a exactly once, on the host', () => {
+    // The regression test for the double stamp: a fake child that honours the
+    // opts the way a compiled module does.
+    const mod: SsrChildModule = {
+      __ssrString: (_p, o) =>
+        `<header${o?.lightScopeId ? ` data-a="${o.lightScopeId}"` : ''}>n</header>`,
+      __aihu_shadow__: 'light',
+      __aihu_light_scope__: 'a1b2c3',
+    }
+    const out = __aihu_schild('site-header', '', { hydratable: true, children: registry(mod) })
+    expect(out.match(/data-a=/g)?.length).toBe(1)
+    expect(out).toContain('<site-header data-a="a1b2c3"')
   })
 
   it('escapes the scope id into the attribute', () => {
@@ -256,5 +278,32 @@ describe('shadow child styles (step 4)', () => {
     })
     expect(out).toContain('content:"<\\/style>"')
     expect(out.match(/<\/style>/g)?.length).toBe(1)
+  })
+})
+
+describe('a renderer that returns a non-string', () => {
+  it('does not ship [object Promise] into the page', async () => {
+    // A server renderer is synchronous by construction — nothing on this path
+    // can await. An async one used to stringify into the markup, which is worse
+    // than an empty element because it looks like content and ships.
+    const mod: SsrChildModule = {
+      // `as never`: the point is a module that LIES about its contract, which
+      // the type system would otherwise forbid us from constructing.
+      __ssrString: (() => Promise.resolve('<nav>n</nav>')) as never,
+      __aihu_shadow__: 'light',
+    }
+    const out = __aihu_schild('site-header', '', { children: registry(mod) })
+    expect(out).not.toContain('[object Promise]')
+    expect(out).toBe('<site-header></site-header>')
+  })
+
+  it('degrades on any other non-string too', () => {
+    const mod: SsrChildModule = {
+      __ssrString: (() => 42) as never,
+      __aihu_shadow__: 'light',
+    }
+    expect(__aihu_schild('site-header', '', { children: registry(mod) })).toBe(
+      '<site-header></site-header>',
+    )
   })
 })

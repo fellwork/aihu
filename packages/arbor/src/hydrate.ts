@@ -801,13 +801,45 @@ export function hydrate(
   const pathMap = new Map<string, Element>()
   const root = host as Element
   for (const el of root.querySelectorAll?.('[data-aihu-path]') ?? []) {
-    const boundary = el.closest?.('[data-aihu-ssr]')
+    // The boundary is the nearest marked PROPER ANCESTOR — start the search at
+    // the parent, never at `el` itself.
+    //
+    // `closest()` matches the element it is called on, and a child host now
+    // carries BOTH attributes: `data-aihu-path` (its position in the PARENT's
+    // key space) and `data-aihu-ssr` (the marker for its own inner tree). It is
+    // the first element in the codebase to carry both — `wrapTag`'s nested
+    // hosts never got a path marker, which is why this went unnoticed.
+    //
+    // Matching on `el` made every SSR'd child host its own boundary, so it was
+    // pruned from the parent's map, missed the `existingEl` lookup, and got
+    // re-materialized as a DUPLICATE appended at the end of the host: the child
+    // rendered twice, the second copy in the wrong place.
+    //
+    // Searching from the parent keeps the host in the map (its boundary
+    // resolves to `root`), still prunes everything INSIDE it (their boundary
+    // resolves to the host), and leaves the `wrapTag` case unchanged.
+    const boundary = el === root ? null : el.parentElement?.closest?.('[data-aihu-ssr]')
     if (boundary != null && boundary !== root && root.contains(boundary)) continue
     const p = el.getAttribute('data-aihu-path')
     if (p != null) pathMap.set(p, el)
   }
+  // Register the container under its OWN path only — `_ROOT_PATH`, never
+  // whatever value it happens to carry.
+  //
+  // A render always starts at `_ROOT_PATH`, so any other value on the container
+  // belongs to a FOREIGN key space by construction. That is exactly the case
+  // for a marked child host: it carries its slot in the PARENT's space (`0.1`)
+  // while hydrating its own, so registering it under `0.1` clobbered whatever
+  // this render's tree has at `0.1` — and the node that lost the race silently
+  // bound `.el` to the host instead of its own element.
+  //
+  // Structurally invisible, which is why nothing caught it: a childless
+  // reference stops the walk, so the DOM is unchanged and only a later read of
+  // `.el` reveals it. A reactive `html={…}` on a nested reference is such a
+  // read, and its first write replaced the entire subtree. The same seam
+  // carries `class:`, `ref=`, and the router's link boundary.
   const hp = root.getAttribute?.('data-aihu-path')
-  if (hp != null) pathMap.set(hp, root)
+  if (hp === _ROOT_PATH) pathMap.set(hp, root)
 
   if (typeof __DEV__ !== 'undefined' && __DEV__)
     _observeMount({ kind: 'mount-start', path: 'hydrate', timestamp: Date.now() })

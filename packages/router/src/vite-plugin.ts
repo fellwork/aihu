@@ -241,8 +241,8 @@ export function scanLayouts(d: string): LayoutMap {
  *
  * `genC` uses it as a codegen boundary. The registry it emits is JavaScript
  * SOURCE built by string concatenation from names read out of `.aihu` files
- * (`@meta { name }` / `@route { name }` / the file stem), so an unvalidated tag
- * is an unvalidated value reaching a code-construction sink. `JSON.stringify`
+ * (`@route { name }` / the file stem), so an unvalidated tag is an unvalidated
+ * value reaching a code-construction sink. `JSON.stringify`
  * does escape correctly, but "the sanitizer happens to be adequate" is a
  * weaker guarantee than "the value cannot contain anything needing escaping",
  * and only the latter is checkable at a glance. Anything failing this test
@@ -263,24 +263,44 @@ const SAFE_MODULE_PATH = /^[^"'\\\n\r\u2028\u2029]+$/
 
 /**
  * O1b: Resolve the custom-element tag a component file registers under.
- * Name precedence mirrors the compiler: explicit `@meta { name }` →
- * `@route { name }` → the file stem; the winner is normalized via
- * `componentTagFor`. Build-time only.
+ * Name precedence mirrors the compiler: `@route { name }` → the file stem; the
+ * winner is normalized via `componentTagFor`. Build-time only.
+ *
+ * `@meta { name }` is DELIBERATELY NOT CONSULTED. This function used to prefer
+ * it over both other sources, and that was a bug rather than a feature: the
+ * compiler never applies it. `@meta`'s parsed form (`SfcMeta` in
+ * `packages/compiler/src/types.rs`) has no `name` field at all — the block
+ * carries recipe-catalog data (`variants`/`slots`/`dependencies`/
+ * `registryDependencies`) and the convention that it must not redefine the
+ * component name is written down as R-META-COEXIST, asserted by
+ * `packages/compiler/tests/meta_block.rs` and restated at three points in the
+ * Rust source. So `defineElement` — and therefore `__aihu_tag__`, and
+ * therefore what the browser actually registers — resolves
+ * `@route { name }` → file stem, and an SFC declaring `@meta { name: "x-y" }`
+ * in `x-plain.aihu` still emits `defineElement('x-plain', …)`.
+ *
+ * A router that keyed such a component as `x-y` did not merely miss it during
+ * SSR: `virtual:aihu-components` would register the loader under a tag no
+ * module ever defines, so `<x-y>` never upgraded on the client either, while
+ * the tag templates DO reference (`x-plain`) resolved to nothing. Dropping the
+ * `@meta` leg makes one derivation instead of two. The alternative — teaching
+ * the compiler to honour `@meta { name }` — is a language-semantics change
+ * that would contradict R-META-COEXIST.
+ *
+ * KEEP IN SYNC with the compiler's define-name resolution: `resolve_tag` /
+ * `bin/main.rs`'s OQ-C6 block (`@route { name }` → file stem) plus
+ * `normalize_define_tag`. Note `@route` is itself only legal in a `pages/`
+ * file (C500), so within a components directory this reduces to the stem in
+ * practice; the leg is kept because `readAihuComponentTag` is also called on
+ * paths outside that directory (`@aihu/app`'s prerender diagnostics).
  */
 export function readAihuComponentTag(f: string): string {
   const stem = basename(f).replace(/\.[^.]+$/, '')
   try {
     const content = readFileSync(f, 'utf8')
-    const grab = (block: RegExpMatchArray | null): string | undefined => {
-      if (!block) return undefined
-      const m = block[1]!.match(/\bname\s*:\s*["']([^"']+)["']/)
-      return m ? m[1] : undefined
-    }
-    const name =
-      grab(content.match(/@meta\s*\{([^}]*)\}/)) ??
-      grab(content.match(/@route\s*\{([^}]*)\}/)) ??
-      stem
-    return componentTagFor(name)
+    const block = content.match(/@route\s*\{([^}]*)\}/)
+    const named = block ? block[1]!.match(/\bname\s*:\s*["']([^"']+)["']/) : null
+    return componentTagFor(named?.[1] ?? stem)
   } catch {
     return componentTagFor(stem)
   }
@@ -289,31 +309,63 @@ export function readAihuComponentTag(f: string): string {
 /**
  * O1b: Recursively scan a components dir for `.aihu` files, mapping each
  * file's normalized custom-element tag → absolute POSIX path. Unlike the flat
- * `scanLayouts`, components commonly nest in subdirectories. On a tag
- * collision the last file wins, but the collision is warned so it's not
- * silent. Build-time only.
+ * `scanLayouts`, components commonly nest in subdirectories. Build-time only.
+ *
+ * TIE-BREAK: the whole file list is SORTED, and on a tag collision the FIRST
+ * file wins. This used to be "the last file wins, over raw `readdirSync`
+ * order", which was wrong twice over. `readdirSync` order is a filesystem
+ * detail — APFS, ext4 and a CI container do not agree on it — so the winner
+ * was not reproducible across machines for the same tree. And it disagreed
+ * with the server: `@aihu/server`'s `buildChildRegistry` keeps the FIRST
+ * claimant over the sorted list `@aihu/app`'s `discoverComponents` hands it.
+ * Two sides disagreeing on the winner is not a cosmetic inconsistency — the
+ * prerendered page ships one module's markup while the client registers the
+ * other module under that tag and upgrades, so the content visibly swaps on
+ * hydrate.
+ *
+ * Sorting the flat path list before the fold is exactly what
+ * `discoverComponents` does (`const sorted = files.sort()`), over the same
+ * key — absolute POSIX paths under a common prefix — so the two now select the
+ * same winner from the same tree. `readAihuComponentTag` selecting the same
+ * tag the compiler stamps into `__aihu_tag__` (see its docblock) is the other
+ * half; both axes have to match or aligning either one alone means nothing.
+ *
+ * `listDir` is a seam, defaulting to the real `readdirSync`. A test cannot
+ * otherwise choose the traversal order, and traversal order is precisely what
+ * the sort exists to neutralize — a fixture-only test would assert the
+ * tie-break while relying on luck to distinguish it from the old behaviour.
  */
-export function scanComponents(d: string): Record<string, string> {
+export function scanComponents(
+  d: string,
+  listDir: (
+    dir: string,
+  ) => ReadonlyArray<{ name: string; isFile(): boolean; isDirectory(): boolean }> = (dir) =>
+    readdirSync(dir, { withFileTypes: true }),
+): Record<string, string> {
   const m: Record<string, string> = {}
   if (!existsSync(d)) return m
+  const files: string[] = []
   const w = (dir: string): void => {
-    for (const e of readdirSync(dir, { withFileTypes: true })) {
+    for (const e of listDir(dir)) {
       const fp = join(dir, e.name)
-      if (e.isDirectory()) {
-        w(fp)
-      } else if (e.isFile() && e.name.endsWith('.aihu')) {
-        const tag = readAihuComponentTag(fp)
-        const posix = fp.replace(/\\/g, '/')
-        const prev = m[tag]
-        if (prev !== undefined && prev !== posix)
-          console.warn(
-            `[aihu-router] component tag collision: "${tag}" maps to both ${prev} and ${posix} (last wins)`,
-          )
-        m[tag] = posix
-      }
+      if (e.isDirectory()) w(fp)
+      else if (e.isFile() && e.name.endsWith('.aihu')) files.push(fp.replace(/\\/g, '/'))
     }
   }
   w(d)
+  for (const posix of files.sort()) {
+    const tag = readAihuComponentTag(posix)
+    const prev = m[tag]
+    if (prev !== undefined && prev !== posix) {
+      console.warn(
+        `[aihu-router] component tag collision: "${tag}" is claimed by ${prev} and ${posix} — ` +
+          `keeping ${prev} (first in sorted order, matching @aihu/server's child registry). ` +
+          `${posix} is dropped; registering it would throw in customElements.define.`,
+      )
+      continue
+    }
+    m[tag] = posix
+  }
   return m
 }
 
@@ -539,7 +591,7 @@ export function genC(d: string): string {
 
   // Validate at the codegen boundary. Everything below concatenates these two
   // values into JavaScript SOURCE, and both are read out of files on disk —
-  // tags from a component's `@meta`/`@route` `name` (or its stem), paths from
+  // tags from a component's `@route { name }` (or its stem), paths from
   // the directory walk. Checking the shape here means the emitted module is
   // well-formed by construction rather than by trusting `JSON.stringify` to
   // escape whatever arrives. Neither drop loses working behaviour: a tag

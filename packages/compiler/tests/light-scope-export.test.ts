@@ -146,9 +146,12 @@ describe('__aihu_shadow__ export (server target)', () => {
 
 // ─── __aihu_child_tags__ ─────────────────────────────────────────────────────
 //
-// The transitive walk that builds `SsrOptions.children` starts here: load a
-// module, read its child tags, load those, repeat — and reject a cycle before
-// any render begins.
+// The edges of the component graph. `buildChildRegistry` indexes every
+// discovered component once — it does NOT walk this transitively per page —
+// and uses these edges to DETECT cycles, which it reports as a warning rather
+// than rejecting: the derivation cannot see a guarded reference, so an ordinary
+// recursive component (tree, nested menu, comment thread) would otherwise fail
+// its build. See `@aihu/server`'s `child-registry.ts`.
 //
 // The export is DERIVED from the emitted `__aihu_schild` call sites rather than
 // recomputed from the template, because the set that matters is exactly the set
@@ -167,10 +170,14 @@ const CHILD_SFC = `@template {
 }
 `
 
-async function runWith(source: string, thisArg: unknown): Promise<string> {
+async function runWith(
+  source: string,
+  thisArg: unknown,
+  options?: Parameters<typeof aihuCompilerPlugin>[0],
+): Promise<string> {
   const tmp = mkdtempSync(join(tmpdir(), 'aihu-child-tags-'))
   try {
-    const plugin = aihuCompilerPlugin()
+    const plugin = aihuCompilerPlugin(options)
     const transform = plugin.transform as unknown as TransformFn
     const res = await transform.call(thisArg, source, join(tmp, 'x-page.aihu'))
     if (res == null) throw new Error('plugin returned no result')
@@ -231,5 +238,101 @@ describe('__aihu_child_tags__ export (server target)', () => {
     // build input, and the client resolves children by upgrading elements.
     const code = await runWith(CHILD_SFC, {})
     expect(code).not.toContain('__aihu_child_tags__')
+  })
+})
+
+// ─── _injectShadowMode must not corrupt the module it edits ─────────────────
+
+const COND_SFC = `@state {
+  const [n, setN] = signal(9)
+}
+
+@template {
+  <div><span if={n > 5}>big</span></div>
+}
+`
+
+// A `(` in TEXT CONTENT lands in the emitted module as a string literal —
+// `leaf('(open ')` on the client target, where the whole setup body sits
+// INSIDE `defineComponent(...)`'s argument span.
+const PAREN_TEXT_SFC = `@state {
+  const [n, setN] = signal(1)
+}
+
+@template {
+  <p>(open {n}</p>
+}
+`
+
+// $form is the one shape whose Rust emit ALREADY carries a third defineElement
+// argument: `defineComponent(...), { formAssociated: true })`.
+const FORM_SFC = `@state {
+  const [name, setName] = signal('')
+  $form: { value: name }
+}
+
+@template {
+  <div><em if={name() !== ''}>set</em></div>
+}
+`
+
+describe('_injectShadowMode anchors on defineElement, not the last paren', () => {
+  // The corruption the SSR-child review reported is REAL and these tests
+  // reproduce it: the original greedy anchor (`defineComponent\([^]*\)\s*\)` —
+  // `[^]` crosses newlines) matched the LAST `)\s*)` pair in the module, and
+  // on a server-target module the string renderer is emitted AFTER the
+  // registration, so for a component with an `if=` the injection landed in the
+  // emitted condition: `if ((n() > 5), { shadowMode: 'light', … })` — comma
+  // operator, always truthy, dead branch renders.
+  //
+  // The first repro attempt concluded the old anchor was clean because its
+  // probe, `/if \([^)]*shadowMode/`, can NEVER match the real corruption:
+  // the emitted condition `(n() > 5)` contains `)`, which `[^)]` forbids.
+  // The detection below is line-scoped (`.` stops at newline) instead, and
+  // DOES fail against the old anchor.
+  //
+  // The first replacement (a bare balanced-paren count) had the opposite
+  // failure: it read parens inside string literals — `leaf('(')` — drifted,
+  // and silently bailed on client/universal modules, stripping the injection
+  // entirely (no shadowMode, no lightScopeId). The PAREN_TEXT_SFC test fails
+  // against that version. The current implementation lexes strings, template
+  // literals, and comments while matching, and merges into `$form`'s existing
+  // options object rather than bailing on it.
+  it('server target: options land on defineElement, never in the string renderer’s if-condition', async () => {
+    const code = await runWith(COND_SFC, SERVER_ENV, { shadowMode: 'light' })
+    expect(code).not.toMatch(/if\s*\(.*shadowMode/)
+    expect(code).toMatch(/defineComponent\(__aihu_setup__\)\s*,\s*\{\s*shadowMode:\s*["']light["']/)
+  })
+
+  it('client build: injects too, outside any condition', async () => {
+    const code = await runWith(COND_SFC, {}, { shadowMode: 'light' })
+    expect(code).toMatch(/,\s*\{\s*shadowMode:\s*["']light["']/)
+    expect(code).not.toMatch(/if\s*\(.*shadowMode/)
+  })
+
+  it('a `(` in text content must not starve the client injection', async () => {
+    // A silent bail here costs the component its shadowMode AND lightScopeId —
+    // strictly worse than the corruption the anchor change was fixing.
+    const code = await runWith(PAREN_TEXT_SFC, {}, { shadowMode: 'light' })
+    expect(code).toMatch(/,\s*\{\s*shadowMode:\s*["']light["']/)
+  })
+
+  it('…and on the server target the same shape stays uncorrupted', async () => {
+    // The old anchor's other server casualty: the last `)\s*)` after an
+    // interpolated text node is the `__aihu_stext(n())` call, which became
+    // `__aihu_stext(n(), { shadowMode: … })`.
+    const code = await runWith(PAREN_TEXT_SFC, SERVER_ENV, { shadowMode: 'light' })
+    expect(code).toMatch(/defineComponent\(__aihu_setup__\)\s*,\s*\{\s*shadowMode:\s*["']light["']/)
+    expect(code).not.toMatch(/__aihu_stext\(.*shadowMode/)
+  })
+
+  it('$form: merges into the existing formAssociated options, leaves setFormValue alone', async () => {
+    // Old anchor: landed inside `setFormValue(name(), …)` on EVERY target.
+    // Naive scan: bailed on the existing `, { formAssociated: true }` arg.
+    for (const env of [SERVER_ENV, {}]) {
+      const code = await runWith(FORM_SFC, env, { shadowMode: 'light' })
+      expect(code).toMatch(/shadowMode:\s*["']light["'][^}]*formAssociated:\s*true/)
+      expect(code).not.toMatch(/setFormValue\(.*shadowMode/)
+    }
   })
 })

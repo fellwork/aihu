@@ -134,21 +134,110 @@ export interface AihuCompilerPluginOptions {
 }
 
 /**
- * Inject `{ shadowMode: '...' }` (and, for light mode, `lightScopeId: '...'`
- * in the SAME options object) as the third argument to the emitted
- * `defineElement('tag', defineComponent(...))` call. The compiler emits
- * exactly two arguments today; this rewrites the closing of the
- * defineElement call to include the options object. Idempotent — leaves
- * code untouched when the closer is not in the expected shape.
+ * Find the `)` matching the `(` at `open`, skipping string literals
+ * (`'…'`/`"…"` with `\` escapes), template literals (including nested
+ * `${ … }` interpolations, tracked with a frame stack), and `//`/`/* *​/`
+ * comments. Returns -1 when no match is found before end of input.
  *
- * `lightScopeId` is folded into this SAME regex operation rather than a
- * second independent injection pass, deliberately: it is only ever set when
- * `mode === 'light'` (see the call site, `index.ts`'s `transform` hook), so
- * every call that needs it ALSO needs a shadowMode injection at the exact
- * same spot — a second pass would just re-match (and fight) the text this
- * one already rewrote. Stamps `data-a` on the root element at runtime
- * (light-DOM leaf flip, LDF §10 step 3) — `packages/runtime/src/
- * define-element.ts`'s `wrapClass` reads `options.lightScopeId`.
+ * Why a lexer and not a bare paren count: on the client/universal targets the
+ * ENTIRE setup body is inlined inside `defineComponent((ctx) => { … })`, and
+ * that body carries user template text as string literals — `leaf('(')` for a
+ * `(` text node, `{ title: '(unclosed' }` for an attribute — so a count that
+ * reads parens inside strings drifts and the caller silently bails, costing
+ * the component its `shadowMode`/`lightScopeId` injection entirely.
+ *
+ * Known miss, accepted: a regex literal in user `@state` code containing an
+ * unbalanced paren (`/\(/`) reads as division + parens. The caller validates
+ * the landing site and bails to a no-op rather than corrupting.
+ */
+function _matchParen(code: string, open: number): number {
+  // Frames: 'code' (with its own `{}` depth, so a `}` inside a template
+  // interpolation knows whether it closes the interpolation) or 'tpl'.
+  const frames: Array<{ kind: 'code'; brace: number } | { kind: 'tpl' }> = [
+    { kind: 'code', brace: 0 },
+  ]
+  let paren = 0
+  for (let i = open; i < code.length; i++) {
+    const top = frames[frames.length - 1]
+    // Unreachable: the root frame never pops (a code-frame `}` pops only when
+    // `frames.length > 1`, a tpl frame pops only itself) — checker appeasement.
+    if (top === undefined) return -1
+    const c = code[i]
+    if (top.kind === 'tpl') {
+      if (c === '\\') i++
+      else if (c === '`') frames.pop()
+      else if (c === '$' && code[i + 1] === '{') {
+        frames.push({ kind: 'code', brace: 0 })
+        i++
+      }
+      continue
+    }
+    if (c === "'" || c === '"') {
+      i++
+      while (i < code.length && code[i] !== c) {
+        if (code[i] === '\\') i++
+        i++
+      }
+    } else if (c === '`') {
+      frames.push({ kind: 'tpl' })
+    } else if (c === '/' && code[i + 1] === '/') {
+      while (i < code.length && code[i] !== '\n') i++
+    } else if (c === '/' && code[i + 1] === '*') {
+      i += 2
+      while (i < code.length && !(code[i] === '*' && code[i + 1] === '/')) i++
+      i++
+    } else if (c === '(') {
+      paren++
+    } else if (c === ')') {
+      paren--
+      if (paren === 0) return i
+    } else if (c === '{') {
+      top.brace++
+    } else if (c === '}') {
+      if (top.brace === 0 && frames.length > 1) frames.pop()
+      else top.brace--
+    }
+  }
+  return -1
+}
+
+/**
+ * Inject `shadowMode: '...'` (and, for light mode, `lightScopeId: '...'` in
+ * the SAME options object) into the third argument of the emitted
+ * `defineElement('tag', defineComponent(...))` call — appending the options
+ * object when the call has two arguments, or merging the fields into an
+ * existing third argument (`$form` emits `, { formAssociated: true }`).
+ * Idempotent — leaves code untouched when the call is not in a recognized
+ * shape or the options already carry a `shadowMode`.
+ *
+ * `lightScopeId` is folded into this SAME injection rather than a second
+ * independent pass, deliberately: it is only ever set when `mode === 'light'`
+ * (see the call site, `index.ts`'s `transform` hook), so every call that
+ * needs it ALSO needs a shadowMode injection at the exact same spot — a
+ * second pass would just re-match (and fight) the text this one already
+ * rewrote. Stamps `data-a` on the root element at runtime (light-DOM leaf
+ * flip, LDF §10 step 3) — `packages/runtime/src/define-element.ts`'s
+ * `wrapClass` reads `options.lightScopeId`.
+ *
+ * History, because this anchor has now been wrong twice:
+ *
+ * 1. The original regex anchor (`defineComponent\([^]*\)\s*\)` — greedy, and
+ *    `[^]` crosses newlines) ran past `defineElement` and matched the LAST
+ *    `)\s*)` pair in the module. On a SERVER-target module the string
+ *    renderer (`__ssrString`) is emitted AFTER the registration, so for any
+ *    component with an `if=` the last such pair is the emitted condition,
+ *    which became `if ((n() > 5), { shadowMode: 'light', … })` — the comma
+ *    operator, always truthy, so a dead branch rendered (the SSR-child
+ *    review's 33-nested-hosts measurement). Same corruption landed inside
+ *    `__aihu_stext(...)` calls (a `(` in text content) and, on ALL targets,
+ *    inside `$form`'s `setFormValue(...)`. The repro was missed at first
+ *    because the probe regex `/if \([^)]*shadowMode/` cannot cross the `)`
+ *    in `(n() > 5)` — evidence in light-scope-export.test.ts.
+ *
+ * 2. The first replacement — a bare balanced-paren count — read parens inside
+ *    string literals (`leaf('(')`), drifted, and silently bailed on
+ *    client/universal modules, stripping the injection those components need.
+ *    Hence `_matchParen`'s lexer, and the tests that pin every shape above.
  *
  * @internal
  */
@@ -157,17 +246,28 @@ export function _injectShadowMode(
   mode: 'light' | 'shadow',
   lightScopeId?: string,
 ): string {
-  // Match the trailing `))` that closes `defineElement(tag, defineComponent(setup))`.
-  // The compiler always emits this exact two-paren close as the final tokens of
-  // the defineElement call — we anchor on it and append the options object.
-  // biome-ignore lint/correctness/noEmptyCharacterClassInRegex: [^] is valid JS — matches any char including newlines
-  const re = /(defineElement\(\s*['"][^'"]+['"]\s*,\s*defineComponent\([^]*\))\s*\)/
-  const scopeIdField = lightScopeId ? `, lightScopeId: '${lightScopeId}'` : ''
-  const replaced = code.replace(
-    re,
-    (_m, inner: string) => `${inner}, { shadowMode: '${mode}'${scopeIdField} })`,
-  )
-  return replaced
+  const head = /defineElement\(\s*['"][^'"]+['"]\s*,\s*defineComponent\(/.exec(code)
+  if (head == null) return code
+  // Index of the `(` that opens defineComponent's argument list.
+  const open = head.index + head[0].length - 1
+  const close = _matchParen(code, open)
+  if (close === -1) return code
+  const fields = `shadowMode: '${mode}'${lightScopeId ? `, lightScopeId: '${lightScopeId}'` : ''}`
+  const rest = code.slice(close + 1)
+  // Two-argument call: `defineComponent(...)` followed directly by
+  // defineElement's own `)`. Append the options object.
+  if (/^\s*\)/.test(rest)) {
+    return `${code.slice(0, close + 1)}, { ${fields} }${rest}`
+  }
+  // Existing third argument (`$form`'s `, { formAssociated: true }`): merge
+  // the fields into it — unless a shadowMode is already present (idempotency).
+  const existing = /^\s*,\s*\{/.exec(rest)
+  if (existing && !/^\s*,\s*\{[^}]*\bshadowMode\b/.test(rest)) {
+    const braceEnd = close + 1 + existing[0].length
+    return `${code.slice(0, braceEnd)} ${fields},${code.slice(braceEnd)}`
+  }
+  // Unrecognized landing site (or already injected) — no-op rather than guess.
+  return code
 }
 
 /**
@@ -243,6 +343,31 @@ export function _globalizeAuthoredStyle(code: string): string {
 export function _parseIslandMarker(compiledCode: string): 'static' | 'interactive' {
   const m = /^\/\/ @aihu:island (static|interactive)$/m.exec(compiledCode)
   return m?.[1] === 'static' ? 'static' : 'interactive'
+}
+
+/**
+ * §22 — parse the `// @aihu:component-tags a,b,c` marker the Rust codegen emits
+ * for every server/universal build, on the same channel as `@aihu:island` above.
+ *
+ * The list comes from `collect_component_tags` — the SAME walk that fills
+ * `route.json`'s `components` array — so it is already sorted, de-duplicated and
+ * kebab-normalized when it arrives here. Deliberately NOT re-sorted or
+ * re-de-duplicated: a second normalization would be a second place the rule
+ * lives, and the two would drift.
+ *
+ * Distinct from the `__aihu_child_tags__` derivation below: this is "tags the
+ * template references AT ALL", not "tags the compiled renderer will look up".
+ * See the comment on the `__aihu_referenced_tags__` export for why both exist.
+ *
+ * Returns `[]` when the marker is absent (an older binary, a client-target
+ * compile, a future emit shape) — the caller treats that identically to "the
+ * template references nothing".
+ *
+ * @internal
+ */
+export function _parseComponentTagsMarker(compiledCode: string): string[] {
+  const m = /^\/\/ @aihu:component-tags (.+)$/m.exec(compiledCode)
+  return m === null ? [] : (m[1] as string).split(',')
 }
 
 /**
@@ -789,6 +914,52 @@ function _escapeForTemplateLiteral(css: string): string {
  *
  * @internal
  */
+/**
+ * Fold css-engine utility CSS into the SERVER target's `__aihu_css__` export.
+ *
+ * The shadow-DOM sibling of `_foldCssEngineStyles`. That one rewrites the
+ * client's `__style__.replaceSync(...)`; the server target has no `__style__`
+ * (`CSSStyleSheet` is a DOM dependency and the Rust codegen elides it), it has
+ * `export const __aihu_css__` — the string `__aihu_schild` inlines as `<style>`
+ * inside a declarative shadow template.
+ *
+ * Without this, that template shipped the authored `@style` block ALONE: no
+ * utility classes, no design tokens, no reset. A shadow child prerendered
+ * partially unstyled and repainted once its chunk loaded — precisely the #754
+ * failure the DSD `<style>` exists to prevent. (The step-4 scoping note claimed
+ * no css-engine work was needed. That was true of the Rust emitter, which
+ * applies no scoping transform, and wrong about the pipeline: the per-component
+ * utility CSS is folded HERE, in the JS layer, and the server target was simply
+ * never wired to it.)
+ *
+ * REPLACES rather than appends, for the same reason shape 1 above does: the
+ * css-engine output already contains the authored `@style` rules, so appending
+ * would duplicate them.
+ *
+ * Light-DOM components never reach this — their utilities go through the global
+ * cascade via `_foldCssEngineStylesGlobal`, and their prerendered markup is
+ * covered by the app stylesheet's `@scope([data-a=…])` blocks.
+ */
+export function _foldSsrCssExport(compiledCode: string, css: string): string {
+  if (!css.trim()) return compiledCode
+  const escaped = _escapeForTemplateLiteral(css)
+
+  // Shape 1 — an authored @style block already produced the export.
+  // biome-ignore lint/correctness/noEmptyCharacterClassInRegex: [^] matches any char incl. newlines
+  const bodyRe = /(export const __aihu_css__ = `)[^]*?(`)/
+  if (bodyRe.test(compiledCode)) {
+    return compiledCode.replace(bodyRe, (_m, open: string, close: string) => {
+      return `${open}${escaped}${close}`
+    })
+  }
+
+  // Shape 2 — no authored @style, so the Rust codegen emitted no export at all.
+  // The utility CSS still has to reach the shadow root, so declare it. Appended
+  // at the end: the server artifact's exports are order-independent, and this
+  // avoids guessing at an anchor the way shape 2 above has to.
+  return `${compiledCode}\nexport const __aihu_css__ = \`${escaped}\`\n`
+}
+
 export function _foldCssEngineStyles(compiledCode: string, css: string): string {
   if (!css.trim()) return compiledCode
   const escaped = _escapeForTemplateLiteral(css)
@@ -1598,6 +1769,11 @@ export function aihuCompilerPlugin(options?: AihuCompilerPluginOptions): VitePlu
             // `shadowMode: 'shadow'`: fold into the
             // per-component `CSSStyleSheet` adopted by the shadow root.
             compiled = _foldCssEngineStyles(compiled, utilityCss)
+            // …and into the SERVER target's `__aihu_css__`, which carries the
+            // same rules into the declarative shadow template. A shadow root is
+            // style-isolated, so anything missing here paints unstyled until
+            // the component's chunk loads.
+            if (isServerEnv) compiled = _foldSsrCssExport(compiled, utilityCss)
           }
         }
 
@@ -1698,10 +1874,15 @@ export function aihuCompilerPlugin(options?: AihuCompilerPluginOptions): VitePlu
             out += `\nexport const __aihu_shadow__ = '${effectiveShadow}'\n`
           }
           // Every component tag this module's template references, on the same
-          // channel as the three exports above. It is what an SSG/SSR caller
-          // walks TRANSITIVELY to build `SsrOptions.children` — load this
-          // module, read its child tags, load those, repeat — and where a
-          // cyclic tag graph must be rejected before any render begins.
+          // channel as the three exports above. `buildChildRegistry`
+          // (`@aihu/server`) reads it as the edge set for its cycle check over
+          // the WHOLE discovered component graph — not a per-page transitive
+          // walk; the caller indexes every discovered module once rather than
+          // loading a subset by following these tags (see child-registry.ts's
+          // module docblock for why). A cycle found there is reported, not
+          // rejected: `__aihu_schild` bounds it with a depth cap and an output
+          // budget, so a build no longer has to refuse a legal recursive shape
+          // to stay safe.
           //
           // DERIVED FROM THE EMITTED CALLS, not re-computed from the template.
           // The set that matters is precisely the set of tags the compiled
@@ -1710,11 +1891,19 @@ export function aihuCompilerPlugin(options?: AihuCompilerPluginOptions): VitePlu
           // template again and reapplying the emitter's v1 boundaries (no
           // attrs, no children, static non-root path) — would be one rule
           // written in two places, and the halves would drift the first time a
-          // boundary moved. The parity test in `route_and_build_target.rs`
-          // pins that the export and the call sites agree.
+          // boundary moved. The parity test in
+          // `packages/compiler/tests/light-scope-export.test.ts` (the
+          // `__aihu_child_tags__ export` describe block) pins that the export
+          // and the call sites agree.
           //
           // Omitted entirely when the template references no component, so a
           // consumer can treat "no export" and "empty" identically.
+          //
+          // This set answers ONE question — "what will the compiled renderer
+          // look up?" — and `__aihu_referenced_tags__` below answers a different
+          // one. The paragraph above argues against deriving THIS set a second
+          // way; it is not an argument against a second, differently-defined
+          // set, and the two must not be collapsed. See below.
           const childTags = [
             ...new Set(
               Array.from(out.matchAll(/__aihu_schild\('([^']+)'/g), (m) => m[1] as string),
@@ -1722,6 +1911,48 @@ export function aihuCompilerPlugin(options?: AihuCompilerPluginOptions): VitePlu
           ].sort()
           if (childTags.length > 0) {
             out += `\nexport const __aihu_child_tags__ = ${JSON.stringify(childTags)}\n`
+          }
+          // §22 — every component tag this module's template REFERENCES, which
+          // is a strictly larger set than `__aihu_child_tags__` above and exists
+          // for a different consumer.
+          //
+          // `__aihu_child_tags__` is the runtime edge set: the tags the compiled
+          // renderer will actually look up, which is why deriving it from the
+          // emitted `__aihu_schild(` call sites is not just convenient but
+          // CORRECT for its consumer (`buildChildRegistry`'s cycle check).
+          //
+          // But `@aihu/app`'s prerender reads a tag set for two DIAGNOSTICS —
+          // "is this broken component referenced by anything?" and "is this tag
+          // resolvable?" — and for those questions the call-site set is the
+          // wrong one. A reference the emitter DECLINES under the v1 child
+          // boundaries (an attribute, children, a root/dynamic path) produces no
+          // call site and therefore no tag, so the component is judged
+          // unreferenced and the diagnostic stays silent about a component that
+          // genuinely cannot load. Observed: `apps/docs`'s `pages/index.aihu`
+          // references `<weather-demo city="London">`, the attribute makes the
+          // emitter decline it, the page compiles to ZERO `__aihu_schild` call
+          // sites — and `weather-demo.aihu` really does fail to load under SSR
+          // (`new CSSStyleSheet()` at module top level) with the build saying
+          // nothing.
+          //
+          // So: two exports, two meanings, two derivations — NOT one rule
+          // written twice. This one comes from the template AST, via the
+          // `// @aihu:component-tags` marker `collect_component_tags` emits (the
+          // same walk that fills `route.json`'s components array), so it is
+          // independent of where the emitter's boundaries happen to sit and does
+          // not move when they do.
+          //
+          // Parsed from `compiled`, NOT `out`: the marker is a comment the Rust
+          // codegen emits, and the TS-strip at the end of this hook is free to
+          // drop comments. `_parseIslandMarker(compiled)` reads the same channel
+          // the same way for the same reason.
+          //
+          // Omitted entirely when the marker is absent or empty, so "no export"
+          // and "empty" mean the same thing — the rule `__aihu_child_tags__`
+          // already follows.
+          const referencedTags = _parseComponentTagsMarker(compiled)
+          if (referencedTags.length > 0) {
+            out += `\nexport const __aihu_referenced_tags__ = ${JSON.stringify(referencedTags)}\n`
           }
         } else if (
           islandsEnabled &&

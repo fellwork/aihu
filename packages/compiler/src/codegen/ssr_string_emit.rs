@@ -48,7 +48,11 @@
 //! `html={expr}` is NOT SSR-transparent: its value is the element's content,
 //! so it is interpolated unescaped into the string (see `emit_element_base`).
 //! It was transparent once, which silently prerendered an empty element for
-//! every page whose body is an `html` binding.
+//! every page whose body is an `html` binding. Note this is one of the few
+//! places the two renderers genuinely disagree — `html` lowers to a mount
+//! effect, so the walker never sees it and renders the element empty. The
+//! exception is a COMPONENT reference, where the child gate below fires first
+//! and both renderers resolve the child; see the eligibility commentary there.
 
 use std::collections::BTreeSet;
 
@@ -241,12 +245,24 @@ impl Emitter {
     /// `__opts.hydratable` (`__h`) is already runtime-driven despite being
     /// decided outside Rust. Present in BOTH variants (`self.expr`, not
     /// `self.expr_h`) — the CSS `@scope([data-a="…"])` selector must match
-    /// regardless of hydration mode. `lightScopeId` is a compiler-generated
-    /// hex string, never user data, so no escaping helper is needed.
+    /// regardless of hydration mode.
+    ///
+    /// ESCAPED, through the same helper every other attribute value goes
+    /// through. The value is USUALLY a compiler-assigned hex id (for which
+    /// `__aihu_eattr` is the identity function, so this changes no real
+    /// artifact's bytes), but it does not arrive from the compiler at render
+    /// time — it arrives on `__opts`, from `SsrOptions.lightScopeId`, which is
+    /// PUBLIC API and takes any string. Interpolating it raw was a divergence
+    /// the differential suite could not see until a fixture passed a hostile
+    /// id: the walker escapes (`escapeAttr` in `ssr.ts`) and this side did not,
+    /// so `lightScopeId: 'a"b'` produced `data-a="a"b"` here and
+    /// `data-a="a&quot;b"` there — different bytes, and the fast path's are an
+    /// attribute-injection point rather than merely wrong.
     fn root_scope_attr(&mut self, path: &P) {
         if path.base.is_none() && path.tail == "0" {
+            self.helper("__aihu_eattr");
             self.expr(
-                "(__opts.lightScopeId ? ' data-a=\"' + __opts.lightScopeId + '\"' : '')"
+                "(__opts.lightScopeId ? ' data-a=\"' + __aihu_eattr(__opts.lightScopeId) + '\"' : '')"
                     .to_string(),
             );
         }
@@ -679,21 +695,88 @@ impl Emitter {
         // Emitted through `expr` (not `expr_h`) because the helper reads
         // `__opts.hydratable` itself — one call serves both variants.
         //
-        // v1 BOUNDARIES, each of which simply keeps today's emission:
-        //   - `attrs.is_empty()` — attributes at a reference site are the
-        //     child's props, and rendering a child with default props while the
-        //     client renders it with real ones is a hydration mismatch. Prop
-        //     forwarding is its own slice.
-        //   - `children.is_empty()` — children are slot content, and slot
-        //     projection is explicitly unimplemented.
-        //   - static path only — a reference inside `{#each}` has a runtime
-        //     path; building its host attrs is extra machinery for a rare shape.
-        //   - not at ROOT_PATH — the root element carries the PARENT's
-        //     `data-a` stamp (`root_scope_attr`), which the host attrs here do
-        //     not model.
+        // ELIGIBILITY — and it is written TWICE: here, against the raw template
+        // AST, and in `renderNodeAsync`'s child arm (`@aihu/server/src/ssr.ts`),
+        // against the LOWERED arbor node. Both renderers must reach the same
+        // verdict or the page ships one renderer's fill-in and the other's empty
+        // element, with a registry present. That is the exact class of bug the
+        // differential suite exists to catch, and it drifted anyway because the
+        // walker's input is LOSSY: by the time it sees the node, macros and
+        // whitespace-only text are already gone. It cannot tell `<x-kid>` from
+        // `<x-kid show={on()}>`, nor from `<x-kid>\n</x-kid>`.
+        //
+        // The consequence is a one-way constraint: for those shapes the walker
+        // CANNOT be made to decline, so this side has to be the one that agrees.
+        // Each condition below is therefore phrased as "what does the walker
+        // see", not "what did the author write":
+        //
+        //   - `attr_survives_lowering` — an attribute at a reference site is a
+        //     prop, and rendering the child with defaults while the client
+        //     renders it with real ones is a hydration mismatch. But only the
+        //     attrs that reach the lowered `attrs` object are props: `Static`,
+        //     every `Binding` (event handlers included — they occupy a key), and
+        //     the `bind:` / `on:` macros. Element-level DIRECTIVE macros
+        //     (`show`, `class:`, `ref`, `once`, `raw`, `html`, `if`, …) lower to
+        //     mount effects OUTSIDE the attrs object, so the walker sees zero
+        //     attrs and resolves. Mirrors `lower_attrs` in `template_emit.rs`.
+        //   - `is_raw || node_is_dropped` — children are slot content and slot
+        //     projection is unimplemented, but two shapes are children that are
+        //     not: a whitespace run SPANNING LINES is template indentation that
+        //     normalizes to nothing (the same predicate `emit_children` filters
+        //     on, so "no children" means the same thing on both sides), and
+        //     `raw` discards its children wholesale during lowering, so the
+        //     walker sees an empty node whatever was written. A single-line
+        //     whitespace run survives on BOTH (it is a significant inline space)
+        //     and correctly blocks resolution.
+        //   - `path.base.is_none()` — the path is a COMPILE-TIME LITERAL. Only
+        //     an `{#each}` item boundary sets `base`, so this excludes exactly
+        //     the runtime-keyed paths; a `{#if}` branch keeps a literal path and
+        //     stays eligible. `_isLiteralPath` in `ssr.ts` is the walker's
+        //     mirror, reconstructed from the path STRING (it rejects any `list`
+        //     segment, which is what precedes every runtime key).
+        //   - not at ROOT_PATH. TWO hazards live there, and only the second is
+        //     unconditional:
+        //       1. the DOUBLE STAMP — the root element carries the PARENT's
+        //          `data-a` (`root_scope_attr`), which the host attrs here do
+        //          not model, so `_ssrChildWrap` would add the CHILD's beside
+        //          it: one element, two `data-a`, which is malformed and cuts
+        //          the child's own `@scope(…) to ([data-a])` off at its first
+        //          child.
+        //       2. the PATH-SPACE COLLISION — a resolved reference is a marked
+        //          host, and arbor's `hydrate()` registers the container under
+        //          `_ROOT_PATH` and REFUSES any other value on it (that guard
+        //          exists because a marked child host was clobbering its own
+        //          key space). A marked host that itself sits at `'0'` is the
+        //          one case the guard cannot distinguish: `'0'` would name both
+        //          the parent's container and the child's host.
+        //
+        //     A STRUCTURAL template root does NOT reach this check — followups
+        //     §24. `<x-kid if={…}>` as the whole template puts the reference at
+        //     `0.conditional.true`, where neither hazard exists: the element
+        //     carries no parent stamp (`root_scope_attr` fires only for
+        //     `tail == "0"`) and its path is distinct from the container's. Both
+        //     renderers resolve it, it adopts on the client
+        //     (`runtime/tests/ssr-child-adoption.test.ts` §6), and declining it
+        //     would delete prerendered markup while stamping nothing — measured,
+        //     not assumed. What §24 actually found is that the PARENT's
+        //     `lightScopeId` reaches no element in that shape; that is a
+        //     property of the stamp's PLACEMENT, not of this gate (a plain
+        //     `<div if={…}>` root and a multi-root template lose it identically,
+        //     with no component anywhere), and `SsrOptions.wrapTag` — which puts
+        //     the stamp on the HOST, where `define-element.ts` puts it on the
+        //     client — is the placement that already answers it.
+        //
+        // `html={…}` deserves a note: it is a DIRECTIVE, so a reference carrying
+        // it resolves the child and the html expression is never emitted. That
+        // is not a loss — it is the walker's long-standing behaviour, and the
+        // client agrees with it: the lowered node is `branch('x-kid', undefined,
+        // [])` exactly as for a bare reference, and the `html` mount effect
+        // skips its first run inside a `data-aihu-ssr` boundary. Emitting the
+        // html here instead produced two DIFFERENT non-empty trees — strictly
+        // worse than either renderer's answer alone.
         if crate::tags::is_component_tag(tag)
-            && attrs.is_empty()
-            && children.is_empty()
+            && !attrs.iter().any(attr_survives_lowering)
+            && (is_raw || children.iter().all(node_is_dropped))
             && path.base.is_none()
             && path.tail != "0"
         {
@@ -1284,6 +1367,30 @@ fn has_duplicate_keys(attrs: &[&Attr], extra: &[&str]) -> bool {
 /// returning `""` — only multi-line whitespace text does).
 fn node_is_dropped(node: &TemplateNode) -> bool {
     matches!(node, TemplateNode::Text(s) if matches!(normalize_text_node(s), NormalizedText::Dropped))
+}
+
+/// Does this attribute reach the LOWERED arbor node's `attrs` object — the
+/// only thing @aihu/server's tree walker can see when IT decides whether a
+/// component reference is eligible for child rendering?
+///
+/// Mirrors `lower_attrs` in `template_emit.rs`, which is the authority:
+///   - `Static` and `Binding` always emit a key (event bindings included —
+///     `onclick={fn}` occupies `onclick` even though nothing serializes it);
+///   - a `Macro` emits a key only for `bind:*` (the bound prop) and `on:*`
+///     (the handler);
+///   - every other macro is an element-level DIRECTIVE lowered to a mount
+///     effect outside the attrs object, so the walker never sees it.
+///
+/// The asymmetry is why this predicate exists rather than `attrs.is_empty()`:
+/// the walker cannot fail closed on something it cannot observe, so the
+/// eligible sets can only be reconciled on this side. Kept next to
+/// `node_is_dropped` because the two encode the same idea — "what survives
+/// into the tree the walker walks".
+fn attr_survives_lowering(a: &Attr) -> bool {
+    match a {
+        Attr::Static { .. } | Attr::Binding { .. } => true,
+        Attr::Macro { name, .. } => name.starts_with("bind:") || name.starts_with("on:"),
+    }
 }
 
 /// Does this node render as a bare TEXT leaf at runtime? (Drives the

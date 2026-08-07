@@ -159,15 +159,100 @@ pub fn normalize_define_tag(raw: &str) -> String {
 /// call. The `--ast-json` / `--route-json` paths resolve a PROVISIONAL stem
 /// (a layout SFC is registered as `aihu-layout-<stem>` by the Vite plugin, so
 /// its bare stem is never its define-name) and must stay infallible.
+/// §15 — names the HTML spec reserves. Each satisfies the
+/// PotentialCustomElementName production but `customElements.define` throws
+/// `NotSupportedError` on it, because SVG/MathML already own the name.
+const RESERVED_ELEMENT_NAMES: &[&str] = &[
+    "annotation-xml",
+    "color-profile",
+    "font-face",
+    "font-face-src",
+    "font-face-uri",
+    "font-face-format",
+    "font-face-name",
+    "missing-glyph",
+];
+
+/// §15 — the ASCII characters a define-name may carry, beyond the leading
+/// letter. The PotentialCustomElementName production's ASCII half exactly:
+/// `-`, `.`, `_`, `0-9`, `a-z`.
+fn is_pcen_ascii(c: char) -> bool {
+    matches!(c, '-' | '.' | '_' | '0'..='9' | 'a'..='z')
+}
+
 pub fn validate_define_tag(raw: &str) -> Result<String, String> {
     let norm = normalize_define_tag(raw);
-    if norm.contains('-') {
-        Ok(norm)
-    } else {
-        Err(format!(
+    if !norm.contains('-') {
+        return Err(format!(
             "C450: '{norm}' cannot register as a custom element (custom-element names require a hyphen), so `customElements.define('{norm}', …)` throws SyntaxError and the component never upgrades. Rename it to 'aihu-{norm}' — or any hyphenated name — and update the tag wherever it is used."
-        ))
+        ));
     }
+
+    // §15 — the hyphen was the ONLY thing checked here, so
+    // `@route { name: "x-evil onmouseover=alert(1) x" }` normalized happily,
+    // reached `__aihu_tag__`, and was interpolated straight into `<${wrapTag}>`
+    // — markup injection through a route's own metadata. The tag is also
+    // emitted verbatim into `customElements.define('…')` and into every
+    // `defineElement`/`branch` call site, so a name that is not a name breaks
+    // in several directions at once.
+    //
+    // NARROW alphabet, matching the §13 posture: reject the ASCII characters
+    // that are unambiguously not part of a custom-element name, and nothing
+    // else. Non-ASCII is left ALONE — PotentialCustomElementName admits a large
+    // unicode range, and re-deriving that range here is exactly the kind of
+    // wrong production that fails a real, working build. This rejects what no
+    // browser would accept; it does not attempt to accept only what every
+    // browser would.
+    //
+    // Uppercase ASCII cannot reach this point (a hyphenated or PascalCase name
+    // is lowercased by `kebab_component_tag`, and a name that skipped
+    // normalization has no hyphen and failed above), but the rule is stated in
+    // terms of the production rather than of what happens to be reachable.
+    if let Some(bad) = norm.chars().find(|c| c.is_ascii() && !is_pcen_ascii(*c)) {
+        let shown = if bad.is_control() || bad == ' ' {
+            format!("U+{:04X}", bad as u32)
+        } else {
+            format!("'{bad}'")
+        };
+        return Err(format!(
+            "C450: '{norm}' cannot register as a custom element — {shown} is not valid in a custom-element name (allowed: a-z, 0-9, '-', '.', '_'), so `customElements.define('{norm}', …)` throws SyntaxError and the tag is interpolated verbatim into emitted markup. Remove it, or use a hyphenated all-lowercase name."
+        ));
+    }
+    if RESERVED_ELEMENT_NAMES.contains(&norm.as_str()) {
+        return Err(format!(
+            "C450: '{norm}' is a name the HTML spec reserves for SVG/MathML, so `customElements.define('{norm}', …)` throws NotSupportedError and the component never upgrades. Rename it, e.g. 'aihu-{norm}'."
+        ));
+    }
+
+    // W450 — PotentialCustomElementName also requires the FIRST character to be
+    // an ASCII lowercase letter, and `01-slot` genuinely cannot register. It is
+    // a WARNING and not a C450 error solely because the corpus gate says so:
+    // ten in-repo files (`bench/compiler-conformance/**/NN-name.aihu`) derive
+    // their define-name from a digit-leading file stem, and the merge
+    // precondition for this rule is ZERO new errors across the corpora. That is
+    // exactly the "a wrong production fails real builds — that tier lands as a
+    // warning" line in `docs/plans/2026-08-06-ssr-child-followups.md`, drawn by
+    // measurement rather than by judgment. The finding is real and preserved
+    // here; escalating it to an error is a rename-the-fixtures decision that
+    // belongs to whoever owns `bench/`.
+    let first = norm.chars().next().unwrap_or('\0');
+    if !first.is_ascii_lowercase() {
+        crate::diagnostics::emit_warning(&crate::types::CompileError {
+            message: format!(
+                "W450: '{norm}' cannot register as a custom element — a custom-element name must begin with an ASCII lowercase letter (found '{first}'), so `customElements.define('{norm}', …)` throws SyntaxError and the element never upgrades."
+            ),
+            line: 0,
+            col: 0,
+            code: Some("W450".to_string()),
+            hint: Some(
+                "the define-name comes from `@meta { name }`, `@route { name }`, or the file stem — a stem like `01-slot.aihu` yields `01-slot`".to_string(),
+            ),
+            fix: Some(format!("give it a letter-leading name, e.g. 'aihu-{}'", norm.trim_start_matches(|c: char| !c.is_ascii_lowercase()))),
+            ..Default::default()
+        });
+    }
+
+    Ok(norm)
 }
 
 /// Transform + validate. Ok(normalized) when it contains a hyphen; else Err(msg)

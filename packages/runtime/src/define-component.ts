@@ -16,6 +16,7 @@ import {
 import { _attachLifecycleHost, getLifecycleHost, type LifecycleHost } from '@aihu/signals/lifecycle'
 import { _takeAgentServerBinding } from './agent-dispatch.ts'
 import { _dropCommitsFor, _scheduleCommit } from './commit.ts'
+import { _inSsrLifecycle } from './ssr-lifecycle.ts'
 import type {
   ComponentOptions,
   MountFn,
@@ -1262,8 +1263,17 @@ export function _hmrReplace(element: HTMLElement, newSetup: Setup): void {
 }
 
 // Lifecycle exports — exported only from index.ts
+// Server-render sink: a server render calls the compiled setup directly, so
+// `_cur` is null by construction and every registration below would throw. A
+// render that never mounts has nothing to register, so it no-ops — while a
+// null `_cur` in the BROWSER stays a genuine authoring error and still throws.
+// See ssr-lifecycle.ts for why the flag lives in its own leaf module.
+
 export function _onMount(fn: () => void | (() => void)): void {
-  if (!_cur) throw new RuntimeError('SCR-R0010', 'no owner')
+  if (!_cur) {
+    if (_inSsrLifecycle()) return
+    throw new RuntimeError('SCR-R0010', 'no owner')
+  }
   _cur.m.push(fn)
 }
 
@@ -1300,7 +1310,10 @@ export function _onMount(fn: () => void | (() => void)): void {
  * directly for the wider, scope-resolved entry point instead.
  */
 export function _onCommit(fn: () => void | (() => void)): void {
-  if (!_cur) throw new RuntimeError('SCR-R0014', 'no owner')
+  if (!_cur) {
+    if (_inSsrLifecycle()) return
+    throw new RuntimeError('SCR-R0014', 'no owner')
+  }
   // `_cur` is non-null for the whole duration of `_build()`'s
   // `es.run(setup)` call, but the CURRENT SCOPE tracked by
   // `getCurrentScope()` can diverge from it within that window — e.g.
@@ -1337,13 +1350,19 @@ export function _onCleanup(fn: () => void): void {
 // _cur-pointer convention used by onMount/onCleanup; the host class
 // dispatches into these arrays from the platform-callback methods.
 export function _onAdopt(fn: () => void): void {
-  if (!_cur) throw new RuntimeError('SCR-R0012', 'no owner')
+  if (!_cur) {
+    if (_inSsrLifecycle()) return
+    throw new RuntimeError('SCR-R0012', 'no owner')
+  }
   _cur.a.push(fn)
 }
 
 export function _onAttributeChange(
   fn: (name: string, oldValue: string | null, newValue: string | null) => void,
 ): void {
-  if (!_cur) throw new RuntimeError('SCR-R0013', 'no owner')
+  if (!_cur) {
+    if (_inSsrLifecycle()) return
+    throw new RuntimeError('SCR-R0013', 'no owner')
+  }
   _cur.ac.push(fn)
 }

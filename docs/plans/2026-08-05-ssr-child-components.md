@@ -296,3 +296,100 @@ resolved child subtree, in both shadow modes, at any nesting depth. A tag absent
 from the registry renders as an empty custom element identically on both paths.
 The emitted `shadowrootmode` value is the runtime's `SHADOW_ROOT_MODE` by import,
 never by literal.
+
+
+## Follow-up: `onMount` components cannot be server-rendered (pre-existing)
+
+Found while verifying step 5 against a real `apps/docs` build. `search-box` and
+`toc-rail` render empty; `theme-toggle`, their sibling with an identical
+reference shape, renders fine. The difference is `onMount`.
+
+Diagnosis — the error is `SCR-R0010 'no owner'` from
+`define-component.ts:1266`, thrown when `_onMount` runs with no current
+component (`_cur === null`). The server-target entry calls `__aihu_setup__`
+DIRECTLY rather than through `defineComponent`, so `_cur` is null by
+construction and any lifecycle registration in a `@state` block throws.
+
+This is not caused by child rendering — child rendering only made it visible,
+one component at a time, because `__aihu_schild` catches and degrades. The
+emitted SSR entry's own comment asserts the opposite ("lifecycle registration is
+not reachable from here — server render never mounts"), and that assumption is
+what is false: it is reachable, it just has nowhere to register.
+
+The semantics are not in doubt: `onMount` means "when mounted in the DOM", and a
+server render never mounts, so registration should be a silent NO-OP rather than
+a throw. What needs deciding is where:
+
+- A `_cur`-null no-op in `_onMount` is one line, but it would also silence a
+  genuine authoring error (calling `onMount` outside setup in a browser).
+- An SSR-scoped lifecycle sink — set `_cur` to a throwaway `_LC` for the
+  duration of a server setup — keeps the browser check strict. It cannot live in
+  `ssr-string.ts`: importing `define-component.ts` from there re-creates the
+  tsconfig-paths cascade that made `shadow-mode.ts` a zero-import leaf.
+
+Until it is fixed, `__aihu_schild` reports the throw (`[aihu] SSR child <tag>
+threw; rendering it empty`) instead of swallowing it — a prerender that quietly
+drops content is the failure mode this whole plan exists to fix.
+
+
+## Review findings (fable architecture + adversarial + security + perf, 2026-08-06)
+
+Four review passes ran against the finished branch. **Fixed here:**
+
+- **CRITICAL — every SSR'd child host was duplicated on hydrate.** `closest()`
+  matches the element it is called on, and a child host is the first element in
+  the codebase to carry BOTH `data-aihu-path` (its slot in the parent's key
+  space) and `data-aihu-ssr` (the marker for its own tree). So each host was its
+  own boundary, got pruned from the parent's path map, and was re-materialized
+  as a duplicate appended at the end. `wrapTag`'s nested hosts never carried a
+  path marker, which is why this shape had never occurred. Fixed by searching
+  from `el.parentElement`; pinned by `packages/arbor/tests/hydrate-child-host.test.ts`.
+- **HIGH — each render path held HALF the server-render environment.** The fast
+  path had the lifecycle window but no effect scope, so `onCleanup` (and
+  therefore `$stream`, `$controller`, router boundaries, most composables) threw
+  SCR-R0011; the walker had the scope but no window, so `onMount` threw
+  SCR-R0010. Both paths now open both.
+- **HIGH — the eligibility rule drifted.** The emitter declines a runtime-built
+  path (inside `{#each}`); the walker had no mirror, so those children resolved
+  on one renderer and stayed empty on the other. Mirrored via `_isStaticPath`,
+  with a differential fixture asserting both paths agree on DECLINING.
+- **The step-4 "no css-engine work" ruling was WRONG.** True of the Rust
+  emitter, false of the pipeline: per-component utility CSS is folded in the JS
+  layer (`_foldCssEngineStyles`), and the server target was never wired to it,
+  so a shadow child's declarative template shipped the authored `@style` block
+  alone — no utilities, no tokens, no reset. `_foldSsrCssExport` fixes it.
+- **Fan-out DoS.** 14 components each referencing the next 3× — a pure DAG, no
+  cycle — produced 67 MB in 0.2 s. The depth cap bounds depth, not width, and
+  the cycle guard cannot see fan-out because `__aihu_child_tags__` is a SET
+  while the emitter emits one call per reference site. Memoized (work) plus a
+  byte budget (output); counting expansions does not work once memoized, because
+  render count goes linear while output stays exponential.
+- Smaller: `__aihu_css__` read moved under the type guard (a non-string threw
+  OUT of the helper, past its own fail-closed contract); a non-hyphenated tag is
+  declined so a malformed registry cannot make the walker child-render a `div`.
+
+**NOT fixed — tracked follow-ups**, none of which block the SSG path this branch
+delivers:
+
+- The **Workers/live-SSR path still passes no registry** (`router/src/server.ts`),
+  so request-time SSR ships empty children. This is step 5's second half and the
+  repo's recurring orphan-seam pattern; it needs a generated tag→module manifest.
+- **More boundary divergences** beyond `{#each}`: a lone `if=`/`class:`/`ref=`
+  macro attribute, a whitespace-only body, and `html={…}` each gate differently
+  in the emitter (raw AST) than in the walker (lowered arbor node). The durable
+  fix is a differential fixture per boundary line.
+- **Tag-collision tie-breaks disagree** — the registry keeps the FIRST, the
+  client router's scan keeps the LAST, over different orderings.
+- **`_injectShadowMode`'s greedy regex** corrupts `if=` conditions in
+  server-target modules (pre-existing; `_injectLightScopeId` does it correctly
+  with a literal replace).
+- **`$`-expansion in `prerender.ts`'s content splice** — rendered content goes
+  into a `String.replace` REPLACEMENT string, so `` $` `` in prose re-splices the
+  layout. Pre-existing, but this branch grew the payload 172×.
+- **No unresolved-tag diagnostic**: a component outside `dir.components`, or one
+  keyed by `@meta { name }` rather than its file stem, fails closed silently.
+- **Perf**: shadow-mode `__aihu_css__` is 10.1% of prerendered HTML at 163×
+  cross-page redundancy and 24% whitespace — compile-time minification is the
+  ranked-first win. `discoverComponents` is sequential (~9 ms/module).
+  `__aihu_schild` itself costs ~90 ns/call; the `globalThis` counter 1.7 ns.
+  The fast path was verified INTACT — zero pages moved to the walker.

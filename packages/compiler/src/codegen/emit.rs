@@ -478,6 +478,56 @@ pub fn emit_with_options(unit: &CompileUnit, tag_name: &str, strict_templates: b
         .as_ref()
         .map(|r| emit_route_json(r, &component_tags, &extract));
 
+    // §22 — the REFERENCE set, as a code marker, on the same channel as
+    // `// @aihu:island`.
+    //
+    // This is NOT `__aihu_child_tags__` and must never be conflated with it.
+    // `__aihu_child_tags__` is derived in `js/index.ts` from the emitted
+    // `__aihu_schild('…'` call sites, so it is exactly "tags the compiled SSR
+    // renderer will look up" — the right edge set for `buildChildRegistry`'s
+    // cycle check. This marker is "every component tag the TEMPLATE mentions",
+    // whether or not the SSR emitter lowered that mention into a child call.
+    // The two differ by every reference the v1 child boundaries DECLINE (has
+    // attributes, has children, sits at ROOT_PATH, …).
+    //
+    // The difference is not academic: `<weather-demo city="London">` in
+    // `apps/docs/src/pages/index.aihu` carries an attribute, so it produces no
+    // `__aihu_schild` call site, so `weather-demo` appears in no
+    // `__aihu_child_tags__` anywhere — and `@aihu/app`'s prerender diagnostics,
+    // which ask "is this broken component referenced?" (§18 warn-gate) and "is
+    // this tag resolvable?" (§3), both answered "not referenced" for a
+    // component that fails to load under SSR. Two diagnostics, silent, on a
+    // real reference.
+    //
+    // Reuses `collect_component_tags` — the SAME walk that fills `route.json`'s
+    // `components` array — so "component tag" means here exactly what it means
+    // everywhere else in the compiler (`tags::is_component_tag`: hyphenated or
+    // PascalCase; `<$macro>` intrinsics excluded; normalized with
+    // `kebab_component_tag`). One definition, one walk, one place to change.
+    //
+    // A CODE MARKER rather than an envelope field because the marker is the
+    // only channel all three backends share: the legacy per-output CLI spawn
+    // (`aihu-compile x.aihu --target server`) prints bare JS with no envelope
+    // at all, and `AIHU_COMPILE_BIN` forces exactly that path when someone is
+    // working on the compiler. `// @aihu:island` was routed this way for the
+    // same reason and is read the same way (`_parseIslandMarker`).
+    //
+    // Omitted entirely when the template references no component, so a consumer
+    // can treat "no marker" and "empty" identically — the same rule
+    // `__aihu_child_tags__` follows. Tag names reaching here are already
+    // normalized to `[a-z0-9-]`-shaped custom-element names, so a
+    // comma-separated single line needs no escaping and cannot swallow a
+    // newline.
+    let js = if component_tags.is_empty() {
+        js
+    } else {
+        format!(
+            "// @aihu:component-tags {}\n{}",
+            component_tags.iter().cloned().collect::<Vec<_>>().join(","),
+            js
+        )
+    };
+
     // B3 — Per-SFC `.aihu.ts` sidecar (Architect spec §7 path (i)). Generates
     // a typed function body containing the template expressions so `tsc
     // --noEmit` over `**/*.aihu.ts` checks template type-safety end-to-end.
