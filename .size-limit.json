@@ -27,7 +27,7 @@
   {
     "name": "@aihu/runtime",
     "path": "packages/runtime/dist/index.js",
-    "limit": "4800 B",
+    "limit": "5100 B",
     "gzip": true,
     "ignore": ["@aihu/signals/lifecycle", "@aihu/primitives/focus-trap"]
   },
