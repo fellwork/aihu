@@ -113,7 +113,8 @@ export const EXPORTS: readonly ApiExport[] = [
   {
     name: 'scanComponents',
     kind: 'function',
-    signature: 'function scanComponents(d: string): Record<string, string>',
+    signature:
+      'function scanComponents( d: string, listDir: ( dir: string, ) => ReadonlyArray<{ name: string; isFile(): boolean; isDirectory(): boolean }> = (dir) => readdirSync(dir, { withFileTypes: true }), ): Record<string, string>',
     summary:
       "O1b: Recursively scan a components dir for `.aihu` files, mapping each file's normalized custom-element tag → absolute POSIX path.",
   },

@@ -217,6 +217,31 @@ export const EXPORTS: readonly ApiExport[] = [
     summary: '',
   },
   {
+    name: '_isSerializableAttrName',
+    kind: 'const',
+    signature: 'const _isSerializableAttrName = (k: string): boolean => …',
+    summary: 'Is `k` safe to serialize as an attribute name?',
+  },
+  {
+    name: '_MAX_CHILD_BYTES',
+    kind: 'const',
+    signature: 'const _MAX_CHILD_BYTES',
+    summary: 'Total child markup allowed per top-level render.',
+  },
+  {
+    name: '_MAX_CHILD_DEPTH',
+    kind: 'const',
+    signature: 'const _MAX_CHILD_DEPTH',
+    summary: 'Belt-and-braces bound on nesting.',
+  },
+  {
+    name: '_ssrChildWrap',
+    kind: 'const',
+    signature:
+      'const _ssrChildWrap = (tag: string, attrsHtml: string, mod: SsrChildModule, inner: string, hydratable: boolean): string => …',
+    summary: "Wrap a child's rendered INNER markup in its host element.",
+  },
+  {
     name: 'SHADOW_ROOT_MODE',
     kind: 'const',
     signature: 'const SHADOW_ROOT_MODE',
@@ -285,7 +310,7 @@ export const EXPORTS: readonly ApiExport[] = [
     name: 'SsrChildModule',
     kind: 'interface',
     signature:
-      "interface SsrChildModule {\n  /** The compiled string renderer, `__ssrString(props, opts)`. */\n  readonly __ssrString?: (props: unknown, opts?: SsrChildRenderOpts) => string\n  /** `__aihu_light_scope__` — the compiler-assigned light-DOM scope id. */\n  readonly __aihu_light_scope__?: string\n  /**\n   * `__aihu_shadow__` (#770). aihu's OWN vocabulary — `'light' | 'shadow'` —\n   * never the DOM's `ShadowRootMode`.\n   */\n  readonly __aihu_shadow__?: ShadowMode\n  /**\n   * `__aihu_css__` — the component's own CSS as a plain string.\n   *\n   * Used ONLY on the shadow path, where it is inlined as `<style>` inside the\n   * declarative template. A shadow root is style-isolated by construction, so\n   * prerendered markup whose styles are not inside it paints unstyled until the\n   * component's chunk loads — the #754 failure, where content rendering ahead\n   * of its scoped CSS pushed the LCP element below the fold.\n   *\n   * Light-DOM children ignore it: their rules arrive through the app\n   * stylesheet's `@scope([data-a=…])` blocks (#758).\n   */\n  readonly __aihu_css__?: string\n}",
+      "interface SsrChildModule {\n  /** The compiled string renderer, `__ssrString(props, opts)`. */\n  readonly __ssrString?: (props: unknown, opts?: SsrChildRenderOpts) => string\n  /**\n   * The module's default export — the host-less `__ssr` factory the server\n   * target emits (`export default __ssr`), which builds an arbor tree from a\n   * setup run with empty props.\n   *\n   * Declared here purely so `@aihu/server`'s walker can reach it under\n   * `AIHU_SSR_STRING=0`, where the point is NOT to use the compiled string\n   * renderer. Nothing in this module calls it — it is synchronous to build but\n   * the walk over its result is async, and everything here is synchronous by\n   * construction. `unknown` rather than a factory type because that is all this\n   * module can honestly assert about it.\n   */\n  readonly default?: unknown\n  /** `__aihu_light_scope__` — the compiler-assigned light-DOM scope id. */\n  readonly __aihu_light_scope__?: string\n  /**\n   * `__aihu_shadow__` (#770). aihu's OWN vocabulary — `'light' | 'shadow'` —\n   * never the DOM's `ShadowRootMode`.\n   */\n  readonly __aihu_shadow__?: ShadowMode\n  /**\n   * `__aihu_css__` — the component's own CSS as a plain string.\n   *\n   * Used ONLY on the shadow path, where it is inlined as `<style>` inside the\n   * declarative template. A shadow root is style-isolated by construction, so\n   * prerendered markup whose styles are not inside it paints unstyled until the\n   * component's chunk loads — the #754 failure, where content rendering ahead\n   * of its scoped CSS pushed the LCP element below the fold.\n   *\n   * Light-DOM children ignore it: their rules arrive through the app\n   * stylesheet's `@scope([data-a=…])` blocks (#758).\n   */\n  readonly __aihu_css__?: string\n}",
     summary: 'A compiled `--target server` module, as far as child rendering cares.',
   },
   {

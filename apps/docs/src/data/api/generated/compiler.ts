@@ -125,6 +125,12 @@ export const EXPORTS: readonly ApiExport[] = [
       "Deterministic 8-hex-char scope id for a light-DOM component's `data-a` attribute (light-DOM leaf flip, LDF §10 step 1 / step 3).",
   },
   {
+    name: '_parseComponentTagsMarker',
+    kind: 'function',
+    signature: 'function _parseComponentTagsMarker(compiledCode: string): string[]',
+    summary: '§22 — parse the `//',
+  },
+  {
     name: '_parseExtractMarker',
     kind: 'function',
     signature: 'function _parseExtractMarker(code: string): { read: string; call: string } | null',
