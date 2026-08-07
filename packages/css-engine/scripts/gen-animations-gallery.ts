@@ -63,13 +63,30 @@ function resolveBinary(): string {
   )
 }
 
+/**
+ * Bounded spawn. An unbounded `execFileSync` against this binary is the same
+ * hang that stalled an `apps/docs` build for 10 minutes at 0% CPU (see the
+ * spawn-bounds note in `packages/css-engine/src/index.ts`): with no timer armed
+ * spawnSync's uv loop blocks in kevent with no deadline, forever. These dumps
+ * complete in milliseconds, so 60 s is a generous ceiling that still turns a
+ * wedged generator into a fast, named failure. `maxBuffer` is explicit because
+ * the gallery CSS dump is the one output here that could plausibly outgrow
+ * node's inherited 1 MiB default.
+ */
+const DUMP_SPAWN_OPTS = {
+  encoding: 'utf-8',
+  timeout: 60_000,
+  maxBuffer: 64 * 1024 * 1024,
+  killSignal: 'SIGKILL',
+} as const
+
 const classesJson = process.env.ANIMATIONS_GALLERY_CLASSES_JSON
   ? readFileSync(resolve(repoRoot, process.env.ANIMATIONS_GALLERY_CLASSES_JSON), 'utf8')
-  : execFileSync(resolveBinary(), ['--dump-animation-classes'], { encoding: 'utf-8' })
+  : execFileSync(resolveBinary(), ['--dump-animation-classes'], DUMP_SPAWN_OPTS)
 const classes = JSON.parse(classesJson) as string[]
 const css = process.env.ANIMATIONS_GALLERY_CSS_DUMP
   ? readFileSync(resolve(repoRoot, process.env.ANIMATIONS_GALLERY_CSS_DUMP), 'utf8')
-  : execFileSync(resolveBinary(), ['--dump-animation-gallery-css'], { encoding: 'utf-8' })
+  : execFileSync(resolveBinary(), ['--dump-animation-gallery-css'], DUMP_SPAWN_OPTS)
 
 const storiesDir = resolve(repoRoot, 'apps/storybook/src/stories')
 const cssTarget = process.env.ANIMATIONS_GALLERY_CSS_TARGET

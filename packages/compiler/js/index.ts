@@ -9,6 +9,7 @@ import { execFileSync } from 'node:child_process'
 import { basename } from 'node:path'
 import { _backendStampPath, _compileViaBackend } from './envelope.ts'
 import { resolveCompilerBinary } from './resolve-binary.ts'
+import { compileSpawnBounds, describeSpawnFailure } from './spawn-bounds.ts'
 import { _memoizedSpawn, _seedMemo } from './transform-memo.ts'
 
 export type { CompileEnvelope, CompileEnvelopeOptions } from './envelope.ts'
@@ -838,11 +839,21 @@ export function transform(
   // Vite build path never passes it, so the SSG double-compile still fully
   // hits.
   if (options?.sidecarOut) {
-    const code = execFileSync(resolveBinPath(), args, {
-      input: source,
-      encoding: 'utf8',
-    })
-    return { code, map: null }
+    // Bounded — an unbounded spawn here is the hang that left two
+    // `aihu-compile --stdin` children alive for 2.5 days. See spawn-bounds.ts.
+    const bin = resolveBinPath()
+    const startedAt = Date.now()
+    try {
+      const code = execFileSync(bin, args, {
+        input: source,
+        encoding: 'utf8',
+        ...compileSpawnBounds(source.length),
+      })
+      return { code, map: null }
+    } catch (err) {
+      const described = describeSpawnFailure(err, bin, args, source.length, Date.now() - startedAt)
+      throw described ?? err
+    }
   }
   // Memo key: everything that shapes the emitted code. `id` is hashed
   // separately; the fingerprint carries the explicit options (`tag` covers the
@@ -1291,15 +1302,24 @@ export function compileSidecar(
   if (options?.target) {
     args.push('--target', options.target)
   }
-  return execFileSync(resolveBinPath(), args, {
-    input: source,
-    encoding: 'utf8',
-    // Capture stderr rather than inheriting it: the compiler's warnings (unhyphenated
-    // tag names, undeclared cross-block refs) belong to `aihu build`, and would
-    // otherwise interleave with the type diagnostics a caller is trying to read.
-    // A hard compile failure still throws, carrying the message with it.
-    stdio: ['pipe', 'pipe', 'pipe'],
-  })
+  // Bounded — an unbounded spawn here is the hang that left two
+  // `aihu-compile --stdin` children alive for 2.5 days. See spawn-bounds.ts.
+  const bin = resolveBinPath()
+  const startedAt = Date.now()
+  try {
+    return execFileSync(bin, args, {
+      input: source,
+      encoding: 'utf8',
+      // Capture stderr rather than inheriting it: the compiler's warnings (unhyphenated
+      // tag names, undeclared cross-block refs) belong to `aihu build`, and would
+      // otherwise interleave with the type diagnostics a caller is trying to read.
+      // A hard compile failure still throws, carrying the message with it.
+      stdio: ['pipe', 'pipe', 'pipe'],
+      ...compileSpawnBounds(source.length),
+    })
+  } catch (err) {
+    throw describeSpawnFailure(err, bin, args, source.length, Date.now() - startedAt) ?? err
+  }
 }
 
 export function compileToAst(source: string, id?: string): SfcAst {
