@@ -25,6 +25,7 @@ import {
   resolveRequestPrincipal,
   validateGovernedBoot,
 } from '@aihu/server'
+import type { ChildModuleLike } from '@aihu/server'
 import type { RouteDefinition, RouteModule, Router } from './router.ts'
 import { createRouter } from './router.ts'
 
@@ -62,6 +63,37 @@ export interface ServerRouterOptions {
    * `AgentServiceOptions.resolveAuth` / `PrincipalGateDeps`.
    */
   readonly auth?: GovernedRequestAuth
+  /**
+   * §2a — the pre-resolved child-component registry, forwarded to
+   * `renderToString` as `SsrOptions.children` on BOTH render paths.
+   *
+   * Typed as `buildChildRegistry`'s own return type so the intended
+   * construction is the obvious one:
+   *
+   * ```ts
+   * const children = buildChildRegistry(discovered)
+   * export default createServerRouter(routes, { children })
+   * ```
+   *
+   * A RESOLVED map, not a loader — `__aihu_schild` runs inside the compiled
+   * string fast path, which is synchronous, so every module must already be
+   * in hand before a render begins. Awaiting belongs at module init, once.
+   *
+   * Omitting it is byte-identical to not passing it, matching this
+   * interface's existing contract: a component reference then renders as an
+   * empty element exactly as it does today.
+   *
+   * SCOPE, deliberately stated because the plan text overstated it: this
+   * closes the forwarding hole in THIS file. It does not, by itself, give any
+   * shipped adapter non-empty children. `@aihu/adapter-cloudflare` and
+   * `-vercel` emit their entry as a raw string at `closeBundle`, wire
+   * `createRequestRouter` rather than this function, and give every route a
+   * `notFound` placeholder — they render nothing at all today. A consumer
+   * still needs a way to BUILD this map on the server, which is §2b (a
+   * server-target virtual module plus a Vite-worker-environment example).
+   * See §2 of `docs/plans/2026-08-06-ssr-child-followups.md`.
+   */
+  readonly children?: ReadonlyMap<string, ChildModuleLike>
 }
 
 /**
@@ -259,6 +291,10 @@ export function createServerRouter(
         // paint (before the client bundle re-stamps the host). Exported by
         // the compiler's server-target transform for light-DOM components.
         ...(lightScope !== undefined ? { lightScopeId: lightScope } : {}),
+        // §2a: without this a component reference renders as an empty element
+        // on every request-time SSR path, silently — the exact failure the
+        // child work exists to remove, left behind at the live-SSR edge.
+        ...(options?.children !== undefined ? { children: options.children } : {}),
       })
       // Granted → the Entitled<T> payload; withheld → ONLY the Withheld<T>
       // shape. The granted payload never exists in a withheld response.
@@ -321,6 +357,10 @@ export function createServerRouter(
       hydratable: true,
       // Same `data-a` first-paint stamp as the governed path above.
       ...(ungovLightScope !== undefined ? { lightScopeId: ungovLightScope } : {}),
+      // Same §2a forwarding as the governed path above. Both paths or neither:
+      // one arm carrying children and the other not would make child rendering
+      // depend on whether a route happens to be governed.
+      ...(options?.children !== undefined ? { children: options.children } : {}),
     })
 
     const body =
