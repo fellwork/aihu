@@ -428,3 +428,52 @@ Pre-existing relative to the child work (the ROOT_PATH check predates it), and
 not urgent. Worth fixing when someone next touches the root-stamp logic: either
 stamp the structural root's first rendered element, or decline the child at any
 path whose ROOT segment is structural.
+
+
+---
+
+## Remediation plan and scope ruling (2026-08-07)
+
+Twelve findings remained open. A planning pass itemized each with approach,
+blast radius, test strategy and sequencing. **Founder ruling: eleven land in
+#778; §2 (Workers/live-SSR registry) is stacked as its own PR.**
+
+Why §2 is split — it is the only item that:
+- ADDS public API surface (`ServerRouterOptions.children`, a virtual-module
+  contract, a documented consumer pattern),
+- carries an unresolved design sub-question (virtual module vs generated file,
+  contingent on whether the router plugin's hooks actually run in a real Worker
+  build — unanswerable without probing fellwork's pipeline), and
+- **cannot be verified by this repo's CI or the apps/docs re-observation loop at
+  all.** `apps/docs` is SSG; §2's acceptance lives in an external consumer.
+
+Landing a design decision inside an already-large PR is how design mistakes ship
+un-reviewed. Everything §2 needs from #778 (accurate child tags, the
+`SsrOptions.children` seam) lands there dormant.
+
+§13 and §15 DO stay in #778, conditional on two things that convert the
+"this could break real user templates" risk from judgment into measurement:
+- a **narrow alphabet** — reject only characters that already parse into a
+  different attribute in a real browser, or already make
+  `customElements.define` throw. Templates that break were already broken,
+  silently. Explicitly NOT spec-full strictness (no unicode policing, no full
+  PCEN enforcement as errors) — that is where a wrong production fails real
+  builds, and it can only ever land later as a warning tier.
+- a **corpus gate** — compile `apps/docs`, `packages/templates`, the examples,
+  and the entire fellwork corpus under the new validation and require ZERO new
+  errors BEFORE merging, not after a user hits it.
+
+### Order
+
+§19 first and alone — the backend version handshake. Until it lands, every
+compiler-touching measurement is untrustworthy, which is what produced three
+wrong conclusions during this work. Then three parallel lanes with strict file
+ownership (compiler-Rust / server-runtime-TS / router), then a serialized wave
+for the items that share `index.ts` and `ssr.ts`, then full suites run BOTH with
+and without `AIHU_COMPILER_NATIVE=0` plus a docs-build diff against a recorded
+baseline.
+
+Two items carry probe-first gates, to be reported rather than guessed:
+- **§8** — whether server-target child modules expose a walker-renderable
+  factory. If not, stop; the fallback needs a decision.
+- **§2** — whether the router plugin's hooks run in real Worker builds.
