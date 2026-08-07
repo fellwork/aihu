@@ -477,3 +477,36 @@ Two items carry probe-first gates, to be reported rather than guessed:
 - **§8** — whether server-target child modules expose a walker-renderable
   factory. If not, stop; the fallback needs a decision.
 - **§2** — whether the router plugin's hooks run in real Worker builds.
+
+### Wave assignments
+
+File ownership is strict because the lanes run CONCURRENTLY in one worktree. No
+lane stages or commits; the supervisor commits path-scoped afterwards. (A
+`git add -A` during this work swept another agent's WIP into a pushed commit —
+that is why.)
+
+| Wave | Lane | Items | Owns |
+|---|---|---|---|
+| 0 | — | §19 handshake + docs baseline | **DONE**, `2ee21eb9` |
+| 1a | compiler Rust | §22-compiler-half, §13 layer 1, §15 | `packages/compiler/src/**`, `packages/compiler/tests/**` |
+| 1b | server/runtime TS | §8, §4, §12, §13 layer 2 | `packages/server/src/**`, `packages/server/tests/**`, `packages/runtime/src/ssr-string.ts`, `packages/runtime/tests/**` |
+| 1c | router | §7a, §7b | `packages/router/src/**`, `packages/router/tests/**` |
+| 2 | serialized, single owner | §24, §22 JS half, §16 | `packages/compiler/js/index.ts`, `packages/server/src/ssr.ts`, `packages/app/src/prerender.ts` |
+| 3 | verification | full suites WITH and WITHOUT `AIHU_COMPILER_NATIVE=0`; docs build diffed against the recorded baseline; the four-corpus gate for §13/§15 | — |
+
+Wave 1a builds with a private `CARGO_TARGET_DIR` and never copies into
+`packages/compiler/bin/`, so a mid-run artifact swap cannot invalidate 1b/1c's
+measurements.
+
+**§22 is only half fixed, and the landed half does not close the reported
+symptom.** Moving both diagnostics after the render loop (so pages and layouts
+contribute their tags) was necessary but not sufficient: `__aihu_child_tags__`
+is derived by scanning emitted `__aihu_schild(` call sites, so a reference the
+emitter DECLINES under the v1 boundaries contributes no tag at all.
+`<weather-demo city="London">` carries an attribute, is therefore declined, and
+so is STILL judged unreferenced — the exact case §22 was written for. The
+remaining half is a second, differently-defined export derived from the template
+AST: `__aihu_child_tags__` means "tags the compiled renderer will look up"
+(cycle-check edges), the new one means "tags the template references at all"
+(diagnostics). Two sets, two meanings — not the same rule written twice, which
+is what the existing comment in `js/index.ts` rightly warns against.
