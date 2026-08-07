@@ -371,3 +371,32 @@ is discovered-then-excluded, not merely absent.
 
 This is the highest-value untested item remaining: every discovered file is
 compiled and EVALUATED by Vite at build time.
+
+
+---
+
+## 24. A structural template root bypasses the ROOT_PATH scope stamp
+
+Found incidentally while probing the boundary fixtures.
+
+The child gate declines a reference at `ROOT_PATH`, and the stated reason is that
+the root element carries the PARENT's `data-a` stamp, which the host attributes
+handed to `__aihu_schild` do not model. But when the template ROOT is structural
+— `<x-kid if={…}>` as the whole template — the reference sits at
+`0.conditional.true`, passes the `!== ROOT_PATH` check, and resolves on both
+renderers. The parent's `lightScopeId` is then silently dropped: no `data-a`
+appears anywhere in the output.
+
+Consistent across both renderers, so it is NOT a differential bug and does not
+threaten byte-identity — which is why the fixtures do not catch it. It is a hole
+in the ROOT_PATH boundary's own rationale: "the root carries the parent's stamp"
+stops being true the moment the root is a structural node.
+
+Consequence: such a component's `@scope([data-a=…])` rules match nothing in the
+prerendered HTML until its chunk loads — the #754 unstyled-first-paint class,
+narrowly scoped to templates whose root is a bare conditional.
+
+Pre-existing relative to the child work (the ROOT_PATH check predates it), and
+not urgent. Worth fixing when someone next touches the root-stamp logic: either
+stamp the structural root's first rendered element, or decline the child at any
+path whose ROOT segment is structural.
