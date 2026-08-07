@@ -609,7 +609,7 @@ export async function runPrerender(opts: RunPrerenderOptions): Promise<Prerender
       if (stem) candidates.add(stem)
       // Fails OPEN when nothing could be determined: silence is the wrong
       // default for "a component broke and we cannot tell whether it matters".
-      if (false && candidates.size > 0 && ![...candidates].some((t) => referenced.has(t))) continue
+      if (candidates.size > 0 && ![...candidates].some((t) => referenced.has(t))) continue
       pushWarn(
         `[@aihu/app] static output: component "${file}" failed to load (${
           error instanceof Error ? error.message : String(error)
@@ -630,7 +630,6 @@ export async function runPrerender(opts: RunPrerenderOptions): Promise<Prerender
     // Warned once per tag, not per reference site. Unknown tags are NOT
     // necessarily errors — a genuine third-party element belongs on this list —
     // so the wording says what happened rather than asserting a mistake.
-    console.log('DIAG referenced=', JSON.stringify([...referenced].sort()))
     for (const tag of [...referenced].sort()) {
       if (childRegistry.has(tag)) continue
       pushWarn(
