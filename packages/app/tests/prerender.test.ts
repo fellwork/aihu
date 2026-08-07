@@ -17,7 +17,8 @@
  * without requiring the Rust SFC compiler.
  */
 
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import type { Dirent } from 'node:fs'
+import { mkdir, mkdtemp, readdir, readFile, rm, stat, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { useRoute } from '@aihu/router'
@@ -25,6 +26,53 @@ import type { ResolvedConfig } from 'vite'
 import { afterEach, describe, expect, it } from 'vitest'
 import { AihuConfigError, defineConfig } from '../src/config.ts'
 import { prerenderClose, runPrerender, type SsrModuleLoader } from '../src/prerender.ts'
+
+/**
+ * A directory walk that DESCENDS symlinked directories — i.e. bun's
+ * `readdir({recursive:true, withFileTypes:true})`, reproduced on Node.
+ *
+ * Needed because `discoverComponents`'s symlink containment can only fire on a
+ * candidate whose path escapes the components directory, and the only thing
+ * that ever hands it one is a lister that descends a symlinked DIRECTORY. The
+ * two runtimes disagree, measured on the same fixture shape and machine:
+ *
+ *   bun  v24.3.0  -> ok.aihu(file) . linked(symlink) .
+ *                    evil.aihu(file, parentPath=<components>/linked)
+ *   node v22.12.0 -> linked(symlink) . ok.aihu(file)      <- never descends
+ *
+ * This suite runs under Node even when launched with `bun x vitest` (the pool
+ * worker's `process.execPath` is the Node binary), so with the real lister the
+ * out-of-tree module is never a candidate — which is exactly why the previous
+ * attempt at a containment test was VACUOUS: it passed against code with no
+ * containment check at all, and could not tell "containment excluded it" from
+ * "discovery never saw it". Neither `vi.mock('node:fs/promises')` nor
+ * `vi.spyOn` can close that gap: the former reaches only the test file itself
+ * (a module importing the builtin still gets the real one — measured), and the
+ * latter throws "Module namespace is not configurable in ESM".
+ *
+ * So the lister is injected through `RunPrerenderOptions._listComponentDir`,
+ * and NOTHING ELSE is substituted: real directories, a real symlink, real
+ * `realpath` resolution, the real `discoverComponents`, the real `runPrerender`
+ * driver. Each step calls the platform's own non-recursive `readdir`, so the
+ * `Dirent`s — `parentPath` included — are genuine rather than fabricated.
+ */
+async function listDescendingSymlinks(dir: string): Promise<Dirent[]> {
+  const out: Dirent[] = []
+  const visit = async (d: string): Promise<void> => {
+    for (const e of await readdir(d, { withFileTypes: true })) {
+      out.push(e)
+      const child = join(d, e.name)
+      if (e.isDirectory()) {
+        await visit(child)
+      } else if (e.isSymbolicLink()) {
+        const st = await stat(child).catch(() => null)
+        if (st?.isDirectory()) await visit(child)
+      }
+    }
+  }
+  await visit(dir)
+  return out
+}
 
 // ─── defineConfig: static mode + site ────────────────────────────────────────
 
@@ -771,7 +819,11 @@ describe('runPrerender — previously unguarded fixes', () => {
   let fx: Fixture
 
   afterEach(async () => {
-    await fx?.cleanup?.()
+    // Was `await fx?.cleanup?.()` — a property `Fixture` does not have, so the
+    // optional call silently no-opped and every fixture in this block leaked
+    // its temp directory (and, since §23, a dangling symlink). `tsc` flagged it;
+    // the suite could not, because a no-op teardown passes.
+    if (fx) await rm(fx.root, { recursive: true, force: true })
   })
 
   it('splices page content WITHOUT $-expansion', async () => {
@@ -845,16 +897,277 @@ describe('runPrerender — previously unguarded fixes', () => {
     expect(result.warnings.some((w) => w.includes('no-tag.aihu'))).toBe(true)
   })
 
-  // NO SYMLINK-CONTAINMENT TEST HERE, deliberately.
+  // §23: symlink containment, exercised rather than assumed.
   //
-  // I wrote one and it passed against the PRE-FIX code too: in this fixture
-  // environment the symlinked module is never discovered at all, so the test
-  // could not distinguish "containment excluded it" from "discovery never saw
-  // it". A standalone probe DOES traverse the symlink under bun, so the hazard
-  // is real and the fixture is what differs — but a green test asserting a
-  // security property it does not exercise is worse than no test, because it
-  // reads as coverage.
+  // The previous attempt at this test was vacuous and was removed; see
+  // `listDescendingSymlinks` at the top of this file for the measured reason
+  // (Node's recursive `readdir` never descends a symlinked directory, so the
+  // out-of-tree module was never a candidate at all) and for exactly what is
+  // substituted — the directory lister, and nothing else.
   //
-  // Tracked in `docs/plans/2026-08-06-ssr-child-followups.md` §14 with what a
-  // real one needs: a fixture where discovery provably traverses the link.
+  // The load-bearing distinction: this asserts the out-of-tree module is
+  // DISCOVERED AND THEN EXCLUDED — a candidate that reached the containment
+  // check and lost — not merely that it is absent from the output. The
+  // containment warning proves the first half (nothing else in
+  // `discoverComponents` emits it, and it names the resolved path), and
+  // `loaded` proves the second. Defeat the containment check and both flip.
+  it('§23: discovers a module through a symlinked directory and REFUSES to load it', async () => {
+    fx = await makeFixture()
+    await writeRoute(fx.root, 'index.ts', { name: 'home' })
+    const componentsDir = join(fx.root, 'src', 'components')
+    await mkdir(componentsDir, { recursive: true })
+    await writeFile(join(componentsDir, 'in-tree.aihu'), '<div/>\n')
+    // A real directory OUTSIDE the components tree, linked in from inside it.
+    const outside = join(fx.root, 'outside')
+    await mkdir(outside, { recursive: true })
+    await writeFile(join(outside, 'evil.aihu'), '<div/>\n')
+    await symlink(outside, join(componentsDir, 'linked'), 'dir')
+
+    // PRECONDITION, asserted rather than assumed: the lister this test injects
+    // really does surface the escaping module as a candidate. Without this, the
+    // assertions below could pass for the wrong reason — which is precisely how
+    // the previous attempt went wrong.
+    const entries = await listDescendingSymlinks(componentsDir)
+    const evil = entries.find((e) => e.name === 'evil.aihu')
+    expect(evil?.isFile()).toBe(true)
+    expect(evil?.parentPath).toBe(join(componentsDir, 'linked'))
+
+    // Every discovered file is compiled AND EVALUATED by Vite at build time, so
+    // "was it loaded" is the security property, not "was it rendered".
+    const loaded: string[] = []
+    const loadModule: SsrModuleLoader = async (file) => {
+      const f = file.replace(/\\/g, '/')
+      if (f.endsWith('/index.ts')) return { default: { toHtml: () => '<p>home</p>' } }
+      loaded.push(f)
+      return { __aihu_tag__: f.slice(f.lastIndexOf('/') + 1).replace(/\.aihu$/, '') }
+    }
+
+    const result = await runPrerender({
+      resolvedViteConfig: fx.resolvedViteConfig,
+      config: { output: 'static', dir: { pages: 'pages', components: 'src/components' } },
+      loadModule,
+      warn: fx.warn,
+      _listComponentDir: listDescendingSymlinks,
+    })
+
+    // Discovery is live: the in-tree sibling WAS loaded, from the same walk.
+    expect(loaded.some((f) => f.endsWith('/in-tree.aihu'))).toBe(true)
+    // …and the escaping module was never evaluated.
+    expect(loaded.some((f) => f.includes('evil.aihu'))).toBe(false)
+    // …because containment rejected it. The message names the candidate path
+    // AND the real path it resolves to, so it cannot be produced by a miss.
+    const containment = result.warnings.filter((w) => w.includes('evil.aihu'))
+    expect(containment).toHaveLength(1)
+    expect(containment[0]).toMatch(/skipping "[^"]*linked\/evil\.aihu"/)
+    expect(containment[0]).toMatch(/resolves to "[^"]*outside\/evil\.aihu"/)
+    expect(containment[0]).toMatch(/outside the components directory/)
+  })
+
+  // §17 tie-break determinism.
+  //
+  // `discoverComponents` fans out with `Promise.all` over a SORTED list and
+  // `buildChildRegistry` keeps the FIRST module claiming a tag — which is only
+  // deterministic because `Promise.all` yields results in INPUT order. Push
+  // results as they settle instead (the obvious "optimization") and the winner
+  // becomes a race between module load times, silently, on a real build.
+  //
+  // The existing §17 test cannot see that: it counts concurrency, and both
+  // shapes fan out identically. So: two files claim one tag, and the
+  // LATER-sorted one resolves FIRST. The winner is observable through the
+  // registry — the tags each module references differ, and only the WINNER's
+  // references reach the unresolved-tag diagnostic.
+  it('§17: the sort-first module wins a duplicate tag even when it resolves LAST', async () => {
+    fx = await makeFixture()
+    await writeRoute(fx.root, 'index.ts', { name: 'home' })
+    const componentsDir = join(fx.root, 'src', 'components')
+    await mkdir(componentsDir, { recursive: true })
+    await writeFile(join(componentsDir, 'a-first.aihu'), '<div/>\n')
+    await writeFile(join(componentsDir, 'z-second.aihu'), '<div/>\n')
+
+    const settleOrder: string[] = []
+    const loadModule: SsrModuleLoader = async (file) => {
+      const f = file.replace(/\\/g, '/')
+      if (f.endsWith('/index.ts')) return { default: { toHtml: () => '<p>home</p>' } }
+      const first = f.endsWith('/a-first.aihu')
+      // Sorted FIRST, resolves LAST. The delay only has to be long enough that
+      // the other load has certainly settled.
+      if (first) await new Promise((r) => setTimeout(r, 50))
+      settleOrder.push(first ? 'a-first' : 'z-second')
+      return {
+        __aihu_tag__: 'dup-tag',
+        __aihu_child_tags__: [first ? 'ghost-from-a' : 'ghost-from-z'],
+      }
+    }
+
+    const result = await runPrerender({
+      resolvedViteConfig: fx.resolvedViteConfig,
+      config: { output: 'static', dir: { pages: 'pages', components: 'src/components' } },
+      loadModule,
+      warn: fx.warn,
+    })
+
+    // The premise: resolution order really is the INVERSE of sort order, so a
+    // settle-ordered implementation would pick the other module.
+    expect(settleOrder).toEqual(['z-second', 'a-first'])
+    // The conflict was reported…
+    expect(result.warnings.some((w) => w.includes('two modules claim'))).toBe(true)
+    // …and the SORT-FIRST module is the one in the registry.
+    const warnings = result.warnings.join('\n')
+    expect(warnings).toContain('ghost-from-a')
+    expect(warnings).not.toContain('ghost-from-z')
+  })
+})
+
+// ─── §22: both diagnostics must see page→ and layout→component references ────
+//
+// `runPrerender` used to build its `referenced` set from `childRegistry`
+// alone — tags referenced by DISCOVERED COMPONENTS — and emit both diagnostics
+// before the render loop. Pages and layouts reference components too, and their
+// modules load later, inside that loop, so their `__aihu_child_tags__` never
+// reached the set.
+//
+// Found by re-running the real `apps/docs` build, not by the suite: after the
+// §18 warn-gate landed, `weather-demo.aihu` (which fails to load under SSR with
+// `CSSStyleSheet is not defined`, and is referenced from `pages/index.aihu` and
+// `pages/cookbook/agent-weather.aihu` — pages, not components) was judged
+// unreferenced and said nothing. The fix that existed to make load failures
+// visible made the build quieter.
+describe('runPrerender — diagnostics see page + layout references (§22)', () => {
+  let fx: Fixture
+  afterEach(async () => {
+    if (fx) await rm(fx.root, { recursive: true, force: true })
+  })
+
+  it('warns about a broken component referenced only by a PAGE', async () => {
+    fx = await makeFixture()
+    await writeRoute(fx.root, 'index.ts', { name: 'home' })
+    const componentsDir = join(fx.root, 'src', 'components')
+    await mkdir(componentsDir, { recursive: true })
+    // Fails to load, exactly like the real `weather-demo.aihu`. NOTHING under
+    // the components dir references it — the page does.
+    await writeFile(join(componentsDir, 'weather-demo.aihu'), '<weather/>\n')
+    // …and a second broken component nobody references at all, to prove the
+    // §18 gate is still a gate and not just "warn about everything".
+    await writeFile(join(componentsDir, 'orphan-demo.aihu'), '<orphan/>\n')
+
+    const loadModule: SsrModuleLoader = async (file) => {
+      const f = file.replace(/\\/g, '/')
+      if (f.endsWith('/index.ts')) {
+        return {
+          default: { toHtml: () => '<p>home</p>' },
+          __aihu_child_tags__: ['weather-demo'],
+        }
+      }
+      throw new Error('CSSStyleSheet is not defined')
+    }
+
+    const result = await runPrerender({
+      resolvedViteConfig: fx.resolvedViteConfig,
+      config: { output: 'static', dir: { pages: 'pages', components: 'src/components' } },
+      loadModule,
+      warn: fx.warn,
+    })
+
+    const warnings = result.warnings.join('\n')
+    expect(warnings).toMatch(/component "[^"]*weather-demo\.aihu" failed to load/)
+    expect(warnings).not.toMatch(/component "[^"]*orphan-demo\.aihu" failed to load/)
+  })
+
+  it('warns about a broken component referenced only by a LAYOUT', async () => {
+    fx = await makeFixture()
+    await writeRoute(fx.root, 'index.ts', { name: 'home', layout: 'app' })
+    await mkdir(join(fx.root, 'src', 'layouts'), { recursive: true })
+    await writeFile(join(fx.root, 'src', 'layouts', 'app.aihu'), '<layout/>\n')
+    const componentsDir = join(fx.root, 'src', 'components')
+    await mkdir(componentsDir, { recursive: true })
+    await writeFile(join(componentsDir, 'site-header.aihu'), '<header/>\n')
+
+    const loadModule: SsrModuleLoader = async (file) => {
+      const f = file.replace(/\\/g, '/')
+      if (f.endsWith('/src/layouts/app.aihu')) {
+        return {
+          default: { toHtml: () => '<div><main data-aihu-outlet></main></div>' },
+          __aihu_child_tags__: ['site-header'],
+        }
+      }
+      if (f.endsWith('/index.ts')) return { default: { toHtml: () => '<p>home</p>' } }
+      throw new Error('CSSStyleSheet is not defined')
+    }
+
+    const result = await runPrerender({
+      resolvedViteConfig: fx.resolvedViteConfig,
+      config: {
+        output: 'static',
+        dir: { pages: 'pages', layouts: 'src/layouts', components: 'src/components' },
+      },
+      loadModule,
+      warn: fx.warn,
+    })
+
+    expect(result.warnings.join('\n')).toMatch(/component "[^"]*site-header\.aihu" failed to load/)
+  })
+
+  it('reports an unresolved tag referenced only by a PAGE', async () => {
+    // §3's diagnostic had the same hole: a tag referenced from a page and
+    // absent from the registry was never reported.
+    fx = await makeFixture()
+    await writeRoute(fx.root, 'index.ts', { name: 'home' })
+    const componentsDir = join(fx.root, 'src', 'components')
+    await mkdir(componentsDir, { recursive: true })
+    await writeFile(join(componentsDir, 'nav-bar.aihu'), '<nav/>\n')
+
+    const loadModule: SsrModuleLoader = async (file) => {
+      const f = file.replace(/\\/g, '/')
+      if (f.endsWith('/index.ts')) {
+        return {
+          default: { toHtml: () => '<p>home</p>' },
+          __aihu_child_tags__: ['nav-bar', 'ghost-from-page'],
+        }
+      }
+      return { __aihu_tag__: 'nav-bar' }
+    }
+
+    const result = await runPrerender({
+      resolvedViteConfig: fx.resolvedViteConfig,
+      config: { output: 'static', dir: { pages: 'pages', components: 'src/components' } },
+      loadModule,
+      warn: fx.warn,
+    })
+
+    const ghost = result.warnings.filter((w) => w.includes('ghost-from-page'))
+    // Once per tag, not once per reference site.
+    expect(ghost).toHaveLength(1)
+    expect(ghost[0]).toMatch(/<ghost-from-page> is referenced but was not found/)
+    // A tag the registry DOES supply must stay quiet.
+    expect(result.warnings.some((w) => w.includes('<nav-bar>'))).toBe(false)
+  })
+
+  it('reports unresolved page tags in sorted order, once each', async () => {
+    // Determinism: the emission moved after the render loop, where pages are
+    // visited in route order. The tag list is sorted, not insertion-ordered.
+    fx = await makeFixture()
+    await writeRoute(fx.root, 'index.ts', { name: 'home' })
+    await writeRoute(fx.root, 'about.ts', { name: 'about' })
+
+    const loadModule: SsrModuleLoader = async (file) => {
+      const f = file.replace(/\\/g, '/')
+      // `about` is rendered before `index`; it references the LATER tag, and
+      // both pages reference `zz-shared`.
+      return f.endsWith('/about.ts')
+        ? { default: { toHtml: () => '<p>a</p>' }, __aihu_child_tags__: ['mm-mid', 'zz-shared'] }
+        : { default: { toHtml: () => '<p>h</p>' }, __aihu_child_tags__: ['aa-early', 'zz-shared'] }
+    }
+
+    const result = await runPrerender({
+      resolvedViteConfig: fx.resolvedViteConfig,
+      config: { output: 'static', dir: { pages: 'pages' } },
+      loadModule,
+      warn: fx.warn,
+    })
+
+    const tags = result.warnings
+      .map((w) => /<([a-z-]+)> is referenced but was not found/.exec(w)?.[1])
+      .filter((t): t is string => t !== undefined)
+    expect(tags).toEqual(['aa-early', 'mm-mid', 'zz-shared'])
+  })
 })

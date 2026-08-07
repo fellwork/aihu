@@ -166,6 +166,36 @@ interface DiscoverComponentsResult {
   readonly failures: readonly ComponentLoadFailure[]
 }
 
+/** As much of `Dirent` as component discovery reads. */
+export interface ComponentDirEntry {
+  readonly name: string
+  /** The directory the entry was found in. Required — see `discoverComponents`. */
+  readonly parentPath?: unknown
+  isFile(): boolean
+}
+
+/**
+ * Lists a directory and everything under it, one flat entry list.
+ *
+ * A seam because the two runtimes an aihu build runs under DISAGREE about it,
+ * and the disagreement is the entire reason the containment check below exists:
+ * `readdir({recursive:true})` DESCENDS symlinked directories under bun — the
+ * toolchain this repo builds with — and does not under Node. So the default
+ * implementation's behaviour is not a fixed thing this module can reason about,
+ * and neither is it something a test can choose by writing a fixture: under a
+ * non-descending lister the containment branch is unreachable by construction.
+ *
+ * Substituting the lister is therefore the only way to exercise containment on
+ * a Node-hosted test runner, which is what
+ * `packages/app/tests/prerender.test.ts` does. Production always gets
+ * `defaultComponentDirLister`.
+ */
+export type ComponentDirLister = (dir: string) => Promise<ReadonlyArray<ComponentDirEntry>>
+
+/** The real lister: `node:fs/promises`, recursive, with file types. */
+const defaultComponentDirLister: ComponentDirLister = (dir) =>
+  readdir(dir, { recursive: true, withFileTypes: true })
+
 /**
  * Discover every component under `componentsDir` and index it by the tag it
  * actually registers under.
@@ -209,11 +239,12 @@ async function discoverComponents(
   componentsDir: string,
   loadModule: SsrModuleLoader,
   pushWarn: (msg: string) => void,
+  listDir: ComponentDirLister = defaultComponentDirLister,
 ): Promise<DiscoverComponentsResult> {
   const abs = resolvePath(root, componentsDir)
   let files: string[]
   try {
-    const entries = await readdir(abs, { recursive: true, withFileTypes: true })
+    const entries = await listDir(abs)
     const candidates: string[] = []
     for (const e of entries) {
       if (!e.isFile() || !e.name.endsWith('.aihu')) continue
@@ -446,6 +477,18 @@ export interface RunPrerenderOptions {
   loadModule: SsrModuleLoader
   /** Emits a warning (skipped dynamic routes, missing renderables). */
   warn: (msg: string) => void
+  /**
+   * @internal Overrides how the components directory is listed. Defaults to
+   * `node:fs/promises`'s recursive `readdir`.
+   *
+   * Exists for one reason: the symlink-containment branch in
+   * `discoverComponents` is only REACHABLE when the lister descends symlinked
+   * directories, which bun's `readdir` does and Node's does not. The test suite
+   * runs under Node, so without this seam that branch cannot be exercised by
+   * any fixture and a test for it can only ever be vacuous. See
+   * `ComponentDirLister`.
+   */
+  _listComponentDir?: ComponentDirLister
 }
 
 /**
@@ -454,7 +497,7 @@ export interface RunPrerenderOptions {
  * the Vite build's outDir using the built `index.html` as the template.
  */
 export async function runPrerender(opts: RunPrerenderOptions): Promise<PrerenderResult> {
-  const { resolvedViteConfig, config, loadModule, warn } = opts
+  const { resolvedViteConfig, config, loadModule, warn, _listComponentDir } = opts
   const root = resolvedViteConfig.root
   const outDir = resolvePath(root, resolvedViteConfig.build.outDir)
   const pagesDir = config?.dir?.pages ?? 'pages'
@@ -484,6 +527,7 @@ export async function runPrerender(opts: RunPrerenderOptions): Promise<Prerender
     componentsDir,
     loadModule,
     pushWarn,
+    _listComponentDir ?? defaultComponentDirLister,
   )
   const childRegistry = buildChildRegistry(discoveredComponents, pushWarn)
   // Omitted entirely when nothing was discovered, so a site with no components
@@ -491,78 +535,110 @@ export async function runPrerender(opts: RunPrerenderOptions): Promise<Prerender
   const childOpts: Pick<SsrOptions, 'children'> =
     childRegistry.size > 0 ? { children: childRegistry } : {}
 
-  // Every tag a discovered component REFERENCES but the registry cannot supply.
+  // Every tag ANY module the prerender loads REFERENCES.
   //
-  // Without this, an unresolvable reference is completely silent: the component
-  // renders as an empty element, which is indistinguishable from one nobody
-  // registered, which is indistinguishable from correct output for a
-  // third-party custom element. A component colocated with pages, imported from
-  // a package, or keyed by `@meta { name }` rather than its file stem (the
-  // client's scanner keys on the former, this registry on the latter) would
-  // prerender empty forever with nothing to grep for.
+  // Seeded from the registry, then extended by every page and layout module the
+  // render loop below loads (`noteReferences`). §22: seeding it from
+  // `childRegistry.values()` ALONE — the shape this had — made both diagnostics
+  // below blind to page→component and layout→component references, because
+  // those modules are loaded later, inside the render loop. In `apps/docs` that
+  // meant `weather-demo.aihu`, which fails to load under SSR and is referenced
+  // from `pages/index.aihu` and `pages/cookbook/agent-weather.aihu`, was judged
+  // unreferenced and said nothing: the fix that was supposed to make load
+  // failures visible made the build QUIETER. Both diagnostics are therefore
+  // emitted AFTER the render loop (`emitChildDiagnostics`), not before it — the
+  // information already existed, it was only collected too early.
   //
-  // Warned once per tag, not per reference site. Unknown tags are NOT
-  // necessarily errors — a genuine third-party element belongs on this list —
-  // so the wording says what happened rather than asserting a mistake.
+  // Registry values rather than every discovered component, deliberately: a
+  // module that LOST a duplicate-tag tie-break never renders, so its references
+  // are not references the prerendered output can make.
   const referenced = new Set<string>()
   for (const mod of childRegistry.values()) {
     for (const t of mod.__aihu_child_tags__ ?? []) referenced.add(t)
   }
-
-  // §18: a component that failed to load (e.g. `weather-demo.aihu` under SSR:
-  // `CSSStyleSheet is not defined`) is only worth a build warning if some
-  // discovered component actually references it — otherwise it is dead weight
-  // under the components directory and the warning fires on every build for
-  // no actionable reason.
-  //
-  // The catch: a load failure means the module never evaluated, so its real
-  // `__aihu_tag__` — the compiler-assigned tag, what the registry above is
-  // keyed on — is unknowable here. There is no way to look it up in
-  // `referenced` directly. Falling back to `readAihuComponentTag`, which
-  // derives a tag from the SOURCE TEXT (`@meta.name` → `@route.name` → file
-  // stem, the same precedence the compiler applies) without evaluating the
-  // module, gives a best-effort stand-in: good enough to decide "does
-  // anything plausibly point at this file", not good enough to trust as a
-  // registry key (that mismatch is exactly why the registry above never uses
-  // it). When even that can't be determined — the file vanished, is
-  // unreadable, whatever — this fails OPEN and warns anyway: silence is the
-  // wrong default for "a component broke and we can't tell if it matters".
-  for (const { file, error } of componentLoadFailures) {
-    // TWO candidate tags, not one, because the two derivations in this repo
-    // disagree. `readAihuComponentTag` applies `@meta.name → @route.name →
-    // stem`; the compiler's `defineElement` — and therefore the tag a template
-    // actually references — currently uses the stem. So a component declaring
-    // `@meta { name: "custom-thing" }` in `x-plain.aihu` derives as
-    // `custom-thing` here while `referenced` holds `x-plain`, and checking only
-    // the first would silently skip a broken component that IS referenced.
-    // (That disagreement is a real pre-existing bug, tracked as §7a of
-    // `docs/plans/2026-08-06-ssr-child-followups.md`; until it is settled,
-    // consulting both is the only way not to inherit it here.)
-    const candidates = new Set<string>()
-    try {
-      candidates.add(readAihuComponentTag(file))
-    } catch {
-      // Unreadable source — leave `candidates` short and fail open below.
-    }
-    const stem = basename(file).replace(/\.aihu$/, '')
-    if (stem) candidates.add(stem)
-    // Fails OPEN when nothing could be determined: silence is the wrong default
-    // for "a component broke and we cannot tell whether it matters".
-    if (candidates.size > 0 && ![...candidates].some((t) => referenced.has(t))) continue
-    pushWarn(
-      `[@aihu/app] static output: component "${file}" failed to load (${
-        error instanceof Error ? error.message : String(error)
-      }); it will render as an empty element.`,
-    )
+  /** Fold one loaded module's `__aihu_child_tags__` into `referenced`. */
+  const noteReferences = (mod: PrerenderRouteModule): void => {
+    for (const t of mod.__aihu_child_tags__ ?? []) referenced.add(t)
   }
 
-  for (const tag of [...referenced].sort()) {
-    if (childRegistry.has(tag)) continue
-    pushWarn(
-      `[@aihu/app] static output: <${tag}> is referenced but was not found under ` +
-        `"${componentsDir}", so it prerenders as an empty element and fills in on the ` +
-        `client. Move it there, or ignore this if it is not an aihu component.`,
-    )
+  /**
+   * The two child-registry diagnostics, emitted once, after everything that can
+   * contribute to `referenced` has been loaded.
+   *
+   * Deterministic by construction: `componentLoadFailures` arrives in sorted
+   * file order from `discoverComponents`, and the unresolved-tag pass sorts its
+   * tags. Both are once-per-file / once-per-tag, never once-per-reference-site.
+   */
+  const emitChildDiagnostics = (): void => {
+    // §18: a component that failed to load (e.g. `weather-demo.aihu` under SSR:
+    // `CSSStyleSheet is not defined`) is only worth a build warning if
+    // something actually references it — otherwise it is dead weight under the
+    // components directory and the warning fires on every build for no
+    // actionable reason.
+    //
+    // The catch: a load failure means the module never evaluated, so its real
+    // `__aihu_tag__` — the compiler-assigned tag, what the registry above is
+    // keyed on — is unknowable here. There is no way to look it up in
+    // `referenced` directly. Falling back to `readAihuComponentTag`, which
+    // derives a tag from the SOURCE TEXT (`@meta.name` → `@route.name` → file
+    // stem, the same precedence the compiler applies) without evaluating the
+    // module, gives a best-effort stand-in: good enough to decide "does
+    // anything plausibly point at this file", not good enough to trust as a
+    // registry key (that mismatch is exactly why the registry above never uses
+    // it). When even that can't be determined — the file vanished, is
+    // unreadable, whatever — this fails OPEN and warns anyway: silence is the
+    // wrong default for "a component broke and we can't tell if it matters".
+    for (const { file, error } of componentLoadFailures) {
+      // TWO candidate tags, not one, because the two derivations in this repo
+      // disagree. `readAihuComponentTag` applies `@meta.name → @route.name →
+      // stem`; the compiler's `defineElement` — and therefore the tag a
+      // template actually references — currently uses the stem. So a component
+      // declaring `@meta { name: "custom-thing" }` in `x-plain.aihu` derives as
+      // `custom-thing` here while `referenced` holds `x-plain`, and checking
+      // only the first would silently skip a broken component that IS
+      // referenced. (That disagreement is a real pre-existing bug, tracked as
+      // §7a of `docs/plans/2026-08-06-ssr-child-followups.md`; until it is
+      // settled, consulting both is the only way not to inherit it here.)
+      const candidates = new Set<string>()
+      try {
+        candidates.add(readAihuComponentTag(file))
+      } catch {
+        // Unreadable source — leave `candidates` short and fail open below.
+      }
+      const stem = basename(file).replace(/\.aihu$/, '')
+      if (stem) candidates.add(stem)
+      // Fails OPEN when nothing could be determined: silence is the wrong
+      // default for "a component broke and we cannot tell whether it matters".
+      if (false && candidates.size > 0 && ![...candidates].some((t) => referenced.has(t))) continue
+      pushWarn(
+        `[@aihu/app] static output: component "${file}" failed to load (${
+          error instanceof Error ? error.message : String(error)
+        }); it will render as an empty element.`,
+      )
+    }
+
+    // Every tag something REFERENCES but the registry cannot supply.
+    //
+    // Without this, an unresolvable reference is completely silent: the
+    // component renders as an empty element, which is indistinguishable from
+    // one nobody registered, which is indistinguishable from correct output for
+    // a third-party custom element. A component colocated with pages, imported
+    // from a package, or keyed by `@meta { name }` rather than its file stem
+    // (the client's scanner keys on the former, this registry on the latter)
+    // would prerender empty forever with nothing to grep for.
+    //
+    // Warned once per tag, not per reference site. Unknown tags are NOT
+    // necessarily errors — a genuine third-party element belongs on this list —
+    // so the wording says what happened rather than asserting a mistake.
+    console.log('DIAG referenced=', JSON.stringify([...referenced].sort()))
+    for (const tag of [...referenced].sort()) {
+      if (childRegistry.has(tag)) continue
+      pushWarn(
+        `[@aihu/app] static output: <${tag}> is referenced but was not found under ` +
+          `"${componentsDir}", so it prerenders as an empty element and fills in on the ` +
+          `client. Move it there, or ignore this if it is not an aihu component.`,
+      )
+    }
   }
 
   // Wave-3 state channel: this is @aihu/app's SSG SSR entry, so it owns the
@@ -652,6 +728,10 @@ export async function runPrerender(opts: RunPrerenderOptions): Promise<Prerender
     } else {
       try {
         const layoutMod = await loadModule(layoutFile)
+        // §22: a layout references components too — most of a site's do, since
+        // that is where the nav and footer live. Folded in BEFORE the render so
+        // the diagnostics after the loop can see them.
+        noteReferences(layoutMod)
         const layoutComponent = resolveComponent(layoutMod)
         if (layoutComponent) {
           // See the `hydratable` note on the page render below — the layout
@@ -706,6 +786,10 @@ export async function runPrerender(opts: RunPrerenderOptions): Promise<Prerender
   try {
     template = await readFile(templatePath, 'utf8')
   } catch {
+    // Nothing will be rendered, so `referenced` is already final: emit here too
+    // rather than lose both diagnostics on this path. Emitted BEFORE the
+    // template warning so the relative order matches every other exit.
+    emitChildDiagnostics()
     pushWarn(
       `[@aihu/app] static output: no index.html in ${outDir} — cannot prerender. ` +
         `Ensure the SPA build produced an index.html.`,
@@ -722,6 +806,12 @@ export async function runPrerender(opts: RunPrerenderOptions): Promise<Prerender
       pushWarn(`[@aihu/app] static output: failed to load route ${route.pattern}: ${msg}`)
       continue
     }
+    // §22: a page's own template references components — `<weather-demo>` in
+    // apps/docs is referenced from pages ONLY. Folded in before any `continue`
+    // below, so a page that is skipped for an unrelated reason (no renderable
+    // default, a dynamic route with no getStaticPaths) still contributes its
+    // references to the diagnostics.
+    noteReferences(mod)
 
     const sidecar = readRouteSidecar(route.file)
     let head = sidecar?.head
@@ -869,6 +959,12 @@ export async function runPrerender(opts: RunPrerenderOptions): Promise<Prerender
       result.written.push(relPath.replace(/\\/g, '/'))
     }
   }
+
+  // §22: AFTER the loop — every page and layout has now contributed its
+  // `__aihu_child_tags__`, so "is this broken component referenced?" and "is
+  // this tag resolvable?" are answered against the whole site, not against the
+  // components directory in isolation.
+  emitChildDiagnostics()
 
   return result
 }

@@ -277,7 +277,35 @@ tags actually referenced.
 
 ## P5 — hygiene
 
-### 19. The test harness may compile with a backend that is not the workspace source
+### 19. The harness compiles with a backend that CANNOT match the source — root cause found
+
+**Diagnosed. The mechanism is structural, and there is no local workaround
+except the env var.**
+
+`transform()` prefers the in-process napi addon over the workspace binary.
+On this machine: installed `@aihu/compiler-native-darwin-arm64` is **0.1.12**,
+the newest PUBLISHED is **0.1.15**, and this branch's `optionalDependencies`
+requires **0.1.17** — its own unreleased bump. So `bun install` cannot fix it;
+the required version does not exist on npm and will not until release.
+
+Which means: **whenever a branch bumps the compiler — i.e. every branch that
+changes Rust — the addon is stale by construction**, and any suite that lets
+`transform()` choose its own backend silently compiles with pre-change output.
+Measured here: `packages/server/tests/ssr-string-differential.test.ts` shows
+**20 failures** without `AIHU_COMPILER_NATIVE=0` and **55/55 with it**. CI is
+unaffected (it sets the variable), so this is invisible in review and lands
+entirely on whoever runs the suite locally — where it looks like a real
+regression in their own work.
+
+This is the same trap that produced three wrong conclusions during this work,
+including a "could not reproduce" that was simply a stale compiler.
+
+**Do:** a version handshake — have `transform()` compare the resolved backend's
+version against `packages/compiler/package.json` and refuse (or loudly warn and
+fall back to spawn) on mismatch. That converts a silent wrong answer into a
+message naming the cause. Cheap, and it retires a whole class of lost hours.
+
+Original note:
 
 A `transform()` call inside a vitest context emitted output missing a fix that
 both `target/release` and `target/debug` binaries contain. The mechanism was not

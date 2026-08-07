@@ -823,8 +823,23 @@ export function hydrate(
     const p = el.getAttribute('data-aihu-path')
     if (p != null) pathMap.set(p, el)
   }
+  // Register the container under its OWN path only — `_ROOT_PATH`, never
+  // whatever value it happens to carry.
+  //
+  // A render always starts at `_ROOT_PATH`, so any other value on the container
+  // belongs to a FOREIGN key space by construction. That is exactly the case
+  // for a marked child host: it carries its slot in the PARENT's space (`0.1`)
+  // while hydrating its own, so registering it under `0.1` clobbered whatever
+  // this render's tree has at `0.1` — and the node that lost the race silently
+  // bound `.el` to the host instead of its own element.
+  //
+  // Structurally invisible, which is why nothing caught it: a childless
+  // reference stops the walk, so the DOM is unchanged and only a later read of
+  // `.el` reveals it. A reactive `html={…}` on a nested reference is such a
+  // read, and its first write replaced the entire subtree. The same seam
+  // carries `class:`, `ref=`, and the router's link boundary.
   const hp = root.getAttribute?.('data-aihu-path')
-  if (hp != null) pathMap.set(hp, root)
+  if (hp === _ROOT_PATH) pathMap.set(hp, root)
 
   if (typeof __DEV__ !== 'undefined' && __DEV__)
     _observeMount({ kind: 'mount-start', path: 'hydrate', timestamp: Date.now() })
