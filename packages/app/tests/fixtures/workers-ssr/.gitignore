@@ -1,0 +1,5 @@
+# Build output of the workers-ssr e2e gate. `dist/` is covered by the repo
+# .gitignore; the ssr environment's sibling dir and the control variant are not.
+dist-server/
+dist-control/
+dist-control-server/

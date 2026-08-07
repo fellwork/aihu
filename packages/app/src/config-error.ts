@@ -18,7 +18,8 @@ export class AihuConfigError extends Error {
       | 'INVALID_TYPE'
       | 'INVALID_COMPILER_TARGET'
       | 'INVALID_BUNDLER'
-      | 'REMOVED_FIELD',
+      | 'REMOVED_FIELD'
+      | 'MISSING_SHADOW_MODE',
     readonly field?: string,
   ) {
     super(message)

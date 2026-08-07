@@ -17,6 +17,22 @@ declare module 'virtual:aihu-components' {
   export default registry
 }
 
+declare module 'virtual:aihu-server-components' {
+  /**
+   * `output: 'ssr'` only. Normalized component tag → lazy loader, FLAT (no
+   * transitive `Promise.all` bundling like `virtual:aihu-components`): the
+   * consumer is `@aihu/server`'s `buildChildRegistry`, which indexes
+   * tag → MODULE and so must be able to name every module individually.
+   *
+   * Contains only the subgraph REACHABLE from the pages via
+   * `__aihu_child_tags__` render edges — not every component on disk. Generated
+   * by `@aihu/router`'s `genSC`; see its docblock for the measured difference
+   * and the accepted cycle-check trade.
+   */
+  const registry: Record<string, () => Promise<unknown>>
+  export default registry
+}
+
 /**
  * F1: runtime hook published by @aihu/app's client bootstrap (client.ts, module
  * top level) so COMPILER-EMITTED code can register a route's referenced

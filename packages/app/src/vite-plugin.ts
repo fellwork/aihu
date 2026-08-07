@@ -3,11 +3,11 @@ import { cp, writeFile as fsWriteFile, mkdir } from 'node:fs/promises'
 import { dirname, join, resolve as resolvePath } from 'node:path'
 // Build-time sub-plugin imports. These are devDependencies of @aihu/app and
 // are marked external in rolldown.config.ts — they are never bundled.
-import { aihuCompilerPlugin, compileRouteMeta } from '@aihu/compiler'
+import { _deriveChildTags, aihuCompilerPlugin, compileRouteMeta, transform } from '@aihu/compiler'
 import type { RouteDefinition } from '@aihu/router'
 import type { RouterPluginOptions } from '@aihu/router/plugin'
 import { scanPages, viteRouterIntegration } from '@aihu/router/plugin'
-import type { Plugin, PluginOption, ResolvedConfig } from 'vite'
+import type { Plugin, PluginOption, ResolvedConfig, UserConfig } from 'vite'
 import type { AdapterContext, CreateHandlerSourceOptions } from './adapter.ts'
 import type { AihuConfig } from './config.ts'
 import { validateAihuConfig } from './config.ts'
@@ -15,6 +15,43 @@ import { ENTRY_RESOLVED_ID, ENTRY_SOURCE, ENTRY_VIRTUAL_ID, injectEntryScript } 
 import { applyHeadConfig } from './head.ts'
 import { AIHU_CONFIG_PLUGIN, type AihuModuleApi, type AihuPluginApi } from './load-config.ts'
 import { prerenderClose } from './prerender.ts'
+import {
+  buildServerEntrySource,
+  SERVER_ENTRY_RESOLVED_ID,
+  SERVER_ENTRY_VIRTUAL_ID,
+} from './server-entry.ts'
+
+/**
+ * Where the `'ssr'` environment writes: a SIBLING of the client outDir, never
+ * inside it.
+ *
+ * D-2: Cloudflare's `[assets] directory` serves the client outDir verbatim, so
+ * SSR chunks written into it become publicly downloadable — server code, route
+ * modules, and anything they close over, on a public URL. The two environments
+ * need separate roots, and the server one must sit OUTSIDE the assets root.
+ *
+ * Derived from the client outDir rather than hardcoded, so a project that
+ * renames `dist` does not silently get a `dist-server` unrelated to it.
+ */
+function ssrOutDirFor(clientOutDir: string): string {
+  return `${clientOutDir.replace(/[/\\]+$/, '')}-server`
+}
+
+/** Build input name → `dist-server/_worker.js`. */
+const SSR_ENTRY_NAME = '_worker'
+
+/**
+ * Derive a `.aihu` file's server-render child tags for `genSC`.
+ *
+ * `transform` is content-addressed-memoized, so a file the build is about to
+ * compile anyway costs one spawn total, not two. `target: 'server'` is
+ * required: client/universal output carries no `__aihu_schild` call sites, so
+ * any other target silently yields an empty edge set and prunes the whole
+ * registry away.
+ */
+function deriveChildTagsForRouter(source: string, id: string): string[] {
+  return _deriveChildTags(transform(source, id, { target: 'server' }).code)
+}
 
 /** Map a pages-dir file path to a minimal RouteDefinition for adapter context. */
 function fileToRouteDefinition(filePath: string, _root: string, pagesDir: string): RouteDefinition {
@@ -172,6 +209,10 @@ export function viteAihuPlugin(config?: AihuConfig): PluginOption[] {
     compileRouteMeta: compileRouteMeta as unknown as NonNullable<
       RouterPluginOptions['compileRouteMeta']
     >,
+    // Injected the same way, for the same reason: the router keeps zero
+    // compiler dependency and `genSC` needs the compiler's ONE child-tag
+    // derivation rather than a fourth copy of the rule.
+    deriveChildTags: deriveChildTagsForRouter,
   } satisfies RouterPluginOptions
 
   // Agent readiness: opt-in only. No safe default for `name`.
@@ -246,6 +287,31 @@ export function viteAihuPlugin(config?: AihuConfig): PluginOption[] {
   // Registered unconditionally; short-circuits immediately if no adapter is set.
   let resolvedViteConfig: ResolvedConfig | null = null
 
+  /**
+   * `closeBundle` fires ONCE PER ENVIRONMENT.
+   *
+   * Under `output: 'ssr'` there are two (`client` and `ssr`), and neither the
+   * adapter hook nor the SSG prerender was guarded — both would run twice per
+   * build. For the adapter that means `adapt()` twice (a second `_worker.js`
+   * write, a second `wrangler.toml` check); for the prerender it means a whole
+   * second prerender pass over an outDir that is not even its own, since the
+   * `ssr` environment's `build.outDir` is `dist-server`.
+   *
+   * This is the one place a shipped `output: 'static'` build can regress, so it
+   * is a named helper with its own test rather than an inline condition
+   * duplicated at two call sites.
+   *
+   * `'spa'`/`'static'` builds have exactly one environment, which Vite names
+   * `client` — so the guard is a no-op there and those modes take zero new
+   * paths. `environment` is absent on pre-Environment-API Vite; treated as
+   * client (the single-environment case) rather than skipped, or the guard
+   * would silently disable the adapter on an older Vite.
+   */
+  function isClientEnvironment(ctx: { environment?: { name?: string } }): boolean {
+    const name = ctx.environment?.name
+    return name === undefined || name === 'client'
+  }
+
   const adapterPlugin: Plugin = {
     name: 'aihu-adapter',
     apply: 'build',
@@ -253,6 +319,7 @@ export function viteAihuPlugin(config?: AihuConfig): PluginOption[] {
       resolvedViteConfig = rc
     },
     async closeBundle() {
+      if (!isClientEnvironment(this)) return
       const adapter = config?.adapter
       if (!adapter || !resolvedViteConfig) return
 
@@ -284,6 +351,7 @@ export function viteAihuPlugin(config?: AihuConfig): PluginOption[] {
     // Run before the adapter's closeBundle (plugin order in the array is honored
     // for sequential closeBundle hooks).
     async closeBundle() {
+      if (!isClientEnvironment(this)) return
       if (config?.output !== 'static' || !ssgResolvedConfig) return
       try {
         await prerenderClose(ssgResolvedConfig, config, (msg) => this.warn(msg))
@@ -294,11 +362,152 @@ export function viteAihuPlugin(config?: AihuConfig): PluginOption[] {
     },
   }
 
+  // ── output: 'ssr' ─────────────────────────────────────────────────────────
+  // Everything below is gated on `output === 'ssr'`, so 'spa' and 'static'
+  // builds take zero new paths.
+  const ssrEnabled = config?.output === 'ssr'
+
+  /**
+   * Serves `virtual:aihu-server-entry` and declares the `ssr` environment.
+   *
+   * The environment declaration and the module have to live in one plugin
+   * because they are one fact: the virtual id is only reachable as a build
+   * entry through `rollupOptions.input`. `build.ssr: 'virtual:…'` fails with
+   * `[UNRESOLVED_ENTRY]` — Vite's ssr-entry path resolves against the
+   * filesystem before any plugin's `resolveId` sees it.
+   */
+  const serverEntryPlugin: Plugin = {
+    name: 'aihu-server-entry',
+    apply: 'build',
+    config(userConfig) {
+      if (!ssrEnabled) return
+      // The client outDir as this build will actually resolve it: aihu's own
+      // `vite` passthrough first (it is the value the user wrote in the aihu
+      // config), then whatever the Vite config already carries, then Vite's
+      // default.
+      const clientOutDir =
+        config?.vite?.build?.outDir ??
+        (userConfig as UserConfig | undefined)?.build?.outDir ??
+        'dist'
+      return {
+        environments: {
+          ssr: {
+            // Bundle everything. The default for an SSR environment is to
+            // EXTERNALIZE node_modules, which produces a `_worker.js` full of
+            // bare specifiers that no Worker runtime can resolve — a bundle
+            // that looks built and cannot deploy.
+            resolve: { noExternal: true },
+            build: {
+              // D-2: OUTSIDE the client outDir, always a sibling.
+              outDir: ssrOutDirFor(clientOutDir),
+              emptyOutDir: true,
+              // Workers runtimes are evergreen; the SSR default target is a
+              // Node baseline that would down-level for no reason.
+              target: 'esnext',
+              rollupOptions: {
+                input: { [SSR_ENTRY_NAME]: SERVER_ENTRY_VIRTUAL_ID },
+                output: { entryFileNames: '[name].js', format: 'es' as const },
+              },
+            },
+          },
+        },
+        builder: {
+          async buildApp(builder: {
+            environments: Record<string, unknown>
+            build(env: unknown): Promise<unknown>
+          }): Promise<void> {
+            // Client FIRST. The SSR entry does not import client chunks, but
+            // the adapter's `closeBundle` (client-only, see
+            // `isClientEnvironment`) reads the finished client outDir, and an
+            // adapter that inspects `dist-server` wants it to exist.
+            const client = builder.environments.client
+            if (client) await builder.build(client)
+            const ssr = builder.environments.ssr
+            if (ssr) await builder.build(ssr)
+          },
+        },
+      } as unknown as import('vite').UserConfig
+    },
+    resolveId(id) {
+      return id === SERVER_ENTRY_VIRTUAL_ID ? SERVER_ENTRY_RESOLVED_ID : null
+    },
+    load(id) {
+      if (id !== SERVER_ENTRY_RESOLVED_ID) return null
+      const adapter = config?.adapter
+      const wrapper = adapter?.serverEntry?.({
+        handler: 'handler',
+        config: config ?? {},
+      })
+      if (adapter && adapter.serverEntry === undefined) {
+        this.warn(
+          `[@aihu/app] output: 'ssr' with adapter '${adapter.name}', which implements no ` +
+            `serverEntry() — the server bundle exports a bare \`handler\` and carries no ` +
+            `platform wrapper, so it is not deployable as-is.`,
+        )
+      }
+      return buildServerEntrySource(wrapper)
+    },
+  }
+
+  /**
+   * D-1 — keep `node:module` out of the Worker bundle.
+   *
+   * `@aihu/server`'s `renderToString` reaches a lazy `await import('./native.js')`,
+   * and the built `native.js` statically imports `node:module` for
+   * `createRequire`. Rolldown chases the dynamic import and emits the chunk.
+   * It is UNREACHABLE at runtime here — `loader.ts` short-circuits to the TS
+   * walker whenever `children !== undefined`, which the SSR entry always passes —
+   * but it is still uploaded, and workerd rejects the module specifier at deploy
+   * time without `nodejs_compat`. A `wrangler deploy` failing on a client's
+   * clock is not an acceptable way to discover that.
+   *
+   * `enforce: 'pre'` is LOAD-BEARING. Without it Vite's own resolver claims
+   * `node:module` first (as an external builtin) and this hook never fires.
+   *
+   * The stub THROWS rather than returning a no-op `createRequire`: if the
+   * unreachable path ever became reachable, a silently-broken `require` would
+   * surface as a mystery render failure, whereas this names itself.
+   */
+  const NODE_MODULE_STUB_ID = '\0aihu:node-module-stub'
+  const nodeModuleStubPlugin: Plugin = {
+    name: 'aihu-node-module-stub',
+    apply: 'build',
+    enforce: 'pre',
+    resolveId(id) {
+      if (!ssrEnabled) return null
+      if (this.environment?.name !== 'ssr') return null
+      return id === 'node:module' || id === 'module' ? NODE_MODULE_STUB_ID : null
+    },
+    load(id) {
+      if (id !== NODE_MODULE_STUB_ID) return null
+      // NOTE: this source deliberately does NOT contain the literal string
+      // this plugin intercepts, in a comment or a message. The Worker
+      // deployability gate greps the emitted SSR bundle for that specifier, and
+      // a stub that reintroduces it as text would make the gate fail on its own
+      // fix — the "regex over emitted JS that matches a comment" failure.
+      return [
+        '// AUTO-GENERATED by @aihu/app — builtin stub for the Worker bundle.',
+        '// Reached only if the native SSR loader is invoked, which the SSR entry',
+        '// never does (it always passes `children`, and @aihu/server routes that',
+        '// to the TS walker). Throws rather than no-oping so a future change that',
+        '// DOES reach it says so instead of failing mysteriously.',
+        'export function createRequire() {',
+        "  throw new Error('[@aihu/app] the node builtin is unavailable in the SSR (Worker) bundle')",
+        '}',
+        'export default { createRequire }',
+      ].join('\n')
+    },
+  }
+
   return [
     // First: the marker plugin carrying the evaluated config on its `api`
     // handle. Position is not load-bearing for the build, but keeping it first
     // means anything scanning the array finds it immediately.
     configMarkerPlugin,
+    // `enforce: 'pre'`, so it must precede everything — including the compiler
+    // plugin, which is also 'pre'. Vite sorts by enforce and then by array
+    // order within a tier.
+    nodeModuleStubPlugin,
     // SPA mode: route components are top-level mounts that frequently use
     // lifecycle hooks (onMount/onCleanup) and rely on the runtime/signals
     // owner context regardless of whether they call signal() directly. The
@@ -329,6 +538,7 @@ export function viteAihuPlugin(config?: AihuConfig): PluginOption[] {
     headPlugin,
     ...((config?.plugins ?? []) as Plugin[]),
     passthroughPlugin,
+    serverEntryPlugin,
     ssgPlugin,
     adapterPlugin,
   ]

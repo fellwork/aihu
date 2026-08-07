@@ -79,7 +79,11 @@ describe('did-you-mean targets the mistakes people actually make', () => {
 
 describe('invalid values keep their specific error codes', () => {
   it.each([
-    [{ output: 'ssr' }, 'INVALID_OUTPUT_MODE'],
+    // `'hybrid'` (not `'ssr'`) is the invalid sample now: `'ssr'` became a
+    // real OutputMode. `'hybrid'` is the other name the old docblock listed
+    // as "tracked separately", so it is the mode a reader is most likely to
+    // reach for next and the most useful one to reject by name.
+    [{ output: 'hybrid' }, 'INVALID_OUTPUT_MODE'],
     [{ css: { shadowMode: 'closed' } }, 'INVALID_CSS_SHADOW_MODE'],
     [{ build: { bundler: 'webpack' } }, 'INVALID_BUNDLER'],
     [{ compiler: { target: 'edge' } }, 'INVALID_COMPILER_TARGET'],
@@ -90,17 +94,68 @@ describe('invalid values keep their specific error codes', () => {
   })
 
   it('reports the received value so the message is actionable', () => {
-    expect(err({ output: 'ssr' })?.message).toContain('received "ssr"')
-  })
-
-  it('phrases a two-option list as "either/or"', () => {
-    expect(err({ output: 'ssr' })?.message).toContain('either "spa" or "static"')
+    expect(err({ output: 'hybrid' })?.message).toContain('received "hybrid"')
   })
 
   it('phrases a three-option list as "one of"', () => {
+    expect(err({ output: 'hybrid' })?.message).toContain('one of "spa", "static" or "ssr"')
+  })
+
+  it('phrases a two-option list as "either/or"', () => {
+    expect(err({ css: { shadowMode: 'closed' } })?.message).toContain('either "light" or "shadow"')
+  })
+
+  it('phrases a three-option list as "one of" (compiler.target)', () => {
     expect(err({ compiler: { target: 'edge' } })?.message).toContain(
       'one of "client", "server" or "universal"',
     )
+  })
+})
+
+/**
+ * `output: 'ssr'` requires `css.shadowMode`.
+ *
+ * Not a style preference. With no shadowMode configured, a LEAF component
+ * exports no `__aihu_shadow__` (the compiler injects it only when
+ * `effectiveShadow != null`, and the implicit DA4 `'light'` default marker is
+ * emitted for `@route` units and layouts, never for leaves).
+ * `buildChildRegistry`'s `_whyUnrenderable` then rejects it, and every child
+ * reference in the server bundle renders as an empty element — byte-identical
+ * to "the registry is broken", which is the exact indistinguishability the SSR
+ * child work exists to remove.
+ *
+ * So the deliverable is a BUILD ERROR naming `css.shadowMode`, not a runtime
+ * warning: a warning in a build log is what let `apps/docs` be the only project
+ * that ever set it.
+ */
+describe("output: 'ssr' requires css.shadowMode", () => {
+  it('throws MISSING_SHADOW_MODE and names the key', () => {
+    const e = err({ output: 'ssr' })
+    expect(e?.code).toBe('MISSING_SHADOW_MODE')
+    expect(e?.field).toBe('config.css.shadowMode')
+    expect(e?.message).toContain('css.shadowMode')
+  })
+
+  it('explains the consequence, so the fix is not cargo-culted', () => {
+    expect(err({ output: 'ssr' })?.message).toContain('EMPTY element')
+  })
+
+  it.each(['light', 'shadow'] as const)("accepts output: 'ssr' with shadowMode %s", (mode) => {
+    const e = err({ output: 'ssr', css: { shadowMode: mode } })
+    expect(e).toBeNull()
+  })
+
+  it('leaves spa and static alone — they take zero new paths', () => {
+    expect(err({ output: 'spa' })).toBeNull()
+    expect(err({ output: 'static' })).toBeNull()
+    expect(err({})).toBeNull()
+  })
+
+  it('an explicitly-undefined css block is still missing, not satisfied', () => {
+    // `{ css: {} }` passes the shape validator (shadowMode is optional there),
+    // so the cross-field rule is the ONLY thing standing between this config
+    // and a silently-empty server render.
+    expect(err({ output: 'ssr', css: {} })?.code).toBe('MISSING_SHADOW_MODE')
   })
 })
 

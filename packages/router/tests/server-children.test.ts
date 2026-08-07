@@ -18,9 +18,10 @@
  * and `-vercel` wire `createRequestRouter`, not this function, and render
  * nothing at all today. Building the map on the server is §2b.
  */
-import { describe, expect, it } from 'vitest'
-import { attachSsrString } from '@aihu/server'
+
 import { __aihu_schild } from '@aihu/runtime/ssr'
+import { attachSsrString } from '@aihu/server'
+import { describe, expect, it } from 'vitest'
 import type { RouteDefinition } from '../src/index.ts'
 import { createServerRouter } from '../src/server.ts'
 

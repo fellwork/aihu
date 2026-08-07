@@ -6,6 +6,7 @@
 // See .context/fw-agent/bug2.5-node-module-leak/investigation.md.
 
 import type {
+  ChildModuleLike,
   DataProvider,
   GovernedEmission,
   GovernedRegistry,
@@ -25,7 +26,6 @@ import {
   resolveRequestPrincipal,
   validateGovernedBoot,
 } from '@aihu/server'
-import type { ChildModuleLike } from '@aihu/server'
 import type { RouteDefinition, RouteModule, Router } from './router.ts'
 import { createRouter } from './router.ts'
 
