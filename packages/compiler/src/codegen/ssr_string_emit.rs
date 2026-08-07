@@ -245,12 +245,24 @@ impl Emitter {
     /// `__opts.hydratable` (`__h`) is already runtime-driven despite being
     /// decided outside Rust. Present in BOTH variants (`self.expr`, not
     /// `self.expr_h`) — the CSS `@scope([data-a="…"])` selector must match
-    /// regardless of hydration mode. `lightScopeId` is a compiler-generated
-    /// hex string, never user data, so no escaping helper is needed.
+    /// regardless of hydration mode.
+    ///
+    /// ESCAPED, through the same helper every other attribute value goes
+    /// through. The value is USUALLY a compiler-assigned hex id (for which
+    /// `__aihu_eattr` is the identity function, so this changes no real
+    /// artifact's bytes), but it does not arrive from the compiler at render
+    /// time — it arrives on `__opts`, from `SsrOptions.lightScopeId`, which is
+    /// PUBLIC API and takes any string. Interpolating it raw was a divergence
+    /// the differential suite could not see until a fixture passed a hostile
+    /// id: the walker escapes (`escapeAttr` in `ssr.ts`) and this side did not,
+    /// so `lightScopeId: 'a"b'` produced `data-a="a"b"` here and
+    /// `data-a="a&quot;b"` there — different bytes, and the fast path's are an
+    /// attribute-injection point rather than merely wrong.
     fn root_scope_attr(&mut self, path: &P) {
         if path.base.is_none() && path.tail == "0" {
+            self.helper("__aihu_eattr");
             self.expr(
-                "(__opts.lightScopeId ? ' data-a=\"' + __opts.lightScopeId + '\"' : '')"
+                "(__opts.lightScopeId ? ' data-a=\"' + __aihu_eattr(__opts.lightScopeId) + '\"' : '')"
                     .to_string(),
             );
         }
@@ -722,8 +734,37 @@ impl Emitter {
         //     stays eligible. `_isLiteralPath` in `ssr.ts` is the walker's
         //     mirror, reconstructed from the path STRING (it rejects any `list`
         //     segment, which is what precedes every runtime key).
-        //   - not at ROOT_PATH — the root element carries the PARENT's `data-a`
-        //     stamp (`root_scope_attr`), which the host attrs here do not model.
+        //   - not at ROOT_PATH. TWO hazards live there, and only the second is
+        //     unconditional:
+        //       1. the DOUBLE STAMP — the root element carries the PARENT's
+        //          `data-a` (`root_scope_attr`), which the host attrs here do
+        //          not model, so `_ssrChildWrap` would add the CHILD's beside
+        //          it: one element, two `data-a`, which is malformed and cuts
+        //          the child's own `@scope(…) to ([data-a])` off at its first
+        //          child.
+        //       2. the PATH-SPACE COLLISION — a resolved reference is a marked
+        //          host, and arbor's `hydrate()` registers the container under
+        //          `_ROOT_PATH` and REFUSES any other value on it (that guard
+        //          exists because a marked child host was clobbering its own
+        //          key space). A marked host that itself sits at `'0'` is the
+        //          one case the guard cannot distinguish: `'0'` would name both
+        //          the parent's container and the child's host.
+        //
+        //     A STRUCTURAL template root does NOT reach this check — followups
+        //     §24. `<x-kid if={…}>` as the whole template puts the reference at
+        //     `0.conditional.true`, where neither hazard exists: the element
+        //     carries no parent stamp (`root_scope_attr` fires only for
+        //     `tail == "0"`) and its path is distinct from the container's. Both
+        //     renderers resolve it, it adopts on the client
+        //     (`runtime/tests/ssr-child-adoption.test.ts` §6), and declining it
+        //     would delete prerendered markup while stamping nothing — measured,
+        //     not assumed. What §24 actually found is that the PARENT's
+        //     `lightScopeId` reaches no element in that shape; that is a
+        //     property of the stamp's PLACEMENT, not of this gate (a plain
+        //     `<div if={…}>` root and a multi-root template lose it identically,
+        //     with no component anywhere), and `SsrOptions.wrapTag` — which puts
+        //     the stamp on the HOST, where `define-element.ts` puts it on the
+        //     client — is the placement that already answers it.
         //
         // `html={…}` deserves a note: it is a DIRECTIVE, so a reference carrying
         // it resolves the child and the html expression is never emitted. That

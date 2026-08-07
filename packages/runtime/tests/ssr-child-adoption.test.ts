@@ -735,3 +735,74 @@ describe.skipIf(!hasBinary)('shadow child whose template starts with a text node
     expect(root.textContent).toContain('LEAD')
   })
 })
+
+// ---------------------------------------------------------------------------
+// 6. A STRUCTURAL template root (followups §24)
+// ---------------------------------------------------------------------------
+
+/**
+ * `<x-kid if={…}>` as the WHOLE template puts the reference at
+ * `0.conditional.true` rather than `'0'`, so it clears the child gate's root
+ * check and BOTH renderers resolve it. §24 asked whether that is a hole that
+ * should be closed by declining there too.
+ *
+ * These fixtures are the reason it should not be: the resolved child at a
+ * structural root is not merely byte-identical across the two SERVER
+ * renderers, it ADOPTS on the client — one host, content preserved verbatim,
+ * one `data-a`. Declining would delete markup that demonstrably works, which
+ * is the empty-first-paint class the child feature exists to remove.
+ *
+ * Note what is NOT asserted: the PARENT's own `data-a`. Neither renderer
+ * stamps one in this shape (`root_scope_attr` and the walker's
+ * `path === ROOT_PATH` both fire only for a single ELEMENT root), which is
+ * §24's real finding — and the differential suite pins that the two agree on
+ * it. It is not a child-gate property: a plain `<div if={…}>` root loses the
+ * same stamp with no component anywhere. The stamp that MATTERS in the SSG
+ * pipeline is the one `SsrOptions.wrapTag` puts on the host, which is also
+ * where `define-element.ts` puts it on the client.
+ */
+describe.skipIf(!hasBinary)('a child under a STRUCTURAL template root', () => {
+  const KID = `@template {\n  <nav><span>KID-CONTENT</span></nav>\n}\n`
+  const PARENT = `@state {
+  const [on, setOn] = signal(true)
+}
+
+@template {
+  <x-ckid if={on()}></x-ckid>
+}
+`
+
+  async function fixture() {
+    const kid = await compile('x-ckid', KID)
+    const parent = await compile('x-cpar', PARENT)
+    const html = parent.__ssrString({}, { hydratable: true, children: registry(kid) })
+    return { kid, parent, html }
+  }
+
+  it('the reference really resolved at 0.conditional.true', async () => {
+    const { parent, html } = await fixture()
+    // Without this the adoption assertions below would pass over an empty
+    // element — the exact vacuity the module docblock warns about.
+    expectSchild(parent)
+    expect(html).toContain('KID-CONTENT')
+    expect(html).toContain('data-aihu-path="0.conditional.true"')
+    // The structural markers still bracket it: the host is INSIDE the
+    // conditional, not hoisted out of it.
+    expect(html.indexOf('<!--aihu:s:0-->')).toBeLessThan(html.indexOf('<x-ckid'))
+  })
+
+  it('adopts: one host, content verbatim, one data-a', async () => {
+    const { kid, parent, html } = await fixture()
+    const container = detachedFrom(html)
+    const before = container.innerHTML
+
+    hydrate(parent.__ssr, container, {})
+
+    expect(container.querySelectorAll('x-ckid')).toHaveLength(1)
+    expect(container.innerHTML).toBe(before)
+    expect(count(container.textContent ?? '', 'KID-CONTENT')).toBe(1)
+    const host = container.querySelector('x-ckid') as Element
+    expect(host.getAttribute('data-a')).toBe(kid.__aihu_light_scope__)
+    expect(count(host.outerHTML, 'data-a=')).toBe(1)
+  })
+})

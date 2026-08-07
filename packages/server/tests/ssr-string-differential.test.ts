@@ -772,6 +772,60 @@ async function expectAgreedVerdict(
   return hydratableHtml
 }
 
+/**
+ * Compile the same parent shape `expectAgreedVerdict` uses, plus the kid and
+ * its registry, without rendering — for the cases that need render options
+ * (`lightScopeId`, `wrapTag`) that the verdict helper deliberately does not take.
+ */
+async function compileParentWithKid(template: string): Promise<{
+  mod: CompiledModule
+  children: ReadonlyMap<string, unknown>
+}> {
+  const kid = await compileToModule(`skid-${boundarySeq}`, KID)
+  const children = new Map<string, unknown>([
+    ['x-kid', { ...kid.mod, __aihu_shadow__: 'light', __aihu_light_scope__: 'k1' }],
+  ])
+  const { mod } = await compileToModule(
+    `sparent-${boundarySeq++}`,
+    `@state {
+  const [on, setOn] = signal(true)
+  const items = ['a']
+}
+
+@template {
+  ${template}
+}
+`,
+  )
+  return { mod, children }
+}
+
+/**
+ * Render `template` through BOTH renderers with a light scope id set and NO
+ * `wrapTag`, i.e. the one caller shape in which the template-root stamp is the
+ * only stamp there is.
+ */
+async function renderBothWithScope(
+  template: string,
+  opts?: { scope?: string },
+): Promise<{ fast: string; walker: string }> {
+  const { mod, children } = await compileParentWithKid(template)
+  const lightScopeId = opts?.scope ?? 'PARENTSCOPE'
+  expect(typeof mod.__ssrString).toBe('function')
+  const fast = (mod.__ssrString as (p: unknown, o?: unknown) => string)(
+    {},
+    { hydratable: true, children, lightScopeId },
+  )
+  const walker = markup(
+    await renderToString(() => mod.__ssr(), {
+      hydratable: true,
+      children,
+      lightScopeId,
+    } as Parameters<typeof renderToString>[1]),
+  )
+  return { fast, walker }
+}
+
 describe.skipIf(!hasBinary)('SSR child eligibility — the boundary lines agree', () => {
   // ── boundary 1: attributes ────────────────────────────────────────────────
   //
@@ -928,8 +982,23 @@ describe.skipIf(!hasBinary)('SSR child eligibility — the boundary lines agree'
   // ── boundary 4: root position ─────────────────────────────────────────────
 
   it('a reference at ROOT_PATH declines on both', async () => {
-    // The root element carries the PARENT's `data-a` stamp, which the host
-    // attrs the helper is handed do not model.
+    // TWO independent hazards live at ROOT_PATH, and the second is the one that
+    // makes this boundary unconditional:
+    //
+    //  1. the DOUBLE STAMP. `root_scope_attr` (emitter) / `path === ROOT_PATH`
+    //     (walker) put the PARENT's `data-a` on this very element, and
+    //     `_ssrChildWrap` would add the CHILD's — one element, two `data-a`
+    //     attributes, which is malformed and cuts the child's own
+    //     `@scope(…) to ([data-a])` rules off at its first child.
+    //  2. the PATH-SPACE COLLISION. A resolved reference is a marked host, and
+    //     arbor's `hydrate()` (`_ROOT_PATH` guard, added because a marked child
+    //     host was clobbering its own key space) registers the container under
+    //     `'0'` and refuses any other value on it. A marked host that itself
+    //     sits at `'0'` is the one case that guard CANNOT distinguish: its
+    //     `data-aihu-path` equals the parent container's, so `'0'` names two
+    //     different elements in one path map.
+    //
+    // Hazard 1 is conditional on a light scope being stamped; hazard 2 is not.
     const html = await expectAgreedVerdict(`<x-kid></x-kid>`, 'declines')
     expect(html).toBe('<x-kid data-aihu-path="0"></x-kid>')
   })
@@ -938,6 +1007,97 @@ describe.skipIf(!hasBinary)('SSR child eligibility — the boundary lines agree'
     // Two boundaries at once: the body relaxation must not smuggle a root
     // reference past the root check.
     await expectAgreedVerdict(`<x-kid>\n</x-kid>`, 'declines')
+  })
+
+  // ── boundary 4b: a STRUCTURAL template root (followups §24) ───────────────
+  //
+  // `<x-kid if={…}>` as the WHOLE template puts the reference at
+  // `0.conditional.true`, not `'0'`, so it clears the root check and resolves
+  // on both renderers. §24 asked whether that is a hole — whether the child
+  // should be declined there too, because the parent's `lightScopeId` is
+  // stamped nowhere in that shape.
+  //
+  // It is not, and these fixtures are the evidence rather than the assertion:
+  // neither ROOT_PATH hazard exists at `0.conditional.true` (the element
+  // carries no parent stamp, and its path is distinct from the container's),
+  // while declining would delete markup that both renderers currently produce
+  // — the empty-first-paint class this whole feature exists to remove.
+  //
+  // The dropped parent stamp is REAL, but it is not a property of the child
+  // gate: the fixtures below show a plain `<div if={…}>` root and a multi-root
+  // template losing it identically, with no component anywhere.
+
+  it('a reference under a STRUCTURAL root resolves on both', async () => {
+    const html = await expectAgreedVerdict(`<x-kid if={on()}></x-kid>`, 'resolves')
+    expect(html).toContain('<x-kid data-aihu-path="0.conditional.true"')
+    // …and the host is the marked boundary, exactly as at any other non-root
+    // position. WHEN THIS FAILS someone has extended the root decline to
+    // structural roots (§24 option b): that trades prerendered content for no
+    // stamp, so the trade has to be argued, not made silently.
+    expect(html).toContain('data-aihu-ssr=""')
+  })
+
+  it('the parent stamp is dropped under a structural root — identically on both', async () => {
+    // §24's actual finding, pinned. The two renderers AGREE (byte-identity
+    // holds, which is why the suite never caught it), and what they agree on is
+    // that `lightScopeId` reaches no element: `root_scope_attr` and the
+    // walker's `path === ROOT_PATH` both fire only for a single ELEMENT root.
+    const { fast, walker } = await renderBothWithScope(`<x-kid if={on()}></x-kid>`)
+    expect(fast).toBe(walker)
+    expect(fast).toContain('<nav class="kid"') // the child still renders
+    expect(fast).not.toContain('data-a="PARENTSCOPE"')
+  })
+
+  it.each([
+    ['a plain conditional root', `<div if={on()}>x</div>`],
+    ['a plain each root', `<div each={x of items}>{x}</div>`],
+    ['two element roots', `<p>a</p><p>b</p>`],
+  ])('%s drops the same stamp with no component in sight', async (_name, template) => {
+    // The counterfactual for the paragraph above: if the dropped stamp were a
+    // child-gate property, these would keep it. They do not, so a change to the
+    // child gate is the wrong lever — the stamp's placement is.
+    const { fast, walker } = await renderBothWithScope(template)
+    expect(fast).toBe(walker)
+    expect(fast).not.toContain('data-a="PARENTSCOPE"')
+  })
+
+  it('wrapTag stamps the host, so the SSG shape loses nothing to a structural root', async () => {
+    // Why §24 is not urgent, measured rather than argued. `@aihu/app`'s
+    // prerender passes `lightScopeId` and `wrapTag` TOGETHER, and
+    // `renderToString` then drops `lightScopeId` from the inner opts and stamps
+    // the HOST — which is also where the client stamps it
+    // (`define-element.ts`'s connectedCallback). The template root's shape
+    // stops mattering: the stamp lands on an element that always exists.
+    const { mod, children } = await compileParentWithKid(`<x-kid if={on()}></x-kid>`)
+    for (const component of [() => mod.__ssr(), mod.default]) {
+      const html = markup(
+        await renderToString(component, {
+          hydratable: true,
+          children,
+          lightScopeId: 'PARENTSCOPE',
+          wrapTag: 'x-parent',
+        } as Parameters<typeof renderToString>[1]),
+      )
+      expect(html).toContain('<x-parent data-a="PARENTSCOPE" data-aihu-ssr="">')
+      expect(html).toContain('<nav class="kid"')
+      // The parent's stamp exactly once, and the child's exactly once — not the
+      // double stamp the root boundary exists to prevent.
+      expect(html.match(/data-a="PARENTSCOPE"/g)).toHaveLength(1)
+      expect(html.match(/data-a="k1"/g)).toHaveLength(1)
+    }
+  })
+
+  it('a hostile lightScopeId is escaped identically on both paths', async () => {
+    // `SsrOptions.lightScopeId` is public API and takes any string, while the
+    // emitter used to interpolate it RAW into `data-a="…"` where the walker
+    // escapes it. Byte divergence on the fast path, and the fast path's bytes
+    // were the malformed ones (`data-a="a"b"` — an attribute-injection point).
+    const { fast, walker } = await renderBothWithScope(`<main class="page"><h1>T</h1></main>`, {
+      scope: 'a"b&c',
+    })
+    expect(fast).toBe(walker)
+    expect(fast).toContain('data-a="a&quot;b&amp;c"')
+    expect(fast).not.toContain('data-a="a"b')
   })
 
   // ── boundary 5: the registry ──────────────────────────────────────────────

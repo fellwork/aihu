@@ -945,8 +945,24 @@ async function renderNodeAsync(
     // children (slot projection is unimplemented), no attrs (attributes at a
     // reference site are the child's props, and rendering with defaults while
     // the client renders with real values is a hydration mismatch), a literal
-    // path (see `_isLiteralPath`), and not at ROOT_PATH (which carries the
-    // parent's `data-a` stamp, already folded into `attrStr` above).
+    // path (see `_isLiteralPath`), and not at ROOT_PATH.
+    //
+    // ROOT_PATH carries TWO hazards, and only the second is unconditional: the
+    // parent's `data-a` stamp is already folded into `attrStr` above, so a
+    // resolved child would carry a SECOND one from `_ssrChildWrap`; and a
+    // resolved reference is a marked host, while arbor's `hydrate()` registers
+    // its container under `_ROOT_PATH` and refuses any other value on it — a
+    // marked host that itself sits at `'0'` is the one case that guard cannot
+    // distinguish, so `'0'` would name two elements in one path map.
+    //
+    // A STRUCTURAL template root does not reach this check (followups §24):
+    // `<x-kid if={…}>` as the whole template resolves at `0.conditional.true`,
+    // where neither hazard exists, and both renderers agree. The parent's
+    // `lightScopeId` reaching no element in that shape is real but is a
+    // property of the stamp's PLACEMENT, not of this gate — a plain
+    // `<div if={…}>` root loses it identically with no component anywhere, and
+    // `wrapTag` (the stamp on the HOST, where the client puts it) is what
+    // answers it. Fixtures: `ssr-string-differential.test.ts` boundary 4b.
     //
     // "Mirror" is the strongest word available: the two gates read DIFFERENT
     // inputs — Rust over the raw template AST, this over the lowered node — and

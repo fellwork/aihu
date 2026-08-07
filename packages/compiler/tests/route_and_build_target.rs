@@ -790,9 +790,18 @@ fn component_reference_compiles_to_a_child_render_call() {
     );
     // The helper import rides the same channel as every other SSR helper —
     // the server-only subpath, so these bytes never enter a client bundle.
+    // Matched on the LINE rather than an exact string: the import names every
+    // helper the emitted body uses, in sorted order, and a component with a
+    // root element always also imports `__aihu_eattr` (the root `data-a` stamp
+    // escapes through it). Pinning the whole line made this test fail on a
+    // change to an unrelated helper.
+    let helper_import = js
+        .lines()
+        .find(|l| l.contains("from '@aihu/runtime/ssr'") && l.starts_with("import"))
+        .unwrap_or_else(|| panic!("helper import missing:\n{js}"));
     assert!(
-        js.contains("import { __aihu_schild } from '@aihu/runtime/ssr'"),
-        "helper import missing:\n{js}"
+        helper_import.contains("__aihu_schild"),
+        "child helper not imported, got: {helper_import}"
     );
 }
 
