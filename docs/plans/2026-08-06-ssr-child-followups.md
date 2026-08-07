@@ -347,3 +347,27 @@ suite covers, so no test could have caught it. It surfaced only by re-running
 the real build and comparing observed output against a recorded baseline. That
 step belongs after every correction, not just at the end — a green suite proves
 nothing about behaviour the fix newly makes reachable.
+
+
+---
+
+## 23. Symlink containment is implemented but UNTESTED
+
+`discoverComponents`'s realpath containment (§14) has no test that exercises it.
+A review reverted the check to `if (true)` and the whole suite stayed green.
+
+I then wrote one, and it was vacuous: in the vitest fixture the symlinked module
+is never discovered at all, so the test passed against the pre-fix code too and
+could not distinguish "containment excluded it" from "discovery never saw it". A
+standalone probe under bun DOES traverse a symlinked directory
+(`readdir({recursive:true})` returns the file with a correct `parentPath`), so
+the hazard is real and something about the fixture differs — temp-dir realpath
+resolution is the likely candidate and was not run to ground.
+
+Rather than ship a green test that asserts a security property it does not
+exercise, the test was removed and this recorded. A real one needs a fixture
+where discovery PROVABLY traverses the link — assert that the out-of-tree module
+is discovered-then-excluded, not merely absent.
+
+This is the highest-value untested item remaining: every discovered file is
+compiled and EVALUATED by Vite at build time.

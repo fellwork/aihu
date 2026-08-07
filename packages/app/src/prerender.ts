@@ -639,7 +639,7 @@ export async function runPrerender(opts: RunPrerenderOptions): Promise<Prerender
     routePattern: string,
     concretePath: string,
   ): Promise<string | null> => {
-    const cacheKey = `${name} ${concretePath}`
+    const cacheKey = `${name}\u0000${concretePath}`
     const cached = layoutShellCache.get(cacheKey)
     if (cached !== undefined) return cached
     let shell: string | null = null

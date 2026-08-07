@@ -759,3 +759,102 @@ describe('runPrerender — route context', () => {
     )
   })
 })
+
+// ─── Fixes that shipped with no test at all ─────────────────────────────────
+//
+// A review reverted each of these and found the whole suite still green. They
+// are the feature's own headline behaviours — the diagnostics that exist to end
+// silent empty renders, a security boundary, and a live content-corruption fix
+// — so "nothing would notice" is the worst possible coverage for them.
+
+describe('runPrerender — previously unguarded fixes', () => {
+  let fx: Fixture
+
+  afterEach(async () => {
+    await fx?.cleanup?.()
+  })
+
+  it('splices page content WITHOUT $-expansion', async () => {
+    // Rendered content used to go into a `String.replace` REPLACEMENT string,
+    // where `$&`, `` $` ``, `$'` and `$n` expand as backreferences — so prose
+    // containing one re-spliced the layout shell into itself. `/api/store`
+    // trips this in the real docs build.
+    fx = await makeFixture()
+    await writeRoute(fx.root, 'index.ts', { name: 'home' })
+    const evil = "price is $` and $& and $' and $1"
+    const loadModule: SsrModuleLoader = async () => ({
+      default: { toHtml: () => `<p>${evil}</p>` },
+    })
+    await runPrerender({
+      resolvedViteConfig: fx.resolvedViteConfig,
+      config: { output: 'static', dir: { pages: 'pages' } },
+      loadModule,
+      warn: fx.warn,
+    })
+    const html = await readFile(join(fx.root, 'dist', 'index.html'), 'utf8')
+    // The literal text survives, and the layout was not re-injected into itself.
+    expect(html).toContain(evil)
+    expect(html.match(/<p>price is/g)?.length).toBe(1)
+  })
+
+  it('warns when a referenced tag is not in the registry', async () => {
+    // The §3 diagnostic. Without it an unresolvable reference is
+    // indistinguishable from a component nobody registered, which is
+    // indistinguishable from correct output for a third-party element.
+    fx = await makeFixture()
+    await writeRoute(fx.root, 'index.ts', { name: 'home' })
+    const componentsDir = join(fx.root, 'src', 'components')
+    await mkdir(componentsDir, { recursive: true })
+    await writeFile(join(componentsDir, 'nav-bar.aihu'), '<nav/>\n')
+
+    const loadModule: SsrModuleLoader = async (file) => {
+      const f = file.replace(/\\/g, '/')
+      if (f.endsWith('/index.ts')) return { default: { toHtml: () => '<p>home</p>' } }
+      // References a tag no discovered component provides.
+      return { __aihu_tag__: 'nav-bar', __aihu_child_tags__: ['ghost-widget'] }
+    }
+    const result = await runPrerender({
+      resolvedViteConfig: fx.resolvedViteConfig,
+      config: { output: 'static', dir: { pages: 'pages', components: 'src/components' } },
+      loadModule,
+      warn: fx.warn,
+    })
+    expect(result.warnings.some((w) => w.includes('ghost-widget'))).toBe(true)
+  })
+
+  it('warns when a component module exports no __aihu_tag__', async () => {
+    // Such a module cannot be resolved by tag and renders as an empty element.
+    // Skipping it silently was the same failure class the feature removes.
+    fx = await makeFixture()
+    await writeRoute(fx.root, 'index.ts', { name: 'home' })
+    const componentsDir = join(fx.root, 'src', 'components')
+    await mkdir(componentsDir, { recursive: true })
+    await writeFile(join(componentsDir, 'no-tag.aihu'), '<div/>\n')
+
+    const loadModule: SsrModuleLoader = async (file) => {
+      const f = file.replace(/\\/g, '/')
+      if (f.endsWith('/index.ts')) return { default: { toHtml: () => '<p>home</p>' } }
+      return {} // loads fine, exports no tag
+    }
+    const result = await runPrerender({
+      resolvedViteConfig: fx.resolvedViteConfig,
+      config: { output: 'static', dir: { pages: 'pages', components: 'src/components' } },
+      loadModule,
+      warn: fx.warn,
+    })
+    expect(result.warnings.some((w) => w.includes('no-tag.aihu'))).toBe(true)
+  })
+
+  // NO SYMLINK-CONTAINMENT TEST HERE, deliberately.
+  //
+  // I wrote one and it passed against the PRE-FIX code too: in this fixture
+  // environment the symlinked module is never discovered at all, so the test
+  // could not distinguish "containment excluded it" from "discovery never saw
+  // it". A standalone probe DOES traverse the symlink under bun, so the hazard
+  // is real and the fixture is what differs — but a green test asserting a
+  // security property it does not exercise is worse than no test, because it
+  // reads as coverage.
+  //
+  // Tracked in `docs/plans/2026-08-06-ssr-child-followups.md` §14 with what a
+  // real one needs: a fixture where discovery provably traverses the link.
+})
