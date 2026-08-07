@@ -429,6 +429,66 @@ not urgent. Worth fixing when someone next touches the root-stamp logic: either
 stamp the structural root's first rendered element, or decline the child at any
 path whose ROOT segment is structural.
 
+### §24 RULED (2026-08-07): neither. The boundary stays where it is.
+
+Both options were implemented and measured rather than argued.
+
+**(b) — decline at a structural root — is a strict loss.** Landed in both
+renderers and run: byte-identity held (65/68, and *zero* identity failures),
+but all three failures were content-presence. The child's subtree leaves the
+prerendered document and fills in on chunk load — the #754 class this feature
+exists to remove. It stamps nothing in exchange: `root_scope_attr` fires only
+at `path.tail == "0"`, so the element at `0.conditional.true` never carried a
+parent stamp for the decline to protect. **The premise was false.**
+
+**(a) — stamp the structural root's first element — is not a path function.**
+The current stamp is symmetric precisely because it is a pure function of the
+path, computed identically on both sides. "First rendered element" is not:
+`structural_list` emits the each body ONCE inside a JS `for` loop, so a
+compile-time stamp stamps every item; `emit_if_block` lowers to N sibling
+`when()` nodes, so independent siblings (`<x if={p}/><y if={q}/>`) would both
+stamp — the double-stamp hazard the boundary exists to prevent. Expressing it
+requires a mutable runtime flag mirrored across both renderers, which is the
+invisible cross-renderer state channel §6 records as the worst failure class,
+bought for a fix that is partial anyway (a false condition with no else, or an
+empty each, renders no element and gets no stamp).
+
+And the placement is wrong to begin with. `define-element.ts`'s
+`connectedCallback` stamps the HOST, never a template element. (a)'s correct
+form is "stamp the host" — which `SsrOptions.wrapTag` already implements.
+
+**§24's stated consequence does not occur in the pipeline that ships.**
+`prerender.ts` passes `lightScopeId` and `wrapTag` TOGETHER (`:856`, `:1014`),
+and `renderToString` drops `lightScopeId` from the inner opts whenever
+`wrapTag` is set (`ssr.ts:1553-1560`), so the template-root stamp never fires
+under SSG for any root shape. The residual is a caller passing `lightScopeId`
+WITHOUT `wrapTag` — no in-repo caller, but public API — and in that shape a
+plain `<div if={…}>` root and a multi-root template lose the stamp identically,
+with no component anywhere. It is a stamp-PLACEMENT property, not a child-gate
+property, so the child gate was the wrong lever.
+
+**The ROOT_PATH rationale was also wrong, and that error is what generated
+§24.** The real hazard is not only the double stamp (conditional on a stamp
+existing) but a path-space collision that is unconditional: a resolved
+reference is a marked host, and `hydrate()` registers the container under
+`_ROOT_PATH` and refuses any other value on it, so a marked host at `'0'` is
+the one case that guard cannot distinguish. Corrected in both halves.
+
+**Adjacent divergence found and fixed while probing this:** `lightScopeId` was
+interpolated RAW by the emitter where the walker uses `escapeAttr`. It arrives
+from public `SsrOptions.lightScopeId`, so `lightScopeId: 'a"b&c'` produced
+`data-a="a"b&c"` on the fast path and `data-a="a&quot;b&amp;c"` on the walker —
+a byte divergence whose fast-path side is an attribute-injection point. The
+differential suite was structurally blind to it: every fixture passed a
+compiler-generated hex id, for which the escape is the identity function.
+
+**Left open, filed not fixed:** the ROOT_PATH decline fires unconditionally,
+but hazard 1 is conditional and under SSG never applies, so a page whose whole
+template is one component reference prerenders empty for a reason that does not
+apply to it. Relaxing to `path !== ROOT_PATH || !lightScopeId` is expressible
+symmetrically, but hazard 2 still bites — it needs an arbor-side change to
+`hydrate()`'s `_ROOT_PATH` guard and arbor-side coverage.
+
 
 ---
 
