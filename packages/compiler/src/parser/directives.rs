@@ -249,6 +249,94 @@ fn dollar_attr_retired(rest: &str) -> CompileError {
     }
 }
 
+/// C310 (§13 layer 1) — the characters an attribute NAME may never contain.
+///
+/// Deliberately a NARROW alphabet, not the HTML name production. Every
+/// character here already means something else where an attribute name is
+/// serialized, so a name carrying one does not render as written under ANY
+/// renderer:
+///
+/// - `/` — `<span data-x/onload="alert(1)">` is TWO attributes to an HTML
+///   parser (`data-x` and a live `onload` handler), which is the whole reason
+///   this check exists. `serializeAttrs` and `__aihu_sattr` escape attribute
+///   VALUES, never keys, and child SSR now carries whatever the template said
+///   straight into a prerendered page.
+/// - `"` / `'` — close the surrounding quoted value and start a new attribute.
+/// - `<` — a parse error in the attribute-name state; browsers recover in ways
+///   that differ from what was written.
+/// - backtick — IE-era attribute-value delimiter; still a documented
+///   markup-injection vector in sanitizer literature.
+/// - `=` — starts the value. Unreachable today (`split_attr` cuts at the first
+///   `=`, so a name never contains one) and kept as a stated invariant: if that
+///   split ever changes, the rule should not have to be rediscovered.
+/// - control characters — invisible; a name containing one cannot be what the
+///   author meant, and `\n`/`\r` can restructure the serialized tag.
+///
+/// NOT enforced here, on purpose: the full attribute-name production. Unicode
+/// policing and spec-complete strictness are where a WRONG production breaks
+/// real, working templates, and that tier can only ever land as a warning.
+/// Templates that trip THIS rule were already broken — silently, and in the
+/// direction of executing script.
+const FORBIDDEN_ATTR_NAME_CHARS: &[char] = &['/', '"', '\'', '<', '=', '`'];
+
+/// Reject an attribute name that cannot serialize as written. See
+/// `FORBIDDEN_ATTR_NAME_CHARS` for why each character is on the list.
+///
+/// Applied to the RAW name, before any prefix dispatch, so every spelling is
+/// covered by one rule: plain attributes, `attr:` escape-hatch names, and the
+/// `on:` / `bind:` / `class:` suffixes alike. `@` and `:` are absent from the
+/// list precisely so the legacy-alias diagnostics below (C304/C305) keep
+/// reporting their own, more useful messages.
+fn validate_attr_name(name: &str, raw: &str) -> Result<(), CompileError> {
+    let bad = name
+        .chars()
+        .find(|c| FORBIDDEN_ATTR_NAME_CHARS.contains(c) || c.is_control());
+    let Some(bad) = bad else {
+        if name.is_empty() {
+            return Err(CompileError {
+                message: format!(
+                    "C310: attribute with an empty name (`{}`) — there is nothing to \
+                     serialize, and an HTML parser reads the `=` as the start of a name.",
+                    raw
+                ),
+                line: 0,
+                col: 0,
+                code: Some("C310".to_string()),
+                hint: Some("an attribute needs a name before its `=`".to_string()),
+                from: Some(raw.to_string()),
+                ..Default::default()
+            });
+        }
+        return Ok(());
+    };
+    let shown = if bad.is_control() {
+        format!("U+{:04X}", bad as u32)
+    } else {
+        format!("`{}`", bad)
+    };
+    Err(CompileError {
+        message: format!(
+            "C310: attribute name `{}` contains {} — attribute names are serialized \
+             VERBATIM (only values are escaped), so this does not render as written. \
+             `<span data-x/onload=\"…\">` is two attributes to an HTML parser, the \
+             second a live event handler.",
+            name, shown
+        ),
+        line: 0,
+        col: 0,
+        code: Some("C310".to_string()),
+        hint: Some(
+            "attribute names may not contain `/`, `\"`, `'`, `<`, `=`, a backtick, or a \
+             control character — each of those already means something else where the \
+             name is serialized"
+                .to_string(),
+        ),
+        fix: Some("remove the character, or split this into two separate attributes".to_string()),
+        from: Some(raw.to_string()),
+        ..Default::default()
+    })
+}
+
 pub fn parse_attr(raw: &str, is_html_element: bool) -> Result<Attr, CompileError> {
     // C606/C607 — the `$` attribute layer is retired (grammar v2).
     if let Some(rest) = raw.strip_prefix('$') {
@@ -256,6 +344,11 @@ pub fn parse_attr(raw: &str, is_html_element: bool) -> Result<Attr, CompileError
     }
 
     let (name, raw_value) = split_attr(raw);
+
+    // §13 layer 1 — the name has to be a name. Before every prefix dispatch
+    // below, so `attr:`'s literal-name escape hatch and the `on:`/`bind:`/
+    // `class:` suffixes are covered by the same rule as a plain attribute.
+    validate_attr_name(name, raw)?;
 
     // Event binding: @event="handler" — REMOVED (C305).
     // Migration: `on:<event>={fn}` colon directive.
