@@ -124,3 +124,88 @@ describe('cycle reporting', () => {
     expect(reg.has('a-one')).toBe(true)
   })
 })
+
+describe('modules that can never render (§4)', () => {
+  // `__aihu_schild` fails closed on these AT RENDER TIME and emits the bare
+  // element — byte-identical to a tag nobody registered. So "my footer is
+  // broken" and "my footer does not exist" produced the same page and the same
+  // silence. The information to tell them apart is a property read, available
+  // here, at build time.
+  const warnings = (comps: DiscoveredComponent[]): string[] => {
+    const out: string[] = []
+    buildChildRegistry(comps, (m) => out.push(m))
+    return out
+  }
+
+  it('says nothing about a module that renders', () => {
+    expect(warnings([comp('site-header')])).toEqual([])
+  })
+
+  it('warns when the string emitter bailed (no __ssrString)', () => {
+    const w = warnings([{ tag: 'site-header', module: { __aihu_shadow__: 'light' } }])
+    expect(w).toHaveLength(1)
+    expect(w[0]!).toContain('site-header')
+    expect(w[0]!).toContain('__ssrString')
+  })
+
+  it('warns when the module declares no DOM mode', () => {
+    const w = warnings([{ tag: 'site-header', module: { __ssrString: () => '' } }])
+    expect(w).toHaveLength(1)
+    expect(w[0]!).toContain('site-header')
+    expect(w[0]!).toContain('__aihu_shadow__')
+  })
+
+  it('names the two causes DIFFERENTLY — the fixes are different', () => {
+    // A missing renderer is a template shape the emitter declined; a missing
+    // DOM mode means the module never went through the server target's plugin
+    // path at all. Same symptom, unrelated actions.
+    const noRender = warnings([{ tag: 'a-one', module: { __aihu_shadow__: 'light' } }])[0]!
+    const noMode = warnings([{ tag: 'a-one', module: { __ssrString: () => '' } }])[0]!
+    expect(noRender).not.toBe(noMode)
+  })
+
+  it('rejects a bogus DOM mode, not just a missing one', () => {
+    const w = warnings([
+      {
+        tag: 'site-header',
+        module: { __ssrString: () => '', __aihu_shadow__: 'open' as unknown as 'light' },
+      },
+    ])
+    expect(w).toHaveLength(1)
+    expect(w[0]!).toContain('"open"')
+  })
+
+  it('REGISTERS the module anyway — a diagnostic, not a rejection', () => {
+    // Same disposition as the cycle report above. The tag claim is still real
+    // (it still collides, it still contributes cycle edges), the page still
+    // renders, and the element still upgrades on the client.
+    const reg = buildChildRegistry([{ tag: 'site-header', module: { __aihu_shadow__: 'light' } }])
+    expect(reg.has('site-header')).toBe(true)
+  })
+
+  it('the warned-about module DOES render empty — the claim, verified', async () => {
+    // Ties the diagnostic to the behaviour it describes, so the message cannot
+    // outlive the failure mode it names.
+    const { __aihu_schild } = await import('@aihu/runtime/ssr')
+    const warn: string[] = []
+    const reg = buildChildRegistry(
+      [{ tag: 'site-header', module: { __aihu_shadow__: 'light' } }],
+      (m) => warn.push(m),
+    )
+    expect(warn).toHaveLength(1)
+    expect(__aihu_schild('site-header', '', { hydratable: true, children: reg })).toBe(
+      '<site-header></site-header>',
+    )
+  })
+
+  it('warns once per tag, not once per reference', () => {
+    // Registry-BUILD time, which is once. The alternative — reporting at render
+    // time — is once per reference site on every page.
+    const mod = { __aihu_shadow__: 'light' as const }
+    const w = warnings([
+      { tag: 'a-one', module: mod },
+      { tag: 'a-one', module: mod },
+    ])
+    expect(w).toHaveLength(1)
+  })
+})

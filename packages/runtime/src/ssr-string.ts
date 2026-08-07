@@ -50,16 +50,140 @@ export const __aihu_stext0 = (v: unknown): string => (v == null ? '' : escText(S
 export const __aihu_eattr = (v: unknown): string =>
   String(v).replace(/&/g, '&amp;').replace(/"/g, '&quot;')
 
+// ---------------------------------------------------------------------------
+// Attribute NAME validation — the serialization-layer half of §13.
+// ---------------------------------------------------------------------------
+
+/**
+ * Characters that cannot appear in a serialized attribute name.
+ *
+ * Deliberately NARROW, and the narrowness is the point. This is not an attempt
+ * at the HTML custom-attribute name production, and it does not police unicode:
+ * every character here is one that a real browser's tokenizer ALREADY resolves
+ * into something other than the attribute the author wrote, so a template
+ * containing one was already broken — silently — before this rejected it.
+ *
+ *   - `\t \n \f \r` and space END the attribute-name state, so `data-x/onload`
+ *     … `data-x onload="alert(1)"` is two attributes, the second an event
+ *     handler. This is the injection §13 reports.
+ *   - `/` and `>` end the TAG (`before-attribute-name` / `tag-open` states), so
+ *     everything after them is markup, not a name.
+ *   - `=` ends the name and starts the value.
+ *   - `"`, `'`, `<` and `` ` `` are the tokenizer's
+ *     `unexpected-character-in-attribute-name` set — they parse, but into a
+ *     name no author meant, and `` ` `` in particular is how IE-era value
+ *     confusion was smuggled past naive escapers.
+ *   - C0/DEL control characters: NUL is replaced with U+FFFD, the rest are
+ *     parse errors, and none survive a round trip.
+ *
+ * NOT rejected: `:` (`xlink:href`, `xml:lang`), `.`, `@`, `#`, `$`, `[`, `]`,
+ * `(`, `)`, `,` and everything non-ASCII. Those serialize and re-parse as the
+ * same name, so rejecting them would fail real templates to no security end —
+ * which is the failure mode the "narrow alphabet" ruling exists to prevent.
+ *
+ * A deliberate SUPERSET of the parser's `FORBIDDEN_ATTR_NAME_CHARS` (C310),
+ * which omits space and `>` because its tokenizer already ends a name at
+ * either, so a parsed name can never hold one. Nothing guarantees that here:
+ * this layer exists precisely for keys the parser never saw — computed at
+ * runtime, hand-built into an arbor tree, or compiled elsewhere — and a space
+ * is the canonical injection. The two layers may never diverge the other way:
+ * anything the parser rejects must also be rejected here, or a template the
+ * compiler refused would serialize through a different route.
+ *
+ * A CHAR-CODE scan rather than a regex, for two reasons that agree: a character
+ * class spanning C0 has to contain literal control bytes, which biome's
+ * `noControlCharactersInRegex` rejects and which are invisible in a diff (one
+ * draft of this file silently embedded a NUL and turned the whole module into
+ * something `grep` treated as binary); and the ranges read as what they are.
+ */
+const isBadAttrNameChar = (c: number): boolean =>
+  c <= 0x20 || // every C0 control, and space
+  c === 0x7f || // DEL
+  c === 0x22 || // "
+  c === 0x27 || // '
+  c === 0x2f || // /
+  c === 0x3c || // <
+  c === 0x3d || // =
+  c === 0x3e || // >
+  c === 0x60 // `
+
+/** Does any character of `k` end the attribute-name state in a real parser? */
+const hasBadAttrNameChar = (k: string): boolean => {
+  for (let i = 0; i < k.length; i++) {
+    if (isBadAttrNameChar(k.charCodeAt(i))) return true
+  }
+  return false
+}
+
+/**
+ * Warn-once ledger for rejected attribute names.
+ *
+ * On `globalThis` for the reason `ssr-lifecycle.ts` documents at length:
+ * `@aihu/server` INLINES this module into its own `dist`, so a module-scoped
+ * `Set` exists twice and the walker's rejections would never dedupe against the
+ * string renderer's. One cell, one warning per distinct name per process.
+ */
+const REPORTED_KEY = Symbol.for('aihu.ssr.invalidAttrNames')
+interface ReportedHolder {
+  [REPORTED_KEY]?: Set<string>
+}
+
+/**
+ * Is `k` safe to serialize as an attribute name? Rejections are DROPPED, not
+ * thrown, and reported once each.
+ *
+ * Drop-and-warn rather than throw, because that is what every other malformed
+ * input on this path already does: `__aihu_sattr` returns `''` for a function
+ * value, `serializeAttrs` skips it, `__aihu_schild` fails closed to the bare
+ * element on a module it cannot render, `buildChildRegistry` warns on a
+ * duplicate tag and keeps going, `_buildStateScript` swallows a throwing
+ * serializer. A server render that throws takes down a whole page (or a whole
+ * prerender) over one attribute; a render that drops the attribute produces
+ * exactly the markup a browser would have produced for the SAFE half of that
+ * name, minus the injection — degraded, finite, and reported.
+ *
+ * It is also the only choice compatible with byte-identity: the walker and the
+ * compiled string renderer both call this, so both drop the same keys. A throw
+ * would have to be thrown identically from two different call stacks.
+ */
+export const _isSerializableAttrName = (k: string): boolean => {
+  if (k.length > 0 && !hasBadAttrNameChar(k)) return true
+  const g = globalThis as ReportedHolder
+  const seen = (g[REPORTED_KEY] ??= new Set<string>())
+  if (!seen.has(k)) {
+    seen.add(k)
+    console.error(
+      `[aihu] SSR dropped the attribute name ${JSON.stringify(k)}: ` +
+        (k.length === 0
+          ? 'an attribute with no name cannot be serialized at all.'
+          : 'it contains a character a browser parses as ENDING the name — whitespace, ' +
+            'or one of / > = " \' < ` — or a control character. Left in place it becomes a ' +
+            'DIFFERENT attribute in the page: `data-x/onload="…"` parses as an onload ' +
+            'handler, not a data attribute.') +
+        ' Rename it to something a browser reads back unchanged.',
+    )
+  }
+  return false
+}
+
 /**
  * One serialized attribute (` k="v"` / ` k` / nothing), mirroring the
  * walker's `serializeAttrs` value rules for a RESOLVED value: functions
  * (event handlers) never serialize, `true` renders the bare attribute,
  * `false`/`undefined` render nothing, everything else stringifies escaped.
+ *
+ * The NAME is validated here as well as in the parser, and the redundancy is
+ * deliberate: the parser covers authored templates, this covers everything that
+ * reaches serialization by another route — a runtime-computed key, a hand-built
+ * arbor tree, a third-party component compiled elsewhere, and (new with child
+ * SSR) any of those carried into a prerendered page by a module the app merely
+ * references.
  */
 export const __aihu_sattr = (k: string, v: unknown): string => {
   if (typeof v === 'function') return ''
-  if (v === true) return ` ${k}`
+  if (v === true) return _isSerializableAttrName(k) ? ` ${k}` : ''
   if (v === false || v === undefined) return ''
+  if (!_isSerializableAttrName(k)) return ''
   return ` ${k}="${__aihu_eattr(v)}"`
 }
 
@@ -88,6 +212,19 @@ export const __aihu_cpath = (p: string): string => p.replace(/-/g, '_')
 export interface SsrChildModule {
   /** The compiled string renderer, `__ssrString(props, opts)`. */
   readonly __ssrString?: (props: unknown, opts?: SsrChildRenderOpts) => string
+  /**
+   * The module's default export — the host-less `__ssr` factory the server
+   * target emits (`export default __ssr`), which builds an arbor tree from a
+   * setup run with empty props.
+   *
+   * Declared here purely so `@aihu/server`'s walker can reach it under
+   * `AIHU_SSR_STRING=0`, where the point is NOT to use the compiled string
+   * renderer. Nothing in this module calls it — it is synchronous to build but
+   * the walk over its result is async, and everything here is synchronous by
+   * construction. `unknown` rather than a factory type because that is all this
+   * module can honestly assert about it.
+   */
+  readonly default?: unknown
   /** `__aihu_light_scope__` — the compiler-assigned light-DOM scope id. */
   readonly __aihu_light_scope__?: string
   /**
@@ -172,7 +309,8 @@ export interface SsrChildRenderOpts {
  * than throwing) keeps a prerender from being taken down by one bad subtree —
  * the failure degrades to today's empty-shell behaviour.
  */
-const MAX_CHILD_DEPTH = 32
+export const _MAX_CHILD_DEPTH = 32
+const MAX_CHILD_DEPTH = _MAX_CHILD_DEPTH
 
 const hydratableOf = (o?: { hydratable?: boolean }): boolean => o?.hydratable ?? false
 
@@ -182,7 +320,8 @@ const hydratableOf = (o?: { hydratable?: boolean }): boolean => o?.hydratable ??
  * enough that a pathological graph fails in milliseconds instead of exhausting
  * memory.
  */
-const MAX_CHILD_BYTES = 8 * 1024 * 1024
+export const _MAX_CHILD_BYTES = 8 * 1024 * 1024
+const MAX_CHILD_BYTES = _MAX_CHILD_BYTES
 
 /**
  * Make CSS safe as `<style>` RAW TEXT.
@@ -208,6 +347,14 @@ const escapeStyleText = (css: string): string => css.replace(/<\//g, '<\\/')
  * tree walker calls it from its branch arm, so the two paths cannot drift in
  * capability the way they previously could in bytes. Both DOM modes are handled
  * here, together, for the same reason.
+ *
+ * ONE exception, and it is narrow by construction: under `AIHU_SSR_STRING=0`
+ * the walker renders a child's INNER tree itself rather than calling
+ * `mod.__ssrString`, because otherwise the escape hatch — the documented way to
+ * ask "is the fast path lying to me?" — stopped working below the top level.
+ * That path still produces the host SHELL through `_ssrChildWrap` below, the
+ * same function this one ends with, and its eligibility is a strict subset of
+ * the gate here, so the hatch changes the engine and never the bytes.
  *
  * FAIL-CLOSED, three ways — each returns byte-identical output to the
  * pre-child-resolution renderer, so a site that supplies no registry, or an
@@ -240,8 +387,9 @@ export const __aihu_schild = (
   // handed to us by a malformed registry rather than by the template.
   if (!tag.includes('-')) return bare
   const mod = opts?.children?.get(tag)
-  const render = mod?.__ssrString
-  const shadow = mod?.__aihu_shadow__
+  if (mod === undefined) return bare
+  const render = mod.__ssrString
+  const shadow = mod.__aihu_shadow__
   if (typeof render !== 'function' || (shadow !== 'light' && shadow !== 'shadow')) return bare
 
   const depth = opts?.__depth ?? 0
@@ -343,14 +491,41 @@ export const __aihu_schild = (
     return bare
   }
 
+  return _ssrChildWrap(tag, attrsHtml, mod, inner, hydratable)
+}
+
+/**
+ * Wrap a child's rendered INNER markup in its host element.
+ *
+ * Split out of `__aihu_schild` so the escape-hatch path in `@aihu/server` can
+ * reuse it. Under `AIHU_SSR_STRING=0` the walker renders a child's inner tree
+ * ITSELF rather than calling the child's compiled `__ssrString`, but the shell
+ * around that tree — the `data-a` stamp, the adoption marker, the declarative
+ * shadow root and its inlined `<style>` — must be produced by the same code in
+ * both cases or the hatch would change the markup instead of only the engine.
+ *
+ * Pure, and deliberately so: `@aihu/server` inlines this module into its own
+ * `dist`, so this function exists twice at runtime. A pure function duplicated
+ * is two copies of one behaviour; anything holding state would be two states
+ * (see `ssr-lifecycle.ts`).
+ *
+ * @internal
+ */
+export const _ssrChildWrap = (
+  tag: string,
+  attrsHtml: string,
+  mod: SsrChildModule,
+  inner: string,
+  hydratable: boolean,
+): string => {
   // `data-aihu-ssr` is the adoption marker AND arbor's hydration path boundary
   // (each wrapped render restarts `data-aihu-path` at ROOT_PATH). Hydratable
   // renders only — like the path markers it is a property of the DESTINATION,
   // so terminal output carries no adoption bytes.
   const adopt = hydratable ? ' data-aihu-ssr=""' : ''
 
-  if (shadow === 'light') {
-    const scope = mod?.__aihu_light_scope__
+  if (mod.__aihu_shadow__ === 'light') {
+    const scope = mod.__aihu_light_scope__
     const scopeAttr = scope !== undefined ? ` data-a="${__aihu_eattr(scope)}"` : ''
     return `<${tag}${attrsHtml}${scopeAttr}${adopt}>${inner}</${tag}>`
   }
@@ -368,10 +543,11 @@ export const __aihu_schild = (
   // stacking wrong and pushing LCP below the fold. Emitting the tree without
   // the styles would trade an empty header for a broken one.
   // Type-guarded, not just truthy: a malformed module whose `__aihu_css__` is
-  // not a string would throw `css.replace is not a function` HERE — outside the
-  // try/catch above — and take the whole page down. Every other failure in this
-  // function degrades to the bare element; this one escaped that contract.
-  const css = typeof mod?.__aihu_css__ === 'string' ? mod.__aihu_css__ : ''
+  // not a string would throw `css.replace is not a function` — and, in
+  // `__aihu_schild`, outside the try/catch that guards the child's own render,
+  // taking the whole page down. Every other failure on this path degrades to
+  // the bare element; this one escaped that contract.
+  const css = typeof mod.__aihu_css__ === 'string' ? mod.__aihu_css__ : ''
   const style = css ? `<style>${escapeStyleText(css)}</style>` : ''
   return `<${tag}${attrsHtml}${adopt}><template shadowrootmode="${SHADOW_ROOT_MODE}">${style}${inner}</template></${tag}>`
 }

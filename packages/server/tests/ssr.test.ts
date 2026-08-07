@@ -258,3 +258,105 @@ describe('@aihu/server ssr — contextSetup', () => {
     expect(fns.read()).toBeUndefined()
   })
 })
+
+// ─── §12 / §13 — escaping and validation at the serialization boundary ───────
+//
+// Two holes with the same shape: a field that reaches HTML without passing
+// through an escaper. `buildHead` emitted `<title>` and every meta/link
+// attribute NAME verbatim; `serializeAttrs` escaped attribute VALUES from the
+// start but never KEYS. SSG missed both — `@aihu/app`'s `applyHeadToHtml` is a
+// parallel implementation that escapes, and authored templates go through the
+// parser — but `renderToString(component, { head })` is documented public API
+// and a hostile or runtime-computed attribute key reaches serialization by
+// routes the parser never sees.
+
+describe('@aihu/server ssr — head escaping (§12)', () => {
+  const empty = { toHtml: () => '' }
+
+  it('escapes a title that would otherwise close its own element', async () => {
+    // `<title>` is RCDATA: the only thing that ends it is `</title`, and what
+    // follows is parsed as ordinary markup.
+    const html = await renderToString(empty, {
+      head: { title: '</title><script>alert(1)</script>' },
+    })
+    expect(html).not.toContain('<script>alert(1)</script>')
+    expect(html).toContain('&lt;/title&gt;&lt;script&gt;')
+  })
+
+  it('escapes & in a title, so entities survive as text', async () => {
+    const html = await renderToString(empty, { head: { title: 'Tom & Jerry' } })
+    expect(html).toContain('<title>Tom &amp; Jerry</title>')
+  })
+
+  it('drops a meta attribute NAME that would split into a second attribute', async () => {
+    const html = await renderToString(empty, {
+      head: { meta: [{ 'content" onload="alert(1)': 'x', name: 'ok' } as never] },
+    })
+    expect(html).not.toContain('onload')
+    // The well-formed sibling still serializes — this drops a key, not the tag.
+    expect(html).toContain('name="ok"')
+  })
+
+  it('drops a link attribute NAME with whitespace in it', async () => {
+    const html = await renderToString(empty, {
+      head: { links: [{ 'rel x': 'stylesheet', href: '/a.css' } as never] },
+    })
+    expect(html).not.toContain('rel x')
+    expect(html).toContain('href="/a.css"')
+  })
+
+  it('leaves a legitimate hyphenated/colon name alone', async () => {
+    // The alphabet is NARROW on purpose: `http-equiv` and `xml:lang` round-trip
+    // through a parser unchanged, so rejecting them would fail real pages.
+    const html = await renderToString(empty, {
+      head: { meta: [{ 'http-equiv': 'refresh', 'xml:lang': 'en' } as never] },
+    })
+    expect(html).toContain('http-equiv="refresh"')
+    expect(html).toContain('xml:lang="en"')
+  })
+})
+
+describe('@aihu/server ssr — attribute-name validation (§13, serialization layer)', () => {
+  /** A hand-built arbor element leaf — the route the parser does not cover. */
+  const leafWith = (attrs: Record<string, unknown>) => () => ({
+    kind: 'leaf' as const,
+    leafKind: 'element' as const,
+    tag: 'span',
+    attrs,
+  })
+
+  it('drops the `data-x/onload` injection', async () => {
+    // In a real browser `<span data-x/onload="alert(1)">` is TWO attributes,
+    // the second an event handler — the shape §13 reports.
+    const html = await renderToString(leafWith({ 'data-x/onload': 'alert(1)' }))
+    expect(html).toBe('<span></span>')
+  })
+
+  it('drops a key with a space, a quote, or an equals sign', async () => {
+    for (const k of ['a b', 'a"b', "a'b", 'a=b', 'a<b', 'a`b', 'a>b']) {
+      expect(await renderToString(leafWith({ [k]: 'v' }))).toBe('<span></span>')
+    }
+  })
+
+  it('drops a BOOLEAN attribute with an invalid key too', async () => {
+    // ` k` (no value) is the other serialization shape, and it was the one that
+    // needed no quoting — so it was the easier one to forget.
+    expect(await renderToString(leafWith({ 'a/onload': true }))).toBe('<span></span>')
+  })
+
+  it('drops the empty key', async () => {
+    expect(await renderToString(leafWith({ '': 'v' }))).toBe('<span></span>')
+  })
+
+  it('keeps every key a browser reads back unchanged', async () => {
+    const html = await renderToString(
+      leafWith({ 'data-x': '1', 'xml:lang': 'en', 'aria-label': 'a', $odd: 'y' }),
+    )
+    expect(html).toBe('<span data-x="1" xml:lang="en" aria-label="a" $odd="y"></span>')
+  })
+
+  it('drops only the bad key, keeping its well-formed siblings', async () => {
+    const html = await renderToString(leafWith({ id: 'a', 'b c': 'x', class: 'z' }))
+    expect(html).toBe('<span id="a" class="z"></span>')
+  })
+})

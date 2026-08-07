@@ -78,18 +78,19 @@ export interface ChildCycle {
  * and the client's `customElements.define` would throw on the second. Reported
  * rather than silently last-wins.
  *
- * KEEPS THE FIRST, over a sorted file list, so the winner is deterministic.
- * Note `@aihu/router`'s `scanComponents` keeps the LAST, over unsorted
- * `readdirSync` order — the two disagree, which would mean the page ships one
- * module's markup while the client upgrades with the other's.
+ * KEEPS THE FIRST, over a sorted file list, so the winner is deterministic —
+ * and so does `@aihu/router`'s `scanComponents`, over its own sorted list. That
+ * agreement is load-bearing and was absent: the router kept the LAST over
+ * unsorted `readdirSync` order, so a duplicated tag shipped one module's markup
+ * in the page and upgraded it with the other's on hydrate.
  *
- * Deliberately NOT reconciled here. The two sides do not merely break ties
- * differently, they key on different tags: this registry uses the compiled
- * `__aihu_tag__` (what `defineElement` actually registers) while the router
- * re-derives a name from source with a `@meta` → `@route` → stem precedence the
- * compiler does not apply. Aligning tie-breaks before that is settled would
- * align the wrong thing. See §7a/§7b of
- * `docs/plans/2026-08-06-ssr-child-followups.md`.
+ * The two sides also agree on the TAG, which they previously did not: the
+ * router re-derived a name from source with a `@meta { name }` precedence the
+ * compiler never applied (`SfcMeta` has no such field), while this registry
+ * keys on the compiled `__aihu_tag__` — what `defineElement` actually
+ * registers. The router's derivation was the one out of step and has been
+ * dropped. §7a/§7b of `docs/plans/2026-08-06-ssr-child-followups.md` record
+ * both, now closed.
  */
 export function buildChildRegistry(
   components: Iterable<DiscoveredComponent>,
@@ -105,10 +106,68 @@ export function buildChildRegistry(
       )
       continue
     }
+    // Gated on FIRST registration: the same module reaching here twice under
+    // one tag is legal (`discoverComponents` can yield it twice) and already
+    // passes the conflict check above silently. Warning per occurrence rather
+    // than per tag would report one broken component as two.
+    if (existing === undefined) {
+      const unrenderable = _whyUnrenderable(module)
+      if (unrenderable !== null) onWarn?.(`[@aihu/server] <${tag}> ${unrenderable}`)
+    }
     registry.set(tag, module)
   }
   for (const c of findCycles(registry)) onWarn?.(c.message)
   return registry
+}
+
+/**
+ * Why `__aihu_schild` would refuse this module, or `null` if it would render it.
+ *
+ * The registry ACCEPTS such a module — it is still a real tag claim, it still
+ * contributes edges to the cycle check, and the SSR-vs-client tag-collision
+ * story depends on knowing about it. What it must not do is accept it in
+ * SILENCE. `__aihu_schild` fails closed on both of these at render time and
+ * emits the bare element, which is byte-identical to a tag nobody registered —
+ * so "my footer is empty" and "my footer does not exist" produce the same page
+ * and no message distinguishes them. That indistinguishability is the failure
+ * mode this whole plan exists to remove; the information to tell them apart is
+ * right here, one property read away, at build time.
+ *
+ * A diagnostic, not a rejection — the same disposition `ChildCycle` documents
+ * at length. A build must not fail because one component of many cannot
+ * prerender: the page still renders, the element still upgrades on the client,
+ * and the only loss is the prerendered bytes. Reported, then carried on.
+ *
+ * The two causes are kept apart because the ACTIONS differ. A missing
+ * `__ssrString` is the string emitter declining a template shape, and the author
+ * fixes it by changing the template (or accepts it). A missing/unknown
+ * `__aihu_shadow__` means the module was not produced by the server target's
+ * full plugin path at all — a hand-built registry entry, or a compile that
+ * skipped `aihuCompilerPlugin`'s server-env exports — and the author fixes it by
+ * fixing the build.
+ */
+function _whyUnrenderable(module: ChildModuleLike): string | null {
+  if (typeof module.__ssrString !== 'function') {
+    return (
+      'exports no compiled server renderer (`__ssrString`), so every reference to it ' +
+      'prerenders as an empty element and fills in on the client. The string emitter ' +
+      'declines some template shapes (`<suspense>`, a `$store`/`$resource` template, ' +
+      'anything it cannot lower); check the compiled server artifact for the bail.'
+    )
+  }
+  const shadow = module.__aihu_shadow__
+  if (shadow !== 'light' && shadow !== 'shadow') {
+    return (
+      `declares no DOM mode (\`__aihu_shadow__\` is ${JSON.stringify(shadow)}), so every ` +
+      'reference to it prerenders as an empty element. There is no safe default to ' +
+      'guess — light children under a host that later calls `attachShadow` are ' +
+      'discarded on upgrade, and a declarative shadow root on a light component is ' +
+      'never adopted — so the renderer refuses rather than picking one. This export ' +
+      "comes from `aihuCompilerPlugin`'s server target; a module missing it was not " +
+      'compiled through it.'
+    )
+  }
+  return null
 }
 
 /**

@@ -1048,3 +1048,223 @@ describe.skipIf(!hasBinary)('SSR child eligibility — the boundary lines agree'
     expect(fast).not.toBe(walker)
   })
 })
+
+// ─── §8 — AIHU_SSR_STRING=0 reaches child subtrees ──────────────────────────
+//
+// `__aihu_schild` calls `mod.__ssrString` DIRECTLY, so the compiled string
+// renderer stayed engaged for every child even with the hatch open. Two costs.
+// The documented way to route a render back through the walker stopped working
+// below the top level — a hole in an escape hatch whose whole job is to answer
+// "is the fast path lying to me?". And this suite could never exercise a
+// walker-rendered child: the walker's own child arm called the string renderer,
+// so both sides of every comparison above were, underneath, the same function.
+//
+// The walker now asks `_ssrStringOf` about the child module's default export
+// (the server target attaches `__aihu_ssr_string__` to `__ssr` and exports it
+// as `default`, so the same hatch answers for a child as for a page) and walks
+// the child itself when the hatch is open. The engine changes; the markup must
+// not.
+//
+// EVERY test here counts calls into the child's `__ssrString` and asserts ZERO
+// under the hatch, and this is not belt-and-braces. Reverting the walker's new
+// branch leaves both halves of a byte-identity comparison rendered by the SAME
+// function, so identity holds trivially and the comparison proves nothing: a
+// first draft of this block had five tests that passed with the fix reverted.
+// The call count is what makes each of them a claim about the ENGINE.
+
+describe.skipIf(!hasBinary)('SSR string fast path — the escape hatch reaches children (§8)', () => {
+  const PARENT = `@template {
+  <main class="page"><h1>Title</h1><x-kid></x-kid></main>
+}
+`
+  const CHILD = `@state {
+  const [n, setN] = signal(3)
+}
+
+@template {
+  <nav class="kid"><span>nav {n}</span></nav>
+}
+`
+  const RECURSIVE_CHILD = `@template {
+  <nav class="kid"><x-kid></x-kid></nav>
+}
+`
+
+  async function withHatch<T>(fn: () => Promise<T>): Promise<T> {
+    const before = process.env.AIHU_SSR_STRING
+    process.env.AIHU_SSR_STRING = '0'
+    try {
+      return await fn()
+    } finally {
+      if (before === undefined) delete process.env.AIHU_SSR_STRING
+      else process.env.AIHU_SSR_STRING = before
+    }
+  }
+
+  /**
+   * A registry entry that COUNTS compiled-renderer calls while behaving exactly
+   * like the real module. `calls` is the engine probe: non-zero means the child
+   * came from `__aihu_schild`'s string path, zero means the walker rendered it.
+   */
+  function countingKid(
+    mod: CompiledModule,
+    extra: Record<string, unknown> = {},
+  ): { entry: Record<string, unknown>; probe: { calls: number } } {
+    const probe = { calls: 0 }
+    const real = mod.__ssrString
+    return {
+      probe,
+      entry: {
+        ...mod,
+        __aihu_shadow__: 'light',
+        __aihu_light_scope__: 'k1',
+        ...extra,
+        ...(typeof real === 'function'
+          ? {
+              __ssrString: (p: Record<string, unknown>, o?: { hydratable?: boolean }) => {
+                probe.calls++
+                return real(p, o)
+              },
+            }
+          : {}),
+      },
+    }
+  }
+
+  it('renders a walker-rendered child, byte-identical to the string-rendered one', async () => {
+    const parent = await compileToModule('hatch-parent', PARENT)
+    const kid = await compileToModule('hatch-kid', CHILD)
+    const { entry, probe } = countingKid(kid.mod)
+    const children = new Map<string, unknown>([['x-kid', entry]])
+    for (const hydratable of [true, false]) {
+      const opts = { hydratable, children } as Parameters<typeof renderToString>[1]
+      probe.calls = 0
+      const off = markup(await renderToString(parent.mod.default, opts))
+      expect(probe.calls).toBeGreaterThan(0)
+
+      probe.calls = 0
+      const on = markup(await withHatch(() => renderToString(parent.mod.default, opts)))
+      expect(probe.calls).toBe(0)
+
+      expect(on).toBe(off)
+      // FILLED IN on both. Two engines agreeing on an empty element would
+      // satisfy identity while shipping the bug the child work exists to fix.
+      expect(on).toContain('<nav class="kid"')
+      expect(on).toContain('nav ')
+    }
+  })
+
+  it('changes the engine for the child even when the WALKER runs at the top level', async () => {
+    // Isolates the child arm: both halves walk the page, so the only thing the
+    // hatch can change here is how the child subtree was produced.
+    const parent = await compileToModule('hatch-parent-spy', PARENT)
+    const kid = await compileToModule('hatch-kid-spy', CHILD)
+    const { entry, probe } = countingKid(kid.mod)
+    const children = new Map<string, unknown>([['x-kid', entry]])
+    const opts = { hydratable: true, children } as Parameters<typeof renderToString>[1]
+
+    const off = await renderToString(() => parent.mod.__ssr(), opts)
+    expect(probe.calls).toBeGreaterThan(0)
+
+    probe.calls = 0
+    const on = await withHatch(() => renderToString(() => parent.mod.__ssr(), opts))
+    expect(probe.calls).toBe(0)
+    expect(markup(on)).toBe(markup(off))
+  })
+
+  it('emits the same declarative shadow root + inlined <style> under the hatch', async () => {
+    // The host shell (adoption marker, `data-a`, `<template shadowrootmode>`,
+    // the inlined CSS) is built by ONE function on both paths — that is why it
+    // was split out of `__aihu_schild` rather than reimplemented on the walker
+    // side, where it would have drifted.
+    const parent = await compileToModule('hatch-parent-shadow', PARENT)
+    const kid = await compileToModule('hatch-kid-shadow', CHILD)
+    const { entry, probe } = countingKid(kid.mod, {
+      __aihu_shadow__: 'shadow',
+      __aihu_css__: '.kid{color:red}',
+    })
+    const children = new Map<string, unknown>([['x-kid', entry]])
+    const opts = { hydratable: true, children } as Parameters<typeof renderToString>[1]
+    const off = markup(await renderToString(parent.mod.default, opts))
+    expect(probe.calls).toBeGreaterThan(0)
+
+    probe.calls = 0
+    const on = markup(await withHatch(() => renderToString(parent.mod.default, opts)))
+    expect(probe.calls).toBe(0)
+
+    expect(on).toBe(off)
+    expect(on).toContain('<template shadowrootmode="open">')
+    expect(on).toContain('<style>.kid{color:red}</style>')
+    // No `data-a` on a shadow child: its styles are inside the root.
+    expect(on).not.toContain('data-a="k1"')
+  })
+
+  it('declines exactly where the string path declines — an emitter bail stays bare', async () => {
+    // Eligibility here must be a SUBSET of `__aihu_schild`'s, never a superset.
+    // The walker COULD render this module (its `__ssr` is intact); rendering it
+    // would make the hatch change the MARKUP, which the hatch is documented
+    // never to do. `calls` cannot probe the engine when there is no renderer to
+    // call, so the claim is pinned the other way: the output is the BARE
+    // element, which is what the string path produces and what the walker path
+    // would NOT produce if it had taken this module.
+    const parent = await compileToModule('hatch-parent-bail', PARENT)
+    const kid = await compileToModule('hatch-kid-bail', CHILD)
+    const { __ssrString: _dropped, ...noRenderer } = kid.mod as unknown as Record<string, unknown>
+    const children = new Map<string, unknown>([
+      ['x-kid', { ...noRenderer, __aihu_shadow__: 'light', __aihu_light_scope__: 'k1' }],
+    ])
+    const opts = { hydratable: true, children } as Parameters<typeof renderToString>[1]
+    const off = markup(await renderToString(parent.mod.default, opts))
+    const on = markup(await withHatch(() => renderToString(parent.mod.default, opts)))
+    expect(on).toBe(off)
+    expect(on).toContain('<x-kid data-aihu-path="0.1"></x-kid>')
+    expect(on).not.toContain('<nav class="kid"')
+  })
+
+  it('bounds a self-referencing child at the same depth on both engines', async () => {
+    // The registry only WARNS about a cycle now, so the RENDERERS are what make
+    // one finite. The string path caps at `_MAX_CHILD_DEPTH` on its own opts;
+    // the walker path threads the same cap through `SsrOptions.__childDepth`.
+    // Without that threading this render never terminates — the byte budget
+    // cannot stop it, because bytes are only charged as the recursion UNWINDS.
+    const parent = await compileToModule('hatch-parent-cycle', PARENT)
+    const kid = await compileToModule('hatch-kid-cycle', RECURSIVE_CHILD)
+    const { entry, probe } = countingKid(kid.mod)
+    const children = new Map<string, unknown>([['x-kid', entry]])
+    const opts = { hydratable: true, children } as Parameters<typeof renderToString>[1]
+    const off = markup(await renderToString(parent.mod.default, opts))
+    expect(probe.calls).toBeGreaterThan(0)
+
+    probe.calls = 0
+    const on = markup(await withHatch(() => renderToString(parent.mod.default, opts)))
+    expect(probe.calls).toBe(0)
+
+    expect(on).toBe(off)
+    const depth = (s: string) => s.split('<nav class="kid"').length - 1
+    expect(depth(on)).toBe(32)
+    expect(depth(off)).toBe(32)
+  }, 20_000)
+
+  it('does not bury a second __aihu_state__ envelope inside the child', async () => {
+    // The walker child path drains a nested `renderToStream`, which ends with
+    // the per-DOCUMENT state script. It is channel data, not markup: a copy
+    // inside a child subtree is both a byte divergence and a duplicate DOM id.
+    // This one is ONLY meaningful under the hatch — the string path has no
+    // nested stream to drain — so the zero-call assertion is what proves the
+    // nested drain actually happened.
+    const parent = await compileToModule('hatch-parent-state', PARENT)
+    const kid = await compileToModule('hatch-kid-state', CHILD)
+    const { entry, probe } = countingKid(kid.mod)
+    const children = new Map<string, unknown>([['x-kid', entry]])
+    const on = await withHatch(() =>
+      renderToString(parent.mod.default, {
+        hydratable: true,
+        children,
+      } as Parameters<typeof renderToString>[1]),
+    )
+    expect(probe.calls).toBe(0)
+    expect(markup(on)).toContain('<nav class="kid"')
+    expect(on.split('id="__aihu_state__"').length - 1).toBeLessThanOrEqual(1)
+    expect(markup(on)).not.toContain('<script type="application/json"')
+  })
+})
