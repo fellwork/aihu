@@ -1038,11 +1038,29 @@ jobs:
     # scaffold-matrix-e2e.ts), one package manager (bun), across BOTH vite
     # majors, on `minimal` and `ssr` only — a few minutes, not tens.
     #
-    # `cf-team` is deliberately excluded. It fails at `typecheck` on every
-    # FRESH scaffold — moon's `HEAD~1` does not exist because the scaffold
-    # git-inits with exactly one commit — a real, pre-existing bug unrelated
-    # to anything this job checks. Wiring it in would make `ci-ok`
-    # permanently red for a reason nobody here is fixing today.
+    # `cf-team` is excluded for COST, not correctness. The reason recorded here
+    # before — "it fails at `typecheck` on every FRESH scaffold, moon's `HEAD~1`
+    # does not exist because the scaffold git-inits with exactly one commit" —
+    # was wrong on both halves, and was never independently reproduced.
+    #
+    # Reproduced properly (scaffold, git-init one commit, install, run the
+    # project's own `bun run typecheck`): moon does not consult `HEAD~1` for a
+    # plain `moon run :typecheck` and is perfectly happy in a one-commit repo.
+    # The failure was real, but its cause was a STALE `template.config.js`. That
+    # file is the hand-maintained Node-importable twin of `template.config.ts`,
+    # and `loadTemplateConfig` falls through to it whenever the runtime cannot
+    # import TypeScript — i.e. always, under the published `#!/usr/bin/env node`
+    # binary. Its `conditionalFiles` still named post-strip TARGET paths
+    # (`apps/web/src/auth/kinde.ts`) rather than the `.tmpl` SOURCE paths on
+    # disk, so not one conditional matched: every scaffold wrote all three auth
+    # providers' files while installing only the chosen provider's SDK, and
+    # typecheck died on TS2307 for the other two. Fixed, with a deep-equality
+    # parity test over both manifests in packages/cli/tests/template-compat.test.ts.
+    #
+    # A fresh `cf-team` scaffold now typechecks clean on one commit. Adding it
+    # to this job is a reasonable follow-up; it is left out here only because it
+    # needs `moon` plus a third-party auth SDK from the network, which is a
+    # different cost profile from the two `--local-pkg` cells above.
     needs: changes
     if: >-
       (github.event_name != 'pull_request' || github.event.pull_request.draft == false)

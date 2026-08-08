@@ -16,7 +16,11 @@ export const config = {
   description:
     'Cloudflare Workers + monorepo (bun workspaces + moon) + better-auth + Biome + commitlint + Vitest + agent-minimal',
   contractVersion: 1,
-  cliRange: '^0.2.0',
+  // See template.config.ts for why this is `^1.0.0` and not the stale `^0.2.0`
+  // it replaced. Keep the two files in step — `loadTemplateConfig` picks the
+  // .ts under Bun and this one under Node.js, so a divergence would make the
+  // compatibility gate depend on which runtime the user's CLI happens to be.
+  cliRange: '^1.0.0',
   fixed: {
     vendor: 'cloudflare',
     persona: 'team',
@@ -38,13 +42,33 @@ export const config = {
   conditionalFiles: [
     { path: 'apps/web/src/components/live-counter.aihu', when: 'starter === "live-counter"' },
     { path: '.mcp.json', when: 'agentSurface !== "none"' },
-    { path: 'apps/web/src/agent/aihu-expose.aihu', when: 'agentSurface !== "none"' },
-    { path: 'apps/web/src/auth/better-auth.ts', when: 'auth === "better-auth"' },
-    { path: 'apps/web/src/auth/kinde.ts', when: 'auth === "kinde"' },
-    { path: 'apps/web/src/auth/supabase.ts', when: 'auth === "supabase"' },
-    { path: 'apps/web/.env.example.better-auth', when: 'auth === "better-auth"' },
-    { path: 'apps/web/.env.example.kinde', when: 'auth === "kinde"' },
-    { path: 'apps/web/.env.example.supabase', when: 'auth === "supabase"' },
+    // These paths are SOURCE paths under `template/` — they must carry the
+    // `.tmpl` suffix the files actually have on disk. This copy had drifted to
+    // the post-strip target names, which match nothing, so under Node.js
+    // (where `loadTemplateConfig` falls through to THIS file) not one
+    // conditional fired: every auth provider's file was written and no rename
+    // was applied. See the parity test in packages/cli/tests/template-compat.test.ts.
+    { path: 'apps/web/src/agent/aihu-expose.aihu.tmpl', when: 'agentSurface !== "none"' },
+    { path: 'apps/web/src/auth/better-auth.ts.tmpl', when: 'auth === "better-auth"' },
+    { path: 'apps/web/src/auth/kinde.ts.tmpl', when: 'auth === "kinde"' },
+    { path: 'apps/web/src/auth/supabase.ts.tmpl', when: 'auth === "supabase"' },
+    // F-5b: rename provider-specific .env.example files to .env.example so
+    // .gitignore patterns work and developer expectations are met.
+    {
+      path: 'apps/web/.env.example.better-auth.tmpl',
+      when: 'auth === "better-auth"',
+      rename: '.env.example',
+    },
+    {
+      path: 'apps/web/.env.example.kinde.tmpl',
+      when: 'auth === "kinde"',
+      rename: '.env.example',
+    },
+    {
+      path: 'apps/web/.env.example.supabase.tmpl',
+      when: 'auth === "supabase"',
+      rename: '.env.example',
+    },
   ],
   placeholders: [
     'APP_NAME',
