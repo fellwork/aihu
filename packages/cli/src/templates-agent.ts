@@ -27,12 +27,15 @@
  */
 
 import { aihuDep } from './dep-versions.js'
+import type { PkgManager } from './index.js'
+import { packageManagerField } from './pkg-manager-field.js'
 
 /** package.json for the `agent` template. */
-export function agentPackageJson(name: string, pm = 'bun'): string {
-  const bunVersion =
-    (globalThis as { Bun?: { version: string } }).Bun?.version ?? process.versions.bun
-  const packageManager = pm === 'bun' && bunVersion ? `bun@${bunVersion}` : undefined
+export function agentPackageJson(name: string, pm: PkgManager = 'bun'): string {
+  // See pkg-manager-field.ts: the inline predecessor of this line could only
+  // ever emit a field for bun, and under the published node-shebang binary
+  // could not emit one at all.
+  const packageManager = packageManagerField(pm)
   return JSON.stringify(
     {
       name,
