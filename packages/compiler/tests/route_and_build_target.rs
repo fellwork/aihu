@@ -897,3 +897,121 @@ fn the_opts_type_is_spelled_once() {
         "the inline opts type must be gone — it cannot carry `children`:\n{js}"
     );
 }
+
+// ─── FEL-440 follow-up — the SSR-entry gate was narrowed from "every agent
+// component" to "only an @agent block with $input declarations" ───────────
+//
+// The original blanket exclusion (`!is_agent_component`) meant a server build
+// of ANY component with an exposed $action — including the CLI scaffold's own
+// default page, which has no @agent block at all — got no `__ssr` export, and
+// fell through to the client-shaped registration form instead: unguarded
+// `defineElement`/`new CSSStyleSheet()` at module scope, which throws
+// `ReferenceError: CSSStyleSheet is not defined` / `HTMLElement is not
+// defined` the moment a plain Node/Bun process (or a Worker) imports it.
+//
+// The narrower gate excludes only components whose `@agent` block declares
+// `$input`s — `emit_agent_bindings` lowers each to `ctx.attrs.<name>[0]()`,
+// and the host-less SSR SetupContext passes `attrs: {}`, so indexing into it
+// would throw. A plain `$action`/`$state` component, or an `@agent` block that
+// carries only policy ($scope/$rate-limit) with no `$input`s, references no
+// `ctx.attrs` anywhere in its exposed closures — they all close over the
+// setup body's own local signals — so it is exactly as SSR-safe as a
+// non-agent component.
+
+/// A component with $action but NO @agent block (the scaffold's own shape)
+/// gets the standalone SSR entry under a server build.
+#[test]
+fn fel440_followup_action_only_gets_ssr_entry() {
+    let src = r#"
+@state {
+import { signal } from '@aihu/signals'
+const [count, setCount] = signal(0)
+
+$action: {
+  increment: {
+    describe: 'Add 1',
+    expose: { read: true, write: true },
+    handler: () => setCount(count() + 1),
+  },
+}
+}
+
+@template {
+  <div>{count()}</div>
+}
+"#;
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full_with_target(&parsed, BuildTarget::Server).unwrap();
+    let result = emit(&unit, "x-counter");
+
+    assert!(
+        result.js.contains("export const __ssr"),
+        "an $action-only component must get the standalone SSR entry:\n{}",
+        result.js
+    );
+    assert!(
+        result.js.contains("export default __ssr"),
+        "…and export it as the default, which renderToString/resolveComponent read:\n{}",
+        result.js
+    );
+    // The DOM-registration path stays module-scope-safe — no unguarded
+    // `new CSSStyleSheet()` reachable from a plain import.
+    assert!(
+        result.js.contains("typeof HTMLElement !== 'undefined'"),
+        "the client DOM registration must stay guarded, not unconditional:\n{}",
+        result.js
+    );
+}
+
+/// An @agent block with NO $inputs (policy only) ALSO gets the SSR entry.
+#[test]
+fn fel440_followup_agent_with_no_inputs_gets_ssr_entry() {
+    let src = r#"
+@agent {
+  $scope: 'read'
+  action greet() -> { message: string }
+}
+
+@template {
+  <div>Hello</div>
+}
+"#;
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full_with_target(&parsed, BuildTarget::Server).unwrap();
+    let result = emit(&unit, "x-greeter");
+
+    assert!(
+        result.js.contains("export const __ssr"),
+        "an @agent block with no $inputs must still get the SSR entry — nothing \
+         in its exposed closures reads ctx.attrs:\n{}",
+        result.js
+    );
+}
+
+/// An @agent block WITH $inputs is still excluded — this is the one real,
+/// still-live reason for the gate, and it must not regress silently.
+#[test]
+fn fel440_followup_agent_with_inputs_stays_excluded() {
+    let src = r#"
+@agent {
+  input name: string
+  action greet() -> { message: string }
+}
+
+@template {
+  <div>Hello</div>
+}
+"#;
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full_with_target(&parsed, BuildTarget::Server).unwrap();
+    let result = emit(&unit, "x-greeter-input");
+
+    assert!(
+        !result.js.contains("export const __ssr"),
+        "an @agent block with $inputs reads ctx.attrs.name[0](), which the \
+         host-less SSR SetupContext (attrs: {{}}) cannot satisfy — it must stay \
+         excluded from the standalone SSR entry until $inputs get their own \
+         inert-signal stub (the way props already do):\n{}",
+        result.js
+    );
+}

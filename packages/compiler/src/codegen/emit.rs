@@ -324,15 +324,35 @@ pub fn emit_with_options(unit: &CompileUnit, tag_name: &str, strict_templates: b
     // arbor-tree factory that `@aihu/server`'s `renderToString` and
     // `@aihu/app`'s `resolveComponent` (`mod.default`) consume directly.
     //
-    // Agent components are EXCLUDED for now. The original string-surgery reason
-    // (their `inject_server_binding_registration` anchored on the exact
+    // Agent components were EXCLUDED wholesale. The original string-surgery
+    // reason (their `inject_server_binding_registration` anchored on the exact
     // `defineComponent((_ctx) => {` shape, so a restructure silently dropped the
     // LiveBinding) is GONE as of FEL-440 — registration is now a codegen input
-    // with no anchor. The remaining, still-live gate is the stubbed server
-    // SetupContext lacking attr/prop signal support; that lane gets its SSR entry
-    // when that lands (full P3). Lifting this exclusion is a separate decision,
-    // deliberately NOT part of FEL-440.
-    let emit_ssr_entry = target == BuildTarget::Server && !is_agent_component;
+    // with no anchor.
+    //
+    // NARROWED (was: `!is_agent_component`, excluding EVERY agent component —
+    // including any plain `$action` block with no `@agent`, which is the
+    // scaffold CLI's own default page under `output: 'ssr'`). The one real,
+    // still-live gate is `@agent { }`'s `$input` declarations: `emit_agent_bindings`
+    // lowers each to `ctx.attrs.<name>[0]()` (see `mcp_emit.rs`), reading the
+    // attribute as a live signal pair. The host-less SSR `SetupContext` passes
+    // `attrs: {}` (`emit.rs`'s SSR-entry template, ~line 1478) — nothing to
+    // index — so a component with `$input`s would throw at first render, not
+    // silently misbehave. `_registerAgentServerBinding` itself is unaffected
+    // either way: it takes `ctx.element`, which is `null` under SSR by design,
+    // and is a documented no-op on a null host (`agent-dispatch.ts`) — the
+    // registration call was never the reason for the exclusion.
+    //
+    // A component using ONLY `$action`/`$state`/`$computed` — `is_agent_component`
+    // via `has_exposed_members`, `unit.source.agent` absent — reads no `ctx.attrs`
+    // at all: every exposed read/action/write closure references a LOCAL `@state`
+    // signal (`build_server_binding_registration_stmt` emits them capturing the
+    // setup body's own bindings, not the context), which is exactly as safe
+    // under the host-less SSR context as a non-agent component's own state. Same
+    // for an `@agent` block that carries only policy ($scope/$rate-limit) with no
+    // `$input`s. Both now get the standalone SSR entry.
+    let agent_has_attr_inputs = unit.source.agent.as_ref().is_some_and(|a| !a.inputs.is_empty());
+    let emit_ssr_entry = target == BuildTarget::Server && !agent_has_attr_inputs;
 
     // Wave 3c — island classification, hoisted out of the `js` block below so it
     // can ride the returned `EmitResult`. Deferred-init: the block assigns it
