@@ -14,7 +14,7 @@
  * This harness runs the full grid instead:
  *
  *   package managers  bun | npm | pnpm | yarn
- *   scaffold paths    create-aihu templates  minimal | full | docs | agent
+ *   scaffold paths    create-aihu templates  minimal | full | docs | agent | ssr
  *                     `aihu app --template`  cf-team  (resolved FROM npm)
  *
  * and every cell is driven all the way to a *serving HTTP server*: the dev
@@ -66,8 +66,8 @@
  *   # vite axis — one cell per version, each a FRESH install (see --vite below)
  *   bun packages/cli/tests/scaffold-matrix-e2e.ts --template minimal --pm bun --vite 6,8
  *
- *   # drive an SSR-configured scaffold all the way to a loaded, rendering Worker
- *   bun packages/cli/tests/scaffold-matrix-e2e.ts --template minimal-ssr --pm bun
+ *   # drive the `ssr` template all the way to a loaded, rendering Worker
+ *   bun packages/cli/tests/scaffold-matrix-e2e.ts --template ssr --pm bun
  *
  *   # install workspace packages from `npm pack` tarballs instead of the
  *   # registry, to test an UNRELEASED fix consumer-shaped. Marked `†`.
@@ -136,31 +136,29 @@ interface ViteReq {
 }
 
 /**
- * Post-scaffold rewiring that turns a client-only scaffold into an `output:
- * 'ssr'` one, applied by the HARNESS rather than by a CLI template.
+ * Marks a row whose build emits a real Worker, and says where to find it.
  *
- * Why here and not as a new entry in the CLI's template registry: `output:
- * 'ssr'` is genuinely new consumer surface (no shipped template lists
- * `@aihu/adapter-cloudflare`, and published `@aihu/app@9.0.0` rejects the
- * value), so a template entry would mean designing the SSR scaffold — its
- * wrangler config, its scripts, its README, its `create` wizard prompts — as a
- * side effect of building a CI gate. The gate needs one thing: a consumer-shaped
- * tree that a vite axis can be pointed at. A post-scaffold patch gives it that
- * and stays deletable the day a real `ssr` template lands, at which point this
- * becomes `{ id: 'ssr', kind: 'create' }` and the patch goes away.
+ * ## What this used to be
  *
- * It is deliberately NOT a free-form `--config-override` string. The three
- * options below are the three `output: 'ssr'` actually requires, and naming
- * them means the anchor check below can be an assertion rather than a
- * best-effort regex.
+ * Until the `ssr` CLI template existed, this interface described a POST-SCAFFOLD
+ * PATCH: the harness scaffolded `minimal`, rewrote its `vite.config.ts` to add
+ * `output: 'ssr'` + `css.shadowMode` + the Cloudflare adapter, and injected
+ * `@aihu/adapter-cloudflare` into the manifest before install. That was a
+ * deliberate stopgap — the gate needed a consumer-shaped SSR tree and designing
+ * the SSR scaffold as a side effect of building a CI gate was the wrong order —
+ * and its own docblock promised it would be deleted "the day a real `ssr`
+ * template lands, at which point this becomes `{ id: 'ssr', kind: 'create' }`
+ * and the patch goes away".
+ *
+ * That day is this commit. The patch, the `ssr-config` step and the `deps`
+ * field are gone; what remains is the two paths the driver needs, because
+ * NOTHING here should be re-deriving what the template already decides.
  */
 interface SsrSpec {
   /** Built Worker, relative to the workdir. */
   readonly worker: string
-  /** Client outDir the ASSETS binding would be pointed at, relative to the workdir. */
+  /** Client outDir the ASSETS binding is pointed at, relative to the workdir. */
   readonly clientDist: string
-  /** Extra dependencies the SSR config needs, added before install. */
-  readonly deps: Readonly<Record<string, string>>
 }
 
 /** How a template is scaffolded and how its servers are driven. */
@@ -169,13 +167,7 @@ interface TemplateSpec {
   readonly kind: ScaffoldKind
   /** For `app-template`: the short id passed to `aihu app --template <id>`. */
   readonly templateArg?: string
-  /**
-   * For `create`: the built-in template id passed to `--template`, when the row
-   * id is not itself a template (e.g. `minimal-ssr` scaffolds `minimal` and is
-   * then patched). Defaults to `id`.
-   */
-  readonly createTemplateId?: string
-  /** Present ⇒ this row is patched to `output: 'ssr'` and driven as a Worker. */
+  /** Present ⇒ this row's build emits a Worker, and it is driven as one. */
   readonly ssr?: SsrSpec
   /** Directory (relative to the project root) whose package.json owns the scripts. */
   readonly workdir: string
@@ -243,31 +235,32 @@ const VITE_APP = {
 const TEMPLATES: readonly TemplateSpec[] = [
   { id: 'minimal', kind: 'create', ...VITE_APP },
   {
-    // NOT in scaffold-matrix.yml's default `--template` list: it is opt-in
-    // until `output: 'ssr'` is in a published `@aihu/app`. Against the registry
-    // today this row fails at `build` with "unknown output" — which is the
-    // truthful result, not a harness defect.
-    id: 'minimal-ssr',
+    // The real `ssr` CLI template — `output: 'ssr'` + `css.shadowMode: 'light'`
+    // + the Cloudflare adapter, all three baked into the scaffold's own
+    // vite.config.ts rather than patched in here.
+    //
+    // NOT in scaffold-matrix.yml's default `--template` list, and the reason is
+    // unchanged by the template becoming real: `output: 'ssr'` is not in a
+    // PUBLISHED `@aihu/app` yet, so against the registry this row fails at
+    // `build` with "unknown output". That is the truthful result, not a harness
+    // defect. It is exercised on every PR through `--local-pkg` tarballs of this
+    // branch's own packages (plan-a.yml's `scaffold-consistency` job), which is
+    // where it can actually pass, and it joins the default list the release
+    // after `@aihu/app` ships the option.
+    id: 'ssr',
     kind: 'create',
-    createTemplateId: 'minimal',
     ...VITE_APP,
-    // `vite preview` serves the CLIENT outDir as static files. Under `output:
-    // 'ssr'` the thing that has to answer is the Worker, and previewing the
-    // client dist would report 200 on a page the Worker never rendered — a
-    // green step for the wrong artifact. The `worker` step below replaces it.
+    // The template emits no `preview` script, deliberately: `vite preview`
+    // serves the CLIENT outDir as static files, so under `output: 'ssr'` it
+    // would report 200 on a page the Worker never rendered — a green step for
+    // the wrong artifact. The `worker` step below is what replaces it.
     previewScript: null,
     previewPort: null,
     ssr: {
       worker: 'dist-server/_worker.js',
       clientDist: 'dist',
-      // The adapter is what makes `_worker.js` a Worker rather than a bare
-      // node SSR bundle. It is not a dependency of any shipped template, which
-      // is precisely why this row exists.
-      deps: { '@aihu/adapter-cloudflare': 'latest' },
     },
-    notes:
-      "harness-patched to output:'ssr' (no shipped template emits it); driven as a Worker, " +
-      'not through vite preview',
+    notes: 'the only template that emits a Worker; driven in-process, not through vite preview',
   },
   { id: 'full', kind: 'create', ...VITE_APP },
   { id: 'docs', kind: 'create', ...VITE_APP },
@@ -424,14 +417,15 @@ const wantTemplates = flagValue('template')
   ?.split(',')
   .map((s) => s.trim())
 // A bare invocation (no `--template`) must NOT run every row in the registry.
-// `minimal-ssr` fails against the published registry by design (`output:
-// 'ssr'` is not in a published @aihu/app yet — see its own comment) and is
-// meant to be opt-in, but `TEMPLATES` is the full registry, so falling back to
-// it silently ran the SSR row on every `bun run test:scaffold-matrix` and every
-// bare local invocation. `DEFAULT_TEMPLATES` is what a caller gets with no
-// `--template`; a row that is not ready to run unattended must be excluded
-// here, not just left out of scaffold-matrix.yml's own explicit list.
-const DEFAULT_TEMPLATES = TEMPLATES.filter((t) => t.id !== 'minimal-ssr')
+// `ssr` fails against the published registry by design (`output: 'ssr'` is not
+// in a published @aihu/app yet — see its own comment) and is meant to be
+// opt-in, but `TEMPLATES` is the full registry, so falling back to it silently
+// ran the SSR row on every `bun run test:scaffold-matrix` and every bare local
+// invocation. `DEFAULT_TEMPLATES` is what a caller gets with no `--template`; a
+// row that is not ready to run unattended must be excluded here, not just left
+// out of scaffold-matrix.yml's own explicit list. Delete this filter the
+// release after `@aihu/app` publishes `output: 'ssr'`.
+const DEFAULT_TEMPLATES = TEMPLATES.filter((t) => t.id !== 'ssr')
 const templates = wantTemplates
   ? TEMPLATES.filter((t) => wantTemplates.includes(t.id))
   : DEFAULT_TEMPLATES
@@ -885,56 +879,6 @@ function packLocalPkgs(destRoot: string): ReadonlyMap<string, LocalTarball> {
   return specs
 }
 
-// ---------------------------------------------------------------------------
-// output: 'ssr' — the post-scaffold config patch
-// ---------------------------------------------------------------------------
-
-/**
- * Rewrite a scaffolded `vite.config.ts` into an SSR one.
- *
- * NOTE for anyone extending this: the aihu configuration surface lives in
- * `vite.config.ts` via `viteAihuPlugin({...})`, NOT in `aihu.config.ts` — the
- * scaffold emits `aihu.config.ts` only for the server templates, and the SSR
- * options (`output`, `adapter`, `css.shadowMode`) are plugin options. This
- * mirrors `packages/app/tests/fixtures/workers-ssr/vite.config.ts`, which is
- * the in-repo shape this row is meant to reproduce consumer-side.
- *
- * Anchored on the literal `viteAihuPlugin({` the scaffold emits, and THROWS if
- * that anchor is gone. A patch that silently no-ops would produce a client-only
- * build, no `_worker.js`, and a failure that reads as an SSR defect.
- */
-function patchViteConfigForSsr(configPath: string, appName: string): void {
-  const src = readFileSync(configPath, 'utf8')
-  const anchor = 'viteAihuPlugin({'
-  if (!src.includes(anchor)) {
-    throw new StepError(
-      'ssr-config: anchor not found',
-      `${configPath} does not contain ${JSON.stringify(anchor)}. The scaffold's vite.config.ts ` +
-        `shape changed; update patchViteConfigForSsr() rather than letting this patch no-op.\n` +
-        `--- file ---\n${tail(src, 60)}`,
-    )
-  }
-  const patched = src
-    .replace(
-      "import { viteAihuPlugin } from '@aihu/app'",
-      "import { cloudflare } from '@aihu/adapter-cloudflare'\nimport { viteAihuPlugin } from '@aihu/app'",
-    )
-    .replace(
-      anchor,
-      `${anchor}
-      // ── patched by scaffold-matrix-e2e.ts (--template minimal-ssr) ──
-      output: 'ssr',
-      // REQUIRED by output:'ssr' — without it leaf components export no
-      // __aihu_shadow__ and every child renders empty.
-      css: { shadowMode: 'light' },
-      adapter: cloudflare({ name: '${appName}', generateWrangler: false }),`,
-    )
-  if (patched === src) {
-    throw new StepError('ssr-config: patch produced no change', configPath)
-  }
-  writeFileSync(configPath, patched)
-}
-
 /**
  * The in-process Worker driver, written into the scaffold and run under `node`.
  *
@@ -1024,7 +968,7 @@ function createCommand(
     appName,
     '--yes',
     '--template',
-    spec.createTemplateId ?? spec.id,
+    spec.id,
     '--pm',
     pm,
     '--no-git',
@@ -1107,7 +1051,6 @@ function appTemplateCommand(
 
 const STEP_NAMES = [
   'scaffold',
-  'ssr-config',
   'install',
   'typecheck',
   'build',
@@ -1224,16 +1167,7 @@ async function runCell(
     }
   }
 
-  // ── 2. ssr-config ─────────────────────────────────────────────────────────
-  // Before install, so the adapter dependency it adds is part of the same
-  // single fresh resolution as everything else.
-  await step('ssr-config', () => {
-    if (spec.ssr === undefined) return na('client-only template; nothing to patch')
-    patchViteConfigForSsr(join(workdir, 'vite.config.ts'), appName)
-    out(`    ${dim(`! patched vite.config.ts → output:'ssr' + cloudflare adapter`)}\n`)
-  })
-
-  // ── 3. install ────────────────────────────────────────────────────────────
+  // ── 2. install ────────────────────────────────────────────────────────────
   await step(`install (${pm})`, () => {
     const pkgPath = join(workdir, 'package.json')
     const pkg = JSON.parse(readFileSync(pkgPath, 'utf8')) as {
@@ -1241,12 +1175,6 @@ async function runCell(
       devDependencies?: Record<string, string>
     }
     let touched = false
-
-    if (spec.ssr) {
-      pkg.dependencies = { ...(pkg.dependencies ?? {}), ...spec.ssr.deps }
-      touched = true
-      out(`    ${dim(`! ssr deps: ${Object.keys(spec.ssr.deps).join(', ')}`)}\n`)
-    }
 
     // The vite axis. Written into the manifest, then installed once — see the
     // `viteAxis` comment for why an incremental `add` would test the wrong thing.
@@ -1377,7 +1305,7 @@ async function runCell(
     run('install', pm, pmInstallArgs(pm), projectDir)
   })
 
-  // ── 4. typecheck ──────────────────────────────────────────────────────────
+  // ── 3. typecheck ──────────────────────────────────────────────────────────
   await step('typecheck', () => {
     if (spec.typecheckScript === null) return na('template ships no typecheck script')
     if (!(spec.typecheckScript in scriptsOf()))
@@ -1385,7 +1313,7 @@ async function runCell(
     run('typecheck', pm, pmRunArgs(pm, spec.typecheckScript), workdir)
   })
 
-  // ── 5. build ──────────────────────────────────────────────────────────────
+  // ── 4. build ──────────────────────────────────────────────────────────────
   await step('build', () => {
     if (spec.buildScript === null) return na('template ships no build script')
     if (!(spec.buildScript in scriptsOf()))
@@ -1393,7 +1321,7 @@ async function runCell(
     run('build', pm, pmRunArgs(pm, spec.buildScript), workdir)
   })
 
-  // ── 6. the BUILT Worker: must load, and must render ───────────────────────
+  // ── 5. the BUILT Worker: must load, and must render ───────────────────────
   //
   // Everything above this line can be green on an SSR app that is entirely
   // undeployable. `vite build` reports success on a `_worker.js` whose module
@@ -1482,7 +1410,7 @@ async function runCell(
     )
   })
 
-  // ── 7. dev server: must answer 200 + non-empty HTML ───────────────────────
+  // ── 6. dev server: must answer 200 + non-empty HTML ───────────────────────
   await step('dev (HTTP 200)', async () => {
     if (spec.devScript === null) return na('template ships no dev script')
     if (!(spec.devScript in scriptsOf())) return na(`no "${spec.devScript}" script in package.json`)
@@ -1512,7 +1440,7 @@ async function runCell(
     out(`    ${dim(`${probe.url} → 200 ${probe.contentType} ${probe.bodyBytes}B`)}\n`)
   })
 
-  // ── 8. production/preview server: must answer 200 + non-empty HTML ────────
+  // ── 7. production/preview server: must answer 200 + non-empty HTML ────────
   await step('preview (HTTP 200)', async () => {
     if (spec.previewScript === null) return na('template ships no preview/production-server script')
     if (!(spec.previewScript in scriptsOf()))
@@ -1583,9 +1511,10 @@ function renderGrid(results: readonly CellResult[], skipped: readonly PmInfo[]):
   const ssrRows = results.filter((c) => TEMPLATES.find((t) => t.id === c.template)?.ssr)
   if (ssrRows.length > 0) {
     out(
-      `${bold('ssr')} the \`ssr-config\` column is a HARNESS patch of vite.config.ts, not a shipped\n` +
-        `  template. Until an \`ssr\` template exists, this row is what stands between\n` +
-        `  \`output: 'ssr'\` and a consumer discovering it is broken.\n`,
+      `${bold('ssr')} the \`worker\` column IMPORTED the built \`_worker.js\` and called its fetch with a\n` +
+        `  stubbed ASSETS binding. A green \`build\` alone proves nothing here: the SSR deadlock\n` +
+        `  this column exists for lived in an artifact that built cleanly and could not be\n` +
+        `  loaded at all.\n`,
     )
   }
 

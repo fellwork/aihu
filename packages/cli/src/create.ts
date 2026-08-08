@@ -10,7 +10,7 @@
  *   - Auto-detects available package managers (bun > pnpm > yarn > npm)
  *   - Interactive prompts via Node readline (zero extra dependencies)
  *   - `--template` spans BOTH tiers of the catalogue: the built-in templates
- *     embedded in @aihu/cli (minimal | full | docs | agent) and the
+ *     embedded in @aihu/cli (minimal | full | docs | agent | ssr) and the
  *     npm-published `@aihu/templates-*` packages (installed on demand and run
  *     through the shared 6-stage scaffold pipeline).
  *   - Optional git init
@@ -457,6 +457,9 @@ async function main(): Promise<void> {
     process.stdout.write(
       `    ${cyan('4)')} agent    — capability-bridge task-list demo ${dim('(folding into full)')}\n`,
     )
+    process.stdout.write(
+      `    ${cyan('5)')} ssr      — server-rendered on Cloudflare Workers (deploy with wrangler)\n`,
+    )
     const templateAnswer = await prompt(rl, `  ${dim('Template [1]:')} `)
     const templateMap: Record<string, AppTemplate> = {
       '': 'minimal',
@@ -468,6 +471,8 @@ async function main(): Promise<void> {
       docs: 'docs',
       '4': 'agent',
       agent: 'agent',
+      '5': 'ssr',
+      ssr: 'ssr',
     }
     template = templateMap[templateAnswer.trim().toLowerCase()] ?? 'minimal'
   }

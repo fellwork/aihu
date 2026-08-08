@@ -22,8 +22,11 @@ packages:
 # typechecked. This is the pnpm counterpart of package.json's
 # `trustedDependencies`, and it lives HERE because pnpm no longer reads settings
 # from package.json at all — it says so on every install.
-# Both entries postinstall an arch-specific native binary; a blocked script
-# leaves the wrong one in place to resurface later as ENOEXEC.
+# esbuild postinstalls an arch-specific native binary (reached transitively
+# through vite 6); a blocked script leaves the wrong one in place to resurface
+# later as ENOEXEC. @aihu/compiler ships no install script today — its native
+# binary arrives as per-platform optionalDependencies — and is listed as a
+# forward guard only.
 #
 # pnpm v11 renamed this: it was `onlyBuiltDependencies` (a list) through v10 and
 # is now `allowBuilds` (a map). The old key is ignored SILENTLY — no warning —

@@ -20,6 +20,7 @@
 
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
+import { aihuDep } from './dep-versions.js'
 import {
   agentComponentAihu,
   agentIndexHtml,
@@ -34,6 +35,7 @@ import {
   agentViteConfig,
 } from './templates-agent.js'
 import { fullTemplateFiles } from './templates-full.js'
+import { ssrAgentsFacts, ssrPackageJson, ssrReadme, ssrViteConfig } from './templates-ssr.js'
 import {
   agentToolingFiles,
   pnpmWorkspaceYaml,
@@ -60,7 +62,7 @@ export interface ScaffoldResult {
 // ---------------------------------------------------------------------------
 
 export type PkgManager = 'bun' | 'pnpm' | 'npm' | 'yarn'
-export type AppTemplate = 'minimal' | 'full' | 'docs' | 'agent'
+export type AppTemplate = 'minimal' | 'full' | 'docs' | 'agent' | 'ssr'
 
 /** Out-of-the-box CSS strategy for a scaffolded app. */
 export type CssChoice = 'engine' | 'none'
@@ -110,7 +112,7 @@ export function appPackageJson(
         // primitives are listed explicitly because `@state` blocks bare-import
         // them (e.g. `import { signal } from '@aihu/signals'`); pinning them
         // here keeps version drift visible at `bun outdated`.
-        '@aihu/app': 'latest',
+        '@aihu/app': aihuDep('@aihu/app'),
         // The compiler unconditionally emits `import { registerAgentMetadata }
         // from '@aihu/agent'` for any component with an `$action` block — and
         // the scaffolded counter component always has one. `@aihu/agent` is a
@@ -118,8 +120,8 @@ export function appPackageJson(
         // hoisted `node_modules` resolve the transitive import anyway; pnpm's
         // strict per-package resolution does not expose it, so `pnpm run
         // build` fails with an unresolved import unless it is listed here too.
-        '@aihu/agent': 'latest',
-        '@aihu/arbor': 'latest',
+        '@aihu/agent': aihuDep('@aihu/agent'),
+        '@aihu/arbor': aihuDep('@aihu/arbor'),
         // Peer of `@aihu/runtime`, which is why it is easy to miss: it is not a
         // peer of `@aihu/app`, so satisfying app's own list is not enough.
         // `@aihu/app`, `@aihu/runtime` and `@aihu/arbor` all declare ZERO
@@ -128,13 +130,13 @@ export function appPackageJson(
         // Missing it took `full` and `agent` from a yarn build failure on
         // `@aihu/store` to a yarn build failure on `@aihu/context` — one layer
         // down the same chain (run 30333109465).
-        '@aihu/context': 'latest',
+        '@aihu/context': aihuDep('@aihu/context'),
         // `@aihu/css-engine` is the optional utility-class compiler peer; only
         // emitted for the OOTB css-engine scaffold (`--css engine`). Its scoped
         // utilities fold into each component's shadow style at build time.
-        ...(withCssEngine ? { '@aihu/css-engine': 'latest' } : {}),
-        '@aihu/router': 'latest',
-        '@aihu/runtime': 'latest',
+        ...(withCssEngine ? { '@aihu/css-engine': aihuDep('@aihu/css-engine') } : {}),
+        '@aihu/router': aihuDep('@aihu/router'),
+        '@aihu/runtime': aihuDep('@aihu/runtime'),
         // `@aihu/server` and `@aihu/store` are peers of `@aihu/app` that its
         // CLIENT entry imports eagerly — `hydrateStores` from `@aihu/store` and
         // `routeHeadToSsrHead` from `@aihu/server/head-lowering`. `@aihu/app`
@@ -152,9 +154,9 @@ export function appPackageJson(
         // consumer's, and two `@aihu/store` instances mean two module-level
         // store registries — hydration writes to one and reads from the other.
         // Same reasoning as `@aihu-plugin/agent-readiness` below.
-        '@aihu/server': 'latest',
-        '@aihu/signals': 'latest',
-        '@aihu/store': 'latest',
+        '@aihu/server': aihuDep('@aihu/server'),
+        '@aihu/signals': aihuDep('@aihu/signals'),
+        '@aihu/store': aihuDep('@aihu/store'),
       },
       devDependencies: {
         // `@aihu-plugin/agent-readiness` powers the `agentReadiness` pass in
@@ -162,20 +164,44 @@ export function appPackageJson(
         // devDependency of `@aihu/app`, NOT a transitive runtime dep, so a
         // consumer must list it explicitly — otherwise `viteAihuPlugin`'s
         // `require('@aihu-plugin/agent-readiness')` throws at config load.
-        '@aihu-plugin/agent-readiness': 'latest',
-        '@aihu/cli': 'latest',
-        '@aihu/compiler': 'latest',
+        '@aihu-plugin/agent-readiness': aihuDep('@aihu-plugin/agent-readiness'),
+        '@aihu/cli': aihuDep('@aihu/cli'),
+        '@aihu/compiler': aihuDep('@aihu/compiler'),
         // Provides `aihu-tsc` — the `typecheck` script above.
-        '@aihu/tsc': 'latest',
+        '@aihu/tsc': aihuDep('@aihu/tsc'),
         typescript: '^5.0.0',
-        vite: '^6.0.0',
+        vite: aihuDep('vite'),
       },
-      // `@aihu/compiler`'s postinstall downloads the correct-arch native binary
-      // and arch-validates it. Under bun, postinstall scripts are BLOCKED unless
-      // the package is trusted — without this, the wrong-arch binary baked into
-      // the published tarball stays in place and `bun run build` dies with
-      // ENOEXEC ("Unknown system error -8"). See FIX 1 (cli release readiness).
-      trustedDependencies: ['@aihu/compiler'],
+      // The same two packages as the emitted `pnpm-workspace.yaml`'s
+      // `allowBuilds`, deliberately kept in step. Both entries were re-measured
+      // rather than inherited, and the answers were not what the comment here
+      // used to claim:
+      //
+      //   `@aihu/compiler` — ships NO install script today. `npm view
+      //   @aihu/compiler@1.2.0 scripts` lists build/typecheck/prepublishOnly and
+      //   nothing else; the arch-validating postinstall this line was originally
+      //   written for was deleted in #370, which replaced it with per-platform
+      //   `optionalDependencies`. So the entry is INERT, and is kept only as a
+      //   forward guard: that delivery mechanism has already changed once, and a
+      //   blocked script does not fail at install time — it surfaces much later
+      //   as ENOEXEC ("Unknown system error -8") inside `run build`.
+      //
+      //   `esbuild` — the one package in a scaffold that DOES postinstall (it
+      //   links the platform binary), reached transitively through vite 6. It is
+      //   listed here even though bun currently ships `esbuild` in its BUILT-IN
+      //   allow-list (`bun pm default-trusted`, 367 entries, verified to contain
+      //   it), because relying on that list makes the manifest silent about its
+      //   own requirement — and it is NOT optional on the pnpm side, where a
+      //   missing entry exits 1 with ERR_PNPM_IGNORED_BUILDS before the first
+      //   build. Under `vite ^8` there is no esbuild at all and the entry is
+      //   simply unused; `^6 || ^8` means both installs are possible from the
+      //   same manifest.
+      //
+      // Verified that naming packages here does not DISABLE bun's built-in list:
+      // a probe project depending on esbuild@0.25.12 with
+      // `trustedDependencies: ['@aihu/compiler']` still ran esbuild's script
+      // (`bun pm untrusted` → 0 untrusted, binary resolvable).
+      trustedDependencies: ['@aihu/compiler', 'esbuild'],
       // NOTE: pnpm's counterpart to `trustedDependencies` is NOT here. Current
       // pnpm does not read settings from package.json at all — it says so, out
       // loud, and then ignores them:
@@ -746,7 +772,10 @@ export function pluginPackageJson(name: string): string {
         },
       },
       peerDependencies: {
-        '@aihu/plugin': '^0.8.0',
+        // Generated, not typed: this said `^0.8.0` while `@aihu/plugin` was on
+        // 0.1.0 — a range that resolves to nothing, in a scaffold nobody would
+        // notice until `npm install` in the generated package.
+        '@aihu/plugin': aihuDep('@aihu/plugin'),
       },
     },
     null,
@@ -861,6 +890,29 @@ export function scaffoldApp(
         }),
       )
     }
+    return writeFiles(root, files)
+  }
+
+  // `ssr` is the Cloudflare-Worker template: the ONLY scaffold that emits
+  // `output: 'ssr'`, so it is the only one whose `vite build` produces a
+  // server bundle at all. It shares `minimal`'s page, index.html and tsconfig
+  // — the difference is entirely in vite.config.ts and the dependency set —
+  // but it returns early rather than joining the base below, because the base
+  // hardcodes `appViteConfig`/`appPackageJson` and a boolean threaded through
+  // both would make two genuinely different builds look like one with a flag.
+  if (template === 'ssr') {
+    const files: Array<readonly [string, string]> = [
+      ['package.json', ssrPackageJson(name, pm, withCssEngine)],
+      ['pnpm-workspace.yaml', pnpmWorkspaceYaml()],
+      ['vite.config.ts', ssrViteConfig(name, `${toSafe(name)}-root`)],
+      ['tsconfig.json', appTsConfig()],
+      ['index.html', appIndexHtml(name)],
+      ['src/pages/index.aihu', appIndexAihu(name, withCssEngine)],
+      ['README.md', ssrReadme(name)],
+      ['.vscode/extensions.json', appVscodeExtensions()],
+      ['.vscode/settings.json', appVscodeSettings()],
+    ]
+    if (agentTooling) files.push(...agentToolingFiles(ssrAgentsFacts(name)))
     return writeFiles(root, files)
   }
 

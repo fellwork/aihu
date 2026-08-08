@@ -10,26 +10,27 @@
     "typecheck": "aihu-tsc"
   },
   "dependencies": {
-    "@aihu/app": "latest",
-    "@aihu/agent": "latest",
-    "@aihu/arbor": "latest",
-    "@aihu/context": "latest",
-    "@aihu/router": "latest",
-    "@aihu/runtime": "latest",
-    "@aihu/server": "latest",
-    "@aihu/signals": "latest",
-    "@aihu/store": "latest"
+    "@aihu/app": "^9.0.0",
+    "@aihu/agent": "^0.2.0",
+    "@aihu/arbor": "^4.1.0",
+    "@aihu/context": "^0.2.0",
+    "@aihu/router": "^0.4.4",
+    "@aihu/runtime": "^6.0.0",
+    "@aihu/server": "^0.5.0",
+    "@aihu/signals": "^0.5.0",
+    "@aihu/store": "^0.1.2"
   },
   "devDependencies": {
-    "@aihu-plugin/agent-readiness": "latest",
-    "@aihu/cli": "latest",
-    "@aihu/compiler": "latest",
-    "@aihu/tsc": "latest",
+    "@aihu-plugin/agent-readiness": "^2.2.3",
+    "@aihu/cli": "^1.2.0",
+    "@aihu/compiler": "^1.2.2",
+    "@aihu/tsc": "^0.3.2",
     "typescript": "^5.0.0",
-    "vite": "^6.0.0"
+    "vite": "^6 || ^8"
   },
   "trustedDependencies": [
-    "@aihu/compiler"
+    "@aihu/compiler",
+    "esbuild"
   ],
   "packageManager": "bun@1.3.8"
 }

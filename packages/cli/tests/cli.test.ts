@@ -2,6 +2,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { aihuDep } from '../src/dep-versions.ts'
 import {
   appAihuConfig,
   appDefaultLayout,
@@ -74,17 +75,23 @@ describe('appPackageJson', () => {
     expect(pkg.type).toBe('module')
   })
 
-  it('declares @aihu/compiler as a trusted dependency (FIX 1)', () => {
-    // Under `bun install`, postinstall scripts are blocked unless trusted.
-    // @aihu/compiler's postinstall downloads + arch-validates the native
-    // binary; without trust, the wrong-arch tarball binary stays and
-    // `bun run build` dies with ENOEXEC. Assert for every PM + css variant.
+  it('declares the trusted dependencies bun would otherwise block (FIX 1)', () => {
+    // Under `bun install`, lifecycle scripts are blocked unless the package is
+    // trusted or on bun's own built-in allow-list. `esbuild` is the package a
+    // scaffold actually postinstalls (reached through vite 6) and is named here
+    // so the manifest states its own requirement instead of depending on bun's
+    // list; `@aihu/compiler` no longer ships an install script at all and is
+    // kept as a forward guard. Both mirror pnpm-workspace.yaml's `allowBuilds`,
+    // where the esbuild entry is NOT optional. Assert for every PM + css variant.
     for (const pm of ['bun', 'pnpm', 'npm', 'yarn'] as const) {
       for (const withCss of [false, true]) {
         const pkg = JSON.parse(appPackageJson('demo', pm, withCss)) as {
           trustedDependencies?: string[]
         }
-        expect(pkg.trustedDependencies, `pm=${pm} css=${withCss}`).toEqual(['@aihu/compiler'])
+        expect(pkg.trustedDependencies, `pm=${pm} css=${withCss}`).toEqual([
+          '@aihu/compiler',
+          'esbuild',
+        ])
       }
     }
   })
@@ -335,7 +342,7 @@ describe('scaffoldApp', () => {
     const pkg = JSON.parse(readFileSync(join(tmpDir, 'demo', 'package.json'), 'utf8')) as {
       trustedDependencies?: string[]
     }
-    expect(pkg.trustedDependencies).toEqual(['@aihu/compiler'])
+    expect(pkg.trustedDependencies).toEqual(['@aihu/compiler', 'esbuild'])
   })
 })
 
@@ -463,7 +470,7 @@ describe("scaffoldApp · template 'agent' (capability-bridge showcase)", () => {
     const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as {
       dependencies: Record<string, string>
     }
-    expect(pkg.dependencies['@aihu/agent-server']).toBe('latest')
+    expect(pkg.dependencies['@aihu/agent-server']).toBe(aihuDep('@aihu/agent-server'))
 
     const sfc = readFileSync(join(root, 'src/task-list.aihu'), 'utf8')
     expect(sfc).toContain('@agent')
@@ -497,7 +504,9 @@ describe("scaffoldApp · template 'agent' (capability-bridge showcase)", () => {
       dependencies: Record<string, string>
       devDependencies: Record<string, string>
     }
-    expect(pkg.dependencies['@aihu-plugin/agent-readiness']).toBe('latest')
+    expect(pkg.dependencies['@aihu-plugin/agent-readiness']).toBe(
+      aihuDep('@aihu-plugin/agent-readiness'),
+    )
     expect(pkg.devDependencies['@aihu-plugin/agent-readiness']).toBeUndefined()
 
     // The fetch-API route handlers, not the vite plugin.

@@ -83,17 +83,24 @@ export const config = {
     { kind: 'git-init', when: 'initGit' },
     { kind: 'lint-fix', allowFailure: true },
   ],
-  // Aihu framework runtime peer deps. Pinned to ^0.2.0 because the framework
-  // is shipping its v0.2.0 alpha alongside the CLI templates and the package
-  // names must resolve against npm at scaffold time. Bumps to ^1.0.0 land
-  // when the framework cuts its 1.0.
+  // Aihu framework runtime peer deps.
+  //
+  // GENERATED — the RANGES in this block are written by
+  // `scripts/sync-template-versions.ts` from each package's own workspace
+  // version, and `check:template-versions` fails CI if they drift. Do not hand-
+  // edit them. (Adding or removing a KEY is a real edit; run the generator
+  // afterwards.) They sat at a hand-typed `^0.2.0` for the whole life of this
+  // file, six majors behind `@aihu/runtime`, because nothing checked them.
+  //
+  // `appPeerDepsConditional` below is NOT generated: those are third-party auth
+  // SDKs this repo does not publish.
   appPeerDeps: {
-    '@aihu/runtime': '^0.2.0',
-    '@aihu/arbor': '^0.2.0',
-    '@aihu/signals': '^0.2.0',
-    '@aihu/router': '^0.2.0',
-    '@aihu/server': '^0.2.0',
-    '@aihu/adapter-cloudflare': '^0.2.0',
+    '@aihu/runtime': '^6.0.0',
+    '@aihu/arbor': '^4.1.0',
+    '@aihu/signals': '^0.5.0',
+    '@aihu/router': '^0.4.4',
+    '@aihu/server': '^0.5.0',
+    '@aihu/adapter-cloudflare': '^12.0.0',
   },
   appPeerDepsConditional: {
     'better-auth': { version: '^1.0.0', when: 'auth === "better-auth"' },
