@@ -16,13 +16,38 @@ import type { spawnSync as SpawnSync } from 'node:child_process'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { packageManagerField, resetPackageManagerFieldCache } from '../src/pkg-manager-field.ts'
 
-/** A fake `spawnSync` that answers `<pm> --version` from a table. */
+/**
+ * A fake `spawnSync` that answers `<pm> --version` from a table.
+ *
+ * A table miss models a package manager that is NOT INSTALLED, and it must
+ * model it the way the real `spawnSync` does. Measured on node 20 and bun:
+ *
+ *   spawnSync('nope', ['--version'], { encoding: 'utf8', shell: false })
+ *   // → { status: null, signal: null, stdout: undefined, error: [ENOENT] }
+ *
+ * It RETURNS an error result; it does not throw. The mock used to throw, so the
+ * "package manager not installed" test exercised `probeVersion`'s `catch`
+ * block — a branch production never reaches on this path — while the branch
+ * that actually runs (`r.status === 0` being false for `null`, and `r.stdout`
+ * being `undefined` rather than a string) went untested. Both paths happen to
+ * produce `undefined`, but only one of them was proven to.
+ */
 function fakeSpawn(table: Record<string, { status?: number; stdout?: string }>) {
   const calls: string[] = []
   const fn = ((cmd: string) => {
     calls.push(cmd)
     const hit = table[cmd]
-    if (hit === undefined) throw new Error(`ENOENT (fake): ${cmd}`)
+    if (hit === undefined) {
+      return {
+        status: null,
+        signal: null,
+        stdout: undefined,
+        stderr: undefined,
+        pid: 0,
+        output: [],
+        error: Object.assign(new Error(`spawnSync ${cmd} ENOENT`), { code: 'ENOENT' }),
+      }
+    }
     return { status: hit.status ?? 0, stdout: hit.stdout ?? '', stderr: '' }
   }) as unknown as typeof SpawnSync
   return { fn, calls }
@@ -47,8 +72,23 @@ describe('packageManagerField', () => {
   it('emits NO field when the package manager is not installed', () => {
     // A wrong pin is worse than no pin: corepack enforces `packageManager` and
     // refuses to run when it disagrees with the invoked tool.
+    //
+    // The mock returns `{ status: null, stdout: undefined, error: ENOENT }`,
+    // which is what the real `spawnSync` returns for a missing binary — see
+    // fakeSpawn. Asserting through the branch production actually takes.
     const { fn } = fakeSpawn({})
     expect(packageManagerField('yarn', fn)).toBeUndefined()
+  })
+
+  it('also survives a spawn implementation that THROWS', () => {
+    // Kept as a separate case rather than as the mock's only behaviour: a
+    // permission error or a patched child_process can still throw, and
+    // `probeVersion`'s catch is the safety net for that — but it is not the
+    // not-installed path, which is what the case above now covers.
+    const throwing = ((cmd: string) => {
+      throw new Error(`EACCES (fake): ${cmd}`)
+    }) as unknown as typeof SpawnSync
+    expect(packageManagerField('yarn', throwing)).toBeUndefined()
   })
 
   it('emits NO field when the probe fails or answers with a non-version', () => {

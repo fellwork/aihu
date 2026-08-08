@@ -28,7 +28,8 @@ import { existsSync, realpathSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { createInterface } from 'node:readline'
 import { fileURLToPath } from 'node:url'
-import { firstPositional } from './argv.js'
+import { classifyPmFlag, firstPositional, PKG_MANAGERS_HINT } from './argv.js'
+import { CLI_VERSION } from './cli-version.js'
 import type { AppTemplate, CssChoice, PkgManager, ShadowChoice } from './index.js'
 import { scaffoldApp } from './index.js'
 import { parseOptionsJson } from './options-json.js'
@@ -195,10 +196,23 @@ function templateFromArgv(): AppTemplate | undefined {
   return choice.kind === 'builtin' ? choice.name : undefined
 }
 
-/** Resolve the package-manager choice from argv, or `undefined` to prompt. */
+/**
+ * Resolve the package-manager choice from argv, or `undefined` to prompt.
+ *
+ * An unusable `--pm` exits 1 rather than falling through to `undefined`, which
+ * meant "the user did not choose" — so `create-aihu app --pm garbage --yes`
+ * pinned the DETECTED package manager into `packageManager` and said nothing.
+ * That pin is enforced by corepack, so the very next command the wizard prints
+ * (`<pm> install`) refuses to run. Same triage `--template` already gets, three
+ * function definitions above.
+ */
 function pmFromArgv(): PkgManager | undefined {
-  const raw = extractFlag('pm')
-  if (raw === 'bun' || raw === 'pnpm' || raw === 'npm' || raw === 'yarn') return raw
+  const flag = classifyPmFlag(argv)
+  if (flag.kind === 'value') return flag.pm
+  if (flag.kind === 'missing') failUsage(`--pm needs a value (${PKG_MANAGERS_HINT}).`)
+  if (flag.kind === 'unknown') {
+    failUsage(`unknown --pm value ${JSON.stringify(flag.raw)}. Valid: ${PKG_MANAGERS_HINT}.`)
+  }
   return undefined
 }
 
@@ -302,6 +316,7 @@ export function usageText(): string {
     '  --no-install        Skip dependency install (npm templates only)',
     '  --yes, -y           Non-interactive; take documented defaults',
     '  --help, -h          Show this message',
+    '  --version, -v       Print the @aihu/cli version',
     '',
     'Templates for --template:',
     formatTemplateCatalog('  '),
@@ -313,7 +328,17 @@ export function usageText(): string {
 }
 
 /**
- * Print the catalogue + exit non-zero. Every "we cannot use that value" path
+ * An invocation we cannot act on: the reason, a pointer to `--help`, exit 1.
+ * The one error dialect this entry point speaks.
+ */
+function failUsage(message: string): never {
+  process.stderr.write(`\n  ${c.red}error${c.reset} ${message}\n\n`)
+  process.stderr.write(`  Run with ${bold('--help')} for the full option list.\n\n`)
+  process.exit(1)
+}
+
+/**
+ * Print the catalogue + exit non-zero. Every "we cannot use that TEMPLATE" path
  * routes through here, so the user never has to already know the names.
  */
 function failWithCatalog(message: string): never {
@@ -329,6 +354,19 @@ async function main(): Promise<void> {
   // `--help` is answered before the banner so the output pipes cleanly.
   if (hasFlag('help') || argv.includes('-h')) {
     process.stdout.write(usageText())
+    process.exit(0)
+  }
+  // …and so is `--version`, for the same reason plus a worse one: this handler
+  // did not exist. `bin.ts` grew real `--version` support and `create.ts` — the
+  // ONLY bin npm users can actually reach, per this file's own docblock — never
+  // did, so the flag fell through to the positional/non-interactive path and
+  // `create-aihu --version` CREATED A DIRECTORY (`my-aihu-app/`) and exited 0.
+  // An advertised informational flag that is unreachable is bad; one that is
+  // destructive instead of a no-op is a defect. Same version source as
+  // `bin.ts`, inlined from package.json at build time, so the two bins in this
+  // package cannot report different versions of themselves.
+  if (hasFlag('version') || argv.includes('-v')) {
+    process.stdout.write(`${CLI_VERSION}\n`)
     process.exit(0)
   }
 

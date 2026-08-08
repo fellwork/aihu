@@ -19,12 +19,31 @@
  *   1  |  1.2  |  1.x  |  1.2.x  partial + wildcard forms
  *   >=1.0.0 <2.0.0               space-separated comparators (AND)
  *   ^1 || ^2                     `||`-separated comparator sets (OR)
+ *   >= 1.0.0  |  v1.2.3          space after the operator, `v` prefix
+ *
+ * PARTIAL BOUNDS follow npm's X-range promotion, which is NOT "fill the
+ * wildcards with zero" — that is only true for `>=` and `<`:
+ *
+ *   >1  → >=2.0.0     >1.2  → >=1.3.0      (step past the range named)
+ *   <=1 → <2.0.0-0    <=1.2 → <1.3.0-0
+ *   >=1 → >=1.0.0     >=1.2 → >=1.2.0      (zero-fill)
+ *   <1  → <1.0.0-0    <1.2  → <1.2.0-0
+ *   >*  | <x          nothing is allowed, not everything
+ *
+ * This module got `>` and `<=` wrong in both directions for three releases.
+ * The `>` half was fail-OPEN — `satisfiesRange('1.5.0', '>1')` returned true
+ * where npm returns false — which is the worst direction for the one thing
+ * this module is used for: `assertTemplateCompatibility` waving through a
+ * CLI/template pairing npm calls incompatible.
  *
  * WHAT IS NOT. Hyphen ranges (`1.2.3 - 2.3.4`) and build metadata are not
  * implemented. Anything unparseable THROWS rather than defaulting to
  * "satisfied" — a template that declares a range this cannot read is a broken
  * template, and the whole point of enforcing `cliRange` is that an
- * unenforceable declaration must not pass silently.
+ * unenforceable declaration must not pass silently. The corollary bit at the
+ * other end: throwing on syntax npm DOES accept is not "safe", it blocks a
+ * scaffold that should work, which is why the `v`-prefix and spaced-operator
+ * forms above are tolerated rather than rejected.
  *
  * Prerelease handling follows the npm rule, not naive ordering: `1.0.0-beta.1`
  * is ordered below `1.0.0`, but a prerelease version only satisfies a range
@@ -134,6 +153,15 @@ function version(major: number, minor: number, patch: number, pre: ReadonlyArray
 }
 
 /**
+ * A comparator nothing can satisfy — node-semver's `<0.0.0-0`, which is what
+ * `replaceXRange` emits for `>*` / `<x` ("nothing is allowed"). `0.0.0-0` is
+ * the lowest version that exists, so no version sorts below it.
+ */
+const NOTHING: ReadonlyArray<Comparator> = [
+  { op: '<', version: { major: 0, minor: 0, patch: 0, pre: ['0'] } },
+]
+
+/**
  * Expand one whitespace-free range atom into comparators.
  * Returns `undefined` for the "matches anything" atom.
  */
@@ -142,7 +170,11 @@ function expandAtom(atom: string): ReadonlyArray<Comparator> | undefined {
 
   const opMatch = /^(<=|>=|<|>|=|\^|~)\s*(.+)$/.exec(atom)
   const operator = opMatch ? opMatch[1]! : ''
-  const body = opMatch ? opMatch[2]! : atom
+  // A leading `v` is part of the grammar npm accepts (`v1.2.3`, `=v1.2.3`,
+  // `^v1.2.0`) and every one of them used to reach `at()` as the un-numeric
+  // part `'v1'` and THROW — which `assertTemplateCompatibility` reports as
+  // "declares an unusable cliRange", blocking a scaffold whose range was fine.
+  const body = (opMatch ? opMatch[2]! : atom).replace(/^[vV](?=[\dxX*])/, '')
 
   const { parts, pre } = splitPartial(body)
   if (parts.length === 0 || parts.length > 3) {
@@ -156,8 +188,11 @@ function expandAtom(atom: string): ReadonlyArray<Comparator> | undefined {
   const minor = at(parts, 1)
   const patch = at(parts, 2)
 
-  // `*`, `x.y` with a wildcard major — matches anything.
-  if (majorWild) return undefined
+  // A wildcard major matches anything — EXCEPT under a strict inequality,
+  // where npm reads `>*` / `<x` as "nothing is allowed" rather than
+  // "everything is". Returning `undefined` (any) for those was fail-OPEN in a
+  // module whose entire contract is fail-closed.
+  if (majorWild) return operator === '>' || operator === '<' ? NOTHING : undefined
 
   switch (operator) {
     case '^': {
@@ -190,9 +225,52 @@ function expandAtom(atom: string): ReadonlyArray<Comparator> | undefined {
     case '>':
     case '>=':
     case '<':
-    case '<=':
-      // A partial bound resolves its wildcards to zero: `>=1.2` is `>=1.2.0`.
-      return [{ op: operator, version: version(major, minor, patch, pre) }]
+    case '<=': {
+      if (!minorWild && !patchWild) {
+        // Fully specified: the comparator is itself.
+        return [{ op: operator, version: version(major, minor, patch, pre) }]
+      }
+      // PARTIAL BOUND. "Wildcards resolve to zero" — what this branch used to
+      // do unconditionally, and what the module docblock still claimed — is
+      // right for `>=`/`<` and WRONG for `>`/`<=`, which have to step past the
+      // entire range the partial names. node-semver's `replaceXRange`:
+      //
+      //   >1     → >=2.0.0      >1.2    → >=1.3.0
+      //   <=1    → <2.0.0-0     <=1.2   → <1.3.0-0
+      //   >=1    → >=1.0.0      >=1.2   → >=1.2.0    (zero-fill: unchanged)
+      //   <1     → <1.0.0-0     <1.2    → <1.2.0-0
+      //
+      // The `>` case was fail-OPEN and it is the one that matters here:
+      // `satisfiesRange('1.5.0', '>1')` answered true where npm answers false,
+      // so a template declaring `cliRange: '>1'` (meaning "2.x or newer") was
+      // waved through by every 1.x CLI — `assertTemplateCompatibility`
+      // reporting compatible for a pairing npm calls incompatible.
+      //
+      // The `-0` on the `<` ceilings matches npm and matters for prereleases:
+      // it is the same `['0']` sentinel the caret/tilde ceilings above use.
+      switch (operator) {
+        case '>':
+          return [
+            {
+              op: '>=',
+              version: minorWild ? version(major + 1, 0, 0) : version(major, minor + 1, 0),
+            },
+          ]
+        case '<=':
+          return [
+            {
+              op: '<',
+              version: minorWild
+                ? version(major + 1, 0, 0, ['0'])
+                : version(major, minor + 1, 0, ['0']),
+            },
+          ]
+        case '<':
+          return [{ op: '<', version: version(major, minor, patch, ['0']) }]
+        default:
+          return [{ op: '>=', version: version(major, minor, patch) }]
+      }
+    }
     default: {
       // Bare or `=`-prefixed. A fully specified version is exact; a partial one
       // is the implicit range it names (`1.2` == `1.2.x`).
@@ -222,15 +300,33 @@ export function parseRange(range: string): ReadonlyArray<ReadonlyArray<Comparato
   if (trimmed.includes(' - ')) {
     throw new Error('hyphen ranges are not supported; use `>=a <b` instead')
   }
-  return trimmed.split('||').map((setRaw) => {
+  // npm allows whitespace between an operator and its version (`>= 1.0.0`) and
+  // strips it before parsing (node-semver's `comparatorTrimReplace`). Splitting
+  // on whitespace first turned `>=` into an atom of its own, which threw — so a
+  // template writing the spaced form got "unusable cliRange" and was BLOCKED
+  // over a range npm reads without complaint. Done after the hyphen check so
+  // `1.2.3 - 2.3.4` still reports the specific "not supported" message.
+  const glued = trimmed.replace(/(<=|>=|<|>|=|\^|~)\s+/g, '$1')
+  return glued.split('||').map((setRaw) => {
     const atoms = setRaw.trim().split(/\s+/).filter(Boolean)
     const out: Comparator[] = []
+    let wildcard = false
     for (const atom of atoms) {
       const expanded = expandAtom(atom)
-      if (expanded === undefined) return ANY // this whole set matches anything
+      if (expanded === undefined) {
+        // A wildcard atom inside an AND-set constrains nothing, so npm DROPS
+        // it and keeps the rest (`Range`'s comparator map deletes the empty
+        // comparator whenever others are present). Returning ANY for the whole
+        // set instead threw the accumulated comparators away: `>=1.0.0 * <2.0.0`
+        // matched 2.5.0. Dropping constraints is the precise opposite of this
+        // module's stated fail-closed contract.
+        wildcard = true
+        continue
+      }
       out.push(...expanded)
     }
-    return out
+    // ANY only when the wildcard is all there was.
+    return out.length === 0 && wildcard ? ANY : out
   })
 }
 

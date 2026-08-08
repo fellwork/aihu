@@ -18,10 +18,10 @@
  */
 
 import { resolve } from 'node:path'
-import { firstPositional } from './argv.js'
+import { classifyPmFlag, firstPositional, PKG_MANAGERS_HINT } from './argv.js'
 import { CLI_VERSION } from './cli-version.js'
 import type { CssChoice, PkgManager, ShadowChoice } from './index.js'
-import { scaffoldApp, scaffoldComponent, scaffoldPage, scaffoldPlugin } from './index.js'
+import { scaffoldApp, scaffoldComponent, scaffoldPage, scaffoldPlugin, toKebab } from './index.js'
 import { parseOptionsJson } from './options-json.js'
 import {
   printNextSteps,
@@ -54,7 +54,8 @@ function hasFlag(args: ReadonlyArray<string>, flag: string): boolean {
 }
 
 /**
- * `--pm <bun|pnpm|npm|yarn>`, defaulting to bun.
+ * `--pm <bun|pnpm|npm|yarn>`, defaulting to bun when the flag is ABSENT — and
+ * exiting 1 when it is present with a value we cannot honor.
  *
  * Shared by both scaffold paths because the built-in one used to parse it
  * nowhere at all: `aihu app x --pm pnpm` dropped the flag on the floor and
@@ -63,10 +64,20 @@ function hasFlag(args: ReadonlyArray<string>, flag: string): boolean {
  * resolving a single dependency — `ERROR: This project is configured to use
  * bun`. The interactive `create-aihu` path always threaded it correctly, which
  * is why the hole survived: the two entry points disagreed about the same flag.
+ *
+ * Threading the flag fixed the valid values and left the invalid ones falling
+ * into the same trap: `--pm garbage` and a dangling `--pm` both resolved to
+ * `'bun'` in silence, producing exactly the wrong pin described above with no
+ * indication the flag had been discarded. They now fail the way `--template`
+ * already does — the two are the same kind of mistake and deserve the same
+ * answer.
  */
 function resolvePmFlag(args: ReadonlyArray<string>): PkgManager {
-  const flag = extractFlag(args, 'pm')
-  return flag === 'pnpm' || flag === 'npm' || flag === 'yarn' || flag === 'bun' ? flag : 'bun'
+  const flag = classifyPmFlag(args)
+  if (flag.kind === 'absent') return 'bun'
+  if (flag.kind === 'value') return flag.pm
+  if (flag.kind === 'missing') failUsage(`--pm needs a value (${PKG_MANAGERS_HINT}).`)
+  failUsage(`unknown --pm value ${JSON.stringify(flag.raw)}. Valid: ${PKG_MANAGERS_HINT}.`)
 }
 
 function extractTemplateFlag(args: ReadonlyArray<string>): string | undefined {
@@ -219,7 +230,12 @@ async function main(): Promise<void> {
   if (cmd === '--help' || cmd === '-h' || rest.includes('--help') || rest.includes('-h')) {
     printHelp()
   }
-  if (cmd === '--version' || cmd === '-v') {
+  // Recognised anywhere in argv, exactly like `--help` immediately above.
+  // It used to be tested against `argv[2]` alone, so `aihu --version` printed
+  // the version but `aihu app foo --version` scaffolded a complete project —
+  // two flags documented side by side in `usageText()` under "Global:", only
+  // one of which was actually global.
+  if (cmd === '--version' || cmd === '-v' || rest.includes('--version') || rest.includes('-v')) {
     process.stdout.write(`${CLI_VERSION}\n`)
     process.exit(0)
   }
@@ -254,17 +270,12 @@ async function main(): Promise<void> {
     const state = hasFlag(rest, 'state')
     const files = rest.filter((a) => !a.startsWith('--'))
     if (files.length === 0) {
-      process.stderr.write(
-        [
-          'Usage:',
-          '  aihu migrate <files...>   Migrate legacy SFC syntax to v1.0+ canonical forms',
-          '  aihu migrate --v2 <files...>   Also migrate v1 macro forms to the v2 vocabulary',
-          '  aihu migrate --state <files...>   Migrate @state to the wrapper model (#487)',
-          '  aihu migrate --dry-run <files...>   Preview changes without writing',
-          '',
-        ].join('\n'),
-      )
-      process.exit(1)
+      // `failUsage`, not a bespoke block: this used to print a bare four-line
+      // usage listing with no `ERROR:` marker and no pointer to `--help`, so
+      // the dispatcher spoke two different error dialects depending on which
+      // branch you tripped. `usageText()` already documents `--v2`,
+      // `--state` and `--dry-run`, so nothing is lost by pointing at it.
+      failUsage('aihu migrate needs at least one file.')
     }
     migrateFiles(files, dryRun, process.cwd(), v2, state)
     return
@@ -286,10 +297,12 @@ async function main(): Promise<void> {
       await mcpServe(rest.slice(1))
       return
     }
-    process.stderr.write(
-      ['Usage:', '  aihu mcp serve    Start the MCP stdio server', ''].join('\n'),
+    // Same dialect unification as `migrate` above.
+    failUsage(
+      subCmd === undefined
+        ? 'aihu mcp needs a subcommand; the only one is `aihu mcp serve`.'
+        : `unknown \`aihu mcp\` subcommand ${JSON.stringify(subCmd)}; the only one is \`aihu mcp serve\`.`,
     )
-    process.exit(1)
   }
 
   // Scaffold commands (synchronous).
@@ -398,7 +411,13 @@ async function main(): Promise<void> {
   // write into the CURRENT project (`src/pages/…`), so their paths are already
   // correct relative to the cwd and must NOT be prefixed — which is why this is
   // keyed on the command rather than applied to every line.
-  const prefix = cmd === 'app' || cmd === 'plugin' ? `${arg}/` : ''
+  //
+  // `plugin` needs the `aihu-plugin-` prefix `scaffoldPlugin` puts on the
+  // directory it actually creates: reporting `created  my-forms/package.json`
+  // for a file at `aihu-plugin-my-forms/package.json` is the same
+  // wrong-path-in-the-listing defect this prefixing was added to fix, one
+  // level further in.
+  const prefix = cmd === 'app' ? `${arg}/` : cmd === 'plugin' ? `aihu-plugin-${toKebab(arg)}/` : ''
   for (const f of result.created) {
     process.stdout.write(`  created  ${prefix}${f}\n`)
   }
