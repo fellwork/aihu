@@ -63,8 +63,19 @@ export function injectEntryScript(html: string, hasUserEntry: boolean): string {
   if (hasUserEntry) return html
   if (/<script[^>]*type=["']module["']/.test(html)) return html
   if (!html.includes('</body>')) return html
+  // Leading `/`, not the bare `virtual:aihu-entry` specifier: a `<script src>`
+  // is resolved by the BROWSER as a URL, not by Vite's plugin-id resolver, and
+  // a bare `virtual:…` string has no defined scheme — Chromium rejects it
+  // outright ("Cross origin requests are only supported for protocol schemes:
+  // chrome, chrome-untrusted, data, http, https"), so the whole app fails to
+  // load in dev with an empty page. `/virtual:aihu-entry` is a same-origin
+  // absolute path; Vite's dev server recognises the `virtual:` prefix on an
+  // incoming request path and routes it to this plugin's `resolveId`/`load`
+  // exactly as it would the bare specifier from an `import` statement — this
+  // is Vite's own documented convention for referencing a virtual module from
+  // HTML, not an aihu-specific workaround.
   return html.replace(
     '</body>',
-    `    <script type="module" src="${ENTRY_VIRTUAL_ID}"></script>\n  </body>`,
+    `    <script type="module" src="/${ENTRY_VIRTUAL_ID}"></script>\n  </body>`,
   )
 }

@@ -320,7 +320,15 @@ export function viteAihuPlugin(config?: AihuConfig): PluginOption[] {
       entryRoot = rc.root
     },
     resolveId(id) {
-      return id === ENTRY_VIRTUAL_ID ? ENTRY_RESOLVED_ID : null
+      // Two callers reach this, with two different id shapes. An `import`
+      // statement (from `virtual:aihu-components` or a test) resolves through
+      // Vite's plugin container and hands us the bare specifier. A `<script
+      // src="/virtual:aihu-entry">` in HTML (`injectEntryScript`, below) is a
+      // browser HTTP REQUEST — Vite strips the origin and query, so the id
+      // here is the leading-slash request PATH, not the bare specifier. Both
+      // must resolve to the same module or dev serves a 404 for every new
+      // project (the bug this comment exists to prevent regressing).
+      return id === ENTRY_VIRTUAL_ID || id === `/${ENTRY_VIRTUAL_ID}` ? ENTRY_RESOLVED_ID : null
     },
     load(id) {
       // `app.outletId` threaded through, so a project that moved off `#outlet`

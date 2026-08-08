@@ -33,8 +33,21 @@ const sourceHtml =
 describe('injectEntryScript — injection & escape hatches', () => {
   it('injects the virtual entry script before </body> when there is no user entry', () => {
     const out = injectEntryScript(sourceHtml, false)
-    expect(out).toContain(`<script type="module" src="${ENTRY_VIRTUAL_ID}"></script>`)
+    expect(out).toContain(`<script type="module" src="/${ENTRY_VIRTUAL_ID}"></script>`)
     expect(out.indexOf('<script')).toBeLessThan(out.indexOf('</body>'))
+  })
+
+  it('leads with "/" — a bare "virtual:" src has no browser-recognised scheme', () => {
+    // A `<script src>` is resolved by the BROWSER as a URL, not by Vite's
+    // plugin-id resolver. The bare specifier `virtual:aihu-entry` looks like a
+    // URL with scheme "virtual", which Chromium rejects outright ("Cross
+    // origin requests are only supported for protocol schemes: chrome, data,
+    // http, https") — every scaffolded dev server served a blank page on this
+    // until the leading slash was added. `/virtual:aihu-entry` is a same-origin
+    // absolute path instead.
+    const out = injectEntryScript(sourceHtml, false)
+    expect(out).toContain(`src="/${ENTRY_VIRTUAL_ID}"`)
+    expect(out).not.toContain(`src="${ENTRY_VIRTUAL_ID}"`)
   })
 
   it('leaves html unchanged when a real src/main.ts exists (full eject)', () => {
@@ -62,6 +75,21 @@ describe('aihu-entry plugin — hooks are registered', () => {
     expect(entry.load).toBeDefined()
     expect(entry.transformIndexHtml).toBeDefined()
   })
+
+  it('resolveId accepts BOTH the bare specifier and the leading-slash request path', () => {
+    // Two callers, two id shapes: an `import` statement hands resolveId the
+    // bare specifier; the browser requesting the injected <script src> hands
+    // Vite's dev server the leading-slash path. Both must resolve, or the
+    // fix to injectEntryScript's src (above) serves a 404 in dev instead of a
+    // CORS error — a different failure, still a blank page.
+    const plugins = viteAihuPlugin()
+    const entry = plugins.find((p) => (p as Plugin).name === 'aihu-entry') as Plugin
+    // biome-ignore lint/suspicious/noExplicitAny: exercising the raw hook fn
+    const resolveId = entry.resolveId as any
+    expect(resolveId.call({}, ENTRY_VIRTUAL_ID)).not.toBeNull()
+    expect(resolveId.call({}, `/${ENTRY_VIRTUAL_ID}`)).not.toBeNull()
+    expect(resolveId.call({}, `${ENTRY_VIRTUAL_ID}?x=1`)).toBeNull()
+  })
 })
 
 describe('end-to-end: vite build resolves virtual:aihu-entry as a real HTML script-tag entry', () => {
@@ -84,7 +112,13 @@ describe('end-to-end: vite build resolves virtual:aihu-entry as a real HTML scri
     return {
       name: 'aihu-entry',
       resolveId(id) {
-        return id === ENTRY_VIRTUAL_ID ? ENTRY_RESOLVED_ID : null
+        // Both id shapes, matching the real plugin in vite-plugin.ts — this
+        // helper is a hand-kept copy, and it drifted once before (it still
+        // asserted the bare specifier after injectEntryScript moved to the
+        // leading-slash form, so this exact build silently regressed until a
+        // real `vite build()` in this test caught it: HTML's own transform
+        // pipeline hands resolveId the leading-slash form, not the bare one).
+        return id === ENTRY_VIRTUAL_ID || id === `/${ENTRY_VIRTUAL_ID}` ? ENTRY_RESOLVED_ID : null
       },
       load(id) {
         return id === ENTRY_RESOLVED_ID ? ENTRY_SOURCE : null
