@@ -70,6 +70,7 @@ bun add -g @aihu/cli
 | Subpath | ESM | CJS |
 |---|---|---|
 | `.` | `./dist/index.js` | `—` |
+| `./template-manifest` | `./dist/template-manifest.js` | `—` |
 
 <sub><i>Auto-generated against `@aihu/cli@1.2.0`.</i></sub>
 

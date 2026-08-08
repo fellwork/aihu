@@ -4,6 +4,11 @@
     "outDir": "dist",
     "noEmit": true,
     "composite": false,
+    // Resolve the contract from SOURCE rather than `@aihu/cli`'s built
+    // `dist/template-manifest.d.ts`. `@aihu/cli` now genuinely exports that
+    // subpath (and this package declares it as a devDependency), so an npm
+    // consumer resolves it without help — but in-repo `moon run :typecheck`
+    // must not require the CLI to have been built first.
     "paths": {
       "@aihu/cli/template-manifest": ["../../cli/src/template-manifest.ts"]
     }

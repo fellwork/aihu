@@ -18,7 +18,9 @@
     "access": "public"
   },
   "dependencies": {},
-  "devDependencies": {},
+  "devDependencies": {
+    "@aihu/cli": "workspace:*"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/fellwork/aihu.git",
