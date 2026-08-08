@@ -17,6 +17,16 @@
  * (workload × machine) pair, not of the workload: on a loaded dev box `cellx`
  * measures ~25× its CI p50. A fitness artifact captured locally answers a
  * question about a different instrument.
+ *
+ * DO NOT COMMIT the artifact this produces to `bench/signals/fitness.json`
+ * (D1, RESOLVED 2026-08-08). The mechanism has a known flaw this runner
+ * cannot fix: it measures WITHIN-PROCESS spread, and `gate.ts` would use
+ * that to license ACROSS-CI-RUN comparisons. Those differ by several times —
+ * 2 of 6 workloads drift past the gate's 10 % threshold back-to-back with
+ * zero code changes. This runner stays useful as a MEASURING tool (that is
+ * how the drift above was quantified); what is forbidden is installing its
+ * output as gate policy. See bench/signals/HARNESS.md
+ * § "D1 — RESOLVED 2026-08-08".
  */
 
 import { writeFileSync } from 'node:fs'
