@@ -44,8 +44,15 @@ import { DEFAULT_OUTLET_ID } from './ssr-document.ts'
  *
  * Derived from the client outDir rather than hardcoded, so a project that
  * renames `dist` does not silently get a `dist-server` unrelated to it.
+ *
+ * EXPORTED because an adapter needs the same answer and must not re-derive it.
+ * `@aihu/adapter-cloudflare` writes `main = "<ssrOutDir>/_worker.js"` into the
+ * wrangler.toml it generates; it had that path hardcoded as `dist-server/`
+ * while this function was already computing the real one, so any project with a
+ * non-default `build.outDir` got a config pointing at a file the build never
+ * wrote. Two derivations of one fact is the bug — there is only this one.
  */
-function ssrOutDirFor(clientOutDir: string): string {
+export function ssrOutDirFor(clientOutDir: string): string {
   // Trailing separators stripped by scanning backwards, NOT by `/[/\\]+$/`.
   // That regex is a polynomial-ReDoS sink (CodeQL js/polynomial-redos, high):
   // the `+` is anchored at the end, so on a value ending in many separators the

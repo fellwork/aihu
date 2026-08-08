@@ -27,4 +27,4 @@ export {
   declareAihuModule,
   loadAihuConfig,
 } from './load-config.ts'
-export { viteAihuPlugin } from './vite-plugin.ts'
+export { ssrOutDirFor, viteAihuPlugin } from './vite-plugin.ts'
