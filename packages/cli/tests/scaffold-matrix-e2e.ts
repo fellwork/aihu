@@ -62,10 +62,28 @@
  *   # dependencies into the emitted package.json before install. Cells run this
  *   # way are marked `*` in the grid and are NOT evidence the scaffold works.
  *   bun packages/cli/tests/scaffold-matrix-e2e.ts --extra-dep @aihu/store@0.1.1
+ *
+ *   # vite axis — one cell per version, each a FRESH install (see --vite below)
+ *   bun packages/cli/tests/scaffold-matrix-e2e.ts --template minimal --pm bun --vite 6,8
+ *
+ *   # drive an SSR-configured scaffold all the way to a loaded, rendering Worker
+ *   bun packages/cli/tests/scaffold-matrix-e2e.ts --template minimal-ssr --pm bun
+ *
+ *   # install workspace packages from `npm pack` tarballs instead of the
+ *   # registry, to test an UNRELEASED fix consumer-shaped. Marked `†`.
+ *   bun packages/cli/tests/scaffold-matrix-e2e.ts --local-pkg compiler,app
  */
 
 import { type ChildProcess, spawn, spawnSync } from 'node:child_process'
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
@@ -97,9 +115,52 @@ interface StepResult {
 interface CellResult {
   readonly template: string
   readonly pm: Pm
+  /** Label of the vite version this cell installed; `'tpl'` = whatever the template pins. */
+  readonly vite: string
   readonly steps: StepResult[]
   status: 'pass' | 'fail' | 'skip'
   dir?: string
+}
+
+/**
+ * One point on the vite axis.
+ *
+ * `range === null` means "leave the template's own pin alone" — the behaviour
+ * every invocation had before the axis existed, and still the default.
+ */
+interface ViteReq {
+  /** Short label for the grid column. */
+  readonly label: string
+  /** Semver range written into `devDependencies.vite`, or null to leave it. */
+  readonly range: string | null
+}
+
+/**
+ * Post-scaffold rewiring that turns a client-only scaffold into an `output:
+ * 'ssr'` one, applied by the HARNESS rather than by a CLI template.
+ *
+ * Why here and not as a new entry in the CLI's template registry: `output:
+ * 'ssr'` is genuinely new consumer surface (no shipped template lists
+ * `@aihu/adapter-cloudflare`, and published `@aihu/app@9.0.0` rejects the
+ * value), so a template entry would mean designing the SSR scaffold — its
+ * wrangler config, its scripts, its README, its `create` wizard prompts — as a
+ * side effect of building a CI gate. The gate needs one thing: a consumer-shaped
+ * tree that a vite axis can be pointed at. A post-scaffold patch gives it that
+ * and stays deletable the day a real `ssr` template lands, at which point this
+ * becomes `{ id: 'ssr', kind: 'create' }` and the patch goes away.
+ *
+ * It is deliberately NOT a free-form `--config-override` string. The three
+ * options below are the three `output: 'ssr'` actually requires, and naming
+ * them means the anchor check below can be an assertion rather than a
+ * best-effort regex.
+ */
+interface SsrSpec {
+  /** Built Worker, relative to the workdir. */
+  readonly worker: string
+  /** Client outDir the ASSETS binding would be pointed at, relative to the workdir. */
+  readonly clientDist: string
+  /** Extra dependencies the SSR config needs, added before install. */
+  readonly deps: Readonly<Record<string, string>>
 }
 
 /** How a template is scaffolded and how its servers are driven. */
@@ -108,6 +169,14 @@ interface TemplateSpec {
   readonly kind: ScaffoldKind
   /** For `app-template`: the short id passed to `aihu app --template <id>`. */
   readonly templateArg?: string
+  /**
+   * For `create`: the built-in template id passed to `--template`, when the row
+   * id is not itself a template (e.g. `minimal-ssr` scaffolds `minimal` and is
+   * then patched). Defaults to `id`.
+   */
+  readonly createTemplateId?: string
+  /** Present ⇒ this row is patched to `output: 'ssr'` and driven as a Worker. */
+  readonly ssr?: SsrSpec
   /** Directory (relative to the project root) whose package.json owns the scripts. */
   readonly workdir: string
   /** Script names; `null` means the template does not ship that script. */
@@ -123,6 +192,19 @@ interface TemplateSpec {
    */
   readonly devPort: 'flag' | number | null
   readonly previewPort: 'flag' | number | null
+  /**
+   * Where the `vite` dependency ITSELF is declared, if that differs from
+   * `workdir`. Defaults to `workdir` when unset. Needed for a moon/npm
+   * workspace scaffold whose scripts run from the root (`workdir: '.'`) but
+   * whose `vite` range is pinned inside a nested workspace member — `cf-team`
+   * pins `vite: ^6.0.0` in `apps/web/package.json.tmpl`, and the root manifest
+   * has no `vite` entry at all. Patching `workdir`'s manifest for the `--vite`
+   * axis there would ADD an unrelated root-level devDependency that no script
+   * reads, while `apps/web`'s own pin — the one that actually constrains what
+   * gets installed and built — stays untouched. The axis would report "vite 8"
+   * and silently build against vite 6.
+   */
+  readonly viteWorkdir?: string
   /** PMs whose server phases cannot run; value is the reason printed as `n/a`. */
   readonly serverOnlyOnPm?: { readonly pms: readonly Pm[]; readonly reason: string }
   /** Extra flags appended to the scaffold command. */
@@ -160,6 +242,33 @@ const VITE_APP = {
 
 const TEMPLATES: readonly TemplateSpec[] = [
   { id: 'minimal', kind: 'create', ...VITE_APP },
+  {
+    // NOT in scaffold-matrix.yml's default `--template` list: it is opt-in
+    // until `output: 'ssr'` is in a published `@aihu/app`. Against the registry
+    // today this row fails at `build` with "unknown output" — which is the
+    // truthful result, not a harness defect.
+    id: 'minimal-ssr',
+    kind: 'create',
+    createTemplateId: 'minimal',
+    ...VITE_APP,
+    // `vite preview` serves the CLIENT outDir as static files. Under `output:
+    // 'ssr'` the thing that has to answer is the Worker, and previewing the
+    // client dist would report 200 on a page the Worker never rendered — a
+    // green step for the wrong artifact. The `worker` step below replaces it.
+    previewScript: null,
+    previewPort: null,
+    ssr: {
+      worker: 'dist-server/_worker.js',
+      clientDist: 'dist',
+      // The adapter is what makes `_worker.js` a Worker rather than a bare
+      // node SSR bundle. It is not a dependency of any shipped template, which
+      // is precisely why this row exists.
+      deps: { '@aihu/adapter-cloudflare': 'latest' },
+    },
+    notes:
+      "harness-patched to output:'ssr' (no shipped template emits it); driven as a Worker, " +
+      'not through vite preview',
+  },
   { id: 'full', kind: 'create', ...VITE_APP },
   { id: 'docs', kind: 'create', ...VITE_APP },
   {
@@ -183,6 +292,9 @@ const TEMPLATES: readonly TemplateSpec[] = [
     kind: 'app-template',
     templateArg: 'cf-team',
     workdir: '.',
+    // The root manifest has no `vite` entry at all — the real pin is nested.
+    // See `viteWorkdir`'s docblock.
+    viteWorkdir: 'apps/web',
     typecheckScript: 'typecheck',
     buildScript: 'build',
     devScript: 'dev',
@@ -241,13 +353,88 @@ const extraDeps = (
   return [spec.slice(0, at), spec.slice(at + 1)] as const
 })
 
+/**
+ * THE VITE AXIS.
+ *
+ * `--vite 6,8` runs each selected cell once per version. Omitted, the axis is a
+ * single point that changes nothing — the template's own pin — so every
+ * pre-existing invocation behaves exactly as before.
+ *
+ * Why an axis at all, and why it must be a FRESH install: `vite build` broke on
+ * a fresh `^8` scaffold and worked on every tree anyone tested it in, because
+ * vite 8 made esbuild an optional peer while still exporting
+ * `transformWithEsbuild`. `bun add -d vite@8` on top of an installed scaffold
+ * keeps esbuild resolvable and passes; only an install that never had vite 6 in
+ * it reproduces. So the override is written into package.json BEFORE install and
+ * the tree is wiped first — an incremental upgrade is not a weaker version of
+ * this test, it is a test of something else.
+ *
+ * Accepted forms: a bare major (`8` → `^8.0.0`), or any literal npm range
+ * (`8.2.1`, `^6 || ^8`, `latest`) passed through verbatim.
+ */
+const TEMPLATE_PINNED: ViteReq = { label: 'tpl', range: null }
+
+function parseViteReq(raw: string): ViteReq {
+  const s = raw.trim()
+  if (s === '') throw new Error('--vite got an empty entry')
+  return /^\d+$/.test(s) ? { label: s, range: `^${s}.0.0` } : { label: s, range: s }
+}
+
+const viteAxis: readonly ViteReq[] = (() => {
+  const raw = flagValue('vite')
+  if (raw === undefined) return [TEMPLATE_PINNED]
+  const parts = raw
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+  if (parts.length === 0) {
+    process.stderr.write('--vite matched nothing; try --vite 6,8\n')
+    process.exit(2)
+  }
+  return parts.map(parseViteReq)
+})()
+
+/**
+ * Workspace packages to install from `npm pack` tarballs instead of the
+ * registry (`--local-pkg compiler,app`). Short directory names under
+ * `packages/`.
+ *
+ * A TARBALL, not `file:` on the directory and not a symlink, and the difference
+ * is the whole point. A linked package resolves its own imports from its
+ * REALPATH — so a linked `@aihu/compiler` would `import('vite')` out of the
+ * monorepo's node_modules and see the repo's vite (and the repo's resolvable
+ * esbuild) instead of the scaffold's. That is exactly the tree shape the vite-8
+ * defect hid inside for months. An extracted tarball resolves from the
+ * scaffold's own tree, like a published package.
+ *
+ * Cells run this way are marked `†`: they show what a RELEASE would do, not what
+ * the currently published packages do.
+ */
+const localPkgs = (
+  flagValue('local-pkg')
+    ?.split(',')
+    .map((s) => s.trim())
+    .filter(Boolean) ?? []
+).map((s) => s.replace(/^@aihu\//, ''))
+
 const wantPms = (flagValue('pm')
   ?.split(',')
   .map((s) => s.trim()) ?? ALL_PMS) as Pm[]
 const wantTemplates = flagValue('template')
   ?.split(',')
   .map((s) => s.trim())
-const templates = wantTemplates ? TEMPLATES.filter((t) => wantTemplates.includes(t.id)) : TEMPLATES
+// A bare invocation (no `--template`) must NOT run every row in the registry.
+// `minimal-ssr` fails against the published registry by design (`output:
+// 'ssr'` is not in a published @aihu/app yet — see its own comment) and is
+// meant to be opt-in, but `TEMPLATES` is the full registry, so falling back to
+// it silently ran the SSR row on every `bun run test:scaffold-matrix` and every
+// bare local invocation. `DEFAULT_TEMPLATES` is what a caller gets with no
+// `--template`; a row that is not ready to run unattended must be excluded
+// here, not just left out of scaffold-matrix.yml's own explicit list.
+const DEFAULT_TEMPLATES = TEMPLATES.filter((t) => t.id !== 'minimal-ssr')
+const templates = wantTemplates
+  ? TEMPLATES.filter((t) => wantTemplates.includes(t.id))
+  : DEFAULT_TEMPLATES
 
 if (mode !== 'npm' && mode !== 'local') {
   process.stderr.write(`--mode must be 'npm' or 'local', got ${JSON.stringify(mode)}\n`)
@@ -628,6 +815,204 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '.
 const localCreateJs = join(repoRoot, 'packages', 'cli', 'dist', 'create.js')
 const localBinJs = join(repoRoot, 'packages', 'cli', 'dist', 'bin.js')
 
+// ---------------------------------------------------------------------------
+// --local-pkg — workspace packages as tarballs
+// ---------------------------------------------------------------------------
+
+interface LocalTarball {
+  readonly spec: string
+  /**
+   * Names of the package's `optionalDependencies` — its sibling platform
+   * artifacts. An override loses them, so they are re-declared on the scaffold;
+   * see the comment in the install step.
+   */
+  readonly optionalDeps: readonly string[]
+}
+
+/** Package name → packed tarball, built once and reused by every cell. */
+let localPkgSpecs: ReadonlyMap<string, LocalTarball> | undefined
+
+/**
+ * Build and pack each `--local-pkg`, returning name → `file:<tgz>`.
+ *
+ * ## `bun pm pack`, NOT `npm pack`
+ *
+ * Every workspace package here expresses its intra-repo edges as
+ * `"@aihu/router": "workspace:*"`. `npm pack` copies that string into the
+ * tarball verbatim, so installing it fails at resolution —
+ * `error: @aihu/signals@workspace:^ failed to resolve` — because there is no
+ * workspace to resolve against outside the monorepo. `bun pm pack` performs the
+ * same substitution a publish does (`workspace:*` → `0.5.0`), which is the
+ * whole point: the tarball has to be shaped like the thing that would go to the
+ * registry, or it is not testing a release.
+ *
+ * ## The build is unconditional
+ *
+ * Packing runs no build of its own, so it ships whatever `dist/` happens to be
+ * on disk — and a stale `dist/` makes the whole run validate the PREVIOUS
+ * release while reporting green. That failure mode is silent, which is the only
+ * reason paying for the build every time is the right trade.
+ */
+function packLocalPkgs(destRoot: string): ReadonlyMap<string, LocalTarball> {
+  if (localPkgSpecs) return localPkgSpecs
+  const specs = new Map<string, LocalTarball>()
+  for (const short of localPkgs) {
+    const pkgDir = join(repoRoot, 'packages', short)
+    const manifestPath = join(pkgDir, 'package.json')
+    if (!existsSync(manifestPath)) {
+      throw new Error(`--local-pkg ${short}: no such package at ${pkgDir}`)
+    }
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as {
+      name: string
+      optionalDependencies?: Record<string, string>
+    }
+    const name = manifest.name
+    const optionalDeps = Object.keys(manifest.optionalDependencies ?? {})
+    out(`  ${dim(`building + packing ${name}…`)}\n`)
+    run(`build ${name}`, 'bun', ['run', 'build'], pkgDir)
+    // One destination directory per package, so the tarball is READ back rather
+    // than derived from a filename convention that only holds until it doesn't.
+    const dest = join(destRoot, short)
+    mkdirSync(dest, { recursive: true })
+    run('pack', 'bun', ['pm', 'pack', '--destination', dest], pkgDir)
+    const files = readdirSync(dest).filter((f) => f.endsWith('.tgz'))
+    if (files.length !== 1) {
+      throw new Error(`packing ${name} produced ${files.length} tarballs in ${dest}: ${files}`)
+    }
+    specs.set(name, { spec: `file:${join(dest, files[0]!)}`, optionalDeps })
+  }
+  localPkgSpecs = specs
+  return specs
+}
+
+// ---------------------------------------------------------------------------
+// output: 'ssr' — the post-scaffold config patch
+// ---------------------------------------------------------------------------
+
+/**
+ * Rewrite a scaffolded `vite.config.ts` into an SSR one.
+ *
+ * NOTE for anyone extending this: the aihu configuration surface lives in
+ * `vite.config.ts` via `viteAihuPlugin({...})`, NOT in `aihu.config.ts` — the
+ * scaffold emits `aihu.config.ts` only for the server templates, and the SSR
+ * options (`output`, `adapter`, `css.shadowMode`) are plugin options. This
+ * mirrors `packages/app/tests/fixtures/workers-ssr/vite.config.ts`, which is
+ * the in-repo shape this row is meant to reproduce consumer-side.
+ *
+ * Anchored on the literal `viteAihuPlugin({` the scaffold emits, and THROWS if
+ * that anchor is gone. A patch that silently no-ops would produce a client-only
+ * build, no `_worker.js`, and a failure that reads as an SSR defect.
+ */
+function patchViteConfigForSsr(configPath: string, appName: string): void {
+  const src = readFileSync(configPath, 'utf8')
+  const anchor = 'viteAihuPlugin({'
+  if (!src.includes(anchor)) {
+    throw new StepError(
+      'ssr-config: anchor not found',
+      `${configPath} does not contain ${JSON.stringify(anchor)}. The scaffold's vite.config.ts ` +
+        `shape changed; update patchViteConfigForSsr() rather than letting this patch no-op.\n` +
+        `--- file ---\n${tail(src, 60)}`,
+    )
+  }
+  const patched = src
+    .replace(
+      "import { viteAihuPlugin } from '@aihu/app'",
+      "import { cloudflare } from '@aihu/adapter-cloudflare'\nimport { viteAihuPlugin } from '@aihu/app'",
+    )
+    .replace(
+      anchor,
+      `${anchor}
+      // ── patched by scaffold-matrix-e2e.ts (--template minimal-ssr) ──
+      output: 'ssr',
+      // REQUIRED by output:'ssr' — without it leaf components export no
+      // __aihu_shadow__ and every child renders empty.
+      css: { shadowMode: 'light' },
+      adapter: cloudflare({ name: '${appName}', generateWrangler: false }),`,
+    )
+  if (patched === src) {
+    throw new StepError('ssr-config: patch produced no change', configPath)
+  }
+  writeFileSync(configPath, patched)
+}
+
+/**
+ * The in-process Worker driver, written into the scaffold and run under `node`.
+ *
+ * ## Why this exists rather than another HTTP probe
+ *
+ * Every other server step in this file starts a dev/preview server and asserts
+ * on its response. That model could not have caught the defect this step is
+ * here for: the SSR deadlock lived in the BUILT `_worker.js`, which no vite dev
+ * server ever loads. `vite build` was green, `vite preview` was green, and the
+ * artifact that would be deployed could not be imported at all.
+ *
+ * ## Why not wrangler/workerd
+ *
+ * Same reasoning as `packages/app/tests/workers-ssr-e2e.test.ts`, which this is
+ * the consumer-shaped sibling of: the Worker is a standard ES module exporting
+ * `{ fetch }`, so importing it and calling `fetch` with a stubbed ASSETS
+ * exercises everything but workerd's own module resolution, at a fraction of
+ * the cold-start cost a matrix cell can afford.
+ *
+ * ## Why the import is bounded
+ *
+ * A module-scope top-level await inside a chunk cycle does not throw — it
+ * HANGS. An unbounded `await import()` would turn a broken Worker into a job
+ * someone cancels an hour later, and a cancelled job is not a red test.
+ */
+function workerDriverSource(): string {
+  return `// Generated by packages/cli/tests/scaffold-matrix-e2e.ts. Not part of the scaffold.
+import { pathToFileURL } from 'node:url'
+
+const worker = process.argv[2]
+const url = process.argv[3] ?? 'https://matrix.test/'
+const IMPORT_TIMEOUT_MS = 20000
+
+const emit = (o) => { process.stdout.write('AIHU_PROBE:' + JSON.stringify(o) + '\\n') }
+
+let timer
+const mod = await Promise.race([
+  import(pathToFileURL(worker).href),
+  new Promise((_, rej) => {
+    timer = setTimeout(() => rej(new Error(
+      'DEADLOCK: importing ' + worker + ' did not settle within ' + IMPORT_TIMEOUT_MS + 'ms. ' +
+      'The built Worker cannot be loaded — every request to it would hang in production, ' +
+      'even though the build was green. Almost certainly a module-scope top-level await in ' +
+      'virtual:aihu-server-entry.'
+    )), IMPORT_TIMEOUT_MS)
+  }),
+])
+clearTimeout(timer)
+
+const fetchFn = mod.default && mod.default.fetch
+if (typeof fetchFn !== 'function') {
+  throw new Error(worker + ' has no default export with a fetch method; exports: ' + Object.keys(mod).join(', '))
+}
+
+const assetsHits = []
+const env = {
+  ASSETS: {
+    fetch: async (req) => {
+      const p = new URL(req.url).pathname
+      assetsHits.push(p)
+      return new Response('ASSETS-STUB:' + p, { status: 200 })
+    },
+  },
+}
+
+const res = await fetchFn(new Request(url), env, {})
+const body = await res.text()
+emit({
+  status: res.status,
+  contentType: res.headers.get('content-type'),
+  bodyBytes: Buffer.byteLength(body),
+  assetsHits,
+  body,
+})
+process.exit(0)
+`
+}
+
 /** Path 1: `create-aihu` — templates built INTO @aihu/cli, never fetched from npm. */
 function createCommand(
   pm: Pm,
@@ -639,7 +1024,7 @@ function createCommand(
     appName,
     '--yes',
     '--template',
-    spec.id,
+    spec.createTemplateId ?? spec.id,
     '--pm',
     pm,
     '--no-git',
@@ -720,16 +1105,32 @@ function appTemplateCommand(
 // Cell runner
 // ---------------------------------------------------------------------------
 
-const STEP_NAMES = ['scaffold', 'install', 'typecheck', 'build', 'dev', 'preview'] as const
+const STEP_NAMES = [
+  'scaffold',
+  'ssr-config',
+  'install',
+  'typecheck',
+  'build',
+  'worker',
+  'dev',
+  'preview',
+] as const
 
-async function runCell(spec: TemplateSpec, info: PmInfo, parentDir: string): Promise<CellResult> {
+async function runCell(
+  spec: TemplateSpec,
+  info: PmInfo,
+  viteReq: ViteReq,
+  parentDir: string,
+): Promise<CellResult> {
   const pm = info.pm
-  const cell: CellResult = { template: spec.id, pm, steps: [], status: 'pass' }
-  const appName = `m-${spec.id}-${pm}`.toLowerCase().replace(/[^a-z0-9-]/g, '-')
+  const cell: CellResult = { template: spec.id, pm, vite: viteReq.label, steps: [], status: 'pass' }
+  // The vite label is part of the directory name: two points on the axis are
+  // two independent FRESH trees, never the same tree installed twice.
+  const appName = `m-${spec.id}-${pm}-v${viteReq.label}`.toLowerCase().replace(/[^a-z0-9-]/g, '-')
   const projectDir = join(parentDir, appName)
   cell.dir = projectDir
 
-  out(`\n${bold(`▶ cell ${spec.id} × ${pm}`)} ${dim(projectDir)}\n`)
+  out(`\n${bold(`▶ cell ${spec.id} × ${pm} × vite ${viteReq.label}`)} ${dim(projectDir)}\n`)
 
   // A cell that cannot run is not a cell that failed. Report it loudly as
   // untested rather than red — and never as a pass.
@@ -823,23 +1224,160 @@ async function runCell(spec: TemplateSpec, info: PmInfo, parentDir: string): Pro
     }
   }
 
-  // ── 2. install ────────────────────────────────────────────────────────────
+  // ── 2. ssr-config ─────────────────────────────────────────────────────────
+  // Before install, so the adapter dependency it adds is part of the same
+  // single fresh resolution as everything else.
+  await step('ssr-config', () => {
+    if (spec.ssr === undefined) return na('client-only template; nothing to patch')
+    patchViteConfigForSsr(join(workdir, 'vite.config.ts'), appName)
+    out(`    ${dim(`! patched vite.config.ts → output:'ssr' + cloudflare adapter`)}\n`)
+  })
+
+  // ── 3. install ────────────────────────────────────────────────────────────
   await step(`install (${pm})`, () => {
-    if (extraDeps.length > 0 && !dead) {
-      const pkgPath = join(workdir, 'package.json')
-      const pkg = JSON.parse(readFileSync(pkgPath, 'utf8')) as {
-        dependencies?: Record<string, string>
+    const pkgPath = join(workdir, 'package.json')
+    const pkg = JSON.parse(readFileSync(pkgPath, 'utf8')) as {
+      dependencies?: Record<string, string>
+      devDependencies?: Record<string, string>
+    }
+    let touched = false
+
+    if (spec.ssr) {
+      pkg.dependencies = { ...(pkg.dependencies ?? {}), ...spec.ssr.deps }
+      touched = true
+      out(`    ${dim(`! ssr deps: ${Object.keys(spec.ssr.deps).join(', ')}`)}\n`)
+    }
+
+    // The vite axis. Written into the manifest, then installed once — see the
+    // `viteAxis` comment for why an incremental `add` would test the wrong thing.
+    //
+    // Patched at `viteWorkdir`, which may differ from `workdir` — see that
+    // field's docblock. When they coincide (every template but `cf-team`
+    // today) this is the SAME file as `pkg`/`pkgPath` above; write it back
+    // through `pkg` in that case so the two writes cannot race each other on
+    // one file. Only when they differ is a second manifest read and written.
+    if (viteReq.range !== null) {
+      const viteDir = join(projectDir, spec.viteWorkdir ?? spec.workdir)
+      const sameFile = viteDir === workdir
+      const vitePkgPath = join(viteDir, 'package.json')
+      const vitePkg = sameFile
+        ? pkg
+        : (JSON.parse(readFileSync(vitePkgPath, 'utf8')) as {
+            devDependencies?: Record<string, string>
+          })
+      const templatePin = vitePkg.devDependencies?.vite ?? '(none)'
+      vitePkg.devDependencies = { ...(vitePkg.devDependencies ?? {}), vite: viteReq.range }
+      out(`    ${dim(`! vite ${templatePin} → ${viteReq.range} (axis override, fresh install)`)}\n`)
+      // `touched` unconditionally: a dependency changed either way, and it is
+      // `touched` alone that drives the fresh node_modules/lockfile wipe below
+      // — the entire reason this axis can see the defect at all. Losing that
+      // for the separate-file case would install the OLD vite from a stale
+      // tree while faithfully reporting the new range in the log.
+      touched = true
+      if (!sameFile) {
+        writeFileSync(vitePkgPath, `${JSON.stringify(vitePkg, null, 2)}\n`)
+        out(`    ${dim(`! (patched ${spec.viteWorkdir}/package.json, not ${spec.workdir})`)}\n`)
       }
+    }
+
+    if (localPkgs.length > 0) {
+      const specs = packLocalPkgs(join(parentDir, '.local-tarballs'))
+      // `exactOptionalPropertyTypes` forbids assigning `undefined` to an
+      // optional property explicitly — only omitting it is allowed. `swap`
+      // therefore mutates its bucket in place and returns void, so there is
+      // nothing to assign when the bucket was absent.
+      const swap = (bucket: Record<string, string> | undefined): void => {
+        if (!bucket) return
+        for (const [name, t] of specs) if (name in bucket) bucket[name] = t.spec
+      }
+      swap(pkg.dependencies)
+      swap(pkg.devDependencies)
+      // Rewriting the scaffold's OWN manifest is not enough. A tarball's
+      // intra-repo edges are ordinary registry ranges once packed, so
+      // `@aihu/router` pulls the PUBLISHED `@aihu/server` down beside it —
+      // measured: `node_modules/@aihu/router/node_modules/@aihu/server`, which
+      // shadowed the local one and failed the build on an export that only
+      // exists in this checkout. An override is the only thing that reaches a
+      // transitive edge.
+      //
+      // `overrides` ONLY — not yarn's `resolutions` alongside it. Writing both
+      // is what one would reach for to cover every PM, and measured on bun
+      // 1.3.8 it silently defeats the override: with `resolutions` also
+      // present, the published `@aihu/server` came back nested under
+      // `@aihu/router` and the build failed again on `injectIntoOutlet`.
+      // Dropping `resolutions` fixed it. pnpm reads neither from package.json
+      // (see pnpmWorkspaceYaml() in packages/cli/src/index.ts — pnpm says so
+      // out loud and ignores them). So the transitive part of this flag is
+      // bun/npm only, stated here rather than papered over: it is a diagnostic,
+      // and the cell it exists for is bun.
+      ;(pkg as Record<string, unknown>).overrides = Object.fromEntries(
+        [...specs].map(([n, t]) => [n, t.spec]),
+      )
+
+      // `@aihu/compiler` arrived with neither `@aihu/compiler-darwin-arm64` nor
+      // `@aihu/compiler-native-darwin-arm64` beside it, and `aihu-tsc` died
+      // with "Native compiler binary not found for this platform" while the
+      // install reported success. NOT caused by `overrides` itself — verified
+      // by removing `optionalDependencies` entirely and reinstalling:
+      // `@aihu/server`, overridden the exact same way, still brought its
+      // platform package in fine. Re-declaring the compiler's platform deps
+      // here is a workaround for the real cause below, not for `overrides`.
+      //
+      // At `*`, NOT at the pin. Half of these platform pins are unpublished by
+      // construction — the native addon is built from a Rust source this branch
+      // may be changing, so `@aihu/compiler-native-*@0.1.18` does not exist on
+      // npm yet. An unresolvable entry took the whole optional group down with
+      // it. `*` installs whatever IS published, and the compiler already
+      // version-checks the addon it loaded and falls back to the spawn path
+      // loudly, which is the same thing it does inside this repo today.
+      const platformDeps = [...specs].flatMap(([, t]) => t.optionalDeps)
+      if (platformDeps.length > 0) {
+        ;(pkg as Record<string, unknown>).optionalDependencies = {
+          ...((pkg as { optionalDependencies?: Record<string, string> }).optionalDependencies ??
+            {}),
+          ...Object.fromEntries(platformDeps.map((n) => [n, '*'])),
+        }
+      }
+      touched = true
+      out(`    ${dim(`† local tarballs: ${[...specs.keys()].join(', ')}`)}\n`)
+    }
+
+    if (extraDeps.length > 0) {
       pkg.dependencies = { ...(pkg.dependencies ?? {}), ...Object.fromEntries(extraDeps) }
-      writeFileSync(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`)
+      touched = true
       out(
         `    ${dim(`! patched --extra-dep into package.json: ${extraDeps.map(([n, v]) => `${n}@${v}`).join(', ')}`)}\n`,
       )
     }
+
+    if (touched) writeFileSync(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`)
+
+    // FRESH, unconditionally, whenever a dependency was rewritten.
+    //
+    // The built-in `create` templates do not auto-install, so there is normally
+    // nothing here — but `aihu app --template` DOES run `pm-install` during
+    // scaffold, and a manifest edit on top of an installed tree resolves
+    // incrementally. `bun add -d vite@8` over an existing vite 6 install keeps
+    // esbuild resolvable and passes; a tree that never contained vite 6 does
+    // not. Deleting the tree is the difference between the two, and it is the
+    // whole reason this axis can see the defect at all.
+    if (touched) {
+      for (const junk of [
+        'node_modules',
+        'bun.lock',
+        'bun.lockb',
+        'package-lock.json',
+        'pnpm-lock.yaml',
+        'yarn.lock',
+      ]) {
+        rmSync(join(workdir, junk), { recursive: true, force: true })
+      }
+    }
+
     run('install', pm, pmInstallArgs(pm), projectDir)
   })
 
-  // ── 3. typecheck ──────────────────────────────────────────────────────────
+  // ── 4. typecheck ──────────────────────────────────────────────────────────
   await step('typecheck', () => {
     if (spec.typecheckScript === null) return na('template ships no typecheck script')
     if (!(spec.typecheckScript in scriptsOf()))
@@ -847,7 +1385,7 @@ async function runCell(spec: TemplateSpec, info: PmInfo, parentDir: string): Pro
     run('typecheck', pm, pmRunArgs(pm, spec.typecheckScript), workdir)
   })
 
-  // ── 4. build ──────────────────────────────────────────────────────────────
+  // ── 5. build ──────────────────────────────────────────────────────────────
   await step('build', () => {
     if (spec.buildScript === null) return na('template ships no build script')
     if (!(spec.buildScript in scriptsOf()))
@@ -855,7 +1393,96 @@ async function runCell(spec: TemplateSpec, info: PmInfo, parentDir: string): Pro
     run('build', pm, pmRunArgs(pm, spec.buildScript), workdir)
   })
 
-  // ── 5. dev server: must answer 200 + non-empty HTML ───────────────────────
+  // ── 6. the BUILT Worker: must load, and must render ───────────────────────
+  //
+  // Everything above this line can be green on an SSR app that is entirely
+  // undeployable. `vite build` reports success on a `_worker.js` whose module
+  // evaluation never settles, and the dev/preview servers below never load that
+  // file at all. This step is the only one that opens the artifact.
+  await step('worker (200 + rendered)', () => {
+    if (spec.ssr === undefined) return na('client-only template; no server bundle to drive')
+
+    const worker = join(workdir, spec.ssr.worker)
+    if (!existsSync(worker)) {
+      throw new StepError(
+        'worker: no server bundle',
+        `${worker} does not exist after a green build. \`output: 'ssr'\` either did not take ` +
+          `effect or emitted somewhere else — a client-only build here would make every ` +
+          `assertion below vacuous.\n` +
+          `Client dist present: ${existsSync(join(workdir, spec.ssr.clientDist))}`,
+      )
+    }
+
+    const driver = join(projectDir, '.aihu-matrix-worker-probe.mjs')
+    writeFileSync(driver, workerDriverSource())
+    // `node`, not `pm run`: the artifact under test is a plain ES module and
+    // nothing in the scaffold's scripts loads it. Bounded twice — the driver
+    // races its own import against 20s so a deadlock names itself, and `run`
+    // bounds the process in case the driver never gets that far.
+    const res = run('worker', 'node', [driver, worker, 'https://matrix.test/'], projectDir, 60_000)
+
+    const line = res.stdout.split('\n').find((l) => l.startsWith('AIHU_PROBE:'))
+    if (!line) {
+      throw new StepError(
+        'worker: driver produced no result',
+        describe('node', [driver, worker], projectDir, res.status, res.stdout, res.stderr),
+      )
+    }
+    const probe = JSON.parse(line.slice('AIHU_PROBE:'.length)) as {
+      status: number
+      contentType: string | null
+      bodyBytes: number
+      body: string
+    }
+
+    // Assertions on the RESPONSE, in the order a broken build fails them.
+    const bad = (why: string): never => {
+      throw new StepError(
+        `worker: ${why}`,
+        describe(
+          'node',
+          [driver, worker],
+          projectDir,
+          res.status,
+          `status=${probe.status} content-type=${probe.contentType} bytes=${probe.bodyBytes}\n` +
+            `--- body ---\n${tail(probe.body, 60)}`,
+          res.stderr,
+        ),
+      )
+    }
+    if (probe.status !== 200) bad(`answered HTTP ${probe.status} (expected 200)`)
+    if (!/text\/html/i.test(probe.contentType ?? '')) {
+      bad(`content-type is ${JSON.stringify(probe.contentType)}, not text/html`)
+    }
+    // A COMPLETE document, not a fragment. The SSR handler shipped a bare
+    // fragment for its whole life — markup with no doctype, no <head> and no
+    // client script, so an SSR route rendered once and never hydrated. Each of
+    // these is a separate way for that to come back.
+    if (!/^\s*<!doctype html>/i.test(probe.body)) bad('body does not start with <!doctype html>')
+    if (!/<html[\s>]/i.test(probe.body)) bad('body has no <html> element')
+    if (!/<head[\s>]/i.test(probe.body)) bad('body has no <head> — no title, no SEO, no hydration')
+    if (!/<script type="module"[^>]*src="\/assets\/[^"]+\.js"/.test(probe.body)) {
+      bad('body carries no hashed client entry <script> — server markup that can never hydrate')
+    }
+    // …and RENDERED CONTENT, not an empty shell. `appName` is what the scaffold
+    // puts in the page's own <h1>, so it can only be here if the page component
+    // actually rendered on the server. An empty `#outlet` would satisfy every
+    // document assertion above.
+    const outletOpen = probe.body.indexOf('<div id="outlet">')
+    if (outletOpen === -1) bad('no <div id="outlet"> in the served document')
+    const inside = probe.body.slice(outletOpen, probe.body.indexOf('</body>', outletOpen))
+    if (!inside.includes(appName)) {
+      bad(`the outlet does not contain the page's rendered <h1>${appName}</h1> — empty shell`)
+    }
+    if (!inside.includes('A durable Web Component')) {
+      bad("the outlet does not contain the page's rendered body copy — empty shell")
+    }
+    out(
+      `    ${dim(`_worker.js → 200 ${probe.contentType} ${probe.bodyBytes}B, outlet rendered`)}\n`,
+    )
+  })
+
+  // ── 7. dev server: must answer 200 + non-empty HTML ───────────────────────
   await step('dev (HTTP 200)', async () => {
     if (spec.devScript === null) return na('template ships no dev script')
     if (!(spec.devScript in scriptsOf())) return na(`no "${spec.devScript}" script in package.json`)
@@ -885,7 +1512,7 @@ async function runCell(spec: TemplateSpec, info: PmInfo, parentDir: string): Pro
     out(`    ${dim(`${probe.url} → 200 ${probe.contentType} ${probe.bodyBytes}B`)}\n`)
   })
 
-  // ── 6. production/preview server: must answer 200 + non-empty HTML ────────
+  // ── 8. production/preview server: must answer 200 + non-empty HTML ────────
   await step('preview (HTTP 200)', async () => {
     if (spec.previewScript === null) return na('template ships no preview/production-server script')
     if (!(spec.previewScript in scriptsOf()))
@@ -917,13 +1544,14 @@ async function runCell(spec: TemplateSpec, info: PmInfo, parentDir: string): Pro
 
 function renderGrid(results: readonly CellResult[], skipped: readonly PmInfo[]): void {
   const glyph: Record<StepStatus, string> = { pass: 'ok', fail: 'FAIL', skip: '-', 'n/a': 'n/a' }
-  const cols = ['template', 'pm', ...STEP_NAMES]
+  const cols = ['template', 'pm', 'vite', ...STEP_NAMES]
+  const mark = `${extraDeps.length > 0 ? '*' : ''}${localPkgs.length > 0 ? '†' : ''}`
   const rows = results.map((c) => {
     const byName = (n: string): string => {
       const s = c.steps.find((x) => x.name === n || x.name.startsWith(`${n} `))
       return s ? glyph[s.status] : '-'
     }
-    return [c.template + (extraDeps.length > 0 ? '*' : ''), c.pm, ...STEP_NAMES.map(byName)]
+    return [c.template + mark, c.pm, c.vite, ...STEP_NAMES.map(byName)]
   })
   const widths = cols.map((h, i) => Math.max(h.length, ...rows.map((r) => r[i]!.length)))
   const line = (cells: string[]): string => cells.map((c, i) => c.padEnd(widths[i]!)).join('  ')
@@ -944,6 +1572,22 @@ function renderGrid(results: readonly CellResult[], skipped: readonly PmInfo[]):
         `  scaffold would do, and are NOT evidence that the published scaffold works.\n`,
     )
   }
+  if (localPkgs.length > 0) {
+    out(
+      `${bold('†')} these cells installed ${localPkgs.map((p) => `@aihu/${p}`).join(', ')} from ` +
+        `\`npm pack\` tarballs of THIS CHECKOUT,\n` +
+        `  not from the registry — they show what a RELEASE would do, and are NOT evidence that\n` +
+        `  the currently published packages work.\n`,
+    )
+  }
+  const ssrRows = results.filter((c) => TEMPLATES.find((t) => t.id === c.template)?.ssr)
+  if (ssrRows.length > 0) {
+    out(
+      `${bold('ssr')} the \`ssr-config\` column is a HARNESS patch of vite.config.ts, not a shipped\n` +
+        `  template. Until an \`ssr\` template exists, this row is what stands between\n` +
+        `  \`output: 'ssr'\` and a consumer discovering it is broken.\n`,
+    )
+  }
 
   if (skipped.length > 0) {
     out(`\n${bold('SKIPPED PACKAGE MANAGERS')}\n`)
@@ -954,7 +1598,7 @@ function renderGrid(results: readonly CellResult[], skipped: readonly PmInfo[]):
   const naSteps = results.flatMap((c) =>
     c.steps
       .filter((s) => s.status === 'n/a')
-      .map((s) => `  n/a   ${c.template} × ${c.pm} · ${s.name} — ${s.detail}`),
+      .map((s) => `  n/a   ${c.template} × ${c.pm} × vite ${c.vite} · ${s.name} — ${s.detail}`),
   )
   if (naSteps.length > 0) {
     out(`\n${bold('NOT APPLICABLE')}\n${naSteps.join('\n')}\n`)
@@ -965,7 +1609,7 @@ function renderGrid(results: readonly CellResult[], skipped: readonly PmInfo[]):
     out(`\n${bold('FAILURES')}\n`)
     for (const c of failures) {
       for (const s of c.steps.filter((x) => x.status === 'fail')) {
-        out(`\n${bold(`✘ ${c.template} × ${c.pm} · ${s.name}`)}\n`)
+        out(`\n${bold(`✘ ${c.template} × ${c.pm} × vite ${c.vite} · ${s.name}`)}\n`)
         out(`${s.detail ?? '(no detail)'}\n`)
       }
     }
@@ -998,6 +1642,16 @@ async function main(): Promise<number> {
   )
   out(`temp root : ${parentDir}  ${dim('(verified: no aihu ancestor)')}\n`)
   out(`templates : ${templates.map((t) => t.id).join(', ')}\n`)
+  out(
+    `vite axis : ${viteAxis
+      .map((v) => (v.range === null ? `${v.label} (template pin)` : `${v.label} → ${v.range}`))
+      .join(', ')}\n`,
+  )
+  if (localPkgs.length > 0) {
+    out(
+      `local pkg : ${localPkgs.map((p) => `@aihu/${p}`).join(', ')} ${dim('(npm pack tarballs)')}\n`,
+    )
+  }
 
   if (mode === 'local') {
     if (!existsSync(localCreateJs) || !existsSync(localBinJs)) {
@@ -1031,23 +1685,26 @@ async function main(): Promise<number> {
     // and the `agent` template hardcodes its ports.
     for (const spec of templates) {
       for (const info of available) {
-        try {
-          results.push(await runCell(spec, info, parentDir))
-        } catch (err) {
-          // Requirement 5 — a cell blowing up outside a step never aborts the grid.
-          results.push({
-            template: spec.id,
-            pm: info.pm,
-            steps: [
-              {
-                name: 'scaffold',
-                status: 'fail',
-                ms: 0,
-                detail: (err as Error).stack ?? String(err),
-              },
-            ],
-            status: 'fail',
-          })
+        for (const viteReq of viteAxis) {
+          try {
+            results.push(await runCell(spec, info, viteReq, parentDir))
+          } catch (err) {
+            // Requirement 5 — a cell blowing up outside a step never aborts the grid.
+            results.push({
+              template: spec.id,
+              pm: info.pm,
+              vite: viteReq.label,
+              steps: [
+                {
+                  name: 'scaffold',
+                  status: 'fail',
+                  ms: 0,
+                  detail: (err as Error).stack ?? String(err),
+                },
+              ],
+              status: 'fail',
+            })
+          }
         }
       }
     }

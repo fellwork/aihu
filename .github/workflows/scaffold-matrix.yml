@@ -33,8 +33,21 @@ on:
   schedule:
     # 07:00 UTC daily — after a typical release window, before the workday.
     - cron: '0 7 * * *'
-  # Changes to the harness or to the scaffold templates it covers must re-prove
-  # themselves; everything else stays off this expensive path.
+  # Changes to the harness, to the scaffold templates it covers, or to any
+  # package a scaffolded app actually RUNS must re-prove themselves; everything
+  # else stays off this expensive path.
+  #
+  # The cli/create-aihu/templates trio was the original list, and it had a
+  # structural blind spot: it names the packages that WRITE a scaffold and none
+  # of the packages a scaffold DEPENDS ON. Three real defects shipped through
+  # that gap — un-stripped TypeScript on vite 8 (`packages/compiler`), a
+  # module-scope top-level await that deadlocked the built Worker
+  # (`packages/app`), and an SSR response that was a bare fragment
+  # (`packages/app` + `packages/server`). Every one of them is a first-run
+  # failure for a consumer; none of them touches a file in the old list, so this
+  # workflow never ran on the PRs that introduced them.
+  #
+  # See docs/plans/2026-08-08-ssr-vite-remediation.md §"The gate gap is specific".
   pull_request:
     branches: [main]
     types: [opened, reopened, synchronize, ready_for_review]
@@ -42,6 +55,14 @@ on:
       - 'packages/cli/**'
       - 'packages/create-aihu/**'
       - 'packages/templates/**'
+      # Packages a scaffolded app runs. A change here can break `bun run build`
+      # in a fresh consumer tree while every in-repo test stays green, because
+      # the repo's own node_modules layout is not the one a consumer installs.
+      - 'packages/compiler/**'
+      - 'packages/app/**'
+      - 'packages/router/**'
+      - 'packages/server/**'
+      - 'packages/adapter-cloudflare/**'
       - '.github/workflows/scaffold-matrix.yml'
 
 env:
