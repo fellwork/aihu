@@ -18,12 +18,27 @@
       "@aihu/agent": ["../agent/src/index.ts"],
       "@aihu/server/head-lowering": ["../server/src/head-lowering.ts"],
       "@aihu/plugin": ["../plugin/src/index.ts"],
+      // src/client.ts imports BOTH `@aihu/arbor` and `@aihu/arbor/hydrate`.
+      // tsconfig `paths` matching is exact (no implicit prefix fallthrough), so
+      // the bare mapping below never covered the subpath: it resolved through
+      // package exports to ../arbor/dist/hydrate.d.ts while everything else
+      // arbor came from source. That split validates one import against a
+      // PREVIOUS build of the same package — change src/hydrate.ts's signature
+      // and this typecheck stays green until arbor is rebuilt — and it gives
+      // the two halves of arbor separate declaration identities. Map the
+      // subpath to source so the whole package resolves one way (and so tsc
+      // agrees with vitest.config.ts, which has always aliased it to src).
+      "@aihu/arbor/hydrate": ["../arbor/src/hydrate.ts"],
       "@aihu/arbor": ["../arbor/src/index.ts"],
       "@aihu/runtime": ["../runtime/src/index.ts"],
       "@aihu/primitives/focus-trap": ["../primitives/src/dialog/focus-trap.ts"],
       "@aihu/signals/lifecycle": ["../signals/src/lifecycle.ts"],
       "@aihu/signals": ["../signals/src/index.ts"],
       "@aihu/store": ["../store/src/index.ts"],
+      // Same exact-match gap as @aihu/arbor/hydrate above: src/prerender.ts
+      // imports "@aihu/context/ssr", which the bare mapping below does not
+      // cover, so it was resolving to ../context/dist/ssr.d.ts.
+      "@aihu/context/ssr": ["../context/src/ssr.ts"],
       "@aihu/context": ["../context/src/index.ts"]
     }
   },
