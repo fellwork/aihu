@@ -273,14 +273,17 @@ describe('virtual:aihu-server-entry', () => {
     expect(src).toContain('layouts: __layoutMap,')
   })
 
-  it('resolves layout modules at module init, not per request', () => {
-    // `handle` composes inside a request; a dynamic import there would be an
-    // await on the hot path, and (for the child registry, which shares this
-    // reasoning) impossible inside the synchronous compiled string renderer.
+  it('resolves layout AND child modules before handle(), inside one init', () => {
+    // `handle` composes inside a request and `__aihu_schild` runs inside the
+    // synchronous compiled string renderer, so every module must be in hand
+    // before a render begins. That constraint is unchanged — what moved is
+    // where the awaiting happens (see the no-TLA test below): it is now inside
+    // `__buildRouter`, awaited by `handler` before `handle()` is called.
     const src = (entryPlugin().load as (i: string) => string).call(
       hookCtx() as never,
       '\0virtual:aihu-server-entry',
     )
+    expect(src).toContain('async function __buildRouter() {')
     expect(src).toContain('await Promise.all(')
     expect(src).toContain('await entry.load()')
   })
@@ -294,8 +297,8 @@ describe('virtual:aihu-server-entry', () => {
       hookCtx() as never,
       '\0virtual:aihu-server-entry',
     )
-    expect(src).toContain('export const handler = (request, platform) =>')
-    expect(src).toContain('__router.handle(request, platform)')
+    expect(src).toContain('export const handler = async (request, platform) =>')
+    expect(src).toContain('(await __getRouter()).handle(request, platform)')
   })
 
   it("splices the adapter's serverEntry wrapper in verbatim", () => {
@@ -334,6 +337,97 @@ describe('virtual:aihu-server-entry', () => {
       '\0virtual:aihu-server-entry',
     )
     expect(src).toContain('mod.__aihu_tag__')
+  })
+
+  // -------------------------------------------------------------------------
+  // THE DEADLOCK GATE. Semantic, not textual.
+  // -------------------------------------------------------------------------
+  //
+  // The entry used to resolve both registries at MODULE SCOPE with top-level
+  // `await`, which made it an ESM async module. Vite/rollup hoists the shared
+  // runtime into the entry chunk, so the lazy component/layout chunks
+  // statically import back into `_worker.js` (7 of 8, measured on vite 6.4.3
+  // in a consumer-shaped tree). Async-module semantics then close the loop —
+  // the entry suspends at its TLA, the chunk cannot finish evaluating until
+  // the entry's evaluation promise settles, and that settles only when the
+  // dynamic import resolves. `await import('./_worker.js')` never settles.
+  // The build was GREEN; every production request was a hard failure.
+  //
+  // These two tests evaluate the emitted source with its imports replaced by
+  // instrumented stubs, so they pin the SEMANTICS a text match cannot see:
+  // nothing is resolved during evaluation, and a cold burst of concurrent
+  // requests shares exactly one initialisation.
+  let entryProbeSeq = 0
+  async function evaluateEntry() {
+    const src = (entryPlugin().load as (i: string) => string).call(
+      hookCtx() as never,
+      '\0virtual:aihu-server-entry',
+    )
+    // Swap the five bare/virtual specifiers for inline stubs so the emitted
+    // body can run standalone. If the import block ever changes shape this
+    // count assertion fails loudly rather than silently testing a stub-only
+    // module.
+    const withoutImports = src.replace(/^import .*$\n/gm, '')
+    expect(src.split('\n').length - withoutImports.split('\n').length).toBe(5)
+
+    const probe: { loads: string[]; routers: unknown[] } = { loads: [], routers: [] }
+    // A unique global key per evaluation. The `data:` URL is the module cache
+    // key, so two evaluations of an identical body would otherwise return ONE
+    // module still bound to the first test's probe.
+    const key = `__aihuEntryProbe_${entryProbeSeq++}`
+    ;(globalThis as Record<string, unknown>)[key] = probe
+
+    const preamble = [
+      `const __p = globalThis.${key}`,
+      'const routes = []',
+      'const createServerRouter = (r, o) => {',
+      '  __p.routers.push(o)',
+      '  return { handle: (req, platform) => ({ req, platform, children: o.children, layouts: o.layouts }) }',
+      '}',
+      'const buildChildRegistry = (d) => new Map(d.map((x) => [x.tag, x.module]))',
+      'const __components = {',
+      "  'probe-a': async () => { __p.loads.push('child:probe-a'); return { __aihu_tag__: 'probe-a' } },",
+      '}',
+      'const __layouts = {',
+      "  app: { load: async () => { __p.loads.push('layout:app'); return {} } },",
+      '}',
+      '',
+    ].join('\n')
+
+    const url = `data:text/javascript;base64,${Buffer.from(preamble + withoutImports, 'utf8').toString('base64')}`
+    const mod = (await import(/* @vite-ignore */ url)) as {
+      handler: (req: unknown, platform?: unknown) => Promise<{ children: Map<string, unknown> }>
+    }
+    return { mod, probe }
+  }
+
+  it('resolves NOTHING at module scope — no top-level await, so no deadlock', async () => {
+    const { probe } = await evaluateEntry()
+    // The decisive observation. Under the old entry the dynamic imports had
+    // already been awaited by the time `import()` resolved; here evaluation
+    // finishes having touched neither registry.
+    expect(probe.loads).toEqual([])
+    expect(probe.routers).toEqual([])
+  })
+
+  it('memoises ONE init that concurrent first requests share', async () => {
+    const { mod, probe } = await evaluateEntry()
+
+    // A cold burst: five requests arrive before any of them has finished
+    // initialising. The memo is on the PROMISE, and the check-and-assign pair
+    // is synchronous, so all five await the same one.
+    const results = await Promise.all([1, 2, 3, 4, 5].map(() => mod.handler({}, { env: {} })))
+
+    expect(probe.loads).toEqual(['child:probe-a', 'layout:app'])
+    expect(probe.routers).toHaveLength(1)
+    // …and the resolved-map contract still holds: `handle()` was reached with
+    // the children already in hand, which is what `__aihu_schild` requires.
+    for (const r of results) expect(r.children.get('probe-a')).toBeDefined()
+
+    // A later, non-concurrent request reuses the same init rather than redoing it.
+    await mod.handler({}, { env: {} })
+    expect(probe.loads).toEqual(['child:probe-a', 'layout:app'])
+    expect(probe.routers).toHaveLength(1)
   })
 })
 

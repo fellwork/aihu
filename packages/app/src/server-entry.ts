@@ -28,13 +28,42 @@
  * `rollupOptions.input`. `build.ssr: 'virtual:…'` fails with
  * `[UNRESOLVED_ENTRY]`.
  *
- * ## Why the registry is built at module init
+ * ## Why the registries are resolved lazily, on the first request
  *
- * `__aihu_schild` runs inside the compiled string fast path, which is
- * SYNCHRONOUS. Every child module must already be in hand before a render
- * begins, so the awaiting happens once, at module scope, not per request.
- * `ServerRouterOptions.children` is typed as a resolved map for exactly this
- * reason.
+ * The original constraint is unchanged: `__aihu_schild` runs inside the
+ * compiled string fast path, which is SYNCHRONOUS. Every child module must
+ * already be in hand before a render begins, which is why
+ * `ServerRouterOptions.children` is typed as a RESOLVED `Map` and not as a
+ * loader. What moved is only WHERE that awaiting happens — it is now awaited
+ * once inside `handler`, strictly BEFORE `__router.handle()` is invoked, which
+ * satisfies the resolved-map contract exactly as module-scope resolution did.
+ *
+ * It had to move because module-scope `await` makes this entry an ESM ASYNC
+ * MODULE, and that deadlocks a Worker that can never be loaded:
+ *
+ *   - Vite/rollup hoists the shared runtime INTO the entry chunk, so the lazy
+ *     component/layout chunks statically `import '../_worker.js'` back. Seven
+ *     of eight chunks did, measured on vite 6.4.3 in a consumer-shaped tree.
+ *   - Async-module semantics then close the loop: the entry suspends at its
+ *     top-level await; the dynamically imported chunk cannot finish evaluating
+ *     until the entry's evaluation promise settles; and that settles only once
+ *     the dynamic import resolves. `await import('./_worker.js')` NEVER
+ *     settles — node reports `Detected unsettled top-level await`.
+ *   - This built GREEN. The failure was at load, i.e. on every request in
+ *     production.
+ *
+ * The static import cycle is STILL PRESENT after this change, and is harmless:
+ * a cycle without a top-level await resolves normally, and the dynamic imports
+ * now happen during a request, long after the entry finished evaluating.
+ * Removing the TLA removes the *necessary* condition rather than the
+ * incidental one, so no future bundler's chunking decision can reintroduce the
+ * deadlock. That is why this, and not `inlineDynamicImports` or a
+ * `manualChunks` shape that keeps the entry a leaf, is the fix — those tune
+ * where the cycle lands on today's bundler, and their failure mode is a green
+ * build that hangs on every production request.
+ *
+ * Vite 8/rolldown happens to extract the runtime into standalone chunks, so
+ * the entry is a leaf with zero back-edges. That is luck, not immunity.
  */
 
 import type { AihuConfig } from './config.ts'
@@ -88,54 +117,83 @@ export function buildServerEntrySource(adapterSource?: string): string {
     "import __components from 'virtual:aihu-server-components'",
     "import __layouts from 'virtual:aihu-layouts'",
     '',
-    '// Resolve every child module ONCE, at module init. `__aihu_schild` runs',
-    '// inside the synchronous compiled string path, so nothing can be awaited',
-    '// mid-render.',
-    'const __loaded = await Promise.all(',
-    '  Object.entries(__components).map(async ([tag, load]) => ({ tag, mod: await load() })),',
-    ')',
+    '// NOTHING is awaited at module scope. A module-scope `await` would make',
+    '// this entry an ESM async module, and the lazy chunks below statically',
+    '// import back into it (the bundler hoists the shared runtime into the',
+    '// entry), which closes an evaluation cycle that can never settle — a green',
+    "// build whose Worker deadlocks on load. See this file's header docblock.",
+    '//',
+    '// Instead the whole registry graph is resolved ONCE on the first request',
+    '// and memoised. The synchronous-render constraint is untouched: `handler`',
+    '// awaits this to completion BEFORE calling `handle()`, so every child and',
+    '// layout module is already in hand when `__aihu_schild` runs inside the',
+    '// synchronous compiled string path.',
+    'async function __buildRouter() {',
+    '  const __loaded = await Promise.all(',
+    '    Object.entries(__components).map(async ([tag, load]) => ({ tag, mod: await load() })),',
+    '  )',
     '',
-    "// Key on the module's own `__aihu_tag__` — what `defineElement` actually",
-    '// registers, and what `__aihu_schild` looks up. The generated registry key',
-    '// is derived from the FILE and is only used to choose which modules to',
-    "// bundle; `@aihu/app`'s SSG path keys on `__aihu_tag__` for the same",
-    "// reason, and the two paths disagreeing would ship one module's markup and",
-    "// upgrade it with another's on hydrate.",
-    'const __discovered = []',
-    'for (const { tag, mod } of __loaded) {',
-    '  const real = mod.__aihu_tag__',
-    '  if (real === undefined) {',
+    "  // Key on the module's own `__aihu_tag__` — what `defineElement` actually",
+    '  // registers, and what `__aihu_schild` looks up. The generated registry key',
+    '  // is derived from the FILE and is only used to choose which modules to',
+    "  // bundle; `@aihu/app`'s SSG path keys on `__aihu_tag__` for the same",
+    "  // reason, and the two paths disagreeing would ship one module's markup and",
+    "  // upgrade it with another's on hydrate.",
+    '  const __discovered = []',
+    '  for (const { tag, mod } of __loaded) {',
+    '    const real = mod.__aihu_tag__',
+    '    if (real === undefined) {',
     // Emitted as CONCATENATION rather than a template literal purely so this
     // file contains no `${…}` inside a plain string — which a linter cannot
     // tell apart from a template literal someone forgot to backtick.
-    '    console.warn(',
-    "      '[@aihu/app] ssr output: component <' + tag + '> exports no __aihu_tag__, so it ' +",
-    "        'cannot be resolved by tag and will render as an empty element.',",
-    '    )',
-    '    continue',
+    '      console.warn(',
+    "        '[@aihu/app] ssr output: component <' + tag + '> exports no __aihu_tag__, so it ' +",
+    "          'cannot be resolved by tag and will render as an empty element.',",
+    '      )',
+    '      continue',
+    '    }',
+    '    __discovered.push({ tag: real, module: mod })',
     '  }',
-    '  __discovered.push({ tag: real, module: mod })',
+    '',
+    '  const __children = buildChildRegistry(__discovered, (m) => console.warn(m))',
+    '',
+    '  // Layouts, resolved here for the same reason the children are: composition',
+    '  // happens inside a request and cannot await a dynamic import mid-flight.',
+    "  // Keyed by the layout NAME, which is what a route's compiled `layout` field",
+    '  // carries — `virtual:aihu-layouts` is already keyed that way.',
+    '  //',
+    '  // Without this the live SSR path renders every page BARE while the SSG path',
+    '  // composes its shell, so the same route looks right prerendered and loses its',
+    '  // nav, footer and grid the moment a Worker serves it.',
+    '  const __layoutEntries = await Promise.all(',
+    '    Object.entries(__layouts).map(async ([name, entry]) => ({ name, mod: await entry.load() })),',
+    '  )',
+    '  const __layoutMap = new Map(__layoutEntries.map(({ name, mod }) => [name, mod]))',
+    '',
+    '  return createServerRouter(routes, {',
+    '    children: __children,',
+    '    layouts: __layoutMap,',
+    '  })',
     '}',
     '',
-    'const __children = buildChildRegistry(__discovered, (m) => console.warn(m))',
-    '',
-    '// Layouts, resolved at module init for the same reason the children are:',
-    '// composition happens inside a request and cannot await a dynamic import',
-    "// mid-flight. Keyed by the layout NAME, which is what a route's compiled",
-    '// `layout` field carries — `virtual:aihu-layouts` is already keyed that way.',
+    '// ONE memoised init, and it is the PROMISE that is memoised, not the',
+    '// resolved router. That is what makes concurrent first requests safe: the',
+    '// check and the assignment are both synchronous and sit in the same job, so',
+    '// no second request can observe `undefined` after the first has entered.',
+    '// Every caller therefore awaits the SAME promise and `__buildRouter` runs',
+    "// exactly once — no duplicate module loads, and `createServerRouter`'s",
+    '// one-time boot validation is not repeated. Memoising the resolved value',
+    '// instead would let N concurrent cold requests each start their own init.',
     '//',
-    '// Without this the live SSR path renders every page BARE while the SSG path',
-    '// composes its shell, so the same route looks right prerendered and loses its',
-    '// nav, footer and grid the moment a Worker serves it.',
-    'const __layoutEntries = await Promise.all(',
-    '  Object.entries(__layouts).map(async ([name, entry]) => ({ name, mod: await entry.load() })),',
-    ')',
-    'const __layoutMap = new Map(__layoutEntries.map(({ name, mod }) => [name, mod]))',
-    '',
-    'const __router = createServerRouter(routes, {',
-    '  children: __children,',
-    '  layouts: __layoutMap,',
-    '})',
+    '// A rejection is sticky on purpose: the inputs are bundled chunks, so a',
+    '// failure is deterministic, and retrying would only re-fail while replaying',
+    '// the boot warnings. It also matches the old module-scope behaviour, where',
+    '// a failed init meant the module never loaded at all.',
+    'let __routerPromise',
+    'function __getRouter() {',
+    '  if (__routerPromise === undefined) __routerPromise = __buildRouter()',
+    '  return __routerPromise',
+    '}',
     '',
     '/**',
     ' * Request handler: `(request: Request, platform?: unknown) => Promise<Response>`.',
@@ -143,8 +201,12 @@ export function buildServerEntrySource(adapterSource?: string): string {
     " * `platform` is the host's per-request ambient state — on Workers the adapter",
     ' * passes `{ env, ctx }`, so a route loader reaches KV/D1/R2/secrets and',
     ' * `waitUntil` through it. The framework never reads inside it.',
+    ' *',
+    ' * Async because the registries are resolved on first use; the await is paid',
+    ' * once, by whichever request arrives first on a cold isolate.',
     ' */',
-    `export const ${HANDLER} = (request, platform) => __router.handle(request, platform)`,
+    `export const ${HANDLER} = async (request, platform) =>`,
+    '  (await __getRouter()).handle(request, platform)',
   ].join('\n')
 
   return adapterSource ? `${prelude}\n\n${adapterSource}\n` : `${prelude}\n`

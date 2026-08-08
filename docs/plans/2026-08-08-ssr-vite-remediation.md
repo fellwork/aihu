@@ -81,6 +81,21 @@ that settles only when the dynamic import resolves. Under vite 8/rolldown the
 runtime is extracted to standalone chunks and the entry is a leaf — zero
 back-edges — which is why it "works on 8".
 
+> **CORRECTION (measured during implementation).** "Vite 8 is acyclic" is NOT a
+> property of vite 8 — it is source-dependent:
+>
+> | entry source | vite 8 result |
+> |---|---|
+> | TLA version | 9 chunks, **0** back-edges (passes, by luck) |
+> | fixed version | 8 chunks, **2** back-edges, cycle transitive through the init path |
+>
+> Merely changing the entry's source text flipped rolldown into emitting a cycle
+> on vite 8 as well. Under the OLD code that chunking would have deadlocked on
+> vite 8 too. So vite 8 was never safe; it happened to chunk favourably for one
+> particular input. This is direct evidence against the rejected
+> `manualChunks` / entry-as-leaf option: a bundler's chunking is not a stable
+> thing to hang a correctness guarantee on.
+
 **Fix: remove the module-scope TLA. Memoised lazy init on first request.**
 Built and verified on vite 6: `STATUS 200`, grandchild renders.
 

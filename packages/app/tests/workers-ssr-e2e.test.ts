@@ -114,14 +114,86 @@ function walk(dir: string): string[] {
   return out
 }
 
+/**
+ * How long a worker's module evaluation may take before this gate calls it a
+ * deadlock. Generous — evaluation is a few milliseconds — because the point is
+ * to distinguish "slow" from "never", not to measure.
+ *
+ * MUST stay below the per-`it` timeout passed to every test that imports a
+ * worker, so the failure reported is THIS one, naming the cause, rather than
+ * vitest's generic "test timed out".
+ */
+const WORKER_IMPORT_TIMEOUT_MS = 20_000
+
+/**
+ * `import()` a built worker UNDER A TIMEOUT.
+ *
+ * ## Why the bound exists, and why it is not optional
+ *
+ * The SSR entry used to resolve its child and layout registries with
+ * module-scope top-level `await`. That makes `_worker.js` an ESM async module —
+ * and vite/rollup hoists the shared runtime INTO the entry chunk, so the lazy
+ * chunks statically import back into `_worker.js` (7 of 8, measured on vite
+ * 6.4.3 in a consumer-shaped tree). The cycle then cannot resolve: the entry
+ * suspends at its top-level await; the dynamically imported chunk cannot finish
+ * evaluating until the entry's evaluation promise settles; and that settles
+ * only when the dynamic import resolves.
+ *
+ * The consequence for THIS FILE is what matters. An unbounded
+ * `await import(worker)` against such a build does not fail — it HANGS, and a
+ * hung CI job is not a red test. It is a job someone cancels an hour later and
+ * reruns. So the class of bug that ships a green build whose Worker cannot be
+ * loaded was, structurally, invisible here.
+ *
+ * The bound converts that into a named failure. Note it also stops being
+ * bundler-luck-dependent: vite 8/rolldown happens to extract the runtime into
+ * standalone chunks so the entry is a leaf with zero back-edges, which is the
+ * only reason this gate passed on 8 while the same source deadlocked on 6.
+ *
+ * The abandoned `import()` is deliberately not cancelled — it cannot be. A
+ * deadlocked module holds no timer or handle, so leaving it pending does not
+ * keep the process alive.
+ */
+async function importWorker(worker: string): Promise<Record<string, unknown>> {
+  // Cache-bust: the two variants are different files, but a re-run inside one
+  // vitest process must not reuse a previous build's module.
+  const href = `${pathToFileURL(worker).href}?v=${Date.now()}`
+  let timer: ReturnType<typeof setTimeout> | undefined
+  try {
+    return (await Promise.race([
+      import(href),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(
+          () =>
+            reject(
+              new Error(
+                `DEADLOCK: importing ${worker} did not settle within ` +
+                  `${WORKER_IMPORT_TIMEOUT_MS}ms. The built Worker cannot be loaded — ` +
+                  `every request to it would hang in production, even though the build ` +
+                  `was green.\n` +
+                  `Almost certainly a module-scope top-level await reintroduced into ` +
+                  `virtual:aihu-server-entry (packages/app/src/server-entry.ts): the ` +
+                  `emitted chunks statically import back into _worker.js, and an ESM ` +
+                  `async module in that cycle can never finish evaluating.\n` +
+                  `Confirm with: node ${worker}  →  ` +
+                  `"Warning: Detected unsettled top-level await".`,
+              ),
+            ),
+          WORKER_IMPORT_TIMEOUT_MS,
+        )
+      }),
+    ])) as Record<string, unknown>
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 /** Load a built worker and drive one request through it with a stubbed ASSETS. */
 async function fetchThrough(
   worker: string,
   url: string,
 ): Promise<{ status: number; body: string; assetsHits: string[] }> {
-  // Cache-bust: the two variants are different files, but a re-run inside one
-  // vitest process must not reuse a previous build's module.
-  const mod = (await import(`${pathToFileURL(worker).href}?v=${Date.now()}`)) as {
+  const mod = (await importWorker(worker)) as {
     default?: { fetch?: (r: Request, env: unknown, ctx: unknown) => Promise<Response> }
   }
   const handler = mod.default?.fetch
@@ -180,12 +252,13 @@ beforeAll(async () => {
 // ---------------------------------------------------------------------------
 
 describe('output: ssr produces a deployable, rendering Worker', () => {
-  it('1. the ssr environment emits _worker.js with a default-exported fetch', async () => {
-    const mod = (await import(`${pathToFileURL(built.main!.worker).href}?v=1`)) as {
-      default?: { fetch?: unknown }
-    }
+  it('1. the ssr environment emits a _worker.js that LOADS, with a default-exported fetch', async () => {
+    // "Loads" is half the claim and the half that used to be untested: an
+    // unbounded import here hung instead of failing whenever the entry was an
+    // async module inside the chunk cycle. See `importWorker`.
+    const mod = (await importWorker(built.main!.worker)) as { default?: { fetch?: unknown } }
     expect(typeof mod.default?.fetch).toBe('function')
-  })
+  }, 60_000)
 
   it('2. server-renders TWO levels of child nesting', async () => {
     const { status, body } = await fetchThrough(built.main!.worker, 'https://e2e.test/')
@@ -197,7 +270,7 @@ describe('output: ssr produces a deployable, rendering Worker', () => {
     expect(body).toContain('GRANDCHILD-OK')
     // Nested inside the child's element, not merely present somewhere.
     expect(body).toMatch(/<probe-card[^>]*>.*<probe-inner[^>]*>.*GRANDCHILD-OK/s)
-  })
+  }, 60_000)
 
   it('3. THE CONTROL — an empty registry renders the same host EMPTY', async () => {
     // Same pages, same components, same entry, same renderer; only
@@ -211,7 +284,7 @@ describe('output: ssr produces a deployable, rendering Worker', () => {
     // The page's own markup is unaffected — proving the control changed the
     // registry and not the whole render.
     expect(body).toContain('probe page')
-  })
+  }, 60_000)
 
   it('4. no node builtin import survives into the SSR output', () => {
     // D-1. `@aihu/server`'s lazy `import('./native.js')` statically imports the
@@ -249,7 +322,7 @@ describe('output: ssr produces a deployable, rendering Worker', () => {
   it('5b. the declined reference still renders as a bare element, not an error', async () => {
     const { body } = await fetchThrough(built.main!.worker, 'https://e2e.test/')
     expect(body).toMatch(/<probe-attr city="London"[^>]*><\/probe-attr>/)
-  })
+  }, 60_000)
 
   it('6. an unmatched path falls through to the ASSETS binding', async () => {
     const { status, body, assetsHits } = await fetchThrough(
@@ -259,7 +332,7 @@ describe('output: ssr produces a deployable, rendering Worker', () => {
     expect(status).toBe(200)
     expect(assetsHits).toEqual(['/assets/some-chunk.js'])
     expect(body).toBe('ASSETS-STUB:/assets/some-chunk.js')
-  })
+  }, 60_000)
 
   it('7. composes the route LAYOUT, with the page inside its outlet', async () => {
     // The SSG prerender composed layouts and live SSR did not, so an app that
@@ -275,7 +348,7 @@ describe('output: ssr produces a deployable, rendering Worker', () => {
     expect(body).toMatch(/data-aihu-outlet[^>]*>.*probe page/s)
     // …and the shell precedes it, i.e. the page did not swallow the layout.
     expect(body.indexOf('CHROME-OK')).toBeLessThan(body.indexOf('probe page'))
-  })
+  }, 60_000)
 
   it('8. a component only the LAYOUT references still ships to the server bundle', () => {
     // `genSC` rooted its reachability walk at the PAGES alone. No page names
