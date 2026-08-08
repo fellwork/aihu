@@ -521,3 +521,62 @@ describe('G7j — an app with no registry and no data: is byte-identical', () =>
     expect(await res.text()).toBe('Not Found')
   })
 })
+
+// ─── G7k — the loader embed cannot be used to break out of its <script> ─────
+//
+// Regression for a stored-XSS gap: both the governed and ungoverned loader
+// embeds used to interpolate JSON.stringify(data) straight into the response
+// HTML. JSON.stringify does not escape `<`/`>`, so data containing a literal
+// `</script>` (plausible the moment a loader reads from D1/KV/R2, or any
+// other source an attacker can influence) closed the script block early and
+// turned everything after it into live markup.
+
+const XSS_PAYLOAD = '</script><img src=x onerror=alert(1)>'
+
+describe('G7k — the loader embed cannot be used to break out of its <script>', () => {
+  it('ungoverned arm: a loader value containing </script> does not terminate the block', async () => {
+    const routes = [
+      route('/evil', {
+        module: () =>
+          Promise.resolve({
+            default: { toHtml: () => '<div>page</div>' },
+            loader: async () => ({ comment: XSS_PAYLOAD }),
+          }),
+        extract: { read: 'all', call: 'anonymous' },
+      }),
+    ]
+    const router = createServerRouter(routes)
+    const res = await router.handle(req('/evil'))
+    const body = await res.text()
+
+    expect(body).not.toContain('</script><img') // the raw breakout string
+    expect(loaderPayload(body)).toEqual({ comment: XSS_PAYLOAD }) // client still gets it exactly
+  })
+
+  it('governed arm: entitled data containing </script> does not terminate the block', async () => {
+    // Built standalone rather than via makeFixture(): the shared fixture's
+    // `fetch` is hardcoded to SECRET_SENSES, which contains no `<`/`>` and so
+    // can't exercise this fix. This mirrors makeFixture()'s wiring exactly,
+    // with a malicious provider response instead.
+    const registry = createGovernedRegistry()
+      .provider('LexiconEntry', {
+        fetch: async () => ({ headword: HEADWORD, senses: XSS_PAYLOAD }),
+        preview: async () => ({ headword: HEADWORD }),
+      })
+      .entitlement('members', { resolve: async () => true, timeoutMs: 50 })
+    const routes = [
+      route('/lexicon/:slug', {
+        module: () => Promise.resolve(pageModule()),
+        extract: { read: { scope: 'members' }, call: { scope: 'members' } },
+        data: { type: 'LexiconEntry', preview: ['headword'] },
+      }),
+    ]
+    const router = createServerRouter(routes, { governed: registry, auth: { authPlugin } })
+    const res = await router.handle(req('/lexicon/hello', 'member-token'))
+    const body = await res.text()
+
+    expect(body).not.toContain('</script><img')
+    const payload = loaderPayload(body) as { senses: string }
+    expect(payload.senses).toBe(XSS_PAYLOAD) // round-trips through JSON.parse unchanged
+  })
+})

@@ -28,6 +28,7 @@ import {
   resolveRequestPrincipal,
   validateGovernedBoot,
 } from '@aihu/server'
+import { jsSourceLiteral } from './codegen.ts'
 import type { RouteDefinition, RouteModule, Router } from './router.ts'
 import { createRouter } from './router.ts'
 
@@ -548,7 +549,12 @@ export function createServerRouter(
       const composed = await withLayout(route, html)
       // Granted → the Entitled<T> payload; withheld → ONLY the Withheld<T>
       // shape. The granted payload never exists in a withheld response.
-      const body = `${composed}<script type="application/json" id="__aihu_loader__">${JSON.stringify(emission.data)}</script>`
+      // jsSourceLiteral, not JSON.stringify: emission.data can carry
+      // data-source content (D1/KV/R2), and a raw `</script>` inside it
+      // would end this block early and turn everything after it into live
+      // DOM (CWE-79/94/116). \uXXXX escapes round-trip through JSON.parse
+      // unchanged, so the client loader sees byte-identical data.
+      const body = `${composed}<script type="application/json" id="__aihu_loader__">${jsSourceLiteral(emission.data)}</script>`
 
       const status = governedHttpStatus(emission)
       const base: Record<string, string> = { 'Content-Type': 'text/html; charset=utf-8' }
@@ -624,9 +630,11 @@ export function createServerRouter(
     // would make a site's chrome depend on whether a page declares `data:`.
     const composed = await withLayout(route, html)
 
+    // jsSourceLiteral, not JSON.stringify — same </script>-breakout risk as
+    // the governed arm above; loaderData is just as attacker-influenceable.
     const body =
       loaderData !== undefined
-        ? `${composed}<script type="application/json" id="__aihu_loader__">${JSON.stringify(loaderData)}</script>`
+        ? `${composed}<script type="application/json" id="__aihu_loader__">${jsSourceLiteral(loaderData)}</script>`
         : composed
 
     // GX Phase 3 (#437-GX): the compliance-tier noindex signal, derived from
