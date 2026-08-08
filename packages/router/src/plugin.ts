@@ -11,6 +11,7 @@
  * v0.7.4: `viteRouterPlugin` renamed to `viteRouterIntegration`.
  * The old name remains as a deprecated re-export until v1.0.
  */
+export { escapeForJsSource, jsSourceLiteral } from './codegen.ts'
 export type { LayoutMap, MiddlewareScan, RouterPluginOptions, RouteSidecar } from './vite-plugin.ts'
 export {
   componentTagFor,

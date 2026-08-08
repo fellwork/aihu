@@ -1,5 +1,6 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { basename, dirname, join, resolve } from 'node:path'
+import { jsSourceLiteral } from './codegen.ts'
 import type { RouteHead, RouteSegment } from './router.ts'
 
 /** @internal */
@@ -255,12 +256,13 @@ export function scanLayouts(d: string): LayoutMap {
  * `genC` uses it as a codegen boundary. The registry it emits is JavaScript
  * SOURCE built by string concatenation from names read out of `.aihu` files
  * (`@route { name }` / the file stem), so an unvalidated tag is an unvalidated
- * value reaching a code-construction sink. `JSON.stringify`
- * does escape correctly, but "the sanitizer happens to be adequate" is a
- * weaker guarantee than "the value cannot contain anything needing escaping",
- * and only the latter is checkable at a glance. Anything failing this test
- * could never have registered as an element anyway, so dropping it costs no
- * working behaviour.
+ * value reaching a code-construction sink. Anything failing this test could
+ * never have registered as an element anyway, so dropping it costs no working
+ * behaviour.
+ *
+ * This narrows what can ARRIVE; it is not the escaping. The emit itself goes
+ * through `jsSourceLiteral` (`./codegen.ts`) — see `SAFE_MODULE_PATH` below
+ * for the case where relying on the shape check alone was actually wrong.
  */
 const CUSTOM_ELEMENT_TAG = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)+$/
 
@@ -269,8 +271,19 @@ const CUSTOM_ELEMENT_TAG = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)+$/
  * Paths come from our own `readdirSync` walk, so this is a belt-and-braces
  * check on the same principle as `CUSTOM_ELEMENT_TAG`: reject anything holding
  * a quote, a backslash, or a line terminator (`\n`, `\r`, and the U+2028/U+2029
- * pair that `JSON.stringify` notably does NOT escape) rather than trust the
- * escaping. A path like that cannot survive a bundler's resolver regardless.
+ * pair that `JSON.stringify` notably does NOT escape). A path like that cannot
+ * survive a bundler's resolver regardless.
+ *
+ * NOT A SUBSTITUTE FOR ESCAPING, and this is the pattern's counterexample
+ * rather than a hypothetical. Unlike `CUSTOM_ELEMENT_TAG`, which is an
+ * allowlist, this is a denylist — and it says nothing about `<` or `>`, both
+ * legal in a POSIX filename and both passed through untouched by
+ * `JSON.stringify`. A component under a directory named `a</script>b` therefore
+ * put a literal `</script>` into the generated registry while clearing every
+ * check on this path. CodeQL flagged exactly that
+ * (`js/bad-code-sanitization` #61/#86) and was right to. The emit now goes
+ * through `jsSourceLiteral` (`./codegen.ts`); this regex stays as the
+ * narrowing step, not as the guarantee.
  */
 const SAFE_MODULE_PATH = /^[^"'\\\n\r\u2028\u2029]+$/
 
@@ -532,15 +545,21 @@ function genR(
       // GX P4 (#466): governed-loader conflict checks (C486 error / W487 warn).
       checkGovernedLoaderConflicts(f, meta)
       const aihuMeta = !meta?.name && f.endsWith('.aihu') ? readAihuRouteMeta(f) : null
+      // `jsSourceLiteral`, not `JSON.stringify` — see `./codegen.ts`. Every
+      // value below is read off disk (a sidecar's JSON, an `@route` block's
+      // own source text, a filesystem path), and every one is concatenated
+      // into JavaScript SOURCE. `JSON.stringify` escapes for the JSON grammar,
+      // which leaves `<`, `>` and U+2028/9 intact — the characters that
+      // terminate a `<script>` or a JS string literal.
       const x = meta
         ? SK.filter((k) => meta[k] !== undefined)
-            .map((k) => `    ${k}: ${JSON.stringify(meta[k])},`)
+            .map((k) => `    ${k}: ${jsSourceLiteral(meta[k])},`)
             .join('\n')
         : aihuMeta
           ? [
-              aihuMeta.name !== undefined ? `    name: ${JSON.stringify(aihuMeta.name)},` : '',
+              aihuMeta.name !== undefined ? `    name: ${jsSourceLiteral(aihuMeta.name)},` : '',
               aihuMeta.layout !== undefined
-                ? `    layout: ${JSON.stringify(aihuMeta.layout)},`
+                ? `    layout: ${jsSourceLiteral(aihuMeta.layout)},`
                 : '',
             ]
               .filter(Boolean)
@@ -549,8 +568,8 @@ function genR(
       // v0.7.2: embed _middleware file path for file-convention auto-wire
       const fileDir = dirname(f).replace(/\\/g, '/')
       const mwFile = middlewareByDir[fileDir]
-      const mwLine = mwFile ? `\n    middlewareFile: ${JSON.stringify(mwFile)},` : ''
-      return `  {\n    pattern: ${JSON.stringify(pat(s))},\n    segments: ${JSON.stringify(s)},\n    module: () => import(${JSON.stringify(f.replace(/\\/g, '/'))}),${x ? `\n${x}` : ''}${mwLine}\n  }`
+      const mwLine = mwFile ? `\n    middlewareFile: ${jsSourceLiteral(mwFile)},` : ''
+      return `  {\n    pattern: ${jsSourceLiteral(pat(s))},\n    segments: ${jsSourceLiteral(s)},\n    module: () => import(${jsSourceLiteral(f.replace(/\\/g, '/'))}),${x ? `\n${x}` : ''}${mwLine}\n  }`
     })
     .join(',\n')}\n];\n`
 }
@@ -567,8 +586,11 @@ function genR(
 export function genL(d: string): string {
   return `// AUTO-GENERATED\nexport default {\n${Object.entries(scanLayouts(d))
     .map(
+      // `jsSourceLiteral` at every hole — same reason as `genR`: layout stems
+      // and paths come off the filesystem, `components` comes from the
+      // layout's own `@template` text.
       ([k, v]) =>
-        `  ${JSON.stringify(k)}: { tag: ${JSON.stringify(layoutTagFor(k))}, load: () => import(${JSON.stringify(v)}), components: ${JSON.stringify(readAihuLayoutComponents(v))} },`,
+        `  ${jsSourceLiteral(k)}: { tag: ${jsSourceLiteral(layoutTagFor(k))}, load: () => import(${jsSourceLiteral(v)}), components: ${jsSourceLiteral(readAihuLayoutComponents(v))} },`,
     )
     .join('\n')}\n};\n`
 }
@@ -632,10 +654,21 @@ export function genC(d: string): string {
     .sort()
 
   // Direct child tags per component, restricted to tags this registry can load.
+  //
+  // "Can load" means PRESENT IN `__m`, i.e. a member of `tags` — not merely a
+  // key of `mods`. The two differ: `mods` is the raw directory scan, `tags` is
+  // what survived the codegen-boundary filter above. A single-word component
+  // (`button.aihu` → tag `button`, no hyphen) is dropped from `tags` by
+  // CUSTOM_ELEMENT_TAG but stays in `mods`, so filtering on `mods` emitted
+  // `__m["button"]()` against a registry with no `button` key — `undefined()`,
+  // a TypeError thrown out of the parent's loader at runtime, taking the
+  // parent down with the child that was only ever meant to be skipped.
+  // Found by tracing the value that reaches the `Promise.all` sink below.
+  const registered = new Set(tags)
   const kids: Record<string, string[]> = {}
   for (const t of tags) {
     kids[t] = readAihuLayoutComponents(mods[t] as string).filter(
-      (c) => c !== t && mods[c] !== undefined,
+      (c) => c !== t && registered.has(c),
     )
   }
 
@@ -652,16 +685,21 @@ export function genC(d: string): string {
     return [...seen].sort()
   }
 
+  // `jsSourceLiteral` at both holes. CUSTOM_ELEMENT_TAG already pins the tag
+  // to `[a-z0-9-]`, but the PATH only has to clear SAFE_MODULE_PATH (no quote,
+  // backslash or line terminator) — which permits `<` and `>`, so a component
+  // living under a directory named `a</script>b` put a literal `</script>`
+  // into this generated module. See `./codegen.ts`.
   const loaders = tags
-    .map((t) => `  ${JSON.stringify(t)}: () => import(${JSON.stringify(mods[t])}),`)
+    .map((t) => `  ${jsSourceLiteral(t)}: () => import(${jsSourceLiteral(mods[t])}),`)
     .join('\n')
 
   const entries = tags
     .map((t) => {
       const d = deps(t)
-      if (d.length === 0) return `  ${JSON.stringify(t)}: __m[${JSON.stringify(t)}],`
-      const all = [t, ...d].map((x) => `__m[${JSON.stringify(x)}]()`).join(', ')
-      return `  ${JSON.stringify(t)}: () => Promise.all([${all}]),`
+      if (d.length === 0) return `  ${jsSourceLiteral(t)}: __m[${jsSourceLiteral(t)}],`
+      const all = [t, ...d].map((x) => `__m[${jsSourceLiteral(x)}]()`).join(', ')
+      return `  ${jsSourceLiteral(t)}: () => Promise.all([${all}]),`
     })
     .join('\n')
 
@@ -819,17 +857,23 @@ export function genSC(
   // It matters more here than in `genC`. There the tags come from a directory
   // walk; here they come from `deriveChildTags`, i.e. from a REGEX OVER
   // COMPILED FILE CONTENT — an `.aihu` file's own text reaches this string
-  // concatenation, which builds JavaScript source. `JSON.stringify` does escape
-  // correctly, but "the sanitizer happens to be adequate" is weaker than "the
-  // value cannot contain anything needing escaping", and only the second is
-  // checkable at a glance. Same principle as `genC`'s codegen-boundary comment.
+  // concatenation, which builds JavaScript source.
+  //
+  // The shape check is also not, on its own, the fix. It was written as one
+  // ("the value cannot contain anything needing escaping"), and that claim
+  // held for the TAG and not for the PATH: SAFE_MODULE_PATH bans quotes,
+  // backslashes and line terminators but says nothing about `<` or `>`, both
+  // of which are legal in a POSIX filename and both of which `JSON.stringify`
+  // passes straight through. So the emit itself now goes through
+  // `jsSourceLiteral` (see `./codegen.ts`) — the shape check narrows what can
+  // arrive, the escaper makes what does arrive inert.
   const entries = reachable
     .flatMap((t) => {
       const path = mods[t]
       if (path === undefined || !CUSTOM_ELEMENT_TAG.test(t) || !SAFE_MODULE_PATH.test(path)) {
         return []
       }
-      return [`  ${JSON.stringify(t)}: () => import(${JSON.stringify(path)}),`]
+      return [`  ${jsSourceLiteral(t)}: () => import(${jsSourceLiteral(path)}),`]
     })
     .join('\n')
 
