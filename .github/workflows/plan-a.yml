@@ -624,12 +624,30 @@ jobs:
     # branch protection (the sole required context on `main`) couldn't see
     # them. That regression broke every downstream consumer app build.
     #
-    # bench / bench-arbor are deliberately NOT included: their regression
-    # gate compares against the 2026-05-25 baseline RESULTS.md, whose noise
-    # floor now exceeds the 10% threshold, so they fail on noise rather than
-    # real regressions (see bench/signals/HARNESS.md). Wiring an unreliable
-    # gate into the required check would block every PR. Revisit once a
-    # fresh baseline lands.
+    # bench / bench-arbor are deliberately NOT included, and as of D1
+    # (RESOLVED 2026-08-08) that exclusion is a closed decision, not a
+    # pending cleanup. Their TIMING gates ship red by design; wiring a red
+    # advisory gate into the required check would block every PR. The two
+    # jobs are red for DIFFERENT reasons and neither is "noise vs baseline":
+    #   - bench (signals) exits 1 in loadFitness before it compares a single
+    #     p50 — bench/signals/fitness.json has never existed and the gate is
+    #     fail-closed on that by design.
+    #   - bench-arbor's timing STEP fails on a fiction row in the committed
+    #     2026-05-25 baseline (dead bindings, 0 DOM writes/op).
+    # An earlier version of this comment said "revisit once a fresh baseline
+    # lands." That was WRONG and is retracted: regenerating either baseline
+    # is under a standing STOP (truth doc §3.4). The fix is R1 (same-job A/B
+    # vs the merge base), tracked as `C-FEL-BENCH-R1-AB-HARNESS` — only that
+    # reopens this. Full decision + evidence, single source of truth:
+    # bench/signals/HARNESS.md § "D1 — RESOLVED 2026-08-08".
+    #
+    # KNOWN, ACCEPTED CONSEQUENCE: bench-arbor also hosts the counted-metric
+    # gate (counts.ts), which IS trustworthy and DOES fail its job — but
+    # because the whole job is outside ci-ok, that teeth-bearing gate is not
+    # a required context either. Promoting it means splitting counts.ts into
+    # its own job (it needs no 45-minute timing run); folded into the R1
+    # follow-up rather than done here, so the release does not change what
+    # blocks a merge.
     #
     # Each of check/examples/governed-examples is scheduled unconditionally
     # in the job graph (their own `if:` decides run vs. skip; none of them
@@ -900,6 +918,16 @@ jobs:
     # stops claiming to be a verdict it was never wired to deliver. Promote it
     # back to blocking by adding it to `ci-ok`'s needs AND its gate loop
     # (being in `needs` alone does nothing — see the palette hole above).
+    #
+    # D1 RESOLVED 2026-08-08 — this job SHIPS RED, as a decision. The
+    # "Regression gate" step below exits 1 on every run because
+    # bench/signals/fitness.json has never existed and gate.ts is fail-closed
+    # on that by design; it never reaches a p50 comparison. Do NOT create or
+    # regenerate fitness.json to green it — measured 2026-08-08, that yields a
+    # differently-red gate (2 of 6 workloads drift past the 10 % threshold
+    # back-to-back with zero code changes). Reopens only when R1 lands:
+    # `C-FEL-BENCH-R1-AB-HARNESS`. Decision + evidence, single source of
+    # truth: bench/signals/HARNESS.md § "D1 — RESOLVED 2026-08-08".
     continue-on-error: true
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -967,6 +995,12 @@ jobs:
     #      invalid (two rows recorded dead bindings), so RED is the DESIGNED
     #      state for this step until R1 (same-job A/B vs merge base) replaces
     #      the mechanism. Do NOT regenerate RESULTS.md to green it.
+    #      D1 RESOLVED 2026-08-08 — that red is a CLOSED decision, not an open
+    #      item. Re-verified same day on a live run: the FAIL is
+    #      `update-1-of-10k-leaves 29 -> 256 ns (795.8 %)`, the dead-binding
+    #      fiction row. Reopens only with R1 —
+    #      `C-FEL-BENCH-R1-AB-HARNESS`. Single source of truth for the
+    #      decision: bench/signals/HARNESS.md § "D1 — RESOLVED 2026-08-08".
     #
     # R0: the runner itself hard-fails if any timed op performs no DOM
     # mutation — a dead binding aborts the job rather than reporting a number.
@@ -1041,7 +1075,10 @@ jobs:
         # whole job would have traded a false red for a real blind spot.
         # Scoped here, the timing numbers stay in the log and the counted gate
         # keeps its teeth. Remove this line when R1 (same-job A/B vs merge
-        # base) replaces the mechanism — that is the point of the exercise.
+        # base) replaces the mechanism — that is the point of the exercise,
+        # and it is the ONLY thing that should remove it (D1, resolved
+        # 2026-08-08; tracked as `C-FEL-BENCH-R1-AB-HARNESS`). See
+        # bench/signals/HARNESS.md § "D1 — RESOLVED 2026-08-08".
         continue-on-error: true
         if: env.FIRST_RUN != '1'
         working-directory: bench/arbor

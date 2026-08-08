@@ -1,5 +1,20 @@
 # Measures which @aihu/signals bench workloads are FIT TO GATE (C-FEL-409).
 #
+# ⚠ D1 RESOLVED 2026-08-08 — DO NOT COMMIT THIS WORKFLOW'S ARTIFACT.
+# Several lines below still say "commit the artifact it uploads". That
+# instruction is SUSPENDED, not merely stale: installing a fitness.json makes
+# `bench` a differently-red gate rather than a green one, because this
+# workflow (via repeat.ts) measures WITHIN-PROCESS spread while gate.ts would
+# use it to license ACROSS-CI-RUN comparisons. Measured 2026-08-08, 2 of 6
+# workloads drift past the gate's own 10 % threshold back-to-back with zero
+# code changes. This workflow remains valuable as a MEASURING instrument —
+# dispatch it freely to quantify runner noise, and read the artifact from the
+# run summary. What is forbidden is checking the artifact into the repo.
+# The suspension lifts only when R1 replaces the mechanism
+# (`C-FEL-BENCH-R1-AB-HARNESS`); at that point this workflow is deleted
+# rather than adopted. Single source of truth for the decision:
+# bench/signals/HARNESS.md § "D1 — RESOLVED 2026-08-08".
+#
 # Run-to-run p50 spread is a property of the (workload × machine) pair, not of
 # the workload. Measured on a loaded dev box every workload spreads 15-229 %;
 # the same workloads on a CI runner do not. So the artifact the gate reads MUST
