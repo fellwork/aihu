@@ -266,6 +266,31 @@ const NEGATIVE_FIXTURES: Record<string, Fixture> = {
       },
     },
   },
+  // The scaffold dependency-range drift guard. Same env-override shape as
+  // check:moon-graph / check:cn-map: TEMPLATE_VERSIONS_PACKAGES_DIR repoints the
+  // version SOURCE at a two-package fixture tree and TEMPLATE_VERSIONS_TS_TARGET
+  // repoints the generated-module TARGET, so this runs BUILDLESS — no `bun
+  // install`, no compiler, nothing but reading four small files — which is what
+  // this job (`gate-wiring` in plan-a.yml) requires.
+  //
+  // Red and green differ in EXACTLY the property under test: one `@aihu/runtime`
+  // range, `^5.0.0` (stale) vs `^6.0.0` (the fixture package's real version).
+  // Same generator, same source tree, same everything else — so a red run is the
+  // detector firing on drift, not on a malformed fixture.
+  'check:template-versions': {
+    cmd: ['bun', 'scripts/sync-template-versions.ts', '--check'],
+    env: {
+      TEMPLATE_VERSIONS_PACKAGES_DIR: 'scripts/fixtures/template-versions/packages',
+      TEMPLATE_VERSIONS_TS_TARGET: 'scripts/fixtures/template-versions/stale.generated.ts',
+    },
+    green: {
+      cmd: ['bun', 'scripts/sync-template-versions.ts', '--check'],
+      env: {
+        TEMPLATE_VERSIONS_PACKAGES_DIR: 'scripts/fixtures/template-versions/packages',
+        TEMPLATE_VERSIONS_TS_TARGET: 'scripts/fixtures/template-versions/expected.generated.ts',
+      },
+    },
+  },
   // Same shape, for check:animations-gallery's two generated targets.
   'check:animations-gallery': {
     cmd: ['bun', 'packages/css-engine/scripts/gen-animations-gallery.ts', '--check'],

@@ -3,10 +3,12 @@
 # install. This file is why `pnpm install` works here.
 #
 # allowBuilds is the pnpm equivalent of package.json's trustedDependencies
-# (bun): both @aihu/compiler and esbuild postinstall an arch-specific native
-# binary, and pnpm blocks lifecycle scripts by default AND exits non-zero doing
-# it, so without this the very first `pnpm install` fails with
-# ERR_PNPM_IGNORED_BUILDS. Anything not listed here is denied by default.
+# (bun). esbuild postinstalls an arch-specific native binary, and pnpm blocks
+# lifecycle scripts by default AND exits non-zero doing it, so without this the
+# very first `pnpm install` fails with ERR_PNPM_IGNORED_BUILDS. @aihu/compiler
+# ships no install script today (its native binary arrives as per-platform
+# optionalDependencies) and is listed as a forward guard. Anything not listed
+# here is denied by default.
 #
 # pnpm v11 renamed this: it was onlyBuiltDependencies (a list) through v10 and
 # is now allowBuilds (a map). The old key is silently ignored, not warned about.

@@ -164,7 +164,7 @@ export const EXPORTS: readonly ApiExport[] = [
   {
     name: 'AppTemplate',
     kind: 'type',
-    signature: "type AppTemplate = 'minimal' | 'full' | 'docs' | 'agent'",
+    signature: "type AppTemplate = 'minimal' | 'full' | 'docs' | 'agent' | 'ssr'",
     summary: '',
   },
   {

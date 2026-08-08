@@ -26,6 +26,8 @@
  * these generators don't need nested-backtick escaping.
  */
 
+import { aihuDep } from './dep-versions.js'
+
 /** package.json for the `agent` template. */
 export function agentPackageJson(name: string, pm = 'bun'): string {
   const bunVersion =
@@ -56,12 +58,12 @@ export function agentPackageJson(name: string, pm = 'bun'): string {
         // `createAgentReadinessRoutes` and `server.ts` / `mcp.ts` serve those
         // handlers live, so the package must be present at `bun server.ts`
         // time — not only at `vite build` time.
-        '@aihu-plugin/agent-readiness': 'latest',
-        '@aihu/agent': 'latest',
-        '@aihu/agent-server': 'latest',
-        '@aihu/agent-service': 'latest',
-        '@aihu/arbor': 'latest',
-        '@aihu/compiler': 'latest',
+        '@aihu-plugin/agent-readiness': aihuDep('@aihu-plugin/agent-readiness'),
+        '@aihu/agent': aihuDep('@aihu/agent'),
+        '@aihu/agent-server': aihuDep('@aihu/agent-server'),
+        '@aihu/agent-service': aihuDep('@aihu/agent-service'),
+        '@aihu/arbor': aihuDep('@aihu/arbor'),
+        '@aihu/compiler': aihuDep('@aihu/compiler'),
         // Peer of `@aihu/runtime`, not of anything listed here directly — which
         // is why two passes missed it. `@aihu/runtime` and `@aihu/arbor` declare
         // ZERO runtime dependencies and express every edge as a peer, so what
@@ -69,13 +71,13 @@ export function agentPackageJson(name: string, pm = 'bun'): string {
         // build` dies with: Rollup failed to resolve import "@aihu/context" from
         // node_modules/@aihu/runtime/dist/index.js (run 30333950275, `full` and
         // `agent` x yarn — the two templates that share this emitter).
-        '@aihu/context': 'latest',
-        '@aihu/runtime': 'latest',
-        '@aihu/signals': 'latest',
+        '@aihu/context': aihuDep('@aihu/context'),
+        '@aihu/runtime': aihuDep('@aihu/runtime'),
+        '@aihu/signals': aihuDep('@aihu/signals'),
         ws: '^8.18.0',
       },
       devDependencies: {
-        '@aihu/cli': 'latest',
+        '@aihu/cli': aihuDep('@aihu/cli'),
         // `server.ts` and `mcp.ts` call `Bun.serve()`. Without these types
         // the scaffolded project's own `typecheck` script fails on a fresh
         // install — TS2868 "Cannot find name 'Bun'", plus TS7006 implicit-any
@@ -91,11 +93,14 @@ export function agentPackageJson(name: string, pm = 'bun'): string {
         '@types/ws': '^8.5.12',
         concurrently: '^9.0.0',
         typescript: '^5.0.0',
-        vite: '^6.0.0',
+        vite: aihuDep('vite'),
       },
-      // @aihu/compiler ships its native binary via an arch-validating postinstall
-      // that bun blocks unless the package is trusted.
-      trustedDependencies: ['@aihu/compiler'],
+      // Same list, same reasoning, as `appPackageJson` in index.ts — read the
+      // long comment there: `@aihu/compiler` no longer ships any install script
+      // (measured against the published tarball) and is kept as a forward
+      // guard, while `esbuild` is the package that actually postinstalls under
+      // a vite-6 install and is NOT optional on the pnpm side.
+      trustedDependencies: ['@aihu/compiler', 'esbuild'],
       // The pnpm-side equivalent is deliberately NOT here: current pnpm does not
       // read settings from package.json and says so on every install ("The
       // "pnpm" field in package.json is no longer read by pnpm"). It ships as

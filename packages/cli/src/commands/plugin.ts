@@ -9,6 +9,7 @@
 
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { aihuDep } from '../dep-versions.js'
 
 /**
  * Scaffold a new plugin package named `name` under `targetDir/<name>/`.
@@ -25,7 +26,7 @@ export function scaffoldPlugin(name: string, targetDir: string): void {
     type: 'module',
     exports: { '.': './dist/index.js' },
     peerDependencies: {
-      '@aihu/plugin': 'latest',
+      '@aihu/plugin': aihuDep('@aihu/plugin'),
     },
   }
   writeFileSync(join(root, 'package.json'), `${JSON.stringify(pkgJson, null, 2)}\n`, 'utf8')

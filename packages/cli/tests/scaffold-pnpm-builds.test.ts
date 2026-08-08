@@ -55,7 +55,7 @@ function escapeRegex(literal: string): string {
  * claims, and only the second one is true.
  */
 
-const TEMPLATES: readonly AppTemplate[] = ['minimal', 'docs', 'full', 'agent']
+const TEMPLATES: readonly AppTemplate[] = ['minimal', 'docs', 'full', 'agent', 'ssr']
 
 /** The packages whose postinstall must be allowed to run. */
 const REQUIRED_BUILDS = ['@aihu/compiler', 'esbuild'] as const

@@ -59,13 +59,15 @@ export const config = {
     { kind: 'git-init', when: 'initGit' },
     { kind: 'lint-fix', allowFailure: true },
   ],
+  // GENERATED ranges — see the same block in template.config.ts, and
+  // scripts/sync-template-versions.ts.
   appPeerDeps: {
-    '@aihu/runtime': '^0.2.0',
-    '@aihu/arbor': '^0.2.0',
-    '@aihu/signals': '^0.2.0',
-    '@aihu/router': '^0.2.0',
-    '@aihu/server': '^0.2.0',
-    '@aihu/adapter-cloudflare': '^0.2.0',
+    '@aihu/runtime': '^6.0.0',
+    '@aihu/arbor': '^4.1.0',
+    '@aihu/signals': '^0.5.0',
+    '@aihu/router': '^0.4.4',
+    '@aihu/server': '^0.5.0',
+    '@aihu/adapter-cloudflare': '^12.0.0',
   },
   appPeerDepsConditional: {
     'better-auth': { version: '^1.0.0', when: 'auth === "better-auth"' },

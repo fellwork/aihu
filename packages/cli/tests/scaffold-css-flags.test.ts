@@ -21,6 +21,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { aihuDep } from '../src/dep-versions.ts'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const CLI_BIN = resolve(HERE, '..', 'src', 'bin.ts')
@@ -53,7 +54,7 @@ describe('aihu app · OOTB css-engine flags', () => {
     const pkg = JSON.parse(read('a', 'package.json')) as {
       dependencies: Record<string, string>
     }
-    expect(pkg.dependencies['@aihu/css-engine']).toBe('latest')
+    expect(pkg.dependencies['@aihu/css-engine']).toBe(aihuDep('@aihu/css-engine'))
     // FEL-425: no --shadow flag means no choice was made, so NO plugin-global
     // block is emitted and the DA4 framework defaults apply (the scaffolded
     // page is light DOM via the compiler's page default). The old behaviour
@@ -72,7 +73,7 @@ describe('aihu app · OOTB css-engine flags', () => {
     const pkg = JSON.parse(read('b', 'package.json')) as {
       dependencies: Record<string, string>
     }
-    expect(pkg.dependencies['@aihu/css-engine']).toBe('latest')
+    expect(pkg.dependencies['@aihu/css-engine']).toBe(aihuDep('@aihu/css-engine'))
   })
 
   it('--css engine --shadow light: explicit css block', () => {
