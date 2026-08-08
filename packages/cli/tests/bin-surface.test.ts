@@ -203,3 +203,122 @@ describe('usageText accuracy', () => {
     expect(text).toContain(CLI_VERSION)
   })
 })
+
+describe('--version is global, like --help', () => {
+  it('is answered wherever it appears in argv', () => {
+    // It was tested against argv[2] only, so `aihu --version` printed the
+    // version while `aihu app foo --version` SCAFFOLDED A PROJECT and exited 0
+    // — two flags documented side by side under "Global:", one of which was not.
+    const r = run('app', 'foo', '--version')
+    expect(r.status).toBe(0)
+    expect(r.stdout.trim()).toBe(CLI_VERSION)
+    expect(readdirSync(cwd)).toEqual([])
+  })
+
+  it('-v behaves the same', () => {
+    const r = run('app', 'foo', '-v')
+    expect(r.status).toBe(0)
+    expect(r.stdout.trim()).toBe(CLI_VERSION)
+    expect(readdirSync(cwd)).toEqual([])
+  })
+})
+
+describe('--pm triage', () => {
+  // `resolvePmFlag` returned 'bun' for ANY unrecognised value including none at
+  // all, so the emitted `"packageManager": "bun@…"` was a silent lie about what
+  // the user asked for — and corepack ENFORCES that field, so the `pnpm install`
+  // the CLI prints next refuses to run: the exact failure resolvePmFlag's own
+  // docblock was written about.
+
+  it('rejects an unknown value instead of silently using bun', () => {
+    const r = run('app', 'demo', '--pm', 'garbage')
+    expect(r.status).toBe(1)
+    expect(r.stderr).toContain('unknown --pm value')
+    expect(r.stderr).toContain('garbage')
+    expect(r.stderr).toContain('bun | pnpm | npm | yarn')
+    expect(readdirSync(cwd)).toEqual([])
+  })
+
+  it('rejects a dangling --pm instead of silently using bun', () => {
+    const r = run('app', 'demo', '--pm')
+    expect(r.status).toBe(1)
+    expect(r.stderr).toContain('--pm needs a value')
+    expect(readdirSync(cwd)).toEqual([])
+  })
+
+  it('rejects --pm= with an empty value', () => {
+    const r = run('app', 'demo', '--pm=')
+    expect(r.status).toBe(1)
+    expect(readdirSync(cwd)).toEqual([])
+  })
+
+  it('speaks the same error dialect as --template, which was already loud', () => {
+    const pm = run('app', 'demo', '--pm', 'garbage')
+    const tpl = run('app', 'demo', '--template', 'garbage')
+    expect(pm.status).toBe(tpl.status)
+    expect(pm.stdout).toBe('')
+    expect(tpl.stdout).toBe('')
+  })
+
+  it('still accepts every valid value, and still defaults to bun when absent', () => {
+    for (const pm of ['bun', 'pnpm', 'npm', 'yarn']) {
+      const r = run('app', `demo-${pm}`, '--pm', pm)
+      expect(r.status, pm).toBe(0)
+    }
+    expect(run('app', 'demo-default').status).toBe(0)
+  })
+})
+
+describe('scaffold-name triage', () => {
+  it('refuses to scaffold an app outside the current directory', () => {
+    const r = run('app', '../../ESCAPED')
+    expect(r.status).toBe(1)
+    expect(r.stderr).toContain('write outside the current directory')
+    expect(existsSync(resolve(cwd, '..', '..', 'ESCAPED'))).toBe(false)
+    expect(readdirSync(cwd)).toEqual([])
+  })
+
+  it('refuses to scaffold a plugin from a path-shaped name', () => {
+    const r = run('plugin', '../../PESCAPED')
+    expect(r.status).toBe(1)
+    expect(readdirSync(cwd)).toEqual([])
+  })
+
+  it('reports the plugin directory it actually created', () => {
+    // The listing was prefixed with the raw argument (`my-forms/package.json`)
+    // for files written to `aihu-plugin-my-forms/` — the same wrong-path-in-the
+    // -listing defect the prefixing was added to fix, one level further in.
+    const r = run('plugin', 'my-forms')
+    expect(r.status).toBe(0)
+    expect(r.stdout).toContain('created  aihu-plugin-my-forms/package.json')
+    expect(existsSync(join(cwd, 'aihu-plugin-my-forms', 'package.json'))).toBe(true)
+  })
+})
+
+describe('one error dialect', () => {
+  // `mcp` and `migrate` printed a bare usage block with no `ERROR:` marker and
+  // no pointer to `--help`, so the dispatcher answered malformed invocations in
+  // two different voices depending on which branch you tripped.
+
+  it('`aihu migrate` with no files uses the failUsage convention', () => {
+    const r = run('migrate')
+    expect(r.status).toBe(1)
+    expect(r.stderr).toContain('ERROR:')
+    expect(r.stderr).toContain('aihu migrate needs at least one file')
+    expect(r.stderr).toContain('aihu --help')
+  })
+
+  it('`aihu mcp` with no subcommand uses the failUsage convention', () => {
+    const r = run('mcp')
+    expect(r.status).toBe(1)
+    expect(r.stderr).toContain('ERROR:')
+    expect(r.stderr).toContain('aihu mcp serve')
+    expect(r.stderr).toContain('aihu --help')
+  })
+
+  it('`aihu mcp <typo>` names the subcommand it did not recognise', () => {
+    const r = run('mcp', 'srve')
+    expect(r.status).toBe(1)
+    expect(r.stderr).toContain('srve')
+  })
+})
