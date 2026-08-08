@@ -65,31 +65,42 @@ export function setBuildFlag(outputDir: string, key: string, value: unknown): vo
   const filePath = join(dir, 'build-flags.json')
   const root = readJson<Record<string, unknown>>(filePath, {})
 
-  // Walk dot-notation segments and deep-merge. `key` is a public API
-  // parameter (exported function) — reject __proto__/constructor/prototype
-  // segments so a future caller can't pollute Object.prototype across the
-  // process (CodeQL js/prototype-pollution-utility). Every CURRENT caller
-  // passes a hardcoded literal ('magna.untyped'), but the guard costs
-  // nothing and the contract itself accepts an arbitrary string.
-  const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
+  // Walk the dot-notation segments and deep-merge (CodeQL
+  // js/prototype-pollution-utility). Two hazards, both checked per segment
+  // rather than up front, so the guard sits directly on the control flow that
+  // reaches the assignment:
+  //
+  //   1. `__proto__` / `constructor` / `prototype` as a segment. `key` is a
+  //      public API parameter of an exported function, and every current
+  //      caller passes the literal 'magna.untyped' — but the contract accepts
+  //      an arbitrary string, and `setBuildFlag(dir, '__proto__.x', v)` walks
+  //      `cursor.__proto__` straight onto Object.prototype and assigns there,
+  //      poisoning every object in the build process.
+  //   2. Descending through the PROTOTYPE CHAIN. `typeof cursor[seg]` reads
+  //      inherited properties too, so if anything else in the process had
+  //      already polluted `Object.prototype.magna`, the old walk skipped
+  //      creating an own `magna` and merged into the shared prototype object
+  //      instead — the flag silently never reached build-flags.json.
+  //      `Object.hasOwn` keeps the walk on own properties only.
   const segments = key.split('.')
-  if (segments.some((seg) => UNSAFE_KEYS.has(seg))) {
-    throw new Error(`setBuildFlag: unsafe key segment in "${key}"`)
-  }
   let cursor: Record<string, unknown> = root
 
-  for (let i = 0; i < segments.length - 1; i++) {
+  for (let i = 0; i < segments.length; i++) {
     const seg = segments[i] as string
-    if (typeof cursor[seg] !== 'object' || cursor[seg] === null || Array.isArray(cursor[seg])) {
+    if (seg === '__proto__' || seg === 'constructor' || seg === 'prototype') {
+      throw new Error(`setBuildFlag: unsafe key segment '${seg}' in "${key}"`)
+    }
+    if (i === segments.length - 1) {
+      cursor[seg] = value
+      break
+    }
+    const existing = Object.hasOwn(cursor, seg) ? cursor[seg] : undefined
+    if (typeof existing !== 'object' || existing === null || Array.isArray(existing)) {
       cursor[seg] = {}
     }
     cursor = cursor[seg] as Record<string, unknown>
   }
 
-  const leaf = segments[segments.length - 1] as string
-  cursor[leaf] = value
-
-  const absPath = join(aihuDir(outputDir), 'build-flags.json')
-  ensureDir(dirname(absPath))
-  writeFileSync(absPath, JSON.stringify(root, null, 2), 'utf8')
+  ensureDir(dirname(filePath))
+  writeFileSync(filePath, JSON.stringify(root, null, 2), 'utf8')
 }

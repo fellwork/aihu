@@ -7,13 +7,15 @@ import { mkdir, readFile } from 'node:fs/promises'
  * widths in both light and dark themes. Output → `.design-review/`.
  */
 import { createServer } from 'node:http'
-import { extname, join, sep } from 'node:path'
+import { extname, join } from 'node:path'
 import { chromium } from '@playwright/test'
+import { indexDir, resolveFromIndex } from './dist-index.ts'
 
 const ROOT = new URL('..', import.meta.url).pathname
 const DIST = join(ROOT, 'dist')
 const OUT = join(ROOT, '.design-review')
 const PORT = 5199
+const HOST = '127.0.0.1'
 
 const MIME: Record<string, string> = {
   '.html': 'text/html',
@@ -25,29 +27,13 @@ const MIME: Record<string, string> = {
   '.png': 'image/png',
 }
 
-/** True when `candidate` is DIST itself or a path genuinely inside it — the
- * path-traversal guard `join()` alone doesn't provide (`join(DIST, '../..')`
- * normalizes but can still resolve outside DIST). `req.url` is
- * network-provided (CodeQL js/path-injection); this server only ever runs
- * locally against our own build output, but the check is cheap and the
- * pattern shouldn't be copy-pasted without it. */
-function isWithinDist(candidate: string): boolean {
-  return candidate === DIST || candidate.startsWith(DIST + sep)
-}
-
-function resolveFile(urlPath: string): string | null {
-  let p = decodeURIComponent(urlPath.split('?')[0] ?? '')
-  if (p.endsWith('/')) p = p.slice(0, -1)
-  const candidates = [join(DIST, p), join(DIST, p, 'index.html'), join(DIST, `${p}.html`)]
-  for (const c of candidates) {
-    if (isWithinDist(c) && existsSync(c) && extname(c)) return c
-  }
-  if (p === '' || p === '/') return join(DIST, 'index.html')
-  return null
-}
+/** Everything this server will ever serve — see `./dist-index.ts`. Populated
+ * once from `dist/` before the port is opened; a request only ever supplies a
+ * key into it, never a path. */
+const files = new Map<string, string>()
 
 const server = createServer(async (req, res) => {
-  const file = resolveFile(req.url ?? '/')
+  const file = resolveFromIndex(files, req.url ?? '/')
   if (!file) {
     res.statusCode = 404
     res.end('not found')
@@ -76,8 +62,14 @@ const VIEWPORTS = [
 const THEMES = ['light', 'dark'] as const
 
 async function main() {
+  if (!existsSync(DIST)) {
+    throw new Error(`no build output at ${DIST} — run \`bun run build\` in apps/docs first.`)
+  }
+  await indexDir(DIST, DIST, files)
   await mkdir(OUT, { recursive: true })
-  await new Promise<void>((r) => server.listen(PORT, r))
+  // Loopback only. This serves an unauthenticated view of the build output and
+  // has no business being reachable from the rest of the network.
+  await new Promise<void>((r) => server.listen(PORT, HOST, r))
   const browser = await chromium.launch()
   const shots: string[] = []
 
@@ -94,7 +86,9 @@ async function main() {
       }, theme)
       const page = await ctx.newPage()
       for (const pg of PAGES) {
-        await page.goto(`http://localhost:${PORT}${pg.path}`, {
+        // `HOST`, not `localhost` — the server is bound to 127.0.0.1 and
+        // `localhost` resolves to ::1 first on macOS.
+        await page.goto(`http://${HOST}:${PORT}${pg.path}`, {
           waitUntil: 'networkidle',
         })
         await page.waitForTimeout(450) // let islands hydrate + fonts settle
