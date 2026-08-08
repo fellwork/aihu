@@ -126,7 +126,11 @@ Storybook interaction + axe gate (`bun run check:a11y`) passes 270 tests across
 Size: `@aihu/primitives/radio-group`, the tightest budget, moves 3.42 kB → 3.43 kB
 against a 4 KB cap; every other entry is unchanged or smaller in headroom terms.
 
-**Found while verifying, NOT fixed here — needs a human call.** The
+**Found while verifying, NOT fixed here.** RESOLVED in
+`.changeset/registry-dead-registration.md`: the block was deleted, and the R2
+worry below turned out to be unfounded — the compiler's own module-scope
+`__style__` already delivers it. Everything from here down is the finding as
+originally filed. The
 hand-written `customElements.define` in `card`/`badge`/`separator`/`button` is
 DEAD CODE in the browser, and measurably so: loading a compiled `aihu-card`
 module in jsdom and reading `customElements.get('aihu-card')` returns the

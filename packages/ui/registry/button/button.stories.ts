@@ -22,6 +22,26 @@ const SIZES = ['sm', 'md', 'lg', 'icon'] as const
 
 export const Default = {
   render: (): string => `<aihu-button>Button</aihu-button>`,
+  play: async ({ canvasElement }: { canvasElement: HTMLElement }): Promise<void> => {
+    const host = canvasElement.querySelector('aihu-button') as HTMLElement
+    const root = host.shadowRoot as ShadowRoot
+
+    // R2 in chromium: one shared adopted sheet, no inline <style>, rules live.
+    await expect(root.adoptedStyleSheets.length).toBe(1)
+    await expect(root.querySelector('style')).toBeNull()
+    const inner = root.querySelector('button') as HTMLButtonElement
+    await expect(getComputedStyle(inner).display).toBe('inline-flex')
+    await expect(getComputedStyle(inner).height).toBe('36px') // 2.25rem, size=md
+
+    // The semantics live on the native <button>, and the HOST stays inert.
+    // This is the property that rules out `$extends: AihuButton` for this
+    // recipe: that base sets role="button" + tabindex="0" on the host, which
+    // would wrap a focusable native control in a second focusable widget —
+    // nested interactive controls, two tab stops, doubled Enter activation.
+    // See the recipe header in `button.aihu`.
+    await expect(host).not.toHaveAttribute('role')
+    await expect(host).not.toHaveAttribute('tabindex')
+  },
 }
 
 export const Variants = {

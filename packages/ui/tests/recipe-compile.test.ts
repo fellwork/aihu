@@ -148,21 +148,44 @@ describe('Plan 5 Task 5 — recipe-compile (scoped, var(), pack-invariant)', () 
     })
   }
 
-  it('button recipe references the AihuButton primitive base (class-extension model)', () => {
-    // §9.4 acceptance: the button recipe EXTENDS the headless AihuButton from
-    // @aihu/primitives/button (import-grep on the SOURCE — the class identity is
-    // erased from the emitted CSS, so we assert against the .aihu source).
-    const source = recipeSource('button')
-    expect(source).toContain("from '@aihu/primitives/button'")
-    expect(source).toContain('AihuButton')
-    expect(source).toMatch(/class\s+AihuButtonRecipe\s+extends\s+AihuButton/)
-    expect(source).toContain("customElements.define('aihu-button'")
+  it('all four Phase 1 recipes import NO primitive (the template carries the semantics)', () => {
+    // This assertion used to read the other way for `button`: it required
+    // `from '@aihu/primitives/button'` plus a `class AihuButtonRecipe extends
+    // AihuButton` and a `customElements.define('aihu-button', …)` in the
+    // source, on the strength of a §9.4 "class-extension model" claim. That
+    // claim was never true of the shipped element — the compiler registers the
+    // tag at module scope, so the recipe's own `define` could never fire and
+    // `AihuButton` was never in the prototype chain. See
+    // `.changeset/registry-dead-registration.md` and `tests/shadow-adoption.test.ts`.
+    //
+    // All four recipes render the semantic element in their `@template`
+    // (`<button>`, `<div role="separator">`, …), which is the same shape
+    // `input.aihu` / `textarea.aihu` / `label.aihu` document as the reason NOT
+    // to extend a primitive. The class-extension model is alive and asserted
+    // elsewhere — `checkbox.aihu`, `switch.aihu` and the dialog/popover/tooltip
+    // pieces use the compiler's `$extends:` macro, which actually works.
+    //
+    // Matched as a real IMPORT rather than a bare substring so a header comment
+    // may still discuss a primitive by name (separator's and button's both do,
+    // to say why they don't extend one).
+    const IMPORTS_PRIMITIVE = /^\s*import\s[^\n]*\sfrom\s+'@aihu\/primitives[^']*'/m
+    for (const name of RECIPES) {
+      const source = recipeSource(name)
+      expect(source, `${name} imports a primitive it cannot actually extend`).not.toMatch(
+        IMPORTS_PRIMITIVE,
+      )
+    }
   })
 
-  it('card/badge/separator import NO primitive (presentational only)', () => {
-    for (const name of ['card', 'badge', 'separator']) {
-      const source = recipeSource(name)
-      expect(source).not.toContain('@aihu/primitives')
+  it('no Phase 1 recipe hand-rolls element registration', () => {
+    // The compiler owns registration (module scope, before any upgrade). A
+    // `customElements.define` in `@state` is unreachable by construction.
+    // `shadow-adoption.test.ts` proves that against the compiled module; this
+    // is the cheap source-level restatement, next to the other catalog rules.
+    for (const name of RECIPES) {
+      expect(recipeSource(name), `${name} registers its own tag from @state`).not.toMatch(
+        /customElements\s*\.\s*define/,
+      )
     }
   })
 })

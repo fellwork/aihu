@@ -41,8 +41,10 @@ export const States = {
     `<aihu-separator orientation="vertical" style="height: 2rem;"></aihu-separator>`,
   play: async ({ canvasElement }: { canvasElement: HTMLElement }): Promise<void> => {
     const host = canvasElement.querySelector('aihu-separator') as HTMLElement
-    // The ARIA contract lives on the rendered template element (the @state
-    // recipe class does not execute on the compiled path — Track 0 finding).
+    // The ARIA contract lives on the rendered template element, which is where
+    // the recipe authors it. (It briefly ALSO appeared to live on the host, via
+    // a `@state` class that turned out never to register — see
+    // `.changeset/registry-dead-registration.md`; that block is gone.)
     const inner = host.shadowRoot?.querySelector('[data-slot="separator"]')
     await expect(inner).toBeTruthy()
     await expect(inner as HTMLElement).toHaveAttribute('role', 'separator')
