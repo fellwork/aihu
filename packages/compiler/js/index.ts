@@ -346,6 +346,175 @@ export function _parseIslandMarker(compiledCode: string): 'static' | 'interactiv
   return m?.[1] === 'static' ? 'static' : 'interactive'
 }
 
+/** Best-effort message text for an unknown thrown value. @internal */
+export function _errMessage(err: unknown): string {
+  if (err instanceof Error) return err.message
+  if (typeof err === 'string') return err
+  const m = (err as { message?: unknown } | null)?.message
+  return typeof m === 'string' ? m : String(err)
+}
+
+/**
+ * Is this `import('vite')` rejection the ONE legitimate "there is no Vite here"
+ * case — a standalone `transform()` caller, a unit test, any non-Vite host?
+ *
+ * The distinction matters because the two outcomes are opposites: "no Vite"
+ * must hand the TypeScript back untouched (the caller owns it and never asked
+ * for a strip), while "Vite is here and something broke" must throw, because
+ * un-stripped TypeScript returned into a Vite build is silent corruption that
+ * only surfaces as an unrelated bundler `PARSE_ERROR` much later.
+ *
+ * The test is deliberately narrow: a module-resolution failure whose subject is
+ * the `vite` specifier itself. Both Node and Bun report `ERR_MODULE_NOT_FOUND`
+ * with a message naming the package (`Cannot find package 'vite' …`). A
+ * resolution failure for something else — a broken transitive dependency of an
+ * installed Vite, say — is NOT this case: Vite is present, the strip is
+ * expected, and swallowing it would be the same silent corruption. So it is
+ * loud.
+ *
+ * @internal
+ */
+export function _isViteMissing(err: unknown): boolean {
+  const message = _errMessage(err)
+  const code = (err as { code?: unknown } | null)?.code
+  const isResolutionFailure =
+    code === 'ERR_MODULE_NOT_FOUND' ||
+    code === 'MODULE_NOT_FOUND' ||
+    /cannot find (module|package)/i.test(message)
+  if (!isResolutionFailure) return false
+  // The unresolved specifier must be `vite` itself, quoted the way both
+  // runtimes quote it, not merely a path that happens to contain "vite".
+  return /['"`]vite['"`]/.test(message)
+}
+
+/**
+ * The message for a strip that failed with Vite present — names the branch, the
+ * Vite version, the environment and the file, and says why it is fatal rather
+ * than swallowed.
+ *
+ * @internal
+ */
+export function _stripFailure(
+  fn: 'transformWithOxc' | 'transformWithEsbuild',
+  id: string,
+  viteVersion: string,
+  isServerEnv: boolean,
+  err: unknown,
+): string {
+  return (
+    `[@aihu/compiler] TypeScript strip failed for ${id} — ` +
+    `vite ${viteVersion} \`${fn}\` (${isServerEnv ? 'server' : 'client'} environment) threw. ` +
+    'Returning the un-stripped TypeScript would corrupt the build silently and ' +
+    'resurface as an unrelated bundler PARSE_ERROR on this file, so it fails here instead. ' +
+    `Underlying error: ${_errMessage(err)}`
+  )
+}
+
+/** What the Vite plugin's `transform` hook hands back after the strip. */
+export interface StripTypesResult {
+  readonly code: string
+  readonly map: null
+  /** Rolldown-only hint; set ONLY on the last-resort no-transform branch. */
+  readonly moduleType?: 'ts'
+}
+
+/**
+ * The subset of the Vite module `_stripTypes` uses — the seam tests fake.
+ *
+ * The trailing parameters are `any` on purpose: Vite's real signatures carry
+ * version-specific option/config/watcher types (and MORE parameters on some
+ * versions), and a narrower type here would make the genuine module fail to
+ * satisfy the interface. Only the first two parameters and `code` on the result
+ * are actually depended on.
+ */
+export interface ViteStripApi {
+  readonly version?: string
+  readonly transformWithOxc?: (
+    code: string,
+    id: string,
+    // biome-ignore lint/suspicious/noExplicitAny: variance seam — see doc comment
+    ...rest: any[]
+  ) => Promise<{ code: string }>
+  readonly transformWithEsbuild?: (
+    code: string,
+    id: string,
+    // biome-ignore lint/suspicious/noExplicitAny: variance seam — see doc comment
+    ...rest: any[]
+  ) => Promise<{ code: string }>
+}
+
+/**
+ * Strip TypeScript from compiler output using whichever transform the resolved
+ * Vite exposes. Takes the Vite module as a PARAMETER so the branch order and
+ * the failure behaviour are testable without installing four Vite versions.
+ *
+ * Branch order, and why:
+ *
+ * 1. `transformWithOxc` — Vite's own transform, needing NO separate esbuild.
+ *    Vite 8 made esbuild an OPTIONAL PEER while still *exporting* a
+ *    `transformWithEsbuild` that throws "It is deprecated and it now requires
+ *    esbuild to be installed separately … migrate to `transformWithOxc`" the
+ *    moment it is called. So this branch is deliberately NOT gated on the
+ *    environment: a fresh consumer install at vite 8 has no esbuild at all, and
+ *    the esbuild branch would throw on the CLIENT build — which every output
+ *    mode (`spa`, `static`, `ssr`) runs.
+ * 2. `transformWithEsbuild` — vite 6 and 5, where `transformWithOxc` does not
+ *    exist (`'transformWithOxc' in vite` is literally false on 6.4.3), so those
+ *    versions keep taking this branch and their output is unchanged.
+ * 3. Neither — hand the TypeScript to Rolldown with `moduleType: 'ts'`. A
+ *    forward-compatibility escape hatch for a Vite that drops both.
+ *
+ * Preferring oxc on vite 8 is a DELIBERATE behaviour change, not a refactor:
+ * oxc lowers class fields with `useDefineForClassFields: true` (the modern-TS
+ * default) where esbuild used `false`, lowers enums to a different (equivalent)
+ * IIFE shape, and does not constant-inline enum member reads. Invisible for
+ * compiler-generated code, observable for user-authored classes in an `.aihu`
+ * script block. Pinned by `tests/strip-branch.test.ts`.
+ *
+ * Failures here are LOUD. Both call sites are individually wrapped so the
+ * thrown error names the branch, the Vite version, the environment and the
+ * file. The alternative — the swallowing `catch` this replaced — returned
+ * un-stripped TypeScript that only surfaced as an unrelated `PARSE_ERROR` from
+ * the bundler two hundred lines of build output later.
+ *
+ * @internal
+ */
+export async function _stripTypes(
+  vite: ViteStripApi,
+  code: string,
+  id: string,
+  isServerEnv: boolean,
+): Promise<StripTypesResult> {
+  const viteVersion = vite.version ?? 'unknown'
+  if (typeof vite.transformWithOxc === 'function') {
+    try {
+      const stripped = await vite.transformWithOxc(code, 'component.ts', {
+        lang: 'ts',
+        sourcemap: false,
+      })
+      return { code: stripped.code, map: null }
+    } catch (err) {
+      throw new Error(_stripFailure('transformWithOxc', id, viteVersion, isServerEnv, err), {
+        cause: err,
+      })
+    }
+  }
+  if (typeof vite.transformWithEsbuild === 'function') {
+    try {
+      const stripped = await vite.transformWithEsbuild(code, 'component.ts', {
+        target: 'esnext',
+        sourcemap: false,
+      })
+      return { code: stripped.code, map: null }
+    } catch (err) {
+      throw new Error(_stripFailure('transformWithEsbuild', id, viteVersion, isServerEnv, err), {
+        cause: err,
+      })
+    }
+  }
+  return { code, moduleType: 'ts', map: null }
+}
+
 /**
  * §22 — parse the `// @aihu:component-tags a,b,c` marker the Rust codegen emits
  * for every server/universal build, on the same channel as `@aihu:island` above.
@@ -767,6 +936,32 @@ export function _buildStaticIsland(compiledCode: string, elementTag: string): st
     },
   )
 
+  // Which tail shape this module ends in, and whether an island is safe.
+  //
+  // `_injectShadowMode` runs BEFORE this in the transform pipeline, so the
+  // `defineElement(...)` call may already carry a third argument and no longer
+  // end in `))`. Rewriting the head while the tail rewrite silently no-ops
+  // produced a module with an unclosed class body and a dangling options
+  // object — invalid JS, emitted with no error, which surfaced downstream as a
+  // confusing `[PARSE_ERROR] … invalid JS syntax` naming the user's `.aihu`
+  // file. Reachable today with `islands: true` + `shadowMode: 'shadow'`, on
+  // vite 6 as well as 8.
+  //
+  // `shadowMode: 'shadow'` alone is safe to drop: the inline class attaches its
+  // own `{ mode: 'open' }` shadow root, which is precisely what that option
+  // asks for. ANY other option (`formAssociated`, `lightScopeId`, a future
+  // field) carries behaviour this class does not implement, so the island is
+  // DECLINED — the component keeps the ordinary `defineElement` path, exactly
+  // as the "falls back to the original code" contract above promises.
+  const TAIL_PLAIN = /\)\s*\)\s*$/
+  const TAIL_WITH_SHADOW_ONLY = /\)\s*,\s*\{\s*shadowMode:\s*'shadow'\s*,?\s*\}\s*\)\s*$/
+  const tail = TAIL_PLAIN.test(withArborMount)
+    ? TAIL_PLAIN
+    : TAIL_WITH_SHADOW_ONLY.test(withArborMount)
+      ? TAIL_WITH_SHADOW_ONLY
+      : null
+  if (tail === null) return compiledCode
+
   // Replace `defineElement('tag', defineComponent((_ctx) => { ... }))`
   // with an inline `customElements.define` whose connectedCallback mounts
   // the static tree. The setup function is captured verbatim by replacing
@@ -777,10 +972,7 @@ export function _buildStaticIsland(compiledCode: string, elementTag: string): st
       /defineElement\(\s*['"][^'"]+['"]\s*,\s*defineComponent\(/,
       `customElements.define(${tagJson}, class extends HTMLElement {\n  connectedCallback() {\n    const root = this.attachShadow({ mode: 'open' })\n    const __aihu_setup__ = (`,
     )
-    .replace(
-      /\)\s*\)\s*$/,
-      `)\n    mount(__aihu_setup__({ host: root, element: this }), root)\n  }\n})\n`,
-    )
+    .replace(tail, `)\n    mount(__aihu_setup__({ host: root, element: this }), root)\n  }\n})\n`)
 
   return `// AIHU_STATIC_ISLAND — zero @aihu/runtime references\n${rewritten}`
 }
@@ -2042,48 +2234,31 @@ export function aihuCompilerPlugin(options?: AihuCompilerPluginOptions): VitePlu
         // Vite does NOT re-run its TS-strip step when a plugin returns code for a
         // non-.ts ID, so we must strip types ourselves before returning.
         //
-        // Priority: always try transformWithEsbuild first — it strips types to
-        // plain JS in both Vite 5 (via esbuild) and Vite 8 (deprecated wrapper).
-        // Using moduleType:'ts' only as a last resort because `import('vite')`
-        // resolves to the root node_modules vite (which may be v8 even when a
-        // consumer project runs v5), causing v5's Rollup to receive raw TypeScript
-        // and fail on import-type / as-casts.
+        // TWO steps with SEPARATE failure handling, and the split is the whole
+        // point. `import('vite')` is the ONLY one whose failure is legitimate —
+        // a standalone `transform()` caller, a unit test, any host that is not a
+        // Vite build has no Vite to strip with, and handing the TypeScript back
+        // untouched is the correct answer there. Everything AFTER that import
+        // runs with Vite proven present, so a failure there means the STRIP
+        // broke, and swallowing it returns un-stripped TypeScript that
+        // resurfaces hundreds of lines later as an unrelated bundler
+        // `PARSE_ERROR` naming the user's `.aihu` file. One `catch` around both
+        // did exactly that. `_isViteMissing` is how the two are told apart;
+        // `_stripTypes` owns the branch order and the loud failures.
+        let vite: typeof import('vite')
         try {
-          const vite = await import('vite')
-          // Server module-runner env (the SSG prerender's `ssrLoadModule`, any
-          // dev-SSR consumer): the runner's `ssrTransform` parses JS ONLY and
-          // IGNORES the `moduleType: 'ts'` hint below (it drives rolldown
-          // BUNDLING, not the module-runner), so TS MUST be stripped to real JS
-          // right here or the runner throws `Expected a semicolon …` on the
-          // first type annotation. Prefer `transformWithOxc` — Vite 8's native
-          // transform, always present, with NO separate esbuild dependency
-          // (Vite 8 made esbuild optional). This is what makes the SSR/SSG path
-          // robust in a consumer project that never installs esbuild; the
-          // esbuild branch below stays the default for the client path (and its
-          // Vite-5 compatibility). Guarded on `isServerEnv` so the client build
-          // is byte-for-byte unchanged.
-          if (isServerEnv && typeof vite.transformWithOxc === 'function') {
-            const stripped = await vite.transformWithOxc(out, 'component.ts', {
-              lang: 'ts',
-              sourcemap: false,
-            })
-            return { code: stripped.code, map: null }
-          }
-          if ('transformWithEsbuild' in vite && typeof vite.transformWithEsbuild === 'function') {
-            const stripped = await vite.transformWithEsbuild(out, 'component.ts', {
-              target: 'esnext',
-              sourcemap: false,
-            })
-            return { code: stripped.code, map: null }
-          }
-          // Fallback for future Vite versions where esbuild is fully removed:
-          // return TS and let Rolldown strip types natively.
-          // biome-ignore lint/suspicious/noExplicitAny: moduleType is rolldown API
-          return { code: out, moduleType: 'ts', map: null } as any
-        } catch {
-          // If running outside Vite (e.g. tests, standalone transform), return as-is.
-          return { code: out, map: null }
+          vite = await import('vite')
+        } catch (err) {
+          if (_isViteMissing(err)) return { code: out, map: null }
+          throw new Error(
+            `[@aihu/compiler] Could not load \`vite\` to strip TypeScript from ${rawId}. ` +
+              'Vite appears to be installed but failed to load, so this is NOT the ' +
+              '"running outside Vite" case and the TypeScript must not be handed ' +
+              `back un-stripped. Underlying error: ${_errMessage(err)}`,
+            { cause: err },
+          )
         }
+        return await _stripTypes(vite, out, rawId, isServerEnv)
       })()
     },
   }

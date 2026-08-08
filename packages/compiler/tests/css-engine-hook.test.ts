@@ -271,7 +271,7 @@ describe('css-engine hook — present (e2e)', () => {
         if (res == null) throw new Error('plugin returned no result')
         const out = res.code
 
-        const optsMatch = out.match(/lightScopeId: '([0-9a-f]{8})'/)
+        const optsMatch = out.match(/lightScopeId: ['"]([0-9a-f]{8})['"]/)
         expect(optsMatch).not.toBeNull()
         const domId = optsMatch![1]!
 
@@ -302,8 +302,8 @@ describe('css-engine hook — present (e2e)', () => {
 
         // The $shadow pin, not a page/layout default, is what routes this
         // leaf to the light-DOM CSS path — confirm both fire.
-        expect(out).toContain("shadowMode: 'light'")
-        const optsMatch = out.match(/lightScopeId: '([0-9a-f]{8})'/)
+        expect(out).toMatch(/shadowMode: ['"]light['"]/)
+        const optsMatch = out.match(/lightScopeId: ['"]([0-9a-f]{8})['"]/)
         expect(optsMatch).not.toBeNull()
         const domId = optsMatch![1]!
 

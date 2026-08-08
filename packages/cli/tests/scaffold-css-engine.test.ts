@@ -224,8 +224,8 @@ describe('scaffold css-engine · utilities actually emit (compiler transform)', 
       // Combined options object (LDF §10 step 3 folds lightScopeId into the
       // same injection as shadowMode — see `_injectShadowMode`'s doc
       // comment) — assert the shadowMode field, not the whole literal object.
-      expect(out).toContain("shadowMode: 'light'")
-      expect(out).toMatch(/lightScopeId: '[0-9a-f]{8}'/)
+      expect(out).toMatch(/shadowMode: ['"]light['"]/)
+      expect(out).toMatch(/lightScopeId: ['"][0-9a-f]{8}['"]/)
     },
   )
 
