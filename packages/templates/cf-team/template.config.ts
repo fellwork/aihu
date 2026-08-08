@@ -23,7 +23,21 @@ export const config = {
   description:
     'Cloudflare Workers + monorepo (bun workspaces + moon) + better-auth + Biome + commitlint + Vitest + agent-minimal',
   contractVersion: 1,
-  cliRange: '^0.2.0',
+  // The CLI majors that can actually scaffold this template.
+  //
+  // Was `^0.2.0` — written when the CLI was 0.2.x and never revisited, so by
+  // CLI 1.2.0 the only publishable template in the repo declared an
+  // incompatibility with every CLI that could install it. It survived because
+  // nothing compared the field to anything; `assertTemplateCompatibility()` in
+  // scaffold-pipeline.ts now does, which is what turned this from dormant text
+  // into a scaffold-blocking error and forced a real answer.
+  //
+  // `^1.0.0`, not a wider range, and not `*`: `scaffoldFromTemplatePackage` —
+  // the shared driver BOTH `aihu app --template` and `create-aihu` run — landed
+  // in @aihu/cli 1.0.1, so the 1.x line is the CLI that can reach this package
+  // at all. The upper bound is real: a 2.0 CLI is free to break the manifest
+  // contract, and this template should stop rather than half-scaffold.
+  cliRange: '^1.0.0',
   fixed: {
     vendor: 'cloudflare',
     persona: 'team',
