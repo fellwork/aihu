@@ -315,7 +315,18 @@ async function main(): Promise<void> {
       // printNextSteps). When --template is absent OR T is not a known
       // template name, fall through to the legacy scaffoldApp() path
       // (preserves R-CT-06 backward compatibility).
+      const templatePresent = rest.some((a) => a === '--template' || a.startsWith('--template='))
       const tplFlag = extractTemplateFlag(rest)
+      if (templatePresent && (tplFlag === undefined || tplFlag === '')) {
+        // `--template` as the last token, or `--template=` with nothing after
+        // the `=`. Previously indistinguishable from "flag absent" and fell
+        // through to a silent `minimal` scaffold.
+        process.stderr.write(
+          `\nERROR: --template needs a value.\n\n` +
+            `Available templates:\n${formatTemplateCatalog('  ')}\n`,
+        )
+        process.exit(1)
+      }
       const selection = tplFlag !== undefined ? selectTemplate(tplFlag) : undefined
       if (selection?.kind === 'package') {
         await dispatchTemplate({ appName: arg, templatePkg: selection.pkg, rest })
@@ -327,6 +338,17 @@ async function main(): Promise<void> {
         process.stderr.write(
           `\nERROR: template '${selection.id}' is declared in the aihu registry but is ` +
             `not published to npm yet, so it cannot be scaffolded.\n\n` +
+            `Available templates:\n${formatTemplateCatalog('  ')}\n`,
+        )
+        process.exit(1)
+      }
+      if (selection?.kind === 'unknown') {
+        // Previously fell through and silently scaffolded `minimal` — "the
+        // run 'succeeds' and the user finds out much later" (create.ts's own
+        // docblock names this the worst failure mode; this is the same bug
+        // on the legacy `aihu app` path create.ts already fixed for itself).
+        process.stderr.write(
+          `\nERROR: unknown template ${JSON.stringify(selection.raw)}.\n\n` +
             `Available templates:\n${formatTemplateCatalog('  ')}\n`,
         )
         process.exit(1)

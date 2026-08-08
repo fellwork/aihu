@@ -963,6 +963,17 @@ export function scaffoldApp(
 export function scaffoldPage(routePath: string, outDir?: string): ScaffoldResult {
   const root = resolve(outDir ?? '.')
   const segments = routePath.replace(/^\//, '').split('/').filter(Boolean)
+  // `.`/`..` survive `filter(Boolean)` (both are truthy strings), and
+  // `join(root, rel)` below resolves them normally — so an unchecked route
+  // like '../../../../etc/whatever' writes outside src/pages/, potentially
+  // outside the project entirely. Reject rather than silently escape.
+  const traversal = segments.find((s) => s === '.' || s === '..')
+  if (traversal !== undefined) {
+    throw new Error(
+      `aihu page: route '${routePath}' contains a '${traversal}' segment, which would write ` +
+        'outside src/pages/. Use a route path relative to the pages root instead.',
+    )
+  }
   const rel = segments.length > 0 ? `src/pages/${segments.join('/')}.aihu` : 'src/pages/index.aihu'
   return writeFiles(root, [[rel, pageAihu(routePath)]])
 }

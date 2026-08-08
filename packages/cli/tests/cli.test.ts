@@ -412,6 +412,15 @@ describe('scaffoldPage', () => {
     scaffoldPage('/', tmpDir)
     expect(existsSync(join(tmpDir, 'src', 'pages', 'index.aihu'))).toBe(true)
   })
+
+  it('rejects a route containing a .. segment rather than writing outside src/pages/', () => {
+    expect(() => scaffoldPage('../../../../../ESCAPED', tmpDir)).toThrow(/\.\./)
+    expect(existsSync(join(tmpDir, '..', '..', '..', '..', 'ESCAPED.aihu'))).toBe(false)
+  })
+
+  it('rejects a route containing a . segment', () => {
+    expect(() => scaffoldPage('./foo', tmpDir)).toThrow(/\./)
+  })
 })
 
 describe('scaffoldComponent', () => {
