@@ -59,11 +59,32 @@ export const DEFAULT_OUTLET_ID = 'outlet'
  */
 export function injectIntoOutletId(html: string, content: string, outletId: string): string | null {
   const escaped = outletId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  // ── The attribute matcher, and the two things it had wrong.
+  //
+  // 1. `\bid="` matched `data-id="outlet"`. `\b` sits between `-` and `i`
+  //    (hyphen is a non-word character), so any `*-id` attribute — `data-id`,
+  //    `aria-id`, an Alpine/HTMX `x-id` — was accepted as THE id attribute and
+  //    the content was spliced into the wrong element. Requiring WHITESPACE
+  //    before `id=` is the actual rule: a real attribute is always separated
+  //    from the tag name or the previous attribute by whitespace, and no
+  //    prefixed attribute can be.
+  //
+  // 2. Only DOUBLE quotes matched. `index.html` is a file the CONSUMER authors
+  //    — Vite requires one, this repo's scaffold is only one of the ways it
+  //    gets written, and vite passes its quoting through verbatim — so
+  //    `id='outlet'` is an ordinary document that silently produced an EMPTY
+  //    outlet. Both quotings are accepted now.
+  //
+  // UNQUOTED (`id=outlet`) is deliberately NOT accepted. It is legal HTML but
+  // effectively unwritten, and matching it would mean any `id=<outletId>`
+  // sitting inside another attribute's VALUE becomes a splice target — a
+  // false positive that the quoted forms cannot produce, since a double-quoted
+  // value cannot contain a double quote. The cost of declining it is no longer
+  // silence: `assertOutletPresent` turns an unmatchable template into a named
+  // BUILD error naming this exact rule.
+  const idAttr = `\\sid=(?:"${escaped}"|'${escaped}')`
   // Match an empty outlet `<div id="outlet"></div>` (the SPA scaffold shape).
-  const emptyRe = new RegExp(
-    `(<[a-zA-Z]+\\b[^>]*\\bid="${escaped}"[^>]*>)(\\s*)(</[a-zA-Z]+>)`,
-    'i',
-  )
+  const emptyRe = new RegExp(`(<[a-zA-Z]+\\b[^>]*${idAttr}[^>]*>)(\\s*)(</[a-zA-Z]+>)`, 'i')
   if (emptyRe.test(html)) {
     // The FUNCTION form, deliberately. Rendered content goes in as the
     // REPLACEMENT, and a replacement STRING expands `$&`, `` $` ``, `$'` and
@@ -74,11 +95,52 @@ export function injectIntoOutletId(html: string, content: string, outletId: stri
     return html.replace(emptyRe, (_m, p1: string, _p2: string, p3: string) => p1 + content + p3)
   }
   // Fallback: open-tag only — insert content right after it.
-  const openRe = new RegExp(`(<[a-zA-Z]+\\b[^>]*\\bid="${escaped}"[^>]*>)`, 'i')
+  const openRe = new RegExp(`(<[a-zA-Z]+\\b[^>]*${idAttr}[^>]*>)`, 'i')
   if (openRe.test(html)) {
     return html.replace(openRe, (_m, p1: string) => p1 + content)
   }
   return null
+}
+
+/**
+ * Build-time gate: does this template have an outlet {@link injectIntoOutletId}
+ * can actually find?
+ *
+ * Returns an actionable message, or `null` when the template is fine.
+ *
+ * ## Why this is a BUILD error and not a runtime warning
+ *
+ * A template whose outlet the splice cannot match produced a `console.error`
+ * on the first request and then served a complete-looking document with an
+ * empty outlet, forever. Inside a Worker that message goes to a `wrangler tail`
+ * nobody is watching, and the symptom at the page — a blank shell that fills
+ * in once the client bundle boots — is indistinguishable from ordinary
+ * hydration. So the one failure this module exists to prevent was reported in
+ * the one place least likely to be read.
+ *
+ * Everything needed to catch it is already on hand at build time: the plugin
+ * reads the finished client `index.html` to inline it, and the outlet id is
+ * resolved config. Checking there costs nothing and turns a silent production
+ * defect into a named, pre-deploy failure — the same disposition
+ * `loadSsrDocumentModule` already takes for an index.html that is missing
+ * outright.
+ *
+ * Deliberately implemented by ASKING THE SPLICE, with empty content, rather
+ * than by a second regex. A separate "does it look right" check is exactly how
+ * a gate drifts from the thing it gates: it would start passing templates the
+ * splice rejects the first time either regex changed.
+ */
+export function assertOutletPresent(template: string, outletId: string): string | null {
+  if (injectIntoOutletId(template, '', outletId) !== null) return null
+  return (
+    `no element with id="${outletId}" that the SSR splice can match. Without it every ` +
+    'server-rendered page would be served with an EMPTY outlet — a complete-looking ' +
+    'document whose content only appears once the client bundle boots, which is ' +
+    `indistinguishable from ordinary hydration. Add <div id="${outletId}"></div> to ` +
+    'index.html, or set app.outletId to the id it already uses. NOTE the id attribute ' +
+    'must be quoted (id="…" or id=\'…\'): an unquoted `id=` is not matched, and a ' +
+    'prefixed attribute such as data-id= is not an id.'
+  )
 }
 
 /**

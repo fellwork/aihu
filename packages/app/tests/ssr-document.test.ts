@@ -25,7 +25,12 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { Plugin } from 'vite'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createSsrDocument, DEFAULT_OUTLET_ID, injectIntoOutletId } from '../src/ssr-document.ts'
+import {
+  assertOutletPresent,
+  createSsrDocument,
+  DEFAULT_OUTLET_ID,
+  injectIntoOutletId,
+} from '../src/ssr-document.ts'
 import { viteAihuPlugin } from '../src/vite-plugin.ts'
 
 const TEMPLATE = `<!doctype html>
@@ -72,6 +77,75 @@ describe('injectIntoOutletId', () => {
     // re-splice the document into itself.
     const out = injectIntoOutletId(TEMPLATE, '<p>cost: $& and $` and $1</p>', 'outlet')
     expect(out).toContain('<p>cost: $& and $` and $1</p>')
+  })
+
+  it('matches a SINGLE-quoted id attribute', () => {
+    // `index.html` is authored by the consumer and vite passes its quoting
+    // through verbatim, so this is an ordinary document — and it used to splice
+    // nothing at all, reported by one console.error inside a Worker.
+    const t = "<html><body><div id='outlet'></div></body></html>"
+    expect(injectIntoOutletId(t, '<p>HI</p>', 'outlet')).toBe(
+      "<html><body><div id='outlet'><p>HI</p></div></body></html>",
+    )
+  })
+
+  it('does NOT treat data-id / aria-id / x-id as the id attribute', () => {
+    // `\bid="` put a word boundary between the hyphen and the `i`, so every
+    // `*-id` attribute matched and the content was spliced into the wrong
+    // element. Requiring whitespace before `id=` is the real rule.
+    for (const attr of ['data-id', 'aria-id', 'x-id']) {
+      const t = `<html><body><div ${attr}="outlet"></div></body></html>`
+      expect(injectIntoOutletId(t, '<p>HI</p>', 'outlet'), attr).toBeNull()
+    }
+  })
+
+  it('still matches the real id when a decoy prefixed attribute precedes it', () => {
+    const t = '<html><body><div data-id="outlet" id="outlet"></div></body></html>'
+    expect(injectIntoOutletId(t, '<p>HI</p>', 'outlet')).toContain(
+      '<div data-id="outlet" id="outlet"><p>HI</p></div>',
+    )
+  })
+
+  it('declines an UNQUOTED id rather than guessing', () => {
+    // Legal HTML, effectively unwritten, and matching it would make any
+    // `id=<outletId>` inside another attribute's value a splice target. The
+    // build gate below is what stops this being silent.
+    const t = '<html><body><div id=outlet></div></body></html>'
+    expect(injectIntoOutletId(t, '<p>HI</p>', 'outlet')).toBeNull()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// assertOutletPresent — the same rule, asked at build time
+// ---------------------------------------------------------------------------
+
+describe('assertOutletPresent', () => {
+  it('passes a template the splice can match, in either quoting', () => {
+    expect(assertOutletPresent(TEMPLATE, 'outlet')).toBeNull()
+    expect(assertOutletPresent("<div id='app-root'></div>", 'app-root')).toBeNull()
+  })
+
+  it('reports a template the splice cannot match, naming the id', () => {
+    const msg = assertOutletPresent('<html><body></body></html>', 'app-root')
+    expect(msg).toContain('id="app-root"')
+    expect(msg).toContain('app.outletId')
+  })
+
+  it('agrees with the splice exactly — it IS the splice', () => {
+    // The gate must not drift from the thing it gates. Every shape the splice
+    // declines must be reported, and every shape it accepts must pass.
+    const cases = [
+      '<div id="outlet"></div>',
+      "<div id='outlet'></div>",
+      '<div id=outlet></div>',
+      '<div data-id="outlet"></div>',
+      '<section id="outlet">existing</section>',
+      '<body></body>',
+    ]
+    for (const t of cases) {
+      const spliceable = injectIntoOutletId(t, 'X', 'outlet') !== null
+      expect(assertOutletPresent(t, 'outlet') === null, t).toBe(spliceable)
+    }
   })
 })
 
@@ -305,10 +379,30 @@ describe('virtual:aihu-ssr-document', () => {
   })
 
   it('carries the CONFIGURED outlet id, so SSR splices what the client mounts', () => {
-    const src = serve(fixture(), { ...SSR, app: { outletId: 'app-root' } })
+    // The template has to CARRY that id. This fixture used the default
+    // `id="outlet"` document while configuring `app.outletId: 'app-root'` —
+    // exactly the divergence that ships an empty outlet, and the build gate
+    // now refuses it, so the test states the consistent pair it always meant.
+    const root = fixture({ template: TEMPLATE.replace('id="outlet"', 'id="app-root"') })
+    const src = serve(root, { ...SSR, app: { outletId: 'app-root' } })
     expect(JSON.parse(src.slice(src.indexOf('{'), src.lastIndexOf('}') + 1)).outletId).toBe(
       'app-root',
     )
+  })
+
+  it('FAILS THE BUILD when the template has no matching outlet', () => {
+    // The other half, and the reason the fix above was not just "update a
+    // fixture": a configured id the document does not contain used to build
+    // green and serve every page as an empty shell. It is now a named error at
+    // the moment the two can first be compared.
+    expect(() => serve(fixture(), { ...SSR, app: { outletId: 'app-root' } })).toThrow(
+      /no element with id="app-root"/,
+    )
+  })
+
+  it('FAILS THE BUILD when the outlet is only reachable unquoted', () => {
+    const root = fixture({ template: TEMPLATE.replace('id="outlet"', 'id=outlet') })
+    expect(() => serve(root, SSR)).toThrow(/must be quoted/)
   })
 
   it('carries site.url and app.head, so per-route heads lower identically to SSG', () => {

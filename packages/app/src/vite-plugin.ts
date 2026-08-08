@@ -31,7 +31,7 @@ import {
   SSR_DOCUMENT_RESOLVED_ID,
   SSR_DOCUMENT_VIRTUAL_ID,
 } from './server-entry.ts'
-import { DEFAULT_OUTLET_ID } from './ssr-document.ts'
+import { assertOutletPresent, DEFAULT_OUTLET_ID } from './ssr-document.ts'
 
 /**
  * Where the `'ssr'` environment writes: a SIBLING of the client outDir, never
@@ -520,9 +520,19 @@ export function viteAihuPlugin(config?: AihuConfig): PluginOption[] {
           'somewhere else — check build.outDir.',
       )
     }
+    // The outlet has to be in the template, and this is the last moment anyone
+    // can be told. `config.ts` guarantees the id is well-SHAPED; only here is
+    // the finished document available to say whether it is PRESENT. Failing now
+    // costs a build; not failing ships a site whose every page is an empty
+    // shell until the client boots. See `assertOutletPresent`.
+    const outletId = config?.app?.outletId ?? DEFAULT_OUTLET_ID
+    const outletProblem = assertOutletPresent(template, outletId)
+    if (outletProblem !== null) {
+      return this.error(`[@aihu/app] output: 'ssr' — ${templatePath} has ${outletProblem}`)
+    }
     const documentConfig = {
       template,
-      outletId: config?.app?.outletId ?? DEFAULT_OUTLET_ID,
+      outletId,
       ...(config?.site?.url !== undefined ? { siteUrl: config.site.url } : {}),
       ...(config?.app?.head !== undefined ? { globalHead: config.app.head } : {}),
     }

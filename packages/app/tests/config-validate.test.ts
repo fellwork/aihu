@@ -113,6 +113,53 @@ describe('invalid values keep their specific error codes', () => {
 })
 
 /**
+ * `app.outletId` was a bare `v.string`, so every shape below passed config
+ * validation and then failed SILENTLY at request time: the SSR splice matched
+ * nothing (or the wrong thing) and the client's `getElementById` looked for an
+ * element that could not exist, so the server and the browser disagreed about
+ * where the page goes with no error anywhere.
+ */
+describe('app.outletId must be a real HTML id, rejected at the config', () => {
+  it.each([
+    ['', 'empty — matches no element, and getElementById("") is always null'],
+    ['a"b', 'closes the id="…" attribute the splice and the template both write'],
+    ["a'b", 'closes a single-quoted id attribute'],
+    ['my outlet', 'ASCII whitespace is illegal in an id; the browser sees two attributes'],
+    ['1abc', 'the HTML4 ID production requires a leading letter'],
+    ['-abc', 'same'],
+    ['a<b', 'angle brackets end the tag'],
+    ['a>b', 'same'],
+    ['a\nb', 'a newline is whitespace'],
+  ])('rejects %j', (outletId) => {
+    const e = err({ app: { outletId } })
+    expect(e, `expected ${JSON.stringify(outletId)} to be rejected`).toBeDefined()
+    expect(e?.field).toBe('config.app.outletId')
+    // Actionable: names the shape AND echoes what was received.
+    expect(e?.message).toContain('an HTML id')
+    expect(e?.message).toContain(JSON.stringify(outletId))
+  })
+
+  it.each([
+    ['outlet'],
+    ['app-root'],
+    ['app_root'],
+    ['Root'],
+    ['a.b:c-d_e9'],
+  ])('accepts %j', (outletId) => {
+    expect(err({ app: { outletId } })).toBeNull()
+  })
+
+  it('still accepts an absent outletId', () => {
+    expect(err({ app: {} })).toBeNull()
+    expect(err({})).toBeNull()
+  })
+
+  it('rejects a non-string before it rejects the shape', () => {
+    expect(err({ app: { outletId: 42 } })?.code).toBe('INVALID_TYPE')
+  })
+})
+
+/**
  * `output: 'ssr'` requires `css.shadowMode`.
  *
  * Not a style preference. With no shadowMode configured, a LEAF component
