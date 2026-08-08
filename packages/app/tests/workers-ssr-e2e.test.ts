@@ -67,13 +67,19 @@ const FIXTURE = resolve(__dirname, 'fixtures/workers-ssr')
  */
 const REBUILD = ['compiler', 'router', 'server', 'app', 'adapter-cloudflare', 'primitives'] as const
 
-type Variant = 'main' | 'control' | 'outlet'
+type Variant = 'main' | 'control' | 'outlet' | 'poison'
 
-const CLIENT_DIST = { main: 'dist', control: 'dist-control', outlet: 'dist-outlet' } as const
+const CLIENT_DIST = {
+  main: 'dist',
+  control: 'dist-control',
+  outlet: 'dist-outlet',
+  poison: 'dist-poison',
+} as const
 const SERVER_DIST = {
   main: 'dist-server',
   control: 'dist-control-server',
   outlet: 'dist-outlet-server',
+  poison: 'dist-poison-server',
 } as const
 
 /** The env switch each variant's `vite.config.ts` reads. */
@@ -81,6 +87,7 @@ const VARIANT_ENV: Record<Variant, Record<string, string>> = {
   main: {},
   control: { AIHU_E2E_CONTROL: '1' },
   outlet: { AIHU_E2E_OUTLET: '1' },
+  poison: { AIHU_E2E_POISON: '1' },
 }
 
 interface Built {
@@ -89,7 +96,7 @@ interface Built {
   readonly clientDist: string
 }
 
-const built: { main?: Built; control?: Built; outlet?: Built } = {}
+const built: { main?: Built; control?: Built; outlet?: Built; poison?: Built } = {}
 
 function run(cmd: string, args: string[], cwd: string, env: Record<string, string> = {}) {
   return spawnSync(cmd, args, {
@@ -295,6 +302,7 @@ beforeAll(async () => {
   built.main = build('main')
   built.control = build('control')
   built.outlet = build('outlet')
+  built.poison = build('poison')
 }, 300_000)
 
 // ---------------------------------------------------------------------------
@@ -498,12 +506,21 @@ describe('output: ssr produces a deployable, rendering Worker', () => {
     // sets `app.outletId: 'app-root'` and renames the element to match, so a
     // splice that still targets `#outlet` finds nothing and ships an empty
     // document.
+    //
+    // The renamed element is SINGLE-quoted (`id='app-root'`), and that is the
+    // second thing under test. `index.html` is a file the CONSUMER authors —
+    // Vite requires one and this repo's scaffold is only one of the ways it
+    // gets written — and vite passes its quoting through verbatim (verified:
+    // the built `dist-outlet/index.html` still reads `id='app-root'`). The
+    // splice regex used to match double quotes only, so a perfectly ordinary
+    // hand-authored document silently produced an EMPTY outlet, reported by
+    // one `console.error` inside a Worker.
     const { status, body } = await fetchThrough(built.outlet!.worker, 'https://e2e.test/')
     expect(status).toBe(200)
-    expect(body).toContain('<div id="app-root">')
+    expect(body).toContain("<div id='app-root'>")
     expect(body).not.toContain('id="outlet"')
 
-    const open = body.indexOf('<div id="app-root">')
+    const open = body.indexOf("<div id='app-root'>")
     const inside = body.slice(open, body.indexOf('</div>', open))
     expect(inside).toContain('GRANDCHILD-OK')
     // The document is still whole — the id change must not cost the script tag.
@@ -651,4 +668,192 @@ describe('output: ssr produces a deployable, rendering Worker', () => {
       .join('\n')
     expect(clientJs).not.toContain('__aihu_schild')
   })
+})
+
+// ---------------------------------------------------------------------------
+// Robustness at the SSR edge. Both of these are about the SAME failure shape —
+// a rejected promise where an HTTP response should be — and they are separated
+// because the fixes are at different layers and either one alone leaves the
+// other's failure intact.
+// ---------------------------------------------------------------------------
+
+describe('a throw on the render path becomes a response, not a dropped request', () => {
+  it('19. a page that throws while rendering returns a 500 instead of NOTHING', async () => {
+    // THE failure this closes. `handle()` calls `renderToString` on the route
+    // module directly and nothing on the chain — not `handle()`, not the
+    // generated `handler`, not the adapter wrapper — had a try/catch. A throw
+    // therefore rejected the Worker's `fetch` promise, and a rejected `fetch`
+    // on Cloudflare is error 1101: no status, no body, nothing a client or a
+    // log can act on. Assertion 17's own comment records measuring exactly
+    // that ("the request gets NO RESPONSE") and then fixed the one CAUSE it
+    // had rather than the missing boundary.
+    //
+    // Measured against this same built Worker before the boundary landed:
+    // `Error: E2E-BOOM: this page throws while rendering` thrown out of
+    // `mod.default.fetch`, i.e. `fetchThrough` itself rejected.
+    const { status, body, contentType } = await fetchThrough(
+      built.main!.worker,
+      'https://e2e.test/boom',
+    )
+    expect(status).toBe(500)
+    expect(contentType ?? '').toMatch(/^text\/plain/)
+    expect(body).toBe('Internal Server Error')
+  }, 60_000)
+
+  it('19b. the 500 leaks no internals — not the message, not a stack', async () => {
+    // The boundary sees the real error and must log it, never serve it. A
+    // thrown value on this path can carry a query string, a binding name or a
+    // filesystem path from the build.
+    const { body } = await fetchThrough(built.main!.worker, 'https://e2e.test/boom')
+    // The thrown message…
+    expect(body).not.toContain('E2E-BOOM')
+    // …the module it came from, and any build-time filesystem path…
+    expect(body).not.toContain('boom.aihu')
+    expect(body).not.toContain('/dist-server/')
+    // …and a stack. (`Internal Server Error` legitimately contains the word
+    // "Error", so the assertion is on the SHAPE: nothing beyond that phrase.)
+    expect(body).not.toMatch(/\bat\s/)
+    expect(body).toBe('Internal Server Error')
+  }, 60_000)
+
+  it('19c. the 500 is NOT re-served from ASSETS as a 200 SPA shell', async () => {
+    // The adapter wrapper falls through to ASSETS on 404 only. A boundary that
+    // returned 404 — or that let the document wrapper turn the failure into an
+    // HTML page — would hand a broken route a 200 and a shell, which is worse
+    // than the crash: a monitor cannot see it.
+    const { assetsHits } = await fetchThrough(built.main!.worker, 'https://e2e.test/boom')
+    expect(assetsHits).toEqual([])
+  }, 60_000)
+
+  it('19d. `text/plain` survives the document wrapper unwrapped', async () => {
+    // Called on `handler` directly, past the adapter. `createSsrDocument`
+    // wraps on Content-Type and nothing else (`isHtml`), so the boundary's
+    // media type is load-bearing: an HTML 500 would be spliced into the client
+    // template and served as a document.
+    const { status, body, contentType } = await callHandler(
+      built.main!.worker,
+      'https://e2e.test/boom',
+    )
+    expect(status).toBe(500)
+    expect(contentType ?? '').toMatch(/^text\/plain/)
+    expect(body).toBe('Internal Server Error')
+    expect(body).not.toContain('<!DOCTYPE')
+    expect(body).not.toContain('<div id="outlet"')
+  }, 60_000)
+
+  it('19e. one throwing route does not poison the isolate for the others', async () => {
+    // The same module instance, after the failure: the memoised router is
+    // still the resolved one, so the next request renders normally. A boundary
+    // that had been placed around the memo instead would have discarded it.
+    const worker = built.main!.worker
+    const boom = await fetchThrough(worker, 'https://e2e.test/boom')
+    expect(boom.status).toBe(500)
+    const ok = await fetchThrough(worker, 'https://e2e.test/')
+    expect(ok.status).toBe(200)
+    expect(ok.body).toContain('CARD-OK')
+  }, 60_000)
+})
+
+describe('a broken outlet is a BUILD error, not a silent runtime divergence', () => {
+  /** Run a real `vite build` expected to FAIL, and return its combined output. */
+  function buildExpectingFailure(env: Record<string, string>): string {
+    const r = run('bunx', ['vite', 'build'], FIXTURE, env)
+    const output = `${r.stdout}\n${r.stderr}`
+    if (r.status === 0) {
+      throw new Error(
+        `the build SUCCEEDED with ${JSON.stringify(env)}. That is the defect: the config and ` +
+          `the document disagree about where the page goes, and shipping it produces a site ` +
+          `whose every page is an empty shell until the client bundle boots.\n${output}`,
+      )
+    }
+    return output
+  }
+
+  it.each([
+    // Empty: matches no element, and `getElementById('')` is always null.
+    ['', 'an empty outletId'],
+    // A quote closes the `id="…"` attribute the splice looks for.
+    ['a"b', 'a double quote'],
+    // ASCII whitespace is illegal in an HTML id — the browser parses two
+    // attributes and the splice matches neither.
+    ['my outlet', 'whitespace'],
+  ])('21. rejects app.outletId %j (%s) at build time', (value) => {
+    // Config validation runs when `viteAihuPlugin()` is constructed, i.e. while
+    // vite.config.ts is evaluated — so this fails before a single file is
+    // emitted, which is the whole point.
+    const out = buildExpectingFailure({ AIHU_E2E_BAD_OUTLET: value })
+    expect(out).toContain('app.outletId')
+    expect(out).toContain('an HTML id')
+  }, 60_000)
+
+  it('22. rejects a template whose outlet the splice cannot match', () => {
+    // The other half. A WELL-SHAPED id that the document does not actually
+    // carry in a matchable form was previously a green build and a
+    // `console.error` on the first request inside a Worker — the least-read
+    // place a framework can report anything. Here the index.html is rewritten
+    // to the unquoted `id=outlet`, which is legal HTML that the splice
+    // deliberately declines.
+    const out = buildExpectingFailure({ AIHU_E2E_UNQUOTED_OUTLET: '1' })
+    expect(out).toContain('no element with id="outlet"')
+    expect(out).toContain('must be quoted')
+  }, 60_000)
+})
+
+describe('one unloadable registry entry degrades alone', () => {
+  it('20. a component module that fails to import does not take the whole registry with it', async () => {
+    // `__buildRouter` resolved both registries with `await Promise.all(...)`
+    // over `await load()`, so ONE rejecting module rejected the whole build —
+    // and `__getRouter` memoises the promise, so the isolate then returned
+    // nothing to EVERY request for its entire life. Compounded by the missing
+    // boundary above, that is a Worker which serves one 1101 per request until
+    // Cloudflare recycles it.
+    //
+    // Measured against this variant before the fix: `fetchThrough` rejected
+    // with `E2E-POISON: component module failed to import` — no response, and
+    // no component rendered.
+    const { status, body } = await fetchThrough(built.poison!.worker, 'https://e2e.test/')
+    expect(status).toBe(200)
+    // Every real component still resolved through the registry…
+    expect(body).toContain('CARD-OK')
+    expect(body).toContain('GRANDCHILD-OK')
+    expect(body).toContain('EXTENDS-OK')
+    expect(body).toContain('RECIPE-OK')
+    expect(body).toContain('DEFINE-OK')
+    // …and nested exactly as they are in the unpoisoned build.
+    expect(body).toMatch(/<probe-card[^>]*>.*<probe-inner[^>]*>.*GRANDCHILD-OK/s)
+  }, 60_000)
+
+  it('20b. a layout module that fails to import does not cost the OTHER layouts theirs', async () => {
+    // Same shape, second registry. The poisoned entry is a layout no route
+    // uses; `app` is the one every page declares. Before the fix the two
+    // `Promise.all`s were equally all-or-nothing, so an unrelated broken
+    // layout stripped the shell off every route in the site.
+    const { body } = await fetchThrough(built.poison!.worker, 'https://e2e.test/')
+    expect(body).toContain('CHROME-OK')
+    expect(body).toMatch(/data-aihu-outlet[^>]*>.*probe page/s)
+  }, 60_000)
+
+  it('20c. the degraded build still serves a complete, hydratable document', async () => {
+    // Skipping a registry entry must not quietly change the response SHAPE —
+    // the failure is supposed to cost exactly one element, not the head or the
+    // client entry script.
+    const { body, contentType } = await fetchThrough(built.poison!.worker, 'https://e2e.test/')
+    expect(contentType).toMatch(/^text\/html/)
+    expect(body.toLowerCase()).toMatch(/^\s*<!doctype html>/)
+    expect(body).toMatch(/<script type="module"[^>]*src="\/assets\/index-[^"]+\.js"/)
+  }, 60_000)
+
+  it('20d. the poisoned tag is the only thing missing, and it renders as a bare element', async () => {
+    // `<probe-poison>` is not referenced by any template in this fixture, so
+    // the observable claim is the registry's: the skipped tag is absent from
+    // it while every reachable one is present. Proven through the RESPONSE
+    // rather than by reading the bundle, because the skip happens at request
+    // time inside the Worker, not at build time.
+    const mod = (await importWorker(built.poison!.worker)) as {
+      handler?: (r: Request, platform?: unknown) => Promise<Response>
+    }
+    const res = await mod.handler!(new Request('https://e2e.test/'), { env: {}, ctx: {} })
+    const html = await res.text()
+    expect(html).not.toContain('probe-poison')
+  }, 60_000)
 })

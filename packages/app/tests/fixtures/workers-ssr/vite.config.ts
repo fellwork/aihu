@@ -50,16 +50,91 @@ const renameOutlet: Plugin = {
   name: 'e2e-rename-outlet',
   transformIndexHtml: {
     order: 'pre',
-    handler: (html: string) => html.replace('id="outlet"', 'id="app-root"'),
+    handler: (html: string) => html.replace('id="outlet"', "id='app-root'"),
   },
 }
 
-const outDir = control ? 'dist-control' : outletVariant ? 'dist-outlet' : 'dist'
+/**
+ * THE POISONED-REGISTRY VARIANT (`AIHU_E2E_POISON=1`).
+ *
+ * Injects ONE unloadable entry into each of the two server registries, leaving
+ * every real component and the real `app` layout untouched. A registry build
+ * that fails en masse loses all of them; one that degrades per entry loses only
+ * the poisoned pair.
+ *
+ * `Promise.reject` rather than a synchronous `throw` because that is what a
+ * dynamic `import()` of a module which throws at ITS OWN scope actually does —
+ * the shape `eca2ab46` fixed one instance of (`@aihu/primitives` evaluating
+ * `class … extends HTMLElement` at module scope) and which any other module can
+ * still reproduce for any other reason.
+ *
+ * A `transform` over the GENERATED source, rather than a shadowing `load`,
+ * because the point is to poison the real registry the real build produced —
+ * a hand-written replacement would also be testing the replacement. Gated on
+ * the `ssr` environment: `virtual:aihu-layouts` is served to the client build
+ * too, and the client's own layout loading is not what is under test here.
+ */
+const poison = process.env.AIHU_E2E_POISON === '1'
+const POISON_COMPONENT =
+  "  'probe-poison': () => Promise.reject(new Error('E2E-POISON: component module failed to import')),\n"
+const POISON_LAYOUT =
+  "  'poison': { tag: 'aihu-layout-poison', load: () => Promise.reject(new Error('E2E-POISON: layout module failed to import')), components: [] },\n"
+const poisonRegistries: Plugin = {
+  name: 'e2e-poison-registries',
+  transform: {
+    order: 'post',
+    handler(this: { environment?: { name?: string } }, code: string, id: string) {
+      if (this.environment?.name !== 'ssr') return null
+      if (id === '\0virtual:aihu-server-components') {
+        return code.replace('export default {\n', `export default {\n${POISON_COMPONENT}`)
+      }
+      if (id === '\0virtual:aihu-layouts') {
+        return code.replace('export default {\n', `export default {\n${POISON_LAYOUT}`)
+      }
+      return null
+    },
+  },
+}
+
+/**
+ * THE MALFORMED-CONFIG PROBES (`AIHU_E2E_BAD_OUTLET`, `AIHU_E2E_UNQUOTED_OUTLET`).
+ *
+ * Both are expected to FAIL the build, and the assertion is that they do. An
+ * `app.outletId` that is not id-shaped, or a template whose outlet the splice
+ * cannot match, used to build green and then diverge silently at request time:
+ * the server spliced one place and the client mounted another, reported by at
+ * most one `console.error` inside a Worker.
+ *
+ * Read from the environment rather than committed as two more fixture
+ * directories so they share ONE authored project with the passing variants —
+ * the point is that the same build that works becomes an error on this one
+ * change.
+ */
+const badOutlet = process.env.AIHU_E2E_BAD_OUTLET
+const unquotedOutlet: Plugin = {
+  name: 'e2e-unquoted-outlet',
+  transformIndexHtml: {
+    order: 'pre',
+    handler: (html: string) => html.replace('id="outlet"', 'id=outlet'),
+  },
+}
+
+const outDir = control
+  ? 'dist-control'
+  : outletVariant
+    ? 'dist-outlet'
+    : poison
+      ? 'dist-poison'
+      : badOutlet !== undefined || process.env.AIHU_E2E_UNQUOTED_OUTLET === '1'
+        ? 'dist-reject'
+        : 'dist'
 
 export default defineConfig({
   plugins: [
     ...(control ? [emptyRegistry] : []),
     ...(outletVariant ? [renameOutlet] : []),
+    ...(poison ? [poisonRegistries] : []),
+    ...(process.env.AIHU_E2E_UNQUOTED_OUTLET === '1' ? [unquotedOutlet] : []),
     viteAihuPlugin({
       output: 'ssr',
       // REQUIRED by `output: 'ssr'` — without it leaf components export no
@@ -69,6 +144,7 @@ export default defineConfig({
       dir: { pages: 'pages', components: 'src/components' },
       adapter: cloudflare({ name: 'workers-ssr-fixture', generateWrangler: false }),
       ...(outletVariant ? { app: { outletId: 'app-root' } } : {}),
+      ...(badOutlet !== undefined ? { app: { outletId: badOutlet } } : {}),
       vite: {
         build: { outDir, emptyOutDir: true },
       },

@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve as resolvePath } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import type { AdapterContext } from '@aihu/app'
+import { ssrOutDirFor } from '@aihu/app'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { cloudflare } from '../src/index.ts'
 
@@ -27,6 +28,45 @@ async function importManifestDefault(
     'const routes = mod.default',
     'const out = routes.map((r) => ({ pattern: r.pattern, handlerStatus: r.handler().status }))',
     'process.stdout.write(JSON.stringify(out))',
+  ].join('\n')
+  const stdout = execFileSync(process.execPath, ['--input-type=module', '-e', script], {
+    encoding: 'utf8',
+  })
+  return JSON.parse(stdout)
+}
+
+/**
+ * Drive an emitted `_worker.js` in a real child Node process, with a stubbed
+ * ASSETS binding, and report the response plus every path ASSETS was asked for.
+ *
+ * A child process for the SAME reason `importManifestDefault` above uses one:
+ * vitest routes a bare `import()` of an out-of-project temp path through Vite's
+ * transform pipeline, which cannot resolve it. Node's own loader is also the
+ * faithful equivalent of what the Workers runtime does at load time.
+ *
+ * `missing` picks the stub's disposition: `true` makes every path except
+ * `/index.html` a 404 (the deep-link case), `false` makes everything a hit.
+ */
+async function driveWorker(
+  workerPath: string,
+  url: string,
+  missing: boolean,
+): Promise<{ status: number; body: string; hits: string[] }> {
+  const { execFileSync } = await import('node:child_process')
+  const script = [
+    `const mod = await import(${JSON.stringify(pathToFileURL(workerPath).href)})`,
+    'const hits = []',
+    'const env = { ASSETS: { fetch: async (req) => {',
+    '  const path = new URL(req.url).pathname',
+    '  hits.push(path)',
+    `  if (!${JSON.stringify(missing)}) return new Response('ASSET', { status: 200 })`,
+    "  return path === '/index.html'",
+    "    ? new Response('SHELL', { status: 200 })",
+    "    : new Response('nope', { status: 404 })",
+    '} } }',
+    `const res = await mod.default.fetch(new Request(${JSON.stringify(url)}), env, {})`,
+    'const body = await res.text()',
+    'process.stdout.write(JSON.stringify({ status: res.status, body, hits }))',
   ].join('\n')
   const stdout = execFileSync(process.execPath, ['--input-type=module', '-e', script], {
     encoding: 'utf8',
@@ -297,5 +337,148 @@ describe('@aihu/adapter-cloudflare — SSR hybrid mode (ssr: true)', () => {
     const toml = await readFile(join(tmpRoot, 'wrangler.toml'), 'utf8')
     expect(toml).toContain('name = "ssr-worker"')
     expect(toml).toContain('[assets]')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// `output: 'ssr'` wrangler.toml. This whole branch was UNTESTED: the only
+// fixture that exercises `output: 'ssr'` end to end (`@aihu/app`'s
+// workers-ssr-e2e) passes `generateWrangler: false`, so nothing had ever read
+// the file this adapter tells people to deploy with.
+// ---------------------------------------------------------------------------
+
+describe("@aihu/adapter-cloudflare — output: 'ssr' wrangler.toml", () => {
+  let tmpRoot: string
+
+  beforeEach(async () => {
+    tmpRoot = await mkdtemp(join(tmpdir(), 'aihu-cf-ssr-toml-'))
+  })
+
+  afterEach(async () => {
+    await rm(tmpRoot, { recursive: true, force: true })
+  })
+
+  /** An `output: 'ssr'` context whose client outDir is `<root>/<dir>`. */
+  async function adaptSsr(dir: string, name = 'ssr-app'): Promise<string> {
+    const outDir = join(tmpRoot, dir)
+    const { mkdir } = await import('node:fs/promises')
+    await mkdir(outDir, { recursive: true })
+    const ctx: AdapterContext = { ...makeContext(tmpRoot, outDir), config: { output: 'ssr' } }
+    await cloudflare({ name }).adapt(ctx)
+    return readFile(join(tmpRoot, 'wrangler.toml'), 'utf8')
+  }
+
+  it('derives `main` from the client outDir instead of hardcoding dist-server', async () => {
+    // THE finding. `[assets] directory` was already parameterized while `main`
+    // was the literal `"dist-server/_worker.js"`, so a project that configured
+    // `build.outDir: 'build'` got a worker emitted at `build-server/_worker.js`
+    // and a wrangler.toml pointing at a path that does not exist — `wrangler
+    // deploy` fails to find its entry point.
+    const toml = await adaptSsr('build')
+    expect(toml).toContain('main = "build-server/_worker.js"')
+    expect(toml).not.toContain('dist-server')
+    // …and the assets root is still the CLIENT dir, never the server one (D-2).
+    expect(toml).toContain('directory = "build"')
+  })
+
+  it('still emits dist-server for the default outDir', async () => {
+    // The derivation must not have changed the common case.
+    const toml = await adaptSsr('dist')
+    expect(toml).toContain('main = "dist-server/_worker.js"')
+    expect(toml).toContain('directory = "dist"')
+  })
+
+  it('agrees with @aihu/app about where the ssr environment writes', async () => {
+    // Pinned against the framework's own derivation rather than against a
+    // second copy of the rule spelled out here — a literal would drift the
+    // moment `ssrOutDirFor` changed, which is the bug being fixed.
+    for (const dir of ['dist', 'build', 'out', 'public-dist']) {
+      const root = await mkdtemp(join(tmpdir(), 'aihu-cf-agree-'))
+      const outDir = join(root, dir)
+      const { mkdir } = await import('node:fs/promises')
+      await mkdir(outDir, { recursive: true })
+      const ctx: AdapterContext = { ...makeContext(root, outDir), config: { output: 'ssr' } }
+      await cloudflare({ name: 'x' }).adapt(ctx)
+      const toml = await readFile(join(root, 'wrangler.toml'), 'utf8')
+      expect(toml).toContain(`main = "${ssrOutDirFor(dir)}/_worker.js"`)
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  it('sets run_worker_first so the Worker is not bypassed by the static shell', async () => {
+    // Cloudflare's Workers Assets routing serves a matching asset BEFORE the
+    // Worker (`run_worker_first` defaults to false), and `html_handling`
+    // (default `auto-trailing-slash`) maps `/` to the `index.html` that the SSR
+    // build writes into the very directory `[assets]` points at. Without this
+    // key an `output: 'ssr'` site serves its home page as the empty SPA shell
+    // and never invokes the Worker — SSR silently off on the most important
+    // route in the app.
+    const toml = await adaptSsr('dist')
+    expect(toml).toContain('run_worker_first = true')
+  })
+
+  it('does NOT set run_worker_first in SPA mode', async () => {
+    // There, serving the asset first is the entire point; a Worker that only
+    // proxies ASSETS would be pure per-request overhead.
+    const outDir = join(tmpRoot, 'dist')
+    const { mkdir } = await import('node:fs/promises')
+    await mkdir(outDir, { recursive: true })
+    await cloudflare({ name: 'spa-app' }).adapt(makeContext(tmpRoot, outDir))
+    const toml = await readFile(join(tmpRoot, 'wrangler.toml'), 'utf8')
+    expect(toml).not.toContain('run_worker_first')
+    expect(toml).toContain('main = "_worker.js"')
+    expect(toml).toContain('directory = "."')
+  })
+})
+
+describe('@aihu/adapter-cloudflare — the ASSETS fallback actually runs', () => {
+  let tmpRoot: string
+  let tmpOut: string
+
+  beforeEach(async () => {
+    tmpRoot = await mkdtemp(join(tmpdir(), 'aihu-cf-fallback-'))
+    tmpOut = join(tmpRoot, 'dist')
+    const { mkdir } = await import('node:fs/promises')
+    await mkdir(tmpOut, { recursive: true })
+  })
+
+  afterEach(async () => {
+    await rm(tmpRoot, { recursive: true, force: true })
+  })
+
+  it('checks the ASSETS status rather than catching a rejection that never happens', async () => {
+    // `env.ASSETS.fetch` is documented as resolving with a Response — an
+    // unmatched request comes back as a 404, it does not reject. So the
+    // `try { … } catch { …index.html… }` these workers used to carry was dead
+    // code, and the SPA deep-link fallback this adapter advertises had never
+    // run once.
+    await cloudflare({ generateWrangler: false }).adapt(makeContext(tmpRoot, tmpOut))
+    const worker = await readFile(join(tmpOut, '_worker.js'), 'utf8')
+    expect(worker).toContain('assetResponse.status !== 404')
+    expect(worker).not.toMatch(/}\s*catch\s*{/)
+  })
+
+  it('the emitted SPA worker really serves index.html on a 404 — driven, not grepped', async () => {
+    // The claim is behavioural, so the assertion is too: load the emitted
+    // module and drive it with an ASSETS stub that 404s exactly like the real
+    // binding does. A string assertion would have passed against the dead
+    // catch as happily as against the fix — the catch was, after all, still
+    // spelled correctly.
+    await cloudflare({ generateWrangler: false }).adapt(makeContext(tmpRoot, tmpOut))
+    const out = await driveWorker(join(tmpOut, '_worker.js'), 'https://x.test/deep/link', true)
+    expect(out.status).toBe(200)
+    expect(out.body).toBe('SHELL')
+    // Asked for the path, missed, then asked for the shell — the fallback ran.
+    expect(out.hits).toEqual(['/deep/link', '/index.html'])
+  })
+
+  it('a real asset is returned as-is, without the shell fallback', async () => {
+    // The other direction: a 200 from ASSETS must be handed straight back, not
+    // re-fetched as the shell.
+    await cloudflare({ generateWrangler: false }).adapt(makeContext(tmpRoot, tmpOut))
+    const out = await driveWorker(join(tmpOut, '_worker.js'), 'https://x.test/assets/app.js', false)
+    expect(out.status).toBe(200)
+    expect(out.body).toBe('ASSET')
+    expect(out.hits).toEqual(['/assets/app.js'])
   })
 })

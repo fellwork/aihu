@@ -31,7 +31,7 @@ import {
   SSR_DOCUMENT_RESOLVED_ID,
   SSR_DOCUMENT_VIRTUAL_ID,
 } from './server-entry.ts'
-import { DEFAULT_OUTLET_ID } from './ssr-document.ts'
+import { assertOutletPresent, DEFAULT_OUTLET_ID } from './ssr-document.ts'
 
 /**
  * Where the `'ssr'` environment writes: a SIBLING of the client outDir, never
@@ -44,8 +44,15 @@ import { DEFAULT_OUTLET_ID } from './ssr-document.ts'
  *
  * Derived from the client outDir rather than hardcoded, so a project that
  * renames `dist` does not silently get a `dist-server` unrelated to it.
+ *
+ * EXPORTED because an adapter needs the same answer and must not re-derive it.
+ * `@aihu/adapter-cloudflare` writes `main = "<ssrOutDir>/_worker.js"` into the
+ * wrangler.toml it generates; it had that path hardcoded as `dist-server/`
+ * while this function was already computing the real one, so any project with a
+ * non-default `build.outDir` got a config pointing at a file the build never
+ * wrote. Two derivations of one fact is the bug — there is only this one.
  */
-function ssrOutDirFor(clientOutDir: string): string {
+export function ssrOutDirFor(clientOutDir: string): string {
   // Trailing separators stripped by scanning backwards, NOT by `/[/\\]+$/`.
   // That regex is a polynomial-ReDoS sink (CodeQL js/polynomial-redos, high):
   // the `+` is anchored at the end, so on a value ending in many separators the
@@ -513,9 +520,19 @@ export function viteAihuPlugin(config?: AihuConfig): PluginOption[] {
           'somewhere else — check build.outDir.',
       )
     }
+    // The outlet has to be in the template, and this is the last moment anyone
+    // can be told. `config.ts` guarantees the id is well-SHAPED; only here is
+    // the finished document available to say whether it is PRESENT. Failing now
+    // costs a build; not failing ships a site whose every page is an empty
+    // shell until the client boots. See `assertOutletPresent`.
+    const outletId = config?.app?.outletId ?? DEFAULT_OUTLET_ID
+    const outletProblem = assertOutletPresent(template, outletId)
+    if (outletProblem !== null) {
+      return this.error(`[@aihu/app] output: 'ssr' — ${templatePath} has ${outletProblem}`)
+    }
     const documentConfig = {
       template,
-      outletId: config?.app?.outletId ?? DEFAULT_OUTLET_ID,
+      outletId,
       ...(config?.site?.url !== undefined ? { siteUrl: config.site.url } : {}),
       ...(config?.app?.head !== undefined ? { globalHead: config.app.head } : {}),
     }
