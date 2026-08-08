@@ -9,5 +9,7 @@
     <probe-card />
     <probe-attr city="London" />
     <probe-extends />
+    <probe-recipe />
+    <probe-define />
   </main>
 }

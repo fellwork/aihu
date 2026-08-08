@@ -566,6 +566,79 @@ describe('output: ssr produces a deployable, rendering Worker', () => {
     expect(body).toMatch(/<probe-extends[^>]*><\/probe-extends>/)
   }, 60_000)
 
+  // -------------------------------------------------------------------------
+  // The SETUP-BODY DOM crash — a DIFFERENT bug from `$extends` above, at a
+  // different time. `$extends` threw on IMPORT, because the base class sat at a
+  // primitive module's own top level. These throw when the component RENDERS,
+  // because the compiler emits an `@state` block verbatim into
+  // `__aihu_setup__` / `__aihu_ssr_string_setup__` — the body a server render
+  // runs for EVERY component, `base:` clause or not.
+  //
+  // Two shapes, two owners:
+  //   16/17 — a hand-written element class in `@state` (`card.aihu`,
+  //           `badge.aihu`, `separator.aihu`, `button.aihu`). Authored code;
+  //           the fix is a guard in the recipe source.
+  //   18    — a `defineX()` call in `@state` (`before-after.aihu`,
+  //           `temperature.aihu`). Library code; the fix is in
+  //           `@aihu/primitives`, once, for every caller.
+  // -------------------------------------------------------------------------
+
+  it('16. a styled-recipe CHILD renders instead of coming out empty', async () => {
+    // Fails SOFT without the guard: `__aihu_schild` catches the child's throw
+    // and degrades that one element to `<probe-recipe></probe-recipe>`, with
+    // `ReferenceError: HTMLElement is not defined` on the console. So the
+    // meaningful assertion is the CONTENT, not the status.
+    const { status, body } = await fetchThrough(built.main!.worker, 'https://e2e.test/')
+    expect(status).toBe(200)
+    expect(body).toMatch(/<probe-recipe[^>]*>.*RECIPE-OK.*<\/probe-recipe>/s)
+    const open = body.indexOf('<div id="outlet">')
+    expect(body.slice(open, body.indexOf('</body>'))).toContain('RECIPE-OK')
+  }, 60_000)
+
+  it('16b. THE CONTROL — with an empty registry the styled-recipe host renders empty', async () => {
+    // Same obligation as assertions 3 and 15b: without it, 16 could be passing
+    // because the text was inlined into the page's own compiled template.
+    const { body } = await fetchThrough(built.control!.worker, 'https://e2e.test/')
+    expect(body).not.toContain('RECIPE-OK')
+    expect(body).toMatch(/<probe-recipe[^>]*><\/probe-recipe>/)
+  }, 60_000)
+
+  it('17. the same shape on a PAGE returns a response at all', async () => {
+    // The severe half. A page is rendered by `handle()` calling
+    // `renderToString` directly — there is no `__aihu_schild` net, so the throw
+    // propagates out of the fetch handler and the request gets NO RESPONSE.
+    // Measured before the fix, against this same built Worker:
+    //   `ReferenceError: HTMLElement is not defined`, thrown out of
+    //   `mod.default.fetch` — not a 500, not an empty element.
+    // `status === 200` is therefore the assertion, exactly as it is for 15.
+    const { status, body } = await fetchThrough(built.main!.worker, 'https://e2e.test/recipe-page')
+    expect(status).toBe(200)
+    expect(body).toContain('RECIPE-PAGE-OK')
+    // …and it is a real page render, inside the layout, not an error document.
+    expect(body).toContain('CHROME-OK')
+  }, 60_000)
+
+  it('18. a component calling `defineX()` from `@state` renders', async () => {
+    // The library-owned half, and the reason the fix is NOT 18 one-line edits
+    // in `@aihu/ui`: `defineSlider()` is called from a recipe, from an example,
+    // and from any consumer that composes a primitive. Guarding it once inside
+    // `@aihu/primitives` closes it for every caller, including callers that do
+    // not exist yet.
+    //
+    // NOTE the probe itself is UNGUARDED, deliberately — that is the point. If
+    // this needed a guard at the call site, the fix would be in the wrong
+    // place.
+    const { status, body } = await fetchThrough(built.main!.worker, 'https://e2e.test/')
+    expect(status).toBe(200)
+    expect(body).toMatch(/<probe-define[^>]*>.*DEFINE-OK.*<\/probe-define>/s)
+  }, 60_000)
+
+  it('18b. THE CONTROL — with an empty registry the `defineX()` host renders empty', async () => {
+    const { body } = await fetchThrough(built.control!.worker, 'https://e2e.test/')
+    expect(body).not.toContain('DEFINE-OK')
+    expect(body).toMatch(/<probe-define[^>]*><\/probe-define>/)
+  }, 60_000)
+
   it('D-2. the SSR bundle is NOT written where the ASSETS binding would serve it', () => {
     // Cloudflare's `[assets] directory` serves the client outDir verbatim. An
     // SSR chunk landing there is downloadable server code on a public URL.

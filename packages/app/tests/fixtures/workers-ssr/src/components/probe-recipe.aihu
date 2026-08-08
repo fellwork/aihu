@@ -1,0 +1,46 @@
+<!--
+  The STYLED-RECIPE shape, under `output: 'ssr'`.
+
+  Mirrors `packages/ui/registry/card.aihu` / `badge.aihu` / `separator.aihu` /
+  `button.aihu` verbatim in structure: a hand-written custom-element class
+  declared INSIDE `@state`, with a shared static Constructable StyleSheet and
+  an idempotent `customElements.define`.
+
+  This is NOT the `$extends` bug. That one threw at MODULE LOAD, because the
+  class sat at the module's own top level and the extends clause is evaluated
+  on import. Here the class sits in the component's SETUP BODY, which the
+  compiler emits verbatim into `__aihu_setup__` and `__aihu_ssr_string_setup__`
+  — so the module imports cleanly and then throws the moment the component is
+  actually rendered. Three DOM globals in three lines, any one of which is
+  enough: `HTMLElement` (the extends clause), `CSSStyleSheet` (the static field
+  initializer), `customElements` (the registration).
+
+  The GUARD below is the fix, and it lives in AUTHORED SOURCE because there is
+  nowhere else it can live — no shared function is involved, the compiler emits
+  what the author wrote. It is the same condition the compiler puts on its own
+  `defineElement` call further down the emitted module. Delete it and this
+  element renders empty on every server request (assertion 16); the same shape
+  is checked against every shipped recipe by
+  `packages/ui/tests/ssr-recipe-safety.test.ts`.
+-->
+
+@state {
+  if (typeof HTMLElement !== 'undefined' && typeof customElements !== 'undefined') {
+    class ProbeRecipeElement extends HTMLElement {
+      static sheet = new CSSStyleSheet()
+
+      connectedCallback() {
+        if (!this.shadowRoot) this.attachShadow({ mode: 'open' })
+        this.shadowRoot.adoptedStyleSheets = [ProbeRecipeElement.sheet]
+      }
+    }
+
+    if (!customElements.get('probe-recipe')) {
+      customElements.define('probe-recipe', ProbeRecipeElement)
+    }
+  }
+}
+
+@template {
+  <span>RECIPE-OK</span>
+}
