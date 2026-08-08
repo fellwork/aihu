@@ -534,6 +534,48 @@ jobs:
           bun-version: '1.3.8'
       - run: bun run check:template-versions
 
+  alias-parity:
+    # The two alias systems — per-package tsconfig `paths` (read by tsc) and
+    # root vitest.config.ts `resolve.alias` (read by vitest) — must not disagree
+    # about what an `@aihu/*` specifier resolves to.
+    #
+    # WHAT THIS PROTECTS. The two maps are hand-maintained, serve different
+    # purposes, and are deliberately different sizes, so "they drifted" is not
+    # visible by reading either one. The failure mode is SILENT IN BOTH
+    # DIRECTIONS: a specifier missing from vitest.config.ts does not error, it
+    # resolves through package `exports` to that package's `dist` — which exists
+    # in any built tree — so the test suite goes green having validated a stale
+    # BUILT ARTIFACT instead of the source it is supposed to be testing. And a
+    # tsconfig that maps `@aihu/arbor` does NOT thereby cover
+    # `@aihu/arbor/hydrate` (TS `paths` matching is exact, not prefix), so a
+    # subpath quietly falls back to dist and one package's typecheck validates
+    # half of a dependency against a previous build. Neither shows up as a
+    # failure anywhere; that is the whole reason this is a gate and not a README
+    # paragraph. It also enforces vitest's alias ORDER — vite takes the FIRST
+    # prefix match, so a subpath alias listed after its own prefix is
+    # unreachable, which three hand-written "Order matters" comments in
+    # vitest.config.ts describe and nothing checked.
+    #
+    # OWN JOB, on the readme-sync/gate-wiring/template-versions pattern, for the
+    # same measured reason. It reads tsconfig*.json + vitest.config.ts and
+    # nothing else — no `bun install`, no build, no Rust, ~1s — and carrying no
+    # `if:` and no path filter means it also runs on DRAFT PRs, where `check` is
+    # invisible. `check:ci` lists it too for local pre-push, but that is not what
+    # makes it run: `check:ci` is invoked by no workflow in this repo (see the
+    # lesson-refs job). THIS job is the wiring.
+    #
+    # Own-job costs THREE coordinated edits — this job, ci-ok's `needs:`, and
+    # ci-ok's RESULT LOOP (plus the loop's positive-control count). That triple
+    # is machine-checked by check:gate-wiring; drop any leg and it goes red.
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.3.8'
+      - run: bun run check:alias-parity
+
   ci-ok:
     # Single stable REQUIRED status for branch protection. Always runs (even
     # when `check` / `examples` / `governed-examples` are skipped — e.g. a
@@ -595,7 +637,7 @@ jobs:
     # resolves every needed job to a terminal state (success/failure/
     # cancelled/skipped) before evaluating this job's `if: always()`, which
     # then runs regardless of what that state was.
-    needs: [changes, check, scaffold-consistency, examples, governed-examples, lesson-refs, palette, readme-sync, gate-wiring, template-versions]
+    needs: [changes, check, scaffold-consistency, examples, governed-examples, lesson-refs, palette, readme-sync, gate-wiring, template-versions, alias-parity]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -635,6 +677,12 @@ jobs:
           # not gated on — it MUST also appear in the loop below, and
           # check:gate-wiring machine-checks that it does.
           TEMPLATE_VERSIONS_RESULT: ${{ needs.template-versions.result }}
+          # alias-parity is always-on (no if:, no path filter) like readme-sync,
+          # gate-wiring and template-versions, so it is never `skipped` on a real
+          # event. Same rule as those three: being in `needs` is being WAITED on,
+          # not gated on — it MUST also appear in the loop below, and
+          # check:gate-wiring machine-checks that it does.
+          ALIAS_PARITY_RESULT: ${{ needs.alias-parity.result }}
           # `true` only for a pull_request event whose PR is a draft. For push
           # and workflow_dispatch, `github.event.pull_request` is null and this
           # evaluates to `false` — so the draft rule below can never fire on a
@@ -656,6 +704,7 @@ jobs:
           echo "readme-sync:        $README_SYNC_RESULT"
           echo "gate-wiring:        $GATE_WIRING_RESULT"
           echo "template-versions:  $TEMPLATE_VERSIONS_RESULT"
+          echo "alias-parity:       $ALIAS_PARITY_RESULT"
           echo "draft PR:           $IS_DRAFT"
           fail=0
           # FAIL-CLOSED, and the inversion is the whole point. This loop used to
@@ -675,7 +724,7 @@ jobs:
           # commit from fixed; one that errs toward green is the defect this
           # repo has now shipped three times (palette, #649, this).
           checked=0
-          for pair in "check:$CHECK_RESULT" "scaffold-consistency:$SCAFFOLD_CONSISTENCY_RESULT" "examples:$EXAMPLES_RESULT" "governed-examples:$GOVERNED_EXAMPLES_RESULT" "lesson-refs:$LESSON_REFS_RESULT" "palette:$PALETTE_RESULT" "readme-sync:$README_SYNC_RESULT" "gate-wiring:$GATE_WIRING_RESULT" "template-versions:$TEMPLATE_VERSIONS_RESULT"; do
+          for pair in "check:$CHECK_RESULT" "scaffold-consistency:$SCAFFOLD_CONSISTENCY_RESULT" "examples:$EXAMPLES_RESULT" "governed-examples:$GOVERNED_EXAMPLES_RESULT" "lesson-refs:$LESSON_REFS_RESULT" "palette:$PALETTE_RESULT" "readme-sync:$README_SYNC_RESULT" "gate-wiring:$GATE_WIRING_RESULT" "template-versions:$TEMPLATE_VERSIONS_RESULT" "alias-parity:$ALIAS_PARITY_RESULT"; do
             name="${pair%%:*}"
             result="${pair#*:}"
             checked=$((checked + 1))
@@ -690,12 +739,12 @@ jobs:
           # ABSENCE REPORT ("no failing job found") and is indistinguishable from
           # "no job examined" unless the input is proven non-empty.
           #
-          # `-ne`, not `-lt`, deliberately: adding a 10th job without updating
+          # `-ne`, not `-lt`, deliberately: adding an 11th job without updating
           # this count goes RED until someone reconciles needs: / the loop / this
           # number. That friction is the feature — it makes the triple explicit
           # instead of conventional.
-          if [ "$checked" -ne 9 ]; then
-            echo "::error::ci-ok examined $checked jobs, expected 9 — the result loop is truncated or a job was added without updating this count."
+          if [ "$checked" -ne 10 ]; then
+            echo "::error::ci-ok examined $checked jobs, expected 10 — the result loop is truncated or a job was added without updating this count."
             fail=1
           fi
           # FEL-437 — a draft skipped the build, so "skipped is allowed" must not

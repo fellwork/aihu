@@ -1,0 +1,9 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@fx/beta/sub": ["../beta/src/sub.ts"],
+      "@fx/beta": ["../beta/src/index.ts"]
+    }
+  }
+}

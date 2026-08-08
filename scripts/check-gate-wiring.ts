@@ -291,6 +291,26 @@ const NEGATIVE_FIXTURES: Record<string, Fixture> = {
       },
     },
   },
+  // The tsc <-> vitest alias parity gate. Same env-override shape as
+  // check:moon-graph / check:rust-pin: ALIAS_PARITY_ROOT repoints the SCAN at a
+  // self-contained fixture tree (two tiny packages, one tsconfig, one
+  // vitest.config.ts), so it runs BUILDLESS — no `bun install`, no compiler,
+  // nothing but reading four small files — which is what THIS job (`gate-wiring`
+  // in plan-a.yml) requires.
+  //
+  // Red and green differ in EXACTLY the property under test: `@fx/beta` aliased
+  // to `packages/beta/dist/index.d.ts` (red) vs `packages/beta/src/index.ts`
+  // (green), against the same tsconfig mapping it to src both times. Same keys,
+  // same ordering, same files — so a red run is the src-vs-dist detector firing,
+  // not a malformed fixture. See scripts/fixtures/alias-parity/README.md.
+  'check:alias-parity': {
+    cmd: ['bun', 'scripts/check-alias-parity.ts'],
+    env: { ALIAS_PARITY_ROOT: 'scripts/fixtures/alias-parity/should-flag' },
+    green: {
+      cmd: ['bun', 'scripts/check-alias-parity.ts'],
+      env: { ALIAS_PARITY_ROOT: 'scripts/fixtures/alias-parity/should-not-flag' },
+    },
+  },
   // Same shape, for check:animations-gallery's two generated targets.
   'check:animations-gallery': {
     cmd: ['bun', 'packages/css-engine/scripts/gen-animations-gallery.ts', '--check'],
