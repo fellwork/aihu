@@ -5,37 +5,17 @@
   behavior base; it is purely visual). Slotted header / body / footer regions.
   `aihu add` rewrites the `aihu-` prefix at copy time.
 
-  CSS attachment (R2): the compiled recipe stylesheet is a shared static
-  Constructable StyleSheet adopted into the shadow root, not a per-instance
-  inline style element.
-
-  DOM GUARD (`output: 'ssr'`): the compiler emits this `@state` block verbatim
-  into the component's setup body, which a SERVER render executes — so on a
-  Cloudflare Worker (no `HTMLElement`, no `CSSStyleSheet`, no `customElements`)
-  all three lines below threw. Guarded on the same condition the compiler puts
-  on its own `defineElement` call a few lines further down in the emitted
-  module: registration is a browser-only side effect, and a server render never
-  mounts. See `packages/primitives/src/html-element-base.ts` §"Registration
-  without a DOM".
+  CSS attachment (R2): the compiled `@style` block below IS the shared
+  Constructable StyleSheet — the compiler emits `const __style__ = new
+  CSSStyleSheet()` at MODULE scope (constructed once for the whole module) and
+  adopts it into each instance's shadow root from the setup body. Authoring the
+  `@style` block is the whole of the contract; a recipe writes no registration
+  and no `adoptedStyleSheets` code of its own. See `packages/ui/README.md`
+  §"CSS attachment (R2): the compiler owns it".
 -->
 
 @state {
   import { cn } from '@aihu/css-engine/runtime/cn'
-
-  if (typeof HTMLElement !== 'undefined' && typeof customElements !== 'undefined') {
-    class AihuCard extends HTMLElement {
-      static sheet = new CSSStyleSheet()
-
-      connectedCallback() {
-        if (!this.shadowRoot) this.attachShadow({ mode: 'open' })
-        this.shadowRoot.adoptedStyleSheets = [AihuCard.sheet]
-      }
-    }
-
-    if (!customElements.get('aihu-card')) {
-      customElements.define('aihu-card', AihuCard)
-    }
-  }
 }
 
 @template {
