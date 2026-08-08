@@ -112,6 +112,62 @@ describe('@aihu/primitives imports without a DOM', () => {
     expect(() => new AihuSwitchRoot()).toThrow(/requires? a DOM|no-DOM placeholder/i)
   })
 
+  /**
+   * Importing is half the contract; CALLING `defineX()` is the other half, and
+   * it is a SEPARATE bug that survived the import fix.
+   *
+   * A `.aihu` recipe that composes a primitive instead of extending it
+   * (`before-after.aihu` → `defineSlider()`, `temperature.aihu` →
+   * `defineRadioGroup()`) registers that primitive from its `@state` block —
+   * which the compiler emits into the setup body that every SERVER render
+   * executes. So `customElements.get(tag)` ran on a Worker and threw
+   * `ReferenceError: customElements is not defined` on every request. Verified
+   * on a real built Worker, not inferred.
+   *
+   * Enumerated from the barrel rather than listed by hand, so a primitive added
+   * later cannot ship a registration entry point that skipped the guard.
+   */
+  describe('every defineX() is a no-op without a DOM', () => {
+    it('finds the registration entry points to check', async () => {
+      const mod = (await import('../src/index.ts')) as Record<string, unknown>
+      const names = Object.keys(mod).filter((k) => /^define[A-Z]/.test(k))
+      // 17 today. A LOWER number means the barrel stopped re-exporting them and
+      // this suite silently checks less than it claims.
+      expect(names.length).toBeGreaterThanOrEqual(17)
+    })
+
+    it('calling every one of them registers nothing and throws nothing', async () => {
+      const mod = (await import('../src/index.ts')) as Record<string, unknown>
+      const entries = Object.entries(mod).filter(
+        ([k, v]) => /^define[A-Z]/.test(k) && typeof v === 'function',
+      )
+      for (const [name, fn] of entries) {
+        // A tag argument for the ones that take one; ignored by the rest.
+        // `defineButton` REQUIRES one, so this is not optional.
+        expect(
+          () => (fn as (t?: string) => unknown)(`aihu-nodom-${name.toLowerCase()}`),
+          name,
+        ).not.toThrow()
+      }
+      // Called twice: the idempotence memo must not have been poisoned into a
+      // state where a later call in a real DOM would be skipped.
+      for (const [name, fn] of entries) {
+        expect(
+          () => (fn as (t?: string) => unknown)(`aihu-nodom-${name.toLowerCase()}`),
+          name,
+        ).not.toThrow()
+      }
+      expect(typeof customElements).toBe('undefined')
+    })
+
+    it('defineButton still returns the base class, not undefined', async () => {
+      const { defineButton, AihuButton } = await import('../src/button/index.ts')
+      // Its return value is part of the API (`const Base = defineButton('x')`),
+      // so the no-DOM early return has to keep it, not fall off the end.
+      expect(defineButton('aihu-nodom-button-return')).toBe(AihuButton)
+    })
+  })
+
   it('HTMLElementBase is exported for userland `$extends` base classes', async () => {
     const { HTMLElementBase } = await import('../src/html-element-base.ts')
     expect(typeof HTMLElementBase).toBe('function')

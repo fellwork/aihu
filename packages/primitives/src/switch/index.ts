@@ -218,8 +218,11 @@ const REGISTRY: Array<[string, CustomElementConstructor]> = [
 ]
 
 let _defined = false
-/** Register all switch custom elements (idempotent). */
+/** Register all switch custom elements (idempotent; a no-op without a DOM). */
 export function defineSwitch(): void {
+  // No DOM, no registry to register INTO — a documented no-op. See
+  // `html-element-base.ts` §"Registration without a DOM".
+  if (typeof customElements === 'undefined') return
   if (_defined) return
   for (const [tag, ctor] of REGISTRY) {
     if (!customElements.get(tag)) customElements.define(tag, ctor)

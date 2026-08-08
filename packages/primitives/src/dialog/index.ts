@@ -248,9 +248,12 @@ const _definedPrefixes = new Set<string>()
  * piece — a constructor can only be `customElements.define`d once, so the
  * original classes stay reserved for the default tags. Demos/stories use a
  * non-`aihu` prefix so styled recipes own the `aihu-dialog-*` namespace
- * (spec §9.4).
+ * (spec §9.4). A no-op without a DOM.
  */
 export function defineDialog(prefix = 'aihu'): void {
+  // No DOM, no registry to register INTO — a documented no-op. See
+  // `html-element-base.ts` §"Registration without a DOM".
+  if (typeof customElements === 'undefined') return
   if (_definedPrefixes.has(prefix)) return
   for (const [tag, ctor] of REGISTRY) {
     const name = prefix === 'aihu' ? tag : tag.replace(/^aihu-/, `${prefix}-`)

@@ -172,8 +172,11 @@ export class AihuRovingFocus extends HTMLElementBase {
 }
 
 let _defined = false
-/** Register `<aihu-roving-focus>` (idempotent). */
+/** Register `<aihu-roving-focus>` (idempotent; a no-op without a DOM). */
 export function defineRovingFocus(tag = 'aihu-roving-focus'): void {
+  // No DOM, no registry to register INTO — a documented no-op. See
+  // `html-element-base.ts` §"Registration without a DOM".
+  if (typeof customElements === 'undefined') return
   if (_defined || customElements.get(tag)) {
     _defined = true
     return

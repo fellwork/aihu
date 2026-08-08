@@ -339,8 +339,11 @@ export class AihuSliderRoot extends HTMLElementBase {
 const REGISTRY: Array<[string, CustomElementConstructor]> = [['aihu-slider-root', AihuSliderRoot]]
 
 let _defined = false
-/** Register all slider custom elements (idempotent). */
+/** Register all slider custom elements (idempotent; a no-op without a DOM). */
 export function defineSlider(): void {
+  // No DOM, no registry to register INTO — a documented no-op. See
+  // `html-element-base.ts` §"Registration without a DOM".
+  if (typeof customElements === 'undefined') return
   if (_defined) return
   for (const [tag, ctor] of REGISTRY) {
     if (!customElements.get(tag)) customElements.define(tag, ctor)

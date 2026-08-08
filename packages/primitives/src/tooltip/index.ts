@@ -241,9 +241,12 @@ const _definedPrefixes = new Set<string>()
  * per prefix). Non-default prefixes register a fresh trivial subclass per
  * piece — a constructor can only be `customElements.define`d once. Demos/
  * stories use a non-`aihu` prefix so styled recipes own the `aihu-tooltip-*`
- * namespace (spec §9.4).
+ * namespace (spec §9.4). A no-op without a DOM.
  */
 export function defineTooltip(prefix = 'aihu'): void {
+  // No DOM, no registry to register INTO — a documented no-op. See
+  // `html-element-base.ts` §"Registration without a DOM".
+  if (typeof customElements === 'undefined') return
   if (_definedPrefixes.has(prefix)) return
   for (const [tag, ctor] of REGISTRY) {
     const name = prefix === 'aihu' ? tag : tag.replace(/^aihu-/, `${prefix}-`)
