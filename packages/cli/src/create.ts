@@ -28,8 +28,10 @@ import { existsSync, realpathSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { createInterface } from 'node:readline'
 import { fileURLToPath } from 'node:url'
+import { firstPositional } from './argv.js'
 import type { AppTemplate, CssChoice, PkgManager, ShadowChoice } from './index.js'
 import { scaffoldApp } from './index.js'
+import { parseOptionsJson } from './options-json.js'
 import { scaffoldFromTemplatePackage } from './scaffold-pipeline.js'
 import { formatTemplateCatalog, type KnownTemplate, selectTemplate } from './templates-registry.js'
 
@@ -264,25 +266,17 @@ function isNonInteractive(): boolean {
 
 // ─── Project name + help ─────────────────────────────────────────────────────
 
-/** Flags that consume the following argv token as their value. */
-const VALUE_FLAGS = new Set(['--template', '--pm', '--css', '--shadow', '--options-json'])
-
 /**
  * First positional argument = the project name. Skips flags AND the values of
  * value-taking flags, so `create-aihu --template cf-team my-app` names the app
  * `my-app` — not `--template` (which is what `process.argv[2]` gave you).
  * Exported for tests.
+ *
+ * The implementation moved to `argv.ts` when `aihu app` adopted it: that path
+ * was still reading `rest[0]` and happily scaffolding a directory named `--pm`.
  */
 export function parseProjectName(args: ReadonlyArray<string>): string | undefined {
-  for (let i = 0; i < args.length; i++) {
-    const a = args[i]!
-    if (a.startsWith('-')) {
-      if (VALUE_FLAGS.has(a)) i++ // skip its value
-      continue
-    }
-    return a
-  }
-  return undefined
+  return firstPositional(args)
 }
 
 /** The `--help` / error-path usage text. Plain text; exported for tests. */
@@ -299,6 +293,9 @@ export function usageText(): string {
     '  --css <engine|none>        Include @aihu/css-engine (built-in templates only)',
     '  --shadow <light|shadow>    Force one shadow mode project-wide when --css engine is set',
     '                             (default: framework defaults — light-DOM pages/layouts, shadow-DOM leaves)',
+    '  --options-json <JSON>      npm template packages only (e.g. --template cf-team):',
+    "                             overrides for the template manifest's `overridable`",
+    '                             cells, e.g. \'{"auth":"supabase","starter":"empty"}\'',
     '  --no-agent-tooling  Skip AGENTS.md/CLAUDE.md/.mcp.json (coding-assistant files).',
     "                      Your app's own agent surface is unaffected.",
     '  --no-git            Skip git init',
@@ -379,6 +376,14 @@ async function main(): Promise<void> {
         noGit: hasFlag('no-git'),
         noInstall: hasFlag('no-install'),
         noAutoInstall: hasFlag('no-auto-install-template'),
+        // `--options-json` was already in VALUE_FLAGS (so its value never got
+        // mistaken for the project name) but was read by nobody here, so
+        // `create-aihu my-app --template cf-team --options-json '{"auth":"kinde"}'`
+        // silently scaffolded better-auth. `bin.ts` threaded the same flag with
+        // real validation; there is no comment or test suggesting the omission
+        // was deliberate, and this is the ONLY path npm users reach — so it
+        // shares bin.ts's parser rather than growing a second one.
+        userOverrides: parseOptionsJson(extractFlag('options-json')),
       })
     } catch (err) {
       // Surface the real reason and exit non-zero. A scaffold that prints an

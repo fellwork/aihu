@@ -21,6 +21,7 @@
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { aihuDep } from './dep-versions.js'
+import { packageManagerField } from './pkg-manager-field.js'
 import {
   agentComponentAihu,
   agentIndexHtml,
@@ -83,13 +84,10 @@ export function appPackageJson(
   pm: PkgManager = 'bun',
   withCssEngine = false,
 ): string {
-  // bun version detection: Bun.version when running under bun, process.versions.bun
-  // when bunx routes through node (the published cli's shebang is `#!/usr/bin/env node`,
-  // so process.versions.bun is undefined there). When neither is set, drop the field
-  // entirely rather than emit a malformed `bun@1` string.
-  const bunVersion =
-    (globalThis as { Bun?: { version: string } }).Bun?.version ?? process.versions.bun
-  const packageManager = pm === 'bun' && bunVersion ? `bun@${bunVersion}` : undefined
+  // `<pm>@<version>` for whichever `--pm` was chosen — see pkg-manager-field.ts
+  // for why the previous inline version of this line made `--pm` a no-op under
+  // the published node-shebang binary for EVERY value, bun included.
+  const packageManager = packageManagerField(pm)
 
   return JSON.stringify(
     {

@@ -17,7 +17,9 @@ import { spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, join, posix, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { CLI_VERSION } from './cli-version.ts'
 import { evalWhen } from './conditional-eval.ts'
+import { parseVersion, satisfiesRange } from './semver-range.ts'
 import type { PostInstallStep, TemplateManifest } from './template-manifest.ts'
 import { validateManifest } from './template-manifest.ts'
 
@@ -187,6 +189,77 @@ export async function resolveTemplate(input: ResolveTemplateInput): Promise<Temp
     throw new Error('resolveTemplate: must provide either `manifest` or `loader`')
   }
   return validateManifest(raw)
+}
+
+// ─── 1b. compatibility gate ──────────────────────────────────────────────────
+
+/**
+ * The `contractVersion` this CLI knows how to read.
+ *
+ * Bump ONLY on a breaking change to the `TemplateManifest` shape. Additive
+ * fields (`conditionalFiles[].rename`, `appPeerDepsConditional`) did not and
+ * must not bump it — old templates keep scaffolding.
+ */
+export const SUPPORTED_CONTRACT_VERSION = 1
+
+/**
+ * Enforce a template manifest's declared compatibility against this CLI.
+ *
+ * Both `contractVersion` and `cliRange` were parsed and validated by
+ * `validateManifest()` and then compared against nothing at all — the fields
+ * existed, so templates declared them, and nothing could ever be wrong. The
+ * proof that this matters is that the declaration had ALREADY gone stale
+ * without anyone noticing: `@aihu/templates-cf-team` shipped `cliRange: '^0.2.0'`
+ * against a CLI at 1.2.x, i.e. every published scaffold of the only publishable
+ * template asserted an incompatibility it did not have.
+ *
+ * Fails in the loud style the `unpublished`/`unknown` template cases already
+ * use: name the template, name both versions, and say what to do.
+ *
+ * @param cliVersion injectable for tests; defaults to this CLI's own version.
+ */
+export function assertTemplateCompatibility(
+  manifest: TemplateManifest,
+  cliVersion: string = CLI_VERSION,
+): void {
+  if (manifest.contractVersion !== SUPPORTED_CONTRACT_VERSION) {
+    throw new Error(
+      `template '${manifest.name}' declares contractVersion ${manifest.contractVersion}, but ` +
+        `@aihu/cli ${cliVersion} implements contractVersion ${SUPPORTED_CONTRACT_VERSION}. ` +
+        (manifest.contractVersion > SUPPORTED_CONTRACT_VERSION
+          ? 'Upgrade the CLI: npm install -g @aihu/cli@latest'
+          : 'That template is too old for this CLI; use a newer release of it.'),
+    )
+  }
+
+  // A prerelease CLI (`1.3.0-beta.1`) is checked as its release core. npm's
+  // prerelease rule would otherwise make a canary build fail EVERY template's
+  // range — correct for third-party packages, useless for asking "can the
+  // binary I am running drive this manifest".
+  const parsed = parseVersion(cliVersion)
+  const effective =
+    parsed !== undefined && parsed.pre.length > 0
+      ? `${parsed.major}.${parsed.minor}.${parsed.patch}`
+      : cliVersion
+
+  let ok: boolean
+  try {
+    ok = satisfiesRange(effective, manifest.cliRange)
+  } catch (err) {
+    // An unreadable range is a template defect, not a reason to proceed. The
+    // whole point of enforcing the field is that it cannot silently pass.
+    throw new Error(
+      `template '${manifest.name}' declares an unusable cliRange: ${(err as Error).message}`,
+    )
+  }
+  if (!ok) {
+    throw new Error(
+      `template '${manifest.name}' requires @aihu/cli ${manifest.cliRange}, but this is ` +
+        `@aihu/cli ${cliVersion}.\n` +
+        `Install a CLI in range (npm install -g @aihu/cli@"${manifest.cliRange}"), or use a ` +
+        'release of the template that supports this CLI.',
+    )
+  }
 }
 
 // ─── 2. mergeOptions ─────────────────────────────────────────────────────────
@@ -898,6 +971,11 @@ export async function scaffoldFromTemplatePackage(
   }
 
   const manifest = await resolveTemplate({ loader: () => loadTemplateConfig(pkgRoot) })
+
+  // --- 1b. compatibility gate ---
+  // Before ANY file is written or any package installed. Both bins reach the
+  // pipeline through this function, so neither can skip the check.
+  assertTemplateCompatibility(manifest)
 
   // --- 2. mergeOptions ---
   const options = mergeOptions(manifest, {
