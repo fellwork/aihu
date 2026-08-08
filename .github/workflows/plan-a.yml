@@ -562,7 +562,7 @@ jobs:
     # resolves every needed job to a terminal state (success/failure/
     # cancelled/skipped) before evaluating this job's `if: always()`, which
     # then runs regardless of what that state was.
-    needs: [changes, check, examples, governed-examples, lesson-refs, palette, readme-sync, gate-wiring]
+    needs: [changes, check, scaffold-consistency, examples, governed-examples, lesson-refs, palette, readme-sync, gate-wiring]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -570,6 +570,7 @@ jobs:
       - name: Gate on required job results
         env:
           CHECK_RESULT: ${{ needs.check.result }}
+          SCAFFOLD_CONSISTENCY_RESULT: ${{ needs.scaffold-consistency.result }}
           EXAMPLES_RESULT: ${{ needs.examples.result }}
           GOVERNED_EXAMPLES_RESULT: ${{ needs.governed-examples.result }}
           LESSON_REFS_RESULT: ${{ needs.lesson-refs.result }}
@@ -608,6 +609,7 @@ jobs:
           CODE_RESULT: ${{ needs.changes.outputs.code }}
         run: |
           echo "check:              $CHECK_RESULT"
+          echo "scaffold-consist.:  $SCAFFOLD_CONSISTENCY_RESULT"
           echo "examples:           $EXAMPLES_RESULT"
           echo "governed-examples:  $GOVERNED_EXAMPLES_RESULT"
           echo "lesson-refs:        $LESSON_REFS_RESULT"
@@ -633,7 +635,7 @@ jobs:
           # commit from fixed; one that errs toward green is the defect this
           # repo has now shipped three times (palette, #649, this).
           checked=0
-          for pair in "check:$CHECK_RESULT" "examples:$EXAMPLES_RESULT" "governed-examples:$GOVERNED_EXAMPLES_RESULT" "lesson-refs:$LESSON_REFS_RESULT" "palette:$PALETTE_RESULT" "readme-sync:$README_SYNC_RESULT" "gate-wiring:$GATE_WIRING_RESULT"; do
+          for pair in "check:$CHECK_RESULT" "scaffold-consistency:$SCAFFOLD_CONSISTENCY_RESULT" "examples:$EXAMPLES_RESULT" "governed-examples:$GOVERNED_EXAMPLES_RESULT" "lesson-refs:$LESSON_REFS_RESULT" "palette:$PALETTE_RESULT" "readme-sync:$README_SYNC_RESULT" "gate-wiring:$GATE_WIRING_RESULT"; do
             name="${pair%%:*}"
             result="${pair#*:}"
             checked=$((checked + 1))
@@ -652,8 +654,8 @@ jobs:
           # this count goes RED until someone reconciles needs: / the loop / this
           # number. That friction is the feature — it makes the triple explicit
           # instead of conventional.
-          if [ "$checked" -ne 7 ]; then
-            echo "::error::ci-ok examined $checked jobs, expected 7 — the result loop is truncated or a job was added without updating this count."
+          if [ "$checked" -ne 8 ]; then
+            echo "::error::ci-ok examined $checked jobs, expected 8 — the result loop is truncated or a job was added without updating this count."
             fail=1
           fi
           # FEL-437 — a draft skipped the build, so "skipped is allowed" must not
@@ -963,6 +965,105 @@ jobs:
       - name: Run LSP hover-path latency gate
         working-directory: packages/language-server
         run: bun run bench:gate
+
+  scaffold-consistency:
+    # Fast ci-ok cell for the bug class fixed by
+    # docs/plans/2026-08-08-ssr-vite-remediation.md: a scaffolded app that
+    # builds green locally (against vite 6, what the template pins) and fails
+    # for a real consumer on vite 8 — or a compiler change that only shows up
+    # in a scaffolded app, never in this repo's own fixtures (the SSR
+    # child-registry / ElementInternals bugs that plan fixed were BOTH
+    # invisible to every existing in-repo test; only a real `npm create aihu`
+    # -> build -> drive-the-Worker pass caught them).
+    #
+    # Deliberately NOT `scaffold-matrix.yml`'s full grid — that installs from
+    # the LIVE REGISTRY across 4 package managers x 5 templates and takes tens
+    # of minutes, and is not in `ci-ok` for exactly that reason. This job
+    # tests THIS BRANCH'S OWN packages instead, via `--local-pkg` tarballs
+    # (never `file:` — a linked package resolves `import('vite')` from the
+    # MONOREPO's node_modules, not the scaffold's, which is the tree shape
+    # that hid the vite-8 defect for months; see the flag's own docblock in
+    # scaffold-matrix-e2e.ts), one package manager (bun), across BOTH vite
+    # majors, on `minimal` and `minimal-ssr` only — a few minutes, not tens.
+    #
+    # `cf-team` is deliberately excluded. It fails at `typecheck` on every
+    # FRESH scaffold — moon's `HEAD~1` does not exist because the scaffold
+    # git-inits with exactly one commit — a real, pre-existing bug unrelated
+    # to anything this job checks. Wiring it in would make `ci-ok`
+    # permanently red for a reason nobody here is fixing today.
+    needs: changes
+    if: >-
+      (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
+      && needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - uses: moonrepo/setup-toolchain@v0
+        with:
+          auto-install: true
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - uses: Swatinem/rust-cache@v2
+      - name: Build Rust binaries
+        run: cargo build --release
+      - name: Stage compiler binary
+        # See `check`'s identical step above: without this, the scaffold's
+        # `AIHU_COMPILE_BIN` override below has nothing to point at, and the
+        # published napi addon would silently validate a compiler this PR
+        # never touched.
+        run: |
+          mkdir -p packages/compiler/bin
+          cp target/release/aihu-compile packages/compiler/bin/aihu-compile
+          chmod 0755 packages/compiler/bin/aihu-compile
+      - run: bun install --frozen-lockfile
+        env:
+          AIHU_SKIP_POSTINSTALL: "1"
+      - name: Build @aihu/cli
+        run: bun run --cwd packages/cli build
+      - name: Scaffold consistency — minimal × vite 6, vite 8
+        run: |
+          AIHU_COMPILER_NATIVE=0 AIHU_COMPILE_BIN="$(pwd)/target/release/aihu-compile" \
+            bun packages/cli/tests/scaffold-matrix-e2e.ts \
+            --template minimal --pm bun --vite 6,8 \
+            --local-pkg app,router,server,adapter-cloudflare,compiler,runtime,arbor,signals,agent,agent-service,plugin,context \
+            --cmd-timeout 300000 --server-timeout 120000 \
+            2>&1 | tee scaffold-consistency.log
+          # tee makes ${PIPESTATUS[0]} the harness's own exit code; `$?` would
+          # be tee's and would turn every failure into a green run — same
+          # reasoning as scaffold-matrix.yml's identical line.
+          exit "${PIPESTATUS[0]}"
+      - name: Scaffold consistency — minimal-ssr (real built Worker, driven in-process)
+        # A SEPARATE step, not folded into the one above, so a failure here is
+        # attributable at a glance: "the client/SSG path broke" vs. "the
+        # output:'ssr' Worker broke" are different bug classes with different
+        # owners. No --vite axis here (deliberately): the vite axis exists to
+        # catch a strip-time defect (un-stripped TypeScript), and that is
+        # already covered by the step above; this step covers the OTHER two
+        # bug classes the same plan fixed — the module-scope top-level-await
+        # deadlock and the ElementInternals null-dereference — neither of
+        # which is vite-version-dependent.
+        run: |
+          AIHU_COMPILER_NATIVE=0 AIHU_COMPILE_BIN="$(pwd)/target/release/aihu-compile" \
+            bun packages/cli/tests/scaffold-matrix-e2e.ts \
+            --template minimal-ssr --pm bun \
+            --local-pkg app,router,server,adapter-cloudflare,compiler,runtime,arbor,signals,agent,agent-service,plugin,context \
+            --cmd-timeout 300000 --server-timeout 120000 \
+            2>&1 | tee -a scaffold-consistency.log
+          exit "${PIPESTATUS[0]}"
+      - name: Upload scaffold consistency log
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: scaffold-consistency-log
+          path: scaffold-consistency.log
+          retention-days: 14
 
   examples:
     # Test the compiler THIS PR builds, not the one npm published.
