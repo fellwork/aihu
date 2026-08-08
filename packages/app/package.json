@@ -43,7 +43,8 @@
   },
   "devDependencies": {
     "@aihu-plugin/agent-readiness": "workspace:*",
-    "@aihu/compiler": "workspace:*"
+    "@aihu/compiler": "workspace:*",
+    "@aihu/primitives": "workspace:*"
   },
   "description": "Top-level app integration — wires runtime, router, and adapters into a Vite app.",
   "repository": {

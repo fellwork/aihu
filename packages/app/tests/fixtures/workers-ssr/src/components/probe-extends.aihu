@@ -1,0 +1,25 @@
+<!--
+  The `$extends` (`base:`) recipe shape, under `output: 'ssr'`.
+
+  This component exists to keep a REAL `@aihu/primitives` base class in the
+  server bundle's module graph. The base is pulled in at module scope, so if
+  any primitive ever goes back to `class … extends HTMLElement` (instead of
+  `HTMLElementBase`), loading this module throws
+  `ReferenceError: HTMLElement is not defined` inside the router's registry
+  walk, and the whole request dies — not just this one element.
+
+  Mirrors `packages/ui/registry/switch/switch.aihu`, which is the shipped
+  recipe this shape comes from: no `$prop` (the primitive owns every
+  attribute), light DOM so the primitive's hidden input joins the outer form.
+-->
+
+@state {
+  import { AihuSwitchRoot } from '@aihu/primitives/switch'
+
+  base: AihuSwitchRoot
+  shadow: 'light'
+}
+
+@template {
+  <span>EXTENDS-OK</span>
+}
