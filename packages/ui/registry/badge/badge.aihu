@@ -10,6 +10,10 @@
 
   CSS attachment (R2): shared static Constructable StyleSheet adopted into the
   shadow root, not a per-instance inline style element.
+
+  DOM GUARD (`output: 'ssr'`): see `card.aihu`'s header — the compiler emits
+  this `@state` block into the setup body that a server render executes, where
+  `HTMLElement` / `CSSStyleSheet` / `customElements` do not exist.
 -->
 
 @state {
@@ -17,17 +21,19 @@
 
   let variant = prop({ default: 'default' })
 
-  class AihuBadge extends HTMLElement {
-    static sheet = new CSSStyleSheet()
+  if (typeof HTMLElement !== 'undefined' && typeof customElements !== 'undefined') {
+    class AihuBadge extends HTMLElement {
+      static sheet = new CSSStyleSheet()
 
-    connectedCallback() {
-      if (!this.shadowRoot) this.attachShadow({ mode: 'open' })
-      this.shadowRoot.adoptedStyleSheets = [AihuBadge.sheet]
+      connectedCallback() {
+        if (!this.shadowRoot) this.attachShadow({ mode: 'open' })
+        this.shadowRoot.adoptedStyleSheets = [AihuBadge.sheet]
+      }
     }
-  }
 
-  if (!customElements.get('aihu-badge')) {
-    customElements.define('aihu-badge', AihuBadge)
+    if (!customElements.get('aihu-badge')) {
+      customElements.define('aihu-badge', AihuBadge)
+    }
   }
 }
 

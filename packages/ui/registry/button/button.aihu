@@ -16,6 +16,12 @@
   StyleSheet adopted into the element's shadow root, constructed ONCE as a
   `static` on the class and SHARED across instances — never a per-instance
   inline style element. See `AihuButtonRecipe.sheet` in @state.
+
+  DOM GUARD (`output: 'ssr'`): see `card.aihu`'s header — the compiler emits
+  this `@state` block into the setup body that a server render executes, where
+  `CSSStyleSheet` and `customElements` do not exist. (`AihuButton` itself is
+  already import-safe — it extends `HTMLElementBase`, not the bare global — but
+  the static field initializer and the registration are not.)
 -->
 
 @state {
@@ -26,26 +32,28 @@
   let size = prop({ default: 'md' })
   let disabled = prop({ default: false })
 
-  // The concrete styled element: behavior inherited from the headless base,
-  // appearance from the adopted stylesheet (R2 — shared static, not per-instance).
-  class AihuButtonRecipe extends AihuButton {
-    static sheet = (() => {
-      const s = new CSSStyleSheet()
-      // The recipe stylesheet is produced by the css-engine scanner at the
-      // consumer's `aihu build`; this static is the shared, single-construction
-      // sheet every instance adopts.
-      return s
-    })()
+  if (typeof HTMLElement !== 'undefined' && typeof customElements !== 'undefined') {
+    // The concrete styled element: behavior inherited from the headless base,
+    // appearance from the adopted stylesheet (R2 — shared static, not per-instance).
+    class AihuButtonRecipe extends AihuButton {
+      static sheet = (() => {
+        const s = new CSSStyleSheet()
+        // The recipe stylesheet is produced by the css-engine scanner at the
+        // consumer's `aihu build`; this static is the shared, single-construction
+        // sheet every instance adopts.
+        return s
+      })()
 
-    connectedCallback() {
-      super.connectedCallback?.()
-      if (!this.shadowRoot) this.attachShadow({ mode: 'open' })
-      this.shadowRoot.adoptedStyleSheets = [AihuButtonRecipe.sheet]
+      connectedCallback() {
+        super.connectedCallback?.()
+        if (!this.shadowRoot) this.attachShadow({ mode: 'open' })
+        this.shadowRoot.adoptedStyleSheets = [AihuButtonRecipe.sheet]
+      }
     }
-  }
 
-  if (!customElements.get('aihu-button')) {
-    customElements.define('aihu-button', AihuButtonRecipe)
+    if (!customElements.get('aihu-button')) {
+      customElements.define('aihu-button', AihuButtonRecipe)
+    }
   }
 }
 
