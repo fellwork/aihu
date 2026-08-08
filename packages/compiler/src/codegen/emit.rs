@@ -1077,17 +1077,36 @@ pub(crate) fn emit_function_form(
     //     because this branch's `defineElement` call does not yet thread
     //     `define_opts`, and doing so was out of scope for lifting the plain
     //     case. Lift it here too if that combination turns out to matter.
-    //   - `$extends` — evaluating a custom base class touches HTMLElement at
-    //     module scope in the BASE module, which this gate cannot reach;
     //   - agent inputs — agent components are excluded from `ssr_entry`
     //     already (see the `emit_ssr_entry` gate above; post-FEL-440 the reason
     //     is the server SetupContext stub, not string-surgery); the
     //     `!has_agent_inputs` term is a belt-and-suspenders restatement.
-    let ssr_options = ssr_entry
-        && uses_options_form
-        && !has_form
-        && extends_base.is_none()
-        && !has_agent_inputs;
+    //
+    // `$extends` (`base:`) was excluded here too, and is NOT any longer. The
+    // stated reason was accurate but was a fact about `@aihu/primitives`, not
+    // about this gate: the imported base module evaluated
+    // `class Aihu… extends HTMLElement` at ITS OWN module scope, so a server
+    // bundle threw `ReferenceError: HTMLElement is not defined` on IMPORT,
+    // before any code this compiler emits could run — no gate here could have
+    // helped. Every primitive now extends `HTMLElementBase` (an SSR-safe
+    // conditional base), so the base module is import-safe and the only thing
+    // still standing between a `$extends` component and a working server
+    // render was this term.
+    //
+    // Nothing else about the shape needed to change: `base:` affects only
+    // which class the CLIENT-side `defineElement` call extends (see
+    // `packages/runtime/src/define-component.ts` — `Base` is read inside
+    // `defineComponent`, which this branch already gates on DOM globals).
+    // `__aihu_setup__`'s body never touches it, so the host-less `__ssr`
+    // factory below is exactly as safe here as for any other `$prop`
+    // component.
+    //
+    // What a consumer gets, stated plainly: the SSR pass renders the
+    // component's own `@template`, NOT the DOM the base primitive would add
+    // in `connectedCallback` (`role`, `aria-checked`, `tabindex`, a hidden
+    // form input, …). A server render never mounts, so that wiring lands on
+    // hydration — the same accepted trade-off `$aria` already makes.
+    let ssr_options = ssr_entry && uses_options_form && !has_form && !has_agent_inputs;
     let ssr_no_dom = ssr_standalone || ssr_options;
 
     // ── Wave 3c — island classification (authoritative, from IR) ─────────────

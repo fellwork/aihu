@@ -16,11 +16,12 @@
 
 import { computed, effect, type Read, signal } from '@aihu/signals'
 import { createDomContext, provideContext } from '../dom-context.ts'
+import { HTMLElementBase } from '../html-element-base.ts'
 
 /** Context carrying the gate's `present` signal to descendants. */
 export const presenceContext = createDomContext<Read<boolean>>('presence')
 
-export class AihuPresenceGate extends HTMLElement {
+export class AihuPresenceGate extends HTMLElementBase {
   static readonly observedAttributes = ['present']
 
   private readonly _present = signal(false)

@@ -34,6 +34,7 @@
 
 import { effect, type Read, signal } from '@aihu/signals'
 import { createDomContext, provideContext } from '../dom-context.ts'
+import { HTMLElementBase } from '../html-element-base.ts'
 
 export interface SliderContextValue {
   readonly value: Read<number>
@@ -45,7 +46,7 @@ export interface SliderContextValue {
 
 export const sliderContext = createDomContext<SliderContextValue>('slider')
 
-export class AihuSliderRoot extends HTMLElement {
+export class AihuSliderRoot extends HTMLElementBase {
   static readonly observedAttributes = ['min', 'max', 'value', 'step', 'disabled']
 
   private readonly _min = signal(0)

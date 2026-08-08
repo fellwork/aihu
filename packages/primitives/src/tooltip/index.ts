@@ -17,6 +17,7 @@
 import { type Placement, position } from '@aihu/css-engine/runtime/progressive'
 import { effect, type Read, signal } from '@aihu/signals'
 import { createDomContext, injectValue, provideContext } from '../dom-context.ts'
+import { HTMLElementBase } from '../html-element-base.ts'
 import { createIdSequence } from '../id.ts'
 
 export interface TooltipCoords {
@@ -45,7 +46,7 @@ export const tooltipContext = createDomContext<TooltipContextValue>('tooltip')
 
 const uid = createIdSequence('aihu-tooltip')
 
-export class AihuTooltipRoot extends HTMLElement {
+export class AihuTooltipRoot extends HTMLElementBase {
   static readonly observedAttributes = ['open', 'open-delay', 'close-delay', 'placement']
 
   private readonly _open = signal(false)
@@ -154,7 +155,7 @@ function isPlacement(v: string | null): v is Placement {
   return v === 'top' || v === 'bottom' || v === 'left' || v === 'right'
 }
 
-export class AihuTooltipTrigger extends HTMLElement {
+export class AihuTooltipTrigger extends HTMLElementBase {
   private ctx!: TooltipContextValue
   private disposers: Array<() => void> = []
 
@@ -191,7 +192,7 @@ export class AihuTooltipTrigger extends HTMLElement {
   }
 }
 
-export class AihuTooltipContent extends HTMLElement {
+export class AihuTooltipContent extends HTMLElementBase {
   private ctx!: TooltipContextValue
   private disposers: Array<() => void> = []
 

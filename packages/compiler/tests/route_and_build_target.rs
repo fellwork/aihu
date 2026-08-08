@@ -1168,3 +1168,173 @@ $form: {
         result.js
     );
 }
+
+// ─── `$extends` (`base:`) under a server build ──────────────────────────────
+//
+// The third and last of the SSR-entry exclusions filed alongside the
+// `$aria`/`$form` guards. Its stated reason was accurate but was a fact about
+// `@aihu/primitives`, NOT about this gate: the imported base module evaluated
+// `class … extends HTMLElement` at its OWN module scope, so a server bundle
+// threw `ReferenceError: HTMLElement is not defined` on IMPORT — before
+// anything the compiler emits could run. Every primitive now extends
+// `HTMLElementBase` (SSR-safe conditional base), so that reason is gone and
+// the exclusion here was the only thing left.
+//
+// The end-to-end proof is `packages/app/tests/workers-ssr-e2e.test.ts`
+// assertion 15 (a real built Worker, driven). These pin the emitted STRUCTURE
+// so the gate cannot silently regress without a 10-second vite build.
+
+/// A `$extends` component gets the options-form SSR entry.
+#[test]
+fn extends_base_gets_ssr_entry() {
+    let src = r#"
+@state {
+import { AihuSwitchRoot } from '@aihu/primitives/switch'
+
+base: AihuSwitchRoot
+}
+
+@template {
+  <span>EXTENDS-OK</span>
+}
+"#;
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full_with_target(&parsed, BuildTarget::Server).unwrap();
+    let result = emit(&unit, "x-switch");
+
+    assert!(
+        result.js.contains("export const __ssr"),
+        "a $extends component must get the options-form SSR entry — the base \
+         module is import-safe now, and `base:` only affects the CLIENT class:\n{}",
+        result.js
+    );
+    assert!(
+        result.js.contains("export default __ssr"),
+        "…and export it as the default, which renderToString/resolveComponent read:\n{}",
+        result.js
+    );
+    // `base:` must still reach the runtime — the SSR entry must not have been
+    // bought by dropping the class extension on the client half.
+    assert!(
+        result.js.contains("base: AihuSwitchRoot"),
+        "the base class must still be threaded into defineComponent:\n{}",
+        result.js
+    );
+}
+
+/// The `defineElement` registration for a `$extends` component stays behind the
+/// DOM-globals guard.
+#[test]
+fn extends_base_registration_is_dom_guarded() {
+    let src = r#"
+@state {
+import { AihuSwitchRoot } from '@aihu/primitives/switch'
+
+base: AihuSwitchRoot
+}
+
+@template {
+  <span>EXTENDS-OK</span>
+}
+"#;
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full_with_target(&parsed, BuildTarget::Server).unwrap();
+    let result = emit(&unit, "x-switch");
+
+    // THIS is the half the import-safe base does not buy on its own. Before,
+    // a $extends component fell through to the plain client shape: a bare
+    // `defineElement(...)` at module scope, which throws
+    // `ReferenceError: customElements is not defined` in a Worker even when
+    // every primitive it imports loads cleanly. Verified by reverting this
+    // gate alone against a real built Worker.
+    assert!(
+        result.js.contains(
+            "typeof HTMLElement !== 'undefined' && typeof customElements !== 'undefined'"
+        ),
+        "the client DOM registration must be guarded, not unconditional:\n{}",
+        result.js
+    );
+    let define_at = result
+        .js
+        .find("defineElement(")
+        .expect("no defineElement call emitted");
+    let guard_at = result
+        .js
+        .find("typeof HTMLElement !== 'undefined'")
+        .expect("no DOM guard emitted");
+    assert!(
+        guard_at < define_at,
+        "the guard must PRECEDE the registration, not merely coexist with it:\n{}",
+        result.js
+    );
+}
+
+/// A CLIENT build of the same component is unchanged — no SSR entry, and the
+/// registration is the plain unguarded call it has always been.
+#[test]
+fn extends_base_client_build_is_unchanged() {
+    let src = r#"
+@state {
+import { AihuSwitchRoot } from '@aihu/primitives/switch'
+
+base: AihuSwitchRoot
+}
+
+@template {
+  <span>EXTENDS-OK</span>
+}
+"#;
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full_with_target(&parsed, BuildTarget::Client).unwrap();
+    let result = emit(&unit, "x-switch");
+
+    assert!(
+        !result.js.contains("export const __ssr"),
+        "the SSR entry is a server-target artifact; a client build must not \
+         grow one:\n{}",
+        result.js
+    );
+    assert!(
+        result.js.contains("base: AihuSwitchRoot"),
+        "the client build must still extend the base class:\n{}",
+        result.js
+    );
+}
+
+/// `$extends` COMBINED with `$form` stays excluded — the documented narrower
+/// hole (`define_opts` is still not threaded through the options-form SSR
+/// branch), and it must not be lifted by accident.
+///
+/// Authored in the legacy `$`-form dialect throughout: `base:` is the WRAPPER
+/// spelling, and C625 rejects a `@state` block that mixes wrapper declarations
+/// with `$`-macros. `$extends:` and `base:` parse to the same
+/// `StateMacro::Extends`, so this exercises the identical gate.
+#[test]
+fn extends_base_with_form_stays_excluded() {
+    let src = r#"
+@state {
+import { AihuSwitchRoot } from '@aihu/primitives/switch'
+
+$extends: AihuSwitchRoot
+
+$form: {
+  value: () => 'on',
+}
+}
+
+@template {
+  <span>EXTENDS-OK</span>
+}
+"#;
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full_with_target(&parsed, BuildTarget::Server).unwrap();
+    let result = emit(&unit, "x-switch-form");
+
+    assert!(
+        !result.js.contains("export const __ssr"),
+        "$extends + $form is a deliberately narrower exclusion than plain \
+         $extends — it stays excluded until `define_opts` is threaded through \
+         the options-form SSR branch:\n{}",
+        result.js
+    );
+}

@@ -20,10 +20,11 @@
  */
 
 import { effect, type Read, signal } from '@aihu/signals'
+import { HTMLElementBase } from '../html-element-base.ts'
 
 export type SeparatorOrientation = 'horizontal' | 'vertical'
 
-export class AihuSeparator extends HTMLElement {
+export class AihuSeparator extends HTMLElementBase {
   static readonly observedAttributes = ['orientation', 'decorative']
 
   private readonly _orientation = signal<SeparatorOrientation>('horizontal')

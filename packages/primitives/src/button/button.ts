@@ -18,10 +18,11 @@
 import { effect, type Read, signal } from '@aihu/signals'
 import { injectValue } from '../dom-context.ts'
 import { formControlContext } from '../form-control/index.ts'
+import { HTMLElementBase } from '../html-element-base.ts'
 
 export type ButtonType = 'button' | 'submit' | 'reset'
 
-export class AihuButton extends HTMLElement {
+export class AihuButton extends HTMLElementBase {
   static readonly observedAttributes = ['disabled', 'pressed', 'type']
 
   private readonly _disabled = signal(false)

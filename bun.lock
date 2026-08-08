@@ -606,6 +606,7 @@
       "devDependencies": {
         "@aihu-plugin/agent-readiness": "workspace:*",
         "@aihu/compiler": "workspace:*",
+        "@aihu/primitives": "workspace:*",
       },
       "peerDependencies": {
         "@aihu/arbor": "workspace:*",
@@ -655,7 +656,7 @@
     },
     "packages/compiler": {
       "name": "@aihu/compiler",
-      "version": "1.2.1",
+      "version": "1.2.2",
       "bin": {
         "aihu-compile": "./bin/aihu-compile.mjs",
       },
@@ -663,16 +664,16 @@
         "@aihu/css-engine": "workspace:*",
       },
       "optionalDependencies": {
-        "@aihu/compiler-darwin-arm64": "0.1.51",
-        "@aihu/compiler-darwin-x64": "0.1.51",
-        "@aihu/compiler-linux-arm64-gnu": "0.1.51",
-        "@aihu/compiler-linux-x64-gnu": "0.1.51",
-        "@aihu/compiler-native-darwin-arm64": "0.1.16",
-        "@aihu/compiler-native-darwin-x64": "0.1.16",
-        "@aihu/compiler-native-linux-arm64-gnu": "0.1.16",
-        "@aihu/compiler-native-linux-x64-gnu": "0.1.16",
-        "@aihu/compiler-native-win32-x64-msvc": "0.1.16",
-        "@aihu/compiler-win32-x64-msvc": "0.1.51",
+        "@aihu/compiler-darwin-arm64": "0.1.53",
+        "@aihu/compiler-darwin-x64": "0.1.53",
+        "@aihu/compiler-linux-arm64-gnu": "0.1.53",
+        "@aihu/compiler-linux-x64-gnu": "0.1.53",
+        "@aihu/compiler-native-darwin-arm64": "0.1.18",
+        "@aihu/compiler-native-darwin-x64": "0.1.18",
+        "@aihu/compiler-native-linux-arm64-gnu": "0.1.18",
+        "@aihu/compiler-native-linux-x64-gnu": "0.1.18",
+        "@aihu/compiler-native-win32-x64-msvc": "0.1.18",
+        "@aihu/compiler-win32-x64-msvc": "0.1.53",
       },
       "peerDependencies": {
         "vite": ">=5.0.0",

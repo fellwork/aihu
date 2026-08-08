@@ -28,6 +28,7 @@ import {
   type FormControlContextValue,
   formControlContext,
 } from '../form-control/index.ts'
+import { HTMLElementBase } from '../html-element-base.ts'
 import { AihuRovingFocus } from '../roving-focus/index.ts'
 
 export interface RadioGroupContextValue {
@@ -252,7 +253,7 @@ export class AihuRadioGroupRoot extends AihuRovingFocus {
   }
 }
 
-export class AihuRadioGroupItem extends HTMLElement {
+export class AihuRadioGroupItem extends HTMLElementBase {
   static readonly observedAttributes = ['value', 'disabled']
 
   private readonly _itemValue = signal<string | null>(null)
@@ -370,7 +371,7 @@ export class AihuRadioGroupItem extends HTMLElement {
 
 /** Presentational styling hook: mirrors its enclosing ITEM's state (nearest
  * `radioGroupItemContext` provider), hidden from AT. */
-export class AihuRadioGroupIndicator extends HTMLElement {
+export class AihuRadioGroupIndicator extends HTMLElementBase {
   private _disposers: Array<() => void> = []
 
   connectedCallback(): void {

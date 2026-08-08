@@ -57,8 +57,15 @@ const __dirname = dirname(new URL(import.meta.url).pathname)
 const REPO = resolve(__dirname, '../../..')
 const FIXTURE = resolve(__dirname, 'fixtures/workers-ssr')
 
-/** Packages whose `dist/` this fixture consumes through package `exports`. */
-const REBUILD = ['compiler', 'router', 'server', 'app', 'adapter-cloudflare'] as const
+/**
+ * Packages whose `dist/` this fixture consumes through package `exports`.
+ *
+ * `primitives` is here for `probe-extends.aihu`: the `$extends`/`base:` recipe
+ * imports a real primitive at server-module scope, and the thing under test is
+ * whether THAT module can be imported without a DOM. A stale
+ * `packages/primitives/dist/` would test the last release's answer.
+ */
+const REBUILD = ['compiler', 'router', 'server', 'app', 'adapter-cloudflare', 'primitives'] as const
 
 type Variant = 'main' | 'control' | 'outlet'
 
@@ -514,6 +521,50 @@ describe('output: ssr produces a deployable, rendering Worker', () => {
       .join('\n')
     expect(clientJs).toContain('app-root')
   })
+
+  // -------------------------------------------------------------------------
+  // `$extends` (`base:`) — a component whose base class comes from
+  // @aihu/primitives. Filed as a known gap when the `$aria`/`$form` SSR guards
+  // landed, on the (correct) reasoning that no compiler-side gate could fix it.
+  // -------------------------------------------------------------------------
+
+  it('15. a `$extends` component server-renders instead of killing the request', async () => {
+    // TWO failures are pinned here, and they are in different packages.
+    //
+    //   1. `@aihu/primitives`. The base module evaluated
+    //      `class AihuSwitchRoot extends HTMLElement` at ITS OWN module scope.
+    //      workerd exposes `HTMLRewriter` but NOT `HTMLElement` (verified
+    //      against workerd directly), so importing the base threw
+    //      `ReferenceError: HTMLElement is not defined`. That import happens
+    //      inside the router's `Promise.all` over the child registry, so it did
+    //      not degrade to an empty element the way a `__aihu_schild` failure
+    //      does — the WHOLE request threw. Hence `status === 200` below: it is
+    //      the assertion, not a formality.
+    //
+    //   2. `@aihu/compiler`. `$extends` was also excluded from the options-form
+    //      SSR-entry gate, so even with an import-safe base the module emitted
+    //      a bare, ungated `defineElement(...)` at module scope
+    //      (`ReferenceError: customElements is not defined`) and exported no
+    //      `__ssr` at all. Each fix alone still fails — verified by reverting
+    //      them one at a time against this same built Worker.
+    const { status, body } = await fetchThrough(built.main!.worker, 'https://e2e.test/')
+    expect(status).toBe(200)
+    // Rendered as the element's own content, not merely present in the document.
+    expect(body).toMatch(/<probe-extends[^>]*>.*EXTENDS-OK.*<\/probe-extends>/s)
+    // …and inside the outlet, so it actually reached the page.
+    const open = body.indexOf('<div id="outlet">')
+    expect(body.slice(open, body.indexOf('</body>'))).toContain('EXTENDS-OK')
+  }, 60_000)
+
+  it('15b. THE CONTROL — with an empty registry the `$extends` host renders empty', async () => {
+    // Same proof obligation as assertion 3: without this, assertion 15 could be
+    // passing because `EXTENDS-OK` was inlined into the page's own compiled
+    // template rather than resolved through the child registry.
+    const { status, body } = await fetchThrough(built.control!.worker, 'https://e2e.test/')
+    expect(status).toBe(200)
+    expect(body).not.toContain('EXTENDS-OK')
+    expect(body).toMatch(/<probe-extends[^>]*><\/probe-extends>/)
+  }, 60_000)
 
   it('D-2. the SSR bundle is NOT written where the ASSETS binding would serve it', () => {
     // Cloudflare's `[assets] directory` serves the client outDir verbatim. An
