@@ -24,6 +24,15 @@
       "@aihu/primitives/focus-trap": ["../primitives/src/dialog/focus-trap.ts"],
       "@aihu/signals": ["../signals/src/index.ts"],
       "@aihu/store": ["../store/src/index.ts"],
+      // Paired with the bare mapping below: tsconfig `paths` matching is exact,
+      // so "@aihu/context" never covered the "/ssr" subpath — it resolved
+      // through package exports to ../context/dist/ssr.d.ts while the rest of
+      // @aihu/context came from source (packages/app/src/prerender.ts is the
+      // importer, reached from here through the @aihu/app mapping). Same
+      // src-vs-dist split as @aihu/arbor/hydrate in packages/app; map it to
+      // source so the package resolves one way, and so tsc agrees with
+      // vitest.config.ts.
+      "@aihu/context/ssr": ["../context/src/ssr.ts"],
       "@aihu/context": ["../context/src/index.ts"]
     }
   },
