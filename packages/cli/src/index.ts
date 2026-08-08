@@ -22,6 +22,7 @@ import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { aihuDep } from './dep-versions.js'
 import { packageManagerField } from './pkg-manager-field.js'
+import { assertProjectName, assertRouteSegments } from './project-name.js'
 import {
   agentComponentAihu,
   agentIndexHtml,
@@ -829,6 +830,12 @@ export function scaffoldApp(
   const withCssEngine = opts?.css === 'engine'
   const shadowMode = opts?.shadowMode
   const agentTooling = opts?.agentTooling !== false
+  // Before `resolve()`, not after: `resolve(outDir ?? '.', '../../ESCAPED')`
+  // silently lands two directories above the cwd, and the same string is what
+  // `appPackageJson` writes into the `name` field, which npm then rejects.
+  // Shared with the template pipeline so the two paths cannot disagree about
+  // what a legal project name is (see project-name.ts).
+  assertProjectName(name, 'aihu app', 'project name')
   const root = resolve(outDir ?? '.', name)
 
   // `full` is the kitchen-sink template: the dual-experience word-game demo on
@@ -965,13 +972,11 @@ export function scaffoldPage(routePath: string, outDir?: string): ScaffoldResult
   // `join(root, rel)` below resolves them normally — so an unchecked route
   // like '../../../../etc/whatever' writes outside src/pages/, potentially
   // outside the project entirely. Reject rather than silently escape.
-  const traversal = segments.find((s) => s === '.' || s === '..')
-  if (traversal !== undefined) {
-    throw new Error(
-      `aihu page: route '${routePath}' contains a '${traversal}' segment, which would write ` +
-        'outside src/pages/. Use a route path relative to the pages root instead.',
-    )
-  }
+  //
+  // The check lives in project-name.ts because splitting on `/` alone is not
+  // enough: `join()` treats `\` as a separator on Win32, so `..\..\x` is one
+  // `/`-segment here and a real traversal there.
+  assertRouteSegments(routePath, segments)
   const rel = segments.length > 0 ? `src/pages/${segments.join('/')}.aihu` : 'src/pages/index.aihu'
   return writeFiles(root, [[rel, pageAihu(routePath)]])
 }
@@ -1008,6 +1013,14 @@ export function scaffoldComponent(name: string, outDir?: string): ScaffoldResult
  * Usage: `aihu plugin my-forms` -> `aihu-plugin-my-forms/`
  */
 export function scaffoldPlugin(name: string, outDir?: string): ScaffoldResult {
+  // `toKebab` happens to strip `/` and `.` to hyphens, so this path could not
+  // traverse the way `scaffoldApp` could — but it silently ACCEPTED the garbage
+  // and scaffolded it: `aihu plugin ../../X` produced a directory literally
+  // named `aihu-plugin--x`, while the CLI reported creating `../../X/…`.
+  // `pluginIndex()` also interpolates the raw name into a single-quoted JS
+  // string literal in the generated source, so an unvalidated name is a code
+  // injection into the file the user is about to run.
+  assertProjectName(name, 'aihu plugin', 'plugin name')
   const kebab = toKebab(name)
   const root = resolve(outDir ?? '.', `aihu-plugin-${kebab}`)
   return writeFiles(root, [

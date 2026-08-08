@@ -19,6 +19,7 @@ import { dirname, join, posix, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { CLI_VERSION } from './cli-version.ts'
 import { evalWhen } from './conditional-eval.ts'
+import { assertProjectName } from './project-name.ts'
 import { parseVersion, satisfiesRange } from './semver-range.ts'
 import type { PostInstallStep, TemplateManifest } from './template-manifest.ts'
 import { validateManifest } from './template-manifest.ts'
@@ -277,12 +278,12 @@ export function mergeOptions(
   manifest: TemplateManifest,
   input: MergeOptionsInput,
 ): ResolvedOptions {
-  // Validate appName: kebab-ish, no leading digit (per arch-6 §4.3).
-  if (!/^[a-z][a-z0-9-]*$/.test(input.appName)) {
-    throw new Error(
-      `mergeOptions: appName ${JSON.stringify(input.appName)} must match /^[a-z][a-z0-9-]*$/`,
-    )
-  }
+  // Validate appName: kebab-ish, no leading digit (per arch-6 §4.3). The rule
+  // moved to project-name.ts when `scaffoldApp`/`scaffoldPlugin` adopted it —
+  // this path was the ONLY one enforcing it, so the two scaffold paths
+  // disagreed about what a legal name was and only one of them could escape
+  // the project directory.
+  assertProjectName(input.appName, 'mergeOptions', 'appName')
 
   // Reject any user-attempted override of a `fixed` cell.
   for (const key of Object.keys(input.userOverrides)) {

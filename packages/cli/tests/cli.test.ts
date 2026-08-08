@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -249,6 +249,42 @@ afterEach(() => {
   rmSync(tmpDir, { recursive: true, force: true })
 })
 
+describe('scaffoldApp · project-name validation', () => {
+  it('refuses to escape the project directory', () => {
+    // Measured before the fix, against the built `dist/bin.js`:
+    // `aihu app ../../ESCAPED` wrote a complete 11-file project two
+    // directories ABOVE the cwd and exited 0. `scaffoldPage` had grown a
+    // traversal guard for exactly this; `scaffoldApp` and `scaffoldPlugin`
+    // never got one.
+    expect(() => scaffoldApp('../../ESCAPED', tmpDir)).toThrow(/not usable/)
+    expect(existsSync(join(tmpDir, '..', '..', 'ESCAPED'))).toBe(false)
+    expect(readdirSync(tmpDir)).toEqual([])
+  })
+
+  it('names the traversal as a traversal, not just a bad name', () => {
+    expect(() => scaffoldApp('../x', tmpDir)).toThrow(/write outside the current directory/)
+    expect(() => scaffoldApp('/abs/path', tmpDir)).toThrow(/write outside the current directory/)
+  })
+
+  it('refuses a name npm would reject, which the next command depends on', () => {
+    // The escaped scaffold above also emitted `"name": "../../ESCAPED"` — not a
+    // legal npm package name — so the `bun install` the CLI prints as the very
+    // next step fails on the tree it just created.
+    for (const bad of ['9app', 'BadCase', 'my_app', 'my.app', '@scope/app', '']) {
+      expect(() => scaffoldApp(bad, tmpDir), bad).toThrow(/not usable/)
+    }
+    expect(readdirSync(tmpDir)).toEqual([])
+  })
+
+  it('agrees with the template pipeline about what a legal name is', () => {
+    // The two paths used to disagree: `mergeOptions` enforced this regex and
+    // `scaffoldApp` enforced nothing, so the same string was legal on one
+    // scaffold path and not the other.
+    expect(() => scaffoldApp('my-app-2', tmpDir)).not.toThrow()
+    expect(existsSync(join(tmpDir, 'my-app-2', 'package.json'))).toBe(true)
+  })
+})
+
 describe('scaffoldApp', () => {
   it('creates the 11 expected files (8 baseline + agent-tooling trio)', () => {
     const result = scaffoldApp('demo', tmpDir)
@@ -421,6 +457,19 @@ describe('scaffoldPage', () => {
   it('rejects a route containing a . segment', () => {
     expect(() => scaffoldPage('./foo', tmpDir)).toThrow(/\./)
   })
+
+  it('rejects a Windows-style ..\\ segment, which the `/`-only split let through', () => {
+    // On POSIX `\` is an ordinary filename character, so this wrote a literal
+    // `..\..\WINESC.aihu` inside src/pages/ — harmless here, a real traversal
+    // on Win32 where `join()` treats `\` as a separator. The guard has to
+    // reject on every platform or it is not a guard.
+    expect(() => scaffoldPage('..\\..\\WINESC', tmpDir)).toThrow(/\.\.|backslash/)
+    expect(existsSync(join(tmpDir, 'src', 'pages', '..\\..\\WINESC.aihu'))).toBe(false)
+  })
+
+  it('rejects a backslash anywhere in a route — never a legal route character', () => {
+    expect(() => scaffoldPage('admin\\users', tmpDir)).toThrow(/backslash/)
+  })
 })
 
 describe('scaffoldComponent', () => {
@@ -440,6 +489,28 @@ describe('scaffoldPlugin', () => {
     scaffoldPlugin('my-forms', tmpDir)
     expect(existsSync(join(tmpDir, 'aihu-plugin-my-forms', 'package.json'))).toBe(true)
     expect(existsSync(join(tmpDir, 'aihu-plugin-my-forms', 'src', 'index.ts'))).toBe(true)
+  })
+
+  it('refuses a path-shaped name instead of mangling it into a directory', () => {
+    // `toKebab` turned `../../X` into `-x`, so this could not traverse the way
+    // `scaffoldApp` could — but it scaffolded `aihu-plugin--x` and reported
+    // success. Silently renaming what the author typed is the failure mode
+    // `scaffoldComponent`'s docblock already refuses.
+    expect(() => scaffoldPlugin('../../PESCAPED', tmpDir)).toThrow(/not usable/)
+    expect(readdirSync(tmpDir)).toEqual([])
+  })
+
+  it('refuses a name that is not a legal package name', () => {
+    // `pluginIndex()` interpolates the raw name into a single-quoted JS string
+    // literal in the generated source — an unvalidated name is an injection
+    // into the file the user is about to run.
+    expect(() => scaffoldPlugin("x'; evil()//", tmpDir)).toThrow(/not usable/)
+    expect(() => scaffoldPlugin('9forms', tmpDir)).toThrow(/not usable/)
+    expect(readdirSync(tmpDir)).toEqual([])
+  })
+
+  it('suggests the kebab form rather than silently applying it', () => {
+    expect(() => scaffoldPlugin('MyForms', tmpDir)).toThrow(/'my-forms'/)
   })
 })
 
