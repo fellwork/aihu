@@ -1,0 +1,34 @@
+<!--
+  A page that THROWS while rendering — the error-boundary probe.
+
+  Every other throwing shape in this fixture has been fixed at its cause (the
+  `$extends` base import, the setup-body DOM access). This one is deliberately
+  unfixable: it is a stand-in for the open-ended class of runtime failures a
+  real app's route can hit — a loader whose D1 query rejects, a KV binding that
+  is not wired, a template that reads a property off `undefined`.
+
+  Before the boundary existed, a throw anywhere on that chain rejected the
+  Worker's `fetch` promise, which on Cloudflare is error 1101 with NO HTTP
+  response body at all — not a 500. The assertion is therefore that a response
+  comes back, and that it is a text/plain 500 rather than a document.
+
+  `@state` rather than a `loader` export on purpose: the compiler emits an
+  `@state` block verbatim into the setup body that BOTH server renderers run,
+  so this throws from inside `renderToString` — the deepest point on the chain
+  and the one furthest from the handler that has to catch it.
+-->
+
+@route {
+  name: "probe-boom"
+  layout: "app"
+}
+
+@state {
+  throw new Error('E2E-BOOM: this page throws while rendering')
+}
+
+@template {
+  <main>
+    <h1>BOOM-SHOULD-NOT-RENDER</h1>
+  </main>
+}
