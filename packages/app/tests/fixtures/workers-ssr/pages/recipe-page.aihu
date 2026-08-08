@@ -1,0 +1,40 @@
+<!--
+  The styled-recipe shape on a PAGE, not on a child — the severe half of the
+  same bug.
+
+  `__aihu_schild` catches a child's render error and degrades that ONE element
+  to empty (loudly, on the console). A page has no such net: `handle()` calls
+  `renderToString` on the route module directly, so the same three lines that
+  cost a child its content cost the whole route its response.
+
+  So this route's assertion is `status === 200`, and that is the assertion, not
+  a formality — exactly as it is for `probe-extends`.
+-->
+
+@route {
+  name: "probe-recipe-page"
+  layout: "app"
+}
+
+@state {
+  if (typeof HTMLElement !== 'undefined' && typeof customElements !== 'undefined') {
+    class ProbeRecipePageElement extends HTMLElement {
+      static sheet = new CSSStyleSheet()
+
+      connectedCallback() {
+        if (!this.shadowRoot) this.attachShadow({ mode: 'open' })
+        this.shadowRoot.adoptedStyleSheets = [ProbeRecipePageElement.sheet]
+      }
+    }
+
+    if (!customElements.get('probe-recipe-page')) {
+      customElements.define('probe-recipe-page', ProbeRecipePageElement)
+    }
+  }
+}
+
+@template {
+  <main>
+    <h1>RECIPE-PAGE-OK</h1>
+  </main>
+}

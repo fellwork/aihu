@@ -8,22 +8,33 @@
   CSS attachment (R2): the compiled recipe stylesheet is a shared static
   Constructable StyleSheet adopted into the shadow root, not a per-instance
   inline style element.
+
+  DOM GUARD (`output: 'ssr'`): the compiler emits this `@state` block verbatim
+  into the component's setup body, which a SERVER render executes — so on a
+  Cloudflare Worker (no `HTMLElement`, no `CSSStyleSheet`, no `customElements`)
+  all three lines below threw. Guarded on the same condition the compiler puts
+  on its own `defineElement` call a few lines further down in the emitted
+  module: registration is a browser-only side effect, and a server render never
+  mounts. See `packages/primitives/src/html-element-base.ts` §"Registration
+  without a DOM".
 -->
 
 @state {
   import { cn } from '@aihu/css-engine/runtime/cn'
 
-  class AihuCard extends HTMLElement {
-    static sheet = new CSSStyleSheet()
+  if (typeof HTMLElement !== 'undefined' && typeof customElements !== 'undefined') {
+    class AihuCard extends HTMLElement {
+      static sheet = new CSSStyleSheet()
 
-    connectedCallback() {
-      if (!this.shadowRoot) this.attachShadow({ mode: 'open' })
-      this.shadowRoot.adoptedStyleSheets = [AihuCard.sheet]
+      connectedCallback() {
+        if (!this.shadowRoot) this.attachShadow({ mode: 'open' })
+        this.shadowRoot.adoptedStyleSheets = [AihuCard.sheet]
+      }
     }
-  }
 
-  if (!customElements.get('aihu-card')) {
-    customElements.define('aihu-card', AihuCard)
+    if (!customElements.get('aihu-card')) {
+      customElements.define('aihu-card', AihuCard)
+    }
   }
 }
 

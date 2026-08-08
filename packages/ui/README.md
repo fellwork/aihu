@@ -27,11 +27,43 @@ package is bundled into your runtime *from the package*, it carries **no
 | `badge` | styled | presentational; variant matrix |
 | `separator` | styled | presentational; `orientation` + `role="separator"` |
 
+### Authoring a recipe: `@state` runs on the SERVER too
+
+A `@state` block is emitted verbatim into the component's setup body, and under
+`output: 'ssr'` that body executes inside a Cloudflare Worker — where
+`HTMLElement`, `CSSStyleSheet`, `customElements` and `document` are all
+`undefined`. A bare DOM reference there is not a degraded render, it is a
+`ReferenceError`: as a child the element comes out empty, as a page the request
+gets no response at all.
+
+So anything in `@state` that touches a DOM global directly must be guarded:
+
+```js
+@state {
+  if (typeof HTMLElement !== 'undefined' && typeof customElements !== 'undefined') {
+    class AihuThing extends HTMLElement { /* … */ }
+    if (!customElements.get('aihu-thing')) customElements.define('aihu-thing', AihuThing)
+  }
+}
+```
+
+Three things do NOT need a guard, and should not get one:
+
+- `onMount` / event handlers / `@aihu/use` composables — never run during a
+  server render (the composables carry their own `isClient` no-op contract).
+- `@aihu/primitives`' `defineX()` entry points (`defineSlider()`,
+  `defineRadioGroup()`, …) — each is a documented no-op without a DOM.
+- The `@style` block — the compiler already elides its `new CSSStyleSheet()`
+  on the server target and ships the CSS as a string instead.
+
+`tests/ssr-recipe-safety.test.ts` enforces this by compiling every recipe to
+the server target and running its renderer in a DOM-less realm.
+
 ### Local development
 
 ```bash
 bun run gen:registry   # scan registry/** → registry.json (index-only)
-bun run test           # vitest (recipe-compile + runtime shadow-adoption)
+bun run test           # vitest (recipe-compile + shadow-adoption + SSR safety)
 bun run typecheck      # tsc --noEmit (no dist; recipes are typechecked, not compiled)
 ```
 

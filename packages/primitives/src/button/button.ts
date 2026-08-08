@@ -136,8 +136,12 @@ export class AihuButton extends HTMLElementBase {
   }
 }
 
-/** Register a concrete button tag backed by `AihuButton` (idempotent). */
+/** Register a concrete button tag backed by `AihuButton` (idempotent). Without a
+ * DOM it registers nothing and returns `AihuButton` unchanged. */
 export function defineButton(tag: string): typeof AihuButton {
+  // No DOM, no registry to register INTO — a documented no-op. See
+  // `html-element-base.ts` §"Registration without a DOM".
+  if (typeof customElements === 'undefined') return AihuButton
   if (!customElements.get(tag)) {
     // A fresh subclass per tag so multiple tags can be registered.
     class TaggedButton extends AihuButton {}

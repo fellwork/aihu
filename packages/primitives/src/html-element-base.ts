@@ -52,6 +52,47 @@
  * That is strictly better than today's behavior (the import itself threw), and
  * avoiding it entirely would require the lazy-factory shape this class-as-API
  * package cannot adopt. Install DOM shims before importing primitives.
+ *
+ * ## Registration without a DOM: every `defineX()` is a documented NO-OP
+ *
+ * The class-declaration fix above makes a primitive module IMPORTABLE without a
+ * DOM. It does not make `defineSlider()` CALLABLE — that function's first act
+ * is `customElements.get(tag)`, and `customElements` is `undefined` in workerd
+ * too. Those are two different bugs at two different times: the import throws
+ * at module load, the call throws whenever the caller runs.
+ *
+ * And the caller runs on the server. A `.aihu` recipe that COMPOSES a primitive
+ * instead of extending it (`before-after.aihu`'s `defineSlider()`,
+ * `temperature.aihu`'s `defineRadioGroup()`) has to register that primitive
+ * itself, and it does so from its `@state` block — which the compiler emits
+ * verbatim into `__aihu_setup__` and `__aihu_ssr_string_setup__`, i.e. into the
+ * body that every server render executes. So under `output: 'ssr'` the call
+ * threw `ReferenceError: customElements is not defined` on every request.
+ *
+ * So every `defineX()` in this package now returns early, silently, when
+ * `customElements` does not exist. The reasoning is the same one that justifies
+ * throwing on CONSTRUCTION above, arriving at the opposite answer for a
+ * defensible reason:
+ *
+ *   - Registration is a pure side effect on `window.customElements`, with no
+ *     return value and no server-side consumer. An SSR render resolves child
+ *     components through the compiler's module registry
+ *     (`virtual:aihu-server-components`), never through `customElements`, and a
+ *     server render never mounts, so nothing observable is lost by skipping it.
+ *     Construction is the opposite: the caller wants a working element and
+ *     would get a broken one, so it fails loud.
+ *   - It is not a new policy, it is the EXISTING one. The compiler already
+ *     emits every compiled component's own registration as
+ *     `if (typeof HTMLElement !== 'undefined' && typeof customElements !==
+ *     'undefined') defineElement(…)`. "No DOM → skip registration" is what
+ *     aihu already does for the registrations it controls; this extends it to
+ *     the ones a primitive owns.
+ *   - Throwing a better-worded error would not help anyone. The `defineX()`
+ *     call is CORRECT code that happens to also run on the server; there is no
+ *     edit the author could make in response.
+ *
+ * Unlike the conditional base, this is decided per CALL, not once at module
+ * load — so a host that installs a DOM shim late does get real registration.
  */
 
 /**
