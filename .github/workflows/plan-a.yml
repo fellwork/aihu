@@ -892,6 +892,14 @@ jobs:
         working-directory: bench/signals
         run: bun src/gate.ts /tmp/bench-prev/RESULTS.md ./RESULTS.md
       - name: Upload RESULTS.md
+        # Was default `if: success()`, so a Regression gate failure (the
+        # designed-red state described above, and the state this gate has
+        # been in since fitness.json's guard started demanding an artifact
+        # that has never existed) skipped this step too — no signals bench
+        # artifact has been produced since. The upload has no gating power
+        # of its own; it should never be held hostage by a step it doesn't
+        # depend on.
+        if: always()
         uses: actions/upload-artifact@v7
         with:
           name: bench-results
@@ -915,7 +923,11 @@ jobs:
     # mutation — a dead binding aborts the job rather than reporting a number.
     # Override for the timing gate only: `[bench-bump] <reason>` in the commit
     # message (the reason is mandatory — R7).
-    # workflow_dispatch only — see header comment and state-plan-a.md open items.
+    #
+    # This job's actual trigger is the `if:` below (path-filtered via
+    # `changes.outputs.bench`), not workflow_dispatch — a stale comment here
+    # previously claimed otherwise. See the header comment and
+    # state-plan-a.md open items for the broader dispatch story.
     runs-on: ubuntu-latest
     timeout-minutes: 45
     needs: [check, changes]

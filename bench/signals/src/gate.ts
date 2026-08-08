@@ -47,6 +47,23 @@
  * the real runner pipeline is untouched. They exist so HARNESS.md's
  * "did the gate actually fire?" check is reproducible without writing
  * regressions into the codebase.
+ *
+ * DESIGNED-RED (2026-08-08). `bench/signals/fitness.json` has never existed
+ * — PR #698 built the measurement + generation pipeline
+ * (bench-fitness.yml, this file's fitness-derivation logic) but deliberately
+ * left the last step, a human committing a measured artifact, undone (see
+ * that workflow's own header comment: "the commit stays a human act with a
+ * diff to read"). `loadFitness` below is FAIL-CLOSED on a missing artifact
+ * by design, so this gate has failed on every run since. It is NOT in
+ * `ci-ok`'s needs and `continue-on-error: true` in plan-a.yml keeps it from
+ * blocking anything — but it is genuinely red, not silently skipped, and
+ * that state is deliberate until R1 (same-job A/B vs merge base, replacing
+ * the checked-in-baseline mechanism this file drives) lands. Committing a
+ * `fitness.json` today would NOT fix it: `repeat.ts` measures within-process
+ * variance and this gate uses it to license across-CI-run comparisons —
+ * measured "fit" workloads drift 19–31 % run-to-run with zero code changes,
+ * several times their measured within-run spread. Do not regenerate
+ * `fitness.json` to green this gate; see bench/signals/HARNESS.md.
  */
 import { readFileSync } from 'node:fs'
 

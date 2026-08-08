@@ -66,6 +66,14 @@ The memory runner constructs N graphs per cell (default N=1000), settles GC thre
 
 **Run order matters when you want memory tables in RESULTS.md.** `runner.ts` reads `RESULTS.memory.json` produced by `memory.ts`; if the file is missing or stale, the markdown shows `—` in memory cells.
 
+## Regression gate: currently red by design
+
+`bench` (the signals regression gate, `src/gate.ts`) is currently **red on every run**, and that is the designed state, not a bug in this harness. `bench/signals/fitness.json` — the artifact `gate.ts`'s `loadFitness` fail-closed-demands before it will classify any workload as fit-to-gate — has never existed. PR #698 built the measurement pipeline (`bench-fitness.yml`, `repeat.ts`) but deliberately left the last step (a human committing a measured artifact) undone, so `loadFitness` throws `ENOENT` on every run. It is not in `ci-ok`'s `needs` and `continue-on-error: true` in `plan-a.yml` keeps it from blocking anything, but the red is real, not a soft skip.
+
+Committing a `fitness.json` today would not fix it. `repeat.ts` measures *within-process* variance (all N reps in one warm process); the gate then uses that number to license comparisons *across different CI runs on different days*. Measured "fit" workloads drift 19–31 % run-to-run with zero code changes — several times their own within-run spread. The instrument would be certifying a stability it never measured.
+
+Stays red until R1 (same-job A/B against the merge base, interleaved fresh-process runs, an in-band noise-floor control arm) replaces the checked-in-fitness mechanism — the same redesign `bench-arbor`'s timing gate is waiting on (see `bench/arbor/HARNESS.md`'s "designed state" note). Do not regenerate or hand-author `fitness.json` to green this gate.
+
 ## Memory protocol
 
 The memory runner (`src/memory.ts`) implements the bench-design §2 / Appendix A protocol. Per cell:
