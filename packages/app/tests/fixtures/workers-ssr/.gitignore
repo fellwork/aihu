@@ -3,3 +3,5 @@
 dist-server/
 dist-control/
 dist-control-server/
+dist-outlet/
+dist-outlet-server/

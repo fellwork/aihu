@@ -297,8 +297,8 @@ describe('virtual:aihu-server-entry', () => {
       hookCtx() as never,
       '\0virtual:aihu-server-entry',
     )
-    expect(src).toContain('export const handler = async (request, platform) =>')
-    expect(src).toContain('(await __getRouter()).handle(request, platform)')
+    expect(src).toContain('export const handler = async (request, platform) => {')
+    expect(src).toContain('await __router.handle(request, platform)')
   })
 
   it("splices the adapter's serverEntry wrapper in verbatim", () => {
@@ -363,14 +363,18 @@ describe('virtual:aihu-server-entry', () => {
       hookCtx() as never,
       '\0virtual:aihu-server-entry',
     )
-    // Swap the five bare/virtual specifiers for inline stubs so the emitted
+    // Swap the seven bare/virtual specifiers for inline stubs so the emitted
     // body can run standalone. If the import block ever changes shape this
     // count assertion fails loudly rather than silently testing a stub-only
     // module.
     const withoutImports = src.replace(/^import .*$\n/gm, '')
-    expect(src.split('\n').length - withoutImports.split('\n').length).toBe(5)
+    expect(src.split('\n').length - withoutImports.split('\n').length).toBe(7)
 
-    const probe: { loads: string[]; routers: unknown[] } = { loads: [], routers: [] }
+    const probe: { loads: string[]; routers: unknown[]; wrapped: unknown[] } = {
+      loads: [],
+      routers: [],
+      wrapped: [],
+    }
     // A unique global key per evaluation. The `data:` URL is the module cache
     // key, so two evaluations of an identical body would otherwise return ONE
     // module still bound to the first test's probe.
@@ -382,9 +386,23 @@ describe('virtual:aihu-server-entry', () => {
       'const routes = []',
       'const createServerRouter = (r, o) => {',
       '  __p.routers.push(o)',
-      '  return { handle: (req, platform) => ({ req, platform, children: o.children, layouts: o.layouts }) }',
+      '  return {',
+      '    handle: (req, platform) => ({ req, platform, children: o.children, layouts: o.layouts }),',
+      '    match: (pathname) => ({ route: { pattern: pathname }, params: {} }),',
+      '  }',
       '}',
       'const buildChildRegistry = (d) => new Map(d.map((x) => [x.tag, x.module]))',
+      // The document wrapper is a PASS-THROUGH here, recording what it was
+      // handed. This file's subject is the init graph — that the entry resolves
+      // nothing at module scope and memoises one init — and a real wrapper would
+      // consume the fake `handle()`'s plain object as a Response. The document
+      // assembly itself has its own unit tests (`ssr-document.test.ts`) and its
+      // own e2e assertions over a real build.
+      'const createSsrDocument = (cfg) => (res, route) => {',
+      '  __p.wrapped.push({ cfg, route })',
+      '  return res',
+      '}',
+      "const __document = { template: '<div id=\"outlet\"></div>', outletId: 'outlet' }",
       'const __components = {',
       "  'probe-a': async () => { __p.loads.push('child:probe-a'); return { __aihu_tag__: 'probe-a' } },",
       '}',
@@ -408,6 +426,10 @@ describe('virtual:aihu-server-entry', () => {
     // finishes having touched neither registry.
     expect(probe.loads).toEqual([])
     expect(probe.routers).toEqual([])
+    // …and no response was wrapped either. `createSsrDocument` is CALLED at
+    // module scope — it is synchronous and builds only a closure — but nothing
+    // it returns runs until a request arrives.
+    expect(probe.wrapped).toEqual([])
   })
 
   it('memoises ONE init that concurrent first requests share', async () => {
@@ -416,7 +438,9 @@ describe('virtual:aihu-server-entry', () => {
     // A cold burst: five requests arrive before any of them has finished
     // initialising. The memo is on the PROMISE, and the check-and-assign pair
     // is synchronous, so all five await the same one.
-    const results = await Promise.all([1, 2, 3, 4, 5].map(() => mod.handler({}, { env: {} })))
+    const results = await Promise.all(
+      [1, 2, 3, 4, 5].map(() => mod.handler({ url: 'https://probe.test/' }, { env: {} })),
+    )
 
     expect(probe.loads).toEqual(['child:probe-a', 'layout:app'])
     expect(probe.routers).toHaveLength(1)
@@ -424,8 +448,15 @@ describe('virtual:aihu-server-entry', () => {
     // the children already in hand, which is what `__aihu_schild` requires.
     for (const r of results) expect(r.children.get('probe-a')).toBeDefined()
 
+    // Every response went through the document wrapper, carrying the route the
+    // SAME router matched — not a second, independently-built one.
+    expect(probe.wrapped).toHaveLength(5)
+    for (const w of probe.wrapped as Array<{ route: { pattern: string } }>) {
+      expect(w.route.pattern).toBe('/')
+    }
+
     // A later, non-concurrent request reuses the same init rather than redoing it.
-    await mod.handler({}, { env: {} })
+    await mod.handler({ url: 'https://probe.test/' }, { env: {} })
     expect(probe.loads).toEqual(['child:probe-a', 'layout:app'])
     expect(probe.routers).toHaveLength(1)
   })

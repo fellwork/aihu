@@ -121,8 +121,30 @@ export interface HeadConfig {
   readonly meta?: ReadonlyArray<Record<string, string>>
 }
 
+/**
+ * The `app` section of the aihu config. Named for the `head` it originally
+ * carried alone; kept under that name because it is exported.
+ */
 export interface AppHeadConfig {
   readonly head?: HeadConfig
+  /**
+   * Id of the outlet element in `index.html` — the element every render path
+   * puts the page into. Default: `'outlet'`.
+   *
+   * Declared here because it is a fact about the DOCUMENT, and three separate
+   * things need it: `createApp()` mounts into it, the SSG prerender splices
+   * into it, and the `output: 'ssr'` Worker splices into it. Before this key
+   * existed only the client could be told, via `createApp({ outletId })` in a
+   * hand-written `src/main.ts` — and the two build-time paths hardcoded
+   * `'outlet'`, so changing it silently emptied every prerendered page.
+   *
+   * `viteAihuPlugin` also threads this into the VIRTUAL client entry
+   * (`createApp({ outletId })`), so a project with no `src/main.ts` needs to
+   * state it exactly once. A project that ejected to its own `src/main.ts`
+   * passes the same value to `createApp` itself — the virtual entry is not in
+   * play there.
+   */
+  readonly outletId?: string
 }
 
 /** Vite config fields that can be safely merged (excludes plugins — use AihuConfig.plugins). */
@@ -286,6 +308,7 @@ const SCHEMA: Record<string, v.Validator> = {
       viewport: v.string,
       meta: v.array,
     }),
+    outletId: v.string,
   }),
   vite: v.passthrough,
   // `false` is a whole-block disable; otherwise the plugin owns the shape, so
@@ -345,6 +368,7 @@ function suggestTopLevel(key: string): string | undefined {
     layouts: 'dir.layouts',
     components: 'dir.components',
     head: 'app.head',
+    outletId: 'app.outletId',
     shadowMode: 'css.shadowMode',
     bundler: 'build.bundler',
     strictTemplates: 'typecheck.strictTemplates',

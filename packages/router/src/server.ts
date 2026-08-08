@@ -66,8 +66,17 @@ export type ServerRouter = Router & {
  * exports `@aihu/app`'s prerender reads off a layout, for the same reasons.
  *
  * A RESOLVED module, not a loader, for the same reason
- * {@link ServerRouterOptions.children} is: the awaiting belongs at module
- * init, once, not on the request path.
+ * {@link ServerRouterOptions.children} is: composition happens inside a
+ * synchronous render and cannot await a dynamic import mid-flight, so every
+ * module must already be in hand when a render begins.
+ *
+ * CORRECTED: this used to add "the awaiting belongs at module init, once, not
+ * on the request path". That was the original wiring and it is no longer true.
+ * A module-scope `await` makes `@aihu/app`'s generated Worker entry an ESM
+ * ASYNC module, and the bundler's chunk cycle then deadlocks it on load — a
+ * green build whose Worker hangs on every request. The awaiting now happens
+ * once on the FIRST REQUEST, memoised, strictly before `handle()` is invoked.
+ * The contract this type states is unchanged; only where it is satisfied moved.
  */
 export interface LayoutModuleLike {
   /** The renderable — `() => arbor-tree` or `{ toHtml() }`. */
@@ -115,7 +124,15 @@ export interface ServerRouterOptions {
    *
    * A RESOLVED map, not a loader — `__aihu_schild` runs inside the compiled
    * string fast path, which is synchronous, so every module must already be
-   * in hand before a render begins. Awaiting belongs at module init, once.
+   * in hand before a render begins.
+   *
+   * CORRECTED: this used to end "Awaiting belongs at module init, once." It no
+   * longer does, and could not: module-scope `await` makes `@aihu/app`'s
+   * generated Worker entry an ESM async module, which deadlocks inside the
+   * bundler's chunk cycle. `@aihu/app` now resolves the whole registry graph
+   * once on the first request and memoises it, strictly before `handle()` runs
+   * — which satisfies this resolved-map contract exactly as module-scope
+   * resolution did.
    *
    * Omitting it is byte-identical to not passing it, matching this
    * interface's existing contract: a component reference then renders as an

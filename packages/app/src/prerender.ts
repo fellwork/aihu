@@ -50,6 +50,10 @@ import { _resetStoreRegistry, serializeStores } from '@aihu/store'
 import type { ResolvedConfig } from 'vite'
 import type { AihuConfig } from './config.ts'
 import { applyHeadToHtml } from './head-apply.ts'
+// The template↔page outlet splice, shared with the live SSR path (the generated
+// `virtual:aihu-server-entry` imports the same function). Two copies of this
+// rule is exactly how the hardcoded-outletId bug below survived.
+import { DEFAULT_OUTLET_ID, injectIntoOutletId } from './ssr-document.ts'
 
 /**
  * One param set for a dynamic route, as returned by `getStaticPaths()`.
@@ -421,33 +425,13 @@ function normalizeStaticPathEntry(entry: StaticPathEntry): Record<string, string
 // The HeadConfig→template head transform (`applyHeadToHtml`) lives in the
 // shared `./head-apply.ts` module so the SSG path (here) and the client-nav
 // path (client.ts, B5) key/merge/escape tags identically and can never diverge.
-// ---------------------------------------------------------------------------
-
-/** Inject rendered route content into the outlet element of the template. */
-function injectContent(html: string, content: string, outletId: string): string {
-  const escaped = outletId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  // Match an empty outlet `<div id="outlet"></div>` (the SPA scaffold shape).
-  const emptyRe = new RegExp(
-    `(<[a-zA-Z]+\\b[^>]*\\bid="${escaped}"[^>]*>)(\\s*)(</[a-zA-Z]+>)`,
-    'i',
-  )
-  if (emptyRe.test(html)) {
-    // The FUNCTION form, deliberately. Rendered content goes in as the
-    // REPLACEMENT, and a replacement STRING expands `$&`, `` $` ``, `$'` and
-    // `$n` as backreferences — so any page whose prose contains one of those
-    // sequences re-splices the layout shell into itself. `/api/store` does it
-    // today (its text contains `` $` ``). The function form performs no
-    // expansion at all.
-    return html.replace(emptyRe, (_m, p1: string, _p2: string, p3: string) => p1 + content + p3)
-  }
-  // Fallback: open-tag only — insert content right after it.
-  const openRe = new RegExp(`(<[a-zA-Z]+\\b[^>]*\\bid="${escaped}"[^>]*>)`, 'i')
-  if (openRe.test(html)) {
-    return html.replace(openRe, (_m, p1: string) => p1 + content)
-  }
-  return html
-}
-
+//
+// The template↔page outlet splice used to live here as a private
+// `injectContent`. It is now `./ssr-document.ts`'s `injectIntoOutletId`, shared
+// with the live SSR path — a Worker assembles the SAME document from the SAME
+// built `index.html`, and two implementations of that splice would diverge the
+// moment either grew a case.
+//
 // The layout↔page outlet splice used to live here as a private function. It is
 // now `@aihu/server`'s `injectIntoOutlet`, imported above and shared with
 // `@aihu/router/server`'s live SSR path — which had NO layout composition at
@@ -523,7 +507,13 @@ export async function runPrerender(opts: RunPrerenderOptions): Promise<Prerender
   const layoutsDir = config?.dir?.layouts ?? 'src/layouts'
   const siteUrl = config?.site?.url
   const globalHead = config?.app?.head as HeadConfig | undefined
-  const outletId = 'outlet'
+  // READ FROM CONFIG, not hardcoded. This was `const outletId = 'outlet'` while
+  // `injectContent` already took the id as a parameter — so an app setting
+  // `app.outletId: 'root'` got a client mounting `#root` and a prerender
+  // splicing `#outlet`: every prerendered page shipped an empty shell with its
+  // content dropped on the floor, and nothing said so. Masked only because
+  // nobody moved off the default.
+  const outletId = config?.app?.outletId ?? DEFAULT_OUTLET_ID
 
   const result: PrerenderResult = { written: [], warnings: [] }
   const pushWarn = (msg: string): void => {
@@ -1029,7 +1019,20 @@ export async function runPrerender(opts: RunPrerenderOptions): Promise<Prerender
         ...(globalHead !== undefined ? { globalHead } : {}),
       })
       let html = applyHeadToHtml(template, lowered)
-      html = injectContent(html, content, outletId)
+      const spliced = injectIntoOutletId(html, content, outletId)
+      if (spliced === null) {
+        // Previously this returned the template unchanged, silently: a written
+        // file that looks complete, with an empty outlet and the page's content
+        // gone. Warn and keep writing the shell (the client still mounts and
+        // renders the route), but say why the page is empty in the source.
+        pushWarn(
+          `[@aihu/app] static output: index.html has no element with id="${outletId}", so ` +
+            `${concretePath} was written with an EMPTY outlet — its prerendered content was ` +
+            `dropped. Add <div id="${outletId}"></div> to index.html, or set app.outletId to ` +
+            'the id it already uses.',
+        )
+      }
+      html = spliced ?? html
 
       const relPath = patternToHtmlPath(concretePath)
       const absPath = resolvePath(outDir, relPath)

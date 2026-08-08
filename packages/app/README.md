@@ -51,6 +51,7 @@ bun add @aihu/app
 |---|---|---|
 | `.` | `./dist/index.js` | `—` |
 | `./client` | `./dist/client.js` | `—` |
+| `./ssr-document` | `./dist/ssr-document.js` | `—` |
 
 <sub><i>Auto-generated against `@aihu/app@9.0.0`.</i></sub>
 

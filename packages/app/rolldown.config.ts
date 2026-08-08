@@ -68,6 +68,28 @@ export default defineConfig([
     },
     plugins: [dts({ outFile: 'dist/client.d.ts' })],
   },
+  // SSR document assembly — bundled INTO the consumer's Worker by the `ssr`
+  // environment (the generated `virtual:aihu-server-entry` imports it), so it
+  // holds the same properties as the client entry: no `node:` builtin, no DOM
+  // at module scope. `check:runtime-purity` scans it on the `browser-edge`
+  // tier. Its own entry rather than a re-export from `dist/index.js` because
+  // that file IS the Vite plugin — full of `node:fs`/`node:path` — and pulling
+  // it into a Worker bundle to reach one pure function is not a thing to ask a
+  // bundler to tree-shake correctly.
+  {
+    input: { 'ssr-document': 'src/ssr-document.ts' },
+    transform,
+    external,
+    checks: { circularDependency: true },
+    output: {
+      dir: 'dist',
+      format: 'esm',
+      sourcemap: true,
+      minify: true,
+      entryFileNames: '[name].js',
+    },
+    plugins: [dts({ outFile: 'dist/ssr-document.d.ts' })],
+  },
   // The `node:module` stub the SSR plugin resolves to (see vite-plugin.ts,
   // "D-1"). Its own artifact rather than a string inside the main entry: the
   // export name is load-bearing and cannot be renamed, and carrying it as

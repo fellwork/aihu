@@ -32,9 +32,34 @@ const emptyRegistry: Plugin = {
 
 const control = process.env.AIHU_E2E_CONTROL === '1'
 
+/**
+ * THE NON-DEFAULT OUTLET VARIANT (`AIHU_E2E_OUTLET=1`).
+ *
+ * `outlet` is the standard and every default path uses it, which is exactly why
+ * a fix that "reads the configured id" is unverifiable against the default:
+ * hardcoding `'outlet'` and resolving `'outlet'` are indistinguishable. This
+ * variant sets `app.outletId` to something else AND renames the element in
+ * `index.html` to match, so a build that still hardcodes the default produces a
+ * document with an EMPTY outlet and no rendered page in it.
+ *
+ * The rename is a `transformIndexHtml`, not a second fixture file, so both
+ * variants share ONE authored document and cannot drift apart.
+ */
+const outletVariant = process.env.AIHU_E2E_OUTLET === '1'
+const renameOutlet: Plugin = {
+  name: 'e2e-rename-outlet',
+  transformIndexHtml: {
+    order: 'pre',
+    handler: (html: string) => html.replace('id="outlet"', 'id="app-root"'),
+  },
+}
+
+const outDir = control ? 'dist-control' : outletVariant ? 'dist-outlet' : 'dist'
+
 export default defineConfig({
   plugins: [
     ...(control ? [emptyRegistry] : []),
+    ...(outletVariant ? [renameOutlet] : []),
     viteAihuPlugin({
       output: 'ssr',
       // REQUIRED by `output: 'ssr'` — without it leaf components export no
@@ -43,8 +68,9 @@ export default defineConfig({
       css: { shadowMode: 'light' },
       dir: { pages: 'pages', components: 'src/components' },
       adapter: cloudflare({ name: 'workers-ssr-fixture', generateWrangler: false }),
+      ...(outletVariant ? { app: { outletId: 'app-root' } } : {}),
       vite: {
-        build: { outDir: control ? 'dist-control' : 'dist', emptyOutDir: true },
+        build: { outDir, emptyOutDir: true },
       },
     }),
   ],

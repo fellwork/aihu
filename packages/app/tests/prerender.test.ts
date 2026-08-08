@@ -120,14 +120,14 @@ interface Fixture {
   warn: (m: string) => void
 }
 
-async function makeFixture(): Promise<Fixture> {
+async function makeFixture(template: string = TEMPLATE): Promise<Fixture> {
   const root = await mkdtemp(join(tmpdir(), 'aihu-ssg-'))
   const outDir = join(root, 'dist')
   await mkdir(join(root, 'pages'), { recursive: true })
   await mkdir(outDir, { recursive: true })
   // The "built" SPA index.html — our prerender template (carries the client
   // bundle <script> tag, so prerendered pages still hydrate into the SPA).
-  await writeFile(join(outDir, 'index.html'), TEMPLATE)
+  await writeFile(join(outDir, 'index.html'), template)
   const warnings: string[] = []
   const resolvedViteConfig = {
     root,
@@ -555,6 +555,91 @@ describe('runPrerender — edge cases', () => {
 
     const html = await readFile(join(fx.outDir, 'about', 'index.html'), 'utf8')
     expect(html).toContain('<link rel="canonical" href="/about">')
+  })
+})
+
+// ─── runPrerender — a NON-DEFAULT outlet id ──────────────────────────────────
+//
+// `runPrerender` hardcoded `const outletId = 'outlet'` while `injectContent`
+// already took the id as a parameter — so an app that set a different outlet id
+// got a client mounting one element and a prerender splicing another. Every
+// prerendered page shipped with its content dropped, and nothing warned.
+//
+// It was invisible because nothing could SET the id: `AihuConfig` had no
+// `outletId` key at all (only `createApp({ outletId })`, in a hand-written
+// `src/main.ts`, which the prerender never sees). So the fix is two things —
+// the config key, and reading it — and only a test on a NON-DEFAULT value can
+// tell the difference between them.
+
+describe('runPrerender — app.outletId', () => {
+  let fx: Fixture
+  afterEach(async () => {
+    if (fx) await rm(fx.root, { recursive: true, force: true })
+  })
+
+  const ROOT_TEMPLATE = TEMPLATE.replace('id="outlet"', 'id="app-root"')
+
+  it('splices into the CONFIGURED outlet id, not the default', async () => {
+    fx = await makeFixture(ROOT_TEMPLATE)
+    await writeRoute(fx.root, 'index.ts', { name: 'home' })
+    const loadModule: SsrModuleLoader = async () => ({
+      default: { toHtml: () => '<p>OUTLET-CONTENT</p>' },
+    })
+
+    const result = await runPrerender({
+      resolvedViteConfig: fx.resolvedViteConfig,
+      config: { output: 'static', dir: { pages: 'pages' }, app: { outletId: 'app-root' } },
+      loadModule,
+      warn: fx.warn,
+    })
+
+    expect(result.warnings).toEqual([])
+    const html = await readFile(join(fx.outDir, 'index.html'), 'utf8')
+    // INSIDE the element, not merely somewhere on the page.
+    expect(html).toMatch(/<div id="app-root">.*OUTLET-CONTENT.*<\/div>/s)
+  })
+
+  it('warns instead of silently writing an empty shell when the id is not in the template', async () => {
+    // The counterfactual, kept as a test: this is exactly the state a
+    // misconfigured project lands in, and the old code wrote the file anyway
+    // with no diagnostic of any kind.
+    fx = await makeFixture(ROOT_TEMPLATE)
+    await writeRoute(fx.root, 'index.ts', { name: 'home' })
+    const loadModule: SsrModuleLoader = async () => ({
+      default: { toHtml: () => '<p>OUTLET-CONTENT</p>' },
+    })
+
+    const result = await runPrerender({
+      resolvedViteConfig: fx.resolvedViteConfig,
+      // The DEFAULT id, against a template that only has `app-root`.
+      config: { output: 'static', dir: { pages: 'pages' } },
+      loadModule,
+      warn: fx.warn,
+    })
+
+    const html = await readFile(join(fx.outDir, 'index.html'), 'utf8')
+    expect(html).not.toContain('OUTLET-CONTENT')
+    expect(result.warnings.join('\n')).toMatch(/no element with id="outlet"/)
+    expect(result.warnings.join('\n')).toMatch(/EMPTY outlet/)
+  })
+
+  it('still defaults to `outlet` when nothing is configured', async () => {
+    fx = await makeFixture()
+    await writeRoute(fx.root, 'index.ts', { name: 'home' })
+    const loadModule: SsrModuleLoader = async () => ({
+      default: { toHtml: () => '<p>OUTLET-CONTENT</p>' },
+    })
+
+    const result = await runPrerender({
+      resolvedViteConfig: fx.resolvedViteConfig,
+      config: { output: 'static', dir: { pages: 'pages' } },
+      loadModule,
+      warn: fx.warn,
+    })
+
+    expect(result.warnings).toEqual([])
+    const html = await readFile(join(fx.outDir, 'index.html'), 'utf8')
+    expect(html).toMatch(/<div id="outlet">.*OUTLET-CONTENT.*<\/div>/s)
   })
 })
 

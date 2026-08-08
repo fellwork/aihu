@@ -140,6 +140,34 @@ Open decisions: per-route head needs `routeHeadToSsrHead` + `applyHeadToHtml` on
 the request path; and the splice target must be agreed (SSG uses `#outlet`, the
 scaffold's `index.html` uses `#app`).
 
+> **RESOLVED — implemented (step 4).**
+>
+> **Where.** `virtual:aihu-ssr-document` inlines the built `index.html`; the
+> generated `virtual:aihu-server-entry` wraps the `handle()` response. NOT
+> `createServerRouter` — the template is a build artifact, and the only thing
+> that knows about build artifacts is the plugin that generates the entry.
+> `handle()` and `@aihu/server` are byte-identical for every existing consumer.
+> The splice is `@aihu/app/ssr-document`'s `injectIntoOutletId`, a new pure
+> Worker-safe entry the SSG prerender now calls too.
+>
+> **What gets wrapped.** `Content-Type: text/html` only, not status — a
+> governed WITHHELD render is `text/html` at 402 and needs the script tag as
+> much as a 200; the 404, the 500s and the E3 JSON endpoint name themselves.
+> The 404 passing through unwrapped is what keeps an adapter's ASSETS
+> fallthrough serving the bundle the document now references.
+>
+> **Per-route head: LANDED**, not deferred. `route.head` → `routeHeadToSsrHead`
+> (folded under `app.head`, resolved against `site.url`) → `applyHeadToHtml`,
+> memoised per route pattern. The route comes from `router.match()` on the same
+> router that produced the response.
+>
+> **Splice target: `outlet`, resolved from config.** `#app` appeared in exactly
+> one place — this repo's own `workers-ssr` fixture — and matched nothing; it is
+> now `#outlet` like everything else. A new `app.outletId` key is read by the
+> prerender, the SSR splice and the virtual client entry. That also fixes a
+> latent SSG bug: `runPrerender` hardcoded `'outlet'`, and no config key existed
+> to disagree with it.
+
 ## 4. Ordered plan
 
 | # | Step | Blast radius | Verification |
@@ -147,7 +175,7 @@ scaffold's `index.html` uses `#app`).
 | 1 | Ungate OXC (`index.ts:2065`) | client transform on vite 8 only | fresh `^8` scaffold builds; fixture pins class-field + enum + `import type` output |
 | 2 | Make strip failure LOUD — rethrow named error | compiler only | force unresolvable esbuild → clear error, not `PARSE_ERROR` |
 | 3 | Remove module-scope TLA from `buildServerEntrySource` | `ssr` only | e2e must `await import(worker)` **under a timeout** so a hang is RED, not a hang |
-| 4 | Emit a full document | SSR response shape | assert doctype/html/title/`assets/index-*.js`; ASSETS still serves it |
+| 4 | Emit a full document — **DONE** | SSR response shape | assert doctype/html/title/`assets/index-*.js`; ASSETS still serves it; non-HTML unwrapped; non-default `outletId` |
 | 5 | Dev entry: emit `/virtual:aihu-entry` not the bare specifier | dev only, all templates | `curl /virtual:aihu-entry` already 200s — only the bare form is unusable |
 
 1-2 and 3 are independent.
