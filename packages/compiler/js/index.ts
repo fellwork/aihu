@@ -54,6 +54,59 @@ function resolveBinPath(): string {
   return process.env.AIHU_COMPILE_BIN ?? resolveCompilerBinary()
 }
 
+/*
+ * ── Regex hardening: js/polynomial-redos (CWE-1333) ─────────────────────────
+ *
+ * Most of the regexes in this file run against COMPILED MODULE TEXT, and that
+ * text carries authored `.aihu` bytes verbatim: a template text node becomes
+ * `leaf('<text>')` (codegen/template_emit.rs) and an `@style` body becomes
+ * ``__style__.replaceSync(`<css>`)`` (codegen/emit.rs). So the strings these
+ * patterns scan ARE attacker-controllable by whoever authors the `.aihu` file
+ * — an untrusted PR in a monorepo, a template shipped to other developers.
+ * Treat them as untrusted input, not as our own generated output.
+ *
+ * Three ambiguity shapes were live in this file (17 CodeQL alerts), all
+ * polynomial rather than exponential — the cost comes from re-scanning, not
+ * from nested quantifiers:
+ *
+ *   A. Named-import matchers, `import\s*\{[^}]*\}\s*from '<mod>'`.
+ *      `[^}]` does not exclude `{`, so every one of the N `import{` offsets in
+ *      the subject restarts a scan that runs to the END of the string before
+ *      failing → O(n²). Fixed by narrowing the specifier-list class to
+ *      `[^{}]`, which bounds each scan to the next brace. An ES import
+ *      specifier list can never contain `{`, so no legitimate input changes
+ *      meaning — the class is strictly more correct as well as safer.
+ *      (Measured: 224 KB of `import{` took 2.45 s before, 0.7 ms after.)
+ *
+ *   B. Literal prefix + lazy any-char scan, e.g.
+ *      ``/(__style__\.replaceSync\(`)[^]*?(`\);)/``. Repeating the prefix
+ *      gives N start offsets, each running a fresh O(n) lazy scan → O(n²).
+ *      A regex cannot express "first prefix, then first terminator" without
+ *      that re-scan, so these are restructured into literal `indexOf` scans
+ *      (`_replaceDelimitedBody`, `_passivizeOutlet`, `_hasBaseRecipe`). The
+ *      rewrite is exactly equivalent: `String.replace` takes the LEFTMOST
+ *      match, and if no terminator follows the first prefix then none follows
+ *      any later prefix either — so "first prefix + first terminator after it"
+ *      is the same span the regex produced.
+ *
+ *   C. Greedy `.*` between two literals (`/import.*from\s*'@aihu\/signals'/`).
+ *      Same re-scan blowup, one start offset per `import` on the line. Fixed
+ *      by anchoring to a line start (`^` + `m`), which caps the offsets at one
+ *      per line and makes the total linear.
+ *
+ * Adjacent unbounded `\s*` runs (`\s*;?\s*$`) are a second, independent pump:
+ * the two runs can split a whitespace tail O(n) ways when `$` never holds.
+ * Rewritten as `(?:\s*;)?\s*$`, which matches exactly the same spans with an
+ * unambiguous decomposition. And `^\s*` under the `m` flag is a third: `\s`
+ * matches `\n`, so every line start can scan the whole remaining file →
+ * narrowed to `[^\S\r\n]*` (horizontal indentation), which is what "the import
+ * line" actually means.
+ *
+ * `packages/compiler/tests/regex-redos.test.ts` pins both halves: old-vs-new
+ * output equality on every real compiled shape, and a wall-clock budget on the
+ * adversarial inputs.
+ */
+
 // Minimal VitePlugin interface — avoids importing from 'vite' at compile time.
 // Structurally compatible with Vite's Plugin type.
 interface VitePlugin {
@@ -628,6 +681,28 @@ function _extractElementTag(code: string): string | null {
   return m ? (m[1] ?? null) : null
 }
 
+/**
+ * §9.4 — is this compiled module a base-extending recipe, i.e. does it call
+ * `defineComponent({ … base: … })` with an options object rather than a bare
+ * setup function? Such a component cannot take the static-island shim, which
+ * inlines `class extends HTMLElement` and has no way to honour a base class.
+ *
+ * Shape B of the ReDoS note at the top of this file. Equivalent to the single
+ * ``/defineComponent\(\s*\{[^]*?\bbase\s*:/`` this replaced: the head
+ * sub-pattern is unchanged, and `base:` appearing after some LATER
+ * `defineComponent({` implies it also appears after the first one — so testing
+ * only the first head is the same predicate, without the lazy re-scan that
+ * every repetition of the head literal used to restart.
+ * @internal
+ */
+function _hasBaseRecipe(code: string): boolean {
+  const head = /defineComponent\(\s*\{/.exec(code)
+  if (head === null) return false
+  const key = /\bbase\s*:/g
+  key.lastIndex = head.index + head[0].length
+  return key.test(code)
+}
+
 /** Strip trailing `/` characters via a plain scan, not a `\/+$/`-anchored
  * regex — that shape is vulnerable to catastrophic backtracking on a long
  * run of slashes with no match (CodeQL js/polynomial-redos): the greedy `+`
@@ -693,6 +768,9 @@ export function kebabComponentTag(raw: string): string {
   return out
 }
 
+const OUTLET_HEAD = 'const createOutletBoundary = () => {'
+const OUTLET_PASSIVE = `const createOutletBoundary = () => branch('div', { 'data-aihu-outlet': '' }, []);`
+
 /**
  * Collapse the reactive `<outlet>` boundary the Rust codegen emits into a
  * passive `data-aihu-outlet` marker. Layout SFCs are rendered by `@aihu/app`'s
@@ -703,13 +781,25 @@ export function kebabComponentTag(raw: string): string {
  * Anchors on the exact `const createOutletBoundary = () => { … return host; };`
  * block the codegen emits (`packages/compiler/src/codegen/emit.rs`). No-op when
  * the layout declares no `<outlet>`.
+ *
+ * Shape B of the ReDoS note at the top of this file: the head is located with
+ * `indexOf` and the tail scanned once from there, instead of one regex whose
+ * lazy `[\s\S]*?` re-scanned the whole module at every repetition of the head
+ * literal.
  * @internal
  */
 export function _passivizeOutlet(code: string): string {
-  return code.replace(
-    /const createOutletBoundary = \(\) => \{[\s\S]*?return host;\s*\n\};/,
-    `const createOutletBoundary = () => branch('div', { 'data-aihu-outlet': '' }, []);`,
-  )
+  const head = code.indexOf(OUTLET_HEAD)
+  if (head === -1) return code
+  // `[^\S\n]*\n` (horizontal whitespace, then the line break) rather than
+  // `\s*\n`: the codegen emits `  return host;\n};` and `\s` matching `\n`
+  // made the run ambiguous. Sticky-free `g` + an explicit `lastIndex` starts
+  // the single tail scan immediately after the head.
+  const tailRe = /return host;[^\S\n]*\n\};/g
+  tailRe.lastIndex = head + OUTLET_HEAD.length
+  const tail = tailRe.exec(code)
+  if (tail === null) return code
+  return code.slice(0, head) + OUTLET_PASSIVE + code.slice(tail.index + tail[0].length)
 }
 
 /**
@@ -742,7 +832,7 @@ export function _passivizeOutlet(code: string): string {
 function _buildHmrCode(compiledCode: string, elementTag: string): string {
   // Step 1 — add _hmrReplace to the @aihu/runtime import.
   const withImport = compiledCode.replace(
-    /import\s*\{([^}]*)\}\s*from\s*'@aihu\/runtime'/,
+    /import\s*\{([^{}]*)\}\s*from\s*'@aihu\/runtime'/,
     (_m, imports: string) => {
       const parts = imports
         .split(',')
@@ -805,7 +895,7 @@ if (typeof __DEV__ !== 'undefined' && __DEV__ && import.meta.hot) {
 export function _buildDeferredHydration(compiledCode: string, elementTag: string): string {
   // Add _hydrateOnVisible to the @aihu/runtime import.
   const withImport = compiledCode.replace(
-    /import\s*\{([^}]*)\}\s*from\s*'@aihu\/runtime'/,
+    /import\s*\{([^{}]*)\}\s*from\s*'@aihu\/runtime'/,
     (_m, imports: string) => {
       const parts = imports
         .split(',')
@@ -918,14 +1008,14 @@ export function _buildStaticIsland(compiledCode: string, elementTag: string): st
   // Strip the `@aihu/runtime` import line entirely — static islands
   // don't reference defineComponent/defineElement after the rewrite.
   const withoutRuntimeImport = compiledCode.replace(
-    /^\s*import\s*\{[^}]*\}\s*from\s*'@aihu\/runtime'\s*;?\s*$/m,
+    /^[^\S\r\n]*import\s*\{[^{}]*\}\s*from\s*'@aihu\/runtime'(?:\s*;)?\s*$/m,
     '',
   )
 
   // Ensure `mount` is imported from @aihu/arbor (it already exposes
   // branch/leaf/slot, so we just append `mount` to the existing list).
   const withArborMount = withoutRuntimeImport.replace(
-    /import\s*\{([^}]*)\}\s*from\s*'@aihu\/arbor'/,
+    /import\s*\{([^{}]*)\}\s*from\s*'@aihu\/arbor'/,
     (_m, imports: string) => {
       const parts = imports
         .split(',')
@@ -1158,6 +1248,31 @@ function _escapeForTemplateLiteral(css: string): string {
  * @internal
  */
 /**
+ * Swap the text between the first `open` delimiter and the first `close`
+ * delimiter that follows it, keeping both delimiters. Returns `null` when the
+ * shape is absent so callers can fall through to their "no anchor" branch.
+ *
+ * Shape B of the ReDoS note at the top of this file. This is exactly what
+ * ``/(<open>)[^]*?(<close>)/`` matched — `String.replace` takes the leftmost
+ * match, and a `close` missing after the first `open` is missing after every
+ * later one too — but as two `indexOf` scans it is linear instead of O(n²) in
+ * the number of `open` repetitions an authored `@style` block can plant.
+ */
+function _replaceDelimitedBody(
+  code: string,
+  open: string,
+  close: string,
+  body: string,
+): string | null {
+  const start = code.indexOf(open)
+  if (start === -1) return null
+  const bodyStart = start + open.length
+  const end = code.indexOf(close, bodyStart)
+  if (end === -1) return null
+  return code.slice(0, bodyStart) + body + code.slice(end)
+}
+
+/**
  * Fold css-engine utility CSS into the SERVER target's `__aihu_css__` export.
  *
  * The shadow-DOM sibling of `_foldCssEngineStyles`. That one rewrites the
@@ -1188,13 +1303,13 @@ export function _foldSsrCssExport(compiledCode: string, css: string): string {
   const escaped = _escapeForTemplateLiteral(css)
 
   // Shape 1 — an authored @style block already produced the export.
-  // biome-ignore lint/correctness/noEmptyCharacterClassInRegex: [^] matches any char incl. newlines
-  const bodyRe = /(export const __aihu_css__ = `)[^]*?(`)/
-  if (bodyRe.test(compiledCode)) {
-    return compiledCode.replace(bodyRe, (_m, open: string, close: string) => {
-      return `${open}${escaped}${close}`
-    })
-  }
+  const replaced = _replaceDelimitedBody(
+    compiledCode,
+    'export const __aihu_css__ = `',
+    '`',
+    escaped,
+  )
+  if (replaced !== null) return replaced
 
   // Shape 2 — no authored @style, so the Rust codegen emitted no export at all.
   // The utility CSS still has to reach the shadow root, so declare it. Appended
@@ -1211,16 +1326,11 @@ export function _foldCssEngineStyles(compiledCode: string, css: string): string 
   // output already includes that @style block, so REPLACE the replaceSync body
   // (between the backticks) wholesale to avoid duplicating the @style rules.
   // The codegen emits `__style__.replaceSync(`<body>`);` as a single statement;
-  // match the body non-greedily up to the closing backtick + paren.
-  // biome-ignore lint/correctness/noEmptyCharacterClassInRegex: [^] matches any char incl. newlines
-  const styleBodyRe = /(__style__\.replaceSync\(`)[^]*?(`\);)/
-  if (styleBodyRe.test(compiledCode)) {
-    // Use a function replacer so any `$` in the CSS isn't read as a
-    // replacement-pattern backreference.
-    return compiledCode.replace(styleBodyRe, (_m, open: string, close: string) => {
-      return `${open}${escaped}${close}`
-    })
-  }
+  // swap the body between the first open delimiter and the `);` that closes it.
+  // `_replaceDelimitedBody` splices rather than calling `String.replace`, so a
+  // `$` in the CSS can never be read as a replacement-pattern backreference.
+  const replaced = _replaceDelimitedBody(compiledCode, '__style__.replaceSync(`', '`);', escaped)
+  if (replaced !== null) return replaced
 
   // Shape 2 — no @style block. Inject a fresh stylesheet + adoption.
   // Bail (no-op) if the expected defineComponent setup shape is absent.
@@ -1623,7 +1733,7 @@ export function _injectAutoWiring(code: string): string {
   let result: string
   if (code.includes("from '@aihu/arbor'")) {
     result = code.replace(
-      /import\s*\{([^}]*)\}\s*from\s*'@aihu\/arbor'/,
+      /import\s*\{([^{}]*)\}\s*from\s*'@aihu\/arbor'/,
       (_m: string, imports: string) => {
         const parts = imports
           .split(',')
@@ -1641,10 +1751,10 @@ export function _injectAutoWiring(code: string): string {
   // Note: `import\s+\{` does NOT match `import type {` (the regex needs `{` immediately
   // after whitespace, whereas `import type {` has `type` in between).  No negation guard
   // is needed — the replace callback below already skips `import type` lines.
-  if (/import\s+\{[^}]*\}\s+from\s+'@aihu\/signals'/.test(result)) {
+  if (/import\s+\{[^{}]*\}\s+from\s+'@aihu\/signals'/.test(result)) {
     // There IS a value import from signals — add `signal` if missing.
     result = result.replace(
-      /import\s*\{([^}]*)\}\s*from\s*'@aihu\/signals'/,
+      /import\s*\{([^{}]*)\}\s*from\s*'@aihu\/signals'/,
       (_m: string, imports: string) => {
         // Skip type-only imports
         if (_m.startsWith('import type')) return _m
@@ -1656,27 +1766,27 @@ export function _injectAutoWiring(code: string): string {
         return `import { ${parts.join(', ')} } from '@aihu/signals'`
       },
     )
-  } else if (!/import.*from\s*'@aihu\/signals'/.test(result)) {
+  } else if (!/^[^\S\n]*import\b[^\n]*from[^\S\n]*'@aihu\/signals'/m.test(result)) {
     // No signals import at all — insert after arbor import
     result = result.replace(
-      /import\s*\{[^}]*\}\s*from\s*'@aihu\/arbor'/,
+      /import\s*\{[^{}]*\}\s*from\s*'@aihu\/arbor'/,
       (m: string) => `${m}\nimport { signal } from '@aihu/signals'`,
     )
   }
   // If only `import type { Signal }` exists, insert value import after it
   else if (
-    /import\s+type\s+\{[^}]*\}\s+from\s+'@aihu\/signals'/.test(result) &&
-    !result.match(/import\s+\{[^}]*\}\s+from\s+'@aihu\/signals'/)
+    /import\s+type\s+\{[^{}]*\}\s+from\s+'@aihu\/signals'/.test(result) &&
+    !result.match(/import\s+\{[^{}]*\}\s+from\s+'@aihu\/signals'/)
   ) {
     result = result.replace(
-      /(import\s+type\s+\{[^}]*\}\s+from\s+'@aihu\/signals')/,
+      /(import\s+type\s+\{[^{}]*\}\s+from\s+'@aihu\/signals')/,
       (_m: string, typeImport: string) => `${typeImport}\nimport { signal } from '@aihu/signals'`,
     )
   }
 
   // 3. Add `_setMount`, `_setSignal` to the @aihu/runtime import.
   result = result.replace(
-    /import\s*\{([^}]*)\}\s*from\s*'@aihu\/runtime'/,
+    /import\s*\{([^{}]*)\}\s*from\s*'@aihu\/runtime'/,
     (_m: string, imports: string) => {
       const parts = imports
         .split(',')
@@ -2037,8 +2147,7 @@ export function aihuCompilerPlugin(options?: AihuCompilerPluginOptions): VitePlu
         // MUST take the full defineComponent/defineElement path: the static
         // island shim inlines `class extends HTMLElement` and cannot honor a
         // base class. Force-classify it interactive regardless of signal usage.
-        // biome-ignore lint/correctness/noEmptyCharacterClassInRegex: [^] is valid JS — matches any char including newlines
-        const hasBase = /defineComponent\(\s*\{[^]*?\bbase\s*:/.test(compiled)
+        const hasBase = _hasBaseRecipe(compiled)
 
         // Plan 3.3 — static-island fast path. Bypasses HMR injection because
         // a component with no signals has no setup state to hot-replace.
