@@ -1046,11 +1046,24 @@ pub(crate) fn emit_function_form(
     let uses_options_form = uses_props || has_agent_inputs || extends_base.is_some();
     let uses_ctx = uses_options_form;
 
-    // GX P3 — the standalone-SSR shape applies only to the plain function form
-    // (no $prop/attrs config, no form-associated suffix). $form components
-    // keep today's server emission until the stubbed server SetupContext grows
-    // form-internals support.
-    let ssr_standalone = ssr_entry && !uses_options_form && !has_form;
+    // GX P3 — the standalone-SSR shape applies to the plain function form (no
+    // $prop/attrs config). `$form` joins it now: `$aria`/`$form`'s
+    // `ElementInternals` wiring (`state_emit.rs`'s `INTERNALS_GUARD` and every
+    // per-entry statement) is null-guarded on `ctx.element`, so a host-less
+    // `SetupContext` (`element: null`) makes that wiring a no-op instead of
+    // throwing — correct, since a server render never mounts, so there is
+    // nothing for `ElementInternals` to attach to or report validity on. The
+    // component still needs `{ formAssociated: true }` on `defineElement`
+    // for the CLIENT half of this same guarded call, so `define_opts` is
+    // threaded through this branch below (it previously was not — dead code
+    // for every component that could actually reach this branch, since
+    // `$form` was the only source of a non-empty `define_opts` and `$form`
+    // could never get here before).
+    //
+    // Deliberately NOT extended to `$form` combined with `$prop`/agent
+    // inputs/`$extends` (`ssr_options`, below) — that stays excluded exactly
+    // as it already was; this only lifts the PLAIN-form case.
+    let ssr_standalone = ssr_entry && !uses_options_form;
 
     // GX P4 (#466, P3 item 2) — the options-form standalone-SSR shape: a
     // non-agent `$prop` component (the loader-route case — `$prop route` is
@@ -1058,7 +1071,12 @@ pub(crate) fn emit_function_form(
     // registration + `__ssr` entry, with the DECLARED props threaded through
     // a host-less SetupContext (`__ssr(props)` wraps each value as an inert
     // PropSignal-shaped getter). Exclusions, deliberately narrow:
-    //   - `$form` — form-internals have no server stub;
+    //   - `$form` COMBINED with `$prop`/agent-inputs/`$extends` — the plain
+    //     `$form`-only case joined `ssr_standalone` above (its internals
+    //     wiring is now null-safe); this narrower combination stays excluded
+    //     because this branch's `defineElement` call does not yet thread
+    //     `define_opts`, and doing so was out of scope for lifting the plain
+    //     case. Lift it here too if that combination turns out to matter.
     //   - `$extends` — evaluating a custom base class touches HTMLElement at
     //     module scope in the BASE module, which this gate cannot reach;
     //   - agent inputs — agent components are excluded from `ssr_entry`
@@ -1518,17 +1536,6 @@ pub(crate) fn emit_function_form(
                 define_opts = define_opts,
             )
         }
-    } else if has_form {
-        format!(
-            "{merged_imports}\n\n{module_decl}{helpers_decl}defineElement('{tag_name}', defineComponent(({ctx_param}) => {{\n{body}}}){define_opts})\n",
-            merged_imports = merged_imports,
-            module_decl = module_decl,
-            helpers_decl = helpers_decl,
-            tag_name = tag_name,
-            ctx_param = ctx_param,
-            body = body,
-            define_opts = define_opts,
-        )
     } else if ssr_standalone {
         // GX P3 — standalone-SSR server artifact. Three structural changes vs.
         // the client shape (which stays byte-identical — this branch is
@@ -1551,23 +1558,39 @@ pub(crate) fn emit_function_form(
         //     element and empty attr/prop maps — sufficient for the plain
         //     function form, which never reads them (props/attrs force the
         //     options-form, excluded from this branch).
+        //
+        //  `{define_opts}` on the guarded `defineElement` call — this branch
+        //  now also covers plain `$form` components (see `ssr_standalone`'s
+        //  derivation above), which need `{ formAssociated: true }` for their
+        //  CLIENT-side registration exactly as they always did. The SSR-side
+        //  factory (`__ssr`, below) never constructs the element at all, so
+        //  `define_opts` has no effect there — it only reaches the guarded
+        //  branch a real browser/DOM-shimmed host actually executes.
         let string_export = ssr_string_suffix(
             "{ host: null, element: null, attrs: {}, props: {} }",
             "_props: Record<string, unknown> = {}",
         );
         format!(
-            "{merged_imports}\n{module_decl}\n{helpers_decl}const __aihu_setup__ = ({ctx_param}) => {{\n{body}}}\n\n// DOM registration — side-effect only where custom elements exist (browser\n// or a DOM-shimmed host); a plain Node/Bun SSR import skips it.\nif (typeof HTMLElement !== 'undefined' && typeof customElements !== 'undefined') {{\n  defineElement('{tag_name}', defineComponent(__aihu_setup__))\n}}\n\n/** SSR entry (GX P3) — standalone arbor-tree factory. Host-less server\n * SetupContext: no element, no shadow root; lifecycle registration is not\n * reachable from here (server render never mounts). */\nexport const __ssr = () => __aihu_setup__({{ host: null, element: null, attrs: {{}}, props: {{}} }})\nexport default __ssr\n{string_export}",
+            "{merged_imports}\n{module_decl}\n{helpers_decl}const __aihu_setup__ = ({ctx_param}) => {{\n{body}}}\n\n// DOM registration — side-effect only where custom elements exist (browser\n// or a DOM-shimmed host); a plain Node/Bun SSR import skips it.\nif (typeof HTMLElement !== 'undefined' && typeof customElements !== 'undefined') {{\n  defineElement('{tag_name}', defineComponent(__aihu_setup__){define_opts})\n}}\n\n/** SSR entry (GX P3) — standalone arbor-tree factory. Host-less server\n * SetupContext: no element, no shadow root; lifecycle registration is not\n * reachable from here (server render never mounts). */\nexport const __ssr = () => __aihu_setup__({{ host: null, element: null, attrs: {{}}, props: {{}} }})\nexport default __ssr\n{string_export}",
             merged_imports = merged_imports,
             helpers_decl = helpers_decl,
             ctx_param = ctx_param,
             body = body,
             tag_name = tag_name,
+            define_opts = define_opts,
             string_export = string_export,
         )
     } else {
+        // Plain client shape (no props, no SSR entry — a client-target build,
+        // or a server-target build the `ssr_entry`/`ssr_standalone`/
+        // `ssr_options` gates above all declined). `{define_opts}` threaded
+        // here too: before `$form` joined `ssr_standalone`, this was the ONLY
+        // branch a `$form`-only component's CLIENT build could ever reach, so
+        // its absence here would have been a real regression the moment the
+        // dedicated `has_form` branch above was removed.
         format!(
-            "{}\n\n{}{}{}defineElement('{}', defineComponent(({}) => {{\n{}}}))\n",
-            merged_imports, module_decl, helpers_decl, "", tag_name, ctx_param, body
+            "{}\n\n{}{}{}defineElement('{}', defineComponent(({}) => {{\n{}}}){})\n",
+            merged_imports, module_decl, helpers_decl, "", tag_name, ctx_param, body, define_opts
         )
     };
     (component_code, island)

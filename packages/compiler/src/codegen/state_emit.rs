@@ -1517,7 +1517,17 @@ const NATIVE_INTERACTIVE_TAGS: &[&str] = &["button", "a", "input", "select", "te
 /// executed. Whichever collection emits first emits this line; `emit()` strips
 /// the duplicate when both are declared, so keep it a SINGLE line and keep this
 /// constant the single source of truth for that match.
-pub(crate) const INTERNALS_GUARD: &str = "const __aihu_el = ctx.element; if (!__aihu_el._internals) __aihu_el._internals = __aihu_el.attachInternals();";
+///
+/// `__aihu_el &&`, guarding `attachInternals()` itself: the host-less SSR
+/// `SetupContext` (GX P4) passes `element: null` by design — a server render
+/// never mounts, so there is nothing to attach `ElementInternals` to. Every
+/// LINE that touches `__aihu_el._internals` (not just this attach step) needs
+/// the same guard; see `emit_aria_wiring`/`emit_form_wiring` below, which wrap
+/// each per-entry statement individually so a component that ALSO qualifies
+/// for the standalone SSR entry (`$action`/`$prop`/plain `@agent` — anything
+/// reaching `ssr_standalone`/`ssr_options`) does not crash the instant its
+/// setup body runs, rather than merely failing to construct.
+pub(crate) const INTERNALS_GUARD: &str = "const __aihu_el = ctx.element; if (__aihu_el && !__aihu_el._internals) __aihu_el._internals = __aihu_el.attachInternals();";
 
 /// Emit the $aria wiring code for the SFC setup body.
 /// Returns (setup_code, needs_mount_effect, tabindex_to_inject_on_root).
@@ -1628,14 +1638,14 @@ pub(crate) fn emit_aria_wiring(
             if is_thunk(value.trim()) {
                 needs_effect = true;
                 lines.push(format!(
-                    "{indent}effect(() => {{ __aihu_el._internals.ariaDescribedByElements = [__aihu_el.getRootNode().getElementById(({value})())]; }});",
+                    "{indent}effect(() => {{ if (!__aihu_el) return; __aihu_el._internals.ariaDescribedByElements = [__aihu_el.getRootNode().getElementById(({value})())]; }});",
                     indent = indent, value = value.trim()
                 ));
             } else {
                 // Static id string.
                 let id_str = value.trim().trim_matches(|c| c == '\'' || c == '"');
                 lines.push(format!(
-                    "{indent}__aihu_el._internals.ariaDescribedByElements = [__aihu_el.getRootNode().getElementById('{id_str}')];",
+                    "{indent}if (__aihu_el) __aihu_el._internals.ariaDescribedByElements = [__aihu_el.getRootNode().getElementById('{id_str}')];",
                     indent = indent, id_str = id_str
                 ));
             }
@@ -1674,12 +1684,12 @@ pub(crate) fn emit_aria_wiring(
             needs_effect = true;
             if is_bool_cast || is_number_cast {
                 lines.push(format!(
-                    "{indent}effect(() => {{ __aihu_el._internals.{prop} = String(({value})()); }});",
+                    "{indent}effect(() => {{ if (!__aihu_el) return; __aihu_el._internals.{prop} = String(({value})()); }});",
                     indent = indent, prop = idl_prop_name, value = value_trimmed
                 ));
             } else {
                 lines.push(format!(
-                    "{indent}effect(() => {{ __aihu_el._internals.{prop} = ({value})(); }});",
+                    "{indent}effect(() => {{ if (!__aihu_el) return; __aihu_el._internals.{prop} = ({value})(); }});",
                     indent = indent, prop = idl_prop_name, value = value_trimmed
                 ));
             }
@@ -1687,16 +1697,18 @@ pub(crate) fn emit_aria_wiring(
             // Static value — write once at connect.
             let static_val = value_trimmed.to_string();
             lines.push(format!(
-                "{indent}__aihu_el._internals.{prop} = {val};",
+                "{indent}if (__aihu_el) __aihu_el._internals.{prop} = {val};",
                 indent = indent, prop = idl_prop_name, val = static_val
             ));
         }
     }
 
     // Auto-keyboard-promotion (only when role is a keyboard role and root is not native interactive).
+    // Host-less SSR: `__aihu_el` is null there too — nothing to attach a
+    // listener to, and the component never receives real keydown events.
     if should_promote_keyboard {
         lines.push(format!(
-            "{indent}__aihu_el.addEventListener('keydown', (e) => {{ if (e.key === 'Enter' || e.key === ' ') {{ e.preventDefault(); __aihu_el.click(); }} }});",
+            "{indent}if (__aihu_el) __aihu_el.addEventListener('keydown', (e) => {{ if (e.key === 'Enter' || e.key === ' ') {{ e.preventDefault(); __aihu_el.click(); }} }});",
             indent = indent
         ));
     }
@@ -1790,7 +1802,7 @@ pub(crate) fn emit_form_wiring(
         match entry.name.as_str() {
             "value" => {
                 lines.push(format!(
-                    "{indent}effect(() => {{ __aihu_el._internals.setFormValue({read}); }});",
+                    "{indent}effect(() => {{ if (!__aihu_el) return; __aihu_el._internals.setFormValue({read}); }});",
                     indent = indent, read = read
                 ));
             }
@@ -1801,7 +1813,7 @@ pub(crate) fn emit_form_wiring(
                 // valid — the first failing flag took the component down.
                 // Derive a fallback message from the failing flag names.
                 lines.push(format!(
-                    "{indent}effect(() => {{ const _fv = {read}; const _fk = _fv ? Object.keys(_fv) : []; const _bad = _fk.filter((k) => _fv[k]); __aihu_el._internals.setValidity(_fk.length ? _fv : {{}}, _bad.length ? `Invalid: ${{_bad.join(', ')}}` : ''); }});",
+                    "{indent}effect(() => {{ if (!__aihu_el) return; const _fv = {read}; const _fk = _fv ? Object.keys(_fv) : []; const _bad = _fk.filter((k) => _fv[k]); __aihu_el._internals.setValidity(_fk.length ? _fv : {{}}, _bad.length ? `Invalid: ${{_bad.join(', ')}}` : ''); }});",
                     indent = indent, read = read
                 ));
             }

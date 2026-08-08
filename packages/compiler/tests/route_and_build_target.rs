@@ -1015,3 +1015,156 @@ fn fel440_followup_agent_with_inputs_stays_excluded() {
         result.js
     );
 }
+
+// ─── FEL-440 follow-up, part 2 — $aria/$form's ElementInternals wiring is
+// null-guarded, and $form-only components join the SSR entry ────────────────
+//
+// An independent review of the follow-up above surfaced a SEPARATE, deeper
+// bug in the same family: `$aria`/`$form`'s ElementInternals wiring
+// (`state_emit.rs`'s `INTERNALS_GUARD` plus every per-entry statement) read
+// `ctx.element._internals` UNCONDITIONALLY. The host-less SSR SetupContext
+// passes `element: null`, so any component reaching the SSR entry with an
+// `$aria` block — which was ALREADY possible before this fix, since `$aria`
+// alone never gated `emit_ssr_entry` — crashed the instant its setup body
+// ran, not merely at import. This was a LIVE bug, independent of the
+// agent-component gate above.
+//
+// `$form` had the opposite problem: it was excluded from the SSR entry
+// ENTIRELY, via a dedicated code branch with no SSR logic at all — so a
+// `$form`-only component (no props/agent-inputs/`$extends`) never got
+// `export const __ssr` regardless of `emit_ssr_entry`'s value.
+//
+// End-to-end verified (not just string-content asserted here): a real
+// scaffolded `output: 'ssr'` app with a component combining `$form` + `$aria`
+// as a CHILD reference, driven through a real built Cloudflare Worker —
+// before this fix, `TypeError: Cannot read properties of null (reading
+// '_internals')` at the exact `_internals` dereference, caught by
+// `__aihu_schild`'s fail-closed handling and rendered silently empty (not
+// even a visible error — the page still returned 200 with the component just
+// missing); after, the component's content renders correctly. These Rust
+// tests pin the STRUCTURAL shape (SSR entry present, no unguarded `_internals`
+// access) that makes that true; they do not themselves execute the emitted JS.
+
+/// A component using ONLY `$aria` (no `$form`, no props) already reached the
+/// SSR entry before this fix — `$aria` alone never touched `emit_ssr_entry`.
+/// Every line touching `ctx.element._internals` must be null-guarded, or this
+/// is a live crash on every existing `$aria`-only SSR component, not a
+/// regression this fix introduces.
+#[test]
+fn fel440_followup2_aria_only_ssr_entry_has_no_unguarded_internals() {
+    let src = r#"
+@state {
+$aria: {
+  role: 'button',
+  pressed: false,
+}
+}
+
+@template {
+  <div>Click me</div>
+}
+"#;
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full_with_target(&parsed, BuildTarget::Server).unwrap();
+    let result = emit(&unit, "x-aria-button");
+
+    assert!(
+        result.js.contains("export const __ssr"),
+        "an $aria-only component must get the standalone SSR entry:\n{}",
+        result.js
+    );
+    for line in result.js.lines().filter(|l| l.contains("._internals")) {
+        assert!(
+            line.contains("if (__aihu_el")
+                || line.contains("if (!__aihu_el)")
+                || line.trim_start().starts_with("const __aihu_el"),
+            "every line touching `_internals` must be null-guarded on \
+             `__aihu_el` (host-less SSR passes `element: null`) — found an \
+             unguarded one:\n  {}\nfull output:\n{}",
+            line,
+            result.js
+        );
+    }
+}
+
+/// A component using ONLY `$form` (no props/agent-inputs/`$extends`) now gets
+/// the SSR entry, with `{ formAssociated: true }` preserved on the
+/// CLIENT-side guarded `defineElement` call.
+#[test]
+fn fel440_followup2_form_only_gets_ssr_entry_with_form_associated() {
+    let src = r#"
+@state {
+import { signal } from '@aihu/signals'
+const [val, setVal] = signal('')
+
+$form: {
+  value: () => val,
+}
+}
+
+@template {
+  <input value={val()} />
+}
+"#;
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full_with_target(&parsed, BuildTarget::Server).unwrap();
+    let result = emit(&unit, "x-form-field");
+
+    assert!(
+        result.js.contains("export const __ssr"),
+        "a $form-only component must get the standalone SSR entry:\n{}",
+        result.js
+    );
+    assert!(
+        result.js.contains("formAssociated"),
+        "the CLIENT-side guarded defineElement call must still carry \
+         `{{ formAssociated: true }}` — this is a real browser behavior, \
+         unrelated to the SSR entry, and must not be lost when $form joins \
+         the SSR-entry branch:\n{}",
+        result.js
+    );
+    for line in result.js.lines().filter(|l| l.contains("._internals")) {
+        assert!(
+            line.contains("if (__aihu_el")
+                || line.contains("if (!__aihu_el)")
+                || line.trim_start().starts_with("const __aihu_el"),
+            "every line touching `_internals` must be null-guarded:\n  {}\nfull output:\n{}",
+            line,
+            result.js
+        );
+    }
+}
+
+/// `$form` combined with `$prop`/agent-inputs/`$extends` (the `ssr_options`
+/// branch) is DELIBERATELY still excluded — `define_opts` is not yet threaded
+/// through that branch. This pins the boundary so it is a decision, not a gap
+/// discovered later.
+#[test]
+fn fel440_followup2_form_with_props_stays_excluded() {
+    let src = r#"
+@state {
+$prop: {
+  label: { type: 'string', default: '' },
+}
+
+$form: {
+  value: () => label,
+}
+}
+
+@template {
+  <input />
+}
+"#;
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full_with_target(&parsed, BuildTarget::Server).unwrap();
+    let result = emit(&unit, "x-form-with-prop");
+
+    assert!(
+        !result.js.contains("export const __ssr"),
+        "$form combined with $prop is a deliberately narrower exclusion than \
+         plain $form — this must stay excluded until `define_opts` is \
+         threaded through the options-form SSR branch too:\n{}",
+        result.js
+    );
+}
