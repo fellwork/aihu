@@ -20,6 +20,7 @@ import {
   type FormControlContextValue,
   formControlContext,
 } from '../form-control/index.ts'
+import { HTMLElementBase } from '../html-element-base.ts'
 
 export interface SwitchContextValue {
   readonly checked: Read<boolean>
@@ -28,7 +29,7 @@ export interface SwitchContextValue {
 
 export const switchContext = createDomContext<SwitchContextValue>('switch')
 
-export class AihuSwitchRoot extends HTMLElement {
+export class AihuSwitchRoot extends HTMLElementBase {
   static readonly observedAttributes = [
     'checked',
     'default-checked',
@@ -190,7 +191,7 @@ export class AihuSwitchRoot extends HTMLElement {
 }
 
 /** Presentational styling hook: mirrors the root's state, hidden from AT. */
-export class AihuSwitchThumb extends HTMLElement {
+export class AihuSwitchThumb extends HTMLElementBase {
   private _disposers: Array<() => void> = []
 
   connectedCallback(): void {

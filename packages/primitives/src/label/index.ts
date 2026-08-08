@@ -35,11 +35,12 @@ import {
   type FormControlContextValue,
   formControlContext,
 } from '../form-control/index.ts'
+import { HTMLElementBase } from '../html-element-base.ts'
 import { createIdSequence } from '../id.ts'
 
 const nextId = createIdSequence('aihu-label')
 
-export class AihuLabel extends HTMLElement {
+export class AihuLabel extends HTMLElementBase {
   static readonly observedAttributes = ['for']
 
   private readonly _for = signal<string | null>(null)

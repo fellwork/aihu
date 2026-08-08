@@ -19,6 +19,7 @@
 import { effect, type Read, signal } from '@aihu/signals'
 import { composedQuerySelector, composedQuerySelectorAll } from '../composed-tree.ts'
 import { createDomContext, provideContext } from '../dom-context.ts'
+import { HTMLElementBase } from '../html-element-base.ts'
 import { createIdSequence } from '../id.ts'
 
 export { attachHiddenInput, type HiddenInputOptions } from './hidden-input.ts'
@@ -36,7 +37,7 @@ export const formControlContext = createDomContext<FormControlContextValue>('for
 
 const nextId = createIdSequence('aihu-fc')
 
-export class AihuFormControl extends HTMLElement {
+export class AihuFormControl extends HTMLElementBase {
   static readonly observedAttributes = ['disabled', 'required', 'invalid', 'name', 'control-id']
 
   private readonly _disabled = signal(false)

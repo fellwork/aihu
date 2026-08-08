@@ -16,6 +16,7 @@
 
 import { effect, type Read, signal } from '@aihu/signals'
 import { createDomContext, provideContext } from '../dom-context.ts'
+import { HTMLElementBase } from '../html-element-base.ts'
 
 export type ColorScheme = 'light' | 'dark' | 'system'
 export type Density = 'comfortable' | 'compact'
@@ -29,7 +30,7 @@ export interface ConfigContextValue {
 
 export const configContext = createDomContext<ConfigContextValue>('config')
 
-export class AihuConfigProvider extends HTMLElement {
+export class AihuConfigProvider extends HTMLElementBase {
   static readonly observedAttributes = ['color-scheme', 'density', 'dir']
 
   private readonly _colorScheme = signal<ColorScheme>('system')

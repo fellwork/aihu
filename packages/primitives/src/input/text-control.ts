@@ -33,6 +33,7 @@
 import { effect, type Read, signal } from '@aihu/signals'
 import { injectValue } from '../dom-context.ts'
 import { type FormControlContextValue, formControlContext } from '../form-control/index.ts'
+import { HTMLElementBase } from '../html-element-base.ts'
 
 /** Labelling ARIA forwarded host → native control (and stripped from host). */
 const ARIA_LABELLING = ['aria-label', 'aria-labelledby', 'aria-describedby'] as const
@@ -45,7 +46,7 @@ export const TEXT_CONTROL_OBSERVED: readonly string[] = [
   'required',
 ]
 
-export abstract class AihuTextControlBase extends HTMLElement {
+export abstract class AihuTextControlBase extends HTMLElementBase {
   /** Host attributes forwarded to the native child — supplied per subclass. */
   protected static readonly FORWARDED: readonly string[] = []
 

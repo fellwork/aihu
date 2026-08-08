@@ -11,6 +11,7 @@
 
 import { effect, type Read, signal } from '@aihu/signals'
 import { createDomContext, injectValue, provideContext } from '../dom-context.ts'
+import { HTMLElementBase } from '../html-element-base.ts'
 import { createCounter } from '../id.ts'
 import { createFocusTrap, type FocusTrap } from './focus-trap.ts'
 
@@ -32,7 +33,7 @@ export const dialogContext = createDomContext<DialogContextValue>('dialog')
 const _nextSeq = createCounter()
 const uid = (p: string): string => `aihu-${p}-${_nextSeq()}`
 
-export class AihuDialogRoot extends HTMLElement {
+export class AihuDialogRoot extends HTMLElementBase {
   static readonly observedAttributes = ['open', 'modal']
 
   private readonly _open = signal(false)
@@ -93,7 +94,7 @@ export class AihuDialogRoot extends HTMLElement {
 }
 
 /** Base for pieces that inject the dialog context lazily on connect. */
-abstract class DialogPiece extends HTMLElement {
+abstract class DialogPiece extends HTMLElementBase {
   protected ctx!: DialogContextValue
   protected disposers: Array<() => void> = []
 

@@ -69,6 +69,10 @@ export {
   formControlContext,
   type HiddenInputOptions,
 } from './form-control/index.ts'
+// SSR-safe base every primitive extends instead of the bare `HTMLElement`
+// global. Exported so userland base classes written for the compiler's
+// `$extends`/`base:` recipe can adopt the same guard.
+export { HTMLElementBase } from './html-element-base.ts'
 export { AihuInput, AihuTextControlBase, defineInput } from './input/index.ts'
 export { AihuLabel, defineLabel } from './label/index.ts'
 // Track B Slice 6 (performativeUI port) — non-modal disclosure overlay.

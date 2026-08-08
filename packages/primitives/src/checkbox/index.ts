@@ -22,6 +22,7 @@ import {
   type FormControlContextValue,
   formControlContext,
 } from '../form-control/index.ts'
+import { HTMLElementBase } from '../html-element-base.ts'
 
 export type CheckboxState = 'checked' | 'unchecked' | 'indeterminate'
 
@@ -40,7 +41,7 @@ function parseChecked(value: string | null): CheckboxState {
   return 'checked'
 }
 
-export class AihuCheckboxRoot extends HTMLElement {
+export class AihuCheckboxRoot extends HTMLElementBase {
   static readonly observedAttributes = [
     'checked',
     'default-checked',
@@ -211,7 +212,7 @@ export class AihuCheckboxRoot extends HTMLElement {
 }
 
 /** Presentational styling hook: mirrors the root's state, hidden from AT. */
-export class AihuCheckboxIndicator extends HTMLElement {
+export class AihuCheckboxIndicator extends HTMLElementBase {
   private _disposers: Array<() => void> = []
 
   connectedCallback(): void {
