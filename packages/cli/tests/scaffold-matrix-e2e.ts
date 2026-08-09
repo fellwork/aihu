@@ -1299,9 +1299,29 @@ async function runCell(
       // out loud and ignores them). So the transitive part of this flag is
       // bun/npm only, stated here rather than papered over: it is a diagnostic,
       // and the cell it exists for is bun.
-      ;(pkg as Record<string, unknown>).overrides = Object.fromEntries(
-        [...specs].map(([n, t]) => [n, t.spec]),
-      )
+      //
+      // PM-AWARE, and it has to be. The paragraph above is accurate for bun and
+      // npm and was written when the local-pkg set was a hand-picked list of
+      // buildable leaves; deriving the set (`--local-pkg all`) pulls in packages
+      // with intra-repo edges of their own — `@aihu/tsc`'s packed tarball
+      // depends on `@aihu/compiler@<workspace version>`, which is unpublished by
+      // construction on a release branch. bun and npm rewrite that edge from
+      // `overrides`; pnpm reads `pnpm.overrides` and yarn reads `resolutions`,
+      // so under the old single-field write those two fetched the pin from the
+      // registry and failed with NO_MATCHING_VERSION. Writing the field the
+      // running PM actually reads — and ONLY that field — keeps the measured
+      // bun behaviour the paragraph above documents (adding `resolutions`
+      // alongside `overrides` silently defeated the override on bun 1.3.8)
+      // while giving pnpm and yarn the same transitive reach.
+      const overrideMap = Object.fromEntries([...specs].map(([n, t]) => [n, t.spec]))
+      const p = pkg as Record<string, unknown>
+      if (pm === 'pnpm') {
+        p.pnpm = { ...((p.pnpm as Record<string, unknown>) ?? {}), overrides: overrideMap }
+      } else if (pm === 'yarn') {
+        p.resolutions = overrideMap
+      } else {
+        p.overrides = overrideMap
+      }
 
       // `@aihu/compiler` arrived with neither `@aihu/compiler-darwin-arm64` nor
       // `@aihu/compiler-native-darwin-arm64` beside it, and `aihu-tsc` died
