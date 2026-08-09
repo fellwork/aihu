@@ -1,0 +1,175 @@
+name: Auto-tag release
+
+# Closes the second of two human gates in the release.
+#
+# Before this workflow the flow was: merge the Version PR, then REMEMBER to
+# push a `v*` tag by hand. Those are two separate acts of attention, and the
+# second one is the one that actually ships. Version PR #771 sat merged with
+# nothing published because of exactly that gap; releases went from a 1-3 day
+# cadence to none.
+#
+# Merging the Version PR IS the decision to release. Everything after it is
+# mechanical, so it should not require a person. This workflow does the
+# mechanical part: on a `chore(release): version packages` commit reaching
+# main, compute the next tag in the train and push it. `release.yml` takes it
+# from there (`on: push: tags: v*`).
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# THE TRAP, and it is the whole reason this file uses a GitHub App token:
+#
+#   A tag pushed with `secrets.GITHUB_TOKEN` DOES NOT TRIGGER WORKFLOWS.
+#
+# GitHub suppresses events raised by GITHUB_TOKEN to prevent recursive runs. Get
+# this wrong and the failure is maximally confusing: this workflow goes green, a
+# correct tag appears on main, a GitHub Release never happens, and nothing
+# anywhere reports an error. You would be debugging release.yml, which never
+# ran.
+#
+# This repo already paid for that lesson once — see the 15-line comment at
+# release-pr.yml:28-42 (FEL-429), where PRs opened with GITHUB_TOKEN got zero
+# check-runs and the "fix" was to weaken branch protection repo-wide. Same
+# suppression, different event.
+#
+# An App installation token is a real actor, so its pushes DO trigger
+# workflows. It is also not tied to one person's account and does not expire,
+# unlike a PAT — a silently-expired PAT would reintroduce this bug invisibly.
+# ─────────────────────────────────────────────────────────────────────────────
+
+on:
+  push:
+    branches: [main]
+
+# Two release commits landing back-to-back must not compute the same "next"
+# tag concurrently. Not cancel-in-progress: a cancelled run here means a
+# release that silently never ships, which is the failure this workflow exists
+# to remove.
+concurrency:
+  group: release-tag
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  tag:
+    name: Tag release
+    # The Version PR is squash-merged (.kodiak.toml `method = "squash"`), so the
+    # commit reaching main is the PR title plus `(#NNN)` — e.g.
+    # `chore(release): version packages (#771)`. Hence startsWith, not equality.
+    #
+    # The whole scalar MUST stay double-quoted: the match string contains a
+    # `: ` (from `chore(release): version`), and an unquoted YAML value
+    # containing `: ` is a parse error, not a subtle bug — actionlint catches
+    # it, GitHub would reject the file outright.
+    if: "${{ startsWith(github.event.head_commit.message, 'chore(release): version packages') }}"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/create-github-app-token@v3
+        id: app-token
+        with:
+          app-id: ${{ secrets.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+
+      - uses: actions/checkout@v7
+        with:
+          # Full history + tags: the next tag is computed from the latest
+          # existing one, and a shallow clone has neither.
+          fetch-depth: 0
+          # Authenticates the git remote so the TAG PUSH is attributed to the
+          # App. This is the line that decides whether release.yml runs at all.
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Verify this really is a release commit
+        # The message match alone is a weak signal — any commit that happens to
+        # start with that text would otherwise cut a release. A real
+        # `changeset version` commit always rewrites package versions and
+        # CHANGELOGs, so require both.
+        #
+        # Fails loudly rather than skipping quietly. A silent skip here is
+        # indistinguishable from "no release was due", which is precisely the
+        # ambiguity this workflow was built to remove.
+        #
+        # `-m --first-parent` is load-bearing, not decoration. Plain
+        # `diff-tree` on a MERGE commit lists NOTHING — measured: 0 files on a
+        # real merge commit in this repo vs 61 with these flags. The Version PR
+        # is normally squash-merged (one parent, unaffected either way), but a
+        # hand merge-commit would otherwise fail this check and block a release
+        # that was perfectly fine.
+        run: |
+          changed=$(git diff-tree --no-commit-id --name-only -r -m --first-parent "${{ github.sha }}")
+          if ! grep -qE '^packages/.*/package\.json$' <<<"$changed"; then
+            echo "::error::Commit message says 'version packages' but no packages/*/package.json changed."
+            echo "Changed files were:"; echo "$changed"
+            exit 1
+          fi
+          if ! grep -qE 'CHANGELOG\.md$' <<<"$changed"; then
+            echo "::error::Commit message says 'version packages' but no CHANGELOG.md changed."
+            echo "Changed files were:"; echo "$changed"
+            exit 1
+          fi
+          echo "Confirmed: version bumps and CHANGELOG updates present."
+
+      - name: Compute next tag
+        id: next
+        # The `v*` tags are a RELEASE TRAIN counter, deliberately independent of
+        # any package's version (packages are at 1.3.0 / 10.0.0 / 0.6.1 while
+        # the train is at v0.4.63). So the next tag is simply the latest one
+        # with its patch incremented — do not try to derive it from a manifest.
+        run: |
+          latest=$(git describe --tags --abbrev=0 --match 'v*' 2>/dev/null || echo '')
+          if [ -z "$latest" ]; then
+            echo "::error::No existing v* tag to increment from. Push the first one by hand."
+            exit 1
+          fi
+          # Strict parse. An unexpected shape (v1.2, v0.4.63-rc1) must stop the
+          # release, not be guessed at — a wrong tag is published permanently.
+          if ! [[ "$latest" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            echo "::error::Latest tag '$latest' is not vMAJOR.MINOR.PATCH; refusing to guess the next one."
+            exit 1
+          fi
+          next="v${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.$(( BASH_REMATCH[3] + 1 ))"
+          echo "latest=$latest" >> "$GITHUB_OUTPUT"
+          echo "next=$next"     >> "$GITHUB_OUTPUT"
+          echo "Latest: $latest -> next: $next"
+
+      - name: Push tag
+        env:
+          NEXT: ${{ steps.next.outputs.next }}
+        # Idempotent: a re-run (or a race the concurrency group did not cover)
+        # must not fail the workflow or, worse, move an existing tag. Existing
+        # tag => this release already shipped => nothing to do.
+        run: |
+          if git rev-parse -q --verify "refs/tags/$NEXT" >/dev/null || \
+             git ls-remote --exit-code --tags origin "refs/tags/$NEXT" >/dev/null 2>&1; then
+            echo "::notice::Tag $NEXT already exists — nothing to do."
+            exit 0
+          fi
+          git config user.name  'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git tag -a "$NEXT" -m "Release $NEXT"
+          git push origin "$NEXT"
+          echo "::notice::Pushed $NEXT — release.yml should now be running."
+
+      - name: Confirm release.yml was triggered
+        env:
+          NEXT: ${{ steps.next.outputs.next }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        # The GITHUB_TOKEN suppression bug is silent by construction: correct
+        # tag, no run, no error. So do not assume the push worked — look.
+        # A warning rather than a failure: the tag IS pushed and correct at this
+        # point, and a human can trigger release.yml from it. Failing here would
+        # imply the tag needs undoing, which it does not.
+        run: |
+          sleep 15
+          runs=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow release.yml \
+                   --branch "$NEXT" --limit 1 --json databaseId --jq 'length' 2>/dev/null || echo 0)
+          if [ "$runs" -eq 0 ]; then
+            echo "::warning::Tag $NEXT was pushed but no release.yml run is visible yet."
+            echo "If none appears shortly, the push may not have triggered workflows —"
+            echo "check that RELEASE_APP_ID / RELEASE_APP_PRIVATE_KEY are set (a"
+            echo "GITHUB_TOKEN-pushed tag never triggers). Re-run release.yml from"
+            echo "the tag manually; the tag itself is correct and needs no fixing."
+          else
+            echo "Confirmed: release.yml is running for $NEXT."
+          fi
