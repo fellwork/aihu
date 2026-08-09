@@ -16,7 +16,7 @@
  * and silently degraded to a no-op fallback (utility-class CSS compilation
  * stopped working, with only a console warning as a symptom). This is the
  * exact FEL-414 failure shape @aihu/compiler's guard
- * (scripts/check-compiler-binary-bump.ts) already prevents — this file is the
+ * (scripts/check-native-changeset.ts) already prevents — this file is the
  * same protection for aihu-css-core.
  *
  * Usage:
