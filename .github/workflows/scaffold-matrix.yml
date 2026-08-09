@@ -173,12 +173,27 @@ jobs:
           bun run --cwd packages/cli build
 
       - name: Run scaffold DX matrix
+        # `--mode local` alone only decides WHICH CLI BINARY scaffolds (this
+        # branch's packages/cli/dist vs. published create-aihu) — it says
+        # nothing about how the SCAFFOLDED PROJECT resolves its own @aihu/*
+        # dependencies. Without --local-pkg too, a PR run wrote this branch's
+        # real (possibly unpublished) workspace version into package.json —
+        # correct — and then tried to `npm install`/`pnpm install` that exact
+        # version from the real registry — which 404s until the next release
+        # actually publishes it. Every PR run failed on this, unconditionally,
+        # the mirror image of the bug scaffold-consistency's own job comment
+        # (plan-a.yml) already documents and fixes for its own two steps; that
+        # fix was never mirrored here. `--local-pkg` is empty (equivalent to
+        # omitted — scaffold-matrix-e2e.ts filters blank entries) outside PR
+        # mode, so a scheduled/dispatched `npm` run still tests the real
+        # published registry end to end, unchanged.
         run: |
           bun packages/cli/tests/scaffold-matrix-e2e.ts \
             --mode "${{ inputs.mode || (github.event_name == 'pull_request' && 'local' || 'npm') }}" \
             --version "${{ inputs.version || 'latest' }}" \
             --pm "${{ inputs.pm || 'bun,npm,pnpm,yarn' }}" \
             --template "${{ inputs.template || 'minimal,full,docs,agent,cf-team' }}" \
+            --local-pkg "${{ (inputs.mode == 'local' || (inputs.mode == '' && github.event_name == 'pull_request')) && 'app,router,server,adapter-cloudflare,compiler,runtime,arbor,signals,agent,agent-service,plugin,context' || '' }}" \
             --cmd-timeout 300000 \
             --server-timeout 120000 \
             2>&1 | tee scaffold-matrix.log
