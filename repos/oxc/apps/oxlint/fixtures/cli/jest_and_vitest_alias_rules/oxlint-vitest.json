@@ -1,9 +1,0 @@
-{
-    "plugins": ["vitest"],
-    "categories": {
-        "correctness": "off"
-    },
-    "rules": {
-        "vitest/no-identical-title": "error"
-    }
-}

@@ -1,9 +1,0 @@
-# prettier-ignore
-type   Weird   {
-  a:   String
-}
-
-# oxfmt-ignore
-query   Q   {
-  weird   {   layout   }
-}

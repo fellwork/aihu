@@ -1,3 +1,0 @@
-interface Foo {
-  readonly method();
-}

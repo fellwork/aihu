@@ -1,6 +1,0 @@
-
-  /**
-   * The summary
-   *
-   * @default {}
-   */

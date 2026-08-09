@@ -1,9 +1,0 @@
-{
-  "jsPlugins": ["./plugin.ts"],
-  "categories": { "correctness": "off" },
-  "rules": {
-    "eslint-compat-plugin/tracking": "error",
-    "eslint-compat-plugin/throw-in-visit": "error",
-    "eslint-compat-plugin/tracking-late": "error"
-  }
-}

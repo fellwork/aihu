@@ -1,9 +1,0 @@
-{
-  "jsPlugins": ["./plugin.ts"],
-  "categories": {
-    "correctness": "off"
-  },
-  "rules": {
-    "parser-services-plugin/check-parser-services": "error"
-  }
-}

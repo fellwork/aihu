@@ -1,8 +1,0 @@
-{
-  "assumptions": {
-    "setPublicClassFields": true
-  },
-  "plugins": [
-    ["transform-typescript"]
-  ]
-}

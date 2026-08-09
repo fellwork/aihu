@@ -1,7 +1,0 @@
-{
-  "rules": {
-    "no-debugger": "off",
-    "no-console": "error",
-    "unicorn/no-null": "error"
-  }
-}

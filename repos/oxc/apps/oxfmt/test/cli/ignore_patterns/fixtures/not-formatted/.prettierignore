@@ -1,3 +1,0 @@
-# This should be ignored - only cwd/.prettierignore should be used
-*.js
-*.ts

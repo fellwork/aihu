@@ -1,9 +1,0 @@
-{
-  "jsPlugins": ["./plugin.ts"],
-  "categories": {
-    "correctness": "off"
-  },
-  "rules": {
-    "message-id-error-plugin/test-rule": "error"
-  }
-}

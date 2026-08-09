@@ -1,1 +1,0 @@
-[{ "args": ["--check"] }, { "args": ["--config", "use-tab.json", "config.toml"] }]

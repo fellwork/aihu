@@ -1,6 +1,0 @@
-{
-  "plugins": ["typescript"],
-  "rules": {
-    "no-unused-vards": "off"
-  }
-}

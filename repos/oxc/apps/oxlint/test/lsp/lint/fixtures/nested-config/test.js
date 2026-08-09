@@ -1,4 +1,0 @@
-// error
-function test() {
-  return;
-}

@@ -1,1 +1,0 @@
-const jsModule = "javascript module";

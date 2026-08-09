@@ -1,6 +1,0 @@
-{
-  "plugins": [
-    "transform-class-properties",
-    "transform-class-static-block"
-  ]
-}

@@ -1,9 +1,0 @@
-{
-  "jsPlugins": ["./plugin.ts"],
-  "categories": {
-    "correctness": "off"
-  },
-  "rules": {
-    "interpolation-test/no-var": "error"
-  }
-}

@@ -1,4 +1,0 @@
-{
-  "plugins": [["transform-react-jsx"], ["transform-react-display-name"]],
-  "sourceType": "module"
-}

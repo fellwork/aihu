@@ -1,4 +1,0 @@
-{
-  "sourceType": "module",
-  "presets": [["typescript", { "rewriteImportExtensions": "remove" }]]
-}

@@ -1,8 +1,0 @@
-[
-  {
-    "args": ["--check", "simple.js"]
-  },
-  {
-    "args": ["--list-different", "simple.js"]
-  }
-]

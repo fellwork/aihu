@@ -1,1 +1,0 @@
-const standard = "pac";

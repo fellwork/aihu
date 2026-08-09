@@ -1,4 +1,0 @@
-{
-  "extends": ["../.oxlintrc.json"],
-  "rules": { "no-debugger": "warn" } // This should take priority over the overrides in the parent config
-}

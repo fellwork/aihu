@@ -1,3 +1,0 @@
-debugger;
-
-let x;

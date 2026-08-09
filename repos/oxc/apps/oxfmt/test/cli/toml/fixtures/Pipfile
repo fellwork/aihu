@@ -1,6 +1,0 @@
-[packages]
-requests   =   "*"
-flask   =   {   version   =   ">=2.0"  ,  extras   =   [  "async"  ]   }
-
-[dev-packages]
-pytest="*"

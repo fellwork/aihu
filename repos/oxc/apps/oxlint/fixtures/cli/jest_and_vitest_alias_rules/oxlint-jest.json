@@ -1,9 +1,0 @@
-{
-    "plugins": ["jest"],
-    "categories": {
-        "correctness": "off"
-    },
-    "rules": {
-        "jest/no-identical-title": "error"
-    }
-}

@@ -1,9 +1,0 @@
-{
-  "jsPlugins": ["./plugin.ts"],
-  "categories": {
-    "correctness": "off"
-  },
-  "rules": {
-    "fixes-plugin/fixes": "error"
-  }
-}

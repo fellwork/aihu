@@ -1,9 +1,0 @@
-{
-  "plugins": [
-    ["styled-components", {
-      "meaninglessFileNames": ["input"],
-      "transpileTemplateLiterals": false,
-      "ssr": true
-    }]
-  ]
-}

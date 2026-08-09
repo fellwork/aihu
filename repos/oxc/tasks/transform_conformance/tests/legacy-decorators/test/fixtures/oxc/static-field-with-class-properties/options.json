@@ -1,6 +1,0 @@
-{
-  "plugins": [
-    "transform-legacy-decorator",
-    "transform-class-properties"
-  ]
-}

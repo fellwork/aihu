@@ -1,4 +1,0 @@
-
-/**
- * @typedef {import("Foo")} Foo
- */

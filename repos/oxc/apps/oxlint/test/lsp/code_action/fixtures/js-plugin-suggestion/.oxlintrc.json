@@ -1,7 +1,0 @@
-{
-  "jsPlugins": ["./plugin.ts"],
-  "rules": {
-    "suggestions-plugin/suggestions": "error",
-    "no-debugger": "off",
-  }
-}

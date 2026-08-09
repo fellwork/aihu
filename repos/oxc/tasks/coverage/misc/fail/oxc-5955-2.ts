@@ -1,4 +1,0 @@
-
-interface B {
-    e()?: number;
-}

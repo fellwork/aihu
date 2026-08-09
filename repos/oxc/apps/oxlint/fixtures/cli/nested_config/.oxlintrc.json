@@ -1,7 +1,0 @@
-{
-  "categories": { "correctness": "off"},
-  "rules": {
-    "no-console": "error",
-    "no-debugger": "error"
-  }
-}

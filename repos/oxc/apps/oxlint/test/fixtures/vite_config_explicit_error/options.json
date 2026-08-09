@@ -1,4 +1,0 @@
-{
-  "singleThread": true,
-  "args": ["--config", "vite.config.ts"]
-}

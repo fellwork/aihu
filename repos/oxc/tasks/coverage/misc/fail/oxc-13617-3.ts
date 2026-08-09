@@ -1,1 +1,0 @@
-class Foo {property: Bar<> = 1}

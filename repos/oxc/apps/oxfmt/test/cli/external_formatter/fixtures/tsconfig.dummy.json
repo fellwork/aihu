@@ -1,7 +1,0 @@
-{
-  // Allow comments!
-  "compilerOptions": {
-                 "module": "commonjs",
-                                             "strict": true,
-  },
-}

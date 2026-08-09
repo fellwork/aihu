@@ -1,5 +1,0 @@
-[
-  { "args": ["--stdin-filepath", "test.ts"], "stdin": "input.ts" },
-  { "args": ["--stdin-filepath", "ignored/test.ts"], "stdin": "input.ts" },
-  { "args": ["--stdin-filepath", "prettierignored/test.ts"], "stdin": "input.ts" }
-]

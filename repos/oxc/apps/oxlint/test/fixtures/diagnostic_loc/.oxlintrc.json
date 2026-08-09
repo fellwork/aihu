@@ -1,7 +1,0 @@
-{
-  "jsPlugins": ["./plugin.ts"],
-  "categories": { "correctness": "off" },
-  "rules": {
-    "loc-plugin/no-bugger": "error"
-  }
-}

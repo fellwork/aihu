@@ -1,8 +1,0 @@
-{
-  "rules": {
-    "no-debugger": "warn"
-  },
-  "options": {
-    "denyWarnings": true
-  }
-}

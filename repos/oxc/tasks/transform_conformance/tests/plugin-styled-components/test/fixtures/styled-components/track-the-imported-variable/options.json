@@ -1,9 +1,0 @@
-{
-  "plugins": [
-    ["styled-components", {
-      "fileName": false,
-      "transpileTemplateLiterals": false,
-      "ssr": true
-    }]
-  ]
-}

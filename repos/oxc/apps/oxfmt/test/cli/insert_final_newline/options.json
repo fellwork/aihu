@@ -1,4 +1,0 @@
-[
-  { "cwd": "oxfmtrc_only", "args": ["test.ts", "test.css", "test.toml"] },
-  { "cwd": "editorconfig_only", "args": ["test.ts", "test.css", "test.toml"] }
-]

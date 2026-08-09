@@ -1,4 +1,0 @@
-[
-  Infinity, -Infinity, NaN, -NaN, undefined,
-  { Infinity: NaN, NaN: -Infinity, undefined: undefined }
-]

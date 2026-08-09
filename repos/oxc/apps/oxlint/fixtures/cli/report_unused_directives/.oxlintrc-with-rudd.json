@@ -1,9 +1,0 @@
-{
-    "options": {
-        "reportUnusedDisableDirectives": "warn"
-    },
-    "rules": {
-        "no-console": "warn",
-        "no-debugger": "warn"
-    }
-}

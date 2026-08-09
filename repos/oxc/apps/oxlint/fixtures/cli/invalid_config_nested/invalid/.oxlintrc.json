@@ -1,3 +1,0 @@
-{
-  "plugins": ["../invalid/plugin.ts"],
-}

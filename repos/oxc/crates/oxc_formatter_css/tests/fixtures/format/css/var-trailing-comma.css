@@ -1,9 +1,0 @@
-a {
-  color: var(--baz,);
-}
-b {
-  color: var(--baz1, --baz2 , );
-}
-c {
-  margin: min(1px , );
-}

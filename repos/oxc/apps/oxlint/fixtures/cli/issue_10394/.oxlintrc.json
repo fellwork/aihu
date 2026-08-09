@@ -1,9 +1,0 @@
-{
-  "overrides": [
-    {
-      "plugins": ["jest", "vitest"],
-      "files": ["**/*.test.ts"],
-      "rules": {}
-    }
-  ]
-}

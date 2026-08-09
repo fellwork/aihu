@@ -1,8 +1,0 @@
-[
-  {
-    "args": ["--check", "-c", "./subdir/.oxfmtrc.json", "./subdir"]
-  },
-  {
-    "args": ["--check", "-c", "./subdir/.oxfmtrc.json", "./outside/file.js"]
-  }
-]

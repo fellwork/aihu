@@ -1,6 +1,0 @@
-/node_modules/
-/dist/
-/dist-pkg-plugins/
-/dist-pkg-plugin-eslint/
-/src-js/generated/plugin-eslint/
-*.node

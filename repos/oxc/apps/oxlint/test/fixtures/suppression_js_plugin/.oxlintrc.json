@@ -1,8 +1,0 @@
-{
-  "jsPlugins": ["./plugin.js"],
-  "rules": {
-    "eslint/no-debugger": "off",
-    "best-plugin-ever/no-debug": "error",
-    "no-unused-vars": "off"
-  }
-}

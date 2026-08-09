@@ -1,8 +1,0 @@
-{
-  "categories": {
-    "correctness": "off"
-  },
-  "rules": {
-    "vitest/no-disabled-tests": "error"
-  }
-}

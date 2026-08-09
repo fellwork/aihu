@@ -1,4 +1,0 @@
-const element = (
-  <div />
-  <span />
-);

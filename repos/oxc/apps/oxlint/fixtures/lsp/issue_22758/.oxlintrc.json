@@ -1,6 +1,0 @@
-{
-  "plugins": ["import", "promise", "node"],
-  "categories": {
-    "correctness": "warn"
-  }
-}

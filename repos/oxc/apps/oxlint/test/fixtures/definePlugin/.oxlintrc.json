@@ -1,8 +1,0 @@
-{
-  "jsPlugins": ["./plugin.ts"],
-  "categories": { "correctness": "off" },
-  "rules": {
-    "define-plugin-plugin/create": "error",
-    "define-plugin-plugin/create-once": "error"
-  }
-}

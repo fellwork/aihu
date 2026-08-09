@@ -1,3 +1,0 @@
-markdown`
-  Hello \`こんにちは\` world
-`

@@ -1,7 +1,0 @@
-{
-  "compilerOptions": {
-    "experimentalDecorators": true,
-    "module": "esnext",
-    "strict": false
-  }
-}

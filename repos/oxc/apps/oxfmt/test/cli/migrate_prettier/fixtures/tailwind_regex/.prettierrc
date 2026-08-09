@@ -1,1 +1,0 @@
-{"plugins":["prettier-plugin-tailwindcss"],"tailwindFunctions":["clsx","/^tw-/"],"tailwindAttributes":["className","/^data-tw-/"]}
