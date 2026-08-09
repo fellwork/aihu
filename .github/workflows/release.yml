@@ -76,6 +76,66 @@ env:
   RUSTUP_TOOLCHAIN: "1.95.0"
 
 jobs:
+  # Lockfile integrity, checked ONCE and checked EARLY.
+  #
+  # FEL-RELEASE-FROZEN-LOCK. `v0.4.62` published every platform binary and zero
+  # JS packages, dying in `publish-packages` on:
+  #
+  #   error: lockfile had changes, but lockfile is frozen
+  #
+  # The release had poisoned its own install. The platform pins LEAD their
+  # published versions, so when `bun.lock` was last refreshed
+  # `@aihu/compiler-darwin-arm64@0.1.54` did not exist on npm; bun cannot
+  # resolve an optionalDependency that isn't published, so it OMITS the entry
+  # from the lock entirely. The four platform-publish jobs then pushed exactly
+  # those versions to npm — and `publish-packages`, which `needs:` all four,
+  # installed afterwards, resolved optionalDependencies the lock had never
+  # heard of, wanted to add them, and was refused.
+  #
+  # Reproduced deterministically rather than inferred: delete one platform
+  # entry from `bun.lock` and `bun install --frozen-lockfile` emits that exact
+  # error, while a plain `bun install` succeeds and re-adds it.
+  #
+  # `plan-a.yml`'s `AIHU_COMPILER_NATIVE: '0'` comment already predicted the
+  # consumer-side half of this — "the platform pins currently lead their
+  # published versions, so bun drops the unresolvable optionalDependency…
+  # That protection disappears the moment those versions publish." Nobody
+  # traced it back into this workflow's own job graph.
+  #
+  # The fix is not to stop checking. It is to check where the answer is still
+  # meaningful: this job has NO `needs:`, so it runs before any job in this
+  # workflow can mutate the registry, and `publish-packages` gates on it. The
+  # install inside `publish-packages` is now a plain `bun install`, because its
+  # purpose is to materialize node_modules for build/pack, not to gate
+  # integrity — see the comment there.
+  #
+  # NOTE the four `bun install --frozen-lockfile --ignore-scripts` calls in the
+  # publish-*-native jobs are deliberately left alone: each sits inside a
+  # `Snapshot version (canary)` step gated on
+  # `github.event_name == 'workflow_dispatch' && inputs.canary`, so none of
+  # them runs on a `v*` tag push. In canary mode they are also correct — they
+  # install against the committed lock BEFORE `changeset version --snapshot`
+  # rewrites versions, and a canary publishes `0.0.0-canary-<sha>`, which never
+  # makes a committed `0.1.x` pin newly resolvable.
+  lockfile-integrity:
+    name: Lockfile integrity
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: bun install --frozen-lockfile
+        # --ignore-scripts: this job only answers "does bun.lock agree with the
+        # manifests at this SHA". Postinstall scripts are build work, and doing
+        # them here would just be a slower way to get the same boolean.
+        run: bun install --frozen-lockfile --ignore-scripts
+
   build:
     name: Build ${{ matrix.asset }}
     runs-on: ${{ matrix.runner }}
@@ -1053,7 +1113,11 @@ jobs:
   # ---------------------------------------------------------------------------
   publish-packages:
     name: Publish @aihu/* packages to npm
-    needs: [build, build-wasm, build-native, publish-native, build-css-native, publish-css-native, publish-compiler-native, build-compiler-napi, publish-compiler-napi]
+    # lockfile-integrity is FIRST and is not decorative: it holds the
+    # --frozen-lockfile check this job used to perform itself. Keeping it in
+    # `needs:` means a genuine lock/manifest mismatch still blocks the publish
+    # instead of merely reporting red beside it. See that job's comment.
+    needs: [lockfile-integrity, build, build-wasm, build-native, publish-native, build-css-native, publish-css-native, publish-compiler-native, build-compiler-napi, publish-compiler-napi]
     runs-on: ubuntu-22.04
     # Longest observed run of this job is ~3 min; without a bound a hang
     # inherits GitHub's 360 min default and stalls the release for six hours.
@@ -1089,7 +1153,23 @@ jobs:
           auto-install: true
 
       - name: Install workspace
-        run: bun install --frozen-lockfile
+        # NOT --frozen-lockfile, deliberately. This job `needs:` all four
+        # platform-publish jobs, so by the time it runs those platform versions
+        # exist on npm — versions that were UNRESOLVABLE when bun.lock was last
+        # refreshed and are therefore absent from it. A frozen install resolves
+        # them, wants to add them, and hard-fails. That is not hypothetical: it
+        # is what half-published v0.4.62 (binaries yes, JS packages no).
+        #
+        # Integrity has not been dropped, it has been MOVED. The
+        # `lockfile-integrity` job runs the frozen install with no `needs:`, so
+        # it observes the registry before this workflow can change it, and this
+        # job gates on it. Restoring --frozen-lockfile here re-breaks the
+        # release on the next tag that publishes a new platform version.
+        #
+        # Letting the platform packages actually install is a bonus: this is the
+        # first point in the pipeline where a broken platform publish surfaces
+        # rather than being silently dropped as an unresolvable optional dep.
+        run: bun install
 
       - name: Snapshot version (canary)
         # Ephemeral 0.0.0-canary-<sha> versions, identical to the ones the
