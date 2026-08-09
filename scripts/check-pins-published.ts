@@ -43,23 +43,42 @@ interface Pin {
   version: string
 }
 
-/** Every `<pkg>/npm/<platform>` directory is an in-repo platform package. */
+/**
+ * Directories that hold per-platform package manifests, relative to
+ * `packages/<pkg>/`.
+ *
+ * `npm-native` is not an afterthought — it is the family this guard most needs
+ * to see. The napi packages (`@aihu/compiler-native-*`) live in `npm-native/`,
+ * and they are the ones that stranded at `0.1.0` through NINE consecutive CLI
+ * bumps in FEL-414 while every pin claimed otherwise. Reading only `npm/` made
+ * this guard structurally blind to the exact drift it was written to catch:
+ * a nightly that cannot fail for the one case that motivated it.
+ *
+ * Enumerated rather than globbed on purpose. A glob would silently pick up any
+ * future sibling directory and start asserting things about packages nobody
+ * intended this guard to own; adding a family should be a deliberate edit here.
+ */
+const PLATFORM_DIRS = ['npm', 'npm-native'] as const
+
+/** Every `<pkg>/{npm,npm-native}/<platform>` directory is an in-repo platform package. */
 function inRepoPlatformPackages(): Set<string> {
   const names = new Set<string>()
   const pkgsDir = join(ROOT, 'packages')
   if (!existsSync(pkgsDir)) return names
   for (const pkg of readdirSync(pkgsDir, { withFileTypes: true })) {
     if (!pkg.isDirectory()) continue
-    const npmDir = join(pkgsDir, pkg.name, 'npm')
-    if (!existsSync(npmDir)) continue
-    for (const platform of readdirSync(npmDir, { withFileTypes: true })) {
-      if (!platform.isDirectory()) continue
-      const manifest = join(npmDir, platform.name, 'package.json')
-      if (!existsSync(manifest)) continue
-      try {
-        names.add(JSON.parse(readFileSync(manifest, 'utf8')).name)
-      } catch {
-        /* unreadable manifest is not this guard's business */
+    for (const dir of PLATFORM_DIRS) {
+      const npmDir = join(pkgsDir, pkg.name, dir)
+      if (!existsSync(npmDir)) continue
+      for (const platform of readdirSync(npmDir, { withFileTypes: true })) {
+        if (!platform.isDirectory()) continue
+        const manifest = join(npmDir, platform.name, 'package.json')
+        if (!existsSync(manifest)) continue
+        try {
+          names.add(JSON.parse(readFileSync(manifest, 'utf8')).name)
+        } catch {
+          /* unreadable manifest is not this guard's business */
+        }
       }
     }
   }
