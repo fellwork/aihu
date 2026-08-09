@@ -155,14 +155,41 @@ describe('default-scaffold snapshot · every scaffolded byte is reviewed', () =>
     expect(produced, 'produced file set must match golden file set').toEqual(golden)
 
     // 4. Byte-by-byte content comparison.
-    // package.json normalisation: strip "packageManager" before comparing —
-    // the field encodes the runner's bun version (process.versions.bun) which
-    // differs between developer machines and CI runners.
+    //
+    // package.json normalisation, two fields, same reason: both encode ambient
+    // state rather than scaffold STRUCTURE, which is what this golden exists to
+    // pin.
+    //
+    //  - `packageManager` encodes the runner's bun version
+    //    (process.versions.bun), which differs between developer machines and
+    //    CI runners.
+    //
+    //  - every `@aihu/*` / `@aihu-plugin/*` dependency RANGE is generated from
+    //    the workspace's current versions by scripts/sync-template-versions.ts.
+    //    Before that generator landed the scaffold emitted the constant
+    //    `"latest"`, so the golden was immune to a release; now the ranges move
+    //    on every `changeset version`, which made this gate fail on EVERY
+    //    Version PR — a stale golden by construction, forever, with nothing
+    //    wrong in the scaffold. The values are not unguarded: `check:template-
+    //    versions` compares them against the workspace directly, and the
+    //    scaffold reads them through `aihuDep()`, which throws on an unknown
+    //    name. Pinning them a second time here bought no safety and guaranteed
+    //    a red Version PR. Names and presence are still compared exactly — only
+    //    the version STRING is neutralised, so a dropped or renamed dependency
+    //    still fails this gate.
+    const AIHU_DEP = /^@aihu(-plugin)?\//
     const normalize = (rel: string, buf: Buffer): Buffer => {
       if (rel !== 'package.json') return buf
       try {
         const obj = JSON.parse(buf.toString('utf8')) as Record<string, unknown>
         delete obj.packageManager
+        for (const field of ['dependencies', 'devDependencies', 'peerDependencies']) {
+          const deps = obj[field]
+          if (deps === undefined || deps === null || typeof deps !== 'object') continue
+          for (const name of Object.keys(deps as Record<string, string>)) {
+            if (AIHU_DEP.test(name)) (deps as Record<string, string>)[name] = '<workspace>'
+          }
+        }
         return Buffer.from(`${JSON.stringify(obj, null, 2)}\n`, 'utf8')
       } catch {
         return buf

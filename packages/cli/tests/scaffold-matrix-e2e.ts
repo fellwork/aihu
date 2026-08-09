@@ -403,12 +403,61 @@ const viteAxis: readonly ViteReq[] = (() => {
  * Cells run this way are marked `†`: they show what a RELEASE would do, not what
  * the currently published packages do.
  */
-const localPkgs = (
+/**
+ * `--local-pkg all` — every non-private `@aihu/*` / `@aihu-plugin/*` package
+ * under `packages/`, discovered from disk.
+ *
+ * The hand-written list this replaces drifted, and the drift was invisible
+ * until a release: the two CI jobs passed `app,router,server,adapter-cloudflare,
+ * compiler,runtime,arbor,signals,agent,agent-service,plugin,context` — 12 of the
+ * 36 packages a scaffold can declare. Every omitted package kept resolving from
+ * the REGISTRY, which is fine right up until `changeset version` moves it past
+ * what is published. Then the Version PR, and only the Version PR, fails on
+ * `No version matching "^2.3.0" found for @aihu-plugin/agent-readiness` — a
+ * package nobody thought to list because nothing pointed at it.
+ *
+ * Same disease as `publish-all.sh`'s hand-ordered `PKGS` array, which needed
+ * nine separate `fix(release):` commits for packages that were simply never
+ * added. Derive it instead: add a package and it is covered.
+ *
+ * Discovery matches `scripts/sync-template-versions.ts`'s rule exactly (that is
+ * the generator deciding which versions land in the scaffold in the first
+ * place), so the two cannot disagree about what a scaffold depends on.
+ */
+function discoverAllLocalPkgs(): string[] {
+  const pkgsDir = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'packages')
+  const out: string[] = []
+  for (const entry of readdirSync(pkgsDir, { withFileTypes: true }).sort((a, b) =>
+    a.name.localeCompare(b.name),
+  )) {
+    if (!entry.isDirectory() || entry.name === 'node_modules') continue
+    const manifest = join(pkgsDir, entry.name, 'package.json')
+    if (!existsSync(manifest)) continue
+    try {
+      const pkg = JSON.parse(readFileSync(manifest, 'utf8')) as {
+        name?: string
+        version?: string
+        private?: boolean
+      }
+      if (pkg.private === true || !pkg.name || !pkg.version) continue
+      if (!pkg.name.startsWith('@aihu/') && !pkg.name.startsWith('@aihu-plugin/')) continue
+      out.push(entry.name)
+    } catch {
+      // Unparseable manifest: skip, same as the generator does.
+    }
+  }
+  return out
+}
+
+const localPkgsRaw = (
   flagValue('local-pkg')
     ?.split(',')
     .map((s) => s.trim())
     .filter(Boolean) ?? []
-).map((s) => s.replace(/^@aihu\//, ''))
+).map((s) => s.replace(/^@aihu(-plugin)?\//, ''))
+
+const localPkgs =
+  localPkgsRaw.length === 1 && localPkgsRaw[0] === 'all' ? discoverAllLocalPkgs() : localPkgsRaw
 
 const wantPms = (flagValue('pm')
   ?.split(',')
@@ -858,12 +907,24 @@ function packLocalPkgs(destRoot: string): ReadonlyMap<string, LocalTarball> {
     }
     const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as {
       name: string
+      scripts?: Record<string, string>
       optionalDependencies?: Record<string, string>
     }
     const name = manifest.name
     const optionalDeps = Object.keys(manifest.optionalDependencies ?? {})
-    out(`  ${dim(`building + packing ${name}…`)}\n`)
-    run(`build ${name}`, 'bun', ['run', 'build'], pkgDir)
+    // Not every publishable package builds. `@aihu/ui` ships `registry/**`
+    // `.aihu` sources plus a generated index and emits no dist at all, so
+    // `bun run build` there is `Script not found "build"` — an unconditional
+    // build was fine while the package list was hand-picked to buildable ones,
+    // and breaks the moment the list is derived. Absence of the script is a
+    // legitimate package shape, not a failure; a build that EXISTS and fails
+    // still fails loudly, which is the case the surrounding docblock is about.
+    if (manifest.scripts?.build !== undefined) {
+      out(`  ${dim(`building + packing ${name}…`)}\n`)
+      run(`build ${name}`, 'bun', ['run', 'build'], pkgDir)
+    } else {
+      out(`  ${dim(`packing ${name}… (no build script)`)}\n`)
+    }
     // One destination directory per package, so the tarball is READ back rather
     // than derived from a filename convention that only holds until it doesn't.
     const dest = join(destRoot, short)
@@ -1238,9 +1299,29 @@ async function runCell(
       // out loud and ignores them). So the transitive part of this flag is
       // bun/npm only, stated here rather than papered over: it is a diagnostic,
       // and the cell it exists for is bun.
-      ;(pkg as Record<string, unknown>).overrides = Object.fromEntries(
-        [...specs].map(([n, t]) => [n, t.spec]),
-      )
+      //
+      // PM-AWARE, and it has to be. The paragraph above is accurate for bun and
+      // npm and was written when the local-pkg set was a hand-picked list of
+      // buildable leaves; deriving the set (`--local-pkg all`) pulls in packages
+      // with intra-repo edges of their own — `@aihu/tsc`'s packed tarball
+      // depends on `@aihu/compiler@<workspace version>`, which is unpublished by
+      // construction on a release branch. bun and npm rewrite that edge from
+      // `overrides`; pnpm reads `pnpm.overrides` and yarn reads `resolutions`,
+      // so under the old single-field write those two fetched the pin from the
+      // registry and failed with NO_MATCHING_VERSION. Writing the field the
+      // running PM actually reads — and ONLY that field — keeps the measured
+      // bun behaviour the paragraph above documents (adding `resolutions`
+      // alongside `overrides` silently defeated the override on bun 1.3.8)
+      // while giving pnpm and yarn the same transitive reach.
+      const overrideMap = Object.fromEntries([...specs].map(([n, t]) => [n, t.spec]))
+      const p = pkg as Record<string, unknown>
+      if (pm === 'pnpm') {
+        p.pnpm = { ...((p.pnpm as Record<string, unknown>) ?? {}), overrides: overrideMap }
+      } else if (pm === 'yarn') {
+        p.resolutions = overrideMap
+      } else {
+        p.overrides = overrideMap
+      }
 
       // `@aihu/compiler` arrived with neither `@aihu/compiler-darwin-arm64` nor
       // `@aihu/compiler-native-darwin-arm64` beside it, and `aihu-tsc` died
