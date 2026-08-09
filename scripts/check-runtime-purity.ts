@@ -93,6 +93,11 @@ const CHECKED_ENTRIES: ReadonlyArray<Entry> = [
   // / node:path are legitimate here; only the createRequire leak vector is
   // forbidden.
   { file: 'packages/app/dist/index.js', tier: 'build-time-node' },
+  // The `output: 'ssr'` document assembler. Bundled into the consumer's Worker
+  // by the ssr environment, so it must be as node:-free as the browser entry —
+  // it shares `head-apply.ts` with `dist/client.js` and adds only the outlet
+  // splice and a Response rewrap.
+  { file: 'packages/app/dist/ssr-document.js', tier: 'browser-edge' },
   // The `node:module` stub @aihu/app's SSR plugin substitutes for the builtin
   // in the Worker bundle. It must DECLARE `createRequire` (the built
   // native.js imports that binding by name), so the leak vector cannot apply;

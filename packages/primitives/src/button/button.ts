@@ -18,10 +18,11 @@
 import { effect, type Read, signal } from '@aihu/signals'
 import { injectValue } from '../dom-context.ts'
 import { formControlContext } from '../form-control/index.ts'
+import { HTMLElementBase } from '../html-element-base.ts'
 
 export type ButtonType = 'button' | 'submit' | 'reset'
 
-export class AihuButton extends HTMLElement {
+export class AihuButton extends HTMLElementBase {
   static readonly observedAttributes = ['disabled', 'pressed', 'type']
 
   private readonly _disabled = signal(false)
@@ -135,8 +136,12 @@ export class AihuButton extends HTMLElement {
   }
 }
 
-/** Register a concrete button tag backed by `AihuButton` (idempotent). */
+/** Register a concrete button tag backed by `AihuButton` (idempotent). Without a
+ * DOM it registers nothing and returns `AihuButton` unchanged. */
 export function defineButton(tag: string): typeof AihuButton {
+  // No DOM, no registry to register INTO — a documented no-op. See
+  // `html-element-base.ts` §"Registration without a DOM".
+  if (typeof customElements === 'undefined') return AihuButton
   if (!customElements.get(tag)) {
     // A fresh subclass per tag so multiple tags can be registered.
     class TaggedButton extends AihuButton {}

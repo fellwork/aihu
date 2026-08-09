@@ -1,8 +1,8 @@
 {
   "name": "button",
   "type": "ui",
-  "description": "Styled button recipe extending the headless AihuButton primitive (variants + sizes).",
-  "dependencies": ["@aihu/primitives"],
+  "description": "Styled button recipe wrapping a native <button> (variants + sizes).",
+  "dependencies": [],
   "registryDependencies": [],
   "variants": {
     "variant": ["default", "destructive", "outline", "ghost", "link"],

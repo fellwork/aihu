@@ -897,3 +897,444 @@ fn the_opts_type_is_spelled_once() {
         "the inline opts type must be gone — it cannot carry `children`:\n{js}"
     );
 }
+
+// ─── FEL-440 follow-up — the SSR-entry gate was narrowed from "every agent
+// component" to "only an @agent block with $input declarations" ───────────
+//
+// The original blanket exclusion (`!is_agent_component`) meant a server build
+// of ANY component with an exposed $action — including the CLI scaffold's own
+// default page, which has no @agent block at all — got no `__ssr` export, and
+// fell through to the client-shaped registration form instead: unguarded
+// `defineElement`/`new CSSStyleSheet()` at module scope, which throws
+// `ReferenceError: CSSStyleSheet is not defined` / `HTMLElement is not
+// defined` the moment a plain Node/Bun process (or a Worker) imports it.
+//
+// The narrower gate excludes only components whose `@agent` block declares
+// `$input`s — `emit_agent_bindings` lowers each to `ctx.attrs.<name>[0]()`,
+// and the host-less SSR SetupContext passes `attrs: {}`, so indexing into it
+// would throw. A plain `$action`/`$state` component, or an `@agent` block that
+// carries only policy ($scope/$rate-limit) with no `$input`s, references no
+// `ctx.attrs` anywhere in its exposed closures — they all close over the
+// setup body's own local signals — so it is exactly as SSR-safe as a
+// non-agent component.
+
+/// A component with $action but NO @agent block (the scaffold's own shape)
+/// gets the standalone SSR entry under a server build.
+#[test]
+fn fel440_followup_action_only_gets_ssr_entry() {
+    let src = r#"
+@state {
+import { signal } from '@aihu/signals'
+const [count, setCount] = signal(0)
+
+$action: {
+  increment: {
+    describe: 'Add 1',
+    expose: { read: true, write: true },
+    handler: () => setCount(count() + 1),
+  },
+}
+}
+
+@template {
+  <div>{count()}</div>
+}
+"#;
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full_with_target(&parsed, BuildTarget::Server).unwrap();
+    let result = emit(&unit, "x-counter");
+
+    assert!(
+        result.js.contains("export const __ssr"),
+        "an $action-only component must get the standalone SSR entry:\n{}",
+        result.js
+    );
+    assert!(
+        result.js.contains("export default __ssr"),
+        "…and export it as the default, which renderToString/resolveComponent read:\n{}",
+        result.js
+    );
+    // The DOM-registration path stays module-scope-safe — no unguarded
+    // `new CSSStyleSheet()` reachable from a plain import.
+    assert!(
+        result.js.contains("typeof HTMLElement !== 'undefined'"),
+        "the client DOM registration must stay guarded, not unconditional:\n{}",
+        result.js
+    );
+}
+
+/// An @agent block with NO $inputs (policy only) ALSO gets the SSR entry.
+#[test]
+fn fel440_followup_agent_with_no_inputs_gets_ssr_entry() {
+    let src = r#"
+@agent {
+  $scope: 'read'
+  action greet() -> { message: string }
+}
+
+@template {
+  <div>Hello</div>
+}
+"#;
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full_with_target(&parsed, BuildTarget::Server).unwrap();
+    let result = emit(&unit, "x-greeter");
+
+    assert!(
+        result.js.contains("export const __ssr"),
+        "an @agent block with no $inputs must still get the SSR entry — nothing \
+         in its exposed closures reads ctx.attrs:\n{}",
+        result.js
+    );
+}
+
+/// An @agent block WITH $inputs is still excluded — this is the one real,
+/// still-live reason for the gate, and it must not regress silently.
+#[test]
+fn fel440_followup_agent_with_inputs_stays_excluded() {
+    let src = r#"
+@agent {
+  input name: string
+  action greet() -> { message: string }
+}
+
+@template {
+  <div>Hello</div>
+}
+"#;
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full_with_target(&parsed, BuildTarget::Server).unwrap();
+    let result = emit(&unit, "x-greeter-input");
+
+    assert!(
+        !result.js.contains("export const __ssr"),
+        "an @agent block with $inputs reads ctx.attrs.name[0](), which the \
+         host-less SSR SetupContext (attrs: {{}}) cannot satisfy — it must stay \
+         excluded from the standalone SSR entry until $inputs get their own \
+         inert-signal stub (the way props already do):\n{}",
+        result.js
+    );
+}
+
+// ─── FEL-440 follow-up, part 2 — $aria/$form's ElementInternals wiring is
+// null-guarded, and $form-only components join the SSR entry ────────────────
+//
+// An independent review of the follow-up above surfaced a SEPARATE, deeper
+// bug in the same family: `$aria`/`$form`'s ElementInternals wiring
+// (`state_emit.rs`'s `INTERNALS_GUARD` plus every per-entry statement) read
+// `ctx.element._internals` UNCONDITIONALLY. The host-less SSR SetupContext
+// passes `element: null`, so any component reaching the SSR entry with an
+// `$aria` block — which was ALREADY possible before this fix, since `$aria`
+// alone never gated `emit_ssr_entry` — crashed the instant its setup body
+// ran, not merely at import. This was a LIVE bug, independent of the
+// agent-component gate above.
+//
+// `$form` had the opposite problem: it was excluded from the SSR entry
+// ENTIRELY, via a dedicated code branch with no SSR logic at all — so a
+// `$form`-only component (no props/agent-inputs/`$extends`) never got
+// `export const __ssr` regardless of `emit_ssr_entry`'s value.
+//
+// End-to-end verified (not just string-content asserted here): a real
+// scaffolded `output: 'ssr'` app with a component combining `$form` + `$aria`
+// as a CHILD reference, driven through a real built Cloudflare Worker —
+// before this fix, `TypeError: Cannot read properties of null (reading
+// '_internals')` at the exact `_internals` dereference, caught by
+// `__aihu_schild`'s fail-closed handling and rendered silently empty (not
+// even a visible error — the page still returned 200 with the component just
+// missing); after, the component's content renders correctly. These Rust
+// tests pin the STRUCTURAL shape (SSR entry present, no unguarded `_internals`
+// access) that makes that true; they do not themselves execute the emitted JS.
+
+/// A component using ONLY `$aria` (no `$form`, no props) already reached the
+/// SSR entry before this fix — `$aria` alone never touched `emit_ssr_entry`.
+/// Every line touching `ctx.element._internals` must be null-guarded, or this
+/// is a live crash on every existing `$aria`-only SSR component, not a
+/// regression this fix introduces.
+#[test]
+fn fel440_followup2_aria_only_ssr_entry_has_no_unguarded_internals() {
+    let src = r#"
+@state {
+$aria: {
+  role: 'button',
+  pressed: false,
+}
+}
+
+@template {
+  <div>Click me</div>
+}
+"#;
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full_with_target(&parsed, BuildTarget::Server).unwrap();
+    let result = emit(&unit, "x-aria-button");
+
+    assert!(
+        result.js.contains("export const __ssr"),
+        "an $aria-only component must get the standalone SSR entry:\n{}",
+        result.js
+    );
+    for line in result.js.lines().filter(|l| l.contains("._internals")) {
+        assert!(
+            line.contains("if (__aihu_el")
+                || line.contains("if (!__aihu_el)")
+                || line.trim_start().starts_with("const __aihu_el"),
+            "every line touching `_internals` must be null-guarded on \
+             `__aihu_el` (host-less SSR passes `element: null`) — found an \
+             unguarded one:\n  {}\nfull output:\n{}",
+            line,
+            result.js
+        );
+    }
+}
+
+/// A component using ONLY `$form` (no props/agent-inputs/`$extends`) now gets
+/// the SSR entry, with `{ formAssociated: true }` preserved on the
+/// CLIENT-side guarded `defineElement` call.
+#[test]
+fn fel440_followup2_form_only_gets_ssr_entry_with_form_associated() {
+    let src = r#"
+@state {
+import { signal } from '@aihu/signals'
+const [val, setVal] = signal('')
+
+$form: {
+  value: () => val,
+}
+}
+
+@template {
+  <input value={val()} />
+}
+"#;
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full_with_target(&parsed, BuildTarget::Server).unwrap();
+    let result = emit(&unit, "x-form-field");
+
+    assert!(
+        result.js.contains("export const __ssr"),
+        "a $form-only component must get the standalone SSR entry:\n{}",
+        result.js
+    );
+    assert!(
+        result.js.contains("formAssociated"),
+        "the CLIENT-side guarded defineElement call must still carry \
+         `{{ formAssociated: true }}` — this is a real browser behavior, \
+         unrelated to the SSR entry, and must not be lost when $form joins \
+         the SSR-entry branch:\n{}",
+        result.js
+    );
+    for line in result.js.lines().filter(|l| l.contains("._internals")) {
+        assert!(
+            line.contains("if (__aihu_el")
+                || line.contains("if (!__aihu_el)")
+                || line.trim_start().starts_with("const __aihu_el"),
+            "every line touching `_internals` must be null-guarded:\n  {}\nfull output:\n{}",
+            line,
+            result.js
+        );
+    }
+}
+
+/// `$form` combined with `$prop`/agent-inputs/`$extends` (the `ssr_options`
+/// branch) is DELIBERATELY still excluded — `define_opts` is not yet threaded
+/// through that branch. This pins the boundary so it is a decision, not a gap
+/// discovered later.
+#[test]
+fn fel440_followup2_form_with_props_stays_excluded() {
+    let src = r#"
+@state {
+$prop: {
+  label: { type: 'string', default: '' },
+}
+
+$form: {
+  value: () => label,
+}
+}
+
+@template {
+  <input />
+}
+"#;
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full_with_target(&parsed, BuildTarget::Server).unwrap();
+    let result = emit(&unit, "x-form-with-prop");
+
+    assert!(
+        !result.js.contains("export const __ssr"),
+        "$form combined with $prop is a deliberately narrower exclusion than \
+         plain $form — this must stay excluded until `define_opts` is \
+         threaded through the options-form SSR branch too:\n{}",
+        result.js
+    );
+}
+
+// ─── `$extends` (`base:`) under a server build ──────────────────────────────
+//
+// The third and last of the SSR-entry exclusions filed alongside the
+// `$aria`/`$form` guards. Its stated reason was accurate but was a fact about
+// `@aihu/primitives`, NOT about this gate: the imported base module evaluated
+// `class … extends HTMLElement` at its OWN module scope, so a server bundle
+// threw `ReferenceError: HTMLElement is not defined` on IMPORT — before
+// anything the compiler emits could run. Every primitive now extends
+// `HTMLElementBase` (SSR-safe conditional base), so that reason is gone and
+// the exclusion here was the only thing left.
+//
+// The end-to-end proof is `packages/app/tests/workers-ssr-e2e.test.ts`
+// assertion 15 (a real built Worker, driven). These pin the emitted STRUCTURE
+// so the gate cannot silently regress without a 10-second vite build.
+
+/// A `$extends` component gets the options-form SSR entry.
+#[test]
+fn extends_base_gets_ssr_entry() {
+    let src = r#"
+@state {
+import { AihuSwitchRoot } from '@aihu/primitives/switch'
+
+base: AihuSwitchRoot
+}
+
+@template {
+  <span>EXTENDS-OK</span>
+}
+"#;
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full_with_target(&parsed, BuildTarget::Server).unwrap();
+    let result = emit(&unit, "x-switch");
+
+    assert!(
+        result.js.contains("export const __ssr"),
+        "a $extends component must get the options-form SSR entry — the base \
+         module is import-safe now, and `base:` only affects the CLIENT class:\n{}",
+        result.js
+    );
+    assert!(
+        result.js.contains("export default __ssr"),
+        "…and export it as the default, which renderToString/resolveComponent read:\n{}",
+        result.js
+    );
+    // `base:` must still reach the runtime — the SSR entry must not have been
+    // bought by dropping the class extension on the client half.
+    assert!(
+        result.js.contains("base: AihuSwitchRoot"),
+        "the base class must still be threaded into defineComponent:\n{}",
+        result.js
+    );
+}
+
+/// The `defineElement` registration for a `$extends` component stays behind the
+/// DOM-globals guard.
+#[test]
+fn extends_base_registration_is_dom_guarded() {
+    let src = r#"
+@state {
+import { AihuSwitchRoot } from '@aihu/primitives/switch'
+
+base: AihuSwitchRoot
+}
+
+@template {
+  <span>EXTENDS-OK</span>
+}
+"#;
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full_with_target(&parsed, BuildTarget::Server).unwrap();
+    let result = emit(&unit, "x-switch");
+
+    // THIS is the half the import-safe base does not buy on its own. Before,
+    // a $extends component fell through to the plain client shape: a bare
+    // `defineElement(...)` at module scope, which throws
+    // `ReferenceError: customElements is not defined` in a Worker even when
+    // every primitive it imports loads cleanly. Verified by reverting this
+    // gate alone against a real built Worker.
+    assert!(
+        result.js.contains(
+            "typeof HTMLElement !== 'undefined' && typeof customElements !== 'undefined'"
+        ),
+        "the client DOM registration must be guarded, not unconditional:\n{}",
+        result.js
+    );
+    let define_at = result
+        .js
+        .find("defineElement(")
+        .expect("no defineElement call emitted");
+    let guard_at = result
+        .js
+        .find("typeof HTMLElement !== 'undefined'")
+        .expect("no DOM guard emitted");
+    assert!(
+        guard_at < define_at,
+        "the guard must PRECEDE the registration, not merely coexist with it:\n{}",
+        result.js
+    );
+}
+
+/// A CLIENT build of the same component is unchanged — no SSR entry, and the
+/// registration is the plain unguarded call it has always been.
+#[test]
+fn extends_base_client_build_is_unchanged() {
+    let src = r#"
+@state {
+import { AihuSwitchRoot } from '@aihu/primitives/switch'
+
+base: AihuSwitchRoot
+}
+
+@template {
+  <span>EXTENDS-OK</span>
+}
+"#;
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full_with_target(&parsed, BuildTarget::Client).unwrap();
+    let result = emit(&unit, "x-switch");
+
+    assert!(
+        !result.js.contains("export const __ssr"),
+        "the SSR entry is a server-target artifact; a client build must not \
+         grow one:\n{}",
+        result.js
+    );
+    assert!(
+        result.js.contains("base: AihuSwitchRoot"),
+        "the client build must still extend the base class:\n{}",
+        result.js
+    );
+}
+
+/// `$extends` COMBINED with `$form` stays excluded — the documented narrower
+/// hole (`define_opts` is still not threaded through the options-form SSR
+/// branch), and it must not be lifted by accident.
+///
+/// Authored in the legacy `$`-form dialect throughout: `base:` is the WRAPPER
+/// spelling, and C625 rejects a `@state` block that mixes wrapper declarations
+/// with `$`-macros. `$extends:` and `base:` parse to the same
+/// `StateMacro::Extends`, so this exercises the identical gate.
+#[test]
+fn extends_base_with_form_stays_excluded() {
+    let src = r#"
+@state {
+import { AihuSwitchRoot } from '@aihu/primitives/switch'
+
+$extends: AihuSwitchRoot
+
+$form: {
+  value: () => 'on',
+}
+}
+
+@template {
+  <span>EXTENDS-OK</span>
+}
+"#;
+    let parsed = sfc::parse(src).unwrap();
+    let unit = compile_full_with_target(&parsed, BuildTarget::Server).unwrap();
+    let result = emit(&unit, "x-switch-form");
+
+    assert!(
+        !result.js.contains("export const __ssr"),
+        "$extends + $form is a deliberately narrower exclusion than plain \
+         $extends — it stays excluded until `define_opts` is threaded through \
+         the options-form SSR branch:\n{}",
+        result.js
+    );
+}

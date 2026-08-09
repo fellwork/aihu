@@ -1,10 +1,23 @@
 <!--
   aihu-button — styled recipe (Plan 5 Task 5, master spec §9.2 / §9.4).
 
-  The class-extension recipe: extends the HEADLESS `AihuButton` base from
-  `@aihu/primitives/button` (behavior + ARIA, zero CSS) and registers a concrete
-  prefixed tag (`<aihu-button>`). `aihu add` rewrites the `aihu-` prefix to the
-  consumer's chosen prefix at copy time; after copy the consumer owns this source.
+  Wraps a NATIVE <button> and forwards props. NO `$extends` — same rule as
+  `input.aihu` / `textarea.aihu` / `label.aihu`: the native control already
+  carries the role, the tab stop, Enter/Space activation and the disabled
+  semantics, so extending `AihuButton` would FIGHT the template-rendered native
+  element rather than add to it. Measured, not assumed: with `base: AihuButton`
+  the HOST gains `role="button"` + `tabindex="0"` while still containing the
+  focusable native `<button>` in its shadow root — nested interactive controls,
+  two tab stops, and Enter activating twice (the base's keydown handler calls
+  `this.click()` on the host, the inner button activates natively).
+
+  `AihuButton` remains the right base for a host-as-button element that renders
+  no inner control — use `@aihu/primitives/button` directly for that shape. For
+  a worked class-extension recipe see `checkbox.aihu` / `switch.aihu`, which
+  DO use `$extends:` because their hosts carry the behavior themselves.
+
+  `aihu add` rewrites the `aihu-` prefix to the consumer's chosen prefix at copy
+  time; after copy the consumer owns this source.
 
   variant: default | destructive | outline | ghost | link
   size:    sm | md | lg | icon
@@ -12,41 +25,17 @@
   (The variant/size matrix is the registry catalog contract — see meta.json.
   These are reflected as `data-variant` / `data-size` and matched in @style below.)
 
-  CSS attachment (R2): the compiled recipe stylesheet is a Constructable
-  StyleSheet adopted into the element's shadow root, constructed ONCE as a
-  `static` on the class and SHARED across instances — never a per-instance
-  inline style element. See `AihuButtonRecipe.sheet` in @state.
+  CSS attachment (R2): the compiled `@style` block below IS the shared
+  Constructable StyleSheet — see `card.aihu`'s header. A recipe writes no
+  registration and no `adoptedStyleSheets` code of its own.
 -->
 
 @state {
   import { cn } from '@aihu/css-engine/runtime/cn'
-  import { AihuButton } from '@aihu/primitives/button'
 
   let variant = prop({ default: 'default' })
   let size = prop({ default: 'md' })
   let disabled = prop({ default: false })
-
-  // The concrete styled element: behavior inherited from the headless base,
-  // appearance from the adopted stylesheet (R2 — shared static, not per-instance).
-  class AihuButtonRecipe extends AihuButton {
-    static sheet = (() => {
-      const s = new CSSStyleSheet()
-      // The recipe stylesheet is produced by the css-engine scanner at the
-      // consumer's `aihu build`; this static is the shared, single-construction
-      // sheet every instance adopts.
-      return s
-    })()
-
-    connectedCallback() {
-      super.connectedCallback?.()
-      if (!this.shadowRoot) this.attachShadow({ mode: 'open' })
-      this.shadowRoot.adoptedStyleSheets = [AihuButtonRecipe.sheet]
-    }
-  }
-
-  if (!customElements.get('aihu-button')) {
-    customElements.define('aihu-button', AihuButtonRecipe)
-  }
 }
 
 @template {

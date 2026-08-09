@@ -8,10 +8,27 @@
 import { marked, Renderer } from 'marked'
 import { codeBlock } from './code-block.ts'
 
+/**
+ * Reduce an HTML fragment to its plain text.
+ *
+ * The trailing `>` is OPTIONAL on purpose. The obvious `/<[^>]*>/g` only
+ * removes *terminated* tags, so an unterminated one survives verbatim and a
+ * function advertising itself as a tag stripper hands back the opening of a
+ * script tag (CodeQL js/incomplete-multi-character-sanitization):
+ *
+ *   '<div><script src=//evil/x.js'  ->  '<script src=//evil/x.js'
+ *
+ * With `>?` a bare `<` matches the pattern on its own, so no `<` can survive
+ * any input — verified exhaustively over every string up to length 5 in the
+ * `<>script"/ ` alphabet (177,156 cases, zero leaks). One pass suffices;
+ * stripping cannot manufacture a new `<`, so there is no fixpoint to chase.
+ */
+export function stripTags(html: string): string {
+  return html.replace(/<[^>]*>?/g, '')
+}
+
 export function slugify(text: string): string {
-  return text
-    .toLowerCase()
-    .replace(/<[^>]*>/g, '')
+  return stripTags(text.toLowerCase())
     .replace(/[^\w\s-]/g, '')
     .trim()
     .replace(/\s+/g, '-')
@@ -28,7 +45,7 @@ function buildRenderer(): Renderer {
   r.heading = ({ tokens, depth }: { tokens: unknown[]; depth: number }): string => {
     // @ts-expect-error marked's parser is attached at runtime
     const inline = r.parser.parseInline(tokens)
-    const plain = inline.replace(/<[^>]*>/g, '')
+    const plain = stripTags(inline)
     const id = slugify(plain)
     if (depth === 1) return `<h1>${inline}</h1>`
     // `tabindex="-1"` alongside `aria-hidden="true"` is required, not optional.

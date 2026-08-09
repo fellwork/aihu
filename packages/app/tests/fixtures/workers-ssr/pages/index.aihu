@@ -8,5 +8,8 @@
     <h1>probe page</h1>
     <probe-card />
     <probe-attr city="London" />
+    <probe-extends />
+    <probe-recipe />
+    <probe-define />
   </main>
 }

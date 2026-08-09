@@ -8,29 +8,23 @@
 
   orientation: horizontal (default) | vertical
 
-  CSS attachment (R2): shared static Constructable StyleSheet adopted into the
-  shadow root, not a per-instance inline style element.
+  CSS attachment (R2): the compiled `@style` block below IS the shared
+  Constructable StyleSheet — see `card.aihu`'s header. A recipe writes no
+  registration and no `adoptedStyleSheets` code of its own.
+
+  ARIA lives on the TEMPLATE element, not the host. `role="separator"` +
+  `aria-orientation` are authored on the rendered `[data-slot="separator"]`
+  div, which is inside the shadow root and therefore in the accessibility tree.
+  This recipe deliberately does NOT `$extends:` the headless `AihuSeparator`
+  from `@aihu/primitives/separator` — that primitive puts the role on the HOST
+  and renders nothing, which is a different (also valid) shape. Consumers who
+  want the host-as-separator shape should use the primitive directly.
 -->
 
 @state {
   import { cn } from '@aihu/css-engine/runtime/cn'
 
   let orientation = prop({ default: 'horizontal' })
-
-  class AihuSeparator extends HTMLElement {
-    static sheet = new CSSStyleSheet()
-
-    connectedCallback() {
-      if (!this.shadowRoot) this.attachShadow({ mode: 'open' })
-      this.shadowRoot.adoptedStyleSheets = [AihuSeparator.sheet]
-      if (!this.hasAttribute('role')) this.setAttribute('role', 'separator')
-      this.setAttribute('aria-orientation', this.getAttribute('orientation') ?? 'horizontal')
-    }
-  }
-
-  if (!customElements.get('aihu-separator')) {
-    customElements.define('aihu-separator', AihuSeparator)
-  }
 }
 
 @template {

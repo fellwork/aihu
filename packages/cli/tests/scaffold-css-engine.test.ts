@@ -29,6 +29,7 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { type AihuCompilerPluginOptions, aihuCompilerPlugin } from '../../compiler/js/index.ts'
+import { aihuDep } from '../src/dep-versions.ts'
 import { appIndexAihu, appPackageJson, appViteConfig, scaffoldApp } from '../src/index.ts'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -40,7 +41,7 @@ describe('scaffold css-engine · package.json', () => {
     const pkg = JSON.parse(appPackageJson('x', 'bun', true)) as {
       dependencies: Record<string, string>
     }
-    expect(pkg.dependencies['@aihu/css-engine']).toBe('latest')
+    expect(pkg.dependencies['@aihu/css-engine']).toBe(aihuDep('@aihu/css-engine'))
   })
 
   it('omits @aihu/css-engine when off (default)', () => {
@@ -129,7 +130,7 @@ describe('scaffold css-engine · scaffoldApp() writes the right tree', () => {
     const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as {
       dependencies: Record<string, string>
     }
-    expect(pkg.dependencies['@aihu/css-engine']).toBe('latest')
+    expect(pkg.dependencies['@aihu/css-engine']).toBe(aihuDep('@aihu/css-engine'))
 
     // No choice was made, so nothing is pinned: the framework defaults decide
     // (the scaffolded page is light DOM via the compiler's page default).
@@ -224,8 +225,8 @@ describe('scaffold css-engine · utilities actually emit (compiler transform)', 
       // Combined options object (LDF §10 step 3 folds lightScopeId into the
       // same injection as shadowMode — see `_injectShadowMode`'s doc
       // comment) — assert the shadowMode field, not the whole literal object.
-      expect(out).toContain("shadowMode: 'light'")
-      expect(out).toMatch(/lightScopeId: '[0-9a-f]{8}'/)
+      expect(out).toMatch(/shadowMode: ['"]light['"]/)
+      expect(out).toMatch(/lightScopeId: ['"][0-9a-f]{8}['"]/)
     },
   )
 

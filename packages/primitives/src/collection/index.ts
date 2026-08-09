@@ -13,6 +13,7 @@
 import { type Read, signal } from '@aihu/signals'
 import { composedCompareOrder } from '../composed-tree.ts'
 import { createDomContext, provideContext } from '../dom-context.ts'
+import { HTMLElementBase } from '../html-element-base.ts'
 
 export interface CollectionContextValue {
   /** Register `el`; returns a disposer that unregisters it. */
@@ -56,7 +57,7 @@ export function createCollection(): CollectionContextValue {
   }
 }
 
-export class AihuCollection extends HTMLElement {
+export class AihuCollection extends HTMLElementBase {
   private readonly _collection = createCollection()
 
   /** Registered descendants in DOM order. */
@@ -76,8 +77,11 @@ export class AihuCollection extends HTMLElement {
 }
 
 let _defined = false
-/** Register `<aihu-collection>` (idempotent). */
+/** Register `<aihu-collection>` (idempotent; a no-op without a DOM). */
 export function defineCollection(tag = 'aihu-collection'): void {
+  // No DOM, no registry to register INTO — a documented no-op. See
+  // `html-element-base.ts` §"Registration without a DOM".
+  if (typeof customElements === 'undefined') return
   if (_defined || customElements.get(tag)) {
     _defined = true
     return

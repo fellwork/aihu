@@ -45,6 +45,12 @@ export const EXPORTS: readonly ApiExport[] = [
       "Derive the `__aihu_child_tags__` set from SERVER-TARGET compiled code: the tags the compiled string renderer will actually look up, read off the `__aihu_schild('<tag>'` call sites the Rust codegen emitted.",
   },
   {
+    name: '_errMessage',
+    kind: 'function',
+    signature: 'function _errMessage(err: unknown): string',
+    summary: 'Best-effort message text for an unknown thrown value.',
+  },
+  {
     name: '_foldCssEngineStyles',
     kind: 'function',
     signature: 'function _foldCssEngineStyles(compiledCode: string, css: string): string',
@@ -119,6 +125,13 @@ export const EXPORTS: readonly ApiExport[] = [
     summary: 'Is `rawId` a layout SFC (a `.aihu` file under the configured layouts dir)?',
   },
   {
+    name: '_isViteMissing',
+    kind: 'function',
+    signature: 'function _isViteMissing(err: unknown): boolean',
+    summary:
+      'Is this `import(\'vite\')` rejection the ONE legitimate "there is no Vite here" case — a standalone `transform()` caller, a unit test, any non-Vite host?',
+  },
+  {
     name: '_layoutTag',
     kind: 'function',
     signature: 'function _layoutTag(stem: string): string',
@@ -173,6 +186,23 @@ export const EXPORTS: readonly ApiExport[] = [
     kind: 'function',
     signature: 'function _resolveCompileBackend(): CompileBackend',
     summary: 'Resolve (once) which backend serves compiles for this process.',
+  },
+  {
+    name: '_stripFailure',
+    kind: 'function',
+    signature:
+      "function _stripFailure( fn: 'transformWithOxc' | 'transformWithEsbuild', id: string, viteVersion: string, isServerEnv: boolean, err: unknown, ): string",
+    summary:
+      'The message for a strip that failed with Vite present — names the branch, the Vite version, the environment and the file, and says why it is fatal rather than swallowed.',
+  },
+  {
+    name: '_stripTypes',
+    kind: 'function',
+    signature:
+      'async function _stripTypes( vite: ViteStripApi, code: string, id: string, isServerEnv: boolean, ): Promise<StripTypesResult>',
+    summary:
+      'Strip TypeScript from compiler output using whichever transform the resolved Vite exposes.',
+    agent: true,
   },
   {
     name: '_transformMemoStats',
@@ -289,6 +319,20 @@ export const EXPORTS: readonly ApiExport[] = [
     signature:
       "interface SfcStyleBlock {\n  /** Verbatim CSS body of the @style block (braces stripped, $global token removed). */\n  content: string\n  /** 'scoped' (default) or 'global' (@style { $global ... }). */\n  scope: 'scoped' | 'global'\n}",
     summary: '',
+  },
+  {
+    name: 'StripTypesResult',
+    kind: 'interface',
+    signature:
+      "interface StripTypesResult {\n  readonly code: string\n  readonly map: null\n  /** Rolldown-only hint; set ONLY on the last-resort no-transform branch. */\n  readonly moduleType?: 'ts'\n}",
+    summary: "What the Vite plugin's `transform` hook hands back after the strip.",
+  },
+  {
+    name: 'ViteStripApi',
+    kind: 'interface',
+    signature:
+      'interface ViteStripApi {\n  readonly version?: string\n  readonly transformWithOxc?: (\n    code: string,\n    id: string,\n    // biome-ignore lint/suspicious/noExplicitAny: variance seam — see doc comment\n    ...rest: any[]\n  ) => Promise<{ code: string }>\n  readonly transformWithEsbuild?: (\n    code: string,\n    id: string,\n    // biome-ignore lint/suspicious/noExplicitAny: variance seam — see doc comment\n    ...rest: any[]\n  ) => Promise<{ code: string }>\n}',
+    summary: 'The subset of the Vite module `_stripTypes` uses — the seam tests fake.',
   },
   {
     name: 'SfcAttr',

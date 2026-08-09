@@ -13,10 +13,12 @@
  * The classification is DERIVED here from `fitness.json`'s measured
  * `spreadPct`, never read from it. The artifact stores measurements and
  * provenance only, so there is no `class` string anyone can flip without
- * falsifying the number under it. Regenerate with:
+ * falsifying the number under it. It WOULD be regenerated with:
  *   BENCH_FITNESS_OUT=fitness.json bun src/repeat.ts 7 <label>
  * on the machine the gate runs on — spread is a property of the
- * (workload × machine) pair, not of the workload.
+ * (workload × machine) pair, not of the workload. That paragraph describes
+ * how the mechanism is built, NOT a licensed action: committing a
+ * fitness.json is forbidden as of D1 (see DESIGNED-RED below).
  *
  * FAIL-CLOSED, all four directions (a gate that cannot read its own policy
  * must not pass): a missing or unparseable artifact, a schema it does not
@@ -47,6 +49,31 @@
  * the real runner pipeline is untouched. They exist so HARNESS.md's
  * "did the gate actually fire?" check is reproducible without writing
  * regressions into the codebase.
+ *
+ * ── DESIGNED-RED · D1 RESOLVED 2026-08-08 ─────────────────────────────────
+ * This gate ships RED. That is a decision, not an oversight and not an open
+ * question. `bench/signals/fitness.json` has never existed — PR #698 built
+ * the measurement + generation pipeline (bench-fitness.yml, this file's
+ * fitness-derivation logic) but deliberately left the last step, a human
+ * committing a measured artifact, undone (see that workflow's own header:
+ * "the commit stays a human act with a diff to read"). `loadFitness` below
+ * is FAIL-CLOSED on a missing artifact by design, so this gate exits 1 on
+ * every run, before it compares a single p50. It is NOT in `ci-ok`'s needs
+ * and `continue-on-error: true` in plan-a.yml keeps it from blocking
+ * anything — but it is genuinely red, not silently skipped.
+ *
+ * DO NOT create or regenerate `fitness.json` to green this gate. Doing so
+ * yields a differently-red gate: `repeat.ts` measures WITHIN-PROCESS
+ * variance and this gate would use it to license ACROSS-CI-RUN comparisons.
+ * Re-measured 2026-08-08 back-to-back on one quiet machine with zero code
+ * changes, 2 of 6 workloads drifted past this file's own 10 % threshold
+ * (batched-writes-100 +12.9 %, creation-1to1000 +10.4 %); cross-CI drift was
+ * previously measured at 19-31 %.
+ *
+ * Reopens only when R1 (same-job A/B vs merge base) lands — tracked as
+ * `C-FEL-BENCH-R1-AB-HARNESS`. The full decision, its evidence, and the two
+ * things that reopen it live in ONE place: bench/signals/HARNESS.md,
+ * section "D1 — RESOLVED 2026-08-08". Read that before touching this.
  */
 import { readFileSync } from 'node:fs'
 
@@ -106,7 +133,15 @@ function loadFitness(): FitnessArtifact {
     console.error(
       `Bench gate: cannot read fitness.json (${String(err)}).\n` +
         'The gate does not know which workloads are fit to gate, so it cannot pass.\n' +
-        'Regenerate on the gate machine: BENCH_FITNESS_OUT=fitness.json bun src/repeat.ts 7 <label>',
+        '\n' +
+        'THIS RED IS EXPECTED AND IS NOT ABOUT YOUR CHANGE.\n' +
+        'D1, resolved 2026-08-08: this gate ships red by design. fitness.json has\n' +
+        'never existed, and creating one would NOT green this gate — it measures\n' +
+        'within-process spread and the gate would use it to license across-CI-run\n' +
+        'comparisons (2 of 6 workloads drift past the 10 % threshold with zero code\n' +
+        'changes). Do not create it, do not [bench-bump], do not investigate.\n' +
+        'Fix is R1, tracked as C-FEL-BENCH-R1-AB-HARNESS.\n' +
+        'Read: bench/signals/HARNESS.md § "D1 — RESOLVED 2026-08-08".',
     )
     process.exit(1)
   }

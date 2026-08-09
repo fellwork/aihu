@@ -265,10 +265,14 @@ export function viteTemplateAgentsFacts(name: string): AgentsMdFacts {
  * for bun, and it is not optional: pnpm blocks every lifecycle script by
  * default and — unlike bun, which blocks them SILENTLY — exits non-zero, so
  * `pnpm install` fails outright on a fresh scaffold before the user can reach a
- * build. Both entries are load-bearing for the same reason their bun
- * counterparts are: `@aihu/compiler` postinstalls the correct-arch native
- * binary and vite's `esbuild` postinstalls its own; a blocked script leaves the
- * wrong-arch binary in place to resurface later as ENOEXEC.
+ * build. `esbuild` is the entry that carries that load today: it postinstalls
+ * its platform binary and is reached transitively through vite 6, and a blocked
+ * script leaves the wrong-arch binary in place to resurface later as ENOEXEC.
+ * `@aihu/compiler` is listed alongside it as a forward guard only — it ships no
+ * install script since #370 replaced its postinstall with per-platform
+ * optionalDependencies, so pnpm has nothing to block there today. Kept in step
+ * with the bun-side list in `appPackageJson`; see that comment for the
+ * measurements.
  *
  * Targets pnpm >=11 deliberately rather than emitting both spellings. The
  * legacy key is not merely redundant on v11 — pnpm auto-appends unlisted
@@ -281,10 +285,12 @@ export function pnpmWorkspaceYaml(): string {
 # install. This file is why \`pnpm install\` works here.
 #
 # allowBuilds is the pnpm equivalent of package.json's trustedDependencies
-# (bun): both @aihu/compiler and esbuild postinstall an arch-specific native
-# binary, and pnpm blocks lifecycle scripts by default AND exits non-zero doing
-# it, so without this the very first \`pnpm install\` fails with
-# ERR_PNPM_IGNORED_BUILDS. Anything not listed here is denied by default.
+# (bun). esbuild postinstalls an arch-specific native binary, and pnpm blocks
+# lifecycle scripts by default AND exits non-zero doing it, so without this the
+# very first \`pnpm install\` fails with ERR_PNPM_IGNORED_BUILDS. @aihu/compiler
+# ships no install script today (its native binary arrives as per-platform
+# optionalDependencies) and is listed as a forward guard. Anything not listed
+# here is denied by default.
 #
 # pnpm v11 renamed this: it was onlyBuiltDependencies (a list) through v10 and
 # is now allowBuilds (a map). The old key is silently ignored, not warned about.

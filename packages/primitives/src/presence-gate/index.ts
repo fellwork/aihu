@@ -16,11 +16,12 @@
 
 import { computed, effect, type Read, signal } from '@aihu/signals'
 import { createDomContext, provideContext } from '../dom-context.ts'
+import { HTMLElementBase } from '../html-element-base.ts'
 
 /** Context carrying the gate's `present` signal to descendants. */
 export const presenceContext = createDomContext<Read<boolean>>('presence')
 
-export class AihuPresenceGate extends HTMLElement {
+export class AihuPresenceGate extends HTMLElementBase {
   static readonly observedAttributes = ['present']
 
   private readonly _present = signal(false)
@@ -115,8 +116,12 @@ export class AihuPresenceGate extends HTMLElement {
 }
 
 let _defined = false
-/** Register `<aihu-presence-gate>` (idempotent — safe to call repeatedly). */
+/** Register `<aihu-presence-gate>` (idempotent — safe to call repeatedly; a no-op
+ * without a DOM). */
 export function definePresenceGate(tag = 'aihu-presence-gate'): void {
+  // No DOM, no registry to register INTO — a documented no-op. See
+  // `html-element-base.ts` §"Registration without a DOM".
+  if (typeof customElements === 'undefined') return
   if (_defined || customElements.get(tag)) {
     _defined = true
     return

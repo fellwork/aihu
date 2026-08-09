@@ -20,6 +20,7 @@ import {
   type FormControlContextValue,
   formControlContext,
 } from '../form-control/index.ts'
+import { HTMLElementBase } from '../html-element-base.ts'
 
 export interface SwitchContextValue {
   readonly checked: Read<boolean>
@@ -28,7 +29,7 @@ export interface SwitchContextValue {
 
 export const switchContext = createDomContext<SwitchContextValue>('switch')
 
-export class AihuSwitchRoot extends HTMLElement {
+export class AihuSwitchRoot extends HTMLElementBase {
   static readonly observedAttributes = [
     'checked',
     'default-checked',
@@ -190,7 +191,7 @@ export class AihuSwitchRoot extends HTMLElement {
 }
 
 /** Presentational styling hook: mirrors the root's state, hidden from AT. */
-export class AihuSwitchThumb extends HTMLElement {
+export class AihuSwitchThumb extends HTMLElementBase {
   private _disposers: Array<() => void> = []
 
   connectedCallback(): void {
@@ -217,8 +218,11 @@ const REGISTRY: Array<[string, CustomElementConstructor]> = [
 ]
 
 let _defined = false
-/** Register all switch custom elements (idempotent). */
+/** Register all switch custom elements (idempotent; a no-op without a DOM). */
 export function defineSwitch(): void {
+  // No DOM, no registry to register INTO — a documented no-op. See
+  // `html-element-base.ts` §"Registration without a DOM".
+  if (typeof customElements === 'undefined') return
   if (_defined) return
   for (const [tag, ctor] of REGISTRY) {
     if (!customElements.get(tag)) customElements.define(tag, ctor)

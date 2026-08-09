@@ -28,6 +28,7 @@ import {
   resolveRequestPrincipal,
   validateGovernedBoot,
 } from '@aihu/server'
+import { jsSourceLiteral } from './codegen.ts'
 import type { RouteDefinition, RouteModule, Router } from './router.ts'
 import { createRouter } from './router.ts'
 
@@ -66,8 +67,17 @@ export type ServerRouter = Router & {
  * exports `@aihu/app`'s prerender reads off a layout, for the same reasons.
  *
  * A RESOLVED module, not a loader, for the same reason
- * {@link ServerRouterOptions.children} is: the awaiting belongs at module
- * init, once, not on the request path.
+ * {@link ServerRouterOptions.children} is: composition happens inside a
+ * synchronous render and cannot await a dynamic import mid-flight, so every
+ * module must already be in hand when a render begins.
+ *
+ * CORRECTED: this used to add "the awaiting belongs at module init, once, not
+ * on the request path". That was the original wiring and it is no longer true.
+ * A module-scope `await` makes `@aihu/app`'s generated Worker entry an ESM
+ * ASYNC module, and the bundler's chunk cycle then deadlocks it on load — a
+ * green build whose Worker hangs on every request. The awaiting now happens
+ * once on the FIRST REQUEST, memoised, strictly before `handle()` is invoked.
+ * The contract this type states is unchanged; only where it is satisfied moved.
  */
 export interface LayoutModuleLike {
   /** The renderable — `() => arbor-tree` or `{ toHtml() }`. */
@@ -115,7 +125,15 @@ export interface ServerRouterOptions {
    *
    * A RESOLVED map, not a loader — `__aihu_schild` runs inside the compiled
    * string fast path, which is synchronous, so every module must already be
-   * in hand before a render begins. Awaiting belongs at module init, once.
+   * in hand before a render begins.
+   *
+   * CORRECTED: this used to end "Awaiting belongs at module init, once." It no
+   * longer does, and could not: module-scope `await` makes `@aihu/app`'s
+   * generated Worker entry an ESM async module, which deadlocks inside the
+   * bundler's chunk cycle. `@aihu/app` now resolves the whole registry graph
+   * once on the first request and memoises it, strictly before `handle()` runs
+   * — which satisfies this resolved-map contract exactly as module-scope
+   * resolution did.
    *
    * Omitting it is byte-identical to not passing it, matching this
    * interface's existing contract: a component reference then renders as an
@@ -531,7 +549,12 @@ export function createServerRouter(
       const composed = await withLayout(route, html)
       // Granted → the Entitled<T> payload; withheld → ONLY the Withheld<T>
       // shape. The granted payload never exists in a withheld response.
-      const body = `${composed}<script type="application/json" id="__aihu_loader__">${JSON.stringify(emission.data)}</script>`
+      // jsSourceLiteral, not JSON.stringify: emission.data can carry
+      // data-source content (D1/KV/R2), and a raw `</script>` inside it
+      // would end this block early and turn everything after it into live
+      // DOM (CWE-79/94/116). \uXXXX escapes round-trip through JSON.parse
+      // unchanged, so the client loader sees byte-identical data.
+      const body = `${composed}<script type="application/json" id="__aihu_loader__">${jsSourceLiteral(emission.data)}</script>`
 
       const status = governedHttpStatus(emission)
       const base: Record<string, string> = { 'Content-Type': 'text/html; charset=utf-8' }
@@ -607,9 +630,11 @@ export function createServerRouter(
     // would make a site's chrome depend on whether a page declares `data:`.
     const composed = await withLayout(route, html)
 
+    // jsSourceLiteral, not JSON.stringify — same </script>-breakout risk as
+    // the governed arm above; loaderData is just as attacker-influenceable.
     const body =
       loaderData !== undefined
-        ? `${composed}<script type="application/json" id="__aihu_loader__">${JSON.stringify(loaderData)}</script>`
+        ? `${composed}<script type="application/json" id="__aihu_loader__">${jsSourceLiteral(loaderData)}</script>`
         : composed
 
     // GX Phase 3 (#437-GX): the compliance-tier noindex signal, derived from

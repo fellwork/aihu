@@ -17,6 +17,17 @@
  * regenerate RESULTS.md to make this green — that canonises numbers for an
  * artifact nobody ships and destroys the incident record (truth doc §3.4).
  *
+ * D1 RESOLVED 2026-08-08: shipping red is now a CLOSED decision, not a
+ * pending one. Re-verified against a live run that same day — the FAIL is
+ * `update-1-of-10k-leaves 29 -> 256 ns (795.8 %)`, i.e. the dead-binding
+ * fiction row doing exactly what it is documented to do, and the report-only
+ * rows swing -52 % to -60 % against the 2026-05-25 baseline. The step is
+ * `continue-on-error` in plan-a.yml; the sibling counted-metric gate
+ * (counts.ts) in the same job keeps its teeth and is the trustworthy signal.
+ * Tracked follow-up: `C-FEL-BENCH-R1-AB-HARNESS`. Single canonical statement
+ * of the decision + evidence: bench/signals/HARNESS.md, section
+ * "D1 — RESOLVED 2026-08-08". Nothing here supersedes it.
+ *
  * The gate still compares p50-vs-p50 (not `min`, which R2 prefers) because
  * the committed baseline has no `min` field; switching statistics against
  * this baseline would mark every row "NEW — no previous baseline" and

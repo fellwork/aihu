@@ -54,6 +54,59 @@ function resolveBinPath(): string {
   return process.env.AIHU_COMPILE_BIN ?? resolveCompilerBinary()
 }
 
+/*
+ * ── Regex hardening: js/polynomial-redos (CWE-1333) ─────────────────────────
+ *
+ * Most of the regexes in this file run against COMPILED MODULE TEXT, and that
+ * text carries authored `.aihu` bytes verbatim: a template text node becomes
+ * `leaf('<text>')` (codegen/template_emit.rs) and an `@style` body becomes
+ * ``__style__.replaceSync(`<css>`)`` (codegen/emit.rs). So the strings these
+ * patterns scan ARE attacker-controllable by whoever authors the `.aihu` file
+ * — an untrusted PR in a monorepo, a template shipped to other developers.
+ * Treat them as untrusted input, not as our own generated output.
+ *
+ * Three ambiguity shapes were live in this file (17 CodeQL alerts), all
+ * polynomial rather than exponential — the cost comes from re-scanning, not
+ * from nested quantifiers:
+ *
+ *   A. Named-import matchers, `import\s*\{[^}]*\}\s*from '<mod>'`.
+ *      `[^}]` does not exclude `{`, so every one of the N `import{` offsets in
+ *      the subject restarts a scan that runs to the END of the string before
+ *      failing → O(n²). Fixed by narrowing the specifier-list class to
+ *      `[^{}]`, which bounds each scan to the next brace. An ES import
+ *      specifier list can never contain `{`, so no legitimate input changes
+ *      meaning — the class is strictly more correct as well as safer.
+ *      (Measured: 224 KB of `import{` took 2.45 s before, 0.7 ms after.)
+ *
+ *   B. Literal prefix + lazy any-char scan, e.g.
+ *      ``/(__style__\.replaceSync\(`)[^]*?(`\);)/``. Repeating the prefix
+ *      gives N start offsets, each running a fresh O(n) lazy scan → O(n²).
+ *      A regex cannot express "first prefix, then first terminator" without
+ *      that re-scan, so these are restructured into literal `indexOf` scans
+ *      (`_replaceDelimitedBody`, `_passivizeOutlet`, `_hasBaseRecipe`). The
+ *      rewrite is exactly equivalent: `String.replace` takes the LEFTMOST
+ *      match, and if no terminator follows the first prefix then none follows
+ *      any later prefix either — so "first prefix + first terminator after it"
+ *      is the same span the regex produced.
+ *
+ *   C. Greedy `.*` between two literals (`/import.*from\s*'@aihu\/signals'/`).
+ *      Same re-scan blowup, one start offset per `import` on the line. Fixed
+ *      by anchoring to a line start (`^` + `m`), which caps the offsets at one
+ *      per line and makes the total linear.
+ *
+ * Adjacent unbounded `\s*` runs (`\s*;?\s*$`) are a second, independent pump:
+ * the two runs can split a whitespace tail O(n) ways when `$` never holds.
+ * Rewritten as `(?:\s*;)?\s*$`, which matches exactly the same spans with an
+ * unambiguous decomposition. And `^\s*` under the `m` flag is a third: `\s`
+ * matches `\n`, so every line start can scan the whole remaining file →
+ * narrowed to `[^\S\r\n]*` (horizontal indentation), which is what "the import
+ * line" actually means.
+ *
+ * `packages/compiler/tests/regex-redos.test.ts` pins both halves: old-vs-new
+ * output equality on every real compiled shape, and a wall-clock budget on the
+ * adversarial inputs.
+ */
+
 // Minimal VitePlugin interface — avoids importing from 'vite' at compile time.
 // Structurally compatible with Vite's Plugin type.
 interface VitePlugin {
@@ -346,6 +399,175 @@ export function _parseIslandMarker(compiledCode: string): 'static' | 'interactiv
   return m?.[1] === 'static' ? 'static' : 'interactive'
 }
 
+/** Best-effort message text for an unknown thrown value. @internal */
+export function _errMessage(err: unknown): string {
+  if (err instanceof Error) return err.message
+  if (typeof err === 'string') return err
+  const m = (err as { message?: unknown } | null)?.message
+  return typeof m === 'string' ? m : String(err)
+}
+
+/**
+ * Is this `import('vite')` rejection the ONE legitimate "there is no Vite here"
+ * case — a standalone `transform()` caller, a unit test, any non-Vite host?
+ *
+ * The distinction matters because the two outcomes are opposites: "no Vite"
+ * must hand the TypeScript back untouched (the caller owns it and never asked
+ * for a strip), while "Vite is here and something broke" must throw, because
+ * un-stripped TypeScript returned into a Vite build is silent corruption that
+ * only surfaces as an unrelated bundler `PARSE_ERROR` much later.
+ *
+ * The test is deliberately narrow: a module-resolution failure whose subject is
+ * the `vite` specifier itself. Both Node and Bun report `ERR_MODULE_NOT_FOUND`
+ * with a message naming the package (`Cannot find package 'vite' …`). A
+ * resolution failure for something else — a broken transitive dependency of an
+ * installed Vite, say — is NOT this case: Vite is present, the strip is
+ * expected, and swallowing it would be the same silent corruption. So it is
+ * loud.
+ *
+ * @internal
+ */
+export function _isViteMissing(err: unknown): boolean {
+  const message = _errMessage(err)
+  const code = (err as { code?: unknown } | null)?.code
+  const isResolutionFailure =
+    code === 'ERR_MODULE_NOT_FOUND' ||
+    code === 'MODULE_NOT_FOUND' ||
+    /cannot find (module|package)/i.test(message)
+  if (!isResolutionFailure) return false
+  // The unresolved specifier must be `vite` itself, quoted the way both
+  // runtimes quote it, not merely a path that happens to contain "vite".
+  return /['"`]vite['"`]/.test(message)
+}
+
+/**
+ * The message for a strip that failed with Vite present — names the branch, the
+ * Vite version, the environment and the file, and says why it is fatal rather
+ * than swallowed.
+ *
+ * @internal
+ */
+export function _stripFailure(
+  fn: 'transformWithOxc' | 'transformWithEsbuild',
+  id: string,
+  viteVersion: string,
+  isServerEnv: boolean,
+  err: unknown,
+): string {
+  return (
+    `[@aihu/compiler] TypeScript strip failed for ${id} — ` +
+    `vite ${viteVersion} \`${fn}\` (${isServerEnv ? 'server' : 'client'} environment) threw. ` +
+    'Returning the un-stripped TypeScript would corrupt the build silently and ' +
+    'resurface as an unrelated bundler PARSE_ERROR on this file, so it fails here instead. ' +
+    `Underlying error: ${_errMessage(err)}`
+  )
+}
+
+/** What the Vite plugin's `transform` hook hands back after the strip. */
+export interface StripTypesResult {
+  readonly code: string
+  readonly map: null
+  /** Rolldown-only hint; set ONLY on the last-resort no-transform branch. */
+  readonly moduleType?: 'ts'
+}
+
+/**
+ * The subset of the Vite module `_stripTypes` uses — the seam tests fake.
+ *
+ * The trailing parameters are `any` on purpose: Vite's real signatures carry
+ * version-specific option/config/watcher types (and MORE parameters on some
+ * versions), and a narrower type here would make the genuine module fail to
+ * satisfy the interface. Only the first two parameters and `code` on the result
+ * are actually depended on.
+ */
+export interface ViteStripApi {
+  readonly version?: string
+  readonly transformWithOxc?: (
+    code: string,
+    id: string,
+    // biome-ignore lint/suspicious/noExplicitAny: variance seam — see doc comment
+    ...rest: any[]
+  ) => Promise<{ code: string }>
+  readonly transformWithEsbuild?: (
+    code: string,
+    id: string,
+    // biome-ignore lint/suspicious/noExplicitAny: variance seam — see doc comment
+    ...rest: any[]
+  ) => Promise<{ code: string }>
+}
+
+/**
+ * Strip TypeScript from compiler output using whichever transform the resolved
+ * Vite exposes. Takes the Vite module as a PARAMETER so the branch order and
+ * the failure behaviour are testable without installing four Vite versions.
+ *
+ * Branch order, and why:
+ *
+ * 1. `transformWithOxc` — Vite's own transform, needing NO separate esbuild.
+ *    Vite 8 made esbuild an OPTIONAL PEER while still *exporting* a
+ *    `transformWithEsbuild` that throws "It is deprecated and it now requires
+ *    esbuild to be installed separately … migrate to `transformWithOxc`" the
+ *    moment it is called. So this branch is deliberately NOT gated on the
+ *    environment: a fresh consumer install at vite 8 has no esbuild at all, and
+ *    the esbuild branch would throw on the CLIENT build — which every output
+ *    mode (`spa`, `static`, `ssr`) runs.
+ * 2. `transformWithEsbuild` — vite 6 and 5, where `transformWithOxc` does not
+ *    exist (`'transformWithOxc' in vite` is literally false on 6.4.3), so those
+ *    versions keep taking this branch and their output is unchanged.
+ * 3. Neither — hand the TypeScript to Rolldown with `moduleType: 'ts'`. A
+ *    forward-compatibility escape hatch for a Vite that drops both.
+ *
+ * Preferring oxc on vite 8 is a DELIBERATE behaviour change, not a refactor:
+ * oxc lowers class fields with `useDefineForClassFields: true` (the modern-TS
+ * default) where esbuild used `false`, lowers enums to a different (equivalent)
+ * IIFE shape, and does not constant-inline enum member reads. Invisible for
+ * compiler-generated code, observable for user-authored classes in an `.aihu`
+ * script block. Pinned by `tests/strip-branch.test.ts`.
+ *
+ * Failures here are LOUD. Both call sites are individually wrapped so the
+ * thrown error names the branch, the Vite version, the environment and the
+ * file. The alternative — the swallowing `catch` this replaced — returned
+ * un-stripped TypeScript that only surfaced as an unrelated `PARSE_ERROR` from
+ * the bundler two hundred lines of build output later.
+ *
+ * @internal
+ */
+export async function _stripTypes(
+  vite: ViteStripApi,
+  code: string,
+  id: string,
+  isServerEnv: boolean,
+): Promise<StripTypesResult> {
+  const viteVersion = vite.version ?? 'unknown'
+  if (typeof vite.transformWithOxc === 'function') {
+    try {
+      const stripped = await vite.transformWithOxc(code, 'component.ts', {
+        lang: 'ts',
+        sourcemap: false,
+      })
+      return { code: stripped.code, map: null }
+    } catch (err) {
+      throw new Error(_stripFailure('transformWithOxc', id, viteVersion, isServerEnv, err), {
+        cause: err,
+      })
+    }
+  }
+  if (typeof vite.transformWithEsbuild === 'function') {
+    try {
+      const stripped = await vite.transformWithEsbuild(code, 'component.ts', {
+        target: 'esnext',
+        sourcemap: false,
+      })
+      return { code: stripped.code, map: null }
+    } catch (err) {
+      throw new Error(_stripFailure('transformWithEsbuild', id, viteVersion, isServerEnv, err), {
+        cause: err,
+      })
+    }
+  }
+  return { code, moduleType: 'ts', map: null }
+}
+
 /**
  * §22 — parse the `// @aihu:component-tags a,b,c` marker the Rust codegen emits
  * for every server/universal build, on the same channel as `@aihu:island` above.
@@ -459,6 +681,28 @@ function _extractElementTag(code: string): string | null {
   return m ? (m[1] ?? null) : null
 }
 
+/**
+ * §9.4 — is this compiled module a base-extending recipe, i.e. does it call
+ * `defineComponent({ … base: … })` with an options object rather than a bare
+ * setup function? Such a component cannot take the static-island shim, which
+ * inlines `class extends HTMLElement` and has no way to honour a base class.
+ *
+ * Shape B of the ReDoS note at the top of this file. Equivalent to the single
+ * ``/defineComponent\(\s*\{[^]*?\bbase\s*:/`` this replaced: the head
+ * sub-pattern is unchanged, and `base:` appearing after some LATER
+ * `defineComponent({` implies it also appears after the first one — so testing
+ * only the first head is the same predicate, without the lazy re-scan that
+ * every repetition of the head literal used to restart.
+ * @internal
+ */
+function _hasBaseRecipe(code: string): boolean {
+  const head = /defineComponent\(\s*\{/.exec(code)
+  if (head === null) return false
+  const key = /\bbase\s*:/g
+  key.lastIndex = head.index + head[0].length
+  return key.test(code)
+}
+
 /** Strip trailing `/` characters via a plain scan, not a `\/+$/`-anchored
  * regex — that shape is vulnerable to catastrophic backtracking on a long
  * run of slashes with no match (CodeQL js/polynomial-redos): the greedy `+`
@@ -524,6 +768,9 @@ export function kebabComponentTag(raw: string): string {
   return out
 }
 
+const OUTLET_HEAD = 'const createOutletBoundary = () => {'
+const OUTLET_PASSIVE = `const createOutletBoundary = () => branch('div', { 'data-aihu-outlet': '' }, []);`
+
 /**
  * Collapse the reactive `<outlet>` boundary the Rust codegen emits into a
  * passive `data-aihu-outlet` marker. Layout SFCs are rendered by `@aihu/app`'s
@@ -534,13 +781,25 @@ export function kebabComponentTag(raw: string): string {
  * Anchors on the exact `const createOutletBoundary = () => { … return host; };`
  * block the codegen emits (`packages/compiler/src/codegen/emit.rs`). No-op when
  * the layout declares no `<outlet>`.
+ *
+ * Shape B of the ReDoS note at the top of this file: the head is located with
+ * `indexOf` and the tail scanned once from there, instead of one regex whose
+ * lazy `[\s\S]*?` re-scanned the whole module at every repetition of the head
+ * literal.
  * @internal
  */
 export function _passivizeOutlet(code: string): string {
-  return code.replace(
-    /const createOutletBoundary = \(\) => \{[\s\S]*?return host;\s*\n\};/,
-    `const createOutletBoundary = () => branch('div', { 'data-aihu-outlet': '' }, []);`,
-  )
+  const head = code.indexOf(OUTLET_HEAD)
+  if (head === -1) return code
+  // `[^\S\n]*\n` (horizontal whitespace, then the line break) rather than
+  // `\s*\n`: the codegen emits `  return host;\n};` and `\s` matching `\n`
+  // made the run ambiguous. Sticky-free `g` + an explicit `lastIndex` starts
+  // the single tail scan immediately after the head.
+  const tailRe = /return host;[^\S\n]*\n\};/g
+  tailRe.lastIndex = head + OUTLET_HEAD.length
+  const tail = tailRe.exec(code)
+  if (tail === null) return code
+  return code.slice(0, head) + OUTLET_PASSIVE + code.slice(tail.index + tail[0].length)
 }
 
 /**
@@ -573,7 +832,7 @@ export function _passivizeOutlet(code: string): string {
 function _buildHmrCode(compiledCode: string, elementTag: string): string {
   // Step 1 — add _hmrReplace to the @aihu/runtime import.
   const withImport = compiledCode.replace(
-    /import\s*\{([^}]*)\}\s*from\s*'@aihu\/runtime'/,
+    /import\s*\{([^{}]*)\}\s*from\s*'@aihu\/runtime'/,
     (_m, imports: string) => {
       const parts = imports
         .split(',')
@@ -636,7 +895,7 @@ if (typeof __DEV__ !== 'undefined' && __DEV__ && import.meta.hot) {
 export function _buildDeferredHydration(compiledCode: string, elementTag: string): string {
   // Add _hydrateOnVisible to the @aihu/runtime import.
   const withImport = compiledCode.replace(
-    /import\s*\{([^}]*)\}\s*from\s*'@aihu\/runtime'/,
+    /import\s*\{([^{}]*)\}\s*from\s*'@aihu\/runtime'/,
     (_m, imports: string) => {
       const parts = imports
         .split(',')
@@ -749,14 +1008,14 @@ export function _buildStaticIsland(compiledCode: string, elementTag: string): st
   // Strip the `@aihu/runtime` import line entirely — static islands
   // don't reference defineComponent/defineElement after the rewrite.
   const withoutRuntimeImport = compiledCode.replace(
-    /^\s*import\s*\{[^}]*\}\s*from\s*'@aihu\/runtime'\s*;?\s*$/m,
+    /^[^\S\r\n]*import\s*\{[^{}]*\}\s*from\s*'@aihu\/runtime'(?:\s*;)?\s*$/m,
     '',
   )
 
   // Ensure `mount` is imported from @aihu/arbor (it already exposes
   // branch/leaf/slot, so we just append `mount` to the existing list).
   const withArborMount = withoutRuntimeImport.replace(
-    /import\s*\{([^}]*)\}\s*from\s*'@aihu\/arbor'/,
+    /import\s*\{([^{}]*)\}\s*from\s*'@aihu\/arbor'/,
     (_m, imports: string) => {
       const parts = imports
         .split(',')
@@ -766,6 +1025,41 @@ export function _buildStaticIsland(compiledCode: string, elementTag: string): st
       return `import { ${parts.join(', ')} } from '@aihu/arbor'`
     },
   )
+
+  // Which tail shape this module ends in, and whether an island is safe.
+  //
+  // `_injectShadowMode` runs BEFORE this in the transform pipeline, so the
+  // `defineElement(...)` call may already carry a third argument and no longer
+  // end in `))`. Rewriting the head while the tail rewrite silently no-ops
+  // produced a module with an unclosed class body and a dangling options
+  // object — invalid JS, emitted with no error, which surfaced downstream as a
+  // confusing `[PARSE_ERROR] … invalid JS syntax` naming the user's `.aihu`
+  // file. Reachable today with `islands: true` + `shadowMode: 'shadow'`, on
+  // vite 6 as well as 8.
+  //
+  // `shadowMode: 'shadow'` alone is safe to drop: the inline class attaches its
+  // own `{ mode: 'open' }` shadow root, which is precisely what that option
+  // asks for. ANY other option (`formAssociated`, `lightScopeId`, a future
+  // field) carries behaviour this class does not implement, so the island is
+  // DECLINED — the component keeps the ordinary `defineElement` path, exactly
+  // as the "falls back to the original code" contract above promises.
+  const TAIL_PLAIN = /\)\s*\)\s*$/
+  // `_injectShadowMode`'s two-argument branch (line ~314) always emits this
+  // EXACT literal shape — `, { shadowMode: 'shadow' }` with one space at each
+  // junction, never a trailing comma — so the `\s*,?\s*` this used to have
+  // around the optional comma was dead flexibility, never exercised by real
+  // compiler output, and it was the ReDoS: two adjacent `\s*` groups with
+  // only an optional zero-width `,?` between them let a long non-matching
+  // whitespace run split across the pair in O(n) ways per position. A single
+  // `\s*` per junction, none of them adjacent to another, matches the same
+  // real input with no such ambiguity.
+  const TAIL_WITH_SHADOW_ONLY = /\),\s*\{\s*shadowMode:\s*'shadow'\s*\}\)\s*$/
+  const tail = TAIL_PLAIN.test(withArborMount)
+    ? TAIL_PLAIN
+    : TAIL_WITH_SHADOW_ONLY.test(withArborMount)
+      ? TAIL_WITH_SHADOW_ONLY
+      : null
+  if (tail === null) return compiledCode
 
   // Replace `defineElement('tag', defineComponent((_ctx) => { ... }))`
   // with an inline `customElements.define` whose connectedCallback mounts
@@ -777,10 +1071,7 @@ export function _buildStaticIsland(compiledCode: string, elementTag: string): st
       /defineElement\(\s*['"][^'"]+['"]\s*,\s*defineComponent\(/,
       `customElements.define(${tagJson}, class extends HTMLElement {\n  connectedCallback() {\n    const root = this.attachShadow({ mode: 'open' })\n    const __aihu_setup__ = (`,
     )
-    .replace(
-      /\)\s*\)\s*$/,
-      `)\n    mount(__aihu_setup__({ host: root, element: this }), root)\n  }\n})\n`,
-    )
+    .replace(tail, `)\n    mount(__aihu_setup__({ host: root, element: this }), root)\n  }\n})\n`)
 
   return `// AIHU_STATIC_ISLAND — zero @aihu/runtime references\n${rewritten}`
 }
@@ -966,6 +1257,31 @@ function _escapeForTemplateLiteral(css: string): string {
  * @internal
  */
 /**
+ * Swap the text between the first `open` delimiter and the first `close`
+ * delimiter that follows it, keeping both delimiters. Returns `null` when the
+ * shape is absent so callers can fall through to their "no anchor" branch.
+ *
+ * Shape B of the ReDoS note at the top of this file. This is exactly what
+ * ``/(<open>)[^]*?(<close>)/`` matched — `String.replace` takes the leftmost
+ * match, and a `close` missing after the first `open` is missing after every
+ * later one too — but as two `indexOf` scans it is linear instead of O(n²) in
+ * the number of `open` repetitions an authored `@style` block can plant.
+ */
+function _replaceDelimitedBody(
+  code: string,
+  open: string,
+  close: string,
+  body: string,
+): string | null {
+  const start = code.indexOf(open)
+  if (start === -1) return null
+  const bodyStart = start + open.length
+  const end = code.indexOf(close, bodyStart)
+  if (end === -1) return null
+  return code.slice(0, bodyStart) + body + code.slice(end)
+}
+
+/**
  * Fold css-engine utility CSS into the SERVER target's `__aihu_css__` export.
  *
  * The shadow-DOM sibling of `_foldCssEngineStyles`. That one rewrites the
@@ -996,13 +1312,13 @@ export function _foldSsrCssExport(compiledCode: string, css: string): string {
   const escaped = _escapeForTemplateLiteral(css)
 
   // Shape 1 — an authored @style block already produced the export.
-  // biome-ignore lint/correctness/noEmptyCharacterClassInRegex: [^] matches any char incl. newlines
-  const bodyRe = /(export const __aihu_css__ = `)[^]*?(`)/
-  if (bodyRe.test(compiledCode)) {
-    return compiledCode.replace(bodyRe, (_m, open: string, close: string) => {
-      return `${open}${escaped}${close}`
-    })
-  }
+  const replaced = _replaceDelimitedBody(
+    compiledCode,
+    'export const __aihu_css__ = `',
+    '`',
+    escaped,
+  )
+  if (replaced !== null) return replaced
 
   // Shape 2 — no authored @style, so the Rust codegen emitted no export at all.
   // The utility CSS still has to reach the shadow root, so declare it. Appended
@@ -1019,16 +1335,11 @@ export function _foldCssEngineStyles(compiledCode: string, css: string): string 
   // output already includes that @style block, so REPLACE the replaceSync body
   // (between the backticks) wholesale to avoid duplicating the @style rules.
   // The codegen emits `__style__.replaceSync(`<body>`);` as a single statement;
-  // match the body non-greedily up to the closing backtick + paren.
-  // biome-ignore lint/correctness/noEmptyCharacterClassInRegex: [^] matches any char incl. newlines
-  const styleBodyRe = /(__style__\.replaceSync\(`)[^]*?(`\);)/
-  if (styleBodyRe.test(compiledCode)) {
-    // Use a function replacer so any `$` in the CSS isn't read as a
-    // replacement-pattern backreference.
-    return compiledCode.replace(styleBodyRe, (_m, open: string, close: string) => {
-      return `${open}${escaped}${close}`
-    })
-  }
+  // swap the body between the first open delimiter and the `);` that closes it.
+  // `_replaceDelimitedBody` splices rather than calling `String.replace`, so a
+  // `$` in the CSS can never be read as a replacement-pattern backreference.
+  const replaced = _replaceDelimitedBody(compiledCode, '__style__.replaceSync(`', '`);', escaped)
+  if (replaced !== null) return replaced
 
   // Shape 2 — no @style block. Inject a fresh stylesheet + adoption.
   // Bail (no-op) if the expected defineComponent setup shape is absent.
@@ -1431,7 +1742,7 @@ export function _injectAutoWiring(code: string): string {
   let result: string
   if (code.includes("from '@aihu/arbor'")) {
     result = code.replace(
-      /import\s*\{([^}]*)\}\s*from\s*'@aihu\/arbor'/,
+      /import\s*\{([^{}]*)\}\s*from\s*'@aihu\/arbor'/,
       (_m: string, imports: string) => {
         const parts = imports
           .split(',')
@@ -1449,10 +1760,10 @@ export function _injectAutoWiring(code: string): string {
   // Note: `import\s+\{` does NOT match `import type {` (the regex needs `{` immediately
   // after whitespace, whereas `import type {` has `type` in between).  No negation guard
   // is needed — the replace callback below already skips `import type` lines.
-  if (/import\s+\{[^}]*\}\s+from\s+'@aihu\/signals'/.test(result)) {
+  if (/import\s+\{[^{}]*\}\s+from\s+'@aihu\/signals'/.test(result)) {
     // There IS a value import from signals — add `signal` if missing.
     result = result.replace(
-      /import\s*\{([^}]*)\}\s*from\s*'@aihu\/signals'/,
+      /import\s*\{([^{}]*)\}\s*from\s*'@aihu\/signals'/,
       (_m: string, imports: string) => {
         // Skip type-only imports
         if (_m.startsWith('import type')) return _m
@@ -1464,27 +1775,27 @@ export function _injectAutoWiring(code: string): string {
         return `import { ${parts.join(', ')} } from '@aihu/signals'`
       },
     )
-  } else if (!/import.*from\s*'@aihu\/signals'/.test(result)) {
+  } else if (!/^[^\S\n]*import\b[^\n]*from[^\S\n]*'@aihu\/signals'/m.test(result)) {
     // No signals import at all — insert after arbor import
     result = result.replace(
-      /import\s*\{[^}]*\}\s*from\s*'@aihu\/arbor'/,
+      /import\s*\{[^{}]*\}\s*from\s*'@aihu\/arbor'/,
       (m: string) => `${m}\nimport { signal } from '@aihu/signals'`,
     )
   }
   // If only `import type { Signal }` exists, insert value import after it
   else if (
-    /import\s+type\s+\{[^}]*\}\s+from\s+'@aihu\/signals'/.test(result) &&
-    !result.match(/import\s+\{[^}]*\}\s+from\s+'@aihu\/signals'/)
+    /import\s+type\s+\{[^{}]*\}\s+from\s+'@aihu\/signals'/.test(result) &&
+    !result.match(/import\s+\{[^{}]*\}\s+from\s+'@aihu\/signals'/)
   ) {
     result = result.replace(
-      /(import\s+type\s+\{[^}]*\}\s+from\s+'@aihu\/signals')/,
+      /(import\s+type\s+\{[^{}]*\}\s+from\s+'@aihu\/signals')/,
       (_m: string, typeImport: string) => `${typeImport}\nimport { signal } from '@aihu/signals'`,
     )
   }
 
   // 3. Add `_setMount`, `_setSignal` to the @aihu/runtime import.
   result = result.replace(
-    /import\s*\{([^}]*)\}\s*from\s*'@aihu\/runtime'/,
+    /import\s*\{([^{}]*)\}\s*from\s*'@aihu\/runtime'/,
     (_m: string, imports: string) => {
       const parts = imports
         .split(',')
@@ -1845,8 +2156,7 @@ export function aihuCompilerPlugin(options?: AihuCompilerPluginOptions): VitePlu
         // MUST take the full defineComponent/defineElement path: the static
         // island shim inlines `class extends HTMLElement` and cannot honor a
         // base class. Force-classify it interactive regardless of signal usage.
-        // biome-ignore lint/correctness/noEmptyCharacterClassInRegex: [^] is valid JS — matches any char including newlines
-        const hasBase = /defineComponent\(\s*\{[^]*?\bbase\s*:/.test(compiled)
+        const hasBase = _hasBaseRecipe(compiled)
 
         // Plan 3.3 — static-island fast path. Bypasses HMR injection because
         // a component with no signals has no setup state to hot-replace.
@@ -2042,48 +2352,31 @@ export function aihuCompilerPlugin(options?: AihuCompilerPluginOptions): VitePlu
         // Vite does NOT re-run its TS-strip step when a plugin returns code for a
         // non-.ts ID, so we must strip types ourselves before returning.
         //
-        // Priority: always try transformWithEsbuild first — it strips types to
-        // plain JS in both Vite 5 (via esbuild) and Vite 8 (deprecated wrapper).
-        // Using moduleType:'ts' only as a last resort because `import('vite')`
-        // resolves to the root node_modules vite (which may be v8 even when a
-        // consumer project runs v5), causing v5's Rollup to receive raw TypeScript
-        // and fail on import-type / as-casts.
+        // TWO steps with SEPARATE failure handling, and the split is the whole
+        // point. `import('vite')` is the ONLY one whose failure is legitimate —
+        // a standalone `transform()` caller, a unit test, any host that is not a
+        // Vite build has no Vite to strip with, and handing the TypeScript back
+        // untouched is the correct answer there. Everything AFTER that import
+        // runs with Vite proven present, so a failure there means the STRIP
+        // broke, and swallowing it returns un-stripped TypeScript that
+        // resurfaces hundreds of lines later as an unrelated bundler
+        // `PARSE_ERROR` naming the user's `.aihu` file. One `catch` around both
+        // did exactly that. `_isViteMissing` is how the two are told apart;
+        // `_stripTypes` owns the branch order and the loud failures.
+        let vite: typeof import('vite')
         try {
-          const vite = await import('vite')
-          // Server module-runner env (the SSG prerender's `ssrLoadModule`, any
-          // dev-SSR consumer): the runner's `ssrTransform` parses JS ONLY and
-          // IGNORES the `moduleType: 'ts'` hint below (it drives rolldown
-          // BUNDLING, not the module-runner), so TS MUST be stripped to real JS
-          // right here or the runner throws `Expected a semicolon …` on the
-          // first type annotation. Prefer `transformWithOxc` — Vite 8's native
-          // transform, always present, with NO separate esbuild dependency
-          // (Vite 8 made esbuild optional). This is what makes the SSR/SSG path
-          // robust in a consumer project that never installs esbuild; the
-          // esbuild branch below stays the default for the client path (and its
-          // Vite-5 compatibility). Guarded on `isServerEnv` so the client build
-          // is byte-for-byte unchanged.
-          if (isServerEnv && typeof vite.transformWithOxc === 'function') {
-            const stripped = await vite.transformWithOxc(out, 'component.ts', {
-              lang: 'ts',
-              sourcemap: false,
-            })
-            return { code: stripped.code, map: null }
-          }
-          if ('transformWithEsbuild' in vite && typeof vite.transformWithEsbuild === 'function') {
-            const stripped = await vite.transformWithEsbuild(out, 'component.ts', {
-              target: 'esnext',
-              sourcemap: false,
-            })
-            return { code: stripped.code, map: null }
-          }
-          // Fallback for future Vite versions where esbuild is fully removed:
-          // return TS and let Rolldown strip types natively.
-          // biome-ignore lint/suspicious/noExplicitAny: moduleType is rolldown API
-          return { code: out, moduleType: 'ts', map: null } as any
-        } catch {
-          // If running outside Vite (e.g. tests, standalone transform), return as-is.
-          return { code: out, map: null }
+          vite = await import('vite')
+        } catch (err) {
+          if (_isViteMissing(err)) return { code: out, map: null }
+          throw new Error(
+            `[@aihu/compiler] Could not load \`vite\` to strip TypeScript from ${rawId}. ` +
+              'Vite appears to be installed but failed to load, so this is NOT the ' +
+              '"running outside Vite" case and the TypeScript must not be handed ' +
+              `back un-stripped. Underlying error: ${_errMessage(err)}`,
+            { cause: err },
+          )
         }
+        return await _stripTypes(vite, out, rawId, isServerEnv)
       })()
     },
   }

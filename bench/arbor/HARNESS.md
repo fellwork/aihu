@@ -96,12 +96,27 @@ Per the 2026-07-26 ruling:
 | `mount-10k-leaves`, `mount-wide-1000`, `krausest-1k-cycle` | report-only | ~12–16 samples at CI budget; p50 spread 534–1,176 % in the gate's own configuration |
 | `attr-thrash-100x100` | **never-gate** | CI-environmental, NOT intrinsic — see `gate.ts` before touching this |
 
-`bench-arbor` red is currently the **designed** state: the committed
-`RESULTS.md` baseline is provably invalid (two rows recorded dead bindings)
-and must not be regenerated (truth doc §3.4 — the standing STOP). The gate
-becomes trustworthy only when R1 (same-job A/B against the merge base)
-replaces the checked-in-baseline mechanism; until then the trustworthy
-signals are the counted-metric gate above and the per-package size gates.
+`bench-arbor`'s **timing** step ships red, and as of **D1, resolved
+2026-08-08**, that is a closed decision rather than an open item: the
+committed `RESULTS.md` baseline is provably invalid (two rows recorded dead
+bindings) and must not be regenerated (truth doc §3.4 — the standing STOP).
+The gate becomes trustworthy only when R1 (same-job A/B against the merge
+base) replaces the checked-in-baseline mechanism — tracked as
+`C-FEL-BENCH-R1-AB-HARNESS`. Until then the trustworthy signals are the
+counted-metric gate above and the per-package size gates, both of which
+still fail the job.
+
+Re-verified 2026-08-08 against a live run: the FAIL is
+`update-1-of-10k-leaves 29 → 256 ns (795.8 %)` — the dead-binding fiction row,
+not a regression — while the report-only rows swing −52 % to −60 % against the
+2026-05-25 baseline.
+
+> **The single canonical statement of the D1 decision — what was accepted, the
+> two alternatives that were rejected and on what measured evidence, what a
+> contributor should do when they see the red, and the only two things that
+> reopen it — lives in `bench/signals/HARNESS.md`, section
+> "D1 — RESOLVED 2026-08-08". This note is a pointer to it, not a second
+> source of truth.**
 
 ---
 

@@ -1,5 +1,13 @@
 # Build output of the workers-ssr e2e gate. `dist/` is covered by the repo
-# .gitignore; the ssr environment's sibling dir and the control variant are not.
+# .gitignore; the ssr environment's sibling dir and the other variants are not.
 dist-server/
 dist-control/
 dist-control-server/
+dist-outlet/
+dist-outlet-server/
+dist-poison/
+dist-poison-server/
+# The two malformed-config probes, which are expected to fail the build. They
+# never get far enough to emit, but a partial run must not be committed either.
+dist-reject/
+dist-reject-server/

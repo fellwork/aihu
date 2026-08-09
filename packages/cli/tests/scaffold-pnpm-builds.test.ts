@@ -55,7 +55,7 @@ function escapeRegex(literal: string): string {
  * claims, and only the second one is true.
  */
 
-const TEMPLATES: readonly AppTemplate[] = ['minimal', 'docs', 'full', 'agent']
+const TEMPLATES: readonly AppTemplate[] = ['minimal', 'docs', 'full', 'agent', 'ssr']
 
 /** The packages whose postinstall must be allowed to run. */
 const REQUIRED_BUILDS = ['@aihu/compiler', 'esbuild'] as const
@@ -128,12 +128,23 @@ describe('every scaffold unblocks pnpm lifecycle scripts', () => {
       return pkg as { packageManager?: string }
     }
 
-    expect(
-      run('pnpm').packageManager,
-      '`--pm pnpm` emitted a bun packageManager — pnpm refuses to install such a project outright',
-    ).toBeUndefined()
-    expect(run('yarn').packageManager).toBeUndefined()
-    expect(run('npm').packageManager).toBeUndefined()
+    // These used to assert `toBeUndefined()`, which was the RIGHT INTENT
+    // ("must not be stamped bun") pinned to the wrong evidence: at the time,
+    // no `--pm` value except bun could produce a field at all, so "absent" and
+    // "correct" were indistinguishable. `packageManagerField` now pins the
+    // actual tool, so the assertion states the intent directly — never bun,
+    // and when the tool IS installed on this machine, its own name and version.
+    for (const pm of ['pnpm', 'yarn', 'npm'] as const) {
+      const got = run(pm).packageManager
+      expect(
+        got?.startsWith('bun@') ?? false,
+        `--pm ${pm} stamped the project as bun — pnpm refuses to install such a project`,
+      ).toBe(false)
+      // `undefined` remains legitimate: it is what a machine without that
+      // package manager installed must produce, because a `packageManager` pin
+      // that corepack cannot satisfy is worse than no pin.
+      if (got !== undefined) expect(got, pm).toMatch(new RegExp(`^${pm}@\\d+\\.\\d+\\.\\d+`))
+    }
 
     // The bun default is unchanged — `packageManager` is how a bun project
     // pins its own toolchain, and the legacy-snapshot golden freezes it.

@@ -19,6 +19,7 @@ import add from '../src/commands/add.ts'
 import type { ListIo } from '../src/commands/list.ts'
 import list from '../src/commands/list.ts'
 import type { RegistryFs } from '../src/registry-resolve.ts'
+import { usageText } from '../src/usage.ts'
 
 // ─── Fixtures ────────────────────────────────────────────────────────────────
 
@@ -99,13 +100,18 @@ describe('bin.ts dispatcher — add/list wiring', () => {
   })
 
   it('documents add + list (with flags) in the top-level usage text', () => {
-    const src = binSource()
-    expect(src).toContain('aihu add <names...>')
-    expect(src).toContain('aihu list [--installed]')
-    expect(src).toContain('[--prefix p]')
-    expect(src).toContain('[--dry-run]')
-    expect(src).toContain('[--diff]')
-    expect(src).toContain('[--force]')
+    // Reads the RENDERED help rather than grepping bin.ts source: the text
+    // moved to `usage.ts` (so tests can import it without bin.ts's top-level
+    // `main()` running), and asserting on rendered output means a reformat
+    // cannot break the test while a genuine omission still does. `--style` is
+    // in this list because it is a real `aihu add` flag that the old help text
+    // did not mention at all.
+    const text = usageText()
+    expect(text).toContain('add <names...>')
+    expect(text).toContain('list [--installed]')
+    for (const flag of ['--prefix', '--style', '--dry-run', '--diff', '--force']) {
+      expect(text, flag).toContain(flag)
+    }
   })
 
   it('does NOT wire a rename subcommand (R1 — deferred to Plan 6)', () => {

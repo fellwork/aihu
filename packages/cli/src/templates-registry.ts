@@ -34,7 +34,7 @@ export type KnownTemplate = (typeof KNOWN_TEMPLATES)[number]
 export const AVAILABLE_TEMPLATE_PACKAGES = ['@aihu/templates-cf-team'] as const
 
 /** Templates embedded in @aihu/cli — always available, never downloaded. */
-export const BUILTIN_TEMPLATES = ['minimal', 'full', 'docs', 'agent'] as const
+export const BUILTIN_TEMPLATES = ['minimal', 'full', 'docs', 'agent', 'ssr'] as const
 export type BuiltinTemplate = (typeof BUILTIN_TEMPLATES)[number]
 
 const SHORT_PREFIX = '@aihu/templates-'
@@ -44,6 +44,7 @@ const BUILTIN_SUMMARIES: Record<BuiltinTemplate, string> = {
   full: 'signals, arbor, router, multi-page',
   docs: 'docs-site starter',
   agent: 'agent-drivable component over the capability bridge',
+  ssr: 'server-rendered on Cloudflare Workers',
 }
 
 const PACKAGE_SUMMARIES: Record<KnownTemplate, string> = {

@@ -49,19 +49,19 @@ export const EXPORTS: readonly ApiExport[] = [
     name: 'defineCheckbox',
     kind: 'function',
     signature: 'function defineCheckbox(): void',
-    summary: 'Register all checkbox custom elements (idempotent).',
+    summary: 'Register all checkbox custom elements (idempotent; a no-op without a DOM).',
   },
   {
     name: 'defineCollection',
     kind: 'function',
     signature: "function defineCollection(tag = 'aihu-collection'): void",
-    summary: 'Register `<aihu-collection>` (idempotent).',
+    summary: 'Register `<aihu-collection>` (idempotent; a no-op without a DOM).',
   },
   {
     name: 'defineConfigProvider',
     kind: 'function',
     signature: "function defineConfigProvider(tag = 'aihu-config-provider'): void",
-    summary: 'Register `<aihu-config-provider>` (idempotent).',
+    summary: 'Register `<aihu-config-provider>` (idempotent; a no-op without a DOM).',
   },
   {
     name: 'defineDialog',
@@ -74,19 +74,19 @@ export const EXPORTS: readonly ApiExport[] = [
     name: 'defineFormControl',
     kind: 'function',
     signature: "function defineFormControl(tag = 'aihu-form-control'): void",
-    summary: 'Register `<aihu-form-control>` (idempotent).',
+    summary: 'Register `<aihu-form-control>` (idempotent; a no-op without a DOM).',
   },
   {
     name: 'defineInput',
     kind: 'function',
     signature: "function defineInput(tag = 'aihu-input'): void",
-    summary: 'Register `<aihu-input>` (idempotent).',
+    summary: 'Register `<aihu-input>` (idempotent; a no-op without a DOM).',
   },
   {
     name: 'defineLabel',
     kind: 'function',
     signature: "function defineLabel(tag = 'aihu-label'): void",
-    summary: 'Register `<aihu-label>` (idempotent).',
+    summary: 'Register `<aihu-label>` (idempotent; a no-op without a DOM).',
   },
   {
     name: 'definePopover',
@@ -99,43 +99,44 @@ export const EXPORTS: readonly ApiExport[] = [
     name: 'definePresenceGate',
     kind: 'function',
     signature: "function definePresenceGate(tag = 'aihu-presence-gate'): void",
-    summary: 'Register `<aihu-presence-gate>` (idempotent — safe to call repeatedly).',
+    summary:
+      'Register `<aihu-presence-gate>` (idempotent — safe to call repeatedly; a no-op without a DOM).',
   },
   {
     name: 'defineRadioGroup',
     kind: 'function',
     signature: 'function defineRadioGroup(): void',
-    summary: 'Register all radio-group custom elements (idempotent).',
+    summary: 'Register all radio-group custom elements (idempotent; a no-op without a DOM).',
   },
   {
     name: 'defineRovingFocus',
     kind: 'function',
     signature: "function defineRovingFocus(tag = 'aihu-roving-focus'): void",
-    summary: 'Register `<aihu-roving-focus>` (idempotent).',
+    summary: 'Register `<aihu-roving-focus>` (idempotent; a no-op without a DOM).',
   },
   {
     name: 'defineSeparator',
     kind: 'function',
     signature: "function defineSeparator(tag = 'aihu-separator'): void",
-    summary: 'Register `<aihu-separator>` (idempotent).',
+    summary: 'Register `<aihu-separator>` (idempotent; a no-op without a DOM).',
   },
   {
     name: 'defineSlider',
     kind: 'function',
     signature: 'function defineSlider(): void',
-    summary: 'Register all slider custom elements (idempotent).',
+    summary: 'Register all slider custom elements (idempotent; a no-op without a DOM).',
   },
   {
     name: 'defineSwitch',
     kind: 'function',
     signature: 'function defineSwitch(): void',
-    summary: 'Register all switch custom elements (idempotent).',
+    summary: 'Register all switch custom elements (idempotent; a no-op without a DOM).',
   },
   {
     name: 'defineTextarea',
     kind: 'function',
     signature: "function defineTextarea(tag = 'aihu-textarea'): void",
-    summary: 'Register `<aihu-textarea>` (idempotent).',
+    summary: 'Register `<aihu-textarea>` (idempotent; a no-op without a DOM).',
   },
   {
     name: 'defineTooltip',
@@ -196,6 +197,12 @@ export const EXPORTS: readonly ApiExport[] = [
     summary: '',
   },
   {
+    name: 'HTMLElementBase',
+    kind: 'const',
+    signature: 'const HTMLElementBase: typeof HTMLElement',
+    summary: '`HTMLElement` in a DOM; an inert, throw-on-construct placeholder elsewhere.',
+  },
+  {
     name: 'popoverContext',
     kind: 'const',
     signature: 'const popoverContext',
@@ -240,31 +247,31 @@ export const EXPORTS: readonly ApiExport[] = [
   {
     name: 'AihuButton',
     kind: 'class',
-    signature: 'class AihuButton extends HTMLElement',
+    signature: 'class AihuButton extends HTMLElementBase',
     summary: '',
   },
   {
     name: 'AihuCheckboxIndicator',
     kind: 'class',
-    signature: 'class AihuCheckboxIndicator extends HTMLElement',
+    signature: 'class AihuCheckboxIndicator extends HTMLElementBase',
     summary: "Presentational styling hook: mirrors the root's state, hidden from AT.",
   },
   {
     name: 'AihuCheckboxRoot',
     kind: 'class',
-    signature: 'class AihuCheckboxRoot extends HTMLElement',
+    signature: 'class AihuCheckboxRoot extends HTMLElementBase',
     summary: '',
   },
   {
     name: 'AihuCollection',
     kind: 'class',
-    signature: 'class AihuCollection extends HTMLElement',
+    signature: 'class AihuCollection extends HTMLElementBase',
     summary: '',
   },
   {
     name: 'AihuConfigProvider',
     kind: 'class',
-    signature: 'class AihuConfigProvider extends HTMLElement',
+    signature: 'class AihuConfigProvider extends HTMLElementBase',
     summary: '',
   },
   {
@@ -294,7 +301,7 @@ export const EXPORTS: readonly ApiExport[] = [
   {
     name: 'AihuDialogRoot',
     kind: 'class',
-    signature: 'class AihuDialogRoot extends HTMLElement',
+    signature: 'class AihuDialogRoot extends HTMLElementBase',
     summary: '',
   },
   {
@@ -312,7 +319,7 @@ export const EXPORTS: readonly ApiExport[] = [
   {
     name: 'AihuFormControl',
     kind: 'class',
-    signature: 'class AihuFormControl extends HTMLElement',
+    signature: 'class AihuFormControl extends HTMLElementBase',
     summary: '',
   },
   {
@@ -324,7 +331,7 @@ export const EXPORTS: readonly ApiExport[] = [
   {
     name: 'AihuLabel',
     kind: 'class',
-    signature: 'class AihuLabel extends HTMLElement',
+    signature: 'class AihuLabel extends HTMLElementBase',
     summary: '',
   },
   {
@@ -336,7 +343,7 @@ export const EXPORTS: readonly ApiExport[] = [
   {
     name: 'AihuPopoverRoot',
     kind: 'class',
-    signature: 'class AihuPopoverRoot extends HTMLElement',
+    signature: 'class AihuPopoverRoot extends HTMLElementBase',
     summary: '',
   },
   {
@@ -348,20 +355,20 @@ export const EXPORTS: readonly ApiExport[] = [
   {
     name: 'AihuPresenceGate',
     kind: 'class',
-    signature: 'class AihuPresenceGate extends HTMLElement',
+    signature: 'class AihuPresenceGate extends HTMLElementBase',
     summary: '',
   },
   {
     name: 'AihuRadioGroupIndicator',
     kind: 'class',
-    signature: 'class AihuRadioGroupIndicator extends HTMLElement',
+    signature: 'class AihuRadioGroupIndicator extends HTMLElementBase',
     summary:
       "Presentational styling hook: mirrors its enclosing ITEM's state (nearest `radioGroupItemContext` provider), hidden from AT.",
   },
   {
     name: 'AihuRadioGroupItem',
     kind: 'class',
-    signature: 'class AihuRadioGroupItem extends HTMLElement',
+    signature: 'class AihuRadioGroupItem extends HTMLElementBase',
     summary: '',
   },
   {
@@ -373,31 +380,31 @@ export const EXPORTS: readonly ApiExport[] = [
   {
     name: 'AihuRovingFocus',
     kind: 'class',
-    signature: 'class AihuRovingFocus extends HTMLElement',
+    signature: 'class AihuRovingFocus extends HTMLElementBase',
     summary: '',
   },
   {
     name: 'AihuSeparator',
     kind: 'class',
-    signature: 'class AihuSeparator extends HTMLElement',
+    signature: 'class AihuSeparator extends HTMLElementBase',
     summary: '',
   },
   {
     name: 'AihuSliderRoot',
     kind: 'class',
-    signature: 'class AihuSliderRoot extends HTMLElement',
+    signature: 'class AihuSliderRoot extends HTMLElementBase',
     summary: '',
   },
   {
     name: 'AihuSwitchRoot',
     kind: 'class',
-    signature: 'class AihuSwitchRoot extends HTMLElement',
+    signature: 'class AihuSwitchRoot extends HTMLElementBase',
     summary: '',
   },
   {
     name: 'AihuSwitchThumb',
     kind: 'class',
-    signature: 'class AihuSwitchThumb extends HTMLElement',
+    signature: 'class AihuSwitchThumb extends HTMLElementBase',
     summary: "Presentational styling hook: mirrors the root's state, hidden from AT.",
   },
   {
@@ -409,25 +416,25 @@ export const EXPORTS: readonly ApiExport[] = [
   {
     name: 'AihuTextControlBase',
     kind: 'class',
-    signature: 'abstract class AihuTextControlBase extends HTMLElement',
+    signature: 'abstract class AihuTextControlBase extends HTMLElementBase',
     summary: '',
   },
   {
     name: 'AihuTooltipContent',
     kind: 'class',
-    signature: 'class AihuTooltipContent extends HTMLElement',
+    signature: 'class AihuTooltipContent extends HTMLElementBase',
     summary: '',
   },
   {
     name: 'AihuTooltipRoot',
     kind: 'class',
-    signature: 'class AihuTooltipRoot extends HTMLElement',
+    signature: 'class AihuTooltipRoot extends HTMLElementBase',
     summary: '',
   },
   {
     name: 'AihuTooltipTrigger',
     kind: 'class',
-    signature: 'class AihuTooltipTrigger extends HTMLElement',
+    signature: 'class AihuTooltipTrigger extends HTMLElementBase',
     summary: '',
   },
   {

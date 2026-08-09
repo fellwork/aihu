@@ -19,6 +19,7 @@
 import { effect, type Read, signal } from '@aihu/signals'
 import { composedQuerySelector, composedQuerySelectorAll } from '../composed-tree.ts'
 import { createDomContext, provideContext } from '../dom-context.ts'
+import { HTMLElementBase } from '../html-element-base.ts'
 import { createIdSequence } from '../id.ts'
 
 export { attachHiddenInput, type HiddenInputOptions } from './hidden-input.ts'
@@ -36,7 +37,7 @@ export const formControlContext = createDomContext<FormControlContextValue>('for
 
 const nextId = createIdSequence('aihu-fc')
 
-export class AihuFormControl extends HTMLElement {
+export class AihuFormControl extends HTMLElementBase {
   static readonly observedAttributes = ['disabled', 'required', 'invalid', 'name', 'control-id']
 
   private readonly _disabled = signal(false)
@@ -186,8 +187,11 @@ function reflectAria(el: HTMLElement, attr: string, on: boolean): void {
 }
 
 let _defined = false
-/** Register `<aihu-form-control>` (idempotent). */
+/** Register `<aihu-form-control>` (idempotent; a no-op without a DOM). */
 export function defineFormControl(tag = 'aihu-form-control'): void {
+  // No DOM, no registry to register INTO — a documented no-op. See
+  // `html-element-base.ts` §"Registration without a DOM".
+  if (typeof customElements === 'undefined') return
   if (_defined || customElements.get(tag)) {
     _defined = true
     return

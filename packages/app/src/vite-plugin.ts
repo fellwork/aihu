@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { cp, writeFile as fsWriteFile, mkdir } from 'node:fs/promises'
 import { basename, dirname, join, resolve as resolvePath } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -20,7 +20,7 @@ import type { Plugin, PluginOption, ResolvedConfig, UserConfig } from 'vite'
 import type { AdapterContext, CreateHandlerSourceOptions } from './adapter.ts'
 import type { AihuConfig } from './config.ts'
 import { validateAihuConfig } from './config.ts'
-import { ENTRY_RESOLVED_ID, ENTRY_SOURCE, ENTRY_VIRTUAL_ID, injectEntryScript } from './entry.ts'
+import { ENTRY_RESOLVED_ID, ENTRY_VIRTUAL_ID, entrySource, injectEntryScript } from './entry.ts'
 import { applyHeadConfig } from './head.ts'
 import { AIHU_CONFIG_PLUGIN, type AihuModuleApi, type AihuPluginApi } from './load-config.ts'
 import { prerenderClose } from './prerender.ts'
@@ -28,7 +28,10 @@ import {
   buildServerEntrySource,
   SERVER_ENTRY_RESOLVED_ID,
   SERVER_ENTRY_VIRTUAL_ID,
+  SSR_DOCUMENT_RESOLVED_ID,
+  SSR_DOCUMENT_VIRTUAL_ID,
 } from './server-entry.ts'
+import { assertOutletPresent, DEFAULT_OUTLET_ID } from './ssr-document.ts'
 
 /**
  * Where the `'ssr'` environment writes: a SIBLING of the client outDir, never
@@ -41,8 +44,15 @@ import {
  *
  * Derived from the client outDir rather than hardcoded, so a project that
  * renames `dist` does not silently get a `dist-server` unrelated to it.
+ *
+ * EXPORTED because an adapter needs the same answer and must not re-derive it.
+ * `@aihu/adapter-cloudflare` writes `main = "<ssrOutDir>/_worker.js"` into the
+ * wrangler.toml it generates; it had that path hardcoded as `dist-server/`
+ * while this function was already computing the real one, so any project with a
+ * non-default `build.outDir` got a config pointing at a file the build never
+ * wrote. Two derivations of one fact is the bug — there is only this one.
  */
-function ssrOutDirFor(clientOutDir: string): string {
+export function ssrOutDirFor(clientOutDir: string): string {
   // Trailing separators stripped by scanning backwards, NOT by `/[/\\]+$/`.
   // That regex is a polynomial-ReDoS sink (CodeQL js/polynomial-redos, high):
   // the `+` is anchored at the end, so on a value ending in many separators the
@@ -317,10 +327,21 @@ export function viteAihuPlugin(config?: AihuConfig): PluginOption[] {
       entryRoot = rc.root
     },
     resolveId(id) {
-      return id === ENTRY_VIRTUAL_ID ? ENTRY_RESOLVED_ID : null
+      // Two callers reach this, with two different id shapes. An `import`
+      // statement (from `virtual:aihu-components` or a test) resolves through
+      // Vite's plugin container and hands us the bare specifier. A `<script
+      // src="/virtual:aihu-entry">` in HTML (`injectEntryScript`, below) is a
+      // browser HTTP REQUEST — Vite strips the origin and query, so the id
+      // here is the leading-slash request PATH, not the bare specifier. Both
+      // must resolve to the same module or dev serves a 404 for every new
+      // project (the bug this comment exists to prevent regressing).
+      return id === ENTRY_VIRTUAL_ID || id === `/${ENTRY_VIRTUAL_ID}` ? ENTRY_RESOLVED_ID : null
     },
     load(id) {
-      return id === ENTRY_RESOLVED_ID ? ENTRY_SOURCE : null
+      // `app.outletId` threaded through, so a project that moved off `#outlet`
+      // states it once in the config rather than being forced into a
+      // hand-written `src/main.ts` just to tell the client.
+      return id === ENTRY_RESOLVED_ID ? entrySource(config?.app?.outletId) : null
     },
     transformIndexHtml: {
       // Run before Vite's core HTML processing (which resolves <script> src
@@ -450,9 +471,86 @@ export function viteAihuPlugin(config?: AihuConfig): PluginOption[] {
    * `[UNRESOLVED_ENTRY]` — Vite's ssr-entry path resolves against the
    * filesystem before any plugin's `resolveId` sees it.
    */
+  /**
+   * The client outDir, captured in `config()` and read again in `load()`.
+   *
+   * ONE derivation, used for both the SSR outDir (`ssrOutDirFor`) and the
+   * template path below — if the two disagreed, the Worker would inline an
+   * `index.html` from a directory the client build never wrote to.
+   */
+  let clientOutDirForTemplate = 'dist'
+  let projectRoot = process.cwd()
+
+  /**
+   * Serve `virtual:aihu-ssr-document` — the finished client `index.html`,
+   * inlined into the Worker bundle, plus the resolved outlet id and the head
+   * inputs.
+   *
+   * ## Why reading a build output from a `load()` hook is sound here
+   *
+   * The `builder.buildApp` above builds the CLIENT environment to completion
+   * before it starts the `ssr` one, so `<outDir>/index.html` is on disk — with
+   * its hashed `<script type="module">`, its modulepreloads, its stylesheet
+   * links and the `app.head` the `aihu-head` plugin applied — by the time this
+   * runs. That ordering is not incidental; it is the reason this whole approach
+   * works, and it is why the SSG path (which reads the same file, from the same
+   * place, at `closeBundle`) has always been able to produce hydrating pages
+   * while live SSR could not.
+   *
+   * ## Why a missing template FAILS THE BUILD
+   *
+   * The alternative is a Worker that serves bare fragments: a green build, a
+   * successful deploy, and a site that renders once and never hydrates — which
+   * is the exact defect this module exists to remove, and it is invisible
+   * without opening devtools. A named build error at the moment the input is
+   * missing is the only version of this that a consumer can act on.
+   */
+  function loadSsrDocumentModule(this: { error(msg: string): never }): string {
+    const templatePath = resolvePath(projectRoot, clientOutDirForTemplate, 'index.html')
+    let template: string
+    try {
+      template = readFileSync(templatePath, 'utf8')
+    } catch {
+      return this.error(
+        `[@aihu/app] output: 'ssr' — no client index.html at ${templatePath}, so the server ` +
+          'bundle has no document to render into. Without it every SSR response would be a ' +
+          'bare fragment with no <html>, no <head> and no client <script type="module">: the ' +
+          'page would paint server-rendered markup and never hydrate. The client environment ' +
+          'builds before this one, so an absent index.html means the client build wrote ' +
+          'somewhere else — check build.outDir.',
+      )
+    }
+    // The outlet has to be in the template, and this is the last moment anyone
+    // can be told. `config.ts` guarantees the id is well-SHAPED; only here is
+    // the finished document available to say whether it is PRESENT. Failing now
+    // costs a build; not failing ships a site whose every page is an empty
+    // shell until the client boots. See `assertOutletPresent`.
+    const outletId = config?.app?.outletId ?? DEFAULT_OUTLET_ID
+    const outletProblem = assertOutletPresent(template, outletId)
+    if (outletProblem !== null) {
+      return this.error(`[@aihu/app] output: 'ssr' — ${templatePath} has ${outletProblem}`)
+    }
+    const documentConfig = {
+      template,
+      outletId,
+      ...(config?.site?.url !== undefined ? { siteUrl: config.site.url } : {}),
+      ...(config?.app?.head !== undefined ? { globalHead: config.app.head } : {}),
+    }
+    return [
+      '// AUTO-GENERATED by @aihu/app — virtual:aihu-ssr-document. Do not edit.',
+      '// The built client index.html, inlined so a Worker (which has no filesystem)',
+      '// can assemble the same document the SSG prerender writes to disk.',
+      `export default ${JSON.stringify(documentConfig)}`,
+      '',
+    ].join('\n')
+  }
+
   const serverEntryPlugin: Plugin = {
     name: 'aihu-server-entry',
     apply: 'build',
+    configResolved(rc) {
+      projectRoot = rc.root
+    },
     config(userConfig) {
       if (!ssrEnabled) return
       // The client outDir as this build will actually resolve it: aihu's own
@@ -463,6 +561,7 @@ export function viteAihuPlugin(config?: AihuConfig): PluginOption[] {
         config?.vite?.build?.outDir ??
         (userConfig as UserConfig | undefined)?.build?.outDir ??
         'dist'
+      clientOutDirForTemplate = clientOutDir
       return {
         environments: {
           ssr: {
@@ -503,9 +602,12 @@ export function viteAihuPlugin(config?: AihuConfig): PluginOption[] {
       } as unknown as import('vite').UserConfig
     },
     resolveId(id) {
-      return id === SERVER_ENTRY_VIRTUAL_ID ? SERVER_ENTRY_RESOLVED_ID : null
+      if (id === SERVER_ENTRY_VIRTUAL_ID) return SERVER_ENTRY_RESOLVED_ID
+      if (id === SSR_DOCUMENT_VIRTUAL_ID) return SSR_DOCUMENT_RESOLVED_ID
+      return null
     },
     load(id) {
+      if (id === SSR_DOCUMENT_RESOLVED_ID) return loadSsrDocumentModule.call(this)
       if (id !== SERVER_ENTRY_RESOLVED_ID) return null
       const adapter = config?.adapter
       const wrapper = adapter?.serverEntry?.({

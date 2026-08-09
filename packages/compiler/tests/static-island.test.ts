@@ -55,6 +55,68 @@ describe('_buildStaticIsland — Plan 3.3', () => {
     const malformed = `// no defineElement call here\nexport const x = 1\n`
     expect(_buildStaticIsland(malformed, 'x-msg')).toBe(malformed)
   })
+
+  // ── The TAIL, which `_injectShadowMode` gets to first ─────────────────────
+  //
+  // `_injectShadowMode` runs BEFORE this helper in the transform pipeline, so
+  // by the time an island is built the `defineElement(...)` call may already
+  // carry a third argument and no longer end in `))`. The head rewrite matched
+  // anyway while the tail rewrite silently no-opped, emitting a module with an
+  // unclosed class body and a dangling options object — invalid JS, produced
+  // with no error, surfacing downstream as `[PARSE_ERROR] … invalid JS syntax`
+  // against the user's `.aihu` file. Reproduced end to end in a consumer
+  // scaffold with `compiler: { islands: true }` + `css: { shadowMode: 'shadow' }`
+  // on vite 6 AND vite 8.
+  const withOptions = (opts: string) => STATIC_OUTPUT.replace(/\)\)\s*$/, `), { ${opts} })\n`)
+
+  /** Every `(`/`)` and `{`/`}` outside a string literal balances. */
+  function isBalanced(code: string): boolean {
+    let paren = 0
+    let brace = 0
+    let quote: string | null = null
+    for (let i = 0; i < code.length; i++) {
+      const c = code[i]!
+      if (quote) {
+        if (c === '\\') i++
+        else if (c === quote) quote = null
+        continue
+      }
+      if (c === "'" || c === '"' || c === '`') quote = c
+      else if (c === '(') paren++
+      else if (c === ')') paren--
+      else if (c === '{') brace++
+      else if (c === '}') brace--
+      if (paren < 0 || brace < 0) return false
+    }
+    return paren === 0 && brace === 0 && quote === null
+  }
+
+  it('emits balanced code — never a half-rewritten module — for the plain shape', () => {
+    expect(isBalanced(_buildStaticIsland(STATIC_OUTPUT, 'x-msg'))).toBe(true)
+  })
+
+  it("absorbs a trailing `{ shadowMode: 'shadow' }` — the island's own open shadow root", () => {
+    const out = _buildStaticIsland(withOptions("shadowMode: 'shadow'"), 'x-msg')
+    expect(isBalanced(out)).toBe(true)
+    expect(out).toMatch(/AIHU_STATIC_ISLAND/)
+    expect(out).toContain('mount(__aihu_setup__({ host: root, element: this }), root)')
+    // The option is redundant against `attachShadow({ mode: 'open' })`, so it
+    // is dropped rather than carried into a class that ignores it.
+    expect(out).not.toContain('shadowMode')
+  })
+
+  it('DECLINES the island when the options object carries anything else', () => {
+    for (const opts of [
+      'formAssociated: true',
+      "shadowMode: 'shadow', formAssociated: true",
+      "shadowMode: 'light', lightScopeId: 'a1b2c3d4'",
+    ]) {
+      const input = withOptions(opts)
+      // Unchanged: the ordinary defineElement path keeps the behaviour this
+      // inline class does not implement.
+      expect(_buildStaticIsland(input, 'x-msg'), opts).toBe(input)
+    }
+  })
 })
 
 describe('_buildDeferredHydration — Plan 3.3', () => {

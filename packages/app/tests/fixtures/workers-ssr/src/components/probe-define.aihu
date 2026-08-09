@@ -1,0 +1,29 @@
+<!--
+  The `defineX()`-in-`@state` shape, under `output: 'ssr'`.
+
+  Mirrors `packages/ui/registry/before-after.aihu` (`defineSlider()`) and
+  `temperature.aihu` (`defineRadioGroup()`): a recipe that COMPOSES a primitive
+  as a child element rather than extending it has to register that primitive
+  itself, and the primitive package's own `defineX()` entry point is how.
+
+  A REAL `@aihu/primitives` registration function, deliberately — the thing
+  under test is whether `defineSlider()` can be CALLED without a DOM, which a
+  local stand-in would not prove. `@aihu/primitives` is on the e2e gate's
+  REBUILD list, so this always exercises the working tree.
+
+  Unlike `probe-extends.aihu`, the import here is import-safe already (the
+  `HTMLElementBase` fix landed); what throws is the CALL, from inside the setup
+  body, on `customElements.get`.
+-->
+
+@state {
+  import { defineSlider } from '@aihu/primitives/slider'
+
+  shadow: 'light'
+
+  defineSlider()
+}
+
+@template {
+  <span>DEFINE-OK</span>
+}

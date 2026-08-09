@@ -23,7 +23,21 @@ export const config = {
   description:
     'Cloudflare Workers + monorepo (bun workspaces + moon) + better-auth + Biome + commitlint + Vitest + agent-minimal',
   contractVersion: 1,
-  cliRange: '^0.2.0',
+  // The CLI majors that can actually scaffold this template.
+  //
+  // Was `^0.2.0` — written when the CLI was 0.2.x and never revisited, so by
+  // CLI 1.2.0 the only publishable template in the repo declared an
+  // incompatibility with every CLI that could install it. It survived because
+  // nothing compared the field to anything; `assertTemplateCompatibility()` in
+  // scaffold-pipeline.ts now does, which is what turned this from dormant text
+  // into a scaffold-blocking error and forced a real answer.
+  //
+  // `^1.0.0`, not a wider range, and not `*`: `scaffoldFromTemplatePackage` —
+  // the shared driver BOTH `aihu app --template` and `create-aihu` run — landed
+  // in @aihu/cli 1.0.1, so the 1.x line is the CLI that can reach this package
+  // at all. The upper bound is real: a 2.0 CLI is free to break the manifest
+  // contract, and this template should stop rather than half-scaffold.
+  cliRange: '^1.0.0',
   fixed: {
     vendor: 'cloudflare',
     persona: 'team',
@@ -83,17 +97,24 @@ export const config = {
     { kind: 'git-init', when: 'initGit' },
     { kind: 'lint-fix', allowFailure: true },
   ],
-  // Aihu framework runtime peer deps. Pinned to ^0.2.0 because the framework
-  // is shipping its v0.2.0 alpha alongside the CLI templates and the package
-  // names must resolve against npm at scaffold time. Bumps to ^1.0.0 land
-  // when the framework cuts its 1.0.
+  // Aihu framework runtime peer deps.
+  //
+  // GENERATED — the RANGES in this block are written by
+  // `scripts/sync-template-versions.ts` from each package's own workspace
+  // version, and `check:template-versions` fails CI if they drift. Do not hand-
+  // edit them. (Adding or removing a KEY is a real edit; run the generator
+  // afterwards.) They sat at a hand-typed `^0.2.0` for the whole life of this
+  // file, six majors behind `@aihu/runtime`, because nothing checked them.
+  //
+  // `appPeerDepsConditional` below is NOT generated: those are third-party auth
+  // SDKs this repo does not publish.
   appPeerDeps: {
-    '@aihu/runtime': '^0.2.0',
-    '@aihu/arbor': '^0.2.0',
-    '@aihu/signals': '^0.2.0',
-    '@aihu/router': '^0.2.0',
-    '@aihu/server': '^0.2.0',
-    '@aihu/adapter-cloudflare': '^0.2.0',
+    '@aihu/runtime': '^6.0.0',
+    '@aihu/arbor': '^4.1.0',
+    '@aihu/signals': '^0.5.0',
+    '@aihu/router': '^0.4.4',
+    '@aihu/server': '^0.5.0',
+    '@aihu/adapter-cloudflare': '^12.0.0',
   },
   appPeerDepsConditional: {
     'better-auth': { version: '^1.0.0', when: 'auth === "better-auth"' },

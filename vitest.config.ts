@@ -60,8 +60,30 @@ export default defineConfig({
       // '@aihu/context/ssr' until now, so the breakage had nowhere to surface.
       '@aihu/context/ssr': new URL('./packages/context/src/ssr.ts', import.meta.url).pathname,
       '@aihu/context': new URL('./packages/context/src/index.ts', import.meta.url).pathname,
+      // Order matters: the subpath alias must precede the package alias.
+      // `@aihu/compiler/plugin` is a RETIRED subpath (it never existed in the
+      // published `exports` map — @aihu/cli 0.3.4 moved the scaffold to the
+      // bare `@aihu/compiler` main export) and nothing imports it today. It is
+      // mirrored here only because packages/cli/tsconfig.json still maps it, and
+      // the alias-parity gate requires the two systems to agree; if that
+      // tsconfig entry is ever removed, remove this line with it.
+      '@aihu/compiler/plugin': new URL('./packages/compiler/js/index.ts', import.meta.url).pathname,
       '@aihu/compiler': new URL('./packages/compiler/js/index.ts', import.meta.url).pathname,
       '@aihu/tsc': new URL('./packages/tsc/src/index.ts', import.meta.url).pathname,
+      // Order matters: the subpath alias must precede the package alias, or
+      // '@aihu/app' matches first and '@aihu/app/client' resolves to the
+      // nonexistent '<index.ts>/client' (same pattern as '@aihu/context/ssr').
+      '@aihu/app/client': new URL('./packages/app/src/client.ts', import.meta.url).pathname,
+      '@aihu/app': new URL('./packages/app/src/index.ts', import.meta.url).pathname,
+      // `@aihu/cli` itself is not aliased (nothing imports the CLI's main
+      // export from a test), so this subpath carries no ordering constraint.
+      '@aihu/cli/template-manifest': new URL(
+        './packages/cli/src/template-manifest.ts',
+        import.meta.url,
+      ).pathname,
+      '@aihu/editor': new URL('./packages/editor/src/index.ts', import.meta.url).pathname,
+      '@aihu/mcp': new URL('./packages/mcp/src/index.ts', import.meta.url).pathname,
+      '@aihu/seo': new URL('./packages/seo/src/index.ts', import.meta.url).pathname,
       // Order matters: the subpath alias must precede the package alias
       // (same pattern as '@aihu/runtime/ssr' below) so
       // '@aihu/signals/lifecycle' resolves to the DOM-free ownership
@@ -104,7 +126,11 @@ export default defineConfig({
       ).pathname,
       '@aihu-plugin/drizzle': new URL('./packages/plugin-drizzle/src/index.ts', import.meta.url)
         .pathname,
+      // Order matters: BOTH subpath aliases must precede the package alias, or
+      // '@aihu/router' matches first and the subpaths resolve as
+      // '<index.ts>/plugin' / '<index.ts>/server'.
       '@aihu/router/plugin': new URL('./packages/router/src/plugin.ts', import.meta.url).pathname,
+      '@aihu/router/server': new URL('./packages/router/src/server.ts', import.meta.url).pathname,
       '@aihu/router': new URL('./packages/router/src/index.ts', import.meta.url).pathname,
       '@aihu/agent-service': new URL('./packages/agent-service/src/index.ts', import.meta.url)
         .pathname,

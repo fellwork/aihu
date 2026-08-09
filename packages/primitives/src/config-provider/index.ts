@@ -16,6 +16,7 @@
 
 import { effect, type Read, signal } from '@aihu/signals'
 import { createDomContext, provideContext } from '../dom-context.ts'
+import { HTMLElementBase } from '../html-element-base.ts'
 
 export type ColorScheme = 'light' | 'dark' | 'system'
 export type Density = 'comfortable' | 'compact'
@@ -29,7 +30,7 @@ export interface ConfigContextValue {
 
 export const configContext = createDomContext<ConfigContextValue>('config')
 
-export class AihuConfigProvider extends HTMLElement {
+export class AihuConfigProvider extends HTMLElementBase {
   static readonly observedAttributes = ['color-scheme', 'density', 'dir']
 
   private readonly _colorScheme = signal<ColorScheme>('system')
@@ -119,8 +120,11 @@ function isDensity(v: string | null): v is Density {
 }
 
 let _defined = false
-/** Register `<aihu-config-provider>` (idempotent). */
+/** Register `<aihu-config-provider>` (idempotent; a no-op without a DOM). */
 export function defineConfigProvider(tag = 'aihu-config-provider'): void {
+  // No DOM, no registry to register INTO — a documented no-op. See
+  // `html-element-base.ts` §"Registration without a DOM".
+  if (typeof customElements === 'undefined') return
   if (_defined || customElements.get(tag)) {
     _defined = true
     return

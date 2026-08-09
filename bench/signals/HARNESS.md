@@ -66,6 +66,84 @@ The memory runner constructs N graphs per cell (default N=1000), settles GC thre
 
 **Run order matters when you want memory tables in RESULTS.md.** `runner.ts` reads `RESULTS.memory.json` produced by `memory.ts`; if the file is missing or stale, the markdown shows `—` in memory cells.
 
+## D1 — RESOLVED 2026-08-08: both timing gates ship RED BY DESIGN
+
+**This section is the single canonical statement of that decision.** `bench/signals/src/gate.ts`, `bench/arbor/src/gate.ts`, `bench/arbor/HARNESS.md`, and the `bench` / `bench-arbor` / `ci-ok` job comments in `.github/workflows/plan-a.yml` all point *here* and add nothing of their own. If you arrived from one of those, this is the end of the trail — there is no further document to find.
+
+### The decision
+
+The two **timing** regression gates — `bench` (signals, `bench/signals/src/gate.ts`) and the timing step of `bench-arbor` (`bench/arbor/src/gate.ts`) — ship **red on every run**, deliberately, with no remediation attempted in this release. This is a **decision that was made**, not a bug anyone forgot about, and not an item still under discussion. Three options were weighed on 2026-08-08 and two were rejected on measured evidence (below).
+
+Scope of the acceptance, precisely:
+
+- **Accepted red:** the two *timing* gates only.
+- **Not affected, still fully trustworthy, still with teeth:** the counted-metric gate (`bench/arbor/src/counts.ts` — exact machine-independent equalities, no bypass), the per-package size gates, and `bench-lsp`. A regression in any of those still fails.
+- **Blast radius:** neither timing gate is in `ci-ok`'s `needs`; `continue-on-error` (job-scoped for `bench`, step-scoped for `bench-arbor`'s timing step) keeps them from blocking a merge. The red is nevertheless **real, not a soft skip** — the jobs run, the numbers land in the log, and the status is honest about being advisory.
+
+### What a contributor should do when they see it
+
+Nothing. A red `bench` or a red "Regression gate (timing)" step in `bench-arbor` carries **no information about your diff**. Do not investigate it, do not attempt to green it, and in particular:
+
+- **Do NOT create or regenerate `bench/signals/fitness.json`.**
+- **Do NOT regenerate `bench/signals/RESULTS.md` or `bench/arbor/RESULTS.md` as a new baseline.** (Standing STOP, truth doc §3.4 — regenerating canonises unmeasured change as normal and destroys the incident record.)
+- **Do NOT reach for `[bench-bump]`** to silence them; the override is for real gate-tier regressions, and using it here would train everyone to wave the audited bypass at noise.
+
+### Why each one is red (verified 2026-08-08 against live runs)
+
+**`bench` (signals) — fails before it compares anything.** `bench/signals/fitness.json`, the artifact `loadFitness` fail-closed-demands before it will classify any workload as fit-to-gate, has never existed. PR #698 built the measurement pipeline (`bench-fitness.yml`, `repeat.ts`) but deliberately left the last step — a human committing a measured artifact — undone. `loadFitness` throws `ENOENT` and exits 1 on every run, so the gate never reaches a single p50 comparison. Verified:
+
+```
+$ bun src/gate.ts /tmp/bench-prev/RESULTS.md ./RESULTS.md
+Bench gate: cannot read fitness.json (Error: ENOENT: ... bench/signals/fitness.json).
+exit 1
+```
+
+**`bench-arbor` (timing step) — fails on a fiction row in the committed baseline.** The checked-in `RESULTS.md` baseline is dated **2026-05-25** and two of its rows (`update-1-of-10k-leaves`, `attr-thrash-100x100`) recorded **dead bindings** — 0 DOM writes/op — so the baseline numbers are not measurements of anything. The gate-tier row is the one that fires. Verified:
+
+```
+Bench gate · @aihu/arbor · prev=2026-05-25 cur=2026-08-08
+  FAIL update-1-of-10k-leaves: 29 → 256 ns (795.8 %)      <- 29 ns is the dead-binding fiction
+  NVRG attr-thrash-100x100: 65517 → 5675958 ns (8563.3 %) <- the other fiction row, never-gate
+  INFO mount-10k-leaves: -58.5 % · mount-wide-1000: -56.7 % · krausest-1k-cycle: -60.5 %
+exit 1
+```
+
+Note the report-only rows: **−52 % to −60 %** against a 2.5-month-old baseline taken on different hardware. That spread is the mechanism failing, not arbor getting twice as fast. Sharper still — a *second* run of the identical commit, minutes later on the same machine, put `krausest-1k-cycle` at **+31.2 %** where the first put it at **−60.5 %** (a ~90-point swing on unchanged code), and `attr-thrash-100x100` at +25 422 % vs +8 563 %. The two gate-tier rows held their verdicts across both runs; every other row did not. Cross-run p50 against a checked-in baseline is not a quantity, which is precisely what R1 exists to replace.
+
+### Why the stopgap (commit a measured `fitness.json`) was REJECTED
+
+It does not produce a green gate; it produces a *differently* red one, and it spends a governance-gated exercise to get there.
+
+`repeat.ts` measures **within-process** variance — all N reps in one warm process. The gate then uses that number to license comparisons **across different CI runs on different days**. Those are different quantities, and the gap is not small. Measured back-to-back on one quiet machine, same commit, **zero code changes** (2026-08-08, n=2, the friendliest possible conditions — strictly a *lower bound* on CI-side drift):
+
+| workload | run 1 | run 2 | drift | vs. the gate's own 10 % threshold |
+| --- | ---: | ---: | ---: | --- |
+| `cellx` | 268 ns | 287 ns | +7.2 % | within |
+| `wide-fanout-100` | 2 753 ns | 2 969 ns | +7.9 % | within |
+| `batched-writes-100` | 2 337 ns | 2 638 ns | **+12.9 %** | **EXCEEDS** |
+| `deep-propagation-100` | 1 921 ns | 2 104 ns | +9.6 % | within |
+| `dynamic-deps` | 270 ns | 287 ns | +6.6 % | within |
+| `creation-1to1000` | 45 212 ns | 49 921 ns | **+10.4 %** | **EXCEEDS** |
+
+**Two of six workloads cross the regression threshold on a no-op.** Prior cross-CI measurement put the same drift at 19–31 %. A `fitness.json` would certify these workloads as "fit to gate" on a within-run spread they beat several times over as soon as the process restarts — the instrument attesting to a stability it never measured. And because the comparison is still against the frozen 2026-05-25 baseline, a `fitness.json` would additionally require the governance-gated **measured re-baseline** (`C-FEL-BENCH-REBASELINE-MEASURED`, which `needs C-FEL-409` — order is load-bearing) to be spent on a mechanism already scheduled for replacement.
+
+### Why R1 was NOT attempted in this release
+
+R1 — same-job A/B against the merge base, interleaved fresh-process runs, an in-band noise-floor control arm — is the actual fix, and it is a genuine re-architecture, not a patch: dual-arm worktree builds, per-worktree `node_modules` isolation, a different statistic (`min`, which the runner already emits, rather than `p50`), and a CI runtime budget redesign to pay for two arms in one job. It needs a design doc before it needs code. Attempting a partial R1 during a release close would produce a half-built second mechanism sitting beside the condemned one — two things to reason about instead of one.
+
+No sub-piece of R1 was found to be independently shippable and independently *valuable*: every candidate (the A/B arm, the interleave, the control arm) is worthless without the others, because each exists to make the next one's number interpretable.
+
+### Tracked follow-up
+
+**`C-FEL-BENCH-R1-AB-HARNESS`** — replace both timing gates' checked-in-baseline mechanism with R1. Deliverable order: design doc → dual-arm harness → statistic swap (`p50` → `min`) → CI budget → re-tier the workloads against in-band control-arm evidence → only then delete the `continue-on-error` lines and promote the gates into `ci-ok`.
+
+Two things reopen this decision early, and nothing else does:
+
+1. R1 lands. Then `continue-on-error` comes off both, `fitness.json`'s whole mechanism is deleted rather than filled in, and the `ci-ok` exclusion is revisited.
+2. Someone demonstrates cross-CI-run drift **below** the gate threshold for the gate-tier workloads, over at least two weeks of runs. That would falsify the evidence above and is the honest way to argue for the stopgap.
+
+Neither the passage of time nor a fresh baseline reopens it.
+
 ## Memory protocol
 
 The memory runner (`src/memory.ts`) implements the bench-design §2 / Appendix A protocol. Per cell:

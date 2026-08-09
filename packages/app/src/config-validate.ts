@@ -147,6 +147,28 @@ export function list(options: ReadonlyArray<string>, code: AihuConfigError['code
   }
 }
 
+/**
+ * A string matching `re`, described by `shape` when it does not.
+ *
+ * `re` must be anchored and must not be `/g` — this calls `.test` on a shared
+ * instance, and a global regex carries `lastIndex` between calls.
+ */
+export function pattern(re: RegExp, shape: string): Validator {
+  return (value, keypath) => {
+    if (value === undefined) return
+    if (typeof value !== 'string') {
+      fail(`${keypath} should be a string, if specified.${seeDocs()}`, 'INVALID_TYPE', keypath)
+    }
+    if (!re.test(value)) {
+      fail(
+        `${keypath} should be ${shape} (received ${JSON.stringify(value)}).${seeDocs()}`,
+        'INVALID_TYPE',
+        keypath,
+      )
+    }
+  }
+}
+
 /** Allow `false` as a whole-block disable, else defer to `inner`. */
 export function orFalse(inner: Validator): Validator {
   return (value, keypath) => {

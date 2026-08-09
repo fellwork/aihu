@@ -35,11 +35,12 @@ import {
   type FormControlContextValue,
   formControlContext,
 } from '../form-control/index.ts'
+import { HTMLElementBase } from '../html-element-base.ts'
 import { createIdSequence } from '../id.ts'
 
 const nextId = createIdSequence('aihu-label')
 
-export class AihuLabel extends HTMLElement {
+export class AihuLabel extends HTMLElementBase {
   static readonly observedAttributes = ['for']
 
   private readonly _for = signal<string | null>(null)
@@ -175,8 +176,11 @@ export class AihuLabel extends HTMLElement {
 }
 
 let _defined = false
-/** Register `<aihu-label>` (idempotent). */
+/** Register `<aihu-label>` (idempotent; a no-op without a DOM). */
 export function defineLabel(tag = 'aihu-label'): void {
+  // No DOM, no registry to register INTO — a documented no-op. See
+  // `html-element-base.ts` §"Registration without a DOM".
+  if (typeof customElements === 'undefined') return
   if (_defined || customElements.get(tag)) {
     _defined = true
     return

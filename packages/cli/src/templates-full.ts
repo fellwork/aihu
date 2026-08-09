@@ -22,6 +22,7 @@
  * module shim) rather than forking them.
  */
 
+import type { PkgManager } from './index.js'
 import { agentModuleShim, agentPackageJson, agentTsConfig } from './templates-agent.js'
 import {
   type AgentsMdFacts,
@@ -1262,7 +1263,7 @@ export function fullAgentsFacts(name: string): AgentsMdFacts {
  */
 export function fullTemplateFiles(
   name: string,
-  pm: string,
+  pm: PkgManager,
   opts?: { agentTooling?: boolean },
 ): Array<readonly [string, string]> {
   const files: Array<readonly [string, string]> = [

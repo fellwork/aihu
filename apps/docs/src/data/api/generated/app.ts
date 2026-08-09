@@ -12,6 +12,12 @@ export const PKG: ApiPackage = {
 
 export const EXPORTS: readonly ApiExport[] = [
   {
+    name: 'assertOutletPresent',
+    kind: 'function',
+    signature: 'function assertOutletPresent(template: string, outletId: string): string | null',
+    summary: '',
+  },
+  {
     name: 'collectAihuModules',
     kind: 'function',
     signature: 'function collectAihuModules(plugins: ReadonlyArray<unknown>): Map<string, unknown>',
@@ -22,6 +28,12 @@ export const EXPORTS: readonly ApiExport[] = [
     kind: 'function',
     signature: 'function createApp(config?: AppConfig): AppHandle',
     summary: '',
+  },
+  {
+    name: 'createSsrDocument',
+    kind: 'function',
+    signature: 'function createSsrDocument(config: SsrDocumentConfig): SsrDocumentWrapper',
+    summary: 'Build the request-time document wrapper.',
   },
   {
     name: 'criticalPath',
@@ -43,11 +55,25 @@ export const EXPORTS: readonly ApiExport[] = [
     summary: 'Define the aihu application configuration.',
   },
   {
+    name: 'injectIntoOutletId',
+    kind: 'function',
+    signature:
+      'function injectIntoOutletId(html: string, content: string, outletId: string): string | null',
+    summary: 'Inject rendered route content into the outlet element of an HTML template.',
+  },
+  {
     name: 'loadAihuConfig',
     kind: 'function',
     signature:
       "async function loadAihuConfig( root: string, options: { readonly mode?: string; readonly command?: 'build' | 'serve' } = {}, ): Promise<LoadedAihuConfig | null>",
     summary: "Load an aihu project's config from its Vite config file.",
+  },
+  {
+    name: 'ssrOutDirFor',
+    kind: 'function',
+    signature: 'function ssrOutDirFor(clientOutDir: string): string',
+    summary:
+      "Where the `'ssr'` environment writes: a SIBLING of the client outDir, never inside it.",
   },
   {
     name: 'validateAihuConfig',
@@ -72,6 +98,13 @@ export const EXPORTS: readonly ApiExport[] = [
     kind: 'const',
     signature: 'const AIHU_CONFIG_PLUGIN',
     summary: 'Plugin name carrying the config handle.',
+  },
+  {
+    name: 'DEFAULT_OUTLET_ID',
+    kind: 'const',
+    signature: 'const DEFAULT_OUTLET_ID',
+    summary: 'The outlet element id every aihu surface agrees on when nothing overrides it.',
+    agent: true,
   },
   {
     name: 'AihuConfigError',
@@ -131,8 +164,9 @@ export const EXPORTS: readonly ApiExport[] = [
   {
     name: 'AppHeadConfig',
     kind: 'interface',
-    signature: 'interface AppHeadConfig {\n  readonly head?: HeadConfig\n}',
-    summary: '',
+    signature:
+      "interface AppHeadConfig {\n  readonly head?: HeadConfig\n  /**\n   * Id of the outlet element in `index.html` — the element every render path\n   * puts the page into. Default: `'outlet'`.\n   *\n   * Declared here because it is a fact about the DOCUMENT, and three separate\n   * things need it: `createApp()` mounts into it, the SSG prerender splices\n   * into it, and the `output: 'ssr'` Worker splices into it. Before this key\n   * existed only the client could be told, via `createApp({ outletId })` in a\n   * hand-written `src/main.ts` — and the two build-time paths hardcoded\n   * `'outlet'`, so changing it silently emptied every prerendered page.\n   *\n   * `viteAihuPlugin` also threads this into the VIRTUAL client entry\n   * (`createApp({ outletId })`), so a project with no `src/main.ts` needs to\n   * state it exactly once. A project that ejected to its own `src/main.ts`\n   * passes the same value to `createApp` itself — the virtual entry is not in\n   * play there.\n   */\n  readonly outletId?: string\n}",
+    summary: 'The `app` section of the aihu config.',
   },
   {
     name: 'CreateHandlerSourceOptions',
@@ -198,6 +232,20 @@ export const EXPORTS: readonly ApiExport[] = [
     summary: 'Site-level configuration.',
   },
   {
+    name: 'SsrDocumentConfig',
+    kind: 'interface',
+    signature:
+      'interface SsrDocumentConfig {\n  /**\n   * The built client `index.html`, verbatim. Carries Vite\'s hashed\n   * `<script type="module">`, its modulepreloads, its stylesheet links and the\n   * `app.head` the `aihu-head` plugin already applied at build time.\n   *\n   * An empty string means the build could not read one; {@link createSsrDocument}\n   * then passes every response through untouched, which is the pre-existing\n   * fragment behaviour rather than a broken document.\n   */\n  readonly template: string\n  /** Resolved outlet id — `app.outletId` from the aihu config, or the default. */\n  readonly outletId: string\n  /** `site.url`, for resolving relative canonical/OG/Twitter URLs. */\n  readonly siteUrl?: string\n  /** `app.head`, folded UNDER each route\'s own head (same as SSG and client nav). */\n  readonly globalHead?: HeadConfig\n}',
+    summary: '',
+  },
+  {
+    name: 'SsrDocumentRoute',
+    kind: 'interface',
+    signature:
+      'interface SsrDocumentRoute {\n  /** The route pattern — the memo key for the head-applied template. */\n  readonly pattern: string\n  /** The compiled `@route { head }` block, if the route declares one. */\n  readonly head?: RouteHead\n}',
+    summary: 'The subset of a matched route this module reads.',
+  },
+  {
     name: 'AgentReadinessConfig',
     kind: 'type',
     signature:
@@ -228,6 +276,13 @@ export const EXPORTS: readonly ApiExport[] = [
     kind: 'type',
     signature: 'type ServerEntryContext',
     summary: '',
+  },
+  {
+    name: 'SsrDocumentWrapper',
+    kind: 'type',
+    signature:
+      'type SsrDocumentWrapper = (response: Response, route?: SsrDocumentRoute) => Promise<Response>',
+    summary: 'Wrap one `handle()` response into a full document.',
   },
   {
     name: 'VitePassthrough',

@@ -34,6 +34,7 @@
 
 import { effect, type Read, signal } from '@aihu/signals'
 import { createDomContext, provideContext } from '../dom-context.ts'
+import { HTMLElementBase } from '../html-element-base.ts'
 
 export interface SliderContextValue {
   readonly value: Read<number>
@@ -45,7 +46,7 @@ export interface SliderContextValue {
 
 export const sliderContext = createDomContext<SliderContextValue>('slider')
 
-export class AihuSliderRoot extends HTMLElement {
+export class AihuSliderRoot extends HTMLElementBase {
   static readonly observedAttributes = ['min', 'max', 'value', 'step', 'disabled']
 
   private readonly _min = signal(0)
@@ -338,8 +339,11 @@ export class AihuSliderRoot extends HTMLElement {
 const REGISTRY: Array<[string, CustomElementConstructor]> = [['aihu-slider-root', AihuSliderRoot]]
 
 let _defined = false
-/** Register all slider custom elements (idempotent). */
+/** Register all slider custom elements (idempotent; a no-op without a DOM). */
 export function defineSlider(): void {
+  // No DOM, no registry to register INTO — a documented no-op. See
+  // `html-element-base.ts` §"Registration without a DOM".
+  if (typeof customElements === 'undefined') return
   if (_defined) return
   for (const [tag, ctor] of REGISTRY) {
     if (!customElements.get(tag)) customElements.define(tag, ctor)

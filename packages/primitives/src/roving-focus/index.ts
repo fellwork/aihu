@@ -21,10 +21,11 @@ import { computed, effect, type Read, signal } from '@aihu/signals'
 import { collectionContext, createCollection } from '../collection/index.ts'
 import { configContext, type Direction } from '../config-provider/index.ts'
 import { injectValue, provideContext } from '../dom-context.ts'
+import { HTMLElementBase } from '../html-element-base.ts'
 
 export type Orientation = 'horizontal' | 'vertical' | 'both'
 
-export class AihuRovingFocus extends HTMLElement {
+export class AihuRovingFocus extends HTMLElementBase {
   static readonly observedAttributes = ['orientation', 'loop', 'dir']
 
   private readonly _collection = createCollection()
@@ -171,8 +172,11 @@ export class AihuRovingFocus extends HTMLElement {
 }
 
 let _defined = false
-/** Register `<aihu-roving-focus>` (idempotent). */
+/** Register `<aihu-roving-focus>` (idempotent; a no-op without a DOM). */
 export function defineRovingFocus(tag = 'aihu-roving-focus'): void {
+  // No DOM, no registry to register INTO — a documented no-op. See
+  // `html-element-base.ts` §"Registration without a DOM".
+  if (typeof customElements === 'undefined') return
   if (_defined || customElements.get(tag)) {
     _defined = true
     return

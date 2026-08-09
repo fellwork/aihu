@@ -501,6 +501,81 @@ jobs:
           bun-version: '1.3.8'
       - run: bun run check:gate-wiring
 
+  template-versions:
+    # The scaffold's declared dependency ranges must match the workspace
+    # versions they are GENERATED from (scripts/sync-template-versions.ts).
+    #
+    # WHAT THIS PROTECTS. Every `@aihu/*` entry a scaffold emitted used to be
+    # the literal string `"latest"`, and nothing checked it because there was
+    # nothing to check it against. Now `packages/cli/src/dep-versions.ts` and
+    # cf-team's `apps/web/package.json.tmpl` are derived artifacts, and a
+    # derived artifact with no gate is a stale artifact: `release:version` runs
+    # the generator, but a hand edit — or a package version bumped without the
+    # regen — would sail through review and ship a scaffold pinning versions
+    # that do not exist.
+    #
+    # OWN JOB, on the readme-sync/gate-wiring pattern, for the same measured
+    # reason. It reads package.json files and nothing else — no `bun install`,
+    # no build, no Rust, ~1s — and carrying no `if:` and no path filter means it
+    # also runs on DRAFT PRs, where `check` is invisible. `check:ci` lists it too
+    # for local pre-push, but that is not what makes it run: `check:ci` is
+    # invoked by no workflow in this repo (see the lesson-refs job). THIS job is
+    # the wiring.
+    #
+    # Own-job costs THREE coordinated edits — this job, ci-ok's `needs:`, and
+    # ci-ok's RESULT LOOP (plus the loop's positive-control count). That triple
+    # is machine-checked by check:gate-wiring; drop any leg and it goes red.
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.3.8'
+      - run: bun run check:template-versions
+
+  alias-parity:
+    # The two alias systems — per-package tsconfig `paths` (read by tsc) and
+    # root vitest.config.ts `resolve.alias` (read by vitest) — must not disagree
+    # about what an `@aihu/*` specifier resolves to.
+    #
+    # WHAT THIS PROTECTS. The two maps are hand-maintained, serve different
+    # purposes, and are deliberately different sizes, so "they drifted" is not
+    # visible by reading either one. The failure mode is SILENT IN BOTH
+    # DIRECTIONS: a specifier missing from vitest.config.ts does not error, it
+    # resolves through package `exports` to that package's `dist` — which exists
+    # in any built tree — so the test suite goes green having validated a stale
+    # BUILT ARTIFACT instead of the source it is supposed to be testing. And a
+    # tsconfig that maps `@aihu/arbor` does NOT thereby cover
+    # `@aihu/arbor/hydrate` (TS `paths` matching is exact, not prefix), so a
+    # subpath quietly falls back to dist and one package's typecheck validates
+    # half of a dependency against a previous build. Neither shows up as a
+    # failure anywhere; that is the whole reason this is a gate and not a README
+    # paragraph. It also enforces vitest's alias ORDER — vite takes the FIRST
+    # prefix match, so a subpath alias listed after its own prefix is
+    # unreachable, which three hand-written "Order matters" comments in
+    # vitest.config.ts describe and nothing checked.
+    #
+    # OWN JOB, on the readme-sync/gate-wiring/template-versions pattern, for the
+    # same measured reason. It reads tsconfig*.json + vitest.config.ts and
+    # nothing else — no `bun install`, no build, no Rust, ~1s — and carrying no
+    # `if:` and no path filter means it also runs on DRAFT PRs, where `check` is
+    # invisible. `check:ci` lists it too for local pre-push, but that is not what
+    # makes it run: `check:ci` is invoked by no workflow in this repo (see the
+    # lesson-refs job). THIS job is the wiring.
+    #
+    # Own-job costs THREE coordinated edits — this job, ci-ok's `needs:`, and
+    # ci-ok's RESULT LOOP (plus the loop's positive-control count). That triple
+    # is machine-checked by check:gate-wiring; drop any leg and it goes red.
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.3.8'
+      - run: bun run check:alias-parity
+
   ci-ok:
     # Single stable REQUIRED status for branch protection. Always runs (even
     # when `check` / `examples` / `governed-examples` are skipped — e.g. a
@@ -549,12 +624,30 @@ jobs:
     # branch protection (the sole required context on `main`) couldn't see
     # them. That regression broke every downstream consumer app build.
     #
-    # bench / bench-arbor are deliberately NOT included: their regression
-    # gate compares against the 2026-05-25 baseline RESULTS.md, whose noise
-    # floor now exceeds the 10% threshold, so they fail on noise rather than
-    # real regressions (see bench/signals/HARNESS.md). Wiring an unreliable
-    # gate into the required check would block every PR. Revisit once a
-    # fresh baseline lands.
+    # bench / bench-arbor are deliberately NOT included, and as of D1
+    # (RESOLVED 2026-08-08) that exclusion is a closed decision, not a
+    # pending cleanup. Their TIMING gates ship red by design; wiring a red
+    # advisory gate into the required check would block every PR. The two
+    # jobs are red for DIFFERENT reasons and neither is "noise vs baseline":
+    #   - bench (signals) exits 1 in loadFitness before it compares a single
+    #     p50 — bench/signals/fitness.json has never existed and the gate is
+    #     fail-closed on that by design.
+    #   - bench-arbor's timing STEP fails on a fiction row in the committed
+    #     2026-05-25 baseline (dead bindings, 0 DOM writes/op).
+    # An earlier version of this comment said "revisit once a fresh baseline
+    # lands." That was WRONG and is retracted: regenerating either baseline
+    # is under a standing STOP (truth doc §3.4). The fix is R1 (same-job A/B
+    # vs the merge base), tracked as `C-FEL-BENCH-R1-AB-HARNESS` — only that
+    # reopens this. Full decision + evidence, single source of truth:
+    # bench/signals/HARNESS.md § "D1 — RESOLVED 2026-08-08".
+    #
+    # KNOWN, ACCEPTED CONSEQUENCE: bench-arbor also hosts the counted-metric
+    # gate (counts.ts), which IS trustworthy and DOES fail its job — but
+    # because the whole job is outside ci-ok, that teeth-bearing gate is not
+    # a required context either. Promoting it means splitting counts.ts into
+    # its own job (it needs no 45-minute timing run); folded into the R1
+    # follow-up rather than done here, so the release does not change what
+    # blocks a merge.
     #
     # Each of check/examples/governed-examples is scheduled unconditionally
     # in the job graph (their own `if:` decides run vs. skip; none of them
@@ -562,7 +655,7 @@ jobs:
     # resolves every needed job to a terminal state (success/failure/
     # cancelled/skipped) before evaluating this job's `if: always()`, which
     # then runs regardless of what that state was.
-    needs: [changes, check, examples, governed-examples, lesson-refs, palette, readme-sync, gate-wiring]
+    needs: [changes, check, scaffold-consistency, examples, governed-examples, lesson-refs, palette, readme-sync, gate-wiring, template-versions, alias-parity]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -570,6 +663,7 @@ jobs:
       - name: Gate on required job results
         env:
           CHECK_RESULT: ${{ needs.check.result }}
+          SCAFFOLD_CONSISTENCY_RESULT: ${{ needs.scaffold-consistency.result }}
           EXAMPLES_RESULT: ${{ needs.examples.result }}
           GOVERNED_EXAMPLES_RESULT: ${{ needs.governed-examples.result }}
           LESSON_REFS_RESULT: ${{ needs.lesson-refs.result }}
@@ -595,6 +689,18 @@ jobs:
           # while leaving this line is the palette/#649 defect, and it is the one
           # direction nobody in this repo had ever proven until now.
           GATE_WIRING_RESULT: ${{ needs.gate-wiring.result }}
+          # template-versions is always-on (no if:, no path filter) like
+          # readme-sync and gate-wiring, so it is never `skipped` on a real
+          # event. Same rule as those two: being in `needs` is being WAITED on,
+          # not gated on — it MUST also appear in the loop below, and
+          # check:gate-wiring machine-checks that it does.
+          TEMPLATE_VERSIONS_RESULT: ${{ needs.template-versions.result }}
+          # alias-parity is always-on (no if:, no path filter) like readme-sync,
+          # gate-wiring and template-versions, so it is never `skipped` on a real
+          # event. Same rule as those three: being in `needs` is being WAITED on,
+          # not gated on — it MUST also appear in the loop below, and
+          # check:gate-wiring machine-checks that it does.
+          ALIAS_PARITY_RESULT: ${{ needs.alias-parity.result }}
           # `true` only for a pull_request event whose PR is a draft. For push
           # and workflow_dispatch, `github.event.pull_request` is null and this
           # evaluates to `false` — so the draft rule below can never fire on a
@@ -608,12 +714,15 @@ jobs:
           CODE_RESULT: ${{ needs.changes.outputs.code }}
         run: |
           echo "check:              $CHECK_RESULT"
+          echo "scaffold-consist.:  $SCAFFOLD_CONSISTENCY_RESULT"
           echo "examples:           $EXAMPLES_RESULT"
           echo "governed-examples:  $GOVERNED_EXAMPLES_RESULT"
           echo "lesson-refs:        $LESSON_REFS_RESULT"
           echo "palette:            $PALETTE_RESULT"
           echo "readme-sync:        $README_SYNC_RESULT"
           echo "gate-wiring:        $GATE_WIRING_RESULT"
+          echo "template-versions:  $TEMPLATE_VERSIONS_RESULT"
+          echo "alias-parity:       $ALIAS_PARITY_RESULT"
           echo "draft PR:           $IS_DRAFT"
           fail=0
           # FAIL-CLOSED, and the inversion is the whole point. This loop used to
@@ -633,7 +742,7 @@ jobs:
           # commit from fixed; one that errs toward green is the defect this
           # repo has now shipped three times (palette, #649, this).
           checked=0
-          for pair in "check:$CHECK_RESULT" "examples:$EXAMPLES_RESULT" "governed-examples:$GOVERNED_EXAMPLES_RESULT" "lesson-refs:$LESSON_REFS_RESULT" "palette:$PALETTE_RESULT" "readme-sync:$README_SYNC_RESULT" "gate-wiring:$GATE_WIRING_RESULT"; do
+          for pair in "check:$CHECK_RESULT" "scaffold-consistency:$SCAFFOLD_CONSISTENCY_RESULT" "examples:$EXAMPLES_RESULT" "governed-examples:$GOVERNED_EXAMPLES_RESULT" "lesson-refs:$LESSON_REFS_RESULT" "palette:$PALETTE_RESULT" "readme-sync:$README_SYNC_RESULT" "gate-wiring:$GATE_WIRING_RESULT" "template-versions:$TEMPLATE_VERSIONS_RESULT" "alias-parity:$ALIAS_PARITY_RESULT"; do
             name="${pair%%:*}"
             result="${pair#*:}"
             checked=$((checked + 1))
@@ -648,12 +757,12 @@ jobs:
           # ABSENCE REPORT ("no failing job found") and is indistinguishable from
           # "no job examined" unless the input is proven non-empty.
           #
-          # `-ne`, not `-lt`, deliberately: adding an 8th job without updating
+          # `-ne`, not `-lt`, deliberately: adding an 11th job without updating
           # this count goes RED until someone reconciles needs: / the loop / this
           # number. That friction is the feature — it makes the triple explicit
           # instead of conventional.
-          if [ "$checked" -ne 7 ]; then
-            echo "::error::ci-ok examined $checked jobs, expected 7 — the result loop is truncated or a job was added without updating this count."
+          if [ "$checked" -ne 10 ]; then
+            echo "::error::ci-ok examined $checked jobs, expected 10 — the result loop is truncated or a job was added without updating this count."
             fail=1
           fi
           # FEL-437 — a draft skipped the build, so "skipped is allowed" must not
@@ -809,6 +918,16 @@ jobs:
     # stops claiming to be a verdict it was never wired to deliver. Promote it
     # back to blocking by adding it to `ci-ok`'s needs AND its gate loop
     # (being in `needs` alone does nothing — see the palette hole above).
+    #
+    # D1 RESOLVED 2026-08-08 — this job SHIPS RED, as a decision. The
+    # "Regression gate" step below exits 1 on every run because
+    # bench/signals/fitness.json has never existed and gate.ts is fail-closed
+    # on that by design; it never reaches a p50 comparison. Do NOT create or
+    # regenerate fitness.json to green it — measured 2026-08-08, that yields a
+    # differently-red gate (2 of 6 workloads drift past the 10 % threshold
+    # back-to-back with zero code changes). Reopens only when R1 lands:
+    # `C-FEL-BENCH-R1-AB-HARNESS`. Decision + evidence, single source of
+    # truth: bench/signals/HARNESS.md § "D1 — RESOLVED 2026-08-08".
     continue-on-error: true
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -850,6 +969,14 @@ jobs:
         working-directory: bench/signals
         run: bun src/gate.ts /tmp/bench-prev/RESULTS.md ./RESULTS.md
       - name: Upload RESULTS.md
+        # Was default `if: success()`, so a Regression gate failure (the
+        # designed-red state described above, and the state this gate has
+        # been in since fitness.json's guard started demanding an artifact
+        # that has never existed) skipped this step too — no signals bench
+        # artifact has been produced since. The upload has no gating power
+        # of its own; it should never be held hostage by a step it doesn't
+        # depend on.
+        if: always()
         uses: actions/upload-artifact@v7
         with:
           name: bench-results
@@ -868,12 +995,22 @@ jobs:
     #      invalid (two rows recorded dead bindings), so RED is the DESIGNED
     #      state for this step until R1 (same-job A/B vs merge base) replaces
     #      the mechanism. Do NOT regenerate RESULTS.md to green it.
+    #      D1 RESOLVED 2026-08-08 — that red is a CLOSED decision, not an open
+    #      item. Re-verified same day on a live run: the FAIL is
+    #      `update-1-of-10k-leaves 29 -> 256 ns (795.8 %)`, the dead-binding
+    #      fiction row. Reopens only with R1 —
+    #      `C-FEL-BENCH-R1-AB-HARNESS`. Single source of truth for the
+    #      decision: bench/signals/HARNESS.md § "D1 — RESOLVED 2026-08-08".
     #
     # R0: the runner itself hard-fails if any timed op performs no DOM
     # mutation — a dead binding aborts the job rather than reporting a number.
     # Override for the timing gate only: `[bench-bump] <reason>` in the commit
     # message (the reason is mandatory — R7).
-    # workflow_dispatch only — see header comment and state-plan-a.md open items.
+    #
+    # This job's actual trigger is the `if:` below (path-filtered via
+    # `changes.outputs.bench`), not workflow_dispatch — a stale comment here
+    # previously claimed otherwise. See the header comment and
+    # state-plan-a.md open items for the broader dispatch story.
     runs-on: ubuntu-latest
     timeout-minutes: 45
     needs: [check, changes]
@@ -938,7 +1075,10 @@ jobs:
         # whole job would have traded a false red for a real blind spot.
         # Scoped here, the timing numbers stay in the log and the counted gate
         # keeps its teeth. Remove this line when R1 (same-job A/B vs merge
-        # base) replaces the mechanism — that is the point of the exercise.
+        # base) replaces the mechanism — that is the point of the exercise,
+        # and it is the ONLY thing that should remove it (D1, resolved
+        # 2026-08-08; tracked as `C-FEL-BENCH-R1-AB-HARNESS`). See
+        # bench/signals/HARNESS.md § "D1 — RESOLVED 2026-08-08".
         continue-on-error: true
         if: env.FIRST_RUN != '1'
         working-directory: bench/arbor
@@ -963,6 +1103,136 @@ jobs:
       - name: Run LSP hover-path latency gate
         working-directory: packages/language-server
         run: bun run bench:gate
+
+  scaffold-consistency:
+    # Fast ci-ok cell for the bug class fixed by
+    # docs/plans/2026-08-08-ssr-vite-remediation.md: a scaffolded app that
+    # builds green locally (against vite 6, what the template pins) and fails
+    # for a real consumer on vite 8 — or a compiler change that only shows up
+    # in a scaffolded app, never in this repo's own fixtures (the SSR
+    # child-registry / ElementInternals bugs that plan fixed were BOTH
+    # invisible to every existing in-repo test; only a real `npm create aihu`
+    # -> build -> drive-the-Worker pass caught them).
+    #
+    # Deliberately NOT `scaffold-matrix.yml`'s full grid — that installs from
+    # the LIVE REGISTRY across 4 package managers x 5 templates and takes tens
+    # of minutes, and is not in `ci-ok` for exactly that reason. This job
+    # tests THIS BRANCH'S OWN packages instead, via `--local-pkg` tarballs
+    # (never `file:` — a linked package resolves `import('vite')` from the
+    # MONOREPO's node_modules, not the scaffold's, which is the tree shape
+    # that hid the vite-8 defect for months; see the flag's own docblock in
+    # scaffold-matrix-e2e.ts), one package manager (bun), across BOTH vite
+    # majors, on `minimal` and `ssr` only — a few minutes, not tens.
+    #
+    # `cf-team` is excluded for COST, not correctness. The reason recorded here
+    # before — "it fails at `typecheck` on every FRESH scaffold, moon's `HEAD~1`
+    # does not exist because the scaffold git-inits with exactly one commit" —
+    # was wrong on both halves, and was never independently reproduced.
+    #
+    # Reproduced properly (scaffold, git-init one commit, install, run the
+    # project's own `bun run typecheck`): moon does not consult `HEAD~1` for a
+    # plain `moon run :typecheck` and is perfectly happy in a one-commit repo.
+    # The failure was real, but its cause was a STALE `template.config.js`. That
+    # file is the hand-maintained Node-importable twin of `template.config.ts`,
+    # and `loadTemplateConfig` falls through to it whenever the runtime cannot
+    # import TypeScript — i.e. always, under the published `#!/usr/bin/env node`
+    # binary. Its `conditionalFiles` still named post-strip TARGET paths
+    # (`apps/web/src/auth/kinde.ts`) rather than the `.tmpl` SOURCE paths on
+    # disk, so not one conditional matched: every scaffold wrote all three auth
+    # providers' files while installing only the chosen provider's SDK, and
+    # typecheck died on TS2307 for the other two. Fixed, with a deep-equality
+    # parity test over both manifests in packages/cli/tests/template-compat.test.ts.
+    #
+    # A fresh `cf-team` scaffold now typechecks clean on one commit. Adding it
+    # to this job is a reasonable follow-up; it is left out here only because it
+    # needs `moon` plus a third-party auth SDK from the network, which is a
+    # different cost profile from the two `--local-pkg` cells above.
+    needs: changes
+    if: >-
+      (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
+      && needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - uses: moonrepo/setup-toolchain@v0
+        with:
+          auto-install: true
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - uses: Swatinem/rust-cache@v2
+      - name: Build Rust binaries
+        run: cargo build --release
+      - name: Stage compiler binary
+        # See `check`'s identical step above: without this, the scaffold's
+        # `AIHU_COMPILE_BIN` override below has nothing to point at, and the
+        # published napi addon would silently validate a compiler this PR
+        # never touched.
+        run: |
+          mkdir -p packages/compiler/bin
+          cp target/release/aihu-compile packages/compiler/bin/aihu-compile
+          chmod 0755 packages/compiler/bin/aihu-compile
+      - run: bun install --frozen-lockfile
+        env:
+          AIHU_SKIP_POSTINSTALL: "1"
+      - name: Build @aihu/cli
+        run: bun run --cwd packages/cli build
+      - name: Scaffold consistency — minimal × vite 6, vite 8
+        # `--mode local` drives `packages/cli/dist/create.js` — the scaffolder
+        # THIS BRANCH builds (the step above) — instead of `bun create
+        # aihu@latest` off the registry. That is what the `Build @aihu/cli` step
+        # is for, and without the flag it was doing nothing: the harness's
+        # default mode is `npm`, so this job was scaffolding with the PUBLISHED
+        # create-aihu and only swapping the runtime packages for tarballs. A
+        # template change (a new template, a widened `vite` range) was therefore
+        # invisible to the one job that exists to catch scaffold regressions.
+        run: |
+          AIHU_COMPILER_NATIVE=0 AIHU_COMPILE_BIN="$(pwd)/target/release/aihu-compile" \
+            bun packages/cli/tests/scaffold-matrix-e2e.ts \
+            --template minimal --pm bun --mode local --vite 6,8 \
+            --local-pkg app,router,server,adapter-cloudflare,compiler,runtime,arbor,signals,agent,agent-service,plugin,context \
+            --cmd-timeout 300000 --server-timeout 120000 \
+            2>&1 | tee scaffold-consistency.log
+          # tee makes ${PIPESTATUS[0]} the harness's own exit code; `$?` would
+          # be tee's and would turn every failure into a green run — same
+          # reasoning as scaffold-matrix.yml's identical line.
+          exit "${PIPESTATUS[0]}"
+      - name: Scaffold consistency — ssr template (real built Worker, driven in-process)
+        # A SEPARATE step, not folded into the one above, so a failure here is
+        # attributable at a glance: "the client/SSG path broke" vs. "the
+        # output:'ssr' Worker broke" are different bug classes with different
+        # owners. No --vite axis here (deliberately): the vite axis exists to
+        # catch a strip-time defect (un-stripped TypeScript), and that is
+        # already covered by the step above; this step covers the OTHER two
+        # bug classes the same plan fixed — the module-scope top-level-await
+        # deadlock and the ElementInternals null-dereference — neither of
+        # which is vite-version-dependent.
+        #
+        # `--mode local` is MANDATORY here, not a preference: `ssr` is a
+        # template of THIS branch's `@aihu/cli`, so the published create-aihu
+        # would exit with "not a template". See the step above for why the flag
+        # belongs on both.
+        run: |
+          AIHU_COMPILER_NATIVE=0 AIHU_COMPILE_BIN="$(pwd)/target/release/aihu-compile" \
+            bun packages/cli/tests/scaffold-matrix-e2e.ts \
+            --template ssr --pm bun --mode local \
+            --local-pkg app,router,server,adapter-cloudflare,compiler,runtime,arbor,signals,agent,agent-service,plugin,context \
+            --cmd-timeout 300000 --server-timeout 120000 \
+            2>&1 | tee -a scaffold-consistency.log
+          exit "${PIPESTATUS[0]}"
+      - name: Upload scaffold consistency log
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: scaffold-consistency-log
+          path: scaffold-consistency.log
+          retention-days: 14
 
   examples:
     # Test the compiler THIS PR builds, not the one npm published.

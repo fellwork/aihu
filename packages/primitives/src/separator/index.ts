@@ -20,10 +20,11 @@
  */
 
 import { effect, type Read, signal } from '@aihu/signals'
+import { HTMLElementBase } from '../html-element-base.ts'
 
 export type SeparatorOrientation = 'horizontal' | 'vertical'
 
-export class AihuSeparator extends HTMLElement {
+export class AihuSeparator extends HTMLElementBase {
   static readonly observedAttributes = ['orientation', 'decorative']
 
   private readonly _orientation = signal<SeparatorOrientation>('horizontal')
@@ -95,8 +96,11 @@ export class AihuSeparator extends HTMLElement {
 }
 
 let _defined = false
-/** Register `<aihu-separator>` (idempotent). */
+/** Register `<aihu-separator>` (idempotent; a no-op without a DOM). */
 export function defineSeparator(tag = 'aihu-separator'): void {
+  // No DOM, no registry to register INTO — a documented no-op. See
+  // `html-element-base.ts` §"Registration without a DOM".
+  if (typeof customElements === 'undefined') return
   if (_defined || customElements.get(tag)) {
     _defined = true
     return

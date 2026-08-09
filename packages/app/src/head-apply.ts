@@ -90,6 +90,79 @@ function attrsToHtml(attrs: Record<string, string>): string {
 }
 
 /**
+ * Find `<title ...>...</title>` in `html` without the ReDoS `/<title[^>]*>
+ * [\s\S]*?<\/title>/i` used to have (CodeQL js/polynomial-redos). `html` here
+ * is the build's OWN index.html template, attacker-reachable via an untrusted
+ * PR the same way `.aihu` source is elsewhere in this repo's threat model,
+ * and this runs at build/prerender time (per this file's own "build-time
+ * only" note) — a slow build IS the DoS.
+ *
+ * A first attempt split the combined regex into `/<title[^>]*>/i.exec` (open
+ * tag) followed by a `</title>` search over the remainder — that closed the
+ * COMBINED pattern's lazy-suffix half, but CodeQL correctly flagged the open-
+ * tag half again on its own: `[^>]*` bounded by a single required `>` is
+ * fine for ONE match attempt, but `.exec` without the `g` flag still retries
+ * at every `<title` occurrence when the first one has no `>` anywhere after
+ * it, and each retry re-scans the remaining string — confirmed by direct
+ * timing (11ms → 61ms → 237ms at 2k/5k/10k occurrences, quadratic).
+ *
+ * `indexOf`-based instead, same technique as {@link findCanonicalLinkTag}: no
+ * regex for the tag boundary at all. `searchFrom` only ever advances, and if
+ * a `<title` occurrence has no `>` anywhere after it, NOTHING later in the
+ * string can close it either — so the function returns immediately instead
+ * of retrying at the next occurrence, and `</title>` is found the same way
+ * once the open tag resolves.
+ */
+function findTitleTag(html: string): { start: number; end: number } | null {
+  const lower = html.toLowerCase()
+  const tagStart = lower.indexOf('<title')
+  if (tagStart === -1) return null
+  const openEnd = lower.indexOf('>', tagStart)
+  if (openEnd === -1) return null
+  const closeStart = lower.indexOf('</title>', openEnd + 1)
+  if (closeStart === -1) return null
+  return { start: tagStart, end: closeStart + '</title>'.length }
+}
+
+/**
+ * Find an existing `<link ... rel="canonical" ...>` tag without the ReDoS
+ * `/<link\s+[^>]*rel="canonical"[^>]*>/i` used to have.
+ *
+ * A first pass at this replaced the combined regex with `/<link\b[^>]*>/gi`
+ * enumerating tags one at a time, checked with a plain substring search —
+ * safe against the original's WORST failure mode (repeated-literal input ran
+ * seconds → tens of seconds, confirmed by direct timing) but still
+ * genuinely O(n²) on an adversarial `html` with many `<link` occurrences and
+ * NO `>` anywhere: the regex's own unbounded `[^>]*` re-scans the remaining
+ * string from EVERY `<link` position before concluding there's no closing
+ * `>`, and `g`-flag `exec` retries at every such position.
+ *
+ * `indexOf`-based instead: no regex at all for the boundary. Each loop
+ * iteration finds the NEXT `<link` and its OWN closing `>` via native
+ * substring search, and `searchFrom` only ever moves forward — so if a tag's
+ * `>` is never found, EVERY later `<link` also has no reachable `>` (nothing
+ * after `tagStart` can close before a `>` that doesn't exist), and the
+ * function returns immediately instead of retrying. `indexOf` scans lowercase
+ * `html` for case-insensitivity, matching the original `/i` flag, and returns
+ * offsets into the ORIGINAL string so casing in the returned span is
+ * unchanged.
+ */
+function findCanonicalLinkTag(html: string): { start: number; end: number } | null {
+  const lower = html.toLowerCase()
+  let searchFrom = 0
+  for (;;) {
+    const tagStart = lower.indexOf('<link', searchFrom)
+    if (tagStart === -1) return null
+    const tagEnd = lower.indexOf('>', tagStart)
+    if (tagEnd === -1) return null
+    if (lower.slice(tagStart, tagEnd + 1).includes('rel="canonical"')) {
+      return { start: tagStart, end: tagEnd + 1 }
+    }
+    searchFrom = tagEnd + 1
+  }
+}
+
+/**
  * Apply a lowered HeadConfig onto a built `index.html` template string.
  *
  * - `<title>` is replaced (or injected when absent).
@@ -107,8 +180,9 @@ export function applyHeadToHtml(html: string, head: HeadConfig): string {
 
   if (title !== undefined) {
     const tag = `<title>${escapeText(title)}</title>`
-    if (/<title[^>]*>[\s\S]*?<\/title>/i.test(out)) {
-      out = out.replace(/<title[^>]*>[\s\S]*?<\/title>/i, tag)
+    const existing = findTitleTag(out)
+    if (existing !== null) {
+      out = out.slice(0, existing.start) + tag + out.slice(existing.end)
     } else {
       inject.push(tag)
     }
@@ -131,9 +205,9 @@ export function applyHeadToHtml(html: string, head: HeadConfig): string {
   for (const link of links) {
     const linkTag = `<link ${attrsToHtml(link)}>`
     if ((link.rel ?? '').toLowerCase() === 'canonical') {
-      const re = /<link\s+[^>]*rel="canonical"[^>]*>/i
-      if (re.test(out)) {
-        out = out.replace(re, linkTag)
+      const existing = findCanonicalLinkTag(out)
+      if (existing !== null) {
+        out = out.slice(0, existing.start) + linkTag + out.slice(existing.end)
         continue
       }
     }

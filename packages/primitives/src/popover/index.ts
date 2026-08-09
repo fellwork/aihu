@@ -41,6 +41,7 @@
 import { type Placement, position } from '@aihu/css-engine/runtime/progressive'
 import { effect, type Read, signal } from '@aihu/signals'
 import { createDomContext, injectValue, provideContext } from '../dom-context.ts'
+import { HTMLElementBase } from '../html-element-base.ts'
 import { createIdSequence } from '../id.ts'
 import { AihuPresenceGate } from '../presence-gate/index.ts'
 
@@ -79,7 +80,7 @@ function isPlacement(v: string | null): v is Placement {
   return v === 'top' || v === 'bottom' || v === 'left' || v === 'right'
 }
 
-export class AihuPopoverRoot extends HTMLElement {
+export class AihuPopoverRoot extends HTMLElementBase {
   static readonly observedAttributes = ['open', 'placement']
 
   private readonly _open = signal(false)
@@ -252,7 +253,7 @@ export class AihuPopoverRoot extends HTMLElement {
 }
 
 /** Base for pieces that inject the popover context lazily on connect. */
-abstract class PopoverPiece extends HTMLElement {
+abstract class PopoverPiece extends HTMLElementBase {
   protected ctx!: PopoverContextValue
   protected disposers: Array<() => void> = []
 
@@ -427,9 +428,12 @@ const _definedPrefixes = new Set<string>()
  * per prefix). Non-default prefixes register a fresh trivial subclass per
  * piece — a constructor can only be `customElements.define`d once. Demos/
  * stories use a non-`aihu` prefix so styled recipes own the `aihu-popover-*`
- * namespace (spec §9.4).
+ * namespace (spec §9.4). A no-op without a DOM.
  */
 export function definePopover(prefix = 'aihu'): void {
+  // No DOM, no registry to register INTO — a documented no-op. See
+  // `html-element-base.ts` §"Registration without a DOM".
+  if (typeof customElements === 'undefined') return
   if (_definedPrefixes.has(prefix)) return
   for (const [tag, ctor] of REGISTRY) {
     const name = prefix === 'aihu' ? tag : tag.replace(/^aihu-/, `${prefix}-`)

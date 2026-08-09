@@ -8,27 +8,15 @@
   (Variant matrix is the registry catalog contract — see meta.json — reflected
   as `data-variant` and matched in @style below.)
 
-  CSS attachment (R2): shared static Constructable StyleSheet adopted into the
-  shadow root, not a per-instance inline style element.
+  CSS attachment (R2): the compiled `@style` block below IS the shared
+  Constructable StyleSheet — see `card.aihu`'s header. A recipe writes no
+  registration and no `adoptedStyleSheets` code of its own.
 -->
 
 @state {
   import { cn } from '@aihu/css-engine/runtime/cn'
 
   let variant = prop({ default: 'default' })
-
-  class AihuBadge extends HTMLElement {
-    static sheet = new CSSStyleSheet()
-
-    connectedCallback() {
-      if (!this.shadowRoot) this.attachShadow({ mode: 'open' })
-      this.shadowRoot.adoptedStyleSheets = [AihuBadge.sheet]
-    }
-  }
-
-  if (!customElements.get('aihu-badge')) {
-    customElements.define('aihu-badge', AihuBadge)
-  }
 }
 
 @template {

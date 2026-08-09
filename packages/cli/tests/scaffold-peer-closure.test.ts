@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { appPackageJson } from '../src/index.ts'
 import { agentPackageJson } from '../src/templates-agent.ts'
+import { ssrPackageJson } from '../src/templates-ssr.ts'
 
 /**
  * C-FEL-SCAFFOLD-PM-COMPAT — the scaffold must declare the TRANSITIVE PEER
@@ -75,6 +76,8 @@ const EMITTERS: ReadonlyArray<[string, () => string]> = [
   ['appPackageJson', () => appPackageJson('demo', 'bun', false)],
   ['appPackageJson (css-engine)', () => appPackageJson('demo', 'bun', true)],
   ['agentPackageJson', () => agentPackageJson('demo', 'bun')],
+  ['ssrPackageJson', () => ssrPackageJson('demo', 'bun', false)],
+  ['ssrPackageJson (css-engine)', () => ssrPackageJson('demo', 'bun', true)],
 ]
 
 describe('scaffold declares the transitive peer closure', () => {

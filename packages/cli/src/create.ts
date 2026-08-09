@@ -10,7 +10,7 @@
  *   - Auto-detects available package managers (bun > pnpm > yarn > npm)
  *   - Interactive prompts via Node readline (zero extra dependencies)
  *   - `--template` spans BOTH tiers of the catalogue: the built-in templates
- *     embedded in @aihu/cli (minimal | full | docs | agent) and the
+ *     embedded in @aihu/cli (minimal | full | docs | agent | ssr) and the
  *     npm-published `@aihu/templates-*` packages (installed on demand and run
  *     through the shared 6-stage scaffold pipeline).
  *   - Optional git init
@@ -28,8 +28,11 @@ import { existsSync, realpathSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { createInterface } from 'node:readline'
 import { fileURLToPath } from 'node:url'
+import { classifyPmFlag, firstPositional, PKG_MANAGERS_HINT } from './argv.js'
+import { CLI_VERSION } from './cli-version.js'
 import type { AppTemplate, CssChoice, PkgManager, ShadowChoice } from './index.js'
 import { scaffoldApp } from './index.js'
+import { parseOptionsJson } from './options-json.js'
 import { scaffoldFromTemplatePackage } from './scaffold-pipeline.js'
 import { formatTemplateCatalog, type KnownTemplate, selectTemplate } from './templates-registry.js'
 
@@ -193,10 +196,23 @@ function templateFromArgv(): AppTemplate | undefined {
   return choice.kind === 'builtin' ? choice.name : undefined
 }
 
-/** Resolve the package-manager choice from argv, or `undefined` to prompt. */
+/**
+ * Resolve the package-manager choice from argv, or `undefined` to prompt.
+ *
+ * An unusable `--pm` exits 1 rather than falling through to `undefined`, which
+ * meant "the user did not choose" — so `create-aihu app --pm garbage --yes`
+ * pinned the DETECTED package manager into `packageManager` and said nothing.
+ * That pin is enforced by corepack, so the very next command the wizard prints
+ * (`<pm> install`) refuses to run. Same triage `--template` already gets, three
+ * function definitions above.
+ */
 function pmFromArgv(): PkgManager | undefined {
-  const raw = extractFlag('pm')
-  if (raw === 'bun' || raw === 'pnpm' || raw === 'npm' || raw === 'yarn') return raw
+  const flag = classifyPmFlag(argv)
+  if (flag.kind === 'value') return flag.pm
+  if (flag.kind === 'missing') failUsage(`--pm needs a value (${PKG_MANAGERS_HINT}).`)
+  if (flag.kind === 'unknown') {
+    failUsage(`unknown --pm value ${JSON.stringify(flag.raw)}. Valid: ${PKG_MANAGERS_HINT}.`)
+  }
   return undefined
 }
 
@@ -264,25 +280,17 @@ function isNonInteractive(): boolean {
 
 // ─── Project name + help ─────────────────────────────────────────────────────
 
-/** Flags that consume the following argv token as their value. */
-const VALUE_FLAGS = new Set(['--template', '--pm', '--css', '--shadow', '--options-json'])
-
 /**
  * First positional argument = the project name. Skips flags AND the values of
  * value-taking flags, so `create-aihu --template cf-team my-app` names the app
  * `my-app` — not `--template` (which is what `process.argv[2]` gave you).
  * Exported for tests.
+ *
+ * The implementation moved to `argv.ts` when `aihu app` adopted it: that path
+ * was still reading `rest[0]` and happily scaffolding a directory named `--pm`.
  */
 export function parseProjectName(args: ReadonlyArray<string>): string | undefined {
-  for (let i = 0; i < args.length; i++) {
-    const a = args[i]!
-    if (a.startsWith('-')) {
-      if (VALUE_FLAGS.has(a)) i++ // skip its value
-      continue
-    }
-    return a
-  }
-  return undefined
+  return firstPositional(args)
 }
 
 /** The `--help` / error-path usage text. Plain text; exported for tests. */
@@ -299,12 +307,16 @@ export function usageText(): string {
     '  --css <engine|none>        Include @aihu/css-engine (built-in templates only)',
     '  --shadow <light|shadow>    Force one shadow mode project-wide when --css engine is set',
     '                             (default: framework defaults — light-DOM pages/layouts, shadow-DOM leaves)',
+    '  --options-json <JSON>      npm template packages only (e.g. --template cf-team):',
+    "                             overrides for the template manifest's `overridable`",
+    '                             cells, e.g. \'{"auth":"supabase","starter":"empty"}\'',
     '  --no-agent-tooling  Skip AGENTS.md/CLAUDE.md/.mcp.json (coding-assistant files).',
     "                      Your app's own agent surface is unaffected.",
     '  --no-git            Skip git init',
     '  --no-install        Skip dependency install (npm templates only)',
     '  --yes, -y           Non-interactive; take documented defaults',
     '  --help, -h          Show this message',
+    '  --version, -v       Print the @aihu/cli version',
     '',
     'Templates for --template:',
     formatTemplateCatalog('  '),
@@ -316,7 +328,17 @@ export function usageText(): string {
 }
 
 /**
- * Print the catalogue + exit non-zero. Every "we cannot use that value" path
+ * An invocation we cannot act on: the reason, a pointer to `--help`, exit 1.
+ * The one error dialect this entry point speaks.
+ */
+function failUsage(message: string): never {
+  process.stderr.write(`\n  ${c.red}error${c.reset} ${message}\n\n`)
+  process.stderr.write(`  Run with ${bold('--help')} for the full option list.\n\n`)
+  process.exit(1)
+}
+
+/**
+ * Print the catalogue + exit non-zero. Every "we cannot use that TEMPLATE" path
  * routes through here, so the user never has to already know the names.
  */
 function failWithCatalog(message: string): never {
@@ -332,6 +354,19 @@ async function main(): Promise<void> {
   // `--help` is answered before the banner so the output pipes cleanly.
   if (hasFlag('help') || argv.includes('-h')) {
     process.stdout.write(usageText())
+    process.exit(0)
+  }
+  // …and so is `--version`, for the same reason plus a worse one: this handler
+  // did not exist. `bin.ts` grew real `--version` support and `create.ts` — the
+  // ONLY bin npm users can actually reach, per this file's own docblock — never
+  // did, so the flag fell through to the positional/non-interactive path and
+  // `create-aihu --version` CREATED A DIRECTORY (`my-aihu-app/`) and exited 0.
+  // An advertised informational flag that is unreachable is bad; one that is
+  // destructive instead of a no-op is a defect. Same version source as
+  // `bin.ts`, inlined from package.json at build time, so the two bins in this
+  // package cannot report different versions of themselves.
+  if (hasFlag('version') || argv.includes('-v')) {
+    process.stdout.write(`${CLI_VERSION}\n`)
     process.exit(0)
   }
 
@@ -379,6 +414,14 @@ async function main(): Promise<void> {
         noGit: hasFlag('no-git'),
         noInstall: hasFlag('no-install'),
         noAutoInstall: hasFlag('no-auto-install-template'),
+        // `--options-json` was already in VALUE_FLAGS (so its value never got
+        // mistaken for the project name) but was read by nobody here, so
+        // `create-aihu my-app --template cf-team --options-json '{"auth":"kinde"}'`
+        // silently scaffolded better-auth. `bin.ts` threaded the same flag with
+        // real validation; there is no comment or test suggesting the omission
+        // was deliberate, and this is the ONLY path npm users reach — so it
+        // shares bin.ts's parser rather than growing a second one.
+        userOverrides: parseOptionsJson(extractFlag('options-json')),
       })
     } catch (err) {
       // Surface the real reason and exit non-zero. A scaffold that prints an
@@ -457,6 +500,9 @@ async function main(): Promise<void> {
     process.stdout.write(
       `    ${cyan('4)')} agent    — capability-bridge task-list demo ${dim('(folding into full)')}\n`,
     )
+    process.stdout.write(
+      `    ${cyan('5)')} ssr      — server-rendered on Cloudflare Workers (deploy with wrangler)\n`,
+    )
     const templateAnswer = await prompt(rl, `  ${dim('Template [1]:')} `)
     const templateMap: Record<string, AppTemplate> = {
       '': 'minimal',
@@ -468,6 +514,8 @@ async function main(): Promise<void> {
       docs: 'docs',
       '4': 'agent',
       agent: 'agent',
+      '5': 'ssr',
+      ssr: 'ssr',
     }
     template = templateMap[templateAnswer.trim().toLowerCase()] ?? 'minimal'
   }

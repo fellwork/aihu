@@ -5,26 +5,17 @@
   behavior base; it is purely visual). Slotted header / body / footer regions.
   `aihu add` rewrites the `aihu-` prefix at copy time.
 
-  CSS attachment (R2): the compiled recipe stylesheet is a shared static
-  Constructable StyleSheet adopted into the shadow root, not a per-instance
-  inline style element.
+  CSS attachment (R2): the compiled `@style` block below IS the shared
+  Constructable StyleSheet — the compiler emits `const __style__ = new
+  CSSStyleSheet()` at MODULE scope (constructed once for the whole module) and
+  adopts it into each instance's shadow root from the setup body. Authoring the
+  `@style` block is the whole of the contract; a recipe writes no registration
+  and no `adoptedStyleSheets` code of its own. See `packages/ui/README.md`
+  §"CSS attachment (R2): the compiler owns it".
 -->
 
 @state {
   import { cn } from '@aihu/css-engine/runtime/cn'
-
-  class AihuCard extends HTMLElement {
-    static sheet = new CSSStyleSheet()
-
-    connectedCallback() {
-      if (!this.shadowRoot) this.attachShadow({ mode: 'open' })
-      this.shadowRoot.adoptedStyleSheets = [AihuCard.sheet]
-    }
-  }
-
-  if (!customElements.get('aihu-card')) {
-    customElements.define('aihu-card', AihuCard)
-  }
 }
 
 @template {
