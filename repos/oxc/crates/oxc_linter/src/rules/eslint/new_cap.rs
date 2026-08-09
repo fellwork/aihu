@@ -1,0 +1,793 @@
+use lazy_regex::Regex;
+use schemars::JsonSchema;
+use serde::Deserialize;
+
+use oxc_ast::{
+    AstKind,
+    ast::{ChainElement, ComputedMemberExpression, Expression},
+};
+use oxc_diagnostics::OxcDiagnostic;
+use oxc_macros::declare_oxc_lint;
+use oxc_span::Span;
+use oxc_str::CompactStr;
+
+use crate::{
+    AstNode,
+    context::LintContext,
+    rule::{DefaultRuleConfig, Rule},
+    utils::deserialize_regex_option,
+};
+
+fn new_cap_diagnostic(span: Span, cap: &GetCapResult) -> OxcDiagnostic {
+    let msg = if *cap == GetCapResult::Lower {
+        "A constructor name should not start with a lowercase letter."
+    } else {
+        "A function with a name starting with an uppercase letter should only be used as a constructor."
+    };
+
+    let label = if *cap == GetCapResult::Lower {
+        "This should be uppercase"
+    } else {
+        "This should be called with `new`"
+    };
+
+    let help = if *cap == GetCapResult::Lower {
+        "Capitalize the first letter of the constructor name, or add it to the exceptions list if it should not be capitalized."
+    } else {
+        "Use the new operator when calling this function, or add it to the exceptions list if it should not be called with new."
+    };
+
+    OxcDiagnostic::warn(msg).with_help(help).with_label(span.label(label))
+}
+
+#[derive(Debug, Default, Clone, Deserialize)]
+pub struct NewCap(Box<NewCapConfig>);
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", default, deny_unknown_fields)]
+pub struct NewCapConfig {
+    /// `true` to require that all constructor names start with an uppercase letter, e.g. `new Person()`.
+    new_is_cap: bool,
+    /// `true` to require that all functions with names starting with an uppercase letter to be called with `new`.
+    cap_is_new: bool,
+    /// Exceptions to ignore for constructor names starting with an uppercase letter.
+    new_is_cap_exceptions: Vec<CompactStr>,
+    /// A regex pattern to match exceptions for constructor names starting with an uppercase letter.
+    #[serde(default, deserialize_with = "deserialize_regex_option")]
+    new_is_cap_exception_pattern: Option<Regex>,
+    /// Exceptions to ignore for functions with names starting with an uppercase letter.
+    cap_is_new_exceptions: Vec<CompactStr>,
+    /// A regex pattern to match exceptions for functions with names starting with an uppercase letter.
+    #[serde(default, deserialize_with = "deserialize_regex_option")]
+    cap_is_new_exception_pattern: Option<Regex>,
+    /// `true` to require capitalization for object properties (e.g., `new obj.Method()`).
+    properties: bool,
+}
+
+impl Default for NewCapConfig {
+    fn default() -> Self {
+        Self {
+            new_is_cap: true,
+            cap_is_new: true,
+            new_is_cap_exceptions: caps_allowed_vec(),
+            new_is_cap_exception_pattern: None,
+            cap_is_new_exceptions: vec![],
+            cap_is_new_exception_pattern: None,
+            properties: true,
+        }
+    }
+}
+
+impl std::ops::Deref for NewCap {
+    type Target = NewCapConfig;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+const CAPS_ALLOWED: [&str; 11] = [
+    "Array", "Boolean", "Date", "Error", "Function", "Number", "Object", "RegExp", "String",
+    "Symbol", "BigInt",
+];
+
+fn caps_allowed_vec() -> Vec<CompactStr> {
+    CAPS_ALLOWED.iter().map(|x| CompactStr::new(x)).collect::<Vec<CompactStr>>()
+}
+
+declare_oxc_lint!(
+    /// ### What it does
+    ///
+    /// This rule requires constructor names to begin with a capital letter.
+    ///
+    /// ### Why is this bad?
+    ///
+    /// The new operator in JavaScript creates a new instance of a particular type of object.
+    /// That type of object is represented by a constructor function.
+    /// Since constructor functions are just regular functions, the only defining characteristic
+    /// is that new is being used as part of the call.
+    /// Native JavaScript functions begin with an uppercase letter to distinguish those functions
+    /// that are to be used as constructors from functions that are not.
+    /// Many style guides recommend following this pattern
+    /// to more easily determine which functions are to be used as constructors.
+    ///
+    /// **Warning**:
+    /// The option `newIsCapExceptionPattern` and `capIsNewExceptionPattern` are implemented with
+    /// the [rust regex syntax](https://docs.rs/regex/latest/regex/). Many JavaScript features
+    /// are not supported (Lookahead, Lookbehinds, ...).
+    ///
+    /// ### Examples
+    ///
+    /// Examples of **incorrect** code for this rule:
+    /// ```js
+    /// function foo(arg) {
+    ///     return Boolean(arg);
+    /// }
+    /// ```
+    ///
+    /// Examples of **incorrect** code for this rule with the default `{ "newIsCap": true }` option:
+    ///
+    /// ```js
+    /// /* new-cap: ["error", { "newIsCap": true }] */
+    ///
+    /// var friend = new person();
+    /// ```
+    ///
+    /// Examples of **correct** code for this rule with the default `{ "newIsCap": true }` option:
+    ///
+    /// ```js
+    /// /* new-cap: ["error", { "newIsCap": true }] */
+    ///
+    /// var friend = new Person();
+    /// ```
+    ///
+    /// Examples of **correct** code for this rule with the `{ "newIsCap": false }` option:
+    ///
+    /// ```js
+    /// /* new-cap: ["error", { "newIsCap": false }] */
+    ///
+    /// var friend = new person();
+    /// ```
+    ///
+    /// Examples of **incorrect** code for this rule with the default `{ "capIsNew": true }` option:
+    ///
+    /// ```js
+    /// /* new-cap: ["error", { "capIsNew": true }] */
+    ///
+    /// var colleague = Person();
+    /// ```
+    ///
+    /// Examples of **correct** code for this rule with the default `{ "capIsNew": true }` option:
+    ///
+    /// ```js
+    /// /* new-cap: ["error", { "capIsNew": true }] */
+    ///
+    /// var colleague = new Person();
+    /// ```
+    ///
+    /// Examples of **correct** code for this rule with the `{ "capIsNew": false }` option:
+    ///
+    /// ```js
+    /// /* new-cap: ["error", { "capIsNew": false }] */
+    ///
+    /// var colleague = Person();
+    /// ```
+    ///
+    /// Examples of additional **correct** code for this rule with the `{ "newIsCapExceptions": ["events"] }` option:
+    ///
+    /// ```js
+    /// /* new-cap: ["error", { "newIsCapExceptions": ["events"] }] */
+    ///
+    /// var events = require('events');
+    ///
+    /// var emitter = new events();
+    /// ```
+    ///
+    /// Examples of additional **correct** code for this rule with the `{ "newIsCapExceptionPattern": "^person\\.." }` option:
+    ///
+    /// ```js
+    /// /* new-cap: ["error", { "newIsCapExceptionPattern": "^person\\.." }] */
+    ///
+    /// var friend = new person.acquaintance();
+    ///
+    /// var bestFriend = new person.friend();
+    /// ```
+    ///
+    /// Examples of additional **correct** code for this rule with the `{ "newIsCapExceptionPattern": "\\.bar$" }` option:
+    ///
+    /// ```js
+    /// /* new-cap: ["error", { "newIsCapExceptionPattern": "\\.bar$" }] */
+    ///
+    /// var friend = new person.bar();
+    /// ```
+    ///
+    /// Examples of additional **correct** code for this rule with the `{ "capIsNewExceptions": ["Person"] }` option:
+    ///
+    /// ```js
+    /// /* new-cap: ["error", { "capIsNewExceptions": ["Person"] }] */
+    ///
+    /// function foo(arg) {
+    ///     return Person(arg);
+    /// }
+    /// ```
+    ///
+    /// Examples of additional **correct** code for this rule with the `{ "capIsNewExceptionPattern": "^person\\.." }` option:
+    ///
+    /// ```js
+    /// /* new-cap: ["error", { "capIsNewExceptionPattern": "^person\\.." }] */
+    ///
+    /// var friend = person.Acquaintance();
+    /// var bestFriend = person.Friend();
+    /// ```
+    ///
+    /// Examples of additional **correct** code for this rule with the `{ "capIsNewExceptionPattern": "\\.Bar$" }` option:
+    ///
+    /// ```js
+    /// /* new-cap: ["error", { "capIsNewExceptionPattern": "\\.Bar$" }] */
+    ///
+    /// foo.Bar();
+    /// ```
+    ///
+    /// Examples of additional **correct** code for this rule with the `{ "capIsNewExceptionPattern": "^Foo" }` option:
+    ///
+    /// ```js
+    /// /* new-cap: ["error", { "capIsNewExceptionPattern": "^Foo" }] */
+    ///
+    /// var x = Foo(42);
+    ///
+    /// var y = Foobar(42);
+    ///
+    /// var z = Foo.Bar(42);
+    /// ```
+    ///
+    /// ### properties
+    ///
+    /// Examples of **incorrect** code for this rule with the default `{ "properties": true }` option:
+    ///
+    /// ```js
+    /// /* new-cap: ["error", { "properties": true }] */
+    ///
+    /// var friend = new person.acquaintance();
+    /// ```
+    ///
+    /// Examples of **correct** code for this rule with the default `{ "properties": true }` option:
+    ///
+    /// ```js
+    /// /* new-cap: ["error", { "properties": true }] */
+    ///
+    /// var friend = new person.Acquaintance();
+    /// ```
+    ///
+    /// Examples of **correct** code for this rule with the `{ "properties": false }` option:
+    ///
+    /// ```js
+    /// /* new-cap: ["error", { "properties": false }] */
+    ///
+    /// var friend = new person.acquaintance();
+    /// ```
+    ///
+    /// Examples of **incorrect** code for this rule with the default `{ "newIsCap": true }` option:
+    ///
+    /// ```js
+    /// /* new-cap: ["error", { "newIsCap": true }] */
+    ///
+    /// var friend = new person();
+    /// ```
+    ///
+    /// Examples of **correct** code for this rule with the default `{ "newIsCap": true }` option:
+    ///
+    /// ```js
+    /// /* new-cap: ["error", { "newIsCap": true }] */
+    ///
+    /// var friend = new Person();
+    /// ```
+    ///
+    /// Examples of **correct** code for this rule with the `{ "newIsCap": false }` option:
+    ///
+    /// ```js
+    /// /* new-cap: ["error", { "newIsCap": false }] */
+    ///
+    /// var friend = new person();
+    /// ```
+    ///
+    /// Examples of **incorrect** code for this rule with the default `{ "capIsNew": true }` option:
+    ///
+    /// ```js
+    /// /* new-cap: ["error", { "capIsNew": true }] */
+    ///
+    /// var colleague = Person();
+    /// ```
+    ///
+    /// Examples of **correct** code for this rule with the default `{ "capIsNew": true }` option:
+    ///
+    /// ```js
+    /// /* new-cap: ["error", { "capIsNew": true }] */
+    ///
+    /// var colleague = new Person();
+    /// ```
+    ///
+    /// Examples of **correct** code for this rule with the `{ "capIsNew": false }` option:
+    ///
+    /// ```js
+    /// /* new-cap: ["error", { "capIsNew": false }] */
+    ///
+    /// var colleague = Person();
+    /// ```
+    ///
+    /// Examples of additional **correct** code for this rule with the `{ "newIsCapExceptions": ["events"] }` option:
+    ///
+    /// ```js
+    /// /* new-cap: ["error", { "newIsCapExceptions": ["events"] }] */
+    ///
+    /// var events = require('events');
+    ///
+    /// var emitter = new events();
+    /// ```
+    ///
+    /// Examples of additional **correct** code for this rule with the `{ "newIsCapExceptionPattern": "^person\\.." }` option:
+    ///
+    /// ```js
+    /// /* new-cap: ["error", { "newIsCapExceptionPattern": "^person\\.." }] */
+    ///
+    /// var friend = new person.acquaintance();
+    ///
+    /// var bestFriend = new person.friend();
+    /// ```
+    ///
+    /// Examples of additional **correct** code for this rule with the `{ "newIsCapExceptionPattern": "\\.bar$" }` option:
+    ///
+    /// ```js
+    /// /* new-cap: ["error", { "newIsCapExceptionPattern": "\\.bar$" }] */
+    ///
+    /// var friend = new person.bar();
+    /// ```
+    ///
+    /// Examples of additional **correct** code for this rule with the `{ "capIsNewExceptions": ["Person"] }` option:
+    ///
+    /// ::: correct
+    ///
+    /// ```js
+    /// /* new-cap: ["error", { "capIsNewExceptions": ["Person"] }] */
+    ///
+    /// function foo(arg) {
+    ///     return Person(arg);
+    /// }
+    /// ```
+    ///
+    /// Examples of additional **correct** code for this rule with the `{ "capIsNewExceptionPattern": "^person\\.." }` option:
+    ///
+    /// ```js
+    /// /* new-cap: ["error", { "capIsNewExceptionPattern": "^person\\.." }] */
+    ///
+    /// var friend = person.Acquaintance();
+    /// var bestFriend = person.Friend();
+    /// ```
+    ///
+    /// Examples of additional **correct** code for this rule with the `{ "capIsNewExceptionPattern": "\\.Bar$" }` option:
+    ///
+    /// ```js
+    /// /* new-cap: ["error", { "capIsNewExceptionPattern": "\\.Bar$" }] */
+    ///
+    /// foo.Bar();
+    /// ```
+    ///
+    /// Examples of additional **correct** code for this rule with the `{ "capIsNewExceptionPattern": "^Foo" }` option:
+    ///
+    /// ```js
+    /// /* new-cap: ["error", { "capIsNewExceptionPattern": "^Foo" }] */
+    ///
+    /// var x = Foo(42);
+    ///
+    /// var y = Foobar(42);
+    ///
+    /// var z = Foo.Bar(42);
+    /// ```
+    ///
+    /// Examples of **incorrect** code for this rule with the default `{ "properties": true }` option:
+    ///
+    /// ```js
+    /// /* new-cap: ["error", { "properties": true }] */
+    ///
+    /// var friend = new person.acquaintance();
+    /// ```
+    ///
+    ///
+    /// Examples of **correct** code for this rule with the default `{ "properties": true }` option:
+    ///
+    /// ```js
+    /// /* new-cap: ["error", { "properties": true }] */
+    ///
+    /// var friend = new person.Acquaintance();
+    /// ```
+    ///
+    /// Examples of **correct** code for this rule with the `{ "properties": false }` option:
+    ///
+    /// ```js
+    /// /* new-cap: ["error", { "properties": false }] */
+    ///
+    /// var friend = new person.acquaintance();
+    /// ```
+    NewCap,
+    eslint,
+    style,
+    pending, // TODO: maybe?
+    config = NewCapConfig,
+    version = "0.15.5",
+    short_description = "This rule requires constructor names to begin with a capital letter.",
+);
+
+impl Rule for NewCap {
+    fn from_configuration(value: serde_json::Value) -> Result<Self, serde_json::error::Error> {
+        serde_json::from_value::<DefaultRuleConfig<Self>>(value).map(DefaultRuleConfig::into_inner)
+    }
+    fn run<'a>(&self, node: &AstNode<'a>, ctx: &LintContext<'a>) {
+        match node.kind() {
+            AstKind::NewExpression(expression) if self.new_is_cap => {
+                let callee = expression.callee.without_parentheses();
+
+                let Some((short_name, short_name_span)) = &extract_name_from_expression(callee)
+                else {
+                    return;
+                };
+
+                let Some(name) = &extract_name_deep_from_expression(callee) else {
+                    return;
+                };
+
+                let capitalization = &get_cap(short_name);
+
+                let allowed = *capitalization != GetCapResult::Lower
+                    || is_cap_allowed_expression(
+                        short_name,
+                        name,
+                        self.new_is_cap_exceptions.iter().map(CompactStr::as_str),
+                        self.new_is_cap_exception_pattern.as_ref(),
+                    )
+                    || (!self.properties && short_name != name);
+
+                if !allowed {
+                    ctx.diagnostic(new_cap_diagnostic(*short_name_span, capitalization));
+                }
+            }
+            AstKind::CallExpression(expression) if self.cap_is_new => {
+                let callee = expression.callee.without_parentheses();
+
+                let Some((short_name, short_name_span)) = &extract_name_from_expression(callee)
+                else {
+                    return;
+                };
+
+                let Some(name) = &extract_name_deep_from_expression(callee) else {
+                    return;
+                };
+
+                let capitalization = &get_cap(short_name);
+
+                let allowed = *capitalization != GetCapResult::Upper
+                    || is_cap_allowed_expression(
+                        short_name,
+                        name,
+                        self.cap_is_new_exceptions
+                            .iter()
+                            .map(CompactStr::as_str)
+                            .chain(CAPS_ALLOWED),
+                        self.cap_is_new_exception_pattern.as_ref(),
+                    )
+                    || (!self.properties && short_name != name);
+
+                if !allowed {
+                    ctx.diagnostic(new_cap_diagnostic(*short_name_span, capitalization));
+                }
+            }
+            _ => (),
+        }
+    }
+}
+
+fn extract_name_deep_from_expression(expression: &Expression) -> Option<CompactStr> {
+    if let Some(identifier) = expression.get_identifier_reference() {
+        return Some(identifier.name.into());
+    }
+
+    match expression.without_parentheses() {
+        Expression::StaticMemberExpression(expression) => {
+            let prop_name = expression.property.name.into_compact_str();
+            let obj_name =
+                extract_name_deep_from_expression(expression.object.without_parentheses());
+
+            if let Some(obj_name) = obj_name {
+                let new_name = format!("{obj_name}.{prop_name}");
+                return Some(CompactStr::new(&new_name));
+            }
+
+            Some(prop_name)
+        }
+        Expression::ComputedMemberExpression(expression) => {
+            let (prop_name, _) = get_computed_member_name(expression)?;
+            let obj_name =
+                extract_name_deep_from_expression(expression.object.without_parentheses());
+
+            if let Some(obj_name) = obj_name {
+                let new_name = format!("{obj_name}.{prop_name}");
+                return Some(CompactStr::new(&new_name));
+            }
+
+            Some(prop_name)
+        }
+        Expression::ChainExpression(chain) => match &chain.expression {
+            ChainElement::CallExpression(call) => extract_name_deep_from_expression(&call.callee),
+            ChainElement::TSNonNullExpression(non_null) => {
+                extract_name_deep_from_expression(&non_null.expression)
+            }
+            ChainElement::StaticMemberExpression(expression) => {
+                let prop_name = expression.property.name.into_compact_str();
+                let obj_name =
+                    extract_name_deep_from_expression(expression.object.without_parentheses());
+
+                if let Some(obj_name) = obj_name {
+                    let new_name = format!("{obj_name}.{prop_name}");
+                    return Some(CompactStr::new(&new_name));
+                }
+
+                Some(prop_name)
+            }
+            ChainElement::ComputedMemberExpression(expression) => {
+                let (prop_name, _) = get_computed_member_name(expression)?;
+                let obj_name =
+                    extract_name_deep_from_expression(expression.object.without_parentheses());
+
+                if let Some(obj_name) = obj_name {
+                    let new_name = format!("{obj_name}.{prop_name}");
+                    return Some(CompactStr::new(&new_name));
+                }
+
+                Some(prop_name)
+            }
+            ChainElement::PrivateFieldExpression(_) => None,
+        },
+        _ => None,
+    }
+}
+
+fn get_computed_member_name(
+    computed_member: &ComputedMemberExpression,
+) -> Option<(CompactStr, Span)> {
+    let expression = computed_member.expression.without_parentheses();
+
+    match &expression {
+        Expression::StringLiteral(lit) if !lit.value.is_empty() => {
+            Some((lit.value.as_ref().into(), lit.span))
+        }
+        Expression::TemplateLiteral(lit)
+            if lit.expressions.is_empty()
+                && lit.quasis.len() == 1
+                && !lit.quasis[0].value.raw.is_empty() =>
+        {
+            Some((lit.quasis[0].value.raw.as_ref().into(), lit.span))
+        }
+        Expression::RegExpLiteral(lit) => {
+            lit.raw.as_ref().map(|&x| (x.into_compact_str(), lit.span))
+        }
+        _ => None,
+    }
+}
+
+fn extract_name_from_expression(expression: &Expression) -> Option<(CompactStr, Span)> {
+    if let Some(identifier) = expression.get_identifier_reference() {
+        return Some((identifier.name.into(), identifier.span));
+    }
+
+    match expression.without_parentheses() {
+        Expression::StaticMemberExpression(expression) => {
+            Some((expression.property.name.into_compact_str(), expression.property.span))
+        }
+        Expression::ComputedMemberExpression(expression) => get_computed_member_name(expression),
+        Expression::ChainExpression(chain) => match &chain.expression {
+            ChainElement::CallExpression(call) => extract_name_from_expression(&call.callee),
+            ChainElement::TSNonNullExpression(non_null) => {
+                extract_name_from_expression(&non_null.expression)
+            }
+            ChainElement::StaticMemberExpression(expression) => {
+                Some((expression.property.name.into_compact_str(), expression.property.span))
+            }
+            ChainElement::ComputedMemberExpression(expression) => {
+                get_computed_member_name(expression)
+            }
+            ChainElement::PrivateFieldExpression(_) => None,
+        },
+        _ => None,
+    }
+}
+
+fn is_cap_allowed_expression<'a, I>(
+    short_name: &CompactStr,
+    name: &CompactStr,
+    exceptions: I,
+    patterns: Option<&Regex>,
+) -> bool
+where
+    I: Iterator<Item = &'a str>,
+{
+    for exception in exceptions {
+        if exception == name.as_str() || exception == short_name.as_str() {
+            return true;
+        }
+    }
+
+    if name == "Date.UTC" {
+        return true;
+    }
+
+    if let Some(pattern) = &patterns {
+        return pattern.find(name).is_some();
+    }
+
+    false
+}
+
+#[derive(PartialEq, Debug)]
+enum GetCapResult {
+    Upper,
+    Lower,
+    NonAlpha,
+}
+
+fn get_cap(string: &CompactStr) -> GetCapResult {
+    let first_char = string.chars().next().unwrap();
+
+    if !first_char.is_alphabetic() {
+        return GetCapResult::NonAlpha;
+    }
+
+    if first_char.is_lowercase() {
+        return GetCapResult::Lower;
+    }
+
+    GetCapResult::Upper
+}
+
+#[test]
+fn test() {
+    use crate::tester::Tester;
+
+    let pass = vec![
+        ("var x = new Constructor();", None),
+        ("var x = new a.b.Constructor();", None),
+        ("var x = new a.b['Constructor']();", None),
+        ("var x = new a.b[Constructor]();", None),
+        ("var x = new a.b[constructor]();", None),
+        ("var x = new function(){};", None),
+        ("var x = new _;", None),
+        ("var x = new $;", None),
+        ("var x = new Σ;", None),
+        ("var x = new _x;", None),
+        ("var x = new $x;", None),
+        ("var x = new this;", None),
+        ("var x = Array(42)", None),
+        ("var x = Boolean(42)", None),
+        ("var x = Date(42)", None),
+        ("var x = Date.UTC(2000, 0)", None),
+        ("var x = Error('error')", None),
+        ("var x = Function('return 0')", None),
+        ("var x = Number(42)", None),
+        ("var x = Object(null)", None),
+        ("var x = RegExp(42)", None),
+        ("var x = String(42)", None),
+        ("var x = Symbol('symbol')", None),
+        ("var x = BigInt('1n')", None),
+        ("var x = _();", None),
+        ("var x = $();", None),
+        ("var x = Foo(42)", Some(serde_json::json!([{ "capIsNew": false }]))),
+        ("var x = bar.Foo(42)", Some(serde_json::json!([{ "capIsNew": false }]))),
+        ("var x = Foo.bar(42)", Some(serde_json::json!([{ "capIsNew": false }]))),
+        ("var x = bar[Foo](42)", None),
+        ("var x = bar['Foo'](42)", Some(serde_json::json!([{ "capIsNew": false }]))),
+        ("var x = Foo.bar(42)", None),
+        ("var x = new foo(42)", Some(serde_json::json!([{ "newIsCap": false }]))),
+        ("var o = { 1: function() {} }; o[1]();", None),
+        ("var o = { 1: function() {} }; new o[1]();", None),
+        (
+            "var x = Foo(42);",
+            Some(serde_json::json!([{ "capIsNew": true, "capIsNewExceptions": ["Foo"] }])),
+        ),
+        ("var x = Foo(42);", Some(serde_json::json!([{ "capIsNewExceptionPattern": "^Foo" }]))),
+        (
+            "var x = new foo(42);",
+            Some(serde_json::json!([{ "newIsCap": true, "newIsCapExceptions": ["foo"] }])),
+        ),
+        ("var x = new foo(42);", Some(serde_json::json!([{ "newIsCapExceptionPattern": "^foo" }]))),
+        ("var x = Object(42);", Some(serde_json::json!([{ "capIsNewExceptions": ["Foo"] }]))),
+        ("var x = Foo.Bar(42);", Some(serde_json::json!([{ "capIsNewExceptions": ["Bar"] }]))),
+        ("var x = Foo.Bar(42);", Some(serde_json::json!([{ "capIsNewExceptions": ["Foo.Bar"] }]))),
+        (
+            "var x = Foo.Bar(42);",
+            Some(serde_json::json!([{ "capIsNewExceptionPattern": "^Foo\\.." }])),
+        ),
+        ("var x = new foo.bar(42);", Some(serde_json::json!([{ "newIsCapExceptions": ["bar"] }]))),
+        (
+            "var x = new foo.bar(42);",
+            Some(serde_json::json!([{ "newIsCapExceptions": ["foo.bar"] }])),
+        ),
+        (
+            "var x = new foo.bar(42);",
+            Some(serde_json::json!([{ "newIsCapExceptionPattern": "^foo\\.." }])),
+        ),
+        ("var x = new foo.bar(42);", Some(serde_json::json!([{ "properties": false }]))),
+        ("var x = Foo.bar(42);", Some(serde_json::json!([{ "properties": false }]))),
+        (
+            "var x = foo.Bar(42);",
+            Some(serde_json::json!([{ "capIsNew": false, "properties": false }])),
+        ),
+        ("foo?.bar();", None),       // { "ecmaVersion": 2020 },
+        ("(foo?.bar)();", None),     // { "ecmaVersion": 2020 },
+        ("new (foo?.Bar)();", None), // { "ecmaVersion": 2020 },
+        ("(foo?.Bar)();", Some(serde_json::json!([{ "properties": false }]))), // { "ecmaVersion": 2020 },
+        ("new (foo?.bar)();", Some(serde_json::json!([{ "properties": false }]))), // { "ecmaVersion": 2020 },
+        ("Date?.UTC();", None),   // { "ecmaVersion": 2020 },
+        ("(Date?.UTC)();", None), // { "ecmaVersion": 2020 }
+        (r#"expect(1)[""](1);"#, None),
+        (
+            "let tz = Intl.DateTimeFormat().resolvedOptions().timezone()",
+            Some(serde_json::json!([{ "capIsNewExceptions": ["Intl.DateTimeFormat"] }])),
+        ),
+    ];
+
+    let fail = vec![
+        ("var x = new c();", None),
+        ("var x = new φ;", None),
+        ("var x = new a.b.c;", None),
+        ("var x = new a.b['c'];", None),
+        ("var b = Foo();", None),
+        ("var b = a.Foo();", None),
+        ("var b = a['Foo']();", None),
+        ("var b = a.Date.UTC();", None),
+        ("var b = UTC();", None),
+        ("var a = B.C();", None),
+        (
+            "var a = B
+			.C();",
+            None,
+        ),
+        ("var a = new B.c();", None),
+        (
+            "var a = new B.
+			c();",
+            None,
+        ),
+        ("var a = new c();", None),
+        ("var a = new b[ ( 'foo' ) ]();", None), // { "ecmaVersion": 6 },
+        ("var a = new b[`foo`];", None),         // { "ecmaVersion": 6 },
+        // (
+        //     "var a = b[`\\
+        // 	Foo`]();",
+        //     None,
+        // ), // { "ecmaVersion": 6 },
+        ("var x = Foo.Bar(42);", Some(serde_json::json!([{ "capIsNewExceptions": ["Foo"] }]))),
+        (
+            "var x = Bar.Foo(42);",
+            Some(serde_json::json!([{ "capIsNewExceptionPattern": "^Foo\\.." }])),
+        ),
+        ("var x = new foo.bar(42);", Some(serde_json::json!([{ "newIsCapExceptions": ["foo"] }]))),
+        (
+            "var x = new bar.foo(42);",
+            Some(serde_json::json!([{ "newIsCapExceptionPattern": "^foo\\.." }])),
+        ),
+        ("new (foo?.bar)();", None), // { "ecmaVersion": 2020 },
+        ("foo?.Bar();", None),       // { "ecmaVersion": 2020 },
+        ("(foo?.Bar)();", None),     // { "ecmaVersion": 2020 }
+    ];
+
+    Tester::new(NewCap::NAME, NewCap::PLUGIN, pass, fail).test_and_snapshot();
+}
+
+#[test]
+fn invalid_configs_error_in_from_configuration() {
+    let invalid = serde_json::json!([{ "unknown": true }]);
+    assert!(NewCap::from_configuration(invalid).is_err());
+
+    let invalid = serde_json::json!([{ "newIsCapExceptionPattern": "[" }]);
+    assert!(NewCap::from_configuration(invalid).is_err());
+
+    let valid = serde_json::json!([{ "capIsNew": false, "properties": false }]);
+    assert!(NewCap::from_configuration(valid).is_ok());
+}

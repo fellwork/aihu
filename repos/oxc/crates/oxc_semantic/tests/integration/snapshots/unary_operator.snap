@@ -1,0 +1,23 @@
+---
+source: crates/oxc_semantic/tests/integration/cfg.rs
+expression: snapshot
+input_file: crates/oxc_semantic/tests/integration/cfg_fixtures/unary_operator.js
+---
+bb0: {
+
+}
+
+bb1: {
+	statement
+	statement
+	statement
+}
+
+digraph {
+    0 [ label = "bb0" shape = box]
+    1 [ label = "bb1
+ExpressionStatement
+ExpressionStatement
+ExpressionStatement" shape = box]
+    1 -> 0 [ label="Error(Implicit)", color=red, style=dashed]
+}

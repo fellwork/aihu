@@ -1,0 +1,552 @@
+use std::borrow::Cow;
+
+use itertools::Itertools;
+use oxc_diagnostics::{LabeledSpan, OxcDiagnostic};
+use oxc_macros::declare_oxc_lint;
+use oxc_span::Span;
+use rustc_hash::FxHashMap;
+use schemars::JsonSchema;
+use serde::Deserialize;
+
+use crate::{
+    context::LintContext,
+    module_record::{ImportImportName, RequestedModule},
+    rule::{DefaultRuleConfig, Rule},
+};
+
+fn no_duplicates_diagnostic<I>(
+    module_name: &str,
+    first_import: Span,
+    other_imports: I,
+) -> OxcDiagnostic
+where
+    I: IntoIterator<Item = Span>,
+{
+    const MAX_MODULE_LEN: usize = 16;
+
+    let message = if module_name.len() > MAX_MODULE_LEN {
+        Cow::Borrowed("Modules should not be imported multiple times in the same file")
+    } else {
+        Cow::Owned(format!("Module '{module_name}' is imported more than once in this file"))
+    };
+    let labels = std::iter::once(first_import.primary_label("It is first imported here"))
+        .chain(other_imports.into_iter().map(LabeledSpan::underline));
+
+    OxcDiagnostic::warn(message)
+        .with_labels(labels)
+        .with_help("Merge these imports into a single import statement")
+}
+
+// <https://github.com/import-js/eslint-plugin-import/blob/v2.29.1/docs/rules/no-duplicates.md>
+#[derive(Debug, Default, Clone, JsonSchema, Deserialize)]
+#[serde(rename_all = "camelCase", default, deny_unknown_fields)]
+pub struct NoDuplicates {
+    /// When set to `true`, prefer inline type imports instead of separate type import
+    /// statements for TypeScript code.
+    ///
+    /// Examples of **correct** code with this option set to `true`:
+    /// ```typescript
+    /// import { Foo, type Bar } from './module';
+    /// ```
+    #[serde(alias = "prefer-inline")]
+    prefer_inline: bool,
+
+    /// When set to `true`, the rule will consider the query string part of the import path
+    /// when determining if imports are duplicates. This is useful when using loaders like
+    /// webpack that use query strings to configure how a module should be loaded.
+    ///
+    /// Examples of **correct** code with this option set to `true`:
+    /// ```javascript
+    /// import x from './bar?optionX';
+    /// import y from './bar?optionY';
+    /// ```
+    consider_query_string: bool,
+}
+
+declare_oxc_lint!(
+    /// ### What it does
+    ///
+    /// Reports if a resolved path is imported more than once in the same module.
+    /// This helps avoid unnecessary duplicate imports and keeps the code clean.
+    ///
+    /// ### Why is this bad?
+    ///
+    /// Importing the same module multiple times can lead to redundancy and
+    /// unnecessary complexity. It also affects maintainability, as it might
+    /// confuse developers and result in inconsistent usage of imports across the code.
+    ///
+    /// ### Examples
+    ///
+    /// Examples of **incorrect** code for this rule:
+    /// ```javascript
+    /// import { foo } from './module';
+    /// import { bar } from './module';
+    ///
+    /// import a from './module';
+    /// import { b } from './module';
+    /// ```
+    ///
+    /// Examples of **correct** code for this rule:
+    /// ```typescript
+    /// import { foo, bar } from './module';
+    ///
+    /// import * as a from 'foo'; // separate statements for namespace imports
+    /// import { b } from 'foo';
+    ///
+    /// import { c } from 'foo';      // separate type imports, unless
+    /// import type { d } from 'foo'; // `prefer-inline` is true
+    /// ```
+    NoDuplicates,
+    import,
+    style,
+    // This rule intentionally does not have a fixer, as `eslint/no-duplicate-imports` does the
+    // same thing as this rule and is also pending a fixer.
+    none,
+    config = NoDuplicates,
+    version = "0.2.11",
+    short_description = "Forbid importing the same module multiple times.",
+);
+
+impl Rule for NoDuplicates {
+    fn from_configuration(value: serde_json::Value) -> Result<Self, serde_json::error::Error> {
+        serde_json::from_value::<DefaultRuleConfig<Self>>(value).map(DefaultRuleConfig::into_inner)
+    }
+
+    fn run_once(&self, ctx: &LintContext<'_>) {
+        let module_record = ctx.module_record();
+
+        let groups = module_record
+            .requested_modules
+            .iter()
+            .map(|(source, requested_modules)| {
+                let resolved_absolute_path = module_record.get_loaded_module(source).map_or_else(
+                    || source.to_string(),
+                    |module| module.resolved_absolute_path.to_string_lossy().to_string(),
+                );
+                // When consider_query_string is true, include the query string in the grouping key.
+                // When false (default), strip query strings so imports with different query strings
+                // are grouped together as duplicates.
+                let grouping_key = if self.consider_query_string {
+                    // Include query string from the original source
+                    if let Some(query_pos) = source.as_str().find('?') {
+                        format!("{}{}", resolved_absolute_path, &source.as_str()[query_pos..])
+                    } else {
+                        resolved_absolute_path
+                    }
+                } else {
+                    resolved_absolute_path
+                };
+                (grouping_key, requested_modules)
+            })
+            .chunk_by(|r| r.0.clone());
+
+        for (_path, group) in &groups {
+            let requested_modules = group
+                .into_iter()
+                .flat_map(|(_path, requested_modules)| requested_modules)
+                .filter(|requested_module| requested_module.is_import);
+            // When prefer_inline is false, 0 is value, 1 is type named, 2 is type namespace and 3 is type default
+            // When prefer_inline is true, 0 is value and type named, 2 is type // namespace and 3 is type default
+            let mut import_entries_maps: FxHashMap<u8, Vec<&RequestedModule>> =
+                FxHashMap::default();
+            // Side-effect and top-level type-only imports cannot be merged directly. A runtime
+            // import with specifiers (including inline type specifiers) can absorb either.
+            let mut key0_side_effect_imports = Vec::new();
+            let mut key0_type_only_imports = Vec::new();
+            let mut key0_has_runtime_specifiers = false;
+            for requested_module in requested_modules {
+                let import_entries = module_record
+                    .import_entries
+                    .iter()
+                    .filter(|entry| entry.module_request.span == requested_module.span)
+                    .collect::<Vec<_>>();
+                if import_entries.is_empty() {
+                    let key = u8::from(requested_module.is_type && !self.prefer_inline);
+                    import_entries_maps.entry(key).or_default().push(requested_module);
+                    if key == 0 {
+                        if requested_module.is_type {
+                            key0_type_only_imports.push(requested_module);
+                        } else {
+                            key0_side_effect_imports.push(requested_module);
+                        }
+                    }
+                    continue;
+                }
+                let mut flags = [true; 4];
+                let mut pushed_to_key0 = false;
+                for import_entry in import_entries {
+                    let key = if import_entry.is_type {
+                        match import_entry.import_name {
+                            ImportImportName::Name(_) => u8::from(!self.prefer_inline),
+                            ImportImportName::NamespaceObject => 2,
+                            ImportImportName::Default(_) => 3,
+                        }
+                    } else {
+                        match import_entry.import_name {
+                            ImportImportName::NamespaceObject => 2,
+                            _ => 0,
+                        }
+                    };
+
+                    if flags[key as usize] {
+                        flags[key as usize] = false;
+                        import_entries_maps.entry(key).or_default().push(requested_module);
+                        if key == 0 {
+                            pushed_to_key0 = true;
+                        }
+                    }
+                }
+                if pushed_to_key0 {
+                    if requested_module.is_type {
+                        key0_type_only_imports.push(requested_module);
+                    } else {
+                        key0_has_runtime_specifiers = true;
+                    }
+                }
+            }
+
+            for i in 0..4 {
+                if i == 0 && !key0_has_runtime_specifiers {
+                    check_duplicates(ctx, Some(&key0_side_effect_imports));
+                    check_duplicates(ctx, Some(&key0_type_only_imports));
+                    continue;
+                }
+                check_duplicates(ctx, import_entries_maps.get(&i));
+            }
+        }
+    }
+}
+
+fn check_duplicates(ctx: &LintContext, requested_modules: Option<&Vec<&RequestedModule>>) {
+    if let Some(requested_modules) = requested_modules
+        && requested_modules.len() > 1
+    {
+        let mut labels = requested_modules.iter().map(|m| m.span);
+        let first = labels.next().unwrap(); // we know there is at least one
+        let module_name = ctx.source_range(first).trim_matches('\'').trim_matches('"');
+        ctx.diagnostic(no_duplicates_diagnostic(module_name, first, labels));
+    }
+}
+
+#[test]
+fn test() {
+    use serde_json::json;
+
+    use crate::tester::Tester;
+
+    let pass = vec![
+        (r#"import "./malformed.js""#, None),
+        (r"import { x } from './foo'; import { y } from './bar'", None),
+        (r#"import foo from "234artaf"; import { shoop } from "234q25ad""#, None),
+        (r"import { x } from './foo'; import type { y } from './foo'", None),
+        // #1107: Using different query strings that trigger different webpack loaders.
+        // Test camelCase option
+        (
+            r"import x from './bar?optionX'; import y from './bar?optionY';",
+            Some(json!([{ "considerQueryString": true }])),
+        ),
+        (
+            r"import x from './foo'; import y from './bar';",
+            Some(json!([{ "considerQueryString": true }])),
+        ),
+        // #1538: It is impossible to import namespace and other in one line, so allow this.
+        (r"import * as ns from './foo'; import { y } from './foo'", None),
+        (r"import { y } from './foo'; import * as ns from './foo'", None),
+        // TypeScript
+        (r"import type { x } from './foo'; import y from './foo'", None),
+        (r"import type x from './foo'; import type y from './bar'", None),
+        (r"import type {x} from './foo'; import type {y} from './bar'", None),
+        (r"import type x from './foo'; import type {y} from './foo'", None),
+        (
+            r"import type {} from './module';
+        import {} from './module2';",
+            None,
+        ),
+        (
+            r"import type { Identifier } from 'module';
+
+        declare module 'module2' {
+        import type { Identifier } from 'module';
+        }
+
+        declare module 'module3' {
+        import type { Identifier } from 'module';
+        }",
+            None,
+        ),
+        (r"import { type x } from './foo'; import y from './foo'", None),
+        (r"import { type x } from './foo'; import { y } from './foo'", None),
+        (r"import { type x } from './foo'; import type y from 'foo'", None),
+        (r"import { x } from './foo'; export { x } from './foo'", None),
+        // for cases in https://github.com/import-js/eslint-plugin-import/issues/2750
+        (r"import type * as something from './foo'; import type y from './foo';", None),
+        (r"import type * as something from './foo'; import type { y } from './foo';", None),
+        (r"import type y from './foo'; import type * as something from './foo';", None),
+        (r"import type { y } from './foo'; import type * as something from './foo';", None),
+        // type + import
+        (r"import type * as something from './foo'; import y from './foo';", None),
+        (r"import type * as something from './foo'; import { y } from './foo';", None),
+        (r"import y from './foo'; import type * as something from './foo';", None),
+        (r"import { y } from './foo'; import type * as something from './foo';", None),
+        // A type-only import is not a duplicate of a bare side-effect import.
+        (r"import type { Foo } from './foo'; import './foo';", None),
+        (
+            r"import type { Foo } from './foo'; import './foo';",
+            Some(json!([{ "preferInline": true }])),
+        ),
+        (
+            r"import './foo'; import type { Foo } from './foo';",
+            Some(json!([{ "prefer-inline": true }])),
+        ),
+        (r"import type {} from './foo'; import './foo';", None),
+        (r"import type {} from './foo'; import './foo';", Some(json!([{ "preferInline": true }]))),
+        (r"import { RouterModule, Routes } from '@angular/router';", None),
+    ];
+
+    let fail = vec![
+        (r"import { x } from './foo'; import { y } from './foo'", None),
+        (r"import {x} from './foo'; import {y} from './foo'; import { z } from './foo'", None),
+        // #1107: Using different query strings without considerQueryString (default false)
+        // These should be flagged as duplicates because query strings are ignored by default
+        (r"import x from './bar.js?optionX'; import y from './bar?optionX';", None),
+        (r"import x from './bar?optionX'; import y from './bar?optionY';", None),
+        (r"import x from './bar?optionX'; import y from './bar.js?optionX';", None),
+        // #1107: Using same query strings with considerQueryString: true
+        // Same file + same query string = duplicate
+        (
+            r"import x from './bar?optionX'; import y from './bar.js?optionX';",
+            Some(json!([{ "considerQueryString": true }])),
+        ),
+        // #86: duplicate unresolved modules should be flagged
+        (r"import foo from 'non-existent'; import bar from 'non-existent';", None),
+        (r"import type { x } from './foo'; import type { y } from './foo'", None),
+        (r"import './foo'; import './foo'", None),
+        (
+            r"import { x, /* x */ } from './foo'; import {//y
+        y//y2
+        } from './foo'",
+            None,
+        ),
+        (r"import {x} from './foo'; import {} from './foo'", None),
+        (r"import {a} from './foo'; import { a } from './foo'", None),
+        (
+            r"import {a,b} from './foo'; import { b, c } from './foo'; import {b,c,d} from './foo'",
+            None,
+        ),
+        (r"import {a} from './foo'; import { a/*,b*/ } from './foo'", None),
+        (r"import {a} from './foo'; import { a } from './foo'", None),
+        (
+            r"import {a,b} from './foo'; import { b, c } from './foo'; import {b,c,d} from './foo'",
+            None,
+        ),
+        (r"import {a} from './foo'; import { a/*,b*/ } from './foo'", None),
+        (
+            r"import {x} from './foo'; import {} from './foo'; import {/*c*/} from './foo'; import {y} from './foo'",
+            None,
+        ),
+        (r"import { } from './foo'; import {x} from './foo'", None),
+        (r"import './foo'; import {x} from './foo'", None),
+        (r"import'./foo'; import {x} from './foo'", None),
+        (
+            r"import './foo'; import { /*x*/} from './foo'; import {//y
+        } from './foo'; import {z} from './foo'",
+            None,
+        ),
+        (r"import './foo'; import def, {x} from './foo'", None),
+        (r"import './foo'; import def from './foo'", None),
+        (r"import def from './foo'; import {x} from './foo'", None),
+        (r"import {x} from './foo'; import def from './foo'", None),
+        (r"import{x} from './foo'; import def from './foo'", None),
+        (r"import {x} from './foo'; import def, {y} from './foo'", None),
+        (r"import * as ns1 from './foo'; import * as ns2 from './foo'", None),
+        (r"import * as ns from './foo'; import {x} from './foo'; import {y} from './foo'", None),
+        (
+            r"import {x} from './foo'; import * as ns from './foo'; import {y} from './foo'; import './foo'",
+            None,
+        ),
+        (
+            r"// some-tool-disable-next-line
+            import {x} from './foo'
+            import {//y
+        y} from './foo'",
+            None,
+        ),
+        (
+            r"import {x} from './foo'
+            // some-tool-disable-next-line
+            import {y} from './foo'",
+            None,
+        ),
+        (
+            r"import {x} from './foo' // some-tool-disable-line
+            import {y} from './foo'",
+            None,
+        ),
+        (
+            r"import {x} from './foo'
+            import {y} from './foo' // some-tool-disable-line",
+            None,
+        ),
+        (
+            r"import {x} from './foo'
+            /* comment */ import {y} from './foo'",
+            None,
+        ),
+        (
+            r"import {x} from './foo'
+            import {y} from './foo' /* comment
+            multiline */",
+            None,
+        ),
+        (
+            r"import {x} from './foo'
+        import {y} from './foo'
+        // some-tool-disable-next-line",
+            None,
+        ),
+        (
+            r"import {x} from './foo'
+        // comment
+
+        import {y} from './foo'",
+            None,
+        ),
+        (
+            r"import {x} from './foo'
+            import/* comment */{y} from './foo'",
+            None,
+        ),
+        (
+            r"import {x} from './foo'
+            import/* comment */'./foo'",
+            None,
+        ),
+        (
+            r"import {x} from './foo'
+            import{y}/* comment */from './foo'",
+            None,
+        ),
+        (
+            r"import {x} from './foo'
+            import{y}from/* comment */'./foo'",
+            None,
+        ),
+        (
+            r"import {x} from
+            // some-tool-disable-next-line
+            './foo'
+            import {y} from './foo'",
+            None,
+        ),
+        (
+            r"import { Foo } from './foo';
+        import { Bar } from './foo';
+        export const value = {}",
+            None,
+        ),
+        (
+            r"import { Foo } from './foo';
+        import Bar from './foo';
+        export const value = {}",
+            None,
+        ),
+        (
+            r"import {
+              DEFAULT_FILTER_KEYS,
+              BULK_DISABLED,
+            } from '../constants';
+            import React from 'react';
+            import {
+              BULK_ACTIONS_ENABLED
+            } from '../constants';
+
+            const TestComponent = () => {
+              return <div>
+              </div>;
+            }
+
+            export default TestComponent;",
+            None,
+        ),
+        (
+            r"import {A1,} from 'foo';
+            import {B1,} from 'foo';
+            import {C1,} from 'foo';
+
+            import {
+            A2,
+            } from 'bar';
+            import {
+            B2,
+            } from 'bar';
+            import {
+            C2,
+            } from 'bar';",
+            None,
+        ),
+        // TypeScript
+        (r"import type x from './foo'; import type y from './foo'", None),
+        (r"import type x from './foo'; import type x from './foo'", None),
+        (r"import type {x} from './foo'; import type {y} from './foo'", None),
+        // prefer-inline: false (default) - inline type and type imports are in same category
+        (r"import {type x} from './foo'; import type {y} from './foo'", None),
+        // prefer-inline: true - inline type and type imports are in same category
+        (
+            r"import {type x} from 'foo'; import type {y} from 'foo'",
+            Some(json!([{ "prefer-inline": true }])),
+        ),
+        // prefer-inline: true - swapped order (type import first, then inline type)
+        (
+            r"import type {x} from 'foo'; import {type y} from 'foo'",
+            Some(json!([{ "prefer-inline": true }])),
+        ),
+        // prefer-inline: false (default)
+        (r"import {type x} from 'foo'; import type {y} from 'foo'", None),
+        // prefer-inline: true - both inline type imports
+        (
+            r"import {type x} from './foo'; import {type y} from './foo'",
+            Some(json!([{ "prefer-inline": true }])),
+        ),
+        // prefer-inline: false (default) - both inline type imports
+        (r"import {type x} from './foo'; import {type y} from './foo'", None),
+        (r"import {AValue, type x, BValue} from './foo'; import {type y} from './foo'", None),
+        // #2834 Detect duplicates across type and regular imports with prefer-inline: true
+        // Test prefer-inline with camelCase (legacy)
+        (
+            r"import {AValue} from './foo'; import type {AType} from './foo'",
+            Some(json!([{ "preferInline": true }])),
+        ),
+        // Test prefer-inline with kebab-case (primary, matches ESLint)
+        (
+            r"import {AValue} from './foo'; import type {AType} from './foo'",
+            Some(json!([{ "prefer-inline": true }])),
+        ),
+        // Genuine duplicates still reported (two type-only imports merge under prefer-inline).
+        (
+            r"import type {x} from './foo'; import type {y} from './foo'",
+            Some(json!([{ "preferInline": true }])),
+        ),
+        // A side-effect import is still redundant when a value import also exists.
+        (
+            r"import './foo'; import { Bar } from './foo'; import type { Foo } from './foo'",
+            Some(json!([{ "preferInline": true }])),
+        ),
+        (
+            r"import './foo'; import type { Foo } from './foo'; import type { Bar } from './foo'",
+            Some(json!([{ "preferInline": true }])),
+        ),
+        (
+            r"import './foo'; import './foo'; import type { Foo } from './foo'",
+            Some(json!([{ "preferInline": true }])),
+        ),
+        (
+            r"import { type Foo } from './foo'; import './foo'",
+            Some(json!([{ "preferInline": true }])),
+        ),
+    ];
+
+    Tester::new(NoDuplicates::NAME, NoDuplicates::PLUGIN, pass, fail)
+        .change_rule_path("index.ts")
+        .with_import_plugin(true)
+        .test_and_snapshot();
+}

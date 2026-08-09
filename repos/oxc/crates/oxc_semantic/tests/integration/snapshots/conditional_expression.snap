@@ -1,0 +1,50 @@
+---
+source: crates/oxc_semantic/tests/integration/cfg.rs
+expression: snapshot
+input_file: crates/oxc_semantic/tests/integration/cfg_fixtures/conditional_expression.js
+---
+bb0: {
+
+}
+
+bb1: {
+	statement
+}
+
+bb2: {
+	condition
+}
+
+bb3: {
+
+}
+
+bb4: {
+
+}
+
+bb5: {
+	statement
+}
+
+digraph {
+    0 [ label = "bb0" shape = box]
+    1 [ label = "bb1
+VariableDeclaration" shape = box]
+    2 [ label = "bb2
+Condition(CallExpression(a))" shape = box]
+    3 [ label = "bb3" shape = box]
+    4 [ label = "bb4" shape = box]
+    5 [ label = "bb5
+VariableDeclaration" shape = box]
+    1 -> 0 [ label="Error(Implicit)", color=red, style=dashed]
+    2 -> 0 [ label="Error(Implicit)", color=red, style=dashed]
+    3 -> 0 [ label="Error(Implicit)", color=red, style=dashed]
+    4 -> 0 [ label="Error(Implicit)", color=red, style=dashed]
+    5 -> 0 [ label="Error(Implicit)", color=red, style=dashed]
+    1 -> 2 [ label="Normal"]
+    3 -> 5 [ label="Normal"]
+    2 -> 3 [ label="Jump", color=green]
+    2 -> 4 [ label="Normal"]
+    4 -> 5 [ label="Normal"]
+}

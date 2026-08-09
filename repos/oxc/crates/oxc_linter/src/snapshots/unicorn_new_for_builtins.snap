@@ -1,0 +1,371 @@
+---
+source: crates/oxc_linter/src/tester.rs
+---
+
+  ⚠ unicorn(new-for-builtins): Use `new Object()` instead of `Object()`
+   ╭─[new_for_builtins.tsx:1:16]
+ 1 │ const object = (Object)();
+   ·                ──────────
+   ╰────
+
+  ⚠ unicorn(new-for-builtins): Use `Symbol()` instead of `new Symbol()`
+   ╭─[new_for_builtins.tsx:1:16]
+ 1 │ const symbol = new (Symbol)("");
+   ·                ────────────────
+   ╰────
+
+  ⚠ unicorn(new-for-builtins): Use `Symbol()` instead of `new Symbol()`
+   ╭─[new_for_builtins.tsx:1:16]
+ 1 │ const symbol = new /* comment */ Symbol("");
+   ·                ────────────────────────────
+   ╰────
+
+  ⚠ unicorn(new-for-builtins): Use `Symbol()` instead of `new Symbol()`
+   ╭─[new_for_builtins.tsx:1:16]
+ 1 │ const symbol = new Symbol;
+   ·                ──────────
+   ╰────
+
+  ⚠ unicorn(new-for-builtins): Use `Symbol()` instead of `new Symbol()`
+   ╭─[new_for_builtins.tsx:2:24]
+ 1 │     () => {
+ 2 │ ╭─▶                 return new // 1
+ 3 │ ╰─▶                     Symbol();
+ 4 │                 }
+   ╰────
+
+  ⚠ unicorn(new-for-builtins): Use `Symbol()` instead of `new Symbol()`
+   ╭─[new_for_builtins.tsx:3:21]
+ 2 │                     return (
+ 3 │ ╭─▶                     new // 2
+ 4 │ ╰─▶                         Symbol()
+ 5 │                     );
+   ╰────
+
+  ⚠ unicorn(new-for-builtins): Use `Symbol()` instead of `new Symbol()`
+   ╭─[new_for_builtins.tsx:2:24]
+ 1 │     () => {
+ 2 │ ╭─▶                 return new // 3
+ 3 │ ╰─▶                     (Symbol);
+ 4 │                 }
+   ╰────
+
+  ⚠ unicorn(new-for-builtins): Use `Symbol()` instead of `new Symbol()`
+   ╭─[new_for_builtins.tsx:2:24]
+ 1 │     () => {
+ 2 │ ╭─▶                 return new // 4
+ 3 │ ╰─▶                     Symbol;
+ 4 │                 }
+   ╰────
+
+  ⚠ unicorn(new-for-builtins): Use `Symbol()` instead of `new Symbol()`
+   ╭─[new_for_builtins.tsx:3:21]
+ 2 │                     return (
+ 3 │ ╭─▶                     new // 5
+ 4 │ ╰─▶                         Symbol
+ 5 │                     );
+   ╰────
+
+  ⚠ unicorn(new-for-builtins): Use `Symbol()` instead of `new Symbol()`
+   ╭─[new_for_builtins.tsx:3:21]
+ 2 │                     return (
+ 3 │ ╭─▶                     new // 6
+ 4 │ ╰─▶                         (Symbol)
+ 5 │                     );
+   ╰────
+
+  ⚠ unicorn(new-for-builtins): Use `Symbol()` instead of `new Symbol()`
+   ╭─[new_for_builtins.tsx:2:23]
+ 1 │     () => {
+ 2 │ ╭─▶                 throw new // 1
+ 3 │ ╰─▶                     Symbol();
+ 4 │                 }
+   ╰────
+
+  ⚠ unicorn(new-for-builtins): Use `Symbol()` instead of `new Symbol()`
+   ╭─[new_for_builtins.tsx:2:24]
+ 1 │ () => {
+ 2 │                 return new /**/ Symbol;
+   ·                        ───────────────
+ 3 │             }
+   ╰────
+
+  ⚠ unicorn(new-for-builtins): Use `String()` instead of `new String()`
+   ╭─[new_for_builtins.tsx:1:1]
+ 1 │ new globalThis.String()
+   · ───────────────────────
+   ╰────
+
+  ⚠ unicorn(new-for-builtins): Use `String()` instead of `new String()`
+   ╭─[new_for_builtins.tsx:1:1]
+ 1 │ new global.String()
+   · ───────────────────
+   ╰────
+
+  ⚠ unicorn(new-for-builtins): Use `String()` instead of `new String()`
+   ╭─[new_for_builtins.tsx:1:1]
+ 1 │ new self.String()
+   · ─────────────────
+   ╰────
+
+  ⚠ unicorn(new-for-builtins): Use `String()` instead of `new String()`
+   ╭─[new_for_builtins.tsx:1:1]
+ 1 │ new window.String()
+   · ───────────────────
+   ╰────
+
+  ⚠ unicorn(new-for-builtins): Use `new Array()` instead of `Array()`
+   ╭─[new_for_builtins.tsx:1:1]
+ 1 │ globalThis.Array()
+   · ──────────────────
+   ╰────
+
+  ⚠ unicorn(new-for-builtins): Use `new Array()` instead of `Array()`
+   ╭─[new_for_builtins.tsx:1:1]
+ 1 │ global.Array()
+   · ──────────────
+   ╰────
+
+  ⚠ unicorn(new-for-builtins): Use `new Array()` instead of `Array()`
+   ╭─[new_for_builtins.tsx:1:1]
+ 1 │ self.Array()
+   · ────────────
+   ╰────
+
+  ⚠ unicorn(new-for-builtins): Use `new Array()` instead of `Array()`
+   ╭─[new_for_builtins.tsx:1:1]
+ 1 │ window.Array()
+   · ──────────────
+   ╰────
+
+  ⚠ unicorn(new-for-builtins): Use `new Object()` instead of `Object()`
+   ╭─[new_for_builtins.tsx:1:13]
+ 1 │ const foo = Object()
+   ·             ────────
+   ╰────
+
+  ⚠ unicorn(new-for-builtins): Use `new Array()` instead of `Array()`
+   ╭─[new_for_builtins.tsx:1:13]
+ 1 │ const foo = Array()
+   ·             ───────
+   ╰────
+
+  ⚠ unicorn(new-for-builtins): Use `new ArrayBuffer()` instead of `ArrayBuffer()`
+   ╭─[new_for_builtins.tsx:1:13]
+ 1 │ const foo = ArrayBuffer()
+   ·             ─────────────
+   ╰────
+
+  ⚠ unicorn(new-for-builtins): Use `new BigInt64Array()` instead of `BigInt64Array()`
+   ╭─[new_for_builtins.tsx:1:13]
+ 1 │ const foo = BigInt64Array()
+   ·             ───────────────
+   ╰────
+
+  ⚠ unicorn(new-for-builtins): Use `new BigUint64Array()` instead of `BigUint64Array()`
+   ╭─[new_for_builtins.tsx:1:13]
+ 1 │ const foo = BigUint64Array()
+   ·             ────────────────
+   ╰────
+
+  ⚠ unicorn(new-for-builtins): Use `new DataView()` instead of `DataView()`
+   ╭─[new_for_builtins.tsx:1:13]
+ 1 │ const foo = DataView()
+   ·             ──────────
+   ╰────
+
+  ⚠ unicorn(new-for-builtins): Use `new Error()` instead of `Error()`
+   ╭─[new_for_builtins.tsx:1:13]
+ 1 │ const foo = Error()
+   ·             ───────
+   ╰────
+
+  ⚠ unicorn(new-for-builtins): Use `new Error()` instead of `Error()`
+   ╭─[new_for_builtins.tsx:1:13]
+ 1 │ const foo = Error('Foo bar')
+   ·             ────────────────
+   ╰────
+
+  ⚠ unicorn(new-for-builtins): Use `new Float32Array()` instead of `Float32Array()`
+   ╭─[new_for_builtins.tsx:1:13]
+ 1 │ const foo = Float32Array()
+   ·             ──────────────
+   ╰────
+
+  ⚠ unicorn(new-for-builtins): Use `new Float64Array()` instead of `Float64Array()`
+   ╭─[new_for_builtins.tsx:1:13]
+ 1 │ const foo = Float64Array()
+   ·             ──────────────
+   ╰────
+
+  ⚠ unicorn(new-for-builtins): Use `new Function()` instead of `Function()`
+   ╭─[new_for_builtins.tsx:1:13]
+ 1 │ const foo = Function()
+   ·             ──────────
+   ╰────
+
+  ⚠ unicorn(new-for-builtins): Use `new Int8Array()` instead of `Int8Array()`
+   ╭─[new_for_builtins.tsx:1:13]
+ 1 │ const foo = Int8Array()
+   ·             ───────────
+   ╰────
+
+  ⚠ unicorn(new-for-builtins): Use `new Int16Array()` instead of `Int16Array()`
+   ╭─[new_for_builtins.tsx:1:13]
+ 1 │ const foo = Int16Array()
+   ·             ────────────
+   ╰────
+
+  ⚠ unicorn(new-for-builtins): Use `new Int32Array()` instead of `Int32Array()`
+   ╭─[new_for_builtins.tsx:1:13]
+ 1 │ const foo = Int32Array()
+   ·             ────────────
+   ╰────
+
+  ⚠ unicorn(new-for-builtins): Use `new Map()` instead of `Map()`
+   ╭─[new_for_builtins.tsx:1:13]
+ 1 │ const foo = (( Map ))()
+   ·             ───────────
+   ╰────
+
+  ⚠ unicorn(new-for-builtins): Use `new Map()` instead of `Map()`
+   ╭─[new_for_builtins.tsx:1:13]
+ 1 │ const foo = Map([['foo', 'bar'], ['unicorn', 'rainbow']])
+   ·             ─────────────────────────────────────────────
+   ╰────
+
+  ⚠ unicorn(new-for-builtins): Use `new WeakMap()` instead of `WeakMap()`
+   ╭─[new_for_builtins.tsx:1:13]
+ 1 │ const foo = WeakMap()
+   ·             ─────────
+   ╰────
+
+  ⚠ unicorn(new-for-builtins): Use `new Set()` instead of `Set()`
+   ╭─[new_for_builtins.tsx:1:13]
+ 1 │ const foo = Set()
+   ·             ─────
+   ╰────
+
+  ⚠ unicorn(new-for-builtins): Use `new WeakSet()` instead of `WeakSet()`
+   ╭─[new_for_builtins.tsx:1:13]
+ 1 │ const foo = WeakSet()
+   ·             ─────────
+   ╰────
+
+  ⚠ unicorn(new-for-builtins): Use `new Promise()` instead of `Promise()`
+   ╭─[new_for_builtins.tsx:1:13]
+ 1 │ const foo = Promise()
+   ·             ─────────
+   ╰────
+
+  ⚠ unicorn(new-for-builtins): Use `new RegExp()` instead of `RegExp()`
+   ╭─[new_for_builtins.tsx:1:13]
+ 1 │ const foo = RegExp()
+   ·             ────────
+   ╰────
+
+  ⚠ unicorn(new-for-builtins): Use `new Uint8Array()` instead of `Uint8Array()`
+   ╭─[new_for_builtins.tsx:1:13]
+ 1 │ const foo = Uint8Array()
+   ·             ────────────
+   ╰────
+
+  ⚠ unicorn(new-for-builtins): Use `new Uint16Array()` instead of `Uint16Array()`
+   ╭─[new_for_builtins.tsx:1:13]
+ 1 │ const foo = Uint16Array()
+   ·             ─────────────
+   ╰────
+
+  ⚠ unicorn(new-for-builtins): Use `new Uint32Array()` instead of `Uint32Array()`
+   ╭─[new_for_builtins.tsx:1:13]
+ 1 │ const foo = Uint32Array()
+   ·             ─────────────
+   ╰────
+
+  ⚠ unicorn(new-for-builtins): Use `new Uint8ClampedArray()` instead of `Uint8ClampedArray()`
+   ╭─[new_for_builtins.tsx:1:13]
+ 1 │ const foo = Uint8ClampedArray()
+   ·             ───────────────────
+   ╰────
+
+  ⚠ unicorn(new-for-builtins): Use `BigInt()` instead of `new BigInt()`
+   ╭─[new_for_builtins.tsx:1:13]
+ 1 │ const foo = new BigInt(123)
+   ·             ───────────────
+   ╰────
+
+  ⚠ unicorn(new-for-builtins): Use `Boolean()` instead of `new Boolean()`
+   ╭─[new_for_builtins.tsx:1:13]
+ 1 │ const foo = new Boolean()
+   ·             ─────────────
+   ╰────
+
+  ⚠ unicorn(new-for-builtins): Use `Number()` instead of `new Number()`
+   ╭─[new_for_builtins.tsx:1:13]
+ 1 │ const foo = new Number()
+   ·             ────────────
+   ╰────
+
+  ⚠ unicorn(new-for-builtins): Use `Number()` instead of `new Number()`
+   ╭─[new_for_builtins.tsx:1:13]
+ 1 │ const foo = new Number('123')
+   ·             ─────────────────
+   ╰────
+
+  ⚠ unicorn(new-for-builtins): Use `String()` instead of `new String()`
+   ╭─[new_for_builtins.tsx:1:13]
+ 1 │ const foo = new String()
+   ·             ────────────
+   ╰────
+
+  ⚠ unicorn(new-for-builtins): Use `Symbol()` instead of `new Symbol()`
+   ╭─[new_for_builtins.tsx:1:13]
+ 1 │ const foo = new Symbol()
+   ·             ────────────
+   ╰────
+
+  ⚠ unicorn(new-for-builtins): Use `new Array()` instead of `Array()`
+    ╭─[new_for_builtins.tsx:12:24]
+ 11 │                 }
+ 12 │                 return Array()
+    ·                        ───────
+ 13 │             }
+    ╰────
+
+  ⚠ unicorn(new-for-builtins): Use `new Map()` instead of `Map()`
+    ╭─[new_for_builtins.tsx:18:24]
+ 17 │                 }
+ 18 │                 return Map()
+    ·                        ─────
+ 19 │             }
+    ╰────
+
+  ⚠ unicorn(new-for-builtins): Use `new Date()` instead of `Date()`
+   ╭─[new_for_builtins.tsx:1:13]
+ 1 │ const foo = Date();
+   ·             ──────
+   ╰────
+
+  ⚠ unicorn(new-for-builtins): Use `new Date()` instead of `Date()`
+   ╭─[new_for_builtins.tsx:1:13]
+ 1 │ const foo = globalThis.Date();
+   ·             ─────────────────
+   ╰────
+
+  ⚠ unicorn(new-for-builtins): Use `new Date()` instead of `Date()`
+   ╭─[new_for_builtins.tsx:1:13]
+ 1 │ const foo = Date(/*comment*/);
+   ·             ─────────────────
+   ╰────
+
+  ⚠ unicorn(new-for-builtins): Use `new Date()` instead of `Date()`
+   ╭─[new_for_builtins.tsx:1:13]
+ 1 │ const foo = globalThis/*comment*/.Date();
+   ·             ────────────────────────────
+   ╰────
+
+  ⚠ unicorn(new-for-builtins): Use `new Date()` instead of `Date()`
+   ╭─[new_for_builtins.tsx:1:13]
+ 1 │ const foo = Date(bar);
+   ·             ─────────
+   ╰────

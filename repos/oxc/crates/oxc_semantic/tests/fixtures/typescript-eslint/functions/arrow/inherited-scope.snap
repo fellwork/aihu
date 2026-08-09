@@ -1,0 +1,37 @@
+---
+source: crates/oxc_semantic/tests/main.rs
+input_file: crates/oxc_semantic/tests/fixtures/typescript-eslint/functions/arrow/inherited-scope.ts
+---
+[
+  {
+    "children": [
+      {
+        "children": [],
+        "flags": "ScopeFlags(Function | Arrow)",
+        "id": 1,
+        "node": "ArrowFunctionExpression",
+        "symbols": []
+      }
+    ],
+    "flags": "ScopeFlags(Top)",
+    "id": 0,
+    "node": "Program",
+    "symbols": [
+      {
+        "flags": "SymbolFlags(BlockScopedVariable | ConstVariable)",
+        "id": 0,
+        "name": "parentScoped",
+        "node": "VariableDeclarator(parentScoped)",
+        "references": [
+          {
+            "flags": "ReferenceFlags(Read)",
+            "id": 0,
+            "name": "parentScoped",
+            "node_id": 11,
+            "scope_id": 1
+          }
+        ]
+      }
+    ]
+  }
+]

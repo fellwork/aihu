@@ -1,0 +1,51 @@
+---
+source: crates/oxc_semantic/tests/main.rs
+input_file: crates/oxc_semantic/tests/fixtures/typescript-eslint/class/declaration/accessor-property.ts
+---
+[
+  {
+    "children": [
+      {
+        "children": [],
+        "flags": "ScopeFlags(StrictMode)",
+        "id": 1,
+        "node": "Class(A)",
+        "symbols": []
+      }
+    ],
+    "flags": "ScopeFlags(Top)",
+    "id": 0,
+    "node": "Program",
+    "symbols": [
+      {
+        "flags": "SymbolFlags(BlockScopedVariable | ConstVariable)",
+        "id": 0,
+        "name": "x",
+        "node": "VariableDeclarator(x)",
+        "references": [
+          {
+            "flags": "ReferenceFlags(Read)",
+            "id": 0,
+            "name": "x",
+            "node_id": 13,
+            "scope_id": 1
+          }
+        ]
+      },
+      {
+        "flags": "SymbolFlags(Class)",
+        "id": 1,
+        "name": "A",
+        "node": "Class(A)",
+        "references": []
+      },
+      {
+        "flags": "SymbolFlags(BlockScopedVariable | ConstVariable)",
+        "id": 2,
+        "name": "unresolved",
+        "node": "VariableDeclarator(unresolved)",
+        "references": []
+      }
+    ]
+  }
+]

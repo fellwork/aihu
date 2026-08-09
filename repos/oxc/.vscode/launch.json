@@ -1,0 +1,23 @@
+// A launch configuration that compiles the extension and then opens it inside a new window
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug Oxlint",
+      "cargo": {
+        "env": {
+          "RUSTFLAGS": "-g"
+        },
+        "args": ["build", "--bin=oxlint", "--package=oxlint"],
+        "filter": {
+          "name": "oxlint",
+          "kind": "bin"
+        }
+      }
+      // "args": ["--ARGS-TO-OXLINT"],
+      // "cwd": "PATH-TO-TEST-PROJECT"
+    }
+  ]
+}

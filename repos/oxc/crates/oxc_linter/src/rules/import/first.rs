@@ -1,0 +1,242 @@
+use oxc_ast::ast::{Statement, TSModuleReference};
+use oxc_diagnostics::OxcDiagnostic;
+use oxc_macros::declare_oxc_lint;
+use oxc_span::Span;
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
+
+use crate::{
+    context::LintContext,
+    rule::{DefaultRuleConfig, Rule},
+};
+
+fn first_diagnostic(span: Span) -> OxcDiagnostic {
+    OxcDiagnostic::warn("Import statements must come first")
+        .with_help("Move import statement to the top of the file")
+        .with_label(span)
+}
+
+fn absolute_first_diagnostic(span: Span) -> OxcDiagnostic {
+    OxcDiagnostic::warn("Relative imports before absolute imports are prohibited")
+        .with_help("Move absolute import above relative import")
+        .with_label(span)
+}
+
+#[derive(Debug, Default, Clone, Deserialize, Serialize)]
+pub struct First(AbsoluteFirst);
+
+#[derive(Debug, Default, Clone, Deserialize, Serialize, JsonSchema)]
+#[serde(rename_all = "kebab-case")]
+enum AbsoluteFirst {
+    /// Forces absolute imports to be listed before relative imports.
+    ///
+    /// Examples of **incorrect** code for this rule with `"absolute-first"`:
+    /// ```js
+    /// import { x } from './foo';
+    /// import { y } from 'bar'
+    /// ```
+    ///
+    /// Examples of **correct** code for this rule with `"absolute-first"`:
+    /// ```js
+    /// import { y } from 'bar';
+    /// import { x } from './foo'
+    /// ```
+    AbsoluteFirst,
+    /// Disables the absolute-first behavior.
+    /// This is the default behavior.
+    #[default]
+    DisableAbsoluteFirst,
+}
+
+declare_oxc_lint!(
+    /// ### What it does
+    ///
+    /// Forbids any non-import statements before imports except directives.
+    ///
+    /// ### Why is this bad?
+    ///
+    /// Notably, imports are hoisted, which means the imported modules will be evaluated
+    /// before any of the statements interspersed between them.
+    /// Keeping all imports together at the top of the file may prevent surprises
+    /// resulting from this part of the spec
+    ///
+    /// ### Examples
+    ///
+    /// Examples of **incorrect** code for this rule:
+    /// ```js
+    /// import { x } from './foo';
+    /// export { x };
+    /// import { y } from './bar';
+    /// ```
+    ///
+    /// Examples of **correct** code for this rule:
+    /// ```js
+    /// import { x } from './foo';
+    /// import { y } from './bar';
+    /// export { x, y }
+    /// ```
+    First,
+    import,
+    style,
+    pending, // TODO: fixer
+    config = AbsoluteFirst,
+    version = "0.11.1",
+    short_description = "Forbids any non-import statements before imports except directives.",
+);
+
+fn is_relative_path(path: &str) -> bool {
+    // A path is considered relative if it starts with "/", "./", or "../"
+    // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/import#module_specifier_resolution
+    path.starts_with("./") || path.starts_with("../") || path.starts_with('/')
+}
+
+/// <https://github.com/import-js/eslint-plugin-import/blob/v2.29.1/docs/rules/first.md>
+impl Rule for First {
+    fn from_configuration(value: serde_json::Value) -> Result<Self, serde_json::error::Error> {
+        serde_json::from_value::<DefaultRuleConfig<Self>>(value).map(DefaultRuleConfig::into_inner)
+    }
+
+    fn run_once(&self, ctx: &LintContext<'_>) {
+        let mut non_import_count = 0;
+        let mut any_relative = false;
+
+        let program = ctx.nodes().program();
+
+        for statement in &program.body {
+            match statement {
+                Statement::TSImportEqualsDeclaration(decl) => match &decl.module_reference {
+                    TSModuleReference::ExternalModuleReference(mod_ref) => {
+                        if matches!(self.0, AbsoluteFirst::AbsoluteFirst) {
+                            if is_relative_path(mod_ref.expression.value.as_str()) {
+                                any_relative = true;
+                            } else if any_relative {
+                                ctx.diagnostic(absolute_first_diagnostic(mod_ref.expression.span));
+                            }
+                        }
+                        if non_import_count > 0 {
+                            ctx.diagnostic(first_diagnostic(decl.span));
+                        }
+                    }
+                    TSModuleReference::IdentifierReference(_)
+                    | TSModuleReference::QualifiedName(_) => {}
+                },
+                Statement::ImportDeclaration(decl) => {
+                    if matches!(self.0, AbsoluteFirst::AbsoluteFirst) {
+                        if is_relative_path(decl.source.value.as_str()) {
+                            any_relative = true;
+                        } else if any_relative {
+                            ctx.diagnostic(absolute_first_diagnostic(decl.source.span));
+                        }
+                    }
+                    if non_import_count > 0 {
+                        ctx.diagnostic(first_diagnostic(decl.span));
+                    }
+                }
+                _ => {
+                    non_import_count += 1;
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn test() {
+    use serde_json::json;
+
+    use crate::tester::Tester;
+
+    let pass = vec![
+        (
+            r"import { x } from './foo'; import { y } from './bar';
+            export { x, y }",
+            None,
+        ),
+        (r"import { x } from 'foo'; import { y } from './bar'", None),
+        (r"import { x } from './foo'; import { y } from 'bar'", None),
+        (
+            r"import { x } from './foo'; import { y } from 'bar'",
+            Some(json!(["disable-absolute-first"])),
+        ),
+        // Note: original rule contains test case below for `angular-eslint` parser
+        // which is not implemented in oxc
+        (
+            r"'use directive';
+            import { x } from 'foo';",
+            None,
+        ),
+        // covers TSImportEqualsDeclaration (original rule support it, but with no test cases)
+        (
+            r"import { x } from './foo';
+            import F3 = require('mod');
+            export { x, y }",
+            None,
+        ),
+        // Relative imports with absolute-first
+        (
+            r"import { y } from 'bar';
+              import { x } from '../foo';",
+            Some(json!(["absolute-first"])),
+        ),
+        (
+            r"import { y } from 'bar';
+              import { x } from '/foo';",
+            Some(json!(["absolute-first"])),
+        ),
+    ];
+
+    let fail = vec![
+        (
+            r"import { x } from './foo';
+              export { x };
+              import { y } from './bar';",
+            None,
+        ),
+        (
+            r"import { x } from './foo';
+              export { x };
+              import { y } from './bar';
+              import { z } from './baz';",
+            None,
+        ),
+        (r"import { x } from './foo'; import { y } from 'bar'", Some(json!(["absolute-first"]))),
+        (
+            r"import { x } from 'foo';
+              'use directive';
+              import { y } from 'bar';",
+            None,
+        ),
+        (
+            r"var a = 1;
+              import { y } from './bar';
+              if (true) { x() };
+              import { x } from './foo';
+              import { z } from './baz';",
+            None,
+        ),
+        (r"if (true) { console.log(1) }import a from 'b'", None),
+        // covers TSImportEqualsDeclaration (original rule support it, but with no test cases)
+        (
+            r"import { x } from './foo';
+              export { x };
+              import F3 = require('mod');",
+            None,
+        ),
+        // Relative imports with absolute-first
+        (
+            r"import { x } from '../foo';
+              import { y } from 'bar';",
+            Some(json!(["absolute-first"])),
+        ),
+        (
+            r"import { x } from '/foo';
+              import { y } from 'bar';",
+            Some(json!(["absolute-first"])),
+        ),
+    ];
+
+    Tester::new(First::NAME, First::PLUGIN, pass, fail)
+        .change_rule_path("index.ts")
+        .with_import_plugin(true)
+        .test_and_snapshot();
+}

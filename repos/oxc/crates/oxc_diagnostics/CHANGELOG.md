@@ -1,0 +1,405 @@
+# Changelog
+
+All notable changes to this package will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0).
+
+## [0.136.0] - 2026-06-15
+
+### ⚡ Performance
+
+- da1a6c6 diagnostics: Migrate to allocation-optimized oxc-miette (#23094) (Boshen)
+
+## [0.131.0] - 2026-05-15
+
+### ⚡ Performance
+
+- 618bc76 diagnostics: Inline `OxcDiagnosticInner` to avoid heap allocation (#22406) (Boshen)
+
+## [0.123.0] - 2026-03-30
+
+### 🐛 Bug Fixes
+
+- c09a5ab diagnostics: Skip minified fallback for single-line reporters (#20716) (camc314)
+
+## [0.119.0] - 2026-03-14
+
+### 🐛 Bug Fixes
+
+- 1c07b3b diagnostics: Handle `WouldBlock` in stdout writes to prevent panic (#20295) (Boshen)
+
+## [0.115.0] - 2026-02-23
+
+### 🐛 Bug Fixes
+
+- 7958b56 linter: Fix syntax error reporting in some output formatters.  (#19590) (connorshea)
+
+## [0.107.0] - 2026-01-05
+
+### 🚀 Features
+
+- 659c23e linter: Init note field boilerplate  (#17589) (Shrey Sudhir)
+
+
+
+
+## [0.93.0] - 2025-09-28
+
+### ⚡ Performance
+
+- c2f7459 language_server: Avoid cloning on message conversion (#14058) (Sysix)
+
+
+
+## [0.91.0] - 2025-09-22
+
+### 🚀 Features
+
+- a14aa79 npm/oxlint: Convert to ES modules (#13876) (Boshen)
+
+### 🐛 Bug Fixes
+
+- 2a7d5d3 linter: Report correct diagnostic count on minified files (#13896) (camc314)
+
+### 💼 Other
+
+- fb347da crates: V0.91.0 (#13961) (Boshen)
+
+
+## [0.91.0] - 2025-09-21
+
+### 🚀 Features
+
+- a14aa79 npm/oxlint: Convert to ES modules (#13876) (Boshen)
+
+
+## [0.90.0] - 2025-09-18
+
+### 🐛 Bug Fixes
+
+- fa866b3 linter: Sort optimized/unoptimized diagnostics before comparison (#13850) (camc314)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## [0.80.0] - 2025-08-03
+
+### 🚜 Refactor
+
+- 7695393 linter: Simplify offset adjustment by using `Message.move_offset` (#12595) (Sysix)
+
+### 📚 Documentation
+
+- de1de35 rust: Add comprehensive README.md documentation for all Rust crates (#12706) (Copilot)
+
+
+
+## [0.79.0] - 2025-07-30
+
+### 🚜 Refactor
+
+- 5c33fc7 diagnostics: Implement `Eq` and `Ord` for `InfoPosition` (#12505) (overlookmotel)
+
+### ⚡ Performance
+
+- ce5d074 diagnostics: `Info::new` trim string in place (#12506) (overlookmotel)
+
+
+## [0.78.0] - 2025-07-24
+
+### 🚜 Refactor
+
+- 7a0da04 diagnostics: Remove Option wrapper from MPSC channel and sender field (#12467) (camc314)
+
+
+
+
+
+
+
+## [0.75.1] - 2025-07-03
+
+### 🐛 Bug Fixes
+
+- 47626e8 linter: Uri generation in windows for jetbrains terminals (#11945) (Sysix)
+- 1e88dba oxc_linter: Make linter file paths clickable within JetBrains terminals (#11619) (Nicholas Rayburn)
+
+### 🧪 Testing
+
+- 626d028 linter: Fix windows uri tests (#11943) (Sysix)
+
+
+
+
+
+
+## [0.73.0] - 2025-06-13
+
+### 💥 BREAKING CHANGES
+
+- bd9dd88 linter: [**BREAKING**] Add more info to json reporter (#11524) (camc314)
+
+
+# Changelog
+
+All notable changes to this package will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project does not adhere to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) until v1.0.0.
+
+## [0.63.0] - 2025-04-08
+
+### Bug Fixes
+
+- f2eff56 linter: Fix `rule_id` for some diagnostics formats (#10251) (Alexander S.)
+
+### Performance
+
+- fa0e455 cfg, diagnostics, lexer, syntax, tasks: Remove `write!` macro where unnecessary (#10236) (overlookmotel)
+
+### Styling
+
+- 66a0001 all: Remove unnecessary semi-colons (#10198) (overlookmotel)
+
+## [0.61.0] - 2025-03-20
+
+### Features
+
+- 2cedfe4 napi: Add codeframe to napi error (#9893) (Boshen)
+
+## [0.56.0] - 2025-03-06
+
+### Bug Fixes
+
+- 4ca62ab linter: Output right file line and column for `.vue`, `.astro` and `.svelte` files (#9484) (Sysix)
+
+## [0.48.2] - 2025-02-02
+
+### Testing
+
+- ad35e82 linter: Use snapshot testing instead of LintResult (#8711) (Sysix)
+
+## [0.48.1] - 2025-01-26
+
+### Refactor
+
+- 10e5920 linter: Move finishing default diagnostic message to `GraphicalReporter` (#8683) (Sysix)
+
+## [0.48.0] - 2025-01-24
+
+### Features
+
+- 4ae568e linter: Add DiagnosticResult to the Reporters for receiving a sub part result (#8666) (Alexander S.)
+
+### Bug Fixes
+
+- 40316af linter: Fix github `endColumn` output (#8647) (Alexander S.)
+
+## [0.47.0] - 2025-01-18
+
+### Refactor
+
+- b4c87e2 linter: Move DiagnosticsReporters to oxlint (#8454) (Alexander S.)
+
+## [0.42.0] - 2024-12-18
+
+### Styling
+
+- 7fb9d47 rust: `cargo +nightly fmt` (#7877) (Boshen)
+
+## [0.40.0] - 2024-12-10
+
+### Features
+
+- 85eec3c napi/transform,napi/parser: Return structured error object (#7724) (Boshen)
+
+## [0.37.0] - 2024-11-21
+
+### Features
+
+- 2268a0e linter: Support `overrides` config field (#6974) (DonIsaac)
+
+## [0.36.0] - 2024-11-09
+
+### Features
+
+- 22898c8 transformer: Warn BigInt when targeting < ES2020 (#7184) (Boshen)
+
+## [0.35.0] - 2024-11-04
+
+### Features
+
+- 6d97af4 rust: Use `oxc-miette` (#6938) (Boshen)
+
+## [0.30.2] - 2024-09-27
+
+### Bug Fixes
+
+- a88504c diagnostics: Check for terminal when displaying links (#6018) (Boshen)
+
+## [0.30.1] - 2024-09-24
+
+### Performance
+
+- 2b17003 linter, prettier, diagnostics: Use `FxHashMap` instead of `std::collections::HashMap` (#5993) (camchenry)
+
+## [0.30.0] - 2024-09-23
+
+### Documentation
+
+- 83ca7f5 diagnostics: Fully document `oxc_diagnostics` (#5865) (DonIsaac)
+
+### Refactor
+
+- 6dd6f7c ast: Change `Comment` struct (#5783) (Boshen)
+
+## [0.27.0] - 2024-09-06
+
+### Features
+
+- 91b39c4 oxc_diagnostic: Impl DerefMut for OxcDiagnostic (#5474) (IWANABETHATGUY)
+
+### Bug Fixes
+
+- fce549e diagnostics: Ignore `Interrupted` and `BrokenPipe` errors while printing (#5526) (Boshen)
+
+## [0.26.0] - 2024-09-03
+
+### Features
+
+- 9c22ce9 linter: Add hyperlinks to diagnostic messages (#5318) (DonIsaac)
+
+### Bug Fixes
+
+- ff7fa98 diagnostics: Improve "file is too long to fit on the screen" (#5120) (Boshen)
+
+### Refactor
+
+- cd63336 diagnostic: Change how diagnostic codes are rendered (#5317) (DonIsaac)
+
+## [0.22.0] - 2024-07-23
+
+### Features
+- 6068e6b Add error codes to OxcDiagnostic (#4334) (DonIsaac)
+
+### Refactor
+
+- 7a75e0f linter: Use diagnostic codes in lint rules (#4349) (DonIsaac)
+- a2eabe1 parser: Use error codes for ts diagnostics (#4335) (DonIsaac)
+
+## [0.20.0] - 2024-07-11
+
+### Performance
+
+- ddfa343 diagnostic: Use `Cow<'static, str>` over `String` (#4175) (DonIsaac)
+
+## [0.16.1] - 2024-06-29
+
+### Refactor
+
+- 2705df9 linter: Improve diagnostic labeling (#3960) (DonIsaac)
+
+## [0.16.0] - 2024-06-26
+
+### Performance
+
+- 92c21b2 diagnostics: Optimize string-buffer reallocations (#3897) (Luca Bruno)
+
+## [0.14.0] - 2024-06-12
+
+### Bug Fixes
+
+- e6ad3fb diagnostics: Do not print ansi color codes in non-TTYs (#3624) (Boshen)
+
+## [0.13.1] - 2024-05-22
+
+### Features
+
+- 17f4b19 cli: Add `--silent` to disable all diagnostics printing (#3338) (Boshen)
+
+### Refactor
+
+- c9d84af diagnostics: S/warning/warn (Boshen)
+
+## [0.13.0] - 2024-05-14
+
+### Features
+
+- ed3fa39 linter: Add `--format github` for github check annotation (#3191) (Boshen)
+
+### Bug Fixes
+
+- b86ef7d diagnostics: Need to escape strings for --format github (Boshen)
+
+### Refactor
+
+- dbde5b3 diagnostics: Remove export of `miette` (Boshen)
+- 551632a diagnostics: Remove thiserror (Boshen)
+- 312f74b diagnostics: S/OxcDiagnostic::new/OxcDiagnostic::error (Boshen)
+- 82bd97d diagnostics: Use a trait to implement the reporters (#3190) (Boshen)
+- f6f7adc linter,diagnostic: One diagnostic struct to eliminate monomorphization of generic types (#3235) (Boshen)
+- 2064ae9 parser,diagnostic: One diagnostic struct to eliminate monomorphization of generic types (#3214) (Boshen)- 893af23 Clean up more diagnostics usages (Boshen)
+
+## [0.12.5] - 2024-04-22
+
+### Features
+
+- ee1c0e5 cli: Implement `--format checkstyle` (#3044) (Boshen)
+- 4425b96 cli: Implement `--format unix` (#3039) (Boshen)
+
+## [0.12.3] - 2024-04-11
+
+### Bug Fixes
+
+- 6eba02f cli: If format is json do not print summary information (#2899) (#2925) (Kalven Schraut)
+
+## [0.10.0] - 2024-03-14
+
+### Features
+- 265b2fb Miette v7 (#2465) (Boshen)
+
+## [0.8.0] - 2024-02-26
+
+### Features
+
+- 195d76e cli,diagnostics: Add json reporter (#2451) (Boshen)
+- d0d0d9d diagnostics: Implement json reporter (#2452) (Boshen)
+
+## [0.6.0] - 2024-02-03
+
+### Refactor
+- 87b9978 Move all miette usages to `oxc_diagnostics` (Boshen)
+
+## [0.5.0] - 2024-01-12
+
+### Bug Fixes
+
+- ea22d3c diagnostics: Always print without considering the `--max-warnings` option (#1996) (Boshen)
+
+## [0.4.0] - 2023-12-08
+
+### Refactor
+
+- 1a576f6 rust: Move to workspace lint table (#1444) (Boshen)
+
+## [0.2.0] - 2023-09-14
+
+### Bug Fixes
+
+- de7735d cli: Fix race condition when resolving paths (Boshen)
+- ba8ef7b deps: Use one version of `textwrap` (Boshen)
+
+### Refactor
+
+- 2751240 cli,diagnostics: Implement DiagnosticService (#762) (Boshen)
+- a9a6bb8 cli,linter: Move path processing logic from cli to linter (#766) (Boshen)
+

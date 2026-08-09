@@ -1,0 +1,57 @@
+---
+source: crates/oxc_linter/src/tester.rs
+---
+
+  ⚠ react(no-find-dom-node): Unexpected call to `findDOMNode`.
+   ╭─[no_find_dom_node.tsx:4:23]
+ 3 │               componentDidMount: function() {
+ 4 │                 React.findDOMNode(this).scrollIntoView();
+   ·                       ───────────
+ 5 │               },
+   ╰────
+  help: Replace `findDOMNode` with one of the alternatives documented at https://react.dev/reference/react-dom/findDOMNode#alternatives.
+
+  ⚠ react(no-find-dom-node): Unexpected call to `findDOMNode`.
+   ╭─[no_find_dom_node.tsx:4:26]
+ 3 │               componentDidMount: function() {
+ 4 │                 ReactDOM.findDOMNode(this).scrollIntoView();
+   ·                          ───────────
+ 5 │               },
+   ╰────
+  help: Replace `findDOMNode` with one of the alternatives documented at https://react.dev/reference/react-dom/findDOMNode#alternatives.
+
+  ⚠ react(no-find-dom-node): Unexpected call to `findDOMNode`.
+   ╭─[no_find_dom_node.tsx:4:26]
+ 3 │               componentDidMount: function() {
+ 4 │                 ReactDom.findDOMNode(this).scrollIntoView();
+   ·                          ───────────
+ 5 │               },
+   ╰────
+  help: Replace `findDOMNode` with one of the alternatives documented at https://react.dev/reference/react-dom/findDOMNode#alternatives.
+
+  ⚠ react(no-find-dom-node): Unexpected call to `findDOMNode`.
+   ╭─[no_find_dom_node.tsx:4:17]
+ 3 │               componentDidMount() {
+ 4 │                 findDOMNode(this).scrollIntoView();
+   ·                 ───────────
+ 5 │               }
+   ╰────
+  help: Replace `findDOMNode` with one of the alternatives documented at https://react.dev/reference/react-dom/findDOMNode#alternatives.
+
+  ⚠ react(no-find-dom-node): Unexpected call to `findDOMNode`.
+   ╭─[no_find_dom_node.tsx:4:29]
+ 3 │               componentDidMount() {
+ 4 │                 this.node = findDOMNode(this);
+   ·                             ───────────
+ 5 │               }
+   ╰────
+  help: Replace `findDOMNode` with one of the alternatives documented at https://react.dev/reference/react-dom/findDOMNode#alternatives.
+
+  ⚠ react(no-find-dom-node): Unexpected call to `findDOMNode`.
+   ╭─[no_find_dom_node.tsx:5:26]
+ 4 │               foo() {
+ 5 │                 ReactDOM.findDOMNode(this);
+   ·                          ───────────
+ 6 │               }
+   ╰────
+  help: Replace `findDOMNode` with one of the alternatives documented at https://react.dev/reference/react-dom/findDOMNode#alternatives.

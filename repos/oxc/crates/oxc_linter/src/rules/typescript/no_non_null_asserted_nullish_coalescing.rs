@@ -1,0 +1,395 @@
+use oxc_ast::{AstKind, ast::Expression};
+use oxc_diagnostics::OxcDiagnostic;
+use oxc_macros::declare_oxc_lint;
+use oxc_semantic::SymbolId;
+use oxc_span::Span;
+use oxc_syntax::operator::LogicalOperator;
+
+use crate::{
+    AstNode,
+    context::{ContextHost, LintContext},
+    rule::Rule,
+};
+
+fn no_non_null_asserted_nullish_coalescing_diagnostic(span: Span) -> OxcDiagnostic {
+    OxcDiagnostic::warn("'Disallow non-null assertions in the left operand of a nullish coalescing operator")
+        .with_help("The nullish coalescing operator is designed to handle undefined and null - using a non-null assertion is not needed.")
+        .with_label(span)
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct NoNonNullAssertedNullishCoalescing;
+
+declare_oxc_lint!(
+    /// ### What it does
+    ///
+    /// Disallow non-null assertions in the left operand of a nullish coalescing operator.
+    ///
+    /// ### Why is this bad?
+    ///
+    /// The ?? nullish coalescing runtime operator allows providing a default value when dealing
+    /// with `null` or `undefined`. Using a ! non-null assertion type operator in the left operand of
+    /// a nullish coalescing operator is redundant, and likely a sign of programmer error or
+    /// confusion over the two operators.
+    ///
+    /// ### Examples
+    ///
+    /// Examples of **incorrect** code for this rule:
+    /// ```ts
+    /// foo! ?? bar;
+    /// foo.bazz! ?? bar;
+    /// foo!.bazz! ?? bar;
+    /// foo()! ?? bar;
+    ///
+    /// let x!: string;
+    /// x! ?? '';
+    ///
+    /// let x: string;
+    /// x = foo();
+    /// x! ?? '';
+    /// ```
+    ///
+    /// Examples of **correct** code for this rule:
+    /// ```ts
+    /// foo ?? bar;
+    /// foo ?? bar!;
+    /// foo!.bazz ?? bar;
+    /// foo!.bazz ?? bar!;
+    /// foo() ?? bar;
+    /// ```
+    ///
+    /// ```ts
+    /// // This is considered correct code because there's no way for the user to satisfy it.
+    /// let x: string;
+    /// x! ?? '';
+    /// ```
+    NoNonNullAssertedNullishCoalescing,
+    typescript,
+    restriction,
+    suggestion,
+    version = "0.5.0",
+    short_description = "Disallow non-null assertions in the left operand of a nullish coalescing operator.",
+);
+
+impl Rule for NoNonNullAssertedNullishCoalescing {
+    fn run<'a>(&self, node: &AstNode<'a>, ctx: &LintContext<'a>) {
+        let AstKind::LogicalExpression(expr) = node.kind() else { return };
+        if expr.operator != LogicalOperator::Coalesce {
+            return;
+        }
+
+        let Expression::TSNonNullExpression(ts_non_null_expr) = &expr.left else { return };
+        if let Expression::Identifier(ident) = ts_non_null_expr.expression.without_parentheses()
+            && let Some(symbol_id) = ctx.scoping().get_binding(node.scope_id(), ident.name)
+            && !has_assignment_before_node(symbol_id, ctx, expr.span.end)
+        {
+            return;
+        }
+
+        ctx.diagnostic_with_suggestion(
+            no_non_null_asserted_nullish_coalescing_diagnostic(ts_non_null_expr.span),
+            |fixer| {
+                let spans = non_null_assertion_spans(ts_non_null_expr);
+                let fixer = fixer.for_multifix();
+                let mut fix = fixer.new_fix_with_capacity(spans.len());
+
+                for span in spans {
+                    fix.push(fixer.delete_range(span));
+                }
+
+                fix.with_message("Remove the non-null assertion.")
+            },
+        );
+    }
+
+    fn should_run(&self, ctx: &ContextHost) -> bool {
+        ctx.source_type().is_typescript()
+    }
+}
+
+fn non_null_assertion_spans(expr: &oxc_ast::ast::TSNonNullExpression) -> Vec<Span> {
+    let mut spans = Vec::new();
+    collect_non_null_assertion_spans(expr, &mut spans);
+    spans
+}
+
+fn collect_non_null_assertion_spans(
+    expr: &oxc_ast::ast::TSNonNullExpression,
+    spans: &mut Vec<Span>,
+) {
+    collect_non_null_assertion_spans_from_expression(&expr.expression, spans);
+    spans.push(Span::sized(expr.span.end - 1, 1));
+}
+
+fn collect_non_null_assertion_spans_from_expression(expr: &Expression, spans: &mut Vec<Span>) {
+    match expr {
+        Expression::TSNonNullExpression(expr) => collect_non_null_assertion_spans(expr, spans),
+        Expression::ParenthesizedExpression(expr) => {
+            collect_non_null_assertion_spans_from_expression(&expr.expression, spans);
+        }
+        _ => {}
+    }
+}
+
+fn has_assignment_before_node(
+    symbol_id: SymbolId,
+    ctx: &LintContext,
+    parent_span_end: u32,
+) -> bool {
+    let symbol_table = ctx.scoping();
+
+    for reference in symbol_table.get_resolved_references(symbol_id) {
+        if reference.is_write() && ctx.semantic().reference_span(reference).end < parent_span_end {
+            return true;
+        }
+    }
+
+    let declaration_id = symbol_table.symbol_declaration(symbol_id);
+    let AstKind::VariableDeclarator(decl) = ctx.nodes().kind(declaration_id) else {
+        return false;
+    };
+    decl.definite || decl.init.is_some()
+}
+
+#[test]
+fn test() {
+    use crate::tester::Tester;
+
+    let pass = vec![
+        "foo ?? bar;",
+        "foo ?? bar!;",
+        "foo.bazz ?? bar;",
+        "foo.bazz ?? bar!;",
+        "foo!.bazz ?? bar;",
+        "foo!.bazz ?? bar!;",
+        "foo() ?? bar;",
+        "foo() ?? bar!;",
+        "(foo ?? bar)!;",
+        "foo! || bar;",
+        "foo! && bar;",
+        "
+                  let x: string;
+                  x! ?? '';
+                ",
+        "
+                  let x: string;
+                  (x)! ?? '';
+                ",
+        "
+                  let x: string;
+                  ((x))! ?? '';
+                ",
+        "
+                  let x: string;
+                  x ?? '';
+                ",
+        "
+                  let x!: string;
+                  x ?? '';
+                ",
+        "
+                  let x: string;
+                  foo(x);
+                  x! ?? '';
+                ",
+        "
+                  let x: string;
+                  x! ?? '';
+                  x = foo();
+                ",
+        "
+                  let x: string;
+                  foo(x);
+                  x! ?? '';
+                  x = foo();
+                ",
+        "
+                  let x = foo();
+                  x ?? '';
+                ",
+        "
+                  function foo() {
+                    let x: string;
+                    return x ?? '';
+                  }
+                ",
+        "
+                  let x: string;
+                  function foo() {
+                    return x ?? '';
+                  }
+                ",
+    ];
+
+    let fail = vec![
+        "foo! ?? bar;",
+        "foo! ?? bar!;",
+        "foo.bazz! ?? bar;",
+        "foo.bazz! ?? bar!;",
+        "foo!.bazz! ?? bar;",
+        "foo!.bazz! ?? bar!;",
+        "foo()! ?? bar;",
+        "foo()! ?? bar!;",
+        "foo['bar']! ?? baz;",
+        "foo[bar]! ?? baz;",
+        "(foo)! ?? bar;",
+        "((foo))! ?? bar;",
+        "(foo ? bar : baz)! ?? qux;",
+        "(foo || bar)! ?? baz;",
+        "foo/* keep */! ?? bar;",
+        "foo!! ?? bar;",
+        "(foo!)! ?? bar;",
+        "((foo!)!)! ?? bar;",
+        "foo()! ?? bar; baz()! ?? qux;",
+        "
+            let x!: string;
+            x! ?? '';
+                  ",
+        "
+            let x: string;
+            x = foo();
+            x! ?? '';
+                  ",
+        "
+            let x: string;
+            x = foo();
+            x! ?? '';
+            x = foo();
+                  ",
+        "
+            let x = foo();
+            x! ?? '';
+                  ",
+        "
+            function foo() {
+              let x!: string;
+              return x! ?? '';
+            }
+                  ",
+        "
+            let x!: string;
+            function foo() {
+              return x! ?? '';
+            }
+                  ",
+        "
+            let x = foo();
+            x  ! ?? '';
+                  ",
+    ];
+
+    let fix = vec![
+        ("foo! ?? bar;", "foo ?? bar;"),
+        ("foo! ?? bar!;", "foo ?? bar!;"),
+        ("foo.bazz! ?? bar;", "foo.bazz ?? bar;"),
+        ("foo.bazz! ?? bar!;", "foo.bazz ?? bar!;"),
+        ("foo!.bazz! ?? bar;", "foo!.bazz ?? bar;"),
+        ("foo!.bazz! ?? bar!;", "foo!.bazz ?? bar!;"),
+        ("foo()! ?? bar;", "foo() ?? bar;"),
+        ("foo()! ?? bar!;", "foo() ?? bar!;"),
+        ("foo['bar']! ?? baz;", "foo['bar'] ?? baz;"),
+        ("foo[bar]! ?? baz;", "foo[bar] ?? baz;"),
+        ("(foo)! ?? bar;", "(foo) ?? bar;"),
+        ("((foo))! ?? bar;", "((foo)) ?? bar;"),
+        ("(foo ? bar : baz)! ?? qux;", "(foo ? bar : baz) ?? qux;"),
+        ("(foo || bar)! ?? baz;", "(foo || bar) ?? baz;"),
+        ("foo/* keep */! ?? bar;", "foo/* keep */ ?? bar;"),
+        ("foo!! ?? bar;", "foo ?? bar;"),
+        ("(foo!)! ?? bar;", "(foo) ?? bar;"),
+        ("((foo!)!)! ?? bar;", "((foo)) ?? bar;"),
+        ("foo()! ?? bar; baz()! ?? qux;", "foo() ?? bar; baz() ?? qux;"),
+        (
+            "
+            let x!: string;
+            x! ?? '';
+                  ",
+            "
+            let x!: string;
+            x ?? '';
+                  ",
+        ),
+        (
+            "
+            let x: string;
+            x = foo();
+            x! ?? '';
+                  ",
+            "
+            let x: string;
+            x = foo();
+            x ?? '';
+                  ",
+        ),
+        (
+            "
+            let x: string;
+            x = foo();
+            x! ?? '';
+            x = foo();
+                  ",
+            "
+            let x: string;
+            x = foo();
+            x ?? '';
+            x = foo();
+                  ",
+        ),
+        (
+            "
+            let x = foo();
+            x! ?? '';
+                  ",
+            "
+            let x = foo();
+            x ?? '';
+                  ",
+        ),
+        (
+            "
+            function foo() {
+              let x!: string;
+              return x! ?? '';
+            }
+                  ",
+            "
+            function foo() {
+              let x!: string;
+              return x ?? '';
+            }
+                  ",
+        ),
+        (
+            "
+            let x!: string;
+            function foo() {
+              return x! ?? '';
+            }
+                  ",
+            "
+            let x!: string;
+            function foo() {
+              return x ?? '';
+            }
+                  ",
+        ),
+        (
+            "
+            let x = foo();
+            x  ! ?? '';
+                  ",
+            "
+            let x = foo();
+            x   ?? '';
+                  ",
+        ),
+    ];
+
+    Tester::new(
+        NoNonNullAssertedNullishCoalescing::NAME,
+        NoNonNullAssertedNullishCoalescing::PLUGIN,
+        pass,
+        fail,
+    )
+    .expect_fix(fix)
+    .test_and_snapshot();
+}

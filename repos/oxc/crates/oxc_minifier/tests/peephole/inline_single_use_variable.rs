@@ -1,0 +1,514 @@
+use oxc_minifier::{CompressOptions, CompressOptionsKeepNames};
+use oxc_span::SourceType;
+
+use crate::{default_options, test, test_options, test_options_source_type, test_same};
+
+#[track_caller]
+fn test_script_same(source_text: &str) {
+    test_script(source_text, source_text);
+}
+
+#[track_caller]
+fn test_script(source_text: &str, expected: &str) {
+    test_options_source_type(
+        source_text,
+        expected,
+        SourceType::cjs().with_script(true),
+        &default_options(),
+    );
+}
+
+#[track_caller]
+fn test_keep_names(source_text: &str, expected: &str) {
+    test_options(
+        source_text,
+        expected,
+        &CompressOptions { keep_names: CompressOptionsKeepNames::all_true(), ..default_options() },
+    );
+}
+
+#[test]
+fn test_inline_single_use_variable() {
+    test_same("function wrapper(arg0, arg1) {using x = foo; return x}");
+    test_same("async function wrapper(arg0, arg1) { await using x = foo; return x}");
+    test_same("function wrapper(arg0) { eval('x'); var x = arg0; return x }");
+
+    test("{ let _; eval('_ = () => 1'); _() }", "{ let _; eval('_ = () => 1'), _() }");
+    test("{ let x = 1; eval('x = 2'); log(x) }", "{ let x = 1; eval('x = 2'), log(x) }");
+    test(
+        "function f() { let x; eval('x = 1'); return x }",
+        "function f() { let x; return eval('x = 1'), x }",
+    );
+    test(
+        "function f() { { let y; var x; } eval('x = 1'); return x }",
+        "function f() { { let y; var x; } return eval('x = 1'), x }",
+    );
+
+    test(
+        "
+        class Foo {
+            #foo;
+            static {
+                let v = this;
+                let r = #foo in v;
+                console.log(r);
+            }
+        }
+        ",
+        "
+        class Foo {
+            #foo;
+            static {
+                let r = #foo in this;
+                console.log(r);
+            }
+        }
+    ",
+    );
+    // Ideally we should merge it to `this.#foo = foo;`
+    test_same(
+        "
+        class Foo {
+            #foo;
+            static {
+                let x = foo;
+                this.#foo = x;
+            }
+        }
+        ",
+    );
+    test(
+        "
+        class Foo {
+            #foo;
+            static {
+                let x = this;
+                let y = x.#foo;
+                console.log(y);
+            }
+        }
+        ",
+        "
+        class Foo {
+            #foo;
+            static {
+                let y = this.#foo;
+                console.log(y);
+            }
+        }
+    ",
+    );
+    // need to avoid merging to `this.value = await ...` to avoid ReferenceError (https://github.com/oxc-project/oxc/issues/21296)
+    test(
+        "
+        class Base {
+            constructor(obj) {
+                obj.start()
+            }
+        }
+        class Wrapped extends Base {
+            constructor() {
+                super({
+                    start: async () => {
+                        let result = await new Promise(resolve => { setTimeout(() => { resolve(0) }, 0) })
+                        this.value = result
+                    }
+                })
+            }
+        }
+        let wrapped = new Wrapped()
+        setTimeout(() => { console.log('value', wrapped.value) }, 10)
+    ",
+        "
+        class Base {
+            constructor(obj) {
+                obj.start()
+            }
+        }
+        class Wrapped extends Base {
+            constructor() {
+                super({
+                    start: async () => {
+                        let result = await new Promise(resolve => { setTimeout(() => { resolve(0) }, 0) })
+                        this.value = result
+                    }
+                })
+            }
+        }
+        let wrapped = new Wrapped()
+        setTimeout(() => { console.log('value', wrapped.value) }, 10)
+    ",
+    );
+    test(
+        "function wrapper(arg0, arg1) { let x = arg0; return new arg1(...x);}",
+        "function wrapper(arg0, arg1) { return new arg1(...arg0);}",
+    );
+    test(
+        "function wrapper(arg0, arg1) { let x = arg0; return new arg1(x, ...arg1);}",
+        "function wrapper(arg0, arg1) { return new arg1(arg0, ...arg1);}",
+    );
+    test_same("function wrapper(arg0, arg1) { let x = arg0; return new arg1(...arg1, x);}");
+    test(
+        "function wrapper(arg0, arg1) { let x = arg0; new arg1(x);}",
+        "function wrapper(arg0, arg1) { new arg1(arg0);}",
+    );
+    test(
+        "function wrapper(arg0, arg1) { let x = arg0; new x()}",
+        "function wrapper(arg0, arg1) { new arg0();}",
+    );
+    test(
+        "function wrapper(arg0, arg1) { let x = arg0; new (0, x)()}",
+        "function wrapper(arg0, arg1) { new arg0();}",
+    );
+    test(
+        "function wrapper(arg0, arg1) { let x = arg0.foo; new x.bar()}",
+        "function wrapper(arg0, arg1) { new arg0.foo.bar();}",
+    );
+    test(
+        "function wrapper(arg0, arg1) { let x = arg0.foo; new x[bar]()}",
+        "function wrapper(arg0, arg1) { new arg0.foo[bar]();}",
+    );
+    test_same("function wrapper(arg0, arg1) { let x = arg0.foo; new x()}");
+    test_same("function wrapper(arg0, arg1) { let x = arg0[foo]; new x()}");
+    test_same("function wrapper(arg0, arg1) { let x = arg0?.foo; new x()}");
+    test_same("function wrapper(arg0, arg1) { let x = arg0?.[foo]; new x()}");
+    test(
+        "function wrapper(arg0, arg1) { let x = arg0.foo; new (0, x)()}",
+        "function wrapper(arg0, arg1) { let x = arg0.foo; new x();}",
+    );
+    test(
+        "function wrapper(arg0, arg1) { let x = arg0[foo]; new (0, x)()}",
+        "function wrapper(arg0, arg1) { let x = arg0[foo]; new x();}",
+    );
+    test(
+        "function wrapper(arg0, arg1) { let x = arg0?.foo; new (0, x)()}",
+        "function wrapper(arg0, arg1) { let x = arg0?.foo; new x();}",
+    );
+    test(
+        "function wrapper(arg0, arg1) { let x = arg0?.[foo]; new (0, x)()}",
+        "function wrapper(arg0, arg1) { let x = arg0?.[foo]; new x();}",
+    );
+    test(
+        "function wrapper(arg0, arg1) { let x = arg0; return (x(), 1);}",
+        "function wrapper(arg0, arg1) { return (arg0(), 1);}",
+    );
+    test_same("function wrapper(arg0, arg1) { let x = arg0; return (foo(), x(), 1);}");
+    test(
+        "function wrapper() { let x = [0, 1, 2]; return foo.bar(x);}",
+        "function wrapper() { return foo.bar([0, 1, 2]);}",
+    );
+    test(
+        "function wrapper() { let x = () => { console.log() }; foo(x) }",
+        "function wrapper() { foo(() => { console.log() }) }",
+    );
+    test(
+        "function wrapper() { let x = function () { console.log() }; foo(x) }",
+        "function wrapper() { foo(function() { console.log() }) }",
+    );
+
+    test(
+        "function wrapper() { var x = 1; for (var i = x; i < 10; i++) console.log(i) }",
+        "function wrapper() { for (var i = 1; i < 10; i++) console.log(i) }",
+    );
+    test(
+        "function wrapper() { var x = 1; for (let i = x; i < 10; i++) console.log(i) }",
+        "function wrapper() { for (let i = 1; i < 10; i++) console.log(i) }",
+    );
+    test(
+        "function wrapper() { var x = function () { return console.log(i), 1 }; for (let i = x(); i < 10; i++) console.log(i) }",
+        "function wrapper() { var x = function () { return console.log(i), 1 }; for (let i = x(); i < 10; i++) console.log(i) }",
+    );
+    // this is fine because `let j` inside the block cannot be referenced from `var i = j`
+    test(
+        "function wrapper() { var x = j; for (var i = x; i < 10; i++) { let j; console.log(i) } }",
+        "function wrapper() { for (var i = j; i < 10; i++) { let j; console.log(i) } }",
+    );
+    test(
+        "function wrapper() { var i, x = 1; for (i = x; i < 10; i++) console.log(i) }",
+        "function wrapper() { var i; for (i = 1; i < 10; i++) console.log(i) }",
+    );
+    test(
+        "function wrapper() { var x = i; for (var i = x; i < 10; i++) console.log(i) }",
+        "function wrapper() { for (var i = i; i < 10; i++) console.log(i) }",
+    );
+    test(
+        "function wrapper() { var x = i; for (let i = x; i < 10; i++) console.log(i) }",
+        "function wrapper() { var x = i; for (let i = x; i < 10; i++) console.log(i) }",
+    );
+    test(
+        "function wrapper() { var x = {}; for (var a in x) console.log(a) }",
+        "function wrapper() { for (var a in {}) console.log(a) }",
+    );
+    test(
+        "function wrapper() { var x = a; for (var a in x) console.log(a) }",
+        "function wrapper() { for (var a in a) console.log(a) }",
+    );
+    test(
+        "function wrapper() { var x = a; for (let a in x) console.log(a) }",
+        "function wrapper() { var x = a; for (let a in x) console.log(a) }",
+    );
+    test(
+        "function wrapper() { var x = {}; for (var a = 0 in x) console.log(a) }",
+        "function wrapper() { var x = {}; for (var a = 0 in x) console.log(a) }",
+    );
+    test(
+        "function wrapper() { var x = []; for (var a of x) console.log(a) }",
+        "function wrapper() { for (var a of []) console.log(a) }",
+    );
+    test(
+        "function wrapper() { var x = a; for (var a of x) console.log(a) }",
+        "function wrapper() { for (var a of a) console.log(a) }",
+    );
+    test(
+        "function wrapper() { var x = a; for (let a of x) console.log(a) }",
+        "function wrapper() { var x = a; for (let a of x) console.log(a) }",
+    );
+
+    test(
+        "function wrapper() { var __proto__ = []; return { __proto__: __proto__ } }",
+        "function wrapper() { return { __proto__: [] } }",
+    );
+    test(
+        "function wrapper() { var __proto__ = []; return { __proto__ } }",
+        "function wrapper() { return { ['__proto__']: [] } }",
+    );
+
+    // cannot be compressed to `function wrapper() { var foo; globalThis[console.log(foo)] = (() => { foo = 1 })() }`
+    test(
+        "function wrapper() { var foo; var bar = (() => { foo = 1 })(); globalThis[console.log(foo)] = bar }",
+        "function wrapper() { var foo, bar = (foo = 1, void 0); globalThis[console.log(foo)] = bar }",
+    );
+    // cannot be compressed to `function wrapper() { let foo; return foo.bar = (() => { foo = {} })(), foo }`
+    test(
+        "function wrapper() { let foo; const bar = (() => { foo = {} })(); foo.bar = bar; return foo }",
+        "function wrapper() { let foo, bar = (foo = {}, void 0); return foo.bar = void 0, foo }",
+    );
+    test(
+        "function wrapper() { let foo = {}; const bar = (() => { console.log() })(); foo.bar = bar; return foo }",
+        "function wrapper() { let foo = {}, bar = (console.log(), void 0); return foo.bar = void 0, foo; }",
+    );
+    test(
+        "function wrapper() { const bar = (() => { console.log() })(); this.bar = bar; return this }",
+        "function wrapper() { let bar = (console.log(), void 0); return this.bar = void 0, this; }",
+    );
+}
+
+#[test]
+fn test_inline_past_readonly_variable() {
+    test(
+        "function wrapper() { var x = foo, y = bar; return [x, y] }",
+        "function wrapper() { return [foo, bar] }",
+    );
+    test(
+        "function wrapper() { function x() {} var y = bar; return [x, y] }",
+        "function wrapper() { function x() {} return [x, bar] }",
+    );
+    test_same(
+        "function wrapper(bar) { Object.defineProperty(globalThis, 'foo', { value: () => { y = 1 } }); var x = foo, y = bar; return [x, y] }",
+    );
+    test_same(
+        "function wrapper(foo) { Object.defineProperty(globalThis, 'bar', { value: () => { x = 1 } }); var x = foo, y = bar; return [x, y] }",
+    );
+    test(
+        "function wrapper(bar) { var foo = { get bar() { y = 1 } }, x = foo.bar, y = bar; return [x, y] }",
+        "function wrapper(bar) { var x = { get bar() { y = 1 } }.bar, y = bar; return [x, y] }",
+    );
+    test(
+        "function wrapper(foo) { var bar = { get baz() { x = 1 } }, x = foo, y = bar.baz; return [x, y] }",
+        "function wrapper(foo) { var bar = { get baz() { x = 1 } }, x = foo, y = bar.baz; return [x, y] }",
+    );
+}
+
+#[test]
+fn test_inline_read_before_await_tdz() {
+    // https://github.com/rolldown/rolldown/issues/9959
+    // Merging `let num = await foo(); bar(v, num)` into `bar(v, await foo())`
+    // moves the read of read-only lexical `v` *before* the await. If `init`
+    // runs while `v` is still in its TDZ (called before `let v` initializes),
+    // the original reads `v` after the await (initialized) while the merged
+    // form throws `ReferenceError: Cannot access 'v' before initialization`.
+    // `let`/`const`/`class` bindings are TDZ-subject, so do not reorder.
+    //
+    // Mirrors the upstream repro shape: `init` is called in an earlier
+    // declaration's initializer (`let p = init(), v = ...`), before `v` is
+    // initialized, so `v` is in its TDZ when `init` runs.
+    test_same(
+        "import { bar } from 'x'; let p = init(), v = ext(); async function init() { let num = await foo(); bar(v, num) } export { p }",
+    );
+    test_same(
+        "import { bar } from 'x'; let v = ext(); export async function init() { let num = await foo(); bar(v, num) }",
+    );
+    test_same(
+        "import { bar } from 'x'; const v = ext(); export async function init() { let num = await foo(); bar(v, num) }",
+    );
+    test_same(
+        "import { bar } from 'x'; export async function init() { let num = await foo(); bar(C, num) } class C {}",
+    );
+    // A member assignment target reads the object before the await, so a
+    // closed-over lexical object must not be reordered either.
+    test_same("let v = ext(); export async function init() { let num = await foo(); v.x = num }");
+    test_same("let v = ext(); export async function init() { let num = await foo(); v[0] = num }");
+    // `var` / parameter bindings are not TDZ-subject, so reordering the read
+    // past the await is safe and still merges.
+    test(
+        "import { bar } from 'x'; export async function init(v) { let num = await foo(); bar(v, num) }",
+        "import { bar } from 'x'; export async function init(v) { bar(v, await foo()) }",
+    );
+    test(
+        "import { bar } from 'x'; export async function init() { var v = ext(); let num = await foo(); bar(v, num) }",
+        "import { bar } from 'x'; export async function init() { bar(ext(), await foo()) }",
+    );
+    test(
+        "export async function init(v) { let num = await foo(); v.x = num }",
+        "export async function init(v) { v.x = await foo() }",
+    );
+    // Same-function lexical is always initialized at the read, so it still merges.
+    test(
+        "import { bar } from 'x'; export function outer() { const v = ext(); return bar(v, ext2()) }",
+        "import { bar } from 'x'; export function outer() { return bar(ext(), ext2()) }",
+    );
+    // `using` is block-scoped too.
+    test_same(
+        "import { bar } from 'x'; using v = ext(); export async function init() { let num = await foo(); bar(v, num) }",
+    );
+    // `yield` is a suspension point like `await`.
+    test_same(
+        "import { bar } from 'x'; let v = ext(); export function* init() { let num = yield foo(); bar(v, num) }",
+    );
+    // Closed over across two function boundaries.
+    test_same(
+        "import { bar } from 'x'; let v = ext(); export function outer() { return async function () { let num = await foo(); bar(v, num) } }",
+    );
+}
+
+#[test]
+fn test_within_same_variable_declarations() {
+    test_same("function wrapper() { eval('a'); for (var a = foo, b = a; bar;) return b }");
+
+    test_script(
+        "var a = foo, b = a; for (; bar;) console.log(b)",
+        "for (var a = foo, b = a; bar;) console.log(b)",
+    );
+    test(
+        "function wrapper() { var a = foo, b = a; for (; bar;) return b }",
+        "function wrapper() { for (var b = foo; bar;) return b }",
+    );
+    test(
+        "function wrapper() { let a = foo, b = a; for (; bar;) return b }",
+        "function wrapper() { let b = foo; for (; bar;) return b }",
+    );
+    test_same("function wrapper() { using a = foo, b = a; for (; bar;) return b }");
+    test(
+        "function wrapper() { var a = foo, b = a, c = bar, d = c; for (; baz;) return [b, d] }",
+        "function wrapper() { for (var b = foo, d = bar; baz;) return [b, d] }",
+    );
+
+    test_script_same("for (var a = foo, b = a; bar;) console.log(b)");
+    test(
+        "function wrapper() { for (var a = foo, b = a; bar;) return b }",
+        "function wrapper() { for (var b = foo; bar;) return b }",
+    );
+    test(
+        "function wrapper() { for (let a = foo, b = a; bar;) return b }",
+        "function wrapper() { for (let b = foo; bar;) return b }",
+    );
+    test_same("function wrapper() { for (using a = foo, b = a; bar;) return b }");
+    test(
+        "function wrapper() { for (var a = foo, b = a, c = bar, d = c; baz;) return [b, d] }",
+        "function wrapper() { for (var b = foo, d = bar; baz;) return [b, d] }",
+    );
+}
+
+#[test]
+fn keep_exposed_variables() {
+    test_same("var x = foo; x(); export { x }");
+    test("var x = foo; x()", "foo()");
+    test_script_same("var x = foo; x()");
+    test_script("{ let x = foo; x() }", "foo()");
+    test(
+        "var b = 'b', l = { '-a': 'a', b }; export { l }",
+        "var l = { '-a': 'a', b: 'b' }; export { l }",
+    );
+}
+
+#[test]
+fn keep_names() {
+    test(
+        "var x = function() {}; var y = x; console.log(y.name)",
+        "console.log(function() {}.name)",
+    );
+    test_keep_names(
+        "var x = function() {}; var y = x; console.log(y.name)",
+        "var x = function() {}; console.log(x.name)",
+    );
+    test_keep_names(
+        "var x = (function() {}); var y = x; console.log(y.name)",
+        "var x = (function() {}); console.log(x.name)",
+    );
+    test_keep_names(
+        "var x = function foo() {}; var y = x; console.log(y.name)",
+        "console.log(function foo() {}.name)",
+    );
+
+    test("var x = class {}; var y = x; console.log(y.name)", "console.log(class {}.name)");
+    test_keep_names(
+        "var x = class {}; var y = x; console.log(y.name)",
+        "var x = class {}; console.log(x.name)",
+    );
+    test_keep_names(
+        "var x = (class {}); var y = x; console.log(y.name)",
+        "var x = (class {}); console.log(x.name)",
+    );
+    test_keep_names(
+        "var x = class Foo {}; var y = x; console.log(y.name)",
+        "console.log(class Foo {}.name)",
+    );
+}
+
+#[test]
+fn integration() {
+    test(
+        "
+        export function foo() {
+        var args = [];
+        for (var _i = 0; _i < arguments.length; _i++) {
+            args[_i] = arguments[_i];
+        }
+        return bar(args);
+        }
+
+        function bar(args) {
+        return args.concat(0)
+        }
+    ",
+        "
+        export function foo() {
+                return bar([...arguments]);
+        }
+        function bar(args) {
+                return args.concat(0);
+        }
+    ",
+    );
+    test(
+        "
+        var bar = foo.bar;
+        if (typeof bar !== 'object' || bar === null) console.log('foo')
+        ",
+        "
+        var bar = foo.bar;
+        (typeof bar != 'object' || !bar) && console.log('foo')
+        ",
+    );
+}
+
+// Inlining happens in the loop, after `Normalize`'s pure-flag pass, so the
+// outer constructor's flag needs the loop's re-evaluation hook.
+// `test_options` checks idempotency, so this fails without it.
+#[test]
+fn pure_comment_for_pure_global_constructors_after_inline() {
+    test(
+        "export function f() { var ab = new ArrayBuffer(1); var dv = new DataView(ab); foo(dv); }",
+        "export function f() { var dv = /* @__PURE__ */ new DataView(/* @__PURE__ */ new ArrayBuffer(1)); foo(dv); }",
+    );
+}

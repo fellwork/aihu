@@ -1,0 +1,731 @@
+# Changelog
+
+All notable changes to this package will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0).
+
+## [0.136.0] - 2026-06-15
+
+### ⚡ Performance
+
+- da1a6c6 diagnostics: Migrate to allocation-optimized oxc-miette (#23094) (Boshen)
+
+## [0.125.0] - 2026-04-13
+
+### 💥 BREAKING CHANGES
+
+- 382958a span: [**BREAKING**] Remove re-exports of string types from `oxc_span` crate (#21246) (overlookmotel)
+- c4aedfa str: [**BREAKING**] Add `static_ident!` macro (#21245) (overlookmotel)
+
+### ⚡ Performance
+
+- 8c51121 napi/parser, linter/plugins: Raw transfer deserialize `Span` fields as `i32`s (#21135) (overlookmotel)
+
+## [0.123.0] - 2026-03-30
+
+### 📚 Documentation
+
+- a147878 span: Remove `Atom` from README (#20836) (overlookmotel)
+
+## [0.116.0] - 2026-03-02
+
+### 🚀 Features
+
+- 655c38f semantic: Add "did you mean?" suggestions to undefined name errors (#19102) (copilot-swe-agent)
+
+## [0.114.0] - 2026-02-16
+
+### 🚀 Features
+
+- ebb80b3 ast: Add `node_id` field to all AST struct nodes (#18138) (Boshen)
+
+### 📚 Documentation
+
+- 569aa61 rust: Add missing rustdocs and remove missing_docs lint attrs (#19306) (Boshen)
+
+## [0.113.0] - 2026-02-10
+
+### 💥 BREAKING CHANGES
+
+- 48b0542 span: [**BREAKING**] SourceType::ts should set module to unambigious (#18873) (Boshen)
+
+### 🚀 Features
+
+- 18320c6 span: Store file extension in `SourceType` (#18893) (Boshen)
+
+## [0.111.0] - 2026-01-26
+
+### 💥 BREAKING CHANGES
+
+- 777fc40 ast: [**BREAKING**] Add `Ident` type (#18354) (Boshen)
+- af0ca46 span: [**BREAKING**] Use `ModuleKind::CommonJS` for `SourceType::cjs()` (#18276) (sapphi-red)
+
+## [0.109.0] - 2026-01-19
+
+### 💥 BREAKING CHANGES
+
+- ba9c750 span: [**BREAKING**] Use `ModuleKind::CommonJS` for `.cjs` and `.cts` file extensions (#18117) (Boshen)
+
+### 🚀 Features
+
+- 66b8c02 parser: Implement unambiguous module parsing for JS/TS files (#18124) (Boshen)
+- 08dad63 span: Add `sourceType: 'commonjs'` support (#18089) (Boshen)
+
+## [0.104.0] - 2025-12-19
+
+### 🚀 Features
+
+- 5586823 span: Extract TS declaration file check to its own function (#17037) (camchenry)
+
+## [0.100.0] - 2025-12-01
+
+### ⚡ Performance
+
+- cc2f352 span: Add `#[inline]` to `Atom` methods (#16311) (overlookmotel)
+- ffca070 span: Add `#[repr(transparent)]` to `Atom` (#16310) (overlookmotel)
+
+## [0.99.0] - 2025-11-24
+
+### 🚀 Features
+
+- 6cff132 span: Add `Span::merge_within` method (#15869) (sapphi-red)
+
+## [0.97.0] - 2025-11-11
+
+### 📚 Documentation
+
+- 3dc24b5 linter,minifier: Always refer as "ES Modules" instead of "ES6 Modules" (#15409) (sapphi-red)
+
+
+
+
+
+
+## [0.91.0] - 2025-09-22
+
+### 💼 Other
+
+- fb347da crates: V0.91.0 (#13961) (Boshen)
+
+
+
+
+
+## [0.88.0] - 2025-09-15
+
+### 🐛 Bug Fixes
+
+- ab51394 raw_transfer: Disable layout assertions on some 32-bit platforms (#13716) (overlookmotel)
+
+### 🚜 Refactor
+
+- babbaca all: Remove `pub` from modules with no exports (#13618) (overlookmotel)
+
+
+
+
+
+
+
+
+
+
+
+
+## [0.80.0] - 2025-08-03
+
+### 🚀 Features
+
+- 43eb80d span: Add `move_right` and `move_left` (#12646) (Sysix)
+
+### 📚 Documentation
+
+- de1de35 rust: Add comprehensive README.md documentation for all Rust crates (#12706) (Copilot)
+
+
+
+
+
+
+## [0.77.2] - 2025-07-17
+
+### 🐛 Bug Fixes
+
+- dac4db9 linter/exhaustive-deps: Better diagnostics for missing dependencies (#12337) (Don Isaac)
+
+
+
+
+
+## [0.75.1] - 2025-07-03
+
+### 🐛 Bug Fixes
+
+- d7076b3 ast/estree: Add optional `range` field to `Span` in TS type defs (#12014) (overlookmotel)
+
+### 🚜 Refactor
+
+- 016634f ast/estree: Introduce `serialize_span` method (#12013) (overlookmotel)
+
+
+
+
+
+
+
+# Changelog
+
+All notable changes to this package will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project does not adhere to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) until v1.0.0.
+
+## [0.72.3] - 2025-06-06
+
+### Features
+
+- 590b809 span: Add `Atom::from_cow_in` method (#11480) (overlookmotel)
+
+## [0.72.0] - 2025-05-24
+
+- c16ea02 allocator: [**BREAKING**] Remove `String` (#11262) (overlookmotel)
+
+### Features
+
+- 4feeeee span: Add `Atom::from_strs_array_in` method (#11261) (overlookmotel)
+
+### Refactor
+
+- f406202 ast, span: Use `StringBuilder` instead of `String` (#11258) (overlookmotel)
+
+## [0.71.0] - 2025-05-20
+
+- 5d9344f rust: [**BREAKING**] Clippy avoid-breaking-exported-api = false (#11088) (Boshen)
+
+### Documentation
+
+- 8570211 span: Fix incorrect comments for functions (#11138) (Ulrich Stark)
+
+### Refactor
+
+
+## [0.70.0] - 2025-05-15
+
+- 4e5c73b span: [**BREAKING**] `SourceType::from_path(".js")` return js instead of jsx (#11038) (Boshen)
+
+### Bug Fixes
+
+
+### Performance
+
+- c50b1a5 span: Faster conversion of path/extension to `SourceType` (#10996) (overlookmotel)
+
+### Refactor
+
+- 567368e span: Remove `source_type` module (#11024) (overlookmotel)
+
+### Styling
+
+- ff4d160 span: List exports individually (#11025) (overlookmotel)
+
+## [0.69.0] - 2025-05-09
+
+### Features
+
+- d066516 ast_tools: Support `#[estree(prepend_to)]` (#10849) (overlookmotel)
+
+### Refactor
+
+- b16331e ast/estree: Generalize concatenating fields with `Concat2` (#10848) (overlookmotel)
+
+### Styling
+
+- 62c3a4a ast_tools: Add full stop to end of generated comments (#10809) (overlookmotel)
+
+## [0.68.0] - 2025-05-03
+
+### Features
+
+- 0105253 span: Introduce `format_atom!` macro (#10722) (overlookmotel)
+
+### Bug Fixes
+
+- 48c542d linter: Skip linting vue <script> where `lang` is not js / ts (#10740) (Boshen)
+
+## [0.63.0] - 2025-04-08
+
+### Bug Fixes
+
+- 52f2a40 span/estree: Skip `ModuleKind::Unambiguous` varient for `estree` (#10146) (Dunqing)
+
+## [0.62.0] - 2025-04-01
+
+### Features
+
+- 8cd7430 allocator: `TakeIn` trait (#9969) (overlookmotel)
+
+### Refactor
+
+- d8e49a1 linter: Compute lintable extensions at compile time (#10090) (camchenry)
+
+## [0.56.4] - 2025-03-07
+
+### Refactor
+
+- 62bffed rust: Allow a few annoying clippy rules (#9588) (Boshen)
+
+## [0.54.0] - 2025-03-04
+
+### Features
+
+- a9f0d2b ast_tools: Generate field offset assertions for more types (#9449) (overlookmotel)
+
+### Performance
+
+- b0a0a82 ast/estree: Reduce overhead serializing static strings (#9396) (overlookmotel)
+
+### Refactor
+
+- dcff40c ast_tools: Generate layout assertions in multiple crates (#9448) (overlookmotel)
+
+## [0.53.0] - 2025-02-26
+
+### Refactor
+
+- 55ed1df ast/estree: Shorten `ESTree` impls for enums (#9275) (overlookmotel)
+
+## [0.52.0] - 2025-02-21
+
+- 216b33f ast/estree: [**BREAKING**] Replace `serde` with custom `ESTree` serializer (#9256) (overlookmotel)
+
+### Features
+
+- 124b3cb ast_tools: Add `#[builder(skip)]` attribute for structs and enums (#9205) (overlookmotel)
+
+### Documentation
+
+- 3414824 oxc: Enable `clippy::too_long_first_doc_paragraph` (#9237) (Boshen)
+
+### Refactor
+
+- 007c857 span: Manually derive `Deserialize` for `CompactStr` (#9249) (overlookmotel)
+- be27164 span: Implement `Serialize` manually for `Atom` (#9196) (overlookmotel)
+
+## [0.49.0] - 2025-02-10
+
+- b7ff7e1 span: [**BREAKING**] Export `ContentEq` trait from root of `oxc_span` crate (#8869) (overlookmotel)
+
+### Bug Fixes
+
+- 7e6a537 ast: Include `directives` in `body` (#8981) (hi-ogawa)
+- 81bed37 span: `f64::content_eq` return `false` for `0` and `-0` (#9007) (overlookmotel)
+
+### Refactor
+
+- c58f785 ast: Simplify serializing `SourceType` (#8936) (overlookmotel)
+- cbb4e9c ast: Generated `Serialize` impls flatten struct fields (#8904) (overlookmotel)
+- caa651c ast: `#[content_eq(skip)]` attr (#8875) (overlookmotel)
+- 7ddd219 ast: Rename `#[estree(always_flatten)]` attr to `#[estree(flatten)]` (#8871) (overlookmotel)
+- abfe5bf ast: Shorten generated code for numbers (#8864) (overlookmotel)
+- f69de07 ast: Remove unneeded lint attrs from generated code (#8862) (overlookmotel)
+- e930cae span: Combine `Span` type and impls in 1 file (#8900) (overlookmotel)
+
+### Styling
+
+- a4a8e7d all: Replace `#[allow]` with `#[expect]` (#8930) (overlookmotel)
+
+## [0.48.2] - 2025-02-02
+
+### Refactor
+
+- 0568210 ast: Remove excess line breaks from generated code (#8830) (overlookmotel)
+
+## [0.48.0] - 2025-01-24
+
+- 54d0fac span: [**BREAKING**] Remove `PartialEq` impl for `&Atom` (#8642) (overlookmotel)
+
+### Refactor
+
+- b8d9a51 span: Deal only in owned `Atom`s (#8641) (overlookmotel)
+- 20f52b1 span: Remove unnecessary lifetimes on `Atom` impls (#8639) (overlookmotel)
+- ac4f98e span: Derive `Copy` on `Atom` (#8596) (branchseer)
+
+## [0.47.0] - 2025-01-18
+
+- 7066d1c ast, span, syntax, regular_expression: [**BREAKING**] Remove `ContentHash` (#8512) (overlookmotel)
+
+### Features
+
+
+### Performance
+
+- 63eb298 span: Compare `Span`s as single `u64`s (#8300) (overlookmotel)
+- a43560c span: Hash `Span` as a single `u64` (#8299) (overlookmotel)
+- 3fff7d2 span: Align `Span` same as `usize` (#8298) (overlookmotel)
+
+### Refactor
+
+- ac05134 allocator: `String` type (#8568) (overlookmotel)
+- b5ed58e span: All methods take owned `Span` (#8297) (overlookmotel)
+
+## [0.46.0] - 2025-01-14
+
+### Features
+
+- 9d550aa span: Add `Atom::r#static` (#8479) (_Kerman)
+
+### Refactor
+
+- de5b288 span: Rename `Atom::new_const` method (#8480) (overlookmotel)
+
+## [0.45.0] - 2025-01-11
+
+### Styling
+
+- e81f34f span: Reformat code (#8296) (overlookmotel)
+
+## [0.44.0] - 2024-12-25
+
+### Features
+
+- 11c4bd8 span: Implement source type `{file basename}.d.{extension}.ts` (#8109) (Boshen)
+
+## [0.42.0] - 2024-12-18
+
+### Features
+
+- c30a982 span: Add `impl From<ArenaString> for Atom` (#7973) (overlookmotel)
+
+### Refactor
+
+- 3858221 global: Sort imports (#7883) (overlookmotel)
+
+### Styling
+
+- 7fb9d47 rust: `cargo +nightly fmt` (#7877) (Boshen)
+
+## [0.41.0] - 2024-12-13
+
+### Features
+
+- 8991f33 ast: Add `visit_span` to `Visit` and `VisitMut` (#7816) (overlookmotel)
+
+## [0.39.0] - 2024-12-04
+
+### Bug Fixes
+
+- b553d6f span: Fix clippy warning (#7591) (overlookmotel)
+
+### Refactor
+
+- 823353a linter: Clean up APIs for `ModuleRecord` (#7556) (Boshen)
+
+## [0.36.0] - 2024-11-09
+
+### Features
+
+- dc0215c ast_tools: Add #[estree(append_to)], remove some custom serialization code (#7149) (ottomated)
+
+## [0.35.0] - 2024-11-04
+
+### Features
+
+- 9725e3c ast_tools: Add #[estree(always_flatten)] to Span (#6935) (ottomated)
+- 169fa22 ast_tools: Default enums to rename_all = "camelCase" (#6933) (ottomated)
+
+## [0.34.0] - 2024-10-26
+
+### Features
+
+- 1145341 ast_tools: Output typescript to a separate package (#6755) (ottomated)
+
+### Refactor
+
+- 423d54c rust: Remove the annoying `clippy::wildcard_imports` (#6860) (Boshen)
+
+## [0.33.0] - 2024-10-24
+
+### Documentation
+
+- 85d5220 span: Enhance `Span` documentation (#6707) (DonIsaac)
+
+### Refactor
+
+- 85e69a1 ast_tools: Add line breaks to generated code for `ESTree` derive (#6680) (overlookmotel)
+- ad8e293 ast_tools: Shorten generated code for `impl Serialize` (#6684) (overlookmotel)
+- 9ba2b0e ast_tools: Move `#[allow]` attrs to top of generated files (#6679) (overlookmotel)
+
+### Testing
+
+- d4a2529 span: Add `Span::is_empty` unit tests (#6706) (Don Isaac)
+
+## [0.32.0] - 2024-10-19
+
+### Features
+
+- e310e52 parser: Generate `Serialize` impls in ast_tools (#6404) (ottomated)
+
+### Documentation
+
+- de22b81 data-structures: Enable lint warnings on missing docs, and add missing doc comments (#6612) (DonIsaac)
+- 9e9fa9e span: Enable lint warnings on missing docs (#6617) (overlookmotel)
+- 6a194f9 span: Document validity of `ModuleKind::Unambiguous` (#6423) (Boshen)
+
+### Refactor
+
+- 3faee66 span: Remove unused `ContentHash::content_hash_slice` (#6609) (DonIsaac)
+
+## [0.30.4] - 2024-09-28
+
+### Bug Fixes
+
+- fd6798f parser: Remove unintended `pub Kind` (#6109) (Boshen)
+
+## [0.30.0] - 2024-09-23
+
+### Features
+
+- a5f2e9a span: Impl `From<Atom<'a>>` for `Atom` (#5809) (DonIsaac)
+- a07f03a transformer: Sync `Program::source_type` after transform (#5887) (Boshen)
+
+## [0.28.0] - 2024-09-11
+
+- 4a8aec1 span: [**BREAKING**] Change `SourceType::js` to `SourceType::cjs` and `SourceType::mjs` (#5606) (Boshen)
+
+- 603817b oxc: [**BREAKING**] Add `SourceType::Unambiguous`; parse `.js` as unambiguous (#5557) (Boshen)
+
+### Features
+
+- b3cbd56 span: `format_compact_str!` macro (#5610) (overlookmotel)
+
+### Bug Fixes
+
+- 28b934c coverage: Apply `always_strict` to test262 and typescript per the specifcation (#5555) (Boshen)
+- f49e6eb span: Treat `.js` as `module` file (reverts the previous breaking change) (#5612) (Boshen)
+
+### Refactor
+
+- 3d190a5 span: Move `CompactStr` into separate file (#5609) (overlookmotel)
+- 5532628 span: Put types and impl in the same mod file (Boshen)
+
+## [0.27.0] - 2024-09-06
+
+### Features
+
+- 90facd3 ast: Add `ContentHash` trait; remove noop `Hash` implementation from `Span` (#5451) (rzvxa)
+- 23285f4 ast: Add `ContentEq` trait. (#5427) (rzvxa)
+
+### Documentation
+
+- 3f204a9 span: Update docs about `ContentEq` `Vec` comparison speed (#5478) (overlookmotel)
+
+### Refactor
+
+- 9f6e0ed ast: Simplify `ContentEq` trait definition. (#5468) (rzvxa)
+- 94a6ac6 span: Use `Hasher` from `std` (#5476) (overlookmotel)
+
+## [0.26.0] - 2024-09-03
+
+### Features
+
+- f81e8a1 linter: Add `oxc/no-async-endpoint-handlers` (#5364) (DonIsaac)
+- 1b20ceb span: Add `CompactStr::to_compact_string` method (#5385) (Boshen)
+- 5a137f0 span/source-type: Add SourceType factory methods (#5242) (DonIsaac)
+- f5e05db span/source-type: Impl `Display` and `Error` for `UnknownExtension` (#5240) (DonIsaac)
+
+### Bug Fixes
+
+- a6bb3b1 span/source-type: Consider `.cjs` and `.cts` files as `ModuleKind::Script` (#5239) (DonIsaac)
+
+### Refactor
+
+- 94f60e7 span/source-type: Make `SourceType` factories `const` (#5241) (DonIsaac)
+
+## [0.25.0] - 2024-08-23
+
+### Refactor
+
+- 7706523 span: Clarify `Atom` conversion methods lifetimes (#4978) (overlookmotel)
+
+## [0.24.3] - 2024-08-18
+
+### Refactor
+
+- 90d0b2b allocator, ast, span, ast_tools: Use `allocator` as var name for `Allocator` (#4900) (overlookmotel)
+
+## [0.24.2] - 2024-08-12
+
+### Refactor
+
+- 096ac7b linter: Clean up jsx-a11y/anchor-is-valid (#4831) (DonIsaac)
+
+## [0.24.1] - 2024-08-10
+
+### Features
+
+- b3c3125 linter: Overhaul unicorn/no-useless-spread (#4791) (DonIsaac)
+
+## [0.24.0] - 2024-08-08
+
+### Features
+
+- 54047e0 ast: `GetSpanMut` trait (#4609) (overlookmotel)
+- 07607d3 ast_codegen, span: Process `Span` through ast_codegen (#4703) (overlookmotel)
+- 125c5fd ast_codegen, span: Process `SourceType` through ast_codegen. (#4696) (rzvxa)
+- 2e63618 span: Implement `CloneIn` for the AST-related items. (#4729) (rzvxa)
+
+### Performance
+
+- 6ff200d linter: Change react rules and utils to use `Cow` and `CompactStr` instead of `String`  (#4603) (DonIsaac)
+
+### Refactor
+
+- e1429e5 span: Reduce #[cfg_attr] boilerplate in type defs (#4702) (overlookmotel)
+
+## [0.23.1] - 2024-08-06
+
+### Features
+
+- 54047e0 ast: `GetSpanMut` trait (#4609) (overlookmotel)
+
+### Performance
+
+- 6ff200d linter: Change react rules and utils to use `Cow` and `CompactStr` instead of `String`  (#4603) (DonIsaac)
+
+## [0.22.1] - 2024-07-27
+
+### Features
+
+- e2735ca span: Add `contains_inclusive` method (#4491) (DonIsaac)
+
+## [0.22.0] - 2024-07-23
+
+### Bug Fixes
+- ea33f94 Impl PartialEq<str> for CompactStr (#4352) (DonIsaac)
+
+### Performance
+- a207923 Replace some CompactStr usages with Cows (#4377) (DonIsaac)
+
+## [0.18.0] - 2024-07-09
+
+### Features
+
+- 44c7fe3 span: Add various implementations of `FromIn` for `Atom`. (#4090) (rzvxa)
+
+## [0.16.1] - 2024-06-29
+
+### Refactor
+
+- 2705df9 linter: Improve diagnostic labeling (#3960) (DonIsaac)
+
+## [0.14.0] - 2024-06-12
+
+### Features
+
+- 129f91e span: Port over more methods from TextRange (#3592) (Don Isaac)
+
+### Bug Fixes
+
+- d65202d span: Correct doc comments (#3608) (overlookmotel)
+- 9e8f4d6 transformer: Do not add `__source` for generated nodes (#3614) (overlookmotel)
+
+### Refactor
+
+- f98f777 linter: Add rule fixer (#3589) (Don Isaac)
+
+## [0.13.4] - 2024-06-07
+
+### Performance
+
+- 9f467b8 transformer: Avoid fragment update where possible (#3535) (overlookmotel)
+
+### Documentation
+
+- 1d3c0d7 span: Add doc comments to `oxc_span::Span` (#3543) (Don Isaac)
+
+## [0.13.2] - 2024-06-03
+
+### Features
+
+- 679495c atom: Get &str from Atom<'a> with lifetime of 'a (#3420) (Don Isaac)
+
+## [0.13.0] - 2024-05-14
+
+### Features
+
+- a52e321 transformer/jsx-source: Get the correct lineNumber and columnNumber from the span. (#3142) (Dunqing)
+
+### Refactor
+
+- c84c116 ast: Add `is_strict` methods (#3227) (overlookmotel)
+- 2064ae9 parser,diagnostic: One diagnostic struct to eliminate monomorphization of generic types (#3214) (Boshen)
+
+## [0.12.5] - 2024-04-22
+
+### Refactor
+
+- 27102df napi: Remove unnecessary custom `Serialize` impl for `Atom` (#3041) (overlookmotel)
+
+## [0.10.0] - 2024-03-14
+
+### Features
+
+- 8b3de77 span: `impl<'a> PartialEq<str> for Atom<'a>` (#2649) (Boshen)
+- 4f9dd98 span: Remove `From<String>` and `From<Cow>` API because they create memory leak (#2628) (Boshen)- 697b6b7 Merge features `serde` and `wasm` to `serialize` (#2716) (Boshen)- 265b2fb Miette v7 (#2465) (Boshen)
+
+### Refactor
+
+- cba1e2f ast: Import `Tsify` to shorten code (#2665) (overlookmotel)
+- 6b5723c ast: Shorten manual TS defs (#2638) (overlookmotel)
+- 75ae563 span: Change shape of `Language` (#2680) (overlookmotel)
+- b2de57a span: Simplify `Atom` (#2630) (overlookmotel)
+- cb4e054 span: Remove `Atom::Compact` variant (#2629) (Boshen)
+- 798a6df span: Disallow struct expression constructor for `Span` (#2625) (Boshen)- 89e8d15 Derive `SerAttrs` on all AST types (#2698) (overlookmotel)- 3c1e0db Reduce `cfg_attr` boilerplate with `SerAttrs` derive (#2669) (overlookmotel)- d76ee6b "wasm" feature enable "serde" feature (#2639) (overlookmotel)- 8001b2f Make `CompactStr` immutable (#2620) (overlookmotel)- 0646bf3 Rename `CompactString` to `CompactStr` (#2619) (overlookmotel)
+
+## [0.9.0] - 2024-03-05
+
+### Refactor
+
+- 27052eb span: Remove `AtomImpl` (#2525) (Boshen)
+- 903f17c span: Move base54 method to mangler (#2523) (Boshen)- c56b6cb Replace InlinableString with CompactString for `Atom` (#2517) (Boshen)
+
+## [0.7.0] - 2024-02-09
+
+### Features
+
+- 6002560 span: Fix memory leak by implementing inlineable string for oxc_allocator (#2294) (Boshen)
+
+## [0.6.0] - 2024-02-03
+
+### Features
+
+- cd5026c ast: TypeScript definition for wasm target (#2158) (Nicholas Roberts)
+
+## [0.4.0] - 2023-12-08
+
+### Refactor
+
+- 1a576f6 rust: Move to workspace lint table (#1444) (Boshen)
+
+## [0.3.0] - 2023-11-06
+
+### Features
+
+- d8f07ca linter: Support react/no-render-return-value (#1042) (Dunqing)
+
+### Refactor
+
+- d9ba532 transformer: Add an empty SPAN utility for creating AST nodes (#1067) (Boshen)
+
+### Testing
+
+- b4b39b8 semantic: Add scoping test cases (#954) (Don Isaac)
+
+## [0.2.0] - 2023-09-14
+
+### Features
+
+- 027a67d minifier: Constant addition expression folding (#882) (Don Isaac)
+
+### Refactor
+- fdf288c Improve code coverage in various places (#721) (Boshen)
+

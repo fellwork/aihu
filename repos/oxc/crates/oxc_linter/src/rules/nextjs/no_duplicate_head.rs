@@ -1,0 +1,244 @@
+use oxc_ast::AstKind;
+use oxc_diagnostics::{LabeledSpan, OxcDiagnostic};
+use oxc_macros::declare_oxc_lint;
+use oxc_semantic::AstNode;
+use oxc_span::GetSpan;
+
+use crate::{context::LintContext, rule::Rule};
+
+fn no_duplicate_head(labels: Vec<LabeledSpan>) -> OxcDiagnostic {
+    OxcDiagnostic::warn("Do not include multiple instances of `<Head/>`")
+        .with_help("Only use a single `<Head />` component in your custom document in `pages/_document.js`. See: https://nextjs.org/docs/messages/no-duplicate-head")
+        .with_labels(labels)
+}
+#[derive(Debug, Default, Clone)]
+pub struct NoDuplicateHead;
+
+declare_oxc_lint!(
+    /// ### What it does
+    ///
+    /// Prevent duplicate usage of `<Head>` in `pages/_document.js`.
+    ///
+    /// ### Why is this bad?
+    ///
+    /// This can cause unexpected behavior in your application.
+    ///
+    /// ### Examples
+    ///
+    /// Examples of **incorrect** code for this rule:
+    /// ```jsx
+    /// import Document, { Html, Head, Main, NextScript } from 'next/document'
+    /// class MyDocument extends Document {
+    ///   static async getInitialProps(ctx) {
+    ///   }
+    ///   render() {
+    ///     return (
+    ///       <Html>
+    ///         <Head />
+    ///         <Head />
+    ///         <body>
+    ///           <Main />
+    ///           <NextScript />
+    ///         </body>
+    ///       </Html>
+    ///     )
+    ///   }
+    /// }
+    /// export default MyDocument
+    /// ```
+    ///
+    /// Examples of **correct** code for this rule:
+    /// ```jsx
+    /// import Document, { Html, Head, Main, NextScript } from 'next/document'
+    /// class MyDocument extends Document {
+    ///   static async getInitialProps(ctx) {
+    ///   }
+    ///   render() {
+    ///     return (
+    ///       <Html>
+    ///         <Head />
+    ///         <body>
+    ///           <Main />
+    ///           <NextScript />
+    ///         </body>
+    ///       </Html>
+    ///     )
+    ///   }
+    /// }
+    /// export default MyDocument
+    /// ```
+    NoDuplicateHead,
+    nextjs,
+    correctness,
+    version = "0.3.3",
+    short_description = "Prevent duplicate usage of `<Head>` in `pages/_document.js`.",
+);
+
+impl Rule for NoDuplicateHead {
+    fn run<'a>(&self, node: &AstNode<'a>, ctx: &LintContext<'a>) {
+        let AstKind::ImportDeclaration(import_decl) = node.kind() else {
+            return;
+        };
+        let Some(specifiers) = &import_decl.specifiers else {
+            return;
+        };
+        let Some(head_specifier) = specifiers.iter().find(|s| s.name() == "Head") else {
+            return;
+        };
+
+        let scoping = ctx.scoping();
+        let symbol_id = head_specifier.local().symbol_id();
+
+        let flags = scoping.symbol_flags(symbol_id);
+        if !flags.is_import() {
+            return;
+        }
+
+        let scope_id = scoping.symbol_scope_id(symbol_id);
+        if scope_id != scoping.root_scope_id() {
+            return;
+        }
+
+        // 1 x `<Head>` is fine, more than 1 is not.
+        // Avoid allocating a `Vec`, or looking up span in common case
+        // where only a single `<Head>` is found.
+        let mut first_node_id = None;
+        let mut labels = vec![];
+        let nodes = ctx.nodes();
+        let get_label = |node_id| {
+            let span = nodes.kind(node_id).span();
+            LabeledSpan::underline(span)
+        };
+
+        for reference in scoping.get_resolved_references(symbol_id) {
+            if !reference.is_read() {
+                continue;
+            }
+
+            if !matches!(nodes.parent_kind(reference.node_id()), AstKind::JSXOpeningElement(_)) {
+                continue;
+            }
+
+            let node_id = reference.node_id();
+            if labels.is_empty()
+                && let Some(first_node_id) = first_node_id
+            {
+                // 2nd `<Head>` found - populate `labels` with both
+                labels.extend([get_label(first_node_id), get_label(node_id)]);
+            } else if first_node_id.is_none() {
+                // First `<Head>` found
+                first_node_id = Some(node_id);
+            } else {
+                // Further `<Head>` found - add to `node_ids`
+                labels.push(get_label(node_id));
+            }
+        }
+
+        // `labels` is empty if 0 or 1 `<Head>` found
+        if !labels.is_empty() {
+            ctx.diagnostic(no_duplicate_head(labels));
+        }
+    }
+}
+
+#[test]
+fn test() {
+    use crate::tester::Tester;
+
+    let pass = vec![
+        "import Document, { Html, Head, Main, NextScript } from 'next/document'
+
+			      class MyDocument extends Document {
+			        static async getInitialProps(ctx) {
+			          //...
+			        }
+
+			        render() {
+			          return (
+			            <Html>
+			              <Head/>
+			            </Html>
+			          )
+			        }
+			      }
+
+			      export default MyDocument
+			    ",
+        r#"import Document, { Html, Head, Main, NextScript } from 'next/document'
+
+			      class MyDocument extends Document {
+			        render() {
+			          return (
+			            <Html>
+			              <Head>
+			                <meta charSet="utf-8" />
+			                <link
+			                  href="https://fonts.googleapis.com/css2?family=Sarabun:ital,wght@0,400;0,700;1,400;1,700&display=swap"
+			                  rel="stylesheet"
+			                />
+			              </Head>
+			            </Html>
+			          )
+			        }
+			      }
+
+			      export default MyDocument
+			    "#,
+    ];
+
+    let fail = vec![
+        "
+			      import Document, { Html, Main, NextScript } from 'next/document'
+			      import Head from 'next/head'
+
+			      class MyDocument extends Document {
+			        render() {
+			          return (
+			            <Html>
+			              <Head />
+			              <Head />
+			              <Head />
+			            </Html>
+			          )
+			        }
+			      }
+
+			      export default MyDocument
+			      ",
+        r#"
+			      import Document, { Html, Main, NextScript } from 'next/document'
+			      import Head from 'next/head'
+
+			      class MyDocument extends Document {
+			        render() {
+			          return (
+			            <Html>
+			              <Head>
+			                <meta charSet="utf-8" />
+			                <link
+			                  href="https://fonts.googleapis.com/css2?family=Sarabun:ital,wght@0,400;0,700;1,400;1,700&display=swap"
+			                  rel="stylesheet"
+			                />
+			              </Head>
+			              <body>
+			                <Main />
+			                <NextScript />
+			              </body>
+			              <Head>
+			                <script
+			                  dangerouslySetInnerHTML={{
+			                    __html: '',
+			                  }}
+			                />
+			              </Head>
+			            </Html>
+			          )
+			        }
+			      }
+
+			      export default MyDocument
+			      "#,
+    ];
+
+    Tester::new(NoDuplicateHead::NAME, NoDuplicateHead::PLUGIN, pass, fail).test_and_snapshot();
+}

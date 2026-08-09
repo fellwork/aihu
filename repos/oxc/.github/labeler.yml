@@ -1,0 +1,83 @@
+A-allocator:
+  - changed-files:
+      - any-glob-to-any-file: ["crates/oxc_allocator/**"]
+
+A-ast:
+  - changed-files:
+      - any-glob-to-any-file:
+          ["crates/oxc_ast/**", "crates/oxc_ast_macros/**", "crates/oxc_ast_visit/**"]
+
+A-ast-tools:
+  - changed-files:
+      - any-glob-to-any-file: ["tasks/ast_tools/**"]
+
+A-cfg:
+  - changed-files:
+      - any-glob-to-any-file: ["crates/oxc_cfg/**"]
+
+A-cli:
+  - changed-files:
+      - any-glob-to-any-file: ["apps/oxlint/**", "apps/oxfmt/**"]
+
+A-editor:
+  - changed-files:
+      - any-glob-to-any-file:
+          ["crates/oxc_language_server/**", "apps/oxlint/src/lsp/**", "apps/oxfmt/src/lsp/**"]
+
+A-formatter:
+  - changed-files:
+      - any-glob-to-any-file:
+          ["crates/oxc_formatter*/**", "tasks/prettier_conformance/**", "apps/oxfmt/**"]
+
+A-transformer:
+  - changed-files:
+      - any-glob-to-any-file:
+          [
+            "crates/oxc_transformer*/**",
+            "crates/oxc_traverse/**",
+            "tasks/transform_conformance/**",
+            "napi/transform/**",
+          ]
+
+A-linter:
+  - changed-files:
+      - any-glob-to-any-file:
+          [
+            "crates/oxc_linter/**",
+            "apps/oxlint/**",
+            "tasks/lint_rules/**",
+            "tasks/linter_codegen/**",
+            "tasks/rulegen/**",
+            "tasks/track_linter_timings/**",
+          ]
+
+A-linter-plugins:
+  - changed-files:
+      - all-globs-to-any-file:
+          ["apps/oxlint/src-js/**", "!apps/oxlint/src-js/package/config.generated.ts"]
+      - any-glob-to-any-file: ["apps/oxlint/test/**", "apps/oxlint/conformance/**"]
+
+A-minifier:
+  - changed-files:
+      - any-glob-to-any-file:
+          ["crates/oxc_minifier/**", "crates/oxc_mangler/**", "tasks/minsize/**", "napi/minify/**"]
+
+A-parser:
+  - changed-files:
+      - any-glob-to-any-file: ["crates/oxc_parser/**", "napi/parser/**"]
+
+A-codegen:
+  - changed-files:
+      - any-glob-to-any-file: ["crates/oxc_codegen/**"]
+
+A-semantic:
+  - changed-files:
+      - any-glob-to-any-file: ["crates/oxc_semantic/**"]
+
+A-regular-expression:
+  - changed-files:
+      - any-glob-to-any-file: ["crates/oxc_regular_expression/**"]
+
+A-isolated-declarations:
+  - changed-files:
+      - any-glob-to-any-file: ["crates/oxc_isolated_declarations/**"]

@@ -1,0 +1,44 @@
+---
+source: crates/oxc_semantic/tests/main.rs
+input_file: crates/oxc_semantic/tests/fixtures/typescript-eslint/ts-module/scope.ts
+---
+[
+  {
+    "children": [
+      {
+        "children": [],
+        "flags": "ScopeFlags(TsModuleBlock)",
+        "id": 1,
+        "node": "TSModuleDeclaration(Foo)",
+        "symbols": [
+          {
+            "flags": "SymbolFlags(BlockScopedVariable | ConstVariable)",
+            "id": 1,
+            "name": "x",
+            "node": "VariableDeclarator(x)",
+            "references": []
+          }
+        ]
+      }
+    ],
+    "flags": "ScopeFlags(Top)",
+    "id": 0,
+    "node": "Program",
+    "symbols": [
+      {
+        "flags": "SymbolFlags(ValueModule)",
+        "id": 0,
+        "name": "Foo",
+        "node": "TSModuleDeclaration(Foo)",
+        "references": []
+      },
+      {
+        "flags": "SymbolFlags(BlockScopedVariable | ConstVariable)",
+        "id": 2,
+        "name": "unresolved",
+        "node": "VariableDeclarator(unresolved)",
+        "references": []
+      }
+    ]
+  }
+]

@@ -1,0 +1,707 @@
+use oxc_allocator::{Allocator, ArenaBox, ArenaVec, CloneIn, GetAllocator};
+use oxc_ast::{ast::*, builder::NONE};
+use oxc_span::{ContentEq, GetSpan, SPAN};
+
+use crate::{
+    IsolatedDeclarations,
+    diagnostics::{
+        accessor_must_have_explicit_return_type, array_inferred, computed_property_name,
+        extends_clause_expression, method_must_have_explicit_return_type,
+        property_must_have_explicit_type,
+    },
+};
+
+struct AccessorAnnotation<'a> {
+    setter: Option<ArenaBox<'a, TSTypeAnnotation<'a>>>,
+    getter: Option<ArenaBox<'a, TSTypeAnnotation<'a>>>,
+}
+
+impl<'a> AccessorAnnotation<'a> {
+    fn get_setter_annotation(
+        &self,
+        allocator: &'a Allocator,
+    ) -> Option<ArenaBox<'a, TSTypeAnnotation<'a>>> {
+        self.setter.as_ref().or(self.getter.as_ref()).map(|t| t.clone_in(allocator))
+    }
+
+    fn get_getter_annotation(
+        &self,
+        allocator: &'a Allocator,
+    ) -> Option<ArenaBox<'a, TSTypeAnnotation<'a>>> {
+        self.getter.as_ref().or(self.setter.as_ref()).map(|t| t.clone_in(allocator))
+    }
+}
+
+impl<'a> IsolatedDeclarations<'a> {
+    pub(crate) fn is_literal_key(key: &PropertyKey<'a>) -> bool {
+        match key {
+            PropertyKey::StringLiteral(_) | PropertyKey::NumericLiteral(_) => true,
+            PropertyKey::TemplateLiteral(l) => l.expressions.is_empty(),
+            PropertyKey::UnaryExpression(expr) => {
+                expr.operator.is_arithmetic()
+                    && matches!(
+                        expr.argument,
+                        Expression::NumericLiteral(_) | Expression::BigIntLiteral(_)
+                    )
+            }
+            _ => false,
+        }
+    }
+
+    /// Check the property key whether it is a `Symbol.iterator` or `global.Symbol.iterator`
+    pub(crate) fn is_global_symbol(key: &PropertyKey<'a>) -> bool {
+        let PropertyKey::StaticMemberExpression(member) = key else {
+            return false;
+        };
+
+        // TODO: Unsupported checking if it is a global Symbol yet
+        match &member.object {
+            // `Symbol.iterator`
+            Expression::Identifier(ident) => ident.name == "Symbol",
+            // `global.Symbol.iterator`
+            Expression::StaticMemberExpression(expr) => {
+                expr.property.name == "Symbol"
+                    && matches!(
+                        &expr.object, Expression::Identifier(ident)
+                        if matches!(ident.name.as_str(), "window" | "globalThis")
+                    )
+            }
+            _ => false,
+        }
+    }
+
+    pub(crate) fn is_valid_property_key(key: &PropertyKey<'a>) -> bool {
+        Self::is_literal_key(key) || Self::is_global_symbol(key)
+    }
+
+    pub(crate) fn report_property_key(&self, key: &PropertyKey<'a>) -> bool {
+        if Self::is_valid_property_key(key) {
+            false
+        } else {
+            self.error(computed_property_name(key.span()));
+            true
+        }
+    }
+
+    pub(crate) fn transform_accessibility(
+        accessibility: Option<TSAccessibility>,
+    ) -> Option<TSAccessibility> {
+        if accessibility.is_none_or(|a| a == TSAccessibility::Public) {
+            None
+        } else {
+            accessibility
+        }
+    }
+
+    fn transform_class_property_definition(
+        &self,
+        property: &PropertyDefinition<'a>,
+    ) -> ClassElement<'a> {
+        let mut type_annotation = None;
+        let mut value = None;
+
+        if property.accessibility.is_none_or(|a| !a.is_private()) {
+            if property.type_annotation.is_some() {
+                type_annotation = property.type_annotation.clone_in(self.allocator());
+            } else if let Some(expr) = property.value.as_ref() {
+                let ts_type = if property.readonly {
+                    // Keep literal const initializers on readonly class properties to match TS d.ts emit.
+                    if let Some(initializer) = self.get_literal_const_initializer(expr) {
+                        value = Some(initializer);
+                        None
+                    } else if Self::is_non_const_array_literal(expr) {
+                        self.error(array_inferred(expr.span()));
+                        Some(TSType::new_ts_unknown_keyword(expr.span(), self))
+                    } else {
+                        self.transform_expression_to_ts_type(expr)
+                    }
+                } else {
+                    self.infer_type_from_expression(expr)
+                };
+
+                type_annotation = ts_type.map(|t| TSTypeAnnotation::boxed(SPAN, t, self));
+            }
+
+            if type_annotation.is_none() && value.is_none() {
+                self.error(property_must_have_explicit_type(property.key.span()));
+            }
+        }
+
+        ClassElement::new_property_definition(
+            property.span,
+            property.r#type,
+            ArenaVec::new_in(self),
+            property.key.clone_in(self.allocator()),
+            type_annotation,
+            value,
+            property.computed,
+            property.r#static,
+            false,
+            property.r#override,
+            property.optional,
+            false,
+            property.readonly,
+            Self::transform_accessibility(property.accessibility),
+            self,
+        )
+    }
+
+    fn get_literal_const_initializer(&self, expr: &Expression<'a>) -> Option<Expression<'a>> {
+        match expr {
+            Expression::BooleanLiteral(_)
+            | Expression::NumericLiteral(_)
+            | Expression::BigIntLiteral(_)
+            | Expression::StringLiteral(_) => Some(expr.clone_in(self.allocator())),
+            Expression::TemplateLiteral(lit) if lit.expressions.is_empty() => {
+                self.transform_template_to_string(lit).map(Expression::StringLiteral)
+            }
+            Expression::UnaryExpression(expr) if Self::can_infer_unary_expression(expr) => {
+                Some(Expression::UnaryExpression(expr.clone_in(self.allocator())))
+            }
+            Expression::ParenthesizedExpression(expr) => {
+                self.get_literal_const_initializer(&expr.expression)
+            }
+            Expression::TSAsExpression(expr) if expr.type_annotation.is_const_type_reference() => {
+                self.get_literal_const_initializer(&expr.expression)
+            }
+            Expression::TSTypeAssertion(expr) if expr.type_annotation.is_const_type_reference() => {
+                self.get_literal_const_initializer(&expr.expression)
+            }
+            _ => None,
+        }
+    }
+
+    fn is_non_const_array_literal(expr: &Expression<'a>) -> bool {
+        match expr {
+            Expression::ArrayExpression(_) => true,
+            Expression::ParenthesizedExpression(expr) => {
+                Self::is_non_const_array_literal(&expr.expression)
+            }
+            _ => false,
+        }
+    }
+
+    fn transform_class_method_definition(
+        &self,
+        definition: &MethodDefinition<'a>,
+        params: ArenaBox<'a, FormalParameters<'a>>,
+        return_type: Option<ArenaBox<'a, TSTypeAnnotation<'a>>>,
+    ) -> ClassElement<'a> {
+        let function = &definition.value;
+
+        let value = Function::boxed(
+            function.span,
+            FunctionType::TSEmptyBodyFunctionExpression,
+            function.id.clone_in(self.allocator()),
+            false,
+            false,
+            false,
+            function.type_parameters.clone_in(self.allocator()),
+            function.this_param.clone_in(self.allocator()),
+            params,
+            return_type,
+            NONE,
+            self,
+        );
+
+        ClassElement::new_method_definition(
+            definition.span,
+            definition.r#type,
+            ArenaVec::new_in(self),
+            definition.key.clone_in(self.allocator()),
+            value,
+            definition.kind,
+            definition.computed,
+            definition.r#static,
+            definition.r#override,
+            definition.optional,
+            Self::transform_accessibility(definition.accessibility),
+            self,
+        )
+    }
+
+    fn create_class_property(
+        &self,
+        r#type: PropertyDefinitionType,
+        span: Span,
+        key: PropertyKey<'a>,
+        r#static: bool,
+        r#override: bool,
+        accessibility: Option<TSAccessibility>,
+    ) -> ClassElement<'a> {
+        ClassElement::new_property_definition(
+            span,
+            r#type,
+            ArenaVec::new_in(self),
+            key,
+            NONE,
+            None,
+            false,
+            r#static,
+            false,
+            r#override,
+            false,
+            false,
+            false,
+            accessibility,
+            self,
+        )
+    }
+
+    fn transform_formal_parameter_to_class_property(
+        &self,
+        param: &FormalParameter<'a>,
+        type_annotation: Option<ArenaBox<'a, TSTypeAnnotation<'a>>>,
+    ) -> Option<ClassElement<'a>> {
+        let Some(ident_name) = param.pattern.get_identifier_name() else {
+            // A parameter property may not be declared using a binding pattern.(1187)
+            return None;
+        };
+        let key = PropertyKey::new_static_identifier(SPAN, ident_name, self);
+        Some(ClassElement::new_property_definition(
+            param.span,
+            PropertyDefinitionType::PropertyDefinition,
+            ArenaVec::new_in(self),
+            key,
+            type_annotation,
+            None,
+            false,
+            false,
+            false,
+            param.r#override,
+            param.optional,
+            false,
+            param.readonly,
+            Self::transform_accessibility(param.accessibility),
+            self,
+        ))
+    }
+
+    fn transform_private_modifier_method(&self, method: &MethodDefinition<'a>) -> ClassElement<'a> {
+        match method.kind {
+            MethodDefinitionKind::Method => {
+                let r#type = match method.r#type {
+                    MethodDefinitionType::MethodDefinition => {
+                        PropertyDefinitionType::PropertyDefinition
+                    }
+                    MethodDefinitionType::TSAbstractMethodDefinition => {
+                        PropertyDefinitionType::TSAbstractPropertyDefinition
+                    }
+                };
+                self.create_class_property(
+                    r#type,
+                    method.span,
+                    method.key.clone_in(self.allocator()),
+                    method.r#static,
+                    method.r#override,
+                    Self::transform_accessibility(method.accessibility),
+                )
+            }
+            MethodDefinitionKind::Get | MethodDefinitionKind::Constructor => {
+                let params = FormalParameters::boxed(
+                    SPAN,
+                    FormalParameterKind::Signature,
+                    ArenaVec::new_in(self),
+                    NONE,
+                    self,
+                );
+                self.transform_class_method_definition(method, params, None)
+            }
+            MethodDefinitionKind::Set => {
+                let params = self.create_formal_parameters(BindingPattern::new_binding_identifier(
+                    SPAN, "value", self,
+                ));
+                self.transform_class_method_definition(method, params, None)
+            }
+        }
+    }
+
+    /// Transform constructor parameters to class properties.
+    ///
+    /// For example:
+    ///
+    /// `class C { constructor(public x: string) {} }`
+    ///
+    /// to
+    ///
+    /// `class C { public x: string; constructor(x: string) {} }`
+    fn transform_constructor_parameter_properties(
+        &self,
+        function: &Function<'a>,
+        typed_params: &FormalParameters<'a>,
+    ) -> ArenaVec<'a, ClassElement<'a>> {
+        ArenaVec::from_iter_in(
+            function
+                .params
+                .items
+                .iter()
+                .filter(|param| {
+                    // To follow up `transform_formal_parameters`'s behavior
+                    typed_params.items.len() == function.params.items.len() || param.has_modifier()
+                })
+                .enumerate()
+                .filter_map(|(index, param)| {
+                    if !param.has_modifier() {
+                        return None;
+                    }
+                    let type_annotation =
+                        if param.accessibility.is_some_and(TSAccessibility::is_private) {
+                            None
+                        } else {
+                            // transformed params will definitely have type annotation
+                            typed_params.items[index].type_annotation.clone_in(self.allocator())
+                        };
+                    self.transform_formal_parameter_to_class_property(param, type_annotation)
+                }),
+            self,
+        )
+    }
+
+    /// Collect return_type of getter and first parma type of setter
+    ///
+    /// ### Getter
+    ///
+    /// 1. If it has return type, use it
+    /// 2. If it has no return type, infer it from the function body
+    ///
+    /// ### Setter
+    ///
+    /// 1. If it has no parameter type, infer it from the getter method's return type
+    fn collect_accessor_annotations(
+        &self,
+        decl: &Class<'a>,
+    ) -> Vec<(PropertyKey<'a>, AccessorAnnotation<'a>)> {
+        let mut method_annotations: Vec<(PropertyKey<'_>, AccessorAnnotation<'_>)> = Vec::new();
+        for element in &decl.body.body {
+            if let ClassElement::MethodDefinition(method) = element {
+                // Note: do not skip `private`-modifier accessors. Their types are still
+                // valid sources for pair-based inference on a public/protected counterpart
+                // (e.g. untyped getter paired with a `private set(v: T)`).
+                if method.key.is_private_identifier()
+                    || (method.computed && !Self::is_valid_property_key(&method.key))
+                {
+                    continue;
+                }
+
+                match method.kind {
+                    MethodDefinitionKind::Set => {
+                        let Some(first_param) = method.value.params.items.first() else {
+                            continue;
+                        };
+                        if let Some(annotation) =
+                            first_param.type_annotation.clone_in(self.allocator())
+                        {
+                            if let Some(entry) = method_annotations
+                                .iter_mut()
+                                .find(|(key, _)| method.key.content_eq(key))
+                            {
+                                entry.1.setter = Some(annotation);
+                            } else {
+                                method_annotations.push((
+                                    method.key.clone_in(self.allocator()),
+                                    AccessorAnnotation { setter: Some(annotation), getter: None },
+                                ));
+                            }
+                        }
+                    }
+                    MethodDefinitionKind::Get => {
+                        let function = &method.value;
+                        // For a private getter, only collect an explicit return type. Running
+                        // body inference here would surface errors (e.g. TS9038) that are not
+                        // relevant, since the private accessor itself is emitted as a
+                        // type-erased class member.
+                        let annotation =
+                            if method.accessibility.is_some_and(TSAccessibility::is_private) {
+                                function.return_type.clone_in(self.allocator())
+                            } else {
+                                self.infer_function_return_type(function)
+                            };
+                        if let Some(annotation) = annotation {
+                            if let Some(entry) = method_annotations
+                                .iter_mut()
+                                .find(|(key, _)| method.key.content_eq(key))
+                            {
+                                entry.1.getter = Some(annotation);
+                            } else {
+                                method_annotations.push((
+                                    method.key.clone_in(self.allocator()),
+                                    AccessorAnnotation { setter: None, getter: Some(annotation) },
+                                ));
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        method_annotations
+    }
+
+    pub(crate) fn transform_class(
+        &self,
+        decl: &Class<'a>,
+        declare: Option<bool>,
+    ) -> ArenaBox<'a, Class<'a>> {
+        if let Some(super_class) = &decl.super_class {
+            let is_not_allowed = match super_class {
+                Expression::Identifier(_) => false,
+                Expression::StaticMemberExpression(expr) => {
+                    !expr.get_first_object().is_identifier_reference()
+                }
+                _ => true,
+            };
+            if is_not_allowed {
+                self.error(extends_clause_expression(super_class.span()));
+            }
+        }
+
+        let accessor_annotations = self.collect_accessor_annotations(decl);
+        let mut has_private_key = false;
+        let mut elements = ArenaVec::new_in(self);
+        let mut is_function_overloads = false;
+        for element in &decl.body.body {
+            match element {
+                ClassElement::StaticBlock(_) => {}
+                ClassElement::MethodDefinition(method) => {
+                    if self.has_internal_annotation(method.span) {
+                        continue;
+                    }
+                    if !(
+                        // `abstract` methods are always allowed to have no body
+                        method.r#type.is_abstract()
+                        // optional methods are allowed to have no body
+                        || method.optional
+                    ) && method.value.body.is_none()
+                    {
+                        is_function_overloads = true;
+                    } else if is_function_overloads && !method.kind.is_constructor() {
+                        // Skip implementation of function overloads
+                        is_function_overloads = false;
+                        continue;
+                    }
+                    if method.key.is_private_identifier() {
+                        has_private_key = true;
+                        continue;
+                    }
+                    if method.computed && self.report_property_key(&method.key) {
+                        continue;
+                    }
+
+                    let function = &method.value;
+                    let params = match method.kind {
+                        MethodDefinitionKind::Set => {
+                            if method.accessibility.is_some_and(TSAccessibility::is_private) {
+                                elements.push(self.transform_private_modifier_method(method));
+                                continue;
+                            }
+                            let params = &method.value.params;
+                            if params.items.is_empty() {
+                                self.create_formal_parameters(
+                                    BindingPattern::new_binding_identifier(SPAN, "value", self),
+                                )
+                            } else {
+                                let mut params = params.clone_in(self.allocator());
+                                if let Some(param) = params.items.first_mut()
+                                    && let Some(annotation) =
+                                        accessor_annotations.iter().find_map(|(key, annotation)| {
+                                            if method.key.content_eq(key) {
+                                                Some(
+                                                    annotation
+                                                        .get_setter_annotation(self.allocator()),
+                                                )
+                                            } else {
+                                                None
+                                            }
+                                        })
+                                {
+                                    param.type_annotation = annotation;
+                                }
+                                params
+                            }
+                        }
+                        MethodDefinitionKind::Constructor => {
+                            let is_private =
+                                method.accessibility.is_some_and(TSAccessibility::is_private);
+
+                            let params =
+                                self.transform_formal_parameters(&function.params, is_private);
+                            elements.splice(
+                                0..0,
+                                self.transform_constructor_parameter_properties(function, &params),
+                            );
+
+                            if is_function_overloads && function.body.is_some() {
+                                is_function_overloads = false;
+                                continue;
+                            }
+
+                            if is_private {
+                                elements.push(self.transform_private_modifier_method(method));
+                                continue;
+                            }
+
+                            params
+                        }
+                        _ => {
+                            let is_private =
+                                method.accessibility.is_some_and(TSAccessibility::is_private);
+                            if is_private {
+                                elements.push(self.transform_private_modifier_method(method));
+                                continue;
+                            }
+                            self.transform_formal_parameters(&function.params, is_private)
+                        }
+                    };
+
+                    let return_type = match method.kind {
+                        MethodDefinitionKind::Method => {
+                            let rt = self.infer_function_return_type(function);
+                            if rt.is_none() {
+                                self.error(method_must_have_explicit_return_type(
+                                    method.key.span(),
+                                ));
+                            }
+                            rt
+                        }
+                        MethodDefinitionKind::Get => {
+                            let rt = accessor_annotations.iter().find_map(|(key, annotation)| {
+                                if method.key.content_eq(key) {
+                                    // No explicit return type for getter, should infer it from the first parameter of setter, if not exists,
+                                    // use the inferred return type of getter.
+                                    if method.value.return_type.is_none() {
+                                        annotation.get_setter_annotation(self.allocator())
+                                    } else {
+                                        annotation.get_getter_annotation(self.allocator())
+                                    }
+                                } else {
+                                    None
+                                }
+                            });
+                            if rt.is_none() {
+                                self.error(accessor_must_have_explicit_return_type(
+                                    method.key.span(),
+                                ));
+                            }
+                            rt
+                        }
+                        MethodDefinitionKind::Set | MethodDefinitionKind::Constructor => None,
+                    };
+                    let new_element =
+                        self.transform_class_method_definition(method, params, return_type);
+                    elements.push(new_element);
+                }
+                ClassElement::PropertyDefinition(property) => {
+                    if self.has_internal_annotation(property.span) {
+                        continue;
+                    }
+
+                    if property.computed && self.report_property_key(&property.key) {
+                        continue;
+                    }
+
+                    if property.key.is_private_identifier() {
+                        has_private_key = true;
+                    } else {
+                        elements.push(self.transform_class_property_definition(property));
+                    }
+                }
+                ClassElement::AccessorProperty(property) => {
+                    if self.has_internal_annotation(property.span) {
+                        continue;
+                    }
+
+                    if property.computed && self.report_property_key(&property.key) {
+                        continue;
+                    }
+
+                    if property.key.is_private_identifier() {
+                        has_private_key = true;
+                        continue;
+                    }
+
+                    let type_annotation = match property.accessibility {
+                        Some(TSAccessibility::Private) => None,
+                        _ => property.type_annotation.clone_in(self.allocator()),
+                    };
+
+                    // FIXME: missing many fields
+                    let new_element = ClassElement::new_accessor_property(
+                        property.span,
+                        property.r#type,
+                        ArenaVec::new_in(self),
+                        property.key.clone_in(self.allocator()),
+                        type_annotation,
+                        None,
+                        property.computed,
+                        property.r#static,
+                        property.r#override,
+                        false,
+                        Self::transform_accessibility(property.accessibility),
+                        self,
+                    );
+                    elements.push(new_element);
+                }
+                ClassElement::TSIndexSignature(signature) => elements.push({
+                    if self.has_internal_annotation(signature.span) {
+                        continue;
+                    }
+
+                    element.clone_in(self.allocator())
+                }),
+            }
+        }
+
+        if has_private_key {
+            // <https://github.com/microsoft/TypeScript/blob/64d2eeea7b9c7f1a79edf42cb99f302535136a2e/src/compiler/transformers/declarations.ts#L1699-L1709>
+            // When the class has at least one private identifier, create a unique constant identifier to retain the nominal typing behavior
+            // Prevents other classes with the same public members from being used in place of the current class
+            let ident = PropertyKey::new_private_identifier(SPAN, "private", self);
+            let r#type = PropertyDefinitionType::PropertyDefinition;
+            let decorators = ArenaVec::new_in(self);
+            let element = ClassElement::new_property_definition(
+                SPAN, r#type, decorators, ident, NONE, None, false, false, false, false, false,
+                false, false, None, self,
+            );
+
+            elements.insert(0, element);
+        }
+
+        let body = ClassBody::new(decl.body.span, elements, self);
+
+        Class::boxed(
+            decl.span,
+            decl.r#type,
+            ArenaVec::new_in(self),
+            decl.id.clone_in(self.allocator()),
+            decl.type_parameters.clone_in(self.allocator()),
+            decl.super_class.clone_in(self.allocator()),
+            decl.super_type_arguments.clone_in(self.allocator()),
+            decl.implements.clone_in(self.allocator()),
+            body,
+            decl.r#abstract,
+            declare.unwrap_or_else(|| self.is_declare()),
+            self,
+        )
+    }
+
+    pub(crate) fn create_formal_parameters(
+        &self,
+        kind: BindingPattern<'a>,
+    ) -> ArenaBox<'a, FormalParameters<'a>> {
+        let parameter = FormalParameter::new(
+            SPAN,
+            ArenaVec::new_in(self),
+            kind,
+            NONE,
+            NONE,
+            false,
+            None,
+            false,
+            false,
+            self,
+        );
+        let items = ArenaVec::from_value_in(parameter, self);
+        FormalParameters::boxed(SPAN, FormalParameterKind::Signature, items, NONE, self)
+    }
+}

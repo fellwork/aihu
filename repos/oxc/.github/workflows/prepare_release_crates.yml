@@ -1,0 +1,84 @@
+name: Prepare Release Crates
+
+permissions: {}
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Triggers every Monday at 5pm Shanghai time (9am UTC)
+    - cron: "0 9 * * 1"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref_name }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    if: github.repository == 'oxc-project/oxc'
+    name: Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: taiki-e/checkout-action@7d1e50e93dc4fb3bba58f85018fadf77898aee8b # v1.4.2
+      - uses: oxc-project/setup-rust@3d6fb132fbe7cdcb66bf8ec193911c2945369d12 # v1.0.17
+        with:
+          cache-key: warm
+          tools: cargo-release-oxc
+      - run: cargo ck
+      - run: cargo release-oxc publish --release crates --dry-run # zizmor: ignore[use-trusted-publishing]
+
+  prepare:
+    if: github.repository == 'oxc-project/oxc'
+    name: Prepare Release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: oxc-project/setup-rust@3d6fb132fbe7cdcb66bf8ec193911c2945369d12 # v1.0.17
+        with:
+          cache-key: warm
+          tools: cargo-release-oxc
+
+      - name: Run
+        id: run
+        run: |
+          cargo ck
+          cargo release-oxc update --changelog --release crates
+          echo "CRATES_VERSION=$(cat ./target/CRATES_VERSION)" >> $GITHUB_OUTPUT
+
+      - uses: oxc-project/setup-node@4c588e9266bd930b6ddc34307df0659ed511d187 # v1.3.1
+
+      # Run NAPI-RS build, because NAPI-RS uses version from `package.json` in the bindings file,
+      # which is committed to the repo. The version has just been bumped in previous step.
+      # We don't use the compiled `.node` binary, so only do a development build, as it's faster.
+      - name: Rebuild NAPI packages bindings
+        run: |
+          pnpm --filter oxc-minify run build-dev
+          pnpm --filter oxc-parser run build-dev
+          pnpm --filter oxc-transform run build-dev
+
+      - name: Update Cargo.lock
+        run: cargo check
+
+      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        id: app-token
+        with:
+          client-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
+        id: pr
+        with:
+          # bot account with PAT required for triggering workflow runs
+          # See https://github.com/peter-evans/create-pull-request/blob/main/docs/concepts-guidelines.md#triggering-further-workflow-runs
+          token: ${{ steps.app-token.outputs.token }}
+          commit-message: "release(crates): oxc v${{ steps.run.outputs.CRATES_VERSION }}"
+          title: "release(crates): oxc v${{ steps.run.outputs.CRATES_VERSION }}"
+          branch: release/crates
+          branch-suffix: timestamp
+          base: main
+          body-path: ./target/CRATES_CHANGELOG
+          assignees: Boshen
+          labels: run-monitor-oxc

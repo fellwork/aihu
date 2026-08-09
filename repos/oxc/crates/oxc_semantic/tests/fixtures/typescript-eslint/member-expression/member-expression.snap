@@ -1,0 +1,57 @@
+---
+source: crates/oxc_semantic/tests/main.rs
+input_file: crates/oxc_semantic/tests/fixtures/typescript-eslint/member-expression/member-expression.ts
+---
+[
+  {
+    "children": [],
+    "flags": "ScopeFlags(Top)",
+    "id": 0,
+    "node": "Program",
+    "symbols": [
+      {
+        "flags": "SymbolFlags(BlockScopedVariable | ConstVariable)",
+        "id": 0,
+        "name": "x",
+        "node": "VariableDeclarator(x)",
+        "references": [
+          {
+            "flags": "ReferenceFlags(Read)",
+            "id": 0,
+            "name": "x",
+            "node_id": 7,
+            "scope_id": 0
+          },
+          {
+            "flags": "ReferenceFlags(Read)",
+            "id": 1,
+            "name": "x",
+            "node_id": 14,
+            "scope_id": 0
+          },
+          {
+            "flags": "ReferenceFlags(Read)",
+            "id": 2,
+            "name": "x",
+            "node_id": 21,
+            "scope_id": 0
+          },
+          {
+            "flags": "ReferenceFlags(Read)",
+            "id": 3,
+            "name": "x",
+            "node_id": 28,
+            "scope_id": 0
+          },
+          {
+            "flags": "ReferenceFlags(Read)",
+            "id": 4,
+            "name": "x",
+            "node_id": 35,
+            "scope_id": 0
+          }
+        ]
+      }
+    ]
+  }
+]

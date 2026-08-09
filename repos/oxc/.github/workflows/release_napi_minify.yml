@@ -1,0 +1,26 @@
+name: Release NAPI Minify
+
+permissions: {}
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - napi/minify/package.json
+      - .github/workflows/release_napi_minify.yml
+      - .github/workflows/reusable_release_napi.yml
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  release:
+    if: github.repository == 'oxc-project/oxc'
+    name: Release NAPI Minify
+    uses: ./.github/workflows/reusable_release_napi.yml
+    with:
+      name: minify
+    permissions:
+      id-token: write # for `pnpm publish --provenance`

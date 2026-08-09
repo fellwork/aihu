@@ -1,0 +1,382 @@
+use unicode_id_start::{is_id_continue_unicode, is_id_start_unicode};
+
+use crate::line_terminator::{CR, LF, LS, PS};
+
+pub const EOF: char = '\0';
+
+// 11.1 Unicode Format-Control Characters
+
+/// U+200C ZERO WIDTH NON-JOINER, abbreviated in the spec as `<ZWNJ>`.
+/// Specially permitted in identifiers.
+pub const ZWNJ: char = '\u{200c}';
+
+/// U+200D ZERO WIDTH JOINER, abbreviated as `<ZWJ>`.
+/// Specially permitted in identifiers.
+pub const ZWJ: char = '\u{200d}';
+
+/// U+FEFF ZERO WIDTH NO-BREAK SPACE, abbreviated `<ZWNBSP>`.
+/// Considered a whitespace character in JS.
+pub const ZWNBSP: char = '\u{feff}';
+
+// 11.2 White Space
+/// U+0009 CHARACTER TABULATION, abbreviated `<TAB>`.
+pub const TAB: char = '\u{9}';
+
+/// U+000B VERTICAL TAB, abbreviated `<VT>`.
+pub const VT: char = '\u{b}';
+
+/// U+000C FORM FEED, abbreviated `<FF>`.
+pub const FF: char = '\u{c}';
+
+/// U+0020 SPACE, abbreviated `<SP>`.
+pub const SP: char = '\u{20}';
+
+/// U+00A0 NON-BREAKING SPACE, abbreviated `<NBSP>`.
+pub const NBSP: char = '\u{a0}';
+
+// U+0085 NEXT LINE, abbreviated `<NEL>`.
+const NEL: char = '\u{85}';
+
+const OGHAM_SPACE_MARK: char = '\u{1680}';
+
+const EN_QUAD: char = '\u{2000}';
+
+// U+200B ZERO WIDTH SPACE, abbreviated `<ZWSP>`.
+const ZWSP: char = '\u{200b}';
+
+// Narrow NO-BREAK SPACE, abbreviated `<NNBSP>`.
+const NNBSP: char = '\u{202f}';
+
+// U+205F MEDIUM MATHEMATICAL SPACE, abbreviated `<MMSP>`.
+const MMSP: char = '\u{205f}';
+
+const IDEOGRAPHIC_SPACE: char = '\u{3000}';
+
+fn is_unicode_space_separator(c: char) -> bool {
+    // is_whitespace matches Unicode `White_Space` property
+    // exclude the characters that are included in `White_Space`, but not `Space_Separator`
+    // <https://util.unicode.org/UnicodeJsps/list-unicodeset.jsp?a=%5Cp%7BWhite_Space%7D%26%5CP%7BGeneral_Category%3DSpace_Separator%7D>
+    c.is_whitespace() && !matches!(c, TAB | LF | VT | FF | CR | NEL | LS | PS)
+}
+
+pub fn is_white_space(c: char) -> bool {
+    matches!(c, TAB | VT | FF | ZWNBSP) || is_unicode_space_separator(c)
+}
+
+// https://eslint.org/docs/latest/rules/no-irregular-whitespace#rule-details
+#[rustfmt::skip]
+pub fn is_irregular_whitespace(c: char) -> bool {
+    matches!(c,
+        VT | FF | NBSP | ZWNBSP | NEL | OGHAM_SPACE_MARK
+        | EN_QUAD..=ZWSP | NNBSP | MMSP | IDEOGRAPHIC_SPACE
+    )
+}
+
+// https://github.com/microsoft/TypeScript/blob/b8e4ed8aeb0b228f544c5736908c31f136a9f7e3/src/compiler/scanner.ts#L556
+pub fn is_white_space_single_line(c: char) -> bool {
+    // Note: nextLine is in the Zs space, and should be considered to be a whitespace.
+    // It is explicitly not a line-break as it isn't in the exact set specified by EcmaScript.
+    matches!(c, SP | TAB) || is_irregular_whitespace(c)
+}
+
+const ID_START: u8 = 1;
+const ID_CONTINUE: u8 = 2;
+
+#[repr(C, align(64))]
+pub struct Align64<T>(pub(crate) T);
+
+// Packed: ID_START | ID_CONTINUE per ASCII byte.
+// `a`-`z`, `A`-`Z`, `$`, `_` get ID_START | ID_CONTINUE (3).
+// `0`-`9` get ID_CONTINUE only (2).
+#[rustfmt::skip]
+pub static ASCII_ID_FLAGS: Align64<[u8; 128]> = Align64([
+//  0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F  //
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // 0
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // 1
+    0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, // 2  $ = 3
+    2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0, // 3  0-9 = 2
+    0, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, // 4  A-Z = 3
+    3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 0, 0, 0, 0, 3, // 5  _ = 3
+    0, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, // 6  a-z = 3
+    3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 0, 0, 0, 0, 0, // 7
+]);
+
+/// Section 12.7 Detect `IdentifierStartChar`
+#[inline]
+pub fn is_identifier_start(c: char) -> bool {
+    if c.is_ascii() {
+        return is_identifier_start_ascii(c);
+    }
+    is_identifier_start_unicode(c)
+}
+
+#[inline]
+pub fn is_identifier_start_ascii(c: char) -> bool {
+    ASCII_ID_FLAGS.0[c as usize] & ID_START != 0
+}
+
+#[inline]
+pub fn is_identifier_start_unicode(c: char) -> bool {
+    is_id_start_unicode(c)
+}
+
+/// Section 12.7 Detect `IdentifierPartChar`
+/// NOTE 2: The nonterminal `IdentifierPart` derives _ via `UnicodeIDContinue`.
+#[inline]
+pub fn is_identifier_part(c: char) -> bool {
+    if c.is_ascii() {
+        return is_identifier_part_ascii(c);
+    }
+    is_identifier_part_unicode(c)
+}
+
+#[inline]
+pub fn is_identifier_part_ascii(c: char) -> bool {
+    ASCII_ID_FLAGS.0[c as usize] & ID_CONTINUE != 0
+}
+
+#[inline]
+pub fn is_identifier_part_unicode(c: char) -> bool {
+    is_id_continue_unicode(c) || c == ZWNJ || c == ZWJ
+}
+
+/// U+30FB KATAKANA MIDDLE DOT
+const KATAKANA_MIDDLE_DOT: char = '・';
+/// U+FF65 HALFWIDTH KATAKANA MIDDLE DOT
+const HALFWIDTH_KATAKANA_MIDDLE_DOT: char = '･';
+
+/// Determine if a string is a valid JS identifier.
+pub fn is_identifier_name(name: &str) -> bool {
+    is_identifier_name_impl::<false>(name)
+}
+
+/// `is_identifier_name` patched with KATAKANA MIDDLE DOT and HALFWIDTH KATAKANA MIDDLE DOT.
+///
+/// Otherwise `({ 'x・': 0 })` gets converted to `({ x・: 0 })`, which breaks in Unicode 4.1 to
+/// 15.
+///
+/// <https://github.com/oxc-project/unicode-id-start/pull/3>
+pub fn is_identifier_name_patched(name: &str) -> bool {
+    is_identifier_name_impl::<true>(name)
+}
+
+fn is_identifier_name_impl<const PATCHED: bool>(name: &str) -> bool {
+    // This function contains a fast path for ASCII (common case), iterating over bytes and using
+    // the cheap `is_identifier_start_ascii` and `is_identifier_part_ascii` to test bytes.
+    // Only if a Unicode char is found, fall back to iterating over `char`s, and using the more
+    // expensive `is_identifier_start_unicode` and `is_identifier_part`.
+    // As a further optimization, we test if bytes are ASCII in blocks of 8 or 4 bytes, rather than 1 by 1.
+
+    // Get first byte. Exit if empty string.
+    let bytes = name.as_bytes();
+    let Some(&first_byte) = bytes.first() else { return false };
+
+    let mut chars = if first_byte.is_ascii() {
+        // First byte is ASCII
+        if ASCII_ID_FLAGS.0[first_byte as usize] & ID_START == 0 {
+            return false;
+        }
+
+        let mut index = 1;
+        'outer: loop {
+            // Check blocks of 8 bytes, then 4 bytes, then single bytes
+            let bytes_remaining = bytes.len() - index;
+            if bytes_remaining >= 8 {
+                // Process block of 8 bytes.
+                // Check that next 8 bytes are all ASCII.
+                // SAFETY: We checked above that there are at least 8 bytes to read starting at `index`
+                #[expect(clippy::cast_ptr_alignment)]
+                let next8_as_u64 = unsafe {
+                    let ptr = bytes.as_ptr().add(index).cast::<u64>();
+                    ptr.read_unaligned()
+                };
+                let high_bits = next8_as_u64 & 0x8080_8080_8080_8080;
+                if high_bits != 0 {
+                    // Some chars in this block are non-ASCII
+                    break;
+                }
+
+                let next8 = next8_as_u64.to_ne_bytes();
+                for b in next8 {
+                    if ASCII_ID_FLAGS.0[b as usize] & ID_CONTINUE == 0 {
+                        return false;
+                    }
+                }
+
+                index += 8;
+            } else if bytes_remaining >= 4 {
+                // Process block of 4 bytes.
+                // Check that next 4 bytes are all ASCII.
+                // SAFETY: We checked above that there are at least 4 bytes to read starting at `index`
+                #[expect(clippy::cast_ptr_alignment)]
+                let next4_as_u32 = unsafe {
+                    let ptr = bytes.as_ptr().add(index).cast::<u32>();
+                    ptr.read_unaligned()
+                };
+                let high_bits = next4_as_u32 & 0x8080_8080;
+                if high_bits != 0 {
+                    // Some chars in this block are non-ASCII
+                    break;
+                }
+
+                let next4 = next4_as_u32.to_ne_bytes();
+                for b in next4 {
+                    if ASCII_ID_FLAGS.0[b as usize] & ID_CONTINUE == 0 {
+                        return false;
+                    }
+                }
+
+                index += 4;
+            } else {
+                loop {
+                    let Some(&b) = bytes.get(index) else {
+                        // We got to the end with no non-identifier chars found
+                        return true;
+                    };
+
+                    if b.is_ascii() {
+                        if ASCII_ID_FLAGS.0[b as usize] & ID_CONTINUE == 0 {
+                            return false;
+                        }
+                    } else {
+                        // Unicode byte found
+                        break 'outer;
+                    }
+
+                    index += 1;
+                }
+            }
+        }
+
+        // Unicode byte found - search rest of string (from this byte onwards) as Unicode
+        name[index..].chars()
+    } else {
+        // First char is Unicode.
+        // NB: `unwrap()` cannot fail because we already checked the string is not empty.
+        let mut chars = name.chars();
+        let first_char = chars.next().unwrap();
+        if !is_identifier_start_unicode(first_char) {
+            return false;
+        }
+        // Search rest of string as Unicode
+        chars
+    };
+
+    // A Unicode char was found - search rest of string as Unicode
+    if PATCHED {
+        chars.all(|c| {
+            is_identifier_part(c) && c != KATAKANA_MIDDLE_DOT && c != HALFWIDTH_KATAKANA_MIDDLE_DOT
+        })
+    } else {
+        chars.all(is_identifier_part)
+    }
+}
+
+#[test]
+fn is_identifier_name_true() {
+    let cases = [
+        // 1 char ASCII
+        "a",
+        "z",
+        "A",
+        "Z",
+        "_",
+        "$",
+        // 1 char Unicode
+        "µ", // 2 bytes
+        "ख", // 3 bytes
+        "𐀀", // 4 bytes
+        // Multiple chars ASCII
+        "az",
+        "AZ",
+        "_a",
+        "$Z",
+        "a0",
+        "A9",
+        "_0",
+        "$9",
+        "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_$",
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_$",
+        "_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789$",
+        "$abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_",
+        // Multiple chars Unicode
+        "µख𐀀",
+        // ASCII + Unicode, starting with ASCII
+        "AµBखC𐀀D",
+        // ASCII + Unicode, starting with Unicode
+        "µAखB𐀀",
+    ];
+
+    for str in cases {
+        assert!(is_identifier_name(str));
+    }
+}
+
+#[test]
+fn is_identifier_name_false() {
+    let cases = [
+        // Empty string
+        "",
+        // 1 char ASCII
+        "0",
+        "9",
+        "-",
+        "~",
+        "+",
+        // 1 char Unicode
+        "£", // 2 bytes
+        "৸", // 3 bytes
+        "𐄬", // 4 bytes
+        // Multiple chars ASCII
+        "0a",
+        "9a",
+        "-a",
+        "+a",
+        "a-Z",
+        "A+z",
+        "a-",
+        "a+",
+        // Multiple chars Unicode
+        "£৸𐄬",
+        // ASCII + Unicode, starting with ASCII
+        "A£",
+        "A৸",
+        "A𐄬",
+        "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_$abc£",
+        "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_$abc৸",
+        "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_$abc𐄬",
+        "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_$abc£abcdefghijklmnopqrstuvwxyz",
+        "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_$abc৸abcdefghijklmnopqrstuvwxyz",
+        "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_$abc𐄬abcdefghijklmnopqrstuvwxyz",
+        // ASCII + Unicode, starting with Unicode
+        "£A",
+        "৸A",
+        "𐄬A",
+    ];
+
+    for str in cases {
+        assert!(!is_identifier_name(str));
+    }
+}
+
+#[test]
+fn is_identifier_name_patched_rejects_katakana_dots() {
+    // Katakana middle dots are valid identifier parts per Unicode 15+,
+    // but we reject them in the patched version for compat with Unicode 4.1-15.
+    // U+30FB KATAKANA MIDDLE DOT
+    assert!(is_identifier_name("x\u{30FB}"));
+    assert!(!is_identifier_name_patched("x\u{30FB}"));
+    // U+FF65 HALFWIDTH KATAKANA MIDDLE DOT
+    assert!(is_identifier_name("x\u{FF65}"));
+    assert!(!is_identifier_name_patched("x\u{FF65}"));
+    // As start character (neither is a valid start, so both should reject)
+    assert!(!is_identifier_name("\u{30FB}"));
+    assert!(!is_identifier_name_patched("\u{30FB}"));
+    // Normal identifiers still work
+    assert!(is_identifier_name_patched("foo"));
+    assert!(is_identifier_name_patched("_bar"));
+    assert!(is_identifier_name_patched("$baz"));
+    assert!(is_identifier_name_patched("µ"));
+    // Empty string rejected
+    assert!(!is_identifier_name_patched(""));
+}

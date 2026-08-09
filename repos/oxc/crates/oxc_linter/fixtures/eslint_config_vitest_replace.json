@@ -1,0 +1,5 @@
+{
+    "rules": {
+        "vitest/valid-expect": "error"
+    }
+}

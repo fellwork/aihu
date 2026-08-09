@@ -1,0 +1,99 @@
+use oxc_macros::declare_oxc_lint;
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
+
+use crate::rule::{DefaultRuleConfig, Rule};
+
+#[derive(Debug, Default, Clone, Deserialize)]
+pub struct NoUnnecessaryBooleanLiteralCompare(Box<NoUnnecessaryBooleanLiteralCompareConfig>);
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "camelCase", default, deny_unknown_fields)]
+pub struct NoUnnecessaryBooleanLiteralCompareConfig {
+    /// Whether to allow comparing nullable boolean expressions to `false`.
+    /// When false, `x === false` where x is `boolean | null` will be flagged.
+    pub allow_comparing_nullable_booleans_to_false: bool,
+    /// Whether to allow comparing nullable boolean expressions to `true`.
+    /// When false, `x === true` where x is `boolean | null` will be flagged.
+    pub allow_comparing_nullable_booleans_to_true: bool,
+}
+
+impl Default for NoUnnecessaryBooleanLiteralCompareConfig {
+    fn default() -> Self {
+        Self {
+            allow_comparing_nullable_booleans_to_false: true,
+            allow_comparing_nullable_booleans_to_true: true,
+        }
+    }
+}
+
+declare_oxc_lint!(
+    /// ### What it does
+    ///
+    /// This rule disallows unnecessary equality comparisons with boolean literals.
+    ///
+    /// ### Why is this bad?
+    ///
+    /// Comparing boolean values to boolean literals is unnecessary when the comparison can be eliminated. These comparisons make code more verbose without adding value.
+    ///
+    /// ### Examples
+    ///
+    /// Examples of **incorrect** code for this rule:
+    /// ```ts
+    /// declare const someCondition: boolean;
+    ///
+    /// if (someCondition === true) {
+    ///   // ...
+    /// }
+    ///
+    /// if (someCondition === false) {
+    ///   // ...
+    /// }
+    ///
+    /// if (someCondition !== true) {
+    ///   // ...
+    /// }
+    ///
+    /// if (someCondition !== false) {
+    ///   // ...
+    /// }
+    ///
+    /// const result = someCondition == true;
+    /// ```
+    ///
+    /// Examples of **correct** code for this rule:
+    /// ```ts
+    /// declare const someCondition: boolean;
+    ///
+    /// if (someCondition) {
+    ///   // ...
+    /// }
+    ///
+    /// if (!someCondition) {
+    ///   // ...
+    /// }
+    ///
+    /// // Comparisons with non-boolean types are allowed
+    /// declare const someValue: unknown;
+    /// if (someValue === true) {
+    ///   // ...
+    /// }
+    /// ```
+    NoUnnecessaryBooleanLiteralCompare(tsgolint),
+    typescript,
+    suspicious,
+    pending,
+    config = NoUnnecessaryBooleanLiteralCompareConfig,
+    version = "1.12.0",
+    short_description = "This rule disallows unnecessary equality comparisons with boolean literals.",
+);
+
+impl Rule for NoUnnecessaryBooleanLiteralCompare {
+    fn from_configuration(value: serde_json::Value) -> Result<Self, serde_json::error::Error> {
+        serde_json::from_value::<DefaultRuleConfig<Self>>(value).map(DefaultRuleConfig::into_inner)
+    }
+
+    fn to_configuration(&self) -> Option<Result<serde_json::Value, serde_json::Error>> {
+        Some(serde_json::to_value(&*self.0))
+    }
+}
