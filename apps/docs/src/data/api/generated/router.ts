@@ -80,12 +80,25 @@ export const EXPORTS: readonly ApiExport[] = [
     summary: '',
   },
   {
+    name: 'escapeForJsSource',
+    kind: 'function',
+    signature: 'function escapeForJsSource(json: string): string',
+    summary: '',
+  },
+  {
     name: 'genSC',
     kind: 'function',
     signature:
       "function genSC( pageFiles: ReadonlyArray<string>, componentsDir: string, deriveChildTags?: (source: string, id: string) => string[], /** * Layout files, walked as ROOTS alongside the pages. * * Layouts are where a site's nav, header and footer live, and * `@aihu/router/server` now composes them into every live SSR response. * Rooting the walk at pages alone excluded every component a layout * references, so the shell would server-render with all of them as empty * elements — this module's own failure mode, relocated into the part of the * page that appears on EVERY route. * * Defaulted to empty so the pre-layout call shape keeps its exact behaviour. */ layoutFiles: ReadonlyArray<string> = [], ): string",
     summary:
       "Generate `virtual:aihu-server-components` — the SERVER-side child registry source, for `output: 'ssr'` builds.",
+  },
+  {
+    name: 'jsSourceLiteral',
+    kind: 'function',
+    signature: 'function jsSourceLiteral(value: unknown): string',
+    summary:
+      'JSON-encode `value` as a JavaScript literal safe to concatenate into generated source.',
   },
   {
     name: 'layoutTagFor',

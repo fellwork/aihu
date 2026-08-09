@@ -12,6 +12,12 @@ export const PKG: ApiPackage = {
 
 export const EXPORTS: readonly ApiExport[] = [
   {
+    name: 'assertOutletPresent',
+    kind: 'function',
+    signature: 'function assertOutletPresent(template: string, outletId: string): string | null',
+    summary: '',
+  },
+  {
     name: 'collectAihuModules',
     kind: 'function',
     signature: 'function collectAihuModules(plugins: ReadonlyArray<unknown>): Map<string, unknown>',
@@ -61,6 +67,13 @@ export const EXPORTS: readonly ApiExport[] = [
     signature:
       "async function loadAihuConfig( root: string, options: { readonly mode?: string; readonly command?: 'build' | 'serve' } = {}, ): Promise<LoadedAihuConfig | null>",
     summary: "Load an aihu project's config from its Vite config file.",
+  },
+  {
+    name: 'ssrOutDirFor',
+    kind: 'function',
+    signature: 'function ssrOutDirFor(clientOutDir: string): string',
+    summary:
+      "Where the `'ssr'` environment writes: a SIBLING of the client outDir, never inside it.",
   },
   {
     name: 'validateAihuConfig',

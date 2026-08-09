@@ -155,6 +155,39 @@ export const EXPORTS: readonly ApiExport[] = [
       'Convert a project name to a safe JS identifier (for use as rolldown input key or custom-element tag name component).',
   },
   {
+    name: 'validateManifest',
+    kind: 'function',
+    signature: 'function validateManifest(obj: unknown): TemplateManifest',
+    summary: 'Validate an arbitrary value as a TemplateManifest.',
+  },
+  {
+    name: 'ConditionalDep',
+    kind: 'interface',
+    signature: 'interface ConditionalDep {\n  readonly version: string\n  readonly when: string\n}',
+    summary: '',
+  },
+  {
+    name: 'ConditionalFile',
+    kind: 'interface',
+    signature:
+      'interface ConditionalFile {\n  readonly path: string\n  readonly when: string\n  /** F-5b: when set, the scaffolded file is written with this filename\n   * (relative to the same directory as `path`) instead of the source filename.\n   * Enables e.g. `.env.example.better-auth` → `.env.example`. */\n  readonly rename?: string\n}',
+    summary: '',
+  },
+  {
+    name: 'OverridableField',
+    kind: 'interface',
+    signature:
+      'interface OverridableField {\n  readonly choices: ReadonlyArray<ChoiceValue>\n  readonly default: ChoiceValue\n}',
+    summary: '',
+  },
+  {
+    name: 'PostInstallStep',
+    kind: 'interface',
+    signature:
+      'interface PostInstallStep {\n  readonly kind: PostInstallKind\n  readonly when?: string\n  readonly allowFailure?: boolean\n}',
+    summary: '',
+  },
+  {
     name: 'ScaffoldResult',
     kind: 'interface',
     signature:
@@ -162,9 +195,22 @@ export const EXPORTS: readonly ApiExport[] = [
     summary: '',
   },
   {
+    name: 'TemplateManifest',
+    kind: 'interface',
+    signature:
+      'interface TemplateManifest {\n  readonly name: string\n  readonly displayName: string\n  readonly description: string\n  readonly contractVersion: number\n  readonly cliRange: string\n  readonly fixed: Readonly<Record<string, ChoiceValue>>\n  readonly overridable: Readonly<Record<string, OverridableField>>\n  readonly conditionalFiles: ReadonlyArray<ConditionalFile>\n  readonly placeholders: ReadonlyArray<string>\n  readonly postInstall: ReadonlyArray<PostInstallStep>\n  readonly appPeerDeps: Readonly<Record<string, string>>\n  readonly appPeerDepsConditional?: Readonly<Record<string, ConditionalDep>>\n}',
+    summary: '',
+  },
+  {
     name: 'AppTemplate',
     kind: 'type',
     signature: "type AppTemplate = 'minimal' | 'full' | 'docs' | 'agent' | 'ssr'",
+    summary: '',
+  },
+  {
+    name: 'ChoiceValue',
+    kind: 'type',
+    signature: 'type ChoiceValue = string | boolean',
     summary: '',
   },
   {
@@ -177,6 +223,12 @@ export const EXPORTS: readonly ApiExport[] = [
     name: 'PkgManager',
     kind: 'type',
     signature: "type PkgManager = 'bun' | 'pnpm' | 'npm' | 'yarn'",
+    summary: '',
+  },
+  {
+    name: 'PostInstallKind',
+    kind: 'type',
+    signature: "type PostInstallKind = 'pm-install' | 'git-init' | 'lint-fix' | 'aihu-check'",
     summary: '',
   },
   {
