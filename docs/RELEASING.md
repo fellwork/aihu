@@ -41,27 +41,53 @@ The resulting `.changeset/<name>.md` file is committed in your PR.
 3. **Merge the Version PR** — merge it like other PRs. This lands the version
    bumps + CHANGELOGs on `main`. **It does NOT publish** — `release-pr.yml` has
    no publish step, so nothing reaches npm yet.
-4. **Push the release tag — MANUAL.** Publishing is gated on a `v*` tag, and
-   nothing creates that tag automatically. Pick the next aggregate tag (a repo
-   release counter, independent of individual package versions — e.g. `v0.4.4`
-   → `v0.4.5`) and push an annotated tag at the merged Version-PR commit:
-   ```bash
-   git checkout main && git pull
-   git tag -a v0.4.5 -m "Release v0.4.5"
-   git push origin v0.4.5
-   ```
+4. **The release tag is pushed for you — AUTOMATIC.** `release-tag.yml` watches
+   `main` for the `chore(release): version packages` commit, verifies it really
+   is one (package versions *and* CHANGELOGs both changed — a message match
+   alone is not enough), computes the next aggregate tag (a repo release
+   counter, independent of individual package versions — e.g. `v0.4.63` →
+   `v0.4.64`) and pushes it annotated.
    The tag **name** is only the GitHub Release marker — `release.yml` publishes
    each package at *its own `package.json` version*, not the tag name.
 5. **`release.yml` fires** — the `v*` tag triggers the build matrix (5 platform
    binaries + WASM) and the `publish-packages` job (npm publish with workspace
    dep rewrites).
 6. **Verify on npm** — `npm view @aihu/signals versions --json` shows the new
-   version within ~3 minutes of the tag push.
+   version within ~3 minutes of the tag push. Check npm directly rather than
+   trusting a green run: `v0.4.62` went green on the platform jobs while every
+   JS package silently failed to publish.
 
-> **Why manual?** Auto-publishing on every Version-PR merge is deliberately
-> avoided so release timing stays under maintainer control (e.g. batching, or
-> holding the v1.0.0 narrative tag under Path B). To make tagging automatic
-> instead, add a publish/tag step to `release-pr.yml` — tracked as a follow-up.
+> **Merging the Version PR is now the release decision.** It used to take two
+> separate acts of attention — merge, then remember to tag — and the second one
+> is the one that actually ships. Version PR #771 sat merged and unpublished on
+> exactly that gap, taking the cadence from every 1–3 days to nothing.
+>
+> Timing control did not go away, it moved one step earlier: **merge the Version
+> PR when you want to release.** To batch, leave it open and let it accumulate
+> changesets — that is what it is for.
+
+### Cutting a tag by hand
+
+Still supported, and still the escape hatch when the automation is wrong (a
+non-standard tag, re-running a failed release, a hotfix branch):
+
+```bash
+git checkout main && git pull
+git tag -a v0.4.64 -m "Release v0.4.64"
+git push origin v0.4.64
+```
+
+`release-tag.yml` is idempotent — if the tag already exists it logs and exits,
+so a hand-pushed tag will not be duplicated or moved.
+
+> **If a tag appears but no release runs**, the cause is almost always the token.
+> A tag pushed with `secrets.GITHUB_TOKEN` **does not trigger workflows** —
+> GitHub suppresses events raised by it to prevent recursion. `release-tag.yml`
+> uses a GitHub App token (`RELEASE_APP_ID` / `RELEASE_APP_PRIVATE_KEY`) for
+> exactly this reason, and warns if no `release.yml` run appears after it
+> pushes. Tags you push from your own machine are unaffected. Same suppression
+> bit us on PRs once already — see FEL-429 and the comment at
+> `release-pr.yml:28-42`.
 
 ## Canary (snapshot) releases
 
