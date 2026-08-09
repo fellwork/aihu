@@ -1,0 +1,30 @@
+# CodeQL configuration, merged into the config GitHub's DEFAULT SETUP
+# generates. There is no advanced-setup workflow in this repo — code scanning
+# is configured at repos/fellwork/aihu/code-scanning/default-setup
+# (languages: actions, javascript-typescript, python, rust).
+#
+# THIS FILE IS INERT ON ITS OWN. Default setup only reads it when the
+# repository property `github-codeql-config-file` names this path. If that
+# property is unset, code scanning silently keeps analyzing everything and
+# nothing here applies — no warning, no failed check. Verify with:
+#
+#   gh api repos/fellwork/aihu/properties/values
+#
+# Why: `repos/` holds vendored third-party source kept as read-only agent
+# reference (see AGENTS.md "Vendored Repositories"). It is never built, never
+# imported, and never shipped, but CodeQL still extracts it — the Rust
+# analysis for the oxc vendoring ran with `build-mode: none` and pulled in all
+# 296 `.rs` files. Alerts raised there would be on upstream code we cannot fix
+# and would not affect any artifact we publish, so they are noise that
+# competes with real findings for attention.
+#
+# `paths-ignore` is honored for interpreted languages and for compiled
+# languages analyzed WITHOUT building. Rust qualifies only because default
+# setup uses `build-mode: none`; if that ever changes to a real build, this
+# filter stops applying to Rust and the vendored tree comes back into scope.
+#
+# Glob syntax is restricted: `?`, `+`, `[`, `]` and `!` match literally, and
+# `**` may only appear at the start/end of a pattern or between slashes.
+# `repos/**` is valid; quoting is required because it contains `*`.
+paths-ignore:
+  - 'repos/**'
