@@ -129,13 +129,17 @@ It does not produce a green gate; it produces a *differently* red one, and it sp
 
 ### Why R1 was NOT attempted in this release
 
-R1 — same-job A/B against the merge base, interleaved fresh-process runs, an in-band noise-floor control arm — is the actual fix, and it is a genuine re-architecture, not a patch: dual-arm worktree builds, per-worktree `node_modules` isolation, a different statistic (`min`, which the runner already emits, rather than `p50`), and a CI runtime budget redesign to pay for two arms in one job. It needs a design doc before it needs code. Attempting a partial R1 during a release close would produce a half-built second mechanism sitting beside the condemned one — two things to reason about instead of one.
+R1 — same-job A/B against the merge base, interleaved fresh-process runs, an in-band noise-floor control arm — is the actual fix, and it is a genuine re-architecture, not a patch: dual-arm worktree builds, per-worktree `node_modules` isolation, a different statistic (`min` rather than `p50`), and a CI runtime budget redesign to pay for two arms in one job. It needs a design doc before it needs code.
+
+> **Correction (2026-08-09).** This paragraph originally said `min` is "which the runner already emits". That is true of **arbor** (`bench/arbor/src/runner.ts:68` reads `stats.min`, and its table header carries the column) and **false of signals** — `bench/signals/src/runner.ts:98-101` maps only `stats.avg/p50/p99` and never reads `stats.min`. The statistic swap is therefore two different pieces of work, not one: arbor needs a baseline carrying a column it already produces, signals needs the field added to the runner first. The decision is unaffected; the deliverable estimate was slightly optimistic. Attempting a partial R1 during a release close would produce a half-built second mechanism sitting beside the condemned one — two things to reason about instead of one.
 
 No sub-piece of R1 was found to be independently shippable and independently *valuable*: every candidate (the A/B arm, the interleave, the control arm) is worthless without the others, because each exists to make the next one's number interpretable.
 
 ### Tracked follow-up
 
 **`C-FEL-BENCH-R1-AB-HARNESS`** — replace both timing gates' checked-in-baseline mechanism with R1. Deliverable order: design doc → dual-arm harness → statistic swap (`p50` → `min`) → CI budget → re-tier the workloads against in-band control-arm evidence → only then delete the `continue-on-error` lines and promote the gates into `ci-ok`.
+
+**Design doc: `docs/plans/2026-08-09-bench-r1-ab-harness.md`** — deliverable 1 of that order, landed 2026-08-09. It specifies the three arms (BASE / HEAD / **CONTROL**, where CONTROL re-measures the merge base so each run reports its own noise floor), abstention as a first-class non-blocking outcome when the noise floor swallows the threshold, cell-level interleaving with per-rep arm rotation, per-worktree dependency isolation, and the re-tiering evidence standard — deliberately the same "≥ 2 weeks of runs" bar this section sets for reopening D1. Read it before writing any R1 code; the remaining five deliverables are scoped there, and it also records what would **falsify** R1 rather than only what would confirm it.
 
 Two things reopen this decision early, and nothing else does:
 
