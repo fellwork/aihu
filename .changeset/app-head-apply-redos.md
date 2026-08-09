@@ -12,10 +12,16 @@ a slow build IS the DoS here, not a runtime one.
 
 **`<title>` matching** — `/<title[^>]*>[\s\S]*?<\/title>/i` re-ran its lazy
 `</title>` scan from EVERY `<title` occurrence in the string when none of
-them actually closed. Split into two independent linear scans: find the
-first `<title...>` (an `exec` without the `g` flag stops at the first match;
-it does not retry-and-rescan per occurrence the way the combined pattern's
-backtracking did), then search once for `</title>` in the remainder.
+them actually closed. A first attempt split this into two regex-based scans
+(an open-tag `/<title[^>]*>/i.exec` followed by a `</title>` search over the
+remainder) — that closed the combined pattern's lazy-suffix half, but a
+second CodeQL pass correctly re-flagged the open-tag half on its own: with no
+`>` anywhere in the string, `.exec` (no `g` flag) still retries at every
+`<title` occurrence, each retry re-scanning the remainder — confirmed by
+direct timing (11ms → 61ms → 237ms at 2k/5k/10k occurrences, quadratic).
+Replaced with the same `indexOf`-based technique as the canonical-link fix
+below: no regex for the tag boundary at all, so there is nothing left to
+retry-and-rescan. Confirmed linear: 0.5ms at 100,000 occurrences.
 
 **Canonical `<link>` matching** — `/<link\s+[^>]*rel="canonical"[^>]*>/i` had
 two separate defects, both measured directly. The `\s+[^>]*` boundary let a
@@ -38,8 +44,10 @@ Both preserve exact prior matching behavior, including quirks: case-
 insensitivity on tag names and the `rel="canonical"` literal, and — verified
 this is what the ORIGINAL regex also did, not a new gap — matching on the raw
 literal substring `rel="canonical"` anywhere within a `<link ...>` tag's text
-rather than parsing real attribute boundaries. Regression suite in the new
-`head-apply-redos.test.ts` (14 tests): behavior-preservation cases for both
-matchers plus adversarial-timing proofs, mutation-tested against the original
-patterns (reintroducing either one reproduces the original blowup — the
-title case measurably, the link case by hanging past a 30s hard kill).
+rather than parsing real attribute boundaries. Regression suite in
+`head-apply-redos.test.ts` (15 tests): behavior-preservation cases for both
+matchers plus adversarial-timing proofs for every distinct ambiguity shape,
+mutation-tested against both the original patterns AND the intermediate
+regex-based fixes (each reintroduction reproduces its own blowup — the
+title open-tag case measurably at 951ms against a 250ms budget, the link
+case by hanging past a 30s hard kill).

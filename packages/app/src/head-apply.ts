@@ -91,26 +91,37 @@ function attrsToHtml(attrs: Record<string, string>): string {
 
 /**
  * Find `<title ...>...</title>` in `html` without the ReDoS `/<title[^>]*>
- * [\s\S]*?<\/title>/i` used to have (CodeQL js/polynomial-redos). That combined
- * regex re-ran its lazy `</title>` scan from EVERY `<title` occurrence in the
- * string when none of them actually closed — O(occurrences × remaining
- * length). `html` here is the build's OWN index.html template, attacker-
- * reachable via an untrusted PR the same way `.aihu` source is elsewhere in
- * this repo's threat model, and this runs at build/prerender time (per this
- * file's own "build-time only" note) — a slow build IS the DoS.
+ * [\s\S]*?<\/title>/i` used to have (CodeQL js/polynomial-redos). `html` here
+ * is the build's OWN index.html template, attacker-reachable via an untrusted
+ * PR the same way `.aihu` source is elsewhere in this repo's threat model,
+ * and this runs at build/prerender time (per this file's own "build-time
+ * only" note) — a slow build IS the DoS.
  *
- * Split into two independent linear scans instead: `exec` without the `g`
- * flag stops at the FIRST `<title...>` it finds (it does not retry-and-rescan
- * per occurrence the way the combined pattern's backtracking did), and the
- * `</title>` search that follows runs once, over the remainder only.
+ * A first attempt split the combined regex into `/<title[^>]*>/i.exec` (open
+ * tag) followed by a `</title>` search over the remainder — that closed the
+ * COMBINED pattern's lazy-suffix half, but CodeQL correctly flagged the open-
+ * tag half again on its own: `[^>]*` bounded by a single required `>` is
+ * fine for ONE match attempt, but `.exec` without the `g` flag still retries
+ * at every `<title` occurrence when the first one has no `>` anywhere after
+ * it, and each retry re-scans the remaining string — confirmed by direct
+ * timing (11ms → 61ms → 237ms at 2k/5k/10k occurrences, quadratic).
+ *
+ * `indexOf`-based instead, same technique as {@link findCanonicalLinkTag}: no
+ * regex for the tag boundary at all. `searchFrom` only ever advances, and if
+ * a `<title` occurrence has no `>` anywhere after it, NOTHING later in the
+ * string can close it either — so the function returns immediately instead
+ * of retrying at the next occurrence, and `</title>` is found the same way
+ * once the open tag resolves.
  */
 function findTitleTag(html: string): { start: number; end: number } | null {
-  const open = /<title[^>]*>/i.exec(html)
-  if (open === null) return null
-  const afterOpen = open.index + open[0].length
-  const close = /<\/title>/i.exec(html.slice(afterOpen))
-  if (close === null) return null
-  return { start: open.index, end: afterOpen + close.index + close[0].length }
+  const lower = html.toLowerCase()
+  const tagStart = lower.indexOf('<title')
+  if (tagStart === -1) return null
+  const openEnd = lower.indexOf('>', tagStart)
+  if (openEnd === -1) return null
+  const closeStart = lower.indexOf('</title>', openEnd + 1)
+  if (closeStart === -1) return null
+  return { start: tagStart, end: closeStart + '</title>'.length }
 }
 
 /**

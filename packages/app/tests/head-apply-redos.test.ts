@@ -129,8 +129,25 @@ describe('applyHeadToHtml — canonical link replace/inject, behaviour preserved
 })
 
 describe('redos — applyHeadToHtml stays linear on adversarial index.html input', () => {
-  it('title: many unclosed <title occurrences resolve well inside budget', () => {
+  it('title: many <title occurrences each already closed resolve well inside budget', () => {
     const html = `<html><head>${'<title>'.repeat(PUMP_N)}</head></html>`
+    expect(elapsed(() => applyHeadToHtml(html, { title: 'New' } as HeadConfig))).toBeLessThan(
+      BUDGET_MS,
+    )
+  })
+
+  it('title: many <title occurrences with NO > anywhere resolve well inside budget', () => {
+    // The genuinely adversarial shape for the open-tag half specifically. A
+    // first fix split the combined regex into an open-tag `/<title[^>]*>/i`
+    // exec followed by a separate `</title>` search — that closed the
+    // lazy-suffix half, but CodeQL correctly re-flagged the open-tag half on
+    // its own: with no `>` ANYWHERE, `.exec` (no `g` flag) still retries at
+    // every `<title` occurrence, each retry rescanning the remainder.
+    // Confirmed by direct timing before this second fix: 11ms/61ms/237ms at
+    // 2k/5k/10k occurrences — quadratic. The PUMP_N=20_000-with-`>` case
+    // above never exercised this path at all (every occurrence resolves on
+    // the very first `<title`, `>` included).
+    const html = `${'<title '.repeat(PUMP_N)}X`
     expect(elapsed(() => applyHeadToHtml(html, { title: 'New' } as HeadConfig))).toBeLessThan(
       BUDGET_MS,
     )
