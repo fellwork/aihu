@@ -43,6 +43,43 @@ bun run bench                # benchmark suite (cellx, dynamic-deps, etc.)
   count instead of rebuilding its child list.
 - llms.txt + MCP support is part of the contract, not optional.
 
+## Vendored Repositories
+
+External source vendored under `repos/` as read-only reference material,
+so agents read real library code instead of guessing at an API.
+
+- **Do not edit** anything under `repos/` unless explicitly asked.
+- **Do not import from** `repos/`. Application and package code keeps
+  importing from normal registry dependencies; the vendored tree exists
+  to be *read*, never to be built or linked against.
+- Prefer patterns from the vendored source over pretrained recall or web
+  search — those return whatever version happens to be current, which is
+  usually not the version pinned here.
+- Vendored trees are pruned to what aihu actually compiles against, not
+  full upstream mirrors. A missing crate is intentional, not damage.
+
+### `repos/oxc` — oxc @ 0.139.0
+
+`packages/compiler` pins seven oxc crates EXACT (`=0.139.0`) because
+oxc's AST churns between minors. **Read `repos/oxc` before changing
+anything under `packages/compiler/src/expr/`** — it is the source of
+truth for AST node shapes, visitor hooks, and `ScopeFlags`/`ScopeId`
+semantics at the pinned version. Treat pretrained oxc knowledge as
+version-skewed until checked against this tree.
+
+Pruned to the dependency closure of those seven crates (14 crates,
+~7.7 MB of 109 MB upstream). `oxc_index` is a crates.io dependency, not
+a monorepo member, so it is absent by design.
+
+Updating (rare — the pin moves deliberately, all seven in lockstep):
+
+```bash
+git subtree pull --prefix=repos/oxc \
+  https://github.com/oxc-project/oxc.git crates_vX.Y.Z --squash
+```
+
+Expect conflicts on paths the prune removed; resolve with `git rm`.
+
 ## gstack
 
 AI dev tooling — headless browser, QA, design review, deploy workflows.

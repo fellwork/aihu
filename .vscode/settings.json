@@ -1,0 +1,34 @@
+{
+  // Shared workspace settings. Vendored read-only reference source lives
+  // under repos/ (see AGENTS.md "Vendored Repositories") — keep it out of
+  // search, indexing, and auto-import so the editor behaves as if it
+  // weren't there. Without these, repos/oxc adds ~346 files of Rust to
+  // every symbol search and auto-import candidate list.
+
+  "typescript.preferences.autoImportFileExcludePatterns": ["repos/**"],
+  "javascript.preferences.autoImportFileExcludePatterns": ["repos/**"],
+
+  "search.exclude": {
+    "repos/**": true
+  },
+  "files.watcherExclude": {
+    "repos/**": true
+  },
+
+  // rust-analyzer is the aihu-specific part the TS-centric advice misses:
+  // repos/oxc ships its own Cargo.toml + Cargo.lock, so without this
+  // rust-analyzer discovers it as a second linked project and indexes a
+  // 14-crate tree we never build. The pruned tree would also fail to
+  // resolve (its workspace members glob apps/*, napi/*, tasks/*, all
+  // removed), producing permanent phantom diagnostics.
+  "rust-analyzer.files.excludeDirs": ["repos"]
+
+  // Deliberately NOT setting "files.exclude". The upstream advice
+  // recommends it, but hiding repos/ from the explorer stops you opening
+  // the vendored source by hand, which is the entire point of vendoring
+  // it. Search, watching, and indexing are excluded above — that is the
+  // part that actually costs you. An empty "files.exclude": {} is not a
+  // safe placeholder in a *shared* settings file either: workspace values
+  // take precedence over a contributor's own excludes, so it would earn
+  // nothing and risk clobbering their setup.
+}
