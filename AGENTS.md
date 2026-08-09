@@ -52,6 +52,10 @@ so agents read real library code instead of guessing at an API.
 - **Do not import from** `repos/`. Application and package code keeps
   importing from normal registry dependencies; the vendored tree exists
   to be *read*, never to be built or linked against.
+- **Do not run build tooling inside** `repos/` — no `cargo`, no `bun
+  install`. Pruning removes workspace members, so a vendored tree's own
+  manifest is deliberately left inconsistent; the resulting errors are
+  expected and are not something to "fix". Read the files, nothing else.
 - Prefer patterns from the vendored source over pretrained recall or web
   search — those return whatever version happens to be current, which is
   usually not the version pinned here.
@@ -79,6 +83,26 @@ git subtree pull --prefix=repos/oxc \
 ```
 
 Expect conflicts on paths the prune removed; resolve with `git rm`.
+
+`repos/oxc/Cargo.toml` declares its own `[workspace]` — that is what keeps
+it out of the root workspace without an `exclude` entry (contrast
+`packages/*/src-native`, which need one). Its `members` glob still lists
+`apps/*`, `napi/*` and `tasks/*`, all removed by the prune, so **`cargo`
+run from inside `repos/oxc` fails**. That is expected. Root-level
+`cargo build` / `cargo metadata` never read it and are unaffected;
+`.vscode/settings.json` sets `rust-analyzer.files.excludeDirs` so the
+editor doesn't adopt it as a second linked project either.
+
+Before the next `subtree pull`, confirm the split point is still
+discoverable — `git subtree` finds it by line-scanning commit messages,
+so it survives a squash-merge, but verify rather than assume:
+
+```bash
+git log --grep="^git-subtree-dir: repos/oxc/*\$" --pretty=format:'%h %s' | head -1
+```
+
+An empty result means the trailers were lost and the pull must be redone
+as a fresh `subtree add`.
 
 ## gstack
 
