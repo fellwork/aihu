@@ -1,5 +1,49 @@
 # @aihu/css-engine
 
+## 0.6.1
+
+### Patch Changes
+
+- [#779](https://github.com/fellwork/aihu/pull/779) [`ac47af2`](https://github.com/fellwork/aihu/commit/ac47af2431dde2ccb7fbde98955f74552eeabe88) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Bound every `aihu-compile` / `aihu-css-compile` subprocess so a build can no
+  longer hang forever with no output.
+
+  An `apps/docs` vite build sat 10 minutes at 0.0% CPU with a wedged
+  `aihu-css-compile --ast-json` child, and two `aihu-compile --stdin` children
+  were found still alive after 2 days 13 hours. Reproduced under load and sampled
+  both sides:
+
+  - child — parked in `read()`, inside `io::stdin().read_to_string()`, waiting for
+    an EOF on stdin that never arrives.
+  - parent — parked in `node::SyncProcessRunner::TryInitializeAndRunLoop` →
+    `uv_run` → `uv__io_poll` → `kevent`, still holding that pipe's write end.
+    `lsof -U` confirmed the parent was the only holder, so this is not an
+    fd-inheritance leak.
+
+  The stall is on the parent side: `spawnSync`'s private uv loop never delivers
+  the writable event that would finish `input` and close the write end. With no
+  timer armed `uv__io_poll` calls `kevent` with **no deadline**, which is why
+  these processes wait for days rather than minutes. Passing `timeout` arms a uv
+  timer in that same loop, giving `kevent` a deadline, so the loop always wakes
+  and reaps the child. It is not a pipe-buffer capacity problem — 20 MB of stdin
+  against 200 KB each of stdout and stderr round-trips cleanly on both node and
+  bun.
+
+  Every spawn now carries a timeout, an explicit `maxBuffer` (node's inherited
+  1 MiB default was its own latent `ENOBUFS` failure), and `killSignal: 'SIGKILL'`
+  so nothing survives. The bound is a measured floor of 120 s — about 24,000x the
+  measured 4-5 ms per-call cost, wide enough that a loaded CI runner cannot trip
+  it — plus 2 ms per KB of stdin, so it scales for payloads far larger than
+  anything this repo produces. Override with `AIHU_COMPILE_TIMEOUT_MS` /
+  `AIHU_CSS_COMPILE_TIMEOUT_MS`; an override replaces the floor but keeps the
+  per-byte allowance.
+
+  When it fires the error names the binary, the args, the stdin size and the
+  elapsed time, and says what to do next — the original hang produced no output at
+  all, which is what let it cost ten minutes and two zombies survive two days.
+
+- Updated dependencies [[`ac47af2`](https://github.com/fellwork/aihu/commit/ac47af2431dde2ccb7fbde98955f74552eeabe88), [`11888ba`](https://github.com/fellwork/aihu/commit/11888ba342d04b49b18abc5f5b17da56f604a0a7), [`abfaa6e`](https://github.com/fellwork/aihu/commit/abfaa6e0136cdf9d5f5ce77cc5f8e53c840fd4ce), [`9e198d6`](https://github.com/fellwork/aihu/commit/9e198d6e5cc7211496335d47e1429f1f82f0a940), [`abfaa6e`](https://github.com/fellwork/aihu/commit/abfaa6e0136cdf9d5f5ce77cc5f8e53c840fd4ce), [`ac3affc`](https://github.com/fellwork/aihu/commit/ac3affc4cb27bae5af0ebbf84c1fd70b800d9ac8), [`9df850b`](https://github.com/fellwork/aihu/commit/9df850b3d0f93d1fa752cbbeb3038a831cf15edf), [`9df850b`](https://github.com/fellwork/aihu/commit/9df850b3d0f93d1fa752cbbeb3038a831cf15edf), [`9df850b`](https://github.com/fellwork/aihu/commit/9df850b3d0f93d1fa752cbbeb3038a831cf15edf), [`abfaa6e`](https://github.com/fellwork/aihu/commit/abfaa6e0136cdf9d5f5ce77cc5f8e53c840fd4ce), [`ff58a1b`](https://github.com/fellwork/aihu/commit/ff58a1b8d9018f0198aa8879c359e90133266b2f), [`abfaa6e`](https://github.com/fellwork/aihu/commit/abfaa6e0136cdf9d5f5ce77cc5f8e53c840fd4ce), [`abfaa6e`](https://github.com/fellwork/aihu/commit/abfaa6e0136cdf9d5f5ce77cc5f8e53c840fd4ce), [`abfaa6e`](https://github.com/fellwork/aihu/commit/abfaa6e0136cdf9d5f5ce77cc5f8e53c840fd4ce), [`9df850b`](https://github.com/fellwork/aihu/commit/9df850b3d0f93d1fa752cbbeb3038a831cf15edf), [`ac47af2`](https://github.com/fellwork/aihu/commit/ac47af2431dde2ccb7fbde98955f74552eeabe88)]:
+  - @aihu/compiler@1.3.0
+
 ## 0.6.0
 
 ### Minor Changes

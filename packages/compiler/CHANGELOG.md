@@ -1,5 +1,651 @@
 # @aihu/compiler
 
+## 1.3.0
+
+### Minor Changes
+
+- [#770](https://github.com/fellwork/aihu/pull/770) [`9e198d6`](https://github.com/fellwork/aihu/commit/9e198d6e5cc7211496335d47e1429f1f82f0a940) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Export the resolved shadow mode from the server target as `__aihu_shadow__`.
+
+  Server-target modules already export `__aihu_light_scope__` and `__aihu_tag__`
+  so an SSR/SSG caller never re-derives what the compiler already resolved. The
+  shadow mode joins them, in aihu's own vocabulary (`'light' | 'shadow'`).
+
+  An SSR caller rendering a NESTED custom element has to emit two different
+  shapes: a light component's tree is the host element's own children, while a
+  shadow component's tree belongs inside a `<template shadowrootmode="open">` so
+  the browser attaches a declarative shadow root while parsing. Choosing wrong is
+  not cosmetic — light-DOM children under a host that later calls `attachShadow`
+  are discarded on upgrade ("adopt or discard, never slot-project"), so the
+  content would paint and then vanish.
+
+  The exported value is `effectiveShadow`, the same resolution that already
+  drives `_injectShadowMode` and the css-fold branch (plugin config > per-file
+  directive > page/layout default). Exporting it keeps one source rather than
+  letting a consumer infer the mode from the presence of `__aihu_light_scope__`,
+  which is an inference, not a signal.
+
+  Deliberately NOT the DOM's `ShadowRootMode` (`'open' | 'closed'`) — a different
+  enum that merely shares the word "mode". The translation to `shadowrootmode`
+  happens once, at serialization, in the renderer. Client target is unchanged: it
+  stamps its mode into `defineElement` options directly and needs no export.
+
+- [#779](https://github.com/fellwork/aihu/pull/779) [`ac47af2`](https://github.com/fellwork/aihu/commit/ac47af2431dde2ccb7fbde98955f74552eeabe88) Thanks [@srmcguirt](https://github.com/srmcguirt)! - `output: 'ssr'` — a Workers-deployable server bundle that actually renders.
+
+  [#778](https://github.com/fellwork/aihu/issues/778) made SSR child rendering correct. It did not make it shippable: the only
+  verified consumer was the SSG prerender. This closes that gap.
+
+  **The crux.** Generated server code does not need to be _emitted_ — it needs to
+  be a virtual module that is an SSR-environment **build input**. `@aihu/app` now
+  declares a second Vite environment under `output: 'ssr'` whose entry is
+  `virtual:aihu-server-entry`, so `import routes from 'virtual:aihu-routes'`
+  inside it resolves to REAL chunks, `.aihu` files compile to the server target
+  with no config (`aihuCompilerPlugin` reads
+  `this.environment.config.consumer === 'server'`), and one `vite build` produces
+  both environments. A built `dist-server/_worker.js` server-renders two levels of
+  child nesting, verified against a stubbed `ASSETS` binding in CI.
+
+  Load-bearing and non-obvious: a `virtual:` id works as a build entry ONLY via
+  `rollupOptions.input`. `build.ssr: 'virtual:…'` fails `[UNRESOLVED_ENTRY]`.
+
+  **`@aihu/app`**
+
+  - `OutputMode` gains `'ssr'`. `@aihu/server`'s `RenderingMode` is a different
+    axis — a client hydration hint whose only real consumer is `client.ts` — and
+    is deliberately not the knob here.
+  - **`output: 'ssr'` REQUIRES `css.shadowMode`, as a build error naming the key.**
+    Without it a leaf component exports no `__aihu_shadow__`, `buildChildRegistry`
+    refuses it, and every child renders as an empty element — indistinguishable
+    from a broken registry, which is the precise failure this whole effort exists
+    to remove. `apps/docs` setting `shadowMode: 'light'` is the only reason SSG
+    never hit it.
+  - `AihuAdapter.serverEntry?(ctx)` contributes the platform wrapper INTO the
+    virtual entry. `AdapterContext.createHandlerSource` is deprecated: its output
+    is written after the build, outside the module graph, so every route it wires
+    404s by construction.
+  - **D-1** — a `node:module` stub (`enforce: 'pre'`, or Vite's resolver wins)
+    keeps the builtin out of the Worker bundle. It arrives via `@aihu/server`'s
+    lazy `import('./native.js')`, is unreachable at runtime (the loader
+    short-circuits to the TS walker whenever `children` is passed), but is still
+    uploaded and fails on workerd without `nodejs_compat`.
+    The stub ships as its OWN artifact, `dist/node-module-stub.js`, rather than as
+    source text inside a `load` hook. Its export name is fixed by the binding
+    `native.js` imports, so inlining it put that identifier into `dist/index.js`
+    as inert string data that `check:runtime-purity`'s token scan cannot tell from
+    a real symbol. The fix is a declared boundary artifact — the same shape the
+    guard already uses for `@aihu/server`'s `dist/native.js` — checked under its
+    own `builtin-stub` tier (no quoted `node:` specifier of any kind), not an
+    exception that would blind the guard to a real leak elsewhere in the plugin.
+  - **D-2** — the SSR environment writes to a SIBLING of the client outDir
+    (`dist` → `dist-server`). Cloudflare's ASSETS binding serves the client outDir
+    verbatim; SSR chunks written there are downloadable server code.
+  - `closeBundle` fires once per environment, and `aihu-adapter` / `aihu-ssg` had
+    no guard — both would have run twice. Now client-only, with an absent
+    `environment` treated as the single-environment case so an older Vite is not
+    silently left without an adapter. `apps/docs`' `output: 'static'` build is
+    byte-identical across all 290 emitted files.
+
+  **`@aihu/router`** — `virtual:aihu-server-components` (`genSC`): a FLAT
+  tag→loader map, because the consumer is `buildChildRegistry`, which indexes
+  tag→MODULE and cannot use `genC`'s transitive `Promise.all` bundle. It carries
+  only the subgraph REACHABLE from the pages, walked over `__aihu_child_tags__`
+  render edges. Measured on a fixture separating the sets: every-component
+  bundles 4 modules, the source regex 3, render edges **2** — the regex pulls in
+  an attribute-bearing reference the emitter DECLINES, which `__aihu_schild` can
+  never look up and which renders empty either way.
+
+  Accepted trade, written into `genSC`'s docblock: a pruned registry loses
+  `buildChildRegistry`'s global cycle view. Correct for a Worker (the report is
+  advisory, `__aihu_schild` is depth- and budget-bounded, and an unreachable cycle
+  cannot affect a response); SSG still loads everything and keeps the global check.
+
+  **`@aihu/compiler`** — `_deriveChildTags` is exported so the compiler's
+  transform and the router's `genSC` share ONE derivation instead of adding a
+  fourth. The `__aihu_referenced_tags__` docblock already argues that deriving the
+  runtime edge set twice would be "one rule written in two places"; that does not
+  stop applying because the second site is in another package.
+
+  **`@aihu/adapter-cloudflare`** — implements `serverEntry`, and under
+  `output: 'ssr'` stops emitting `_worker.js` into the client outDir entirely
+  (the build's own `dist-server/_worker.js` is the worker). Its generated
+  `wrangler.toml` points `main` at the server bundle and `[assets] directory` at
+  the client dir only. Its docblock's claim that the 404 placeholders were caused
+  by "a non-serializable `module()` thunk" is corrected: `fileToRouteDefinition`
+  builds `module: () => Promise.resolve({ default: null })`, so there was never a
+  loadable module and no adapter-side fix was possible.
+
+  **Not in scope, named so it is not mistaken for done.** `@aihu/adapter-vercel`
+  still uses the string-emission shape and does not gain `serverEntry`. Layouts
+  are not composed under live SSR — `createServerRouter` has no layout handling at
+  all (SSG composes them); this is a real, separate gap. Worker bindings (`env`)
+  are not threaded into a page render, because `ServerRouter.handle` takes a
+  `Request` and nothing else.
+
+### Patch Changes
+
+- [#779](https://github.com/fellwork/aihu/pull/779) [`ac47af2`](https://github.com/fellwork/aihu/commit/ac47af2431dde2ccb7fbde98955f74552eeabe88) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Bound every `aihu-compile` / `aihu-css-compile` subprocess so a build can no
+  longer hang forever with no output.
+
+  An `apps/docs` vite build sat 10 minutes at 0.0% CPU with a wedged
+  `aihu-css-compile --ast-json` child, and two `aihu-compile --stdin` children
+  were found still alive after 2 days 13 hours. Reproduced under load and sampled
+  both sides:
+
+  - child — parked in `read()`, inside `io::stdin().read_to_string()`, waiting for
+    an EOF on stdin that never arrives.
+  - parent — parked in `node::SyncProcessRunner::TryInitializeAndRunLoop` →
+    `uv_run` → `uv__io_poll` → `kevent`, still holding that pipe's write end.
+    `lsof -U` confirmed the parent was the only holder, so this is not an
+    fd-inheritance leak.
+
+  The stall is on the parent side: `spawnSync`'s private uv loop never delivers
+  the writable event that would finish `input` and close the write end. With no
+  timer armed `uv__io_poll` calls `kevent` with **no deadline**, which is why
+  these processes wait for days rather than minutes. Passing `timeout` arms a uv
+  timer in that same loop, giving `kevent` a deadline, so the loop always wakes
+  and reaps the child. It is not a pipe-buffer capacity problem — 20 MB of stdin
+  against 200 KB each of stdout and stderr round-trips cleanly on both node and
+  bun.
+
+  Every spawn now carries a timeout, an explicit `maxBuffer` (node's inherited
+  1 MiB default was its own latent `ENOBUFS` failure), and `killSignal: 'SIGKILL'`
+  so nothing survives. The bound is a measured floor of 120 s — about 24,000x the
+  measured 4-5 ms per-call cost, wide enough that a loaded CI runner cannot trip
+  it — plus 2 ms per KB of stdin, so it scales for payloads far larger than
+  anything this repo produces. Override with `AIHU_COMPILE_TIMEOUT_MS` /
+  `AIHU_CSS_COMPILE_TIMEOUT_MS`; an override replaces the floor but keeps the
+  per-byte allowance.
+
+  When it fires the error names the binary, the args, the stdin size and the
+  elapsed time, and says what to do next — the original hang produced no output at
+  all, which is what let it cost ten minutes and two zombies survive two days.
+
+- [#774](https://github.com/fellwork/aihu/pull/774) [`11888ba`](https://github.com/fellwork/aihu/commit/11888ba342d04b49b18abc5f5b17da56f604a0a7) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Export `__aihu_child_tags__` from server-target modules — every component tag
+  the template references, deduped and sorted.
+
+  This is what an SSG/SSR caller walks transitively to build
+  `SsrOptions.children`: load a module, read its child tags, load those, repeat —
+  and reject a cyclic graph before any render begins.
+
+  Derived from the emitted `__aihu_schild` call sites rather than recomputed from
+  the template, so the declared set is exactly the set the compiled renderer will
+  look up at runtime. Omitted entirely when a template references no component.
+
+- [#780](https://github.com/fellwork/aihu/pull/780) [`abfaa6e`](https://github.com/fellwork/aihu/commit/abfaa6e0136cdf9d5f5ce77cc5f8e53c840fd4ce) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Close 17 CodeQL `js/polynomial-redos` (CWE-1333) alerts in the compiler's Vite
+  plugin layer: a hostile `.aihu` file could make a build spend minutes inside a
+  regex instead of compiling.
+
+  **Why it was reachable.** Every flagged pattern in `js/index.ts` scans COMPILED
+  MODULE TEXT, and compiled module text carries authored `.aihu` bytes verbatim —
+  a template text node becomes `leaf('<text>')` (`codegen/template_emit.rs`) and
+  an `@style` body becomes `` __style__.replaceSync(`<css>`) `` (`codegen/emit.rs`).
+  So the subject string is controlled by whoever authors the SFC: an untrusted PR
+  in a monorepo with CI, or a template distributed to other developers. This is
+  not "our own generated output"; all 17 alerts sit downstream of user bytes.
+
+  **What the 17 alerts actually were.** Three ambiguity shapes, all polynomial
+  rather than exponential — the cost is re-scanning, not nested quantifiers:
+
+  - **A — named-import matchers (12 alerts, one duplicated pattern).**
+    `import\s*\{[^}]*\}\s*from '@aihu/<pkg>'`, copied across `_buildHmrCode`,
+    `_buildDeferredHydration`, `_buildStaticIsland` and `_injectAutoWiring` for
+    the runtime/arbor/signals modules. `[^}]` does not exclude `{`, so each of the
+    N `import{` offsets in the subject restarted a scan that ran to the END of the
+    string before failing. Fixed by narrowing the class to `[^{}]`, which bounds
+    each scan to the next brace. An ES import specifier list can never contain
+    `{`, so nothing legitimate changes meaning.
+  - **B — literal prefix + lazy any-char scan (4 alerts, 3 distinct sites).**
+    `` (__style__\.replaceSync\(`)[^]*?(`\);) ``, the `createOutletBoundary` block
+    matcher, and the `defineComponent({ … base:` probe. Repeating the prefix gives
+    N start offsets, each running a fresh O(n) lazy scan. A regex cannot express
+    "first prefix, then first terminator" without that re-scan, so these became
+    literal `indexOf` scans (`_replaceDelimitedBody`, `_passivizeOutlet`,
+    `_hasBaseRecipe`).
+  - **C — greedy `.*` between two literals (1 alert).**
+    `/import.*from\s*'@aihu\/signals'/`, one start offset per `import` on the
+    line. Anchored to a line start under `m`, which caps the offsets at one per
+    line.
+
+  Two further whitespace pumps rode along in the strip-the-runtime-import matcher:
+  adjacent unbounded `\s*` runs (`\s*;?\s*$` can split a whitespace tail O(n) ways
+  when `$` never holds — rewritten as the exactly-equivalent `(?:\s*;)?\s*$`), and
+  `^\s*` under `m`, where `\s` matches `\n` so every line start could scan the
+  rest of the file — narrowed to `[^\S\r\n]*`, which is what "the import line"
+  means.
+
+  **Verification.** `packages/compiler/tests/regex-redos.test.ts` pins both
+  halves. Each shape's pump was timed against the ORIGINAL patterns first and
+  grows cleanly 4x per doubling — at 32k repetitions: 2.45 s (shape A runtime),
+  2.84 s (shape A signals), 4.73 s (shape A `import type`), 4.38 s (outlet block),
+  2.46 s (shape C), 0.83 s (the whitespace-tail pump). Every rewrite runs the same
+  input in under 1.5 ms, and the suite asserts a 250 ms budget through the
+  exported functions, not through copies of the patterns.
+
+  Behaviour preservation is a differential diff: every changed pattern is replayed
+  in its original form and compared match-for-match (index, span and captures)
+  against the shipped one over a corpus of real codegen output plus the awkward
+  edges — multi-line specifier lists, `import type`, aliases, empty lists, CRLF,
+  indentation, semicolons, repeated and decoy imports. The suite was mutation-
+  tested: reverting any one of the 16 rewritten sites individually makes it fail.
+
+  Three inputs deliberately change meaning, each unreachable from the codegen and
+  each pinned by a test: a `{` inside a specifier list (invalid JS) no longer
+  matches; blank lines _before_ the runtime import are no longer deleted along
+  with it; and the any-signals probe now requires the import to own its line.
+
+  The first of those is also a latent correctness bug fixed. A `.aihu` author
+  writing the literal text `import {` compiles to `leaf('import {')`, and `[^}]`
+  ran straight through the string literal to the next `}` — hoovering
+  `')\nimport {  branch ` into the specifier list and rewriting the module into
+  `import { '), import {, branch, mount } from '@aihu/arbor'`, which is not valid
+  JS. `[^{}]` stops at the planted brace and matches the real import.
+
+- [#780](https://github.com/fellwork/aihu/pull/780) [`abfaa6e`](https://github.com/fellwork/aihu/commit/abfaa6e0136cdf9d5f5ce77cc5f8e53c840fd4ce) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Fix a `js/polynomial-redos` (CWE-1333) alert in `_buildStaticIsland`'s
+  `TAIL_WITH_SHADOW_ONLY` regex, surfaced by a fresh CodeQL pass during a
+  full-diff release review — not one of the 17 alerts an earlier pass in this
+  same effort closed (that pass covered `_buildDeferredHydration`,
+  `_injectAutoWiring`, `_passivizeOutlet`, `_foldCssEngineStyles` and
+  `_foldSsrCssExport`; this regex predates it, introduced by the OXC strip-types
+  work, and was never in scope).
+
+  `_injectShadowMode`'s two-argument branch always emits the exact literal
+  `, { shadowMode: 'shadow' }` — one space at each junction, never a trailing
+  comma — but the matcher kept `\s*,?\s*` around the optional comma: two
+  adjacent `\s*` groups with only a zero-width `,?` between them. A long
+  whitespace run between `'shadow'` and a `}` that never arrives lets the
+  engine split that run across the pair in O(n) ways per position. Measured
+  before fixing: 333ms at 30,000 repetitions and climbing quadratically.
+
+  Rewritten to one `\s*` per junction, none of them adjacent to another —
+  matches the exact same real compiler output (verified against the existing
+  `static-island.test.ts`/`classify-island.test.ts` suites, both still green)
+  with no such ambiguity. New regression test in `regex-redos.test.ts`,
+  mutation-tested: reverting the fix reproduces 355ms against the 250ms budget.
+
+- [#777](https://github.com/fellwork/aihu/pull/777) [`ac3affc`](https://github.com/fellwork/aihu/commit/ac3affc4cb27bae5af0ebbf84c1fd70b800d9ac8) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Carry a shadow component's CSS into its declarative shadow template.
+
+  The server target now exports `__aihu_css__` — the component's own CSS as a
+  plain string — and `__aihu_schild` inlines it as `<style>` inside the
+  `<template shadowrootmode="open">`, ahead of the content.
+
+  This is not optional polish. A shadow root is style-isolated by construction,
+  so a declarative one whose CSS lives outside it paints unstyled until the
+  component's chunk loads — content rendering ahead of its scoped CSS, which is
+  the failure that cost ~1.9s of LCP in [#754](https://github.com/fellwork/aihu/issues/754). Emitting the tree without its
+  styles would trade an empty header for a broken one.
+
+  The client's `CSSStyleSheet` declaration stays elided on the server target
+  (that is a DOM dependency), and both now share one escape function so the
+  bytes cannot diverge. `</style` sequences in authored CSS are escaped for
+  `<style>`'s raw-text context.
+
+  Light-DOM children are unaffected: their rules arrive via the app stylesheet's
+  `@scope([data-a=…])` blocks. Global `@style` blocks are never inlined — they
+  belong to the document, and scoping them to a child would change what they
+  match.
+
+- [#778](https://github.com/fellwork/aihu/pull/778) [`9df850b`](https://github.com/fellwork/aihu/commit/9df850b3d0f93d1fa752cbbeb3038a831cf15edf) Thanks [@srmcguirt](https://github.com/srmcguirt)! - First batch of SSR child-rendering review follow-ups.
+
+  A component reference cycle now WARNS instead of failing the build. The hard
+  failure rejected ordinary recursive shapes — trees, nested menus, comment
+  threads — because the tag set is derived from reference sites and cannot see a
+  guard, and its stated justification (that a cycle would ship 32 nested copies)
+  stopped being true once the renderer gained a depth cap and an output budget.
+  `ChildCycleError` is replaced by a reported `ChildCycle`.
+
+  Component discovery no longer follows symlinks out of the components directory
+  (`readdir({recursive:true})` follows them under bun and not under Node, and
+  every match is compiled and evaluated at build time), and no longer flattens
+  nested paths when `parentPath` is absent.
+
+  New build diagnostics for the silent-empty-render cases: a referenced tag the
+  registry cannot supply, and a module exporting no `__aihu_tag__`.
+
+  Prerender content is spliced with the function form of `String.replace`, so
+  `` $` ``/`$&`/`$'` in page prose no longer re-splices the layout shell.
+
+- [#778](https://github.com/fellwork/aihu/pull/778) [`9df850b`](https://github.com/fellwork/aihu/commit/9df850b3d0f93d1fa752cbbeb3038a831cf15edf) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Fix `_injectShadowMode` corrupting emitted modules.
+
+  The options object is appended to `defineElement(tag, defineComponent(setup))`.
+  Its anchor was a greedy `defineComponent\([^]*\)` — and `[^]` crosses newlines,
+  so on a server-target module (where the string renderer is emitted AFTER
+  `defineElement`) it ran past its own call and landed on the module's last `))`.
+  For a component with an `if=`, that is the emitted condition, which became
+  `if ((n() > 5), { shadowMode: 'light', … })` — the comma operator, always
+  truthy, so a dead branch rendered. It also corrupted `__aihu_stext(…)` for any
+  parenthesis in interpolated text, and `setFormValue(…)` in every `$form`
+  component on all targets.
+
+  Replaced with a lexer that skips string literals, template literals (with
+  `${…}` nesting) and comments, plus a merge path that folds the fields into
+  `$form`'s existing options object rather than bailing. A naive paren counter is
+  not sufficient: it miscounts `leaf('(')` from ordinary text content and bails
+  silently, costing that component both `shadowMode` and `lightScopeId`.
+
+- [#778](https://github.com/fellwork/aihu/pull/778) [`9df850b`](https://github.com/fellwork/aihu/commit/9df850b3d0f93d1fa752cbbeb3038a831cf15edf) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Fix defects found reviewing SSR child rendering.
+
+  - A server-rendered child host was duplicated on hydrate. It is the first
+    element to carry both `data-aihu-path` and `data-aihu-ssr`, and `closest()`
+    matches the element itself, so each host became its own path-map boundary and
+    was re-materialized instead of adopted.
+  - Each render path held half the server-render environment: the compiled fast
+    path had no effect scope (so `onCleanup`, `$stream` and most composables
+    threw), the walker had no lifecycle window (so `onMount` threw). Both now open
+    both.
+  - The walker resolved children at runtime-built paths (inside `{#each}`) that
+    the compiled emitter declines, a byte divergence with a registry present.
+  - A shadow child's declarative template shipped only its authored `@style`
+    block; css-engine utility CSS and design tokens are now folded into
+    `__aihu_css__` too.
+  - Child renders are memoized and budgeted by output bytes, so a fan-out graph
+    cannot exhaust build memory.
+
+- [#780](https://github.com/fellwork/aihu/pull/780) [`abfaa6e`](https://github.com/fellwork/aihu/commit/abfaa6e0136cdf9d5f5ce77cc5f8e53c840fd4ce) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Give `$action`/`$state`-only components a standalone SSR entry under
+  `output: 'ssr'` — this includes the CLI scaffold's own default page.
+
+  A server build gated its no-DOM SSR entry (`export const __ssr`) on
+  `!is_agent_component`, which excluded **every** component with any exposed
+  `$action`, `$prop`, `$computed` or similar — not just components with a real
+  `@agent { }` block. A component in that shape fell through to the client-shaped
+  registration form instead: an unguarded `defineElement`/`new CSSStyleSheet()`
+  at module scope, which throws `ReferenceError: CSSStyleSheet is not defined` /
+  `HTMLElement is not defined` the instant a plain Node/Bun process — or a
+  Cloudflare Worker — imports the module. Since the CLI's default `minimal`
+  scaffold ships exactly this shape (a counter component with an `$action`
+  block, no `@agent`), every freshly scaffolded `output: 'ssr'` app was broken.
+
+  The exclusion was deliberately deferred under FEL-440 rather than lifted with
+  it, and its remaining stated reason — "the stubbed server SetupContext lacking
+  attr/prop signal support" — turned out to be real but far narrower than the
+  blanket gate it justified: only an `@agent { }` block's `$input` declarations
+  read `ctx.attrs.<name>[0]()`, and the host-less SSR `SetupContext` passes
+  `attrs: {}`. A plain `$action`/`$state` component's exposed closures reference
+  only the setup body's own local signals — never `ctx.attrs` — so it is exactly
+  as SSR-safe as a non-agent component, and so is an `@agent` block that carries
+  only policy (`$scope`/`$rate-limit`) with no `$input`s.
+
+  Narrowed the gate accordingly: excluded from the standalone SSR entry only
+  when `unit.source.agent` is present AND declares at least one `$input`. Pinned
+  by three new tests, each independently counterfactual-verified against the old
+  blanket gate (the two newly-permitted shapes fail under it; the still-excluded
+  shape does not).
+
+  `_registerAgentServerBinding` itself was never the blocker — it takes
+  `ctx.element`, which is `null` by design under SSR, and is a documented no-op
+  on a null host.
+
+- [#773](https://github.com/fellwork/aihu/pull/773) [`ff58a1b`](https://github.com/fellwork/aihu/commit/ff58a1b8d9018f0198aa8879c359e90133266b2f) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Compile a zero-attribute, zero-child component reference to a child render
+  call instead of an empty element.
+
+  A reference to another component compiled to an empty custom element: the
+  child's template lives in a module this compilation never sees, so there was
+  nothing to inline. That is why every prerendered page shipped an empty
+  `<site-header>`.
+
+  The reference now lowers to `__aihu_schild(tag, hostAttrs, __opts)` — the
+  `@aihu/runtime/ssr` helper that renders the child through the registry the
+  caller pre-resolved onto `__opts`. With no registry the helper emits the same
+  empty element, so output is byte-identical for any site that has not wired one
+  up.
+
+  The emitted opts type is now a single `__AihuSsrOpts` alias rather than the
+  same inline shape spelled in four positions, since `children` has to reach all
+  of them.
+
+- [#780](https://github.com/fellwork/aihu/pull/780) [`abfaa6e`](https://github.com/fellwork/aihu/commit/abfaa6e0136cdf9d5f5ce77cc5f8e53c840fd4ce) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Fix a live, currently-shipping crash for `$extends` (`base:`) components under
+  `output: 'ssr'` — the last of the three SSR-entry exclusions filed with the
+  `$aria`/`$form` guards, and the worst of them.
+
+  **This was already live, and it did not fail soft.** A `.aihu` component using
+  the `$extends`/`base:` recipe (`packages/ui/registry/switch/switch.aihu`,
+  `checkbox.aihu`, every `dialog-*`/`popover-*` piece, `temperature.aihu`)
+  imports its base primitive at module scope. `@aihu/primitives` declared every
+  one of those bases as `class Aihu… extends HTMLElement` at ITS OWN module
+  scope, and a class-extends clause is evaluated at module LOAD, not at
+  construction or registration. So a server bundle threw
+  `ReferenceError: HTMLElement is not defined` the instant it imported the base
+  — before any compiled component code ran.
+
+  Unlike the `$form`/`$aria` crash, this one is not caught by `__aihu_schild`'s
+  fail-closed handling: the base import happens inside the router's
+  `Promise.all` over the child registry, which is not fail-soft. The whole
+  request died. Reproduced against a real built Worker: `ReferenceError` out of
+  `__buildRouter`, no response at all — not a 200 with a missing element.
+
+  **The scope question, settled by measurement rather than assumption.** The
+  filed note wondered whether Cloudflare's runtime might already supply some
+  inert `HTMLElement`, making this a bare-Node artifact. It does not. Probed
+  directly against workerd 1.20260616.1 (the version this repo resolves), a
+  Worker sees:
+
+  | global                          | typeof      |
+  | ------------------------------- | ----------- |
+  | `HTMLRewriter`                  | `function`  |
+  | `HTMLElement`                   | `undefined` |
+  | `customElements`                | `undefined` |
+  | `CSSStyleSheet`                 | `undefined` |
+  | `document` / `Element` / `Node` | `undefined` |
+  | `ElementInternals`              | `undefined` |
+
+  So the bug is real in the actual deploy target and the scope did not narrow.
+  A sweep of every `exports` subpath of every workspace package under a DOM-less
+  `import()` found `@aihu/primitives` to be the ONLY package with this failure —
+  so the fix did not need to widen either.
+
+  **Two fixes, in two packages, and neither is sufficient alone.**
+
+  1. `@aihu/primitives` — every base class now extends `HTMLElementBase`
+     (new, exported from the barrel) instead of the bare global:
+     `typeof HTMLElement === 'undefined' ? <inert placeholder> : HTMLElement`.
+     All 23 declarations across 16 files, not a sample. A _conditional base_
+     rather than the lazy-factory shape `@aihu-plugin/kindly-note` uses for its
+     own DOM classes: there the class is an implementation detail, here it is
+     the public API — consumers import `AihuSwitchRoot` by name, the `defineX()`
+     registries hold direct references, and `$extends: AihuSwitchRoot` lowers to
+     a class _identifier_, not a call. Deferring the declaration would break the
+     `base:` recipe outright. Constructing one without a DOM throws a message
+     naming the cause, rather than handing back an object that silently lacks
+     `setAttribute`.
+
+  2. `@aihu/compiler` — `$extends` is no longer excluded from the options-form
+     SSR entry. That exclusion's stated reason was accurate but was a fact about
+     `@aihu/primitives`, not about the gate: no compiler-side change could have
+     fixed an import that throws before the emitted code runs. With the base
+     import-safe, the exclusion was the only thing left. Without it, a
+     `$extends` component still fell through to the plain client shape — a bare,
+     ungated `defineElement(...)` at module scope
+     (`ReferenceError: customElements is not defined`) and no `__ssr` export at
+     all.
+
+  `base:` needed no other change: it only affects which class the CLIENT-side
+  `defineElement` extends (`packages/runtime/src/define-component.ts` reads
+  `Base` inside `defineComponent`, which this branch already gates on DOM
+  globals). `__aihu_setup__`'s body never touches it.
+
+  **Known and intended:** the SSR pass renders the component's own `@template`,
+  not the DOM the base primitive adds in `connectedCallback` (`role`,
+  `aria-checked`, `tabindex`, the hidden form input). A server render never
+  mounts, so that wiring lands on hydration — the same trade-off `$aria` already
+  makes. **Still excluded:** `$extends` combined with `$form` (`define_opts` is
+  still not threaded through the options-form SSR branch) — now pinned by a test
+  so it cannot be lifted by accident.
+
+  **Verified end-to-end, not by string assertion.** A `$extends` component
+  against a real `@aihu/primitives` base, in the `workers-ssr` fixture, through
+  a real `vite build`, driven as a built Worker. Before: `ReferenceError` and no
+  response. After: 200 with `EXTENDS-OK` rendered inside its own element inside
+  the outlet. Each fix was then reverted INDEPENDENTLY against that same Worker
+  to confirm which crash each one owns:
+
+  | primitives | compiler | result                                                         |
+  | ---------- | -------- | -------------------------------------------------------------- |
+  | ✗          | ✗        | `ReferenceError: HTMLElement is not defined` (the filed crash) |
+  | ✗          | ✓        | same — the compiler gate cannot reach the base module          |
+  | ✓          | ✗        | `ReferenceError: customElements is not defined`                |
+  | ✓          | ✓        | 200, rendered                                                  |
+
+  Pinned by three layers: `workers-ssr-e2e.test.ts` assertions 15 + 15b (real
+  Worker, with the empty-registry control proving the content is resolved
+  through the child registry rather than inlined); a node-environment
+  `@aihu/primitives` suite covering all 20 published entries in milliseconds, so
+  a primitive added later that forgets `HTMLElementBase` fails immediately; and
+  four Rust tests on the emitted structure. Reverting the primitives fix turns
+  10 of 18 e2e assertions red; reverting the compiler fix turns 2 Rust tests
+  red.
+
+  Size: the guard costs ~170 B gzip on each entry that declares a class, and is
+  tree-shaken entirely out of the two that do not (`context`, `focus-trap` are
+  byte-identical). Every per-primitive budget still passes; tightest is
+  `radio-group` at 3.42 kB / 4 KB.
+
+- [#780](https://github.com/fellwork/aihu/pull/780) [`abfaa6e`](https://github.com/fellwork/aihu/commit/abfaa6e0136cdf9d5f5ce77cc5f8e53c840fd4ce) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Fix a live, currently-shipping crash for `$aria`-only server components, and
+  give `$form`-only components a standalone SSR entry.
+
+  An independent review of the previous SSR-entry fix (`@action`-only
+  components now reach the no-DOM SSR shape) surfaced a deeper, pre-existing bug
+  in the same family: `$aria`/`$form`'s `ElementInternals` wiring
+  (`INTERNALS_GUARD` and every per-entry statement — `setFormValue`,
+  `setValidity`, every `aria-*` IDL property, `describedBy`, the auto
+  keyboard-promotion listener) read `ctx.element._internals`
+  **unconditionally**. The host-less SSR `SetupContext` passes `element: null`
+  by design — a server render never mounts, so there is nothing to attach
+  `ElementInternals` to.
+
+  **This was already live.** `$aria` alone never gated the SSR-entry decision,
+  so any component combining `$aria` with a plain `$action`/`$prop` already
+  reached the SSR entry and crashed the instant its setup body ran — not merely
+  failed to construct. Reproduced and fixed independent of anything else in this
+  release: `TypeError: Cannot read properties of null (reading '_internals')`,
+  verified via a real built Cloudflare Worker before the fix, confirmed clean
+  after.
+
+  `$form` had the opposite problem: a dedicated code branch emitted it
+  unconditionally in the client-only shape, with no SSR-entry logic at all,
+  regardless of the `emit_ssr_entry`/`ssr_standalone` gates. A plain
+  `$form`-only component (no props/agent-inputs/`$extends`) never got
+  `export const __ssr`.
+
+  Fixed both: every `_internals`-touching statement is now guarded on
+  `__aihu_el` (a no-op under host-less SSR, unchanged behavior with a real
+  host); `$form`-only components now join the `ssr_standalone` SSR-entry branch,
+  with `{ formAssociated: true }` still threaded onto the client-side guarded
+  `defineElement` call, which previously received `define_opts` in that branch
+  and the plain fallback branch not at all — dead code until now, since `$form`
+  was the only source of a non-empty `define_opts` and could never reach either
+  branch before.
+
+  **Deliberately still excluded**, and now documented rather than left to look
+  like an oversight:
+
+  - `$form` combined with `$prop`/agent-inputs/`$extends` — `define_opts` is not
+    yet threaded through that branch.
+  - `$extends` (`base:`) — the imported base-class module does
+    `class extends HTMLElement` at ITS OWN top level, outside this compiler's
+    reach; fixing it needs every extended primitive in `@aihu/primitives` to
+    guard its own module-scope class declaration, not a compiler-only change.
+  - `@agent` blocks with `$input` declarations — unchanged from the previous
+    fix; `ctx.attrs.<name>[0]()` still has no host-less stub.
+
+  Verified end-to-end, not just by string-content assertion: a real scaffolded
+  `output: 'ssr'` app with a `$form` + `$aria` component referenced as a CHILD,
+  driven through a real built Worker. Before: the crash above, silently caught
+  by `__aihu_schild`'s fail-closed handling — the page still returned 200, with
+  the component simply missing and no visible error. After: the component's
+  content renders correctly. Six Rust tests pin the structural shape, three of
+  them counterfactual-verified against a version with every guard stripped.
+
+- [#780](https://github.com/fellwork/aihu/pull/780) [`abfaa6e`](https://github.com/fellwork/aihu/commit/abfaa6e0136cdf9d5f5ce77cc5f8e53c840fd4ce) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Fix `.aihu` builds failing with `[PARSE_ERROR]` on a fresh `vite: ^8` install,
+  and stop the TypeScript strip from failing silently.
+
+  **The break.** Vite 8 made esbuild an OPTIONAL PEER while still _exporting_
+  `transformWithEsbuild`, which now throws the moment it is called:
+
+  ```
+  Failed to load `transformWithEsbuild`. It is deprecated and it now requires
+  esbuild to be installed separately. … please migrate to `transformWithOxc`
+  ```
+
+  The plugin's strip only reached for `transformWithOxc` in a SERVER environment
+  and preferred esbuild everywhere else, so the CLIENT build took the esbuild
+  branch and threw. A single `catch` around the whole chain swallowed that and
+  returned un-stripped TypeScript, which the bundler rejected far downstream:
+
+  ```
+  [PARSE_ERROR] Expected a semicolon … │ let __aihu_setup__: ((ctx: any) => any) | undefined
+  ```
+
+  Every output mode (`spa`, `static`, `ssr`) runs a client build, so all three
+  failed. It is invisible on an incremental `bun add -d vite@8` — esbuild survives
+  from the previous install — and invisible inside this repo, where vite resolves
+  esbuild from its own realpath in bun's store. It reproduces on a **fresh**
+  install at `^8`, which is what a new consumer gets.
+
+  **`transformWithOxc` is now preferred wherever it exists, in every
+  environment.** Vite 6 does not export it at all (`'transformWithOxc' in vite` is
+  literally `false` on 6.4.3), so vite 6 and 5 keep taking the esbuild branch —
+  verified byte-identical `dist/` before and after on a vite-6 scaffold.
+
+  **Approved behaviour change on vite 8.** oxc and esbuild do not lower TypeScript
+  identically. Invisible for compiler-generated code, observable for
+  user-authored classes and enums in an `.aihu` script block:
+
+  | source                  | esbuild (before)                   | oxc (now)            |
+  | ----------------------- | ---------------------------------- | -------------------- |
+  | `private x: number = 1` | `constructor(){ this.x = 1 }`      | `x = 1`              |
+  | `enum Level { … }`      | arrow IIFE, param renamed `Level2` | `function` IIFE      |
+  | `Level.High`            | inlined to `1 /* High */`          | left as `Level.High` |
+
+  The class-field difference is the meaningful one: oxc uses
+  `useDefineForClassFields: true`, the modern TypeScript default, so a field
+  initialiser now _defines_ rather than _assigns_. Both forms are pinned in
+  `tests/strip-branch.test.ts` so any future move is deliberate and visible.
+
+  **A strip failure is now LOUD.** Any failure with Vite present throws an error
+  naming the branch, the Vite version, the environment and the file, instead of
+  returning un-stripped TypeScript that resurfaces as an unrelated `PARSE_ERROR`
+  hundreds of lines later. The one legitimate case still works: running outside
+  Vite entirely — a standalone `transform()`, a unit test — returns the code
+  unchanged. The two are told apart by inspecting the `import('vite')` rejection
+  itself (a module-resolution failure naming the `vite` specifier), so "vite is
+  installed but broken" is loud rather than silently swallowed.
+
+  **A second, pre-existing bug the loud error immediately caught.**
+  `_buildStaticIsland` rewrote the head of a `defineElement(...)` call while its
+  tail rewrite silently no-opped whenever `_injectShadowMode` had already appended
+  an options object, emitting a module with an unclosed class body. Reachable with
+  `compiler: { islands: true }` + `css: { shadowMode: 'shadow' }`, and it broke
+  consumer builds on **vite 6 as well as 8** (`content contains invalid JS
+syntax`, pointing at the `.aihu` file). A trailing `{ shadowMode: 'shadow' }` is
+  now absorbed — the island attaches its own `{ mode: 'open' }` shadow root, so
+  the option is redundant — and any other option makes the island decline rather
+  than emit a half-rewritten module.
+
+- [#778](https://github.com/fellwork/aihu/pull/778) [`9df850b`](https://github.com/fellwork/aihu/commit/9df850b3d0f93d1fa752cbbeb3038a831cf15edf) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Reconcile the SSR child-eligibility boundaries between the two renderers.
+
+  Whether a component reference is eligible for server rendering was decided in
+  two places — the Rust emitter on the raw template AST, the TypeScript walker on
+  the lowered arbor node — and their eligible sets differed, so one renderer
+  filled a child in while the other emitted an empty element.
+
+  The lowering is lossy: `<x-kid>`, `<x-kid show={on()}>`, `<x-kid ref={el}>`,
+  `<x-kid raw><b>s</b></x-kid>` and a multi-line `<x-kid>\n</x-kid>` all reach the
+  walker as the same node, so the walker cannot decline on information it does not
+  have. Those cases are reconciled by having the emitter resolve them; the lowered
+  tree is byte-identical to the plain reference already resolved and shipped.
+
+  Also fixes a divergence introduced by the previous `{#each}` fix: a reference
+  merely nested inside a conditional (`<div if={ready}><site-header></div>`)
+  resolved on the compiled path and declined on the walker, because the
+  static-path check tested "all digits" as a proxy for compile-time literalness
+  and `conditional.true` fails it. The check now tests literalness exactly.
+
+  32 differential fixtures added, one per boundary line, each asserting both
+  renderers agree AND which way — "both empty" satisfies byte-identity while
+  shipping the bug.
+
+  Component discovery loads in parallel, warns about a failed component only when
+  something references it, and no longer follows symlinks out of the components
+  directory.
+
 ## 1.2.0
 
 ### Minor Changes

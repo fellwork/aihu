@@ -1,5 +1,12 @@
 # @aihu/agent-readiness
 
+## 2.0.4
+
+### Patch Changes
+
+- Updated dependencies [[`788319c`](https://github.com/fellwork/aihu/commit/788319ca907d9a34ec83c7af655436555a42b4c0)]:
+  - @aihu-plugin/agent-readiness@2.3.0
+
 ## 2.0.3
 
 ### Patch Changes
