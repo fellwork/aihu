@@ -124,12 +124,17 @@ jobs:
       # failing TS2307 nondeterministically. Reads only source + moon.yml text,
       # so it runs with the other cheap graph guards, before typecheck.
       - run: bun run check:moon-graph
-      # Guard: a compiler Rust change must bump the platform binary packages,
-      # or the rebuilt binary is silently skipped at publish (see the script).
-      - run: bun run check:compiler-binary-bump
-      # Same guard, for @aihu/css-engine's aihu-css-compile binary and
-      # @aihu/server's napi renderer addon — added after the css-engine one
-      # went stale silently for weeks (see the script's own history).
+      # Guard: a css-engine / server native change must bump those platform
+      # binary packages, or the rebuilt binary is silently skipped at publish
+      # (see the scripts). The css-engine one was added after it went stale
+      # silently for weeks — see that script's own history.
+      #
+      # The COMPILER equivalent is deliberately absent: compiler platform
+      # versions are now generated under lockstep, so there is no hand bump to
+      # demand. Its two replacements — check:platform-version-sync and
+      # check:native-changeset — are always-on jobs of their own rather than
+      # steps here, so they also run on draft PRs and when `changes.code` is
+      # false. css-engine and server join them in Phase 1b.
       - run: bun run check:css-engine-binary-bump
       - run: bun run check:server-binary-bump
       # Guard: every non-private package under packages/ must be in
