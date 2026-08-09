@@ -116,7 +116,7 @@ natives) at the tip of `main`, then:
    deterministic `0.0.0-canary-<sha>` for every package
    (`.changeset/config.json` `snapshot.prereleaseTemplate: "{tag}-{commit}"`
    keys the suffix to the commit, so all jobs agree without coordination).
-2. `scripts/stamp-platform-snapshot.ts` syncs the native platform packages
+2. `scripts/stamp-platform-versions.ts` syncs the native platform packages
    (`packages/{compiler,server,css-engine}/npm/*` — not workspace members, so
    changesets never sees them) and the hosts' `optionalDependencies` pins to
    the same snapshot version.
