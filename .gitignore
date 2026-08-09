@@ -47,7 +47,11 @@ desktop.ini
 
 # Editors
 .idea/
-.vscode/
+# .vscode is ignored EXCEPT the shared workspace settings, which carry the
+# repos/ vendored-source excludes (see AGENTS.md "Vendored Repositories").
+# Personal VS Code state — launch.json, tasks.json, *.log — stays ignored.
+.vscode/*
+!.vscode/settings.json
 *.swp
 *.swo
 *~
