@@ -1316,7 +1316,25 @@ async function runCell(
       const overrideMap = Object.fromEntries([...specs].map(([n, t]) => [n, t.spec]))
       const p = pkg as Record<string, unknown>
       if (pm === 'pnpm') {
-        p.pnpm = { ...((p.pnpm as Record<string, unknown>) ?? {}), overrides: overrideMap }
+        // NOT `pkg.pnpm.overrides` — pnpmWorkspaceYaml()'s own header says it:
+        // "pnpm reads its per-project settings from this file only — the 'pnpm'
+        // key in package.json is ignored, and pnpm says so on every install."
+        // A first attempt wrote package.json and changed nothing; the cell
+        // failed with the identical NO_MATCHING_VERSION on the identical
+        // transitive edge. Appended to the workspace file instead, which the
+        // scaffold emits unconditionally.
+        const wsPath = join(workdir, 'pnpm-workspace.yaml')
+        const body = [
+          '',
+          '# Injected by scaffold-matrix-e2e.ts --local-pkg: force every intra-repo',
+          '# edge inside a packed tarball onto the local tarball too. Without this,',
+          "# a tarball's own dependency on a sibling resolves from the registry at a",
+          '# workspace version that is unpublished by construction on a release branch.',
+          'overrides:',
+          ...[...specs].map(([n, t]) => `  '${n}': '${t.spec}'`),
+          '',
+        ].join('\n')
+        writeFileSync(wsPath, (existsSync(wsPath) ? readFileSync(wsPath, 'utf8') : '') + body)
       } else if (pm === 'yarn') {
         p.resolutions = overrideMap
       } else {
