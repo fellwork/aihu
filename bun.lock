@@ -1040,6 +1040,26 @@
 
     "@aihu/compiler": ["@aihu/compiler@workspace:packages/compiler"],
 
+    "@aihu/compiler-darwin-arm64": ["@aihu/compiler-darwin-arm64@0.1.54", "", { "os": "darwin", "cpu": "arm64" }, "sha512-686CfAgFbNi+1sZFeisW8E1WeK1AIZDAsREAzw/mfFLE0OqRwSgzseuHImKMa34LG7c4iTD7fy/cEcM6E24UkQ=="],
+
+    "@aihu/compiler-darwin-x64": ["@aihu/compiler-darwin-x64@0.1.54", "", { "os": "darwin", "cpu": "x64" }, "sha512-3fo9QSvclNOIdrhf3KO9XhAR8tLVnXf8zaQbj6Acc04yVJao9CF8AbcmUJFl2jegiPyw4gTizJyRaSbOZ4DOxA=="],
+
+    "@aihu/compiler-linux-arm64-gnu": ["@aihu/compiler-linux-arm64-gnu@0.1.54", "", { "os": "linux", "cpu": "arm64" }, "sha512-1rsmQFdTUNwUgwAJt+vkQbDkIo/YWhBAoM3qSoLyJdph6UC0p2BI0HUABMgL03Ox7v3CLSHuZfJl3IU4in7wPQ=="],
+
+    "@aihu/compiler-linux-x64-gnu": ["@aihu/compiler-linux-x64-gnu@0.1.54", "", { "os": "linux", "cpu": "x64" }, "sha512-ru8QCsUiFxhsdHiQ3OWFonJdlKQ8S5vun1KpVgtU2yBhtm6SUZefD9GJlRvvIhJB7VW3ElSxEPQ1mh15kAtAQw=="],
+
+    "@aihu/compiler-native-darwin-arm64": ["@aihu/compiler-native-darwin-arm64@0.1.19", "", { "os": "darwin", "cpu": "arm64" }, "sha512-zk4FIP3LPxteVUFVzMi3Mu6Jy3g7fkuPvAL9ZZyPdkHR3RdCHLRmzeva5GjHw6cJnN6YXPKVJoitOG6bKYjyBw=="],
+
+    "@aihu/compiler-native-darwin-x64": ["@aihu/compiler-native-darwin-x64@0.1.19", "", { "os": "darwin", "cpu": "x64" }, "sha512-khoQbP53t2NuTW43r+bNWgy+kj9yIuZAF7uwlMxzPmDg+I9gwlNYTKp1VMVBulxhbDyD8xpzVxedwFkS/sEQOg=="],
+
+    "@aihu/compiler-native-linux-arm64-gnu": ["@aihu/compiler-native-linux-arm64-gnu@0.1.19", "", { "os": "linux", "cpu": "arm64" }, "sha512-YnxiXvQCCji0J7HFM619H5Z81h1+1tABuEJqBjH/rQZspDBBQs2twCuwLkG6Chr75glp8taZP73+DSm64UhR1A=="],
+
+    "@aihu/compiler-native-linux-x64-gnu": ["@aihu/compiler-native-linux-x64-gnu@0.1.19", "", { "os": "linux", "cpu": "x64" }, "sha512-W185jd/aQSwpD2moaGaLEhuBk7jgLK936eKoM6t947qGbOF5uYcr8EQ8cfo3W59KrRKaAR6KWw4tiIY3f46Sdg=="],
+
+    "@aihu/compiler-native-win32-x64-msvc": ["@aihu/compiler-native-win32-x64-msvc@0.1.19", "", { "os": "win32", "cpu": "x64" }, "sha512-JFJnInaS1Ce7/hbuIuFjAqonVWDh/PH6+YkQuBnGqXbossYEtwzRip1WCNkhnDKpX2Bb6mJ2HnfkTx79yL4gAA=="],
+
+    "@aihu/compiler-win32-x64-msvc": ["@aihu/compiler-win32-x64-msvc@0.1.54", "", { "os": "win32", "cpu": "x64" }, "sha512-q+ygNk1t9ClhAEdgDoSSZt0lAYlLspcA93IOebXFhE0Lle+EgzpsQzJlaWWnHINIJvohayNrsrKMnGW5NMRF9Q=="],
+
     "@aihu/context": ["@aihu/context@workspace:packages/context"],
 
     "@aihu/cookbook": ["@aihu/cookbook@workspace:cookbook"],
