@@ -1,0 +1,275 @@
+use rustc_hash::FxHashMap;
+
+use oxc_allocator::{ArenaVec, CloneIn, GetAllocator};
+use oxc_ast::ast::*;
+use oxc_ecmascript::{ToInt32, ToUint32};
+use oxc_span::{GetSpan, SPAN};
+use oxc_str::Str;
+use oxc_syntax::{
+    number::{NumberBase, ToJsString},
+    operator::{BinaryOperator, UnaryOperator},
+};
+
+use crate::{IsolatedDeclarations, diagnostics::const_enum_member_initializers};
+
+#[derive(Debug, Clone)]
+enum ConstantValue {
+    Number(f64),
+    String(String),
+}
+
+impl<'a> IsolatedDeclarations<'a> {
+    /// Transform a TypeScript enum declaration into its declaration output form.
+    pub fn transform_ts_enum_declaration(&self, decl: &TSEnumDeclaration<'a>) -> Declaration<'a> {
+        let mut members = ArenaVec::new_in(self);
+        let mut prev_initializer_value = Some(ConstantValue::Number(-1.0));
+        let mut prev_members = FxHashMap::default();
+        for member in &decl.body.members {
+            let value = if let Some(initializer) = &member.initializer {
+                let computed_value =
+                    self.computed_constant_value(initializer, &decl.id.name, &prev_members);
+
+                if decl.r#const && computed_value.is_none() {
+                    self.error(const_enum_member_initializers(initializer.span()));
+                }
+
+                computed_value
+            } else if let Some(ConstantValue::Number(v)) = prev_initializer_value {
+                Some(ConstantValue::Number(v + 1.0))
+            } else {
+                None
+            };
+
+            prev_initializer_value.clone_from(&value);
+
+            if let Some(value) = &value {
+                let member_name = member.id.static_name();
+                prev_members.insert(member_name, value.clone());
+            }
+
+            let member = TSEnumMember::new(
+                member.span,
+                member.id.clone_in(self.allocator()),
+                value.map(|v| match v {
+                    ConstantValue::Number(v) => {
+                        let is_negative = v < 0.0;
+
+                        // Infinity
+                        let expr = if v.is_infinite() {
+                            Expression::new_identifier(SPAN, "Infinity", self)
+                        } else {
+                            let value = if is_negative { -v } else { v };
+                            Expression::new_numeric_literal(
+                                SPAN,
+                                value,
+                                None,
+                                NumberBase::Decimal,
+                                self,
+                            )
+                        };
+
+                        if is_negative {
+                            Expression::new_unary_expression(
+                                SPAN,
+                                UnaryOperator::UnaryNegation,
+                                expr,
+                                self,
+                            )
+                        } else {
+                            expr
+                        }
+                    }
+                    ConstantValue::String(v) => {
+                        Expression::new_string_literal(SPAN, Str::from_str_in(&v, self), None, self)
+                    }
+                }),
+                self,
+            );
+
+            members.push(member);
+        }
+
+        Declaration::new_ts_enum_declaration(
+            decl.span,
+            decl.id.clone_in(self.allocator()),
+            TSEnumBody::new(decl.body.span, members, self),
+            decl.r#const,
+            self.is_declare(),
+            self,
+        )
+    }
+
+    /// Evaluate the expression to a constant value.
+    /// Refer to [babel](https://github.com/babel/babel/blob/610897a9a96c5e344e77ca9665df7613d2f88358/packages/babel-plugin-transform-typescript/src/enum.ts#L241C1-L394C2)
+    fn computed_constant_value(
+        &self,
+        expr: &Expression<'a>,
+        enum_name: &str,
+        prev_members: &FxHashMap<Str<'a>, ConstantValue>,
+    ) -> Option<ConstantValue> {
+        self.evaluate(expr, enum_name, prev_members)
+    }
+
+    fn evaluate_ref(
+        expr: &Expression<'a>,
+        enum_name: &str,
+        prev_members: &FxHashMap<Str<'a>, ConstantValue>,
+    ) -> Option<ConstantValue> {
+        match expr {
+            match_member_expression!(Expression) => {
+                let expr = expr.to_member_expression();
+                let Expression::Identifier(ident) = expr.object() else { return None };
+                if ident.name == enum_name {
+                    let property = expr.static_property_name()?;
+                    prev_members.get(property).cloned()
+                } else {
+                    None
+                }
+            }
+            Expression::Identifier(ident) => {
+                if ident.name == "Infinity" {
+                    return Some(ConstantValue::Number(f64::INFINITY));
+                } else if ident.name == "NaN" {
+                    return Some(ConstantValue::Number(f64::NAN));
+                }
+
+                if let Some(value) = prev_members.get(ident.name.as_str()) {
+                    return Some(value.clone());
+                }
+
+                None
+            }
+            _ => None,
+        }
+    }
+
+    fn evaluate(
+        &self,
+        expr: &Expression<'a>,
+        enum_name: &str,
+        prev_members: &FxHashMap<Str<'a>, ConstantValue>,
+    ) -> Option<ConstantValue> {
+        match expr {
+            Expression::Identifier(_)
+            | Expression::ComputedMemberExpression(_)
+            | Expression::StaticMemberExpression(_)
+            | Expression::PrivateFieldExpression(_) => {
+                Self::evaluate_ref(expr, enum_name, prev_members)
+            }
+            Expression::BinaryExpression(expr) => {
+                self.eval_binary_expression(expr, enum_name, prev_members)
+            }
+            Expression::UnaryExpression(expr) => {
+                self.eval_unary_expression(expr, enum_name, prev_members)
+            }
+            Expression::NumericLiteral(lit) => Some(ConstantValue::Number(lit.value)),
+            Expression::StringLiteral(lit) => Some(ConstantValue::String(lit.value.to_string())),
+            Expression::TemplateLiteral(lit) => {
+                let mut value = String::new();
+                for part in &lit.quasis {
+                    value.push_str(&part.value.raw);
+                }
+                Some(ConstantValue::String(value))
+            }
+            Expression::ParenthesizedExpression(expr) => {
+                self.evaluate(&expr.expression, enum_name, prev_members)
+            }
+            _ => None,
+        }
+    }
+
+    fn eval_binary_expression(
+        &self,
+        expr: &BinaryExpression<'a>,
+        enum_name: &str,
+        prev_members: &FxHashMap<Str<'a>, ConstantValue>,
+    ) -> Option<ConstantValue> {
+        let left = self.evaluate(&expr.left, enum_name, prev_members)?;
+        let right = self.evaluate(&expr.right, enum_name, prev_members)?;
+
+        if matches!(expr.operator, BinaryOperator::Addition)
+            && (matches!(left, ConstantValue::String(_))
+                || matches!(right, ConstantValue::String(_)))
+        {
+            let left_string = match left {
+                ConstantValue::String(str) => str,
+                ConstantValue::Number(v) => v.to_js_string(),
+            };
+
+            let right_string = match right {
+                ConstantValue::String(str) => str,
+                ConstantValue::Number(v) => v.to_js_string(),
+            };
+
+            return Some(ConstantValue::String(format!("{left_string}{right_string}")));
+        }
+
+        let left = match left {
+            ConstantValue::Number(v) => v,
+            ConstantValue::String(_) => return None,
+        };
+
+        let right = match right {
+            ConstantValue::Number(v) => v,
+            ConstantValue::String(_) => return None,
+        };
+
+        match expr.operator {
+            BinaryOperator::ShiftRight => Some(ConstantValue::Number(f64::from(
+                left.to_int_32().wrapping_shr(right.to_uint_32()),
+            ))),
+            BinaryOperator::ShiftRightZeroFill => Some(ConstantValue::Number(f64::from(
+                (left.to_uint_32()).wrapping_shr(right.to_uint_32()),
+            ))),
+            BinaryOperator::ShiftLeft => Some(ConstantValue::Number(f64::from(
+                left.to_int_32().wrapping_shl(right.to_uint_32()),
+            ))),
+            BinaryOperator::BitwiseXOR => {
+                Some(ConstantValue::Number(f64::from(left.to_int_32() ^ right.to_int_32())))
+            }
+            BinaryOperator::BitwiseOR => {
+                Some(ConstantValue::Number(f64::from(left.to_int_32() | right.to_int_32())))
+            }
+            BinaryOperator::BitwiseAnd => {
+                Some(ConstantValue::Number(f64::from(left.to_int_32() & right.to_int_32())))
+            }
+            BinaryOperator::Multiplication => Some(ConstantValue::Number(left * right)),
+            BinaryOperator::Division => Some(ConstantValue::Number(left / right)),
+            BinaryOperator::Addition => Some(ConstantValue::Number(left + right)),
+            BinaryOperator::Subtraction => Some(ConstantValue::Number(left - right)),
+            BinaryOperator::Remainder => Some(ConstantValue::Number(left % right)),
+            BinaryOperator::Exponential => Some(ConstantValue::Number(left.powf(right))),
+            _ => None,
+        }
+    }
+
+    fn eval_unary_expression(
+        &self,
+        expr: &UnaryExpression<'a>,
+        enum_name: &str,
+        prev_members: &FxHashMap<Str<'a>, ConstantValue>,
+    ) -> Option<ConstantValue> {
+        let value = self.evaluate(&expr.argument, enum_name, prev_members)?;
+
+        let value = match value {
+            ConstantValue::Number(value) => value,
+            ConstantValue::String(_) => {
+                let value = if expr.operator == UnaryOperator::UnaryNegation {
+                    ConstantValue::Number(f64::NAN)
+                } else if expr.operator == UnaryOperator::BitwiseNot {
+                    ConstantValue::Number(-1.0)
+                } else {
+                    value
+                };
+                return Some(value);
+            }
+        };
+
+        match expr.operator {
+            UnaryOperator::UnaryPlus => Some(ConstantValue::Number(value)),
+            UnaryOperator::UnaryNegation => Some(ConstantValue::Number(-value)),
+            UnaryOperator::BitwiseNot => Some(ConstantValue::Number(f64::from(!value.to_int_32()))),
+            _ => None,
+        }
+    }
+}

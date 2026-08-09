@@ -1,0 +1,170 @@
+[package]
+name = "oxc_benchmark"
+version = "0.0.0"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+license.workspace = true
+publish = false
+repository.workspace = true
+description.workspace = true
+
+[lints]
+workspace = true
+
+[lib]
+test = false
+bench = false
+doctest = false
+
+[[bench]]
+name = "lexer"
+harness = false
+
+[[bench]]
+name = "parser"
+harness = false
+
+[[bench]]
+name = "transformer"
+harness = false
+
+[[bench]]
+name = "semantic"
+harness = false
+
+[[bench]]
+name = "linter"
+harness = false
+
+[[bench]]
+name = "codegen"
+harness = false
+
+[[bench]]
+name = "formatter"
+harness = false
+
+[[bench]]
+name = "minifier"
+harness = false
+
+[[bench]]
+name = "pipeline"
+harness = false
+
+[[bench]]
+name = "react_compiler"
+harness = false
+required-features = ["react_compiler"]
+
+# Only run in CI
+[[bench]]
+name = "parser_napi"
+harness = false
+bench = false
+
+# All `oxc_*` dependencies optional as on CI we build each benchmark separately
+# with only the crates it needs, to speed up the builds
+[dependencies]
+oxc = { workspace = true, optional = true, features = ["full"] }
+oxc_allocator = { workspace = true, optional = true }
+oxc_ast = { workspace = true, optional = true, features = ["disable_old_builder", "serialize"] }
+oxc_ast_visit = { workspace = true, optional = true, features = ["serialize"] }
+oxc_codegen = { workspace = true, optional = true, features = ["sourcemap"] }
+oxc_estree_tokens = { workspace = true, optional = true }
+oxc_formatter = { workspace = true, optional = true }
+oxc_isolated_declarations = { workspace = true, optional = true }
+oxc_linter = { workspace = true, optional = true }
+oxc_mangler = { workspace = true, optional = true }
+oxc_minifier = { workspace = true, optional = true }
+oxc_parser = { workspace = true, features = [
+  "benchmarking",
+  "regular_expression",
+], optional = true }
+oxc_react_compiler = { workspace = true, optional = true }
+oxc_semantic = { workspace = true, optional = true }
+oxc_span = { workspace = true, optional = true, features = ["schemars", "serialize"] }
+oxc_tasks_common = { workspace = true, optional = true }
+oxc_transformer = { workspace = true, optional = true }
+
+criterion2 = { workspace = true }
+
+# Only for lexer benchmark
+cow-utils = { workspace = true, optional = true }
+
+# Only for NAPI benchmark
+serde = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
+
+[features]
+default = ["compiler", "linter"]
+codspeed = ["criterion2/codspeed"]
+codspeed_napi = ["criterion2/codspeed", "dep:serde", "dep:serde_json"]
+
+# Features for running benchmarks with minimum dependencies.
+# "compiler" feature includes: lexer, parser, transformer, semantic, minifier, codegen, formatter
+# "linter" feature includes: linter
+compiler = [
+  "dep:oxc",
+  "dep:oxc_allocator",
+  "dep:oxc_ast",
+  "dep:oxc_ast_visit",
+  "dep:oxc_codegen",
+  "dep:oxc_estree_tokens",
+  "dep:oxc_formatter",
+  "dep:oxc_isolated_declarations",
+  "dep:oxc_mangler",
+  "dep:oxc_minifier",
+  "dep:oxc_parser",
+  "dep:oxc_semantic",
+  "dep:oxc_span",
+  "dep:oxc_tasks_common",
+  "dep:oxc_transformer",
+  "dep:cow-utils",
+]
+linter = [
+  "dep:oxc_allocator",
+  "dep:oxc_linter",
+  "dep:oxc_parser",
+  "dep:oxc_semantic",
+  "dep:oxc_span",
+  "dep:oxc_tasks_common",
+  "oxc_semantic/cfg",
+]
+react_compiler = [
+  "dep:oxc_allocator",
+  "dep:oxc_parser",
+  "dep:oxc_react_compiler",
+  "dep:oxc_semantic",
+  "dep:oxc_span",
+  "dep:oxc_tasks_common",
+]
+
+[dev-dependencies]
+rustc-hash = { workspace = true }
+
+[package.metadata.cargo-shear]
+ignored = [
+  "oxc",
+  "oxc_allocator",
+  "oxc_ast",
+  "oxc_ast_visit",
+  "oxc_codegen",
+  "oxc_estree_tokens",
+  "oxc_formatter",
+  "oxc_isolated_declarations",
+  "oxc_linter",
+  "oxc_mangler",
+  "oxc_minifier",
+  "oxc_parser",
+  "oxc_react_compiler",
+  "oxc_semantic",
+  "oxc_span",
+  "oxc_tasks_common",
+  "oxc_transformer",
+  "serde",
+  "serde_json",
+  "cow-utils",
+]

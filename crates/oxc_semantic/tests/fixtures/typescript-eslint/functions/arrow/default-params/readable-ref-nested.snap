@@ -1,0 +1,60 @@
+---
+source: crates/oxc_semantic/tests/main.rs
+input_file: crates/oxc_semantic/tests/fixtures/typescript-eslint/functions/arrow/default-params/readable-ref-nested.ts
+---
+[
+  {
+    "children": [
+      {
+        "children": [
+          {
+            "children": [],
+            "flags": "ScopeFlags(Function)",
+            "id": 2,
+            "node": "Function(<anonymous>)",
+            "symbols": []
+          }
+        ],
+        "flags": "ScopeFlags(Function | Arrow)",
+        "id": 1,
+        "node": "ArrowFunctionExpression",
+        "symbols": [
+          {
+            "flags": "SymbolFlags(FunctionScopedVariable)",
+            "id": 2,
+            "name": "b",
+            "node": "FormalParameter(b)",
+            "references": []
+          }
+        ]
+      }
+    ],
+    "flags": "ScopeFlags(Top)",
+    "id": 0,
+    "node": "Program",
+    "symbols": [
+      {
+        "flags": "SymbolFlags(BlockScopedVariable)",
+        "id": 0,
+        "name": "a",
+        "node": "VariableDeclarator(a)",
+        "references": [
+          {
+            "flags": "ReferenceFlags(Read)",
+            "id": 0,
+            "name": "a",
+            "node_id": 15,
+            "scope_id": 2
+          }
+        ]
+      },
+      {
+        "flags": "SymbolFlags(BlockScopedVariable)",
+        "id": 1,
+        "name": "foo",
+        "node": "VariableDeclarator(foo)",
+        "references": []
+      }
+    ]
+  }
+]

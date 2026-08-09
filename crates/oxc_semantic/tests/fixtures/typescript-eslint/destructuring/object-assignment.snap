@@ -1,0 +1,29 @@
+---
+source: crates/oxc_semantic/tests/main.rs
+input_file: crates/oxc_semantic/tests/fixtures/typescript-eslint/destructuring/object-assignment.ts
+---
+[
+  {
+    "children": [],
+    "flags": "ScopeFlags(Top)",
+    "id": 0,
+    "node": "Program",
+    "symbols": [
+      {
+        "flags": "SymbolFlags(BlockScopedVariable | ConstVariable)",
+        "id": 0,
+        "name": "obj",
+        "node": "VariableDeclarator(obj)",
+        "references": [
+          {
+            "flags": "ReferenceFlags(Read | MemberWriteTarget)",
+            "id": 2,
+            "name": "obj",
+            "node_id": 20,
+            "scope_id": 0
+          }
+        ]
+      }
+    ]
+  }
+]

@@ -1,0 +1,171 @@
+---
+source: crates/oxc_linter/src/tester.rs
+---
+
+  ⚠ react(forbid-dom-props): Prop "id" is forbidden on DOM Nodes
+   ╭─[forbid_dom_props.tsx:5:37]
+ 4 │                       render: function() {
+ 5 │                         return <div id="bar" />;
+   ·                                     ──
+ 6 │                       }
+   ╰────
+
+  ⚠ react(forbid-dom-props): Prop "id" is forbidden on DOM Nodes
+   ╭─[forbid_dom_props.tsx:4:37]
+ 3 │                       render() {
+ 4 │                         return <div id="bar" />;
+   ·                                     ──
+ 5 │                       }
+   ╰────
+
+  ⚠ react(forbid-dom-props): Prop "id" is forbidden on DOM Nodes
+   ╭─[forbid_dom_props.tsx:3:28]
+ 2 │                     const First = (props) => (
+ 3 │                       <div id="foo" />
+   ·                            ──
+ 4 │                     );
+   ╰────
+
+  ⚠ react(forbid-dom-props): Please use class instead of ClassName
+   ╭─[forbid_dom_props.tsx:3:28]
+ 2 │                     const First = (props) => (
+ 3 │                       <div className="foo" />
+   ·                            ─────────
+ 4 │                     );
+   ╰────
+
+  ⚠ react(forbid-dom-props): Prop "otherProp" is forbidden on DOM Nodes
+   ╭─[forbid_dom_props.tsx:3:29]
+ 2 │                     const First = (props) => (
+ 3 │                       <span otherProp="bar" />
+   ·                             ─────────
+ 4 │                     );
+   ╰────
+
+  ⚠ react(forbid-dom-props): Prop "someProp" with value "someValue" is forbidden on DOM Nodes
+   ╭─[forbid_dom_props.tsx:3:28]
+ 2 │                     const First = (props) => (
+ 3 │                       <div someProp="someValue" />
+   ·                            ────────
+ 4 │                     );
+   ╰────
+
+  ⚠ react(forbid-dom-props): Prop "someProp" with value "someValue" is forbidden on DOM Nodes
+   ╭─[forbid_dom_props.tsx:3:28]
+ 2 │                     const First = (props) => (
+ 3 │                       <div someProp={"someValue"} />
+   ·                            ────────
+ 4 │                     );
+   ╰────
+
+  ⚠ react(forbid-dom-props): Prop "someProp" with value "someValue" is forbidden on DOM Nodes
+   ╭─[forbid_dom_props.tsx:3:28]
+ 2 │                     const First = (props) => (
+ 3 │                       <div someProp={`someValue`} />
+   ·                            ────────
+ 4 │                     );
+   ╰────
+
+  ⚠ react(forbid-dom-props): Please use class instead of ClassName
+   ╭─[forbid_dom_props.tsx:3:28]
+ 2 │                     const First = (props) => (
+ 3 │                       <div className="foo">
+   ·                            ─────────
+ 4 │                         <div otherProp="bar" />
+   ╰────
+
+  ⚠ react(forbid-dom-props): Avoid using otherProp
+   ╭─[forbid_dom_props.tsx:4:30]
+ 3 │                       <div className="foo">
+ 4 │                         <div otherProp="bar" />
+   ·                              ─────────
+ 5 │                       </div>
+   ╰────
+
+  ⚠ react(forbid-dom-props): Prop "className" is forbidden on DOM Nodes
+   ╭─[forbid_dom_props.tsx:3:28]
+ 2 │                     const First = (props) => (
+ 3 │                       <div className="foo">
+   ·                            ─────────
+ 4 │                         <div otherProp="bar" />
+   ╰────
+
+  ⚠ react(forbid-dom-props): Avoid using otherProp
+   ╭─[forbid_dom_props.tsx:4:30]
+ 3 │                       <div className="foo">
+ 4 │                         <div otherProp="bar" />
+   ·                              ─────────
+ 5 │                       </div>
+   ╰────
+
+  ⚠ react(forbid-dom-props): Avoid using the accept attribute on <form>
+   ╭─[forbid_dom_props.tsx:3:29]
+ 2 │                     const First = (props) => (
+ 3 │                       <form accept='file'>
+   ·                             ──────
+ 4 │                         <input type="file" id="videoFile" accept="video/*" />
+   ╰────
+
+  ⚠ react(forbid-dom-props): Please use class instead of ClassName
+   ╭─[forbid_dom_props.tsx:3:28]
+ 2 │                     const First = (props) => (
+ 3 │                       <div className="foo">
+   ·                            ─────────
+ 4 │                         <input className="boo" />
+   ╰────
+
+  ⚠ react(forbid-dom-props): Please use class instead of ClassName
+   ╭─[forbid_dom_props.tsx:5:31]
+ 4 │                         <input className="boo" />
+ 5 │                         <span className="foobar">Foobar</span>
+   ·                               ─────────
+ 6 │                         <div otherProp="bar" />
+   ╰────
+
+  ⚠ react(forbid-dom-props): Avoid using otherProp
+   ╭─[forbid_dom_props.tsx:6:30]
+ 5 │                         <span className="foobar">Foobar</span>
+ 6 │                         <div otherProp="bar" />
+   ·                              ─────────
+ 7 │                       </div>
+   ╰────
+
+  ⚠ react(forbid-dom-props): Please use class instead of ClassName
+   ╭─[forbid_dom_props.tsx:3:28]
+ 2 │                     const First = (props) => (
+ 3 │                       <div className="foo">
+   ·                            ─────────
+ 4 │                         <input className="boo" />
+   ╰────
+
+  ⚠ react(forbid-dom-props): Please use class instead of ClassName
+   ╭─[forbid_dom_props.tsx:5:31]
+ 4 │                         <input className="boo" />
+ 5 │                         <span className="foobar">Foobar</span>
+   ·                               ─────────
+ 6 │                         <div otherProp="bar" />
+   ╰────
+
+  ⚠ react(forbid-dom-props): Avoid using otherProp
+   ╭─[forbid_dom_props.tsx:6:30]
+ 5 │                         <span className="foobar">Foobar</span>
+ 6 │                         <div otherProp="bar" />
+   ·                              ─────────
+ 7 │                         <p thirdProp="foo" />
+   ╰────
+
+  ⚠ react(forbid-dom-props): Do not use thirdProp with values bar and baz on p
+    ╭─[forbid_dom_props.tsx:9:28]
+  8 │                         <div thirdProp="baz" />
+  9 │                         <p thirdProp="bar" />
+    ·                            ─────────
+ 10 │                         <p thirdProp="baz" />
+    ╰────
+
+  ⚠ react(forbid-dom-props): Do not use thirdProp with values bar and baz on p
+    ╭─[forbid_dom_props.tsx:10:28]
+  9 │                         <p thirdProp="bar" />
+ 10 │                         <p thirdProp="baz" />
+    ·                            ─────────
+ 11 │                       </div>
+    ╰────

@@ -1,0 +1,51 @@
+---
+source: crates/oxc_semantic/tests/main.rs
+input_file: crates/oxc_semantic/tests/fixtures/typescript-eslint/decorators/class-property.ts
+---
+[
+  {
+    "children": [
+      {
+        "children": [],
+        "flags": "ScopeFlags(Function)",
+        "id": 1,
+        "node": "Function(decorator)",
+        "symbols": []
+      },
+      {
+        "children": [],
+        "flags": "ScopeFlags(StrictMode)",
+        "id": 2,
+        "node": "Class(Foo)",
+        "symbols": []
+      }
+    ],
+    "flags": "ScopeFlags(Top)",
+    "id": 0,
+    "node": "Program",
+    "symbols": [
+      {
+        "flags": "SymbolFlags(Function)",
+        "id": 0,
+        "name": "decorator",
+        "node": "Function(decorator)",
+        "references": [
+          {
+            "flags": "ReferenceFlags(Read)",
+            "id": 0,
+            "name": "decorator",
+            "node_id": 10,
+            "scope_id": 2
+          }
+        ]
+      },
+      {
+        "flags": "SymbolFlags(Class)",
+        "id": 1,
+        "name": "Foo",
+        "node": "Class(Foo)",
+        "references": []
+      }
+    ]
+  }
+]

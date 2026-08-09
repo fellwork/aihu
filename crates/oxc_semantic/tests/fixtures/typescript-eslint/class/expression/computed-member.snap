@@ -1,0 +1,67 @@
+---
+source: crates/oxc_semantic/tests/main.rs
+input_file: crates/oxc_semantic/tests/fixtures/typescript-eslint/class/expression/computed-member.ts
+---
+[
+  {
+    "children": [
+      {
+        "children": [
+          {
+            "children": [],
+            "flags": "ScopeFlags(StrictMode | Function)",
+            "id": 2,
+            "node": "Function(<anonymous>)",
+            "symbols": []
+          }
+        ],
+        "flags": "ScopeFlags(StrictMode)",
+        "id": 1,
+        "node": "Class(<anonymous>)",
+        "symbols": []
+      }
+    ],
+    "flags": "ScopeFlags(Top)",
+    "id": 0,
+    "node": "Program",
+    "symbols": [
+      {
+        "flags": "SymbolFlags(BlockScopedVariable | ConstVariable)",
+        "id": 0,
+        "name": "outer1",
+        "node": "VariableDeclarator(outer1)",
+        "references": [
+          {
+            "flags": "ReferenceFlags(Read)",
+            "id": 0,
+            "name": "outer1",
+            "node_id": 15,
+            "scope_id": 1
+          }
+        ]
+      },
+      {
+        "flags": "SymbolFlags(BlockScopedVariable | ConstVariable)",
+        "id": 1,
+        "name": "outer2",
+        "node": "VariableDeclarator(outer2)",
+        "references": [
+          {
+            "flags": "ReferenceFlags(Read)",
+            "id": 1,
+            "name": "outer2",
+            "node_id": 18,
+            "scope_id": 1
+          }
+        ]
+      },
+      {
+        "flags": "SymbolFlags(BlockScopedVariable | ConstVariable)",
+        "id": 2,
+        "name": "A",
+        "node": "VariableDeclarator(A)",
+        "references": []
+      }
+    ]
+  }
+]

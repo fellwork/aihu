@@ -1,0 +1,567 @@
+commit: 7f6a8467
+
+transpile Summary:
+AST Parsed     : 20/20 (100.00%)
+Positive Passed: 19/20 (95.00%)
+Mismatch: tasks/coverage/typescript/tests/cases/transpile/declarationBasicSyntax.ts
+
+
+#### typescript/tests/cases/transpile/declarationComputedPropertyNames.ts ####
+//// [declarationComputedPropertyNames.ts] ////
+export namespace presentNs {
+	export const a = Symbol();
+}
+const aliasing = Symbol;
+export type A = {
+	[missing]: number;
+	[ns.missing]: number;
+	[presentNs.a]: number;
+	[Symbol.iterator]: number;
+	[globalThis.Symbol.toStringTag]: number;
+	[globalThis.Symbol.unscopables]: number;
+	[aliasing.isConcatSpreadable]: number;
+	[1]: number;
+	["2"]: number;
+	[missing2]: number;
+	[Math.random() > .5 ? "f1" : "f2"]: number;
+};
+export interface B {
+	[missing]: number;
+	[ns.missing]: number;
+	[presentNs.a]: number;
+	[Symbol.iterator]: number;
+	[globalThis.Symbol.toStringTag]: number;
+	[globalThis.Symbol.unscopables]: number;
+	[aliasing.isConcatSpreadable]: number;
+	[1]: number;
+	["2"]: number;
+	[missing2]: number;
+	[Math.random() > .5 ? "f1" : "f2"]: number;
+}
+export class C {
+	[missing]: number = 1;
+	[ns.missing]: number = 1;
+	[presentNs.a]: number = 1;
+	[Symbol.iterator]: number = 1;
+	[globalThis.Symbol.toStringTag]: number = 1;
+	[globalThis.Symbol.unscopables]: number = 1;
+	[aliasing.isConcatSpreadable]: number = 1;
+	[1]: number = 1;
+	["2"]: number = 1;
+	[missing2]: number = 1;
+	[Math.random() > .5 ? "f1" : "f2"]: number = 1;
+}
+export const D = {
+	[missing]: 1,
+	[ns.missing]: 1,
+	[presentNs.a]: 1,
+	[Symbol.iterator]: 1,
+	[globalThis.Symbol.toStringTag]: 1,
+	[globalThis.Symbol.unscopables]: 1,
+	[aliasing.isConcatSpreadable]: 1,
+	[1]: 1,
+	["2"]: 1,
+	[missing2]: 1,
+	[Math.random() > .5 ? "f1" : "f2"]: 1
+};
+
+//// [declarationComputedPropertyNames.d.ts] ////
+export declare namespace presentNs {
+	const a: unknown;
+}
+declare const aliasing: unknown;
+export type A = {
+	[missing]: number;
+	[ns.missing]: number;
+	[presentNs.a]: number;
+	[Symbol.iterator]: number;
+	[globalThis.Symbol.toStringTag]: number;
+	[globalThis.Symbol.unscopables]: number;
+	[aliasing.isConcatSpreadable]: number;
+	[1]: number;
+	["2"]: number;
+	[missing2]: number;
+	[Math.random() > .5 ? "f1" : "f2"]: number;
+};
+export interface B {
+	[missing]: number;
+	[ns.missing]: number;
+	[presentNs.a]: number;
+	[Symbol.iterator]: number;
+	[globalThis.Symbol.toStringTag]: number;
+	[globalThis.Symbol.unscopables]: number;
+	[aliasing.isConcatSpreadable]: number;
+	[1]: number;
+	["2"]: number;
+	[missing2]: number;
+	[Math.random() > .5 ? "f1" : "f2"]: number;
+}
+export declare class C {
+	[Symbol.iterator]: number;
+	[globalThis.Symbol.toStringTag]: number;
+	[1]: number;
+	["2"]: number;
+}
+export declare const D: {
+	[Symbol.iterator]: number;
+	[globalThis.Symbol.toStringTag]: number;
+	1: number;
+	"2": number;
+};
+export {};
+
+  x TS9010: Variable must have an explicit type annotation with
+  | --isolatedDeclarations.
+   ,-[declarationComputedPropertyNames.d.ts:2:18]
+ 1 | export namespace presentNs {
+ 2 |     export const a = Symbol();
+   :                  ^
+ 3 | }
+   `----
+
+  x TS9014: Computed properties must be number or string literals, variables
+  | or dotted expressions with --isolatedDeclarations.
+    ,-[declarationComputedPropertyNames.d.ts:13:6]
+ 12 |     [globalThis.Symbol.toStringTag]: number,
+ 13 |     [(globalThis.Symbol).unscopables]: number,
+    :      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 14 |     [aliasing.isConcatSpreadable]: number,
+    `----
+
+  x TS9014: Computed properties must be number or string literals, variables
+  | or dotted expressions with --isolatedDeclarations.
+    ,-[declarationComputedPropertyNames.d.ts:17:6]
+ 16 |     ["2"]: number,
+ 17 |     [(missing2)]: number,
+    :      ^^^^^^^^^^
+ 18 |     [Math.random() > 0.5 ? "f1" : "f2"]: number,
+    `----
+
+  x TS9014: Computed properties must be number or string literals, variables
+  | or dotted expressions with --isolatedDeclarations.
+    ,-[declarationComputedPropertyNames.d.ts:18:6]
+ 17 |     [(missing2)]: number,
+ 18 |     [Math.random() > 0.5 ? "f1" : "f2"]: number,
+    :      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 19 | };
+    `----
+
+  x TS9014: Computed properties must be number or string literals, variables
+  | or dotted expressions with --isolatedDeclarations.
+    ,-[declarationComputedPropertyNames.d.ts:27:6]
+ 26 |     [globalThis.Symbol.toStringTag]: number,
+ 27 |     [(globalThis.Symbol).unscopables]: number,
+    :      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 28 |     [aliasing.isConcatSpreadable]: number,
+    `----
+
+  x TS9014: Computed properties must be number or string literals, variables
+  | or dotted expressions with --isolatedDeclarations.
+    ,-[declarationComputedPropertyNames.d.ts:31:6]
+ 30 |     ["2"]: number,
+ 31 |     [(missing2)]: number,
+    :      ^^^^^^^^^^
+ 32 |     [Math.random() > 0.5 ? "f1" : "f2"]: number,
+    `----
+
+  x TS9014: Computed properties must be number or string literals, variables
+  | or dotted expressions with --isolatedDeclarations.
+    ,-[declarationComputedPropertyNames.d.ts:32:6]
+ 31 |     [(missing2)]: number,
+ 32 |     [Math.random() > 0.5 ? "f1" : "f2"]: number,
+    :      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 33 | }
+    `----
+
+  x TS9038: Computed property names on class or object literals cannot be
+  | inferred with --isolatedDeclarations.
+    ,-[declarationComputedPropertyNames.d.ts:36:6]
+ 35 | export class C {
+ 36 |     [missing]: number = 1;
+    :      ^^^^^^^
+ 37 |     [ns.missing]: number = 1;
+    `----
+
+  x TS9038: Computed property names on class or object literals cannot be
+  | inferred with --isolatedDeclarations.
+    ,-[declarationComputedPropertyNames.d.ts:37:6]
+ 36 |     [missing]: number = 1;
+ 37 |     [ns.missing]: number = 1;
+    :      ^^^^^^^^^^
+ 38 |     [presentNs.a]: number = 1;
+    `----
+
+  x TS9038: Computed property names on class or object literals cannot be
+  | inferred with --isolatedDeclarations.
+    ,-[declarationComputedPropertyNames.d.ts:38:6]
+ 37 |     [ns.missing]: number = 1;
+ 38 |     [presentNs.a]: number = 1;
+    :      ^^^^^^^^^^^
+ 39 |     [Symbol.iterator]: number = 1;
+    `----
+
+  x TS9038: Computed property names on class or object literals cannot be
+  | inferred with --isolatedDeclarations.
+    ,-[declarationComputedPropertyNames.d.ts:41:6]
+ 40 |     [globalThis.Symbol.toStringTag]: number = 1;
+ 41 |     [(globalThis.Symbol).unscopables]: number = 1;
+    :      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 42 |     [aliasing.isConcatSpreadable]: number = 1;
+    `----
+
+  x TS9038: Computed property names on class or object literals cannot be
+  | inferred with --isolatedDeclarations.
+    ,-[declarationComputedPropertyNames.d.ts:42:6]
+ 41 |     [(globalThis.Symbol).unscopables]: number = 1;
+ 42 |     [aliasing.isConcatSpreadable]: number = 1;
+    :      ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 43 |     [1]: number = 1;
+    `----
+
+  x TS9038: Computed property names on class or object literals cannot be
+  | inferred with --isolatedDeclarations.
+    ,-[declarationComputedPropertyNames.d.ts:45:6]
+ 44 |     ["2"]: number = 1;
+ 45 |     [(missing2)]: number = 1;
+    :      ^^^^^^^^^^
+ 46 |     [Math.random() > 0.5 ? "f1" : "f2"]: number = 1;
+    `----
+
+  x TS9038: Computed property names on class or object literals cannot be
+  | inferred with --isolatedDeclarations.
+    ,-[declarationComputedPropertyNames.d.ts:46:6]
+ 45 |     [(missing2)]: number = 1;
+ 46 |     [Math.random() > 0.5 ? "f1" : "f2"]: number = 1;
+    :      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 47 | }
+    `----
+
+  x TS9038: Computed property names on class or object literals cannot be
+  | inferred with --isolatedDeclarations.
+    ,-[declarationComputedPropertyNames.d.ts:50:6]
+ 49 | export const D = {
+ 50 |     [missing]: 1,
+    :      ^^^^^^^
+ 51 |     [ns.missing]: 1,
+    `----
+
+  x TS9038: Computed property names on class or object literals cannot be
+  | inferred with --isolatedDeclarations.
+    ,-[declarationComputedPropertyNames.d.ts:51:6]
+ 50 |     [missing]: 1,
+ 51 |     [ns.missing]: 1,
+    :      ^^^^^^^^^^
+ 52 |     [presentNs.a]: 1,
+    `----
+
+  x TS9038: Computed property names on class or object literals cannot be
+  | inferred with --isolatedDeclarations.
+    ,-[declarationComputedPropertyNames.d.ts:52:6]
+ 51 |     [ns.missing]: 1,
+ 52 |     [presentNs.a]: 1,
+    :      ^^^^^^^^^^^
+ 53 |     [Symbol.iterator]: 1,
+    `----
+
+  x TS9038: Computed property names on class or object literals cannot be
+  | inferred with --isolatedDeclarations.
+    ,-[declarationComputedPropertyNames.d.ts:55:6]
+ 54 |     [globalThis.Symbol.toStringTag]: 1,
+ 55 |     [(globalThis.Symbol).unscopables]: 1,
+    :      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 56 |     [aliasing.isConcatSpreadable]: 1,
+    `----
+
+  x TS9038: Computed property names on class or object literals cannot be
+  | inferred with --isolatedDeclarations.
+    ,-[declarationComputedPropertyNames.d.ts:56:6]
+ 55 |     [(globalThis.Symbol).unscopables]: 1,
+ 56 |     [aliasing.isConcatSpreadable]: 1,
+    :      ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 57 |     [1]: 1,
+    `----
+
+  x TS9038: Computed property names on class or object literals cannot be
+  | inferred with --isolatedDeclarations.
+    ,-[declarationComputedPropertyNames.d.ts:59:6]
+ 58 |     ["2"]: 1,
+ 59 |     [(missing2)]: 1,
+    :      ^^^^^^^^^^
+ 60 |     [Math.random() > 0.5 ? "f1" : "f2"]: 1,
+    `----
+
+  x TS9038: Computed property names on class or object literals cannot be
+  | inferred with --isolatedDeclarations.
+    ,-[declarationComputedPropertyNames.d.ts:60:6]
+ 59 |     [(missing2)]: 1,
+ 60 |     [Math.random() > 0.5 ? "f1" : "f2"]: 1,
+    :      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 61 | };
+    `----
+
+  x TS9010: Variable must have an explicit type annotation with
+  | --isolatedDeclarations.
+   ,-[declarationComputedPropertyNames.d.ts:5:7]
+ 4 | 
+ 5 | const aliasing = Symbol;
+   :       ^^^^^^^^
+ 6 | 
+   `----
+
+#### typescript/tests/cases/transpile/declarationFunctionDeclarations.ts ####
+//// [fnDecl.ts] ////
+type T = number[];
+export function fnDeclBasic1(p: number[] | string[] | [T] = [], rParam: string): void {}
+;
+export function fnDeclBasic2(p: (n: T) => T = () => null!, rParam: string): void {}
+;
+export function fnDeclBasic3(p: new () => any = class {}, rParam: string): void {}
+;
+export function fnDeclBasic4(p: [T] = [[]], rParam: string): void {}
+;
+export function fnDeclBasic5(p: {
+	a: T;
+} = { a: [] }, rParam: string): void {}
+;
+export function fnDeclBasic6(p: `_${string}` = "_", rParam: string): void {}
+;
+export function fnDeclBasic7(p: {
+	a?: string;
+} & number[] = [], rParam: string): void {}
+;
+export function fnDeclBasic8(p: (number[] | string[]) | number = [], rParam: string): void {}
+;
+export function fnDeclHasUndefined(p: T | undefined = [], rParam: string): void {}
+;
+export function fnDeclBad(p: T = [], rParam: string): void {}
+;
+export const fnExprOk1 = function(array: number[] = [], rParam: string): void {};
+export const fnExprOk2 = function(array: T | undefined = [], rParam: string): void {};
+export const fnExprBad = function(array: T = [], rParam: string): void {};
+export const arrowOk1 = (array: number[] = [], rParam: string): void => {};
+export const arrowOk2 = (array: T | undefined = [], rParam: string): void => {};
+export const arrowBad = (array: T = [], rParam: string): void => {};
+export const inObjectLiteralFnExprOk1 = { o: function(array: number[] = [], rParam: string): void {} };
+export const inObjectLiteralFnExprOk2 = { o: function(array: T | undefined = [], rParam: string): void {} };
+export const inObjectLiteralFnExprBad = { o: function(array: T = [], rParam: string): void {} };
+export const inObjectLiteralArrowOk1 = { o: (array: number[] = [], rParam: string): void => {} };
+export const inObjectLiteralArrowOk2 = { o: (array: T | undefined = [], rParam: string): void => {} };
+export const inObjectLiteralArrowBad = { o: (array: T = [], rParam: string): void => {} };
+export const inObjectLiteralMethodOk1 = { o(array: number[] = [], rParam: string): void {} };
+export const inObjectLiteralMethodOk2 = { o(array: T | undefined = [], rParam: string): void {} };
+export const inObjectLiteralMethodBad = { o(array: T = [], rParam: string): void {} };
+export class InClassFnExprOk1 {
+	o = function(array: number[] = [], rParam: string): void {};
+}
+;
+export class InClassFnExprOk2 {
+	o = function(array: T | undefined = [], rParam: string): void {};
+}
+;
+export class InClassFnExprBad {
+	o = function(array: T = [], rParam: string): void {};
+}
+;
+export class InClassArrowOk1 {
+	o = (array: number[] = [], rParam: string): void => {};
+}
+;
+export class InClassArrowOk2 {
+	o = (array: T | undefined = [], rParam: string): void => {};
+}
+;
+export class InClassArrowBad {
+	o = (array: T = [], rParam: string): void => {};
+}
+;
+export class InClassMethodOk1 {
+	o(array: number[] = [], rParam: string): void {}
+}
+;
+export class InClassMethodOk2 {
+	o(array: T | undefined = [], rParam: string): void {}
+}
+;
+export class InClassMethodBad {
+	o(array: T = [], rParam: string): void {}
+}
+;
+// https://github.com/microsoft/TypeScript/issues/60976
+class Bar {}
+export class ClsWithRequiredInitializedParameter {
+	constructor(private arr: Bar = new Bar(), private bool: boolean) {}
+}
+
+//// [fnDecl.d.ts] ////
+type T = number[];
+export declare function fnDeclBasic1(p: number[] | string[] | [T] | undefined, rParam: string): void;
+export declare function fnDeclBasic2(p: ((n: T) => T) | undefined, rParam: string): void;
+export declare function fnDeclBasic3(p: (new () => any) | undefined, rParam: string): void;
+export declare function fnDeclBasic4(p: [T] | undefined, rParam: string): void;
+export declare function fnDeclBasic5(p: {
+	a: T;
+} | undefined, rParam: string): void;
+export declare function fnDeclBasic6(p: `_${string}` | undefined, rParam: string): void;
+export declare function fnDeclBasic7(p: {
+	a?: string;
+} & number[] | undefined, rParam: string): void;
+export declare function fnDeclBasic8(p: (number[] | string[]) | number | undefined, rParam: string): void;
+export declare function fnDeclHasUndefined(p: T | undefined, rParam: string): void;
+export declare function fnDeclBad(p: T, rParam: string): void;
+export declare const fnExprOk1: (array: number[] | undefined, rParam: string) => void;
+export declare const fnExprOk2: (array: T | undefined, rParam: string) => void;
+export declare const fnExprBad: (array: T, rParam: string) => void;
+export declare const arrowOk1: (array: number[] | undefined, rParam: string) => void;
+export declare const arrowOk2: (array: T | undefined, rParam: string) => void;
+export declare const arrowBad: (array: T, rParam: string) => void;
+export declare const inObjectLiteralFnExprOk1: {
+	o: (array: number[] | undefined, rParam: string) => void;
+};
+export declare const inObjectLiteralFnExprOk2: {
+	o: (array: T | undefined, rParam: string) => void;
+};
+export declare const inObjectLiteralFnExprBad: {
+	o: (array: T, rParam: string) => void;
+};
+export declare const inObjectLiteralArrowOk1: {
+	o: (array: number[] | undefined, rParam: string) => void;
+};
+export declare const inObjectLiteralArrowOk2: {
+	o: (array: T | undefined, rParam: string) => void;
+};
+export declare const inObjectLiteralArrowBad: {
+	o: (array: T, rParam: string) => void;
+};
+export declare const inObjectLiteralMethodOk1: {
+	o(array: number[] | undefined, rParam: string): void;
+};
+export declare const inObjectLiteralMethodOk2: {
+	o(array: T | undefined, rParam: string): void;
+};
+export declare const inObjectLiteralMethodBad: {
+	o(array: T, rParam: string): void;
+};
+export declare class InClassFnExprOk1 {
+	o: (array: number[] | undefined, rParam: string) => void;
+}
+export declare class InClassFnExprOk2 {
+	o: (array: T | undefined, rParam: string) => void;
+}
+export declare class InClassFnExprBad {
+	o: (array: T, rParam: string) => void;
+}
+export declare class InClassArrowOk1 {
+	o: (array: number[] | undefined, rParam: string) => void;
+}
+export declare class InClassArrowOk2 {
+	o: (array: T | undefined, rParam: string) => void;
+}
+export declare class InClassArrowBad {
+	o: (array: T, rParam: string) => void;
+}
+export declare class InClassMethodOk1 {
+	o(array: number[] | undefined, rParam: string): void;
+}
+export declare class InClassMethodOk2 {
+	o(array: T | undefined, rParam: string): void;
+}
+export declare class InClassMethodBad {
+	o(array: T, rParam: string): void;
+}
+declare class Bar {}
+export declare class ClsWithRequiredInitializedParameter {
+	private arr;
+	private bool;
+	constructor(arr: Bar, bool: boolean);
+}
+export {};
+
+  x TS9025: Declaration emit for this parameter requires implicitly adding
+  | undefined to it's type. This is not supported with --isolatedDeclarations.
+    ,-[fnDecl.d.ts:12:27]
+ 11 | export function fnDeclHasUndefined(p: T | undefined = [], rParam: string): void { };
+ 12 | export function fnDeclBad(p: T = [], rParam: string): void { };
+    :                           ^^^^^^^^^
+ 13 | 
+    `----
+
+  x TS9025: Declaration emit for this parameter requires implicitly adding
+  | undefined to it's type. This is not supported with --isolatedDeclarations.
+    ,-[fnDecl.d.ts:16:36]
+ 15 | export const fnExprOk2 = function (array: T | undefined = [], rParam: string): void { };
+ 16 | export const fnExprBad = function (array: T = [], rParam: string): void { };
+    :                                    ^^^^^^^^^^^^^
+ 17 | 
+    `----
+
+  x TS9025: Declaration emit for this parameter requires implicitly adding
+  | undefined to it's type. This is not supported with --isolatedDeclarations.
+    ,-[fnDecl.d.ts:20:26]
+ 19 | export const arrowOk2 = (array: T | undefined = [], rParam: string): void => { };
+ 20 | export const arrowBad = (array: T = [], rParam: string): void => { };
+    :                          ^^^^^^^^^^^^^
+ 21 | 
+    `----
+
+  x TS9025: Declaration emit for this parameter requires implicitly adding
+  | undefined to it's type. This is not supported with --isolatedDeclarations.
+    ,-[fnDecl.d.ts:24:56]
+ 23 | export const inObjectLiteralFnExprOk2 = { o: function (array: T | undefined = [], rParam: string): void { } };
+ 24 | export const inObjectLiteralFnExprBad = { o: function (array: T = [], rParam: string): void { } };
+    :                                                        ^^^^^^^^^^^^^
+ 25 | 
+    `----
+
+  x TS9025: Declaration emit for this parameter requires implicitly adding
+  | undefined to it's type. This is not supported with --isolatedDeclarations.
+    ,-[fnDecl.d.ts:28:46]
+ 27 | export const inObjectLiteralArrowOk2 = { o: (array: T | undefined = [], rParam: string): void => { } };
+ 28 | export const inObjectLiteralArrowBad = { o: (array: T = [], rParam: string): void => { } };
+    :                                              ^^^^^^^^^^^^^
+ 29 | 
+    `----
+
+  x TS9025: Declaration emit for this parameter requires implicitly adding
+  | undefined to it's type. This is not supported with --isolatedDeclarations.
+    ,-[fnDecl.d.ts:32:45]
+ 31 | export const inObjectLiteralMethodOk2 = { o(array: T | undefined = [], rParam: string): void { } };
+ 32 | export const inObjectLiteralMethodBad = { o(array: T = [], rParam: string): void { } };
+    :                                             ^^^^^^^^^^^^^
+ 33 | 
+    `----
+
+  x TS9025: Declaration emit for this parameter requires implicitly adding
+  | undefined to it's type. This is not supported with --isolatedDeclarations.
+    ,-[fnDecl.d.ts:37:47]
+ 36 | export class InClassFnExprOk2 { o = function (array: T | undefined = [], rParam: string): void { } };
+ 37 | export class InClassFnExprBad { o = function (array: T = [], rParam: string): void { } };
+    :                                               ^^^^^^^^^^^^^
+ 38 | 
+    `----
+
+  x TS9025: Declaration emit for this parameter requires implicitly adding
+  | undefined to it's type. This is not supported with --isolatedDeclarations.
+    ,-[fnDecl.d.ts:41:37]
+ 40 | export class InClassArrowOk2 { o = (array: T | undefined = [], rParam: string): void => { } };
+ 41 | export class InClassArrowBad { o = (array: T = [], rParam: string): void => { } };
+    :                                     ^^^^^^^^^^^^^
+ 42 | 
+    `----
+
+  x TS9025: Declaration emit for this parameter requires implicitly adding
+  | undefined to it's type. This is not supported with --isolatedDeclarations.
+    ,-[fnDecl.d.ts:45:35]
+ 44 | export class InClassMethodOk2 { o(array: T | undefined = [], rParam: string): void { } };
+ 45 | export class InClassMethodBad { o(array: T = [], rParam: string): void { } };
+    :                                   ^^^^^^^^^^^^^
+ 46 | 
+    `----
+
+  x TS9025: Declaration emit for this parameter requires implicitly adding
+  | undefined to it's type. This is not supported with --isolatedDeclarations.
+    ,-[fnDecl.d.ts:51:5]
+ 50 |   constructor(
+ 51 |     private arr: Bar = new Bar(),
+    :     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ 52 |     private bool: boolean,
+    `----

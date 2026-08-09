@@ -1,0 +1,8 @@
+{
+  "plugins": [
+    ["styled-components", {
+      "minify": true,
+      "transpileTemplateLiterals": true
+    }]
+  ]
+}

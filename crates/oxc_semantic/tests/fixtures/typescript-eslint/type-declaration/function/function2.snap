@@ -1,0 +1,60 @@
+---
+source: crates/oxc_semantic/tests/main.rs
+input_file: crates/oxc_semantic/tests/fixtures/typescript-eslint/type-declaration/function/function2.ts
+---
+[
+  {
+    "children": [
+      {
+        "children": [
+          {
+            "children": [],
+            "flags": "ScopeFlags(0x0)",
+            "id": 2,
+            "node": "TSFunctionType",
+            "symbols": [
+              {
+                "flags": "SymbolFlags(FunctionScopedVariable)",
+                "id": 2,
+                "name": "arg",
+                "node": "FormalParameter(arg)",
+                "references": [
+                  {
+                    "flags": "ReferenceFlags(Type)",
+                    "id": 0,
+                    "name": "arg",
+                    "node_id": 15,
+                    "scope_id": 2
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "flags": "ScopeFlags(0x0)",
+        "id": 1,
+        "node": "TSTypeAliasDeclaration",
+        "symbols": []
+      }
+    ],
+    "flags": "ScopeFlags(Top)",
+    "id": 0,
+    "node": "Program",
+    "symbols": [
+      {
+        "flags": "SymbolFlags(BlockScopedVariable | ConstVariable)",
+        "id": 0,
+        "name": "arg",
+        "node": "VariableDeclarator(arg)",
+        "references": []
+      },
+      {
+        "flags": "SymbolFlags(TypeAlias)",
+        "id": 1,
+        "name": "A",
+        "node": "TSTypeAliasDeclaration",
+        "references": []
+      }
+    ]
+  }
+]

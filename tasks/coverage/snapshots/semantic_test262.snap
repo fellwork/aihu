@@ -1,0 +1,809 @@
+commit: de8e621c
+
+semantic_test262 Summary:
+AST Parsed     : 47240/47240 (100.00%)
+Positive Passed: 47114/47240 (99.73%)
+semantic Error: tasks/coverage/test262/test/language/expressions/class/cpn-class-expr-fields-computed-property-name-from-arrow-function-expression.js
+Scope flags mismatch:
+after transform: ScopeId(2): ScopeFlags(StrictMode | Function | Arrow)
+rebuilt        : ScopeId(1): ScopeFlags(Function | Arrow)
+Scope parent mismatch:
+after transform: ScopeId(2): Some(ScopeId(1))
+rebuilt        : ScopeId(1): Some(ScopeId(0))
+Scope flags mismatch:
+after transform: ScopeId(3): ScopeFlags(StrictMode | Function | Arrow)
+rebuilt        : ScopeId(2): ScopeFlags(Function | Arrow)
+Scope parent mismatch:
+after transform: ScopeId(3): Some(ScopeId(1))
+rebuilt        : ScopeId(2): Some(ScopeId(0))
+
+semantic Error: tasks/coverage/test262/test/language/expressions/class/cpn-class-expr-fields-computed-property-name-from-async-arrow-function-expression.js
+Scope flags mismatch:
+after transform: ScopeId(2): ScopeFlags(StrictMode | Function)
+rebuilt        : ScopeId(1): ScopeFlags(Function)
+Scope parent mismatch:
+after transform: ScopeId(2): Some(ScopeId(1))
+rebuilt        : ScopeId(1): Some(ScopeId(0))
+Scope flags mismatch:
+after transform: ScopeId(3): ScopeFlags(StrictMode | Function)
+rebuilt        : ScopeId(2): ScopeFlags(Function)
+Scope parent mismatch:
+after transform: ScopeId(3): Some(ScopeId(1))
+rebuilt        : ScopeId(2): Some(ScopeId(0))
+
+semantic Error: tasks/coverage/test262/test/language/expressions/class/cpn-class-expr-fields-computed-property-name-from-function-expression.js
+Scope flags mismatch:
+after transform: ScopeId(2): ScopeFlags(StrictMode | Function)
+rebuilt        : ScopeId(1): ScopeFlags(Function)
+Scope parent mismatch:
+after transform: ScopeId(2): Some(ScopeId(1))
+rebuilt        : ScopeId(1): Some(ScopeId(0))
+Scope flags mismatch:
+after transform: ScopeId(3): ScopeFlags(StrictMode | Function)
+rebuilt        : ScopeId(2): ScopeFlags(Function)
+Scope parent mismatch:
+after transform: ScopeId(3): Some(ScopeId(1))
+rebuilt        : ScopeId(2): Some(ScopeId(0))
+
+semantic Error: tasks/coverage/test262/test/language/expressions/class/cpn-class-expr-fields-methods-computed-property-name-from-arrow-function-expression.js
+Scope flags mismatch:
+after transform: ScopeId(2): ScopeFlags(StrictMode | Function | Arrow)
+rebuilt        : ScopeId(1): ScopeFlags(Function | Arrow)
+Scope parent mismatch:
+after transform: ScopeId(2): Some(ScopeId(1))
+rebuilt        : ScopeId(1): Some(ScopeId(0))
+Scope flags mismatch:
+after transform: ScopeId(4): ScopeFlags(StrictMode | Function | Arrow)
+rebuilt        : ScopeId(2): ScopeFlags(Function | Arrow)
+Scope parent mismatch:
+after transform: ScopeId(4): Some(ScopeId(1))
+rebuilt        : ScopeId(2): Some(ScopeId(0))
+
+semantic Error: tasks/coverage/test262/test/language/expressions/class/cpn-class-expr-fields-methods-computed-property-name-from-async-arrow-function-expression.js
+Scope flags mismatch:
+after transform: ScopeId(2): ScopeFlags(StrictMode | Function)
+rebuilt        : ScopeId(1): ScopeFlags(Function)
+Scope parent mismatch:
+after transform: ScopeId(2): Some(ScopeId(1))
+rebuilt        : ScopeId(1): Some(ScopeId(0))
+Scope flags mismatch:
+after transform: ScopeId(4): ScopeFlags(StrictMode | Function)
+rebuilt        : ScopeId(2): ScopeFlags(Function)
+Scope parent mismatch:
+after transform: ScopeId(4): Some(ScopeId(1))
+rebuilt        : ScopeId(2): Some(ScopeId(0))
+
+semantic Error: tasks/coverage/test262/test/language/expressions/class/cpn-class-expr-fields-methods-computed-property-name-from-function-expression.js
+Scope flags mismatch:
+after transform: ScopeId(2): ScopeFlags(StrictMode | Function)
+rebuilt        : ScopeId(1): ScopeFlags(Function)
+Scope parent mismatch:
+after transform: ScopeId(2): Some(ScopeId(1))
+rebuilt        : ScopeId(1): Some(ScopeId(0))
+Scope flags mismatch:
+after transform: ScopeId(4): ScopeFlags(StrictMode | Function)
+rebuilt        : ScopeId(2): ScopeFlags(Function)
+Scope parent mismatch:
+after transform: ScopeId(4): Some(ScopeId(1))
+rebuilt        : ScopeId(2): Some(ScopeId(0))
+
+semantic Error: tasks/coverage/test262/test/language/expressions/class/elements/arrow-body-derived-cls-direct-eval-contains-superproperty-1.js
+Scope flags mismatch:
+after transform: ScopeId(3): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(3): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/expressions/class/elements/arrow-body-derived-cls-direct-eval-contains-superproperty-2.js
+Scope flags mismatch:
+after transform: ScopeId(3): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(3): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/expressions/class/elements/arrow-body-derived-cls-direct-eval-err-contains-supercall-1.js
+Scope flags mismatch:
+after transform: ScopeId(4): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(3): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/expressions/class/elements/arrow-body-derived-cls-direct-eval-err-contains-supercall-2.js
+Scope flags mismatch:
+after transform: ScopeId(4): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(3): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/expressions/class/elements/arrow-body-derived-cls-direct-eval-err-contains-supercall.js
+Scope flags mismatch:
+after transform: ScopeId(4): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(3): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/expressions/class/elements/arrow-body-direct-eval-err-contains-arguments.js
+Scope flags mismatch:
+after transform: ScopeId(3): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(2): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/expressions/class/elements/arrow-body-direct-eval-err-contains-newtarget.js
+Scope flags mismatch:
+after transform: ScopeId(2): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(2): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/expressions/class/elements/arrow-body-private-derived-cls-direct-eval-contains-superproperty-1.js
+Scope flags mismatch:
+after transform: ScopeId(4): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(3): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/expressions/class/elements/arrow-body-private-derived-cls-direct-eval-contains-superproperty-2.js
+Scope flags mismatch:
+after transform: ScopeId(4): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(3): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/expressions/class/elements/arrow-body-private-derived-cls-direct-eval-err-contains-supercall-1.js
+Scope flags mismatch:
+after transform: ScopeId(4): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(3): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/expressions/class/elements/arrow-body-private-derived-cls-direct-eval-err-contains-supercall-2.js
+Scope flags mismatch:
+after transform: ScopeId(4): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(3): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/expressions/class/elements/arrow-body-private-derived-cls-direct-eval-err-contains-supercall.js
+Scope flags mismatch:
+after transform: ScopeId(4): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(3): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/expressions/class/elements/arrow-body-private-direct-eval-err-contains-arguments.js
+Scope flags mismatch:
+after transform: ScopeId(4): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(2): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/expressions/class/elements/arrow-body-private-direct-eval-err-contains-newtarget.js
+Scope flags mismatch:
+after transform: ScopeId(3): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(2): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/expressions/class/elements/derived-cls-direct-eval-contains-superproperty-1.js
+Scope flags mismatch:
+after transform: ScopeId(3): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(3): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/expressions/class/elements/derived-cls-direct-eval-contains-superproperty-2.js
+Scope flags mismatch:
+after transform: ScopeId(3): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(3): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/expressions/class/elements/derived-cls-direct-eval-err-contains-supercall-1.js
+Scope flags mismatch:
+after transform: ScopeId(4): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(3): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/expressions/class/elements/derived-cls-direct-eval-err-contains-supercall-2.js
+Scope flags mismatch:
+after transform: ScopeId(4): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(3): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/expressions/class/elements/derived-cls-direct-eval-err-contains-supercall.js
+Scope flags mismatch:
+after transform: ScopeId(4): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(3): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/expressions/class/elements/direct-eval-err-contains-arguments.js
+Scope flags mismatch:
+after transform: ScopeId(3): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(2): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/expressions/class/elements/direct-eval-err-contains-newtarget.js
+Scope flags mismatch:
+after transform: ScopeId(2): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(2): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/expressions/class/elements/nested-derived-cls-direct-eval-contains-superproperty-1.js
+Scope flags mismatch:
+after transform: ScopeId(3): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(3): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/expressions/class/elements/nested-derived-cls-direct-eval-contains-superproperty-2.js
+Scope flags mismatch:
+after transform: ScopeId(3): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(3): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/expressions/class/elements/nested-derived-cls-direct-eval-err-contains-supercall-1.js
+Scope flags mismatch:
+after transform: ScopeId(4): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(3): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/expressions/class/elements/nested-derived-cls-direct-eval-err-contains-supercall-2.js
+Scope flags mismatch:
+after transform: ScopeId(4): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(3): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/expressions/class/elements/nested-derived-cls-direct-eval-err-contains-supercall.js
+Scope flags mismatch:
+after transform: ScopeId(4): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(3): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/expressions/class/elements/nested-direct-eval-err-contains-arguments.js
+Scope flags mismatch:
+after transform: ScopeId(4): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(2): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/expressions/class/elements/nested-direct-eval-err-contains-newtarget.js
+Scope flags mismatch:
+after transform: ScopeId(2): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(2): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/expressions/class/elements/nested-private-derived-cls-direct-eval-contains-superproperty-1.js
+Scope flags mismatch:
+after transform: ScopeId(3): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(3): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/expressions/class/elements/nested-private-derived-cls-direct-eval-contains-superproperty-2.js
+Scope flags mismatch:
+after transform: ScopeId(3): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(3): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/expressions/class/elements/nested-private-derived-cls-direct-eval-err-contains-supercall-1.js
+Scope flags mismatch:
+after transform: ScopeId(4): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(3): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/expressions/class/elements/nested-private-derived-cls-direct-eval-err-contains-supercall-2.js
+Scope flags mismatch:
+after transform: ScopeId(4): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(3): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/expressions/class/elements/nested-private-derived-cls-direct-eval-err-contains-supercall.js
+Scope flags mismatch:
+after transform: ScopeId(4): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(3): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/expressions/class/elements/nested-private-direct-eval-err-contains-arguments.js
+Scope flags mismatch:
+after transform: ScopeId(5): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(2): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/expressions/class/elements/nested-private-direct-eval-err-contains-newtarget.js
+Scope flags mismatch:
+after transform: ScopeId(2): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(2): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/expressions/class/elements/private-derived-cls-direct-eval-contains-superproperty-1.js
+Scope flags mismatch:
+after transform: ScopeId(3): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(3): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/expressions/class/elements/private-derived-cls-direct-eval-contains-superproperty-2.js
+Scope flags mismatch:
+after transform: ScopeId(3): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(3): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/expressions/class/elements/private-derived-cls-direct-eval-err-contains-supercall-1.js
+Scope flags mismatch:
+after transform: ScopeId(4): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(3): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/expressions/class/elements/private-derived-cls-direct-eval-err-contains-supercall-2.js
+Scope flags mismatch:
+after transform: ScopeId(4): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(3): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/expressions/class/elements/private-derived-cls-direct-eval-err-contains-supercall.js
+Scope flags mismatch:
+after transform: ScopeId(4): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(3): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/expressions/class/elements/private-direct-eval-err-contains-arguments.js
+Scope flags mismatch:
+after transform: ScopeId(3): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(2): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/expressions/class/elements/private-direct-eval-err-contains-newtarget.js
+Scope flags mismatch:
+after transform: ScopeId(2): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(2): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/expressions/class/elements/static-field-init-with-this.js
+Scope flags mismatch:
+after transform: ScopeId(1): ScopeFlags(StrictMode | DirectEval)
+rebuilt        : ScopeId(1): ScopeFlags(StrictMode)
+
+semantic Error: tasks/coverage/test262/test/language/module-code/top-level-await/syntax/for-await-await-expr-func-expression.js
+Scope parent mismatch:
+after transform: ScopeId(2): Some(ScopeId(1))
+rebuilt        : ScopeId(3): Some(ScopeId(2))
+Scope parent mismatch:
+after transform: ScopeId(6): Some(ScopeId(5))
+rebuilt        : ScopeId(16): Some(ScopeId(15))
+Scope parent mismatch:
+after transform: ScopeId(10): Some(ScopeId(9))
+rebuilt        : ScopeId(29): Some(ScopeId(28))
+
+semantic Error: tasks/coverage/test262/test/language/module-code/top-level-await/syntax/for-await-await-expr-new-expr.js
+Scope parent mismatch:
+after transform: ScopeId(2): Some(ScopeId(1))
+rebuilt        : ScopeId(3): Some(ScopeId(2))
+Scope parent mismatch:
+after transform: ScopeId(6): Some(ScopeId(5))
+rebuilt        : ScopeId(16): Some(ScopeId(15))
+Scope parent mismatch:
+after transform: ScopeId(10): Some(ScopeId(9))
+rebuilt        : ScopeId(29): Some(ScopeId(28))
+
+semantic Error: tasks/coverage/test262/test/language/module-code/top-level-await/syntax/for-await-await-expr-obj-literal.js
+Scope parent mismatch:
+after transform: ScopeId(2): Some(ScopeId(1))
+rebuilt        : ScopeId(3): Some(ScopeId(2))
+Scope parent mismatch:
+after transform: ScopeId(6): Some(ScopeId(5))
+rebuilt        : ScopeId(16): Some(ScopeId(15))
+Scope parent mismatch:
+after transform: ScopeId(10): Some(ScopeId(9))
+rebuilt        : ScopeId(29): Some(ScopeId(28))
+
+semantic Error: tasks/coverage/test262/test/language/statements/class/cpn-class-decl-fields-computed-property-name-from-arrow-function-expression.js
+Scope flags mismatch:
+after transform: ScopeId(2): ScopeFlags(StrictMode | Function | Arrow)
+rebuilt        : ScopeId(1): ScopeFlags(Function | Arrow)
+Scope parent mismatch:
+after transform: ScopeId(2): Some(ScopeId(1))
+rebuilt        : ScopeId(1): Some(ScopeId(0))
+Scope flags mismatch:
+after transform: ScopeId(3): ScopeFlags(StrictMode | Function | Arrow)
+rebuilt        : ScopeId(2): ScopeFlags(Function | Arrow)
+Scope parent mismatch:
+after transform: ScopeId(3): Some(ScopeId(1))
+rebuilt        : ScopeId(2): Some(ScopeId(0))
+
+semantic Error: tasks/coverage/test262/test/language/statements/class/cpn-class-decl-fields-computed-property-name-from-async-arrow-function-expression.js
+Scope flags mismatch:
+after transform: ScopeId(2): ScopeFlags(StrictMode | Function)
+rebuilt        : ScopeId(1): ScopeFlags(Function)
+Scope parent mismatch:
+after transform: ScopeId(2): Some(ScopeId(1))
+rebuilt        : ScopeId(1): Some(ScopeId(0))
+Scope flags mismatch:
+after transform: ScopeId(3): ScopeFlags(StrictMode | Function)
+rebuilt        : ScopeId(2): ScopeFlags(Function)
+Scope parent mismatch:
+after transform: ScopeId(3): Some(ScopeId(1))
+rebuilt        : ScopeId(2): Some(ScopeId(0))
+
+semantic Error: tasks/coverage/test262/test/language/statements/class/cpn-class-decl-fields-computed-property-name-from-function-expression.js
+Scope flags mismatch:
+after transform: ScopeId(2): ScopeFlags(StrictMode | Function)
+rebuilt        : ScopeId(1): ScopeFlags(Function)
+Scope parent mismatch:
+after transform: ScopeId(2): Some(ScopeId(1))
+rebuilt        : ScopeId(1): Some(ScopeId(0))
+Scope flags mismatch:
+after transform: ScopeId(3): ScopeFlags(StrictMode | Function)
+rebuilt        : ScopeId(2): ScopeFlags(Function)
+Scope parent mismatch:
+after transform: ScopeId(3): Some(ScopeId(1))
+rebuilt        : ScopeId(2): Some(ScopeId(0))
+
+semantic Error: tasks/coverage/test262/test/language/statements/class/cpn-class-decl-fields-methods-computed-property-name-from-arrow-function-expression.js
+Scope flags mismatch:
+after transform: ScopeId(2): ScopeFlags(StrictMode | Function | Arrow)
+rebuilt        : ScopeId(1): ScopeFlags(Function | Arrow)
+Scope parent mismatch:
+after transform: ScopeId(2): Some(ScopeId(1))
+rebuilt        : ScopeId(1): Some(ScopeId(0))
+Scope flags mismatch:
+after transform: ScopeId(4): ScopeFlags(StrictMode | Function | Arrow)
+rebuilt        : ScopeId(2): ScopeFlags(Function | Arrow)
+Scope parent mismatch:
+after transform: ScopeId(4): Some(ScopeId(1))
+rebuilt        : ScopeId(2): Some(ScopeId(0))
+
+semantic Error: tasks/coverage/test262/test/language/statements/class/cpn-class-decl-fields-methods-computed-property-name-from-async-arrow-function-expression.js
+Scope flags mismatch:
+after transform: ScopeId(2): ScopeFlags(StrictMode | Function)
+rebuilt        : ScopeId(1): ScopeFlags(Function)
+Scope parent mismatch:
+after transform: ScopeId(2): Some(ScopeId(1))
+rebuilt        : ScopeId(1): Some(ScopeId(0))
+Scope flags mismatch:
+after transform: ScopeId(4): ScopeFlags(StrictMode | Function)
+rebuilt        : ScopeId(2): ScopeFlags(Function)
+Scope parent mismatch:
+after transform: ScopeId(4): Some(ScopeId(1))
+rebuilt        : ScopeId(2): Some(ScopeId(0))
+
+semantic Error: tasks/coverage/test262/test/language/statements/class/cpn-class-decl-fields-methods-computed-property-name-from-function-expression.js
+Scope flags mismatch:
+after transform: ScopeId(2): ScopeFlags(StrictMode | Function)
+rebuilt        : ScopeId(1): ScopeFlags(Function)
+Scope parent mismatch:
+after transform: ScopeId(2): Some(ScopeId(1))
+rebuilt        : ScopeId(1): Some(ScopeId(0))
+Scope flags mismatch:
+after transform: ScopeId(4): ScopeFlags(StrictMode | Function)
+rebuilt        : ScopeId(2): ScopeFlags(Function)
+Scope parent mismatch:
+after transform: ScopeId(4): Some(ScopeId(1))
+rebuilt        : ScopeId(2): Some(ScopeId(0))
+
+semantic Error: tasks/coverage/test262/test/language/statements/class/decorator/syntax/class-valid/decorator-member-expr-private-identifier.js
+Symbol span mismatch for "D":
+after transform: SymbolId(1): Span { start: 1551, end: 1552 }
+rebuilt        : SymbolId(10): Span { start: 0, end: 0 }
+Symbol span mismatch for "D":
+after transform: SymbolId(10): Span { start: 0, end: 0 }
+rebuilt        : SymbolId(11): Span { start: 1551, end: 1552 }
+
+semantic Error: tasks/coverage/test262/test/language/statements/class/decorator/syntax/valid/decorator-call-expr-identifier-reference-yield.js
+Symbol span mismatch for "C":
+after transform: SymbolId(2): Span { start: 1436, end: 1437 }
+rebuilt        : SymbolId(3): Span { start: 0, end: 0 }
+Symbol span mismatch for "C":
+after transform: SymbolId(3): Span { start: 0, end: 0 }
+rebuilt        : SymbolId(4): Span { start: 1436, end: 1437 }
+
+semantic Error: tasks/coverage/test262/test/language/statements/class/decorator/syntax/valid/decorator-call-expr-identifier-reference.js
+Symbol span mismatch for "C":
+after transform: SymbolId(8): Span { start: 1654, end: 1655 }
+rebuilt        : SymbolId(9): Span { start: 0, end: 0 }
+Symbol span mismatch for "C":
+after transform: SymbolId(9): Span { start: 0, end: 0 }
+rebuilt        : SymbolId(10): Span { start: 1654, end: 1655 }
+
+semantic Error: tasks/coverage/test262/test/language/statements/class/decorator/syntax/valid/decorator-member-expr-decorator-member-expr.js
+Symbol span mismatch for "C":
+after transform: SymbolId(1): Span { start: 1377, end: 1378 }
+rebuilt        : SymbolId(2): Span { start: 0, end: 0 }
+Symbol span mismatch for "C":
+after transform: SymbolId(2): Span { start: 0, end: 0 }
+rebuilt        : SymbolId(3): Span { start: 1377, end: 1378 }
+
+semantic Error: tasks/coverage/test262/test/language/statements/class/decorator/syntax/valid/decorator-member-expr-identifier-reference-yield.js
+Symbol span mismatch for "C":
+after transform: SymbolId(1): Span { start: 1050, end: 1051 }
+rebuilt        : SymbolId(2): Span { start: 0, end: 0 }
+Symbol span mismatch for "C":
+after transform: SymbolId(2): Span { start: 0, end: 0 }
+rebuilt        : SymbolId(3): Span { start: 1050, end: 1051 }
+
+semantic Error: tasks/coverage/test262/test/language/statements/class/decorator/syntax/valid/decorator-member-expr-identifier-reference.js
+Symbol span mismatch for "C":
+after transform: SymbolId(7): Span { start: 1238, end: 1239 }
+rebuilt        : SymbolId(8): Span { start: 0, end: 0 }
+Symbol span mismatch for "C":
+after transform: SymbolId(8): Span { start: 0, end: 0 }
+rebuilt        : SymbolId(9): Span { start: 1238, end: 1239 }
+
+semantic Error: tasks/coverage/test262/test/language/statements/class/decorator/syntax/valid/decorator-parenthesized-expr-identifier-reference-yield.js
+Symbol span mismatch for "C":
+after transform: SymbolId(1): Span { start: 1639, end: 1640 }
+rebuilt        : SymbolId(2): Span { start: 0, end: 0 }
+Symbol span mismatch for "C":
+after transform: SymbolId(2): Span { start: 0, end: 0 }
+rebuilt        : SymbolId(3): Span { start: 1639, end: 1640 }
+
+semantic Error: tasks/coverage/test262/test/language/statements/class/decorator/syntax/valid/decorator-parenthesized-expr-identifier-reference.js
+Symbol span mismatch for "C":
+after transform: SymbolId(7): Span { start: 1739, end: 1740 }
+rebuilt        : SymbolId(8): Span { start: 0, end: 0 }
+Symbol span mismatch for "C":
+after transform: SymbolId(8): Span { start: 0, end: 0 }
+rebuilt        : SymbolId(9): Span { start: 1739, end: 1740 }
+
+semantic Error: tasks/coverage/test262/test/language/statements/class/elements/arrow-body-derived-cls-direct-eval-contains-superproperty-1.js
+Scope flags mismatch:
+after transform: ScopeId(3): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(3): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/statements/class/elements/arrow-body-derived-cls-direct-eval-contains-superproperty-2.js
+Scope flags mismatch:
+after transform: ScopeId(3): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(3): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/statements/class/elements/arrow-body-derived-cls-direct-eval-err-contains-supercall-1.js
+Scope flags mismatch:
+after transform: ScopeId(4): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(3): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/statements/class/elements/arrow-body-derived-cls-direct-eval-err-contains-supercall-2.js
+Scope flags mismatch:
+after transform: ScopeId(4): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(3): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/statements/class/elements/arrow-body-derived-cls-direct-eval-err-contains-supercall.js
+Scope flags mismatch:
+after transform: ScopeId(4): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(3): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/statements/class/elements/arrow-body-direct-eval-err-contains-arguments.js
+Scope flags mismatch:
+after transform: ScopeId(3): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(2): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/statements/class/elements/arrow-body-direct-eval-err-contains-newtarget.js
+Scope flags mismatch:
+after transform: ScopeId(2): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(2): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/statements/class/elements/arrow-body-private-derived-cls-direct-eval-contains-superproperty-1.js
+Scope flags mismatch:
+after transform: ScopeId(4): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(3): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/statements/class/elements/arrow-body-private-derived-cls-direct-eval-contains-superproperty-2.js
+Scope flags mismatch:
+after transform: ScopeId(4): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(3): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/statements/class/elements/arrow-body-private-derived-cls-direct-eval-err-contains-supercall-1.js
+Scope flags mismatch:
+after transform: ScopeId(4): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(3): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/statements/class/elements/arrow-body-private-derived-cls-direct-eval-err-contains-supercall-2.js
+Scope flags mismatch:
+after transform: ScopeId(4): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(3): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/statements/class/elements/arrow-body-private-derived-cls-direct-eval-err-contains-supercall.js
+Scope flags mismatch:
+after transform: ScopeId(4): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(3): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/statements/class/elements/arrow-body-private-direct-eval-err-contains-arguments.js
+Scope flags mismatch:
+after transform: ScopeId(2): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(2): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/statements/class/elements/arrow-body-private-direct-eval-err-contains-newtarget.js
+Scope flags mismatch:
+after transform: ScopeId(3): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(2): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/statements/class/elements/derived-cls-direct-eval-contains-superproperty-1.js
+Scope flags mismatch:
+after transform: ScopeId(3): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(3): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/statements/class/elements/derived-cls-direct-eval-contains-superproperty-2.js
+Scope flags mismatch:
+after transform: ScopeId(3): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(3): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/statements/class/elements/derived-cls-direct-eval-err-contains-supercall-1.js
+Scope flags mismatch:
+after transform: ScopeId(4): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(3): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/statements/class/elements/derived-cls-direct-eval-err-contains-supercall-2.js
+Scope flags mismatch:
+after transform: ScopeId(4): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(3): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/statements/class/elements/derived-cls-direct-eval-err-contains-supercall.js
+Scope flags mismatch:
+after transform: ScopeId(4): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(3): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/statements/class/elements/direct-eval-err-contains-arguments.js
+Scope flags mismatch:
+after transform: ScopeId(3): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(2): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/statements/class/elements/direct-eval-err-contains-newtarget.js
+Scope flags mismatch:
+after transform: ScopeId(2): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(2): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/statements/class/elements/nested-derived-cls-direct-eval-contains-superproperty-1.js
+Scope flags mismatch:
+after transform: ScopeId(3): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(3): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/statements/class/elements/nested-derived-cls-direct-eval-contains-superproperty-2.js
+Scope flags mismatch:
+after transform: ScopeId(3): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(3): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/statements/class/elements/nested-derived-cls-direct-eval-err-contains-supercall-1.js
+Scope flags mismatch:
+after transform: ScopeId(4): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(3): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/statements/class/elements/nested-derived-cls-direct-eval-err-contains-supercall-2.js
+Scope flags mismatch:
+after transform: ScopeId(4): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(3): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/statements/class/elements/nested-derived-cls-direct-eval-err-contains-supercall.js
+Scope flags mismatch:
+after transform: ScopeId(4): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(3): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/statements/class/elements/nested-direct-eval-err-contains-arguments.js
+Scope flags mismatch:
+after transform: ScopeId(5): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(2): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/statements/class/elements/nested-direct-eval-err-contains-newtarget.js
+Scope flags mismatch:
+after transform: ScopeId(2): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(2): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/statements/class/elements/nested-private-derived-cls-direct-eval-contains-superproperty-1.js
+Scope flags mismatch:
+after transform: ScopeId(3): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(3): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/statements/class/elements/nested-private-derived-cls-direct-eval-contains-superproperty-2.js
+Scope flags mismatch:
+after transform: ScopeId(3): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(3): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/statements/class/elements/nested-private-derived-cls-direct-eval-err-contains-supercall-1.js
+Scope flags mismatch:
+after transform: ScopeId(4): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(3): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/statements/class/elements/nested-private-derived-cls-direct-eval-err-contains-supercall-2.js
+Scope flags mismatch:
+after transform: ScopeId(4): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(3): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/statements/class/elements/nested-private-derived-cls-direct-eval-err-contains-supercall.js
+Scope flags mismatch:
+after transform: ScopeId(4): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(3): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/statements/class/elements/nested-private-direct-eval-err-contains-arguments.js
+Scope flags mismatch:
+after transform: ScopeId(4): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(2): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/statements/class/elements/nested-private-direct-eval-err-contains-newtarget.js
+Scope flags mismatch:
+after transform: ScopeId(2): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(2): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/statements/class/elements/private-derived-cls-direct-eval-contains-superproperty-1.js
+Scope flags mismatch:
+after transform: ScopeId(3): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(3): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/statements/class/elements/private-derived-cls-direct-eval-contains-superproperty-2.js
+Scope flags mismatch:
+after transform: ScopeId(3): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(3): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/statements/class/elements/private-derived-cls-direct-eval-err-contains-supercall-1.js
+Scope flags mismatch:
+after transform: ScopeId(4): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(3): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/statements/class/elements/private-derived-cls-direct-eval-err-contains-supercall-2.js
+Scope flags mismatch:
+after transform: ScopeId(4): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(3): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/statements/class/elements/private-derived-cls-direct-eval-err-contains-supercall.js
+Scope flags mismatch:
+after transform: ScopeId(4): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(3): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/statements/class/elements/private-direct-eval-err-contains-arguments.js
+Scope flags mismatch:
+after transform: ScopeId(3): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(2): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/statements/class/elements/private-direct-eval-err-contains-newtarget.js
+Scope flags mismatch:
+after transform: ScopeId(2): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(2): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/statements/class/elements/private-field-visible-to-direct-eval-on-initializer.js
+Scope flags mismatch:
+after transform: ScopeId(2): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(2): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/statements/class/elements/private-getter-visible-to-direct-eval-on-initializer.js
+Scope flags mismatch:
+after transform: ScopeId(3): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(2): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/statements/class/elements/private-method-visible-to-direct-eval-on-initializer.js
+Scope flags mismatch:
+after transform: ScopeId(3): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(2): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/statements/class/elements/private-setter-visible-to-direct-eval-on-initializer.js
+Scope flags mismatch:
+after transform: ScopeId(3): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(2): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/statements/class/elements/privatename-not-valid-eval-earlyerr-3.js
+Scope flags mismatch:
+after transform: ScopeId(3): ScopeFlags(StrictMode | Function | Constructor)
+rebuilt        : ScopeId(2): ScopeFlags(StrictMode | Function | Constructor | DirectEval)
+
+semantic Error: tasks/coverage/test262/test/language/statements/class/elements/static-field-init-with-this.js
+Scope flags mismatch:
+after transform: ScopeId(1): ScopeFlags(StrictMode | DirectEval)
+rebuilt        : ScopeId(1): ScopeFlags(StrictMode)
+
+semantic Error: tasks/coverage/test262/test/language/statements/for-await-of/async-func-decl-dstr-obj-rest-getter.js
+Scope parent mismatch:
+after transform: ScopeId(3): Some(ScopeId(2))
+rebuilt        : ScopeId(6): Some(ScopeId(5))
+
+semantic Error: tasks/coverage/test262/test/language/statements/for-await-of/async-func-dstr-const-obj-ptrn-rest-getter.js
+Scope parent mismatch:
+after transform: ScopeId(3): Some(ScopeId(2))
+rebuilt        : ScopeId(6): Some(ScopeId(5))
+
+semantic Error: tasks/coverage/test262/test/language/statements/for-await-of/async-func-dstr-let-obj-ptrn-rest-getter.js
+Scope parent mismatch:
+after transform: ScopeId(3): Some(ScopeId(2))
+rebuilt        : ScopeId(6): Some(ScopeId(5))
+
+semantic Error: tasks/coverage/test262/test/language/statements/for-await-of/async-func-dstr-var-obj-ptrn-rest-getter.js
+Scope parent mismatch:
+after transform: ScopeId(3): Some(ScopeId(2))
+rebuilt        : ScopeId(6): Some(ScopeId(5))
+
+semantic Error: tasks/coverage/test262/test/language/statements/for-await-of/async-gen-decl-dstr-obj-rest-getter.js
+Scope parent mismatch:
+after transform: ScopeId(3): Some(ScopeId(2))
+rebuilt        : ScopeId(6): Some(ScopeId(5))
+
+semantic Error: tasks/coverage/test262/test/language/statements/for-await-of/async-gen-dstr-const-obj-ptrn-rest-getter.js
+Scope parent mismatch:
+after transform: ScopeId(3): Some(ScopeId(2))
+rebuilt        : ScopeId(6): Some(ScopeId(5))
+
+semantic Error: tasks/coverage/test262/test/language/statements/for-await-of/async-gen-dstr-let-obj-ptrn-rest-getter.js
+Scope parent mismatch:
+after transform: ScopeId(3): Some(ScopeId(2))
+rebuilt        : ScopeId(6): Some(ScopeId(5))
+
+semantic Error: tasks/coverage/test262/test/language/statements/for-await-of/async-gen-dstr-var-obj-ptrn-rest-getter.js
+Scope parent mismatch:
+after transform: ScopeId(3): Some(ScopeId(2))
+rebuilt        : ScopeId(6): Some(ScopeId(5))
+
+semantic Error: tasks/coverage/test262/test/language/statements/for-of/head-await-using-bound-names-fordecl-tdz.js
+Symbol reference IDs mismatch for "x":
+after transform: SymbolId(0): []
+rebuilt        : SymbolId(2): [ReferenceId(9)]
+Symbol reference IDs mismatch for "x":
+after transform: SymbolId(1): [ReferenceId(4)]
+rebuilt        : SymbolId(5): []
+Reference symbol mismatch for "x":
+after transform: SymbolId(1) "x"
+rebuilt        : SymbolId(2) "x"
+
+semantic Error: tasks/coverage/test262/test/language/statements/for-of/head-using-bound-names-fordecl-tdz.js
+Symbol reference IDs mismatch for "x":
+after transform: SymbolId(0): []
+rebuilt        : SymbolId(1): [ReferenceId(4)]
+Symbol reference IDs mismatch for "x":
+after transform: SymbolId(1): [ReferenceId(3)]
+rebuilt        : SymbolId(4): []
+Reference symbol mismatch for "x":
+after transform: SymbolId(1) "x"
+rebuilt        : SymbolId(1) "x"
+
+semantic Error: tasks/coverage/test262/test/language/statements/switch/scope-lex-async-function.js
+Symbol reference IDs mismatch for "x":
+after transform: SymbolId(0): []
+rebuilt        : SymbolId(1): [ReferenceId(7)]
+Reference symbol mismatch for "x":
+after transform: <None>
+rebuilt        : SymbolId(1) "x"
+Unresolved references mismatch:
+after transform: ["arguments", "require", "x"]
+rebuilt        : ["arguments", "require"]
+
+semantic Error: tasks/coverage/test262/test/language/statements/switch/scope-lex-async-generator.js
+Symbol reference IDs mismatch for "x":
+after transform: SymbolId(0): []
+rebuilt        : SymbolId(1): [ReferenceId(7)]
+Reference symbol mismatch for "x":
+after transform: <None>
+rebuilt        : SymbolId(1) "x"
+Unresolved references mismatch:
+after transform: ["arguments", "require", "x"]
+rebuilt        : ["arguments", "require"]
+

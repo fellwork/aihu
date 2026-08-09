@@ -1,0 +1,129 @@
+---
+source: crates/oxc_codegen/tests/integration/tester.rs
+---
+########## 0
+/* @license */
+/* @license */
+foo;bar;
+----------
+/* @license */
+/* @license */
+foo;
+bar;
+
+########## 1
+/* @license */
+/* @preserve */
+foo;bar;
+----------
+/* @license */
+/* @preserve */
+foo;
+bar;
+
+########## 2
+/* @license */
+//! KEEP
+foo;bar;
+----------
+/* @license */
+//! KEEP
+foo;
+bar;
+
+########## 3
+/* @license */
+/*! KEEP */
+foo;bar;
+----------
+/* @license */
+/*! KEEP */
+foo;
+bar;
+
+########## 4
+/* @license *//*! KEEP */
+foo;bar;
+----------
+/* @license */
+/*! KEEP */
+foo;
+bar;
+
+########## 5
+function test() {
+    /*
+    * @license
+    * Copyright notice 2
+    */
+    bar;
+}
+----------
+function test() {
+	/*
+	* @license
+	* Copyright notice 2
+	*/
+	bar;
+}
+
+########## 6
+function bar() { var foo; /*! #__NO_SIDE_EFFECTS__ */ function baz() { } }
+----------
+function bar() {
+	var foo;
+	/*! #__NO_SIDE_EFFECTS__ */ function baz() {}
+}
+
+########## 7
+function foo() {
+	(() => {
+		/**
+		 * @preserve
+		 */
+	})();
+	/**
+	 * @preserve
+	 */
+}
+/**
+ * @preserve
+ */
+----------
+function foo() {
+	(() => {
+		/**
+		* @preserve
+		*/
+	})();
+	/**
+	* @preserve
+	*/
+}
+/**
+* @preserve
+*/
+########## 8
+/**
+* @preserve
+*/
+
+----------
+/**
+* @preserve
+*/
+
+########## 9
+/*!
+ * legal comment
+ */
+
+"use strict";
+
+export const foo = 'foo';
+----------
+/*!
+* legal comment
+*/
+'use strict';
+export const foo = 'foo';

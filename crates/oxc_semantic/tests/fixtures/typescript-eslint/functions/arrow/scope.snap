@@ -1,0 +1,59 @@
+---
+source: crates/oxc_semantic/tests/main.rs
+input_file: crates/oxc_semantic/tests/fixtures/typescript-eslint/functions/arrow/scope.ts
+---
+[
+  {
+    "children": [
+      {
+        "children": [],
+        "flags": "ScopeFlags(Function | Arrow)",
+        "id": 1,
+        "node": "ArrowFunctionExpression",
+        "symbols": [
+          {
+            "flags": "SymbolFlags(BlockScopedVariable)",
+            "id": 1,
+            "name": "i",
+            "node": "VariableDeclarator(i)",
+            "references": [
+              {
+                "flags": "ReferenceFlags(Read)",
+                "id": 0,
+                "name": "i",
+                "node_id": 16,
+                "scope_id": 1
+              }
+            ]
+          },
+          {
+            "flags": "SymbolFlags(FunctionScopedVariable)",
+            "id": 2,
+            "name": "j",
+            "node": "VariableDeclarator(j)",
+            "references": []
+          }
+        ]
+      }
+    ],
+    "flags": "ScopeFlags(Top)",
+    "id": 0,
+    "node": "Program",
+    "symbols": [
+      {
+        "flags": "SymbolFlags(BlockScopedVariable | ConstVariable)",
+        "id": 0,
+        "name": "arrow",
+        "node": "VariableDeclarator(arrow)",
+        "references": []
+      },
+      {
+        "flags": "SymbolFlags(BlockScopedVariable | ConstVariable)",
+        "id": 3,
+        "name": "unresolved",
+        "node": "VariableDeclarator(unresolved)",
+        "references": []
+      }
+    ]
+  }
+]

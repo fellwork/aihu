@@ -1,0 +1,42 @@
+[package]
+name = "oxc_syntax"
+version = "0.139.0"
+authors.workspace = true
+categories.workspace = true
+edition.workspace = true
+homepage.workspace = true
+include = ["/src"]
+keywords.workspace = true
+license.workspace = true
+publish = true
+repository.workspace = true
+rust-version.workspace = true
+description.workspace = true
+
+[lints]
+workspace = true
+
+[lib]
+doctest = false
+
+[dependencies]
+oxc_allocator = { workspace = true }
+oxc_ast_macros = { workspace = true }
+oxc_estree = { workspace = true }
+oxc_index = { workspace = true }
+oxc_span = { workspace = true }
+oxc_str = { workspace = true }
+
+bitflags = { workspace = true }
+cow-utils = { workspace = true }
+nonmax = { workspace = true }
+phf = { workspace = true, features = ["macros"] }
+unicode-id-start = { workspace = true }
+
+dragonbox_ecma = { workspace = true, optional = true }
+serde = { workspace = true, features = ["derive"], optional = true }
+
+[features]
+default = []
+to_js_string = ["dep:dragonbox_ecma"]
+serialize = ["bitflags/serde", "dep:serde", "oxc_estree/serialize"]

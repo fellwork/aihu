@@ -1,0 +1,89 @@
+use oxc_ast::AstKind;
+use oxc_diagnostics::OxcDiagnostic;
+use oxc_macros::declare_oxc_lint;
+use oxc_span::Span;
+
+use crate::{AstNode, context::LintContext, rule::Rule};
+
+fn no_multi_str_diagnostic(span: Span) -> OxcDiagnostic {
+    OxcDiagnostic::warn("Unexpected multi string.")
+        .with_help("Multiline strings are not allowed. Use template literals or string concatenation instead.")
+        .with_label(span)
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct NoMultiStr;
+
+declare_oxc_lint!(
+    /// ### What it does
+    ///
+    /// Disallow multiline strings.
+    ///
+    /// ### Why is this bad?
+    ///
+    /// Some consider this to be a bad practice as it was an undocumented feature of JavaScript
+    /// that was only formalized later.
+    ///
+    /// ### Examples
+    ///
+    /// Examples of **incorrect** code for this rule:
+    /// ```javascript
+    /// var x = "Line 1 \
+    ///  Line 2";
+    /// ```
+    NoMultiStr,
+    eslint,
+    style,
+    version = "0.5.3",
+    short_description = "Disallow multiline strings.",
+);
+
+impl Rule for NoMultiStr {
+    fn run<'a>(&self, node: &AstNode<'a>, ctx: &LintContext<'a>) {
+        if let AstKind::StringLiteral(literal) = node.kind() {
+            let is_within_jsx_attribute =
+                matches!(ctx.nodes().parent_kind(node.id()), AstKind::JSXAttribute(_));
+            if is_within_jsx_attribute {
+                return;
+            }
+
+            let source = literal.span.source_text(ctx.source_text());
+            // https://github.com/eslint/eslint/blob/9e6d6405c3ee774c2e716a3453ede9696ced1be7/lib/shared/ast-utils.js#L12
+            let position = source.find(['\r', '\n', '\u{2028}', '\u{2029}']);
+            if let Some(position) = position {
+                // We found the "newline" character but want to highlight the '\', so go back one
+                // character.
+                let multi_span_start =
+                    literal.span.start + u32::try_from(position).unwrap_or_default() - 1;
+                ctx.diagnostic(no_multi_str_diagnostic(Span::sized(multi_span_start, 1)));
+            }
+        }
+    }
+}
+
+#[test]
+fn test() {
+    use crate::tester::Tester;
+
+    let pass = vec![
+        "var a = 'Line 1 Line 2';",
+        "var a = <div>
+			<h1>Wat</h1>
+			</div>;", // { "ecmaVersion": 6, "parserOptions": { "ecmaFeatures": { "jsx": true } } }
+        r#"<div class="line1
+        line2"></div>"#, // jsx
+    ];
+
+    let fail = vec![
+        "var x = 'Line 1 \\
+			 Line 2'",
+        "test('Line 1 \\
+			 Line 2');",
+        "'foo\\\rbar';",
+        "'foo\\ bar';",
+        "'foo\\ ar';",
+        "'\\ still fails';",
+    ];
+
+    Tester::new(NoMultiStr::NAME, NoMultiStr::PLUGIN, pass, fail).test_and_snapshot();
+}

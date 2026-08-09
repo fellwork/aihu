@@ -1,0 +1,309 @@
+# Changelog
+
+All notable changes to this package will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0).
+
+## [0.139.0] - 2026-07-06
+
+### ⚡ Performance
+
+- ff10855 transformer: Use `ReplaceWith` instead of `TakeIn` (#24015) (overlookmotel)
+
+## [0.138.0] - 2026-06-29
+
+### 💥 BREAKING CHANGES
+
+- 94fbacb ast: [**BREAKING**] Only export `AstBuilder` and `NONE` in `builder` module (#23876) (overlookmotel)
+- dc0ef38 transformer: [**BREAKING**] Switch to new `AstBuilder` (#23831) (overlookmotel)
+- 36009dd allocator: [**BREAKING**] `GetAllocator::allocator` take `&self` (#23676) (overlookmotel)
+
+### 🚀 Features
+
+- 326fe25 transformer_plugins: Support `typeof` `define` keys (#23605) (Alexander Lichter)
+- f2091b3 ast: Unify old and new `AstBuilder`s (#23875) (overlookmotel)
+
+### ⚡ Performance
+
+- e1886a0 transformer, minifier: Use `static_ident!` macro to create static `Ident`s (#23727) (overlookmotel)
+- 680ffbc transformer: Allocate AST nodes in arena directly (#23711) (overlookmotel)
+
+### 📚 Documentation
+
+- 3d61dea all: Correct capitalization in comments (#23887) (overlookmotel)
+
+## [0.137.0] - 2026-06-18
+
+### ⚡ Performance
+
+- bcb3894 minifier: Incremental scoping refresh, delete LiveUsageCollector (#23197) (Dunqing)
+
+## [0.136.0] - 2026-06-15
+
+### 🐛 Bug Fixes
+
+- 52d0c31 transformer: Replace ambient dot defines (#23231) (camc314)
+
+## [0.133.0] - 2026-05-26
+
+### 🐛 Bug Fixes
+
+- 702b14e minifier: Preserve IIFE structure in DCE-only mode (#22547) (Dunqing)
+
+## [0.130.0] - 2026-05-11
+
+### 🐛 Bug Fixes
+
+- a099b03 codegen: Emit call end mapping at `)` position, not past it (#22199) (Dunqing)
+- 2493bdd codegen: Correct sourcemap end mappings for closing delimiters (#22001) (Mark Dalgleish)
+
+## [0.125.0] - 2026-04-13
+
+### 💥 BREAKING CHANGES
+
+- 382958a span: [**BREAKING**] Remove re-exports of string types from `oxc_span` crate (#21246) (overlookmotel)
+- c4aedfa str: [**BREAKING**] Add `static_ident!` macro (#21245) (overlookmotel)
+
+## [0.117.0] - 2026-03-09
+
+### 🐛 Bug Fixes
+
+- 291d867 transformer_plugins: Unwrap ChainExpression after define replacement removes optional markers (#20058) (IWANABETHATGUY)
+
+## [0.114.0] - 2026-02-16
+
+### 🚀 Features
+
+- ebb80b3 ast: Add `node_id` field to all AST struct nodes (#18138) (Boshen)
+
+## [0.113.0] - 2026-02-10
+
+### 💥 BREAKING CHANGES
+
+- 48b0542 span: [**BREAKING**] SourceType::ts should set module to unambigious (#18873) (Boshen)
+
+### ⚡ Performance
+
+- d4a0867 transformer_plugins: Switch ReplaceGlobalDefines from Traverse to VisitMut (#19146) (Boshen)
+
+## [0.111.0] - 2026-01-26
+
+### 💥 BREAKING CHANGES
+
+- 777fc40 ast: [**BREAKING**] Add `Ident` type (#18354) (Boshen)
+
+## [0.106.0] - 2025-12-29
+
+### 🚀 Features
+
+- e031056 codegen: Add `sourcemap` feature flag (#17305) (Boshen)
+
+## [0.103.0] - 2025-12-15
+
+### 🐛 Bug Fixes
+
+- 250feb3 transformer: `import.meta.foo.bar` matches and `replaces import.meta.bar` (#16636) (秦宇航)
+
+## [0.97.0] - 2025-11-11
+
+### 🚀 Features
+
+- 8d69661 allocator: Add `Address::from_ref` method (#15318) (overlookmotel)
+- 9d568eb transformer_plugins: Support import.meta injection in inject_global_variables (#15125) (Copilot)
+
+
+## [0.95.0] - 2025-10-15
+
+### 🚀 Features
+
+- 2f85b31 transformer_plugins: Add changed field to InjectGlobalVariablesReturn (#14618) (Boshen)
+- a81267e transformer_plugins: Add changed field to ReplaceGlobalDefinesReturn (#14617) (Boshen)
+
+### 🐛 Bug Fixes
+
+- 5e0ab1b tranformer_plugins: Define plugin need to add reference to scoping (#14615) (Boshen)
+
+
+
+
+
+## [0.91.0] - 2025-09-22
+
+### 💼 Other
+
+- fb347da crates: V0.91.0 (#13961) (Boshen)
+
+
+
+
+
+
+## [0.87.0] - 2025-09-08
+
+### 🐛 Bug Fixes
+
+- 34d3cde rust: Fix clippy issues (#13540) (Boshen)
+
+
+
+
+
+## [0.83.0] - 2025-08-29
+
+### 🐛 Bug Fixes
+
+- b53a294 codegen: Add end sourcemaps for arguments (#13355) (sapphi-red)
+- 45e0cd9 oxc_transformer_plugins: Replace_global_define plugin `postfix_wildcard` should only match one property (#13307) (IWANABETHATGUY)
+
+
+## [0.82.3] - 2025-08-20
+
+### 🐛 Bug Fixes
+
+- f10ac33 codegen: Remove end sourcemaps for `}`, `]`, `)` (#13180) (Boshen)
+
+### 🚜 Refactor
+
+- 3548cf4 sourcemap: Improve sourcemap visualization code (#13177) (Boshen)
+
+
+## [0.82.2] - 2025-08-17
+
+### 🚜 Refactor
+
+- 5223562 codegen: Adjust some source mappings (#13084) (Boshen)
+
+
+
+
+## [0.81.0] - 2025-08-06
+
+### 💥 BREAKING CHANGES
+
+- 2cc1001 ast: [**BREAKING**] Remove `ExportDefaultDeclaration` `exported` field (#12808) (overlookmotel)
+
+
+## [0.80.0] - 2025-08-03
+
+### 🚜 Refactor
+
+- 77acc11 linter, transformer: Use `Scoping::symbol_is_unused` (#12666) (overlookmotel)
+
+### 📚 Documentation
+
+- de1de35 rust: Add comprehensive README.md documentation for all Rust crates (#12706) (Copilot)
+
+
+
+
+## [0.78.0] - 2025-07-24
+
+### 🚀 Features
+
+- c135beb codegen: Keep function expression PIFEs (#12470) (sapphi-red)
+- dee25f4 ast: Add `pife` field to `Function` (#12469) (sapphi-red)
+
+### 🚜 Refactor
+
+- 1cf08c0 minifier: Make DCE remove more code to align with rollup (#12427) (Boshen)
+
+
+## [0.77.3] - 2025-07-20
+
+### ⚡ Performance
+
+- 8bae417 codegen: Remove the useless tokens generated by some expressions (#12394) (Boshen)
+
+
+## [0.77.2] - 2025-07-17
+
+### 🚜 Refactor
+
+- eb12132 minifier: Unify access `CompressOptions` through `ctx.state` (#12346) (Boshen)
+
+
+## [0.77.1] - 2025-07-16
+
+### 🐛 Bug Fixes
+
+- b172cef transformer_plugins/replace_global_defines: Handle `declare const` (#12312) (Boshen)
+
+
+
+## [0.76.0] - 2025-07-08
+
+### 💥 BREAKING CHANGES
+
+- 8b30a5b codegen: [**BREAKING**] Introduce `CommentOptions` (#12114) (Boshen)
+
+
+
+
+## [0.74.0] - 2025-06-23
+
+### 💥 BREAKING CHANGES
+
+- 8ef1be2 traverse: [**BREAKING**] Introduce `TraverseCtx<'a, State>` (#11770) (Boshen)
+
+
+
+
+
+# Changelog
+
+All notable changes to this package will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project does not adhere to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) until v1.0.0.
+
+## [0.72.0] - 2025-05-24
+
+### Features
+
+- 03390ad allocator: `TakeIn` trait with `AllocatorAccessor` (#11201) (Boshen)
+
+## [0.71.0] - 2025-05-20
+
+- 5d9344f rust: [**BREAKING**] Clippy avoid-breaking-exported-api = false (#11088) (Boshen)
+
+### Refactor
+
+
+## [0.70.0] - 2025-05-15
+
+### Features
+
+- 1673ffb codegen: Rework printing normal / legal / annotation comments (#10997) (Boshen)
+
+## [0.68.0] - 2025-05-03
+
+- a0a37e0 ast: [**BREAKING**] `AstBuilder` methods require an `Atom` with correct lifetime (#10735) (overlookmotel)
+
+- 315143a codegen: [**BREAKING**] Remove useless `CodeGenerator` type alias (#10702) (Boshen)
+
+### Features
+
+- b01cb45 codegen: A way to keep legal comments after minification (#10689) (Boshen)
+
+### Bug Fixes
+
+- 4795059 transformer_plugins: Provide reference data when identifiers are replaced (#10620) (Boshen)
+
+### Performance
+
+- 8d84cf5 transformer: Avoid copying string data (#10726) (overlookmotel)
+- c753f75 transformer, linter: Use `format_compact_str!` (#10753) (overlookmotel)
+- 699ab3e transformer/inject_global_variables: Do not search string twice (#10751) (overlookmotel)
+
+### Refactor
+
+
+## [0.67.0] - 2025-04-27
+
+### Features
+
+- 1962bc6 transformer_plugins: Split out `oxc_transformer_plugins` crate (#10617) (Boshen)
+
+### Testing
+
+- fbd6864 transformer_plugins: Apply DCE after replace plugin (#10619) (Boshen)
+

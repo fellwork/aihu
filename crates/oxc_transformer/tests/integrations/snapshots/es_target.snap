@@ -1,0 +1,131 @@
+---
+source: crates/oxc_transformer/tests/integrations/es_target.rs
+---
+########## 0 es6
+a ** b
+----------
+Math.pow(a, b);
+
+########## 1 es2015
+a ** b
+----------
+Math.pow(a, b);
+
+########## 2 es2016
+async function foo() {}
+----------
+import _asyncToGenerator from '@oxc-project/runtime/helpers/asyncToGenerator';
+function foo() {
+	return _foo.apply(this, arguments);
+}
+function _foo() {
+	_foo = _asyncToGenerator(function* () {});
+	return _foo.apply(this, arguments);
+}
+
+########## 3 es2017
+({ ...x })
+----------
+import _objectSpread from '@oxc-project/runtime/helpers/objectSpread2';
+_objectSpread({}, x);
+
+########## 4 es2018
+try {} catch {}
+----------
+try {} catch (_unused) {}
+
+########## 5 es2019
+a?.b
+----------
+var _a;
+(_a = a) === null || _a === void 0 ? void 0 : _a.b;
+
+########## 6 es2019
+a ?? b
+----------
+var _a;
+(_a = a) !== null && _a !== void 0 ? _a : b;
+
+########## 7 es2020
+a ||= b
+----------
+a || (a = b);
+
+########## 8 es2019
+1n ** 2n
+----------
+
+  ! Big integer literals are not available in the configured target
+  | environment.
+   ,----
+ 1 | 1n ** 2n
+   : ^^
+   `----
+
+
+  ! Big integer literals are not available in the configured target
+  | environment.
+   ,----
+ 1 | 1n ** 2n
+   :       ^^
+   `----
+
+########## 9 es2021
+class foo { static {} }
+----------
+class foo {}
+(() => {})();
+
+########## 10 es2021
+class Foo { #a; }
+----------
+import _classPrivateFieldInitSpec from '@oxc-project/runtime/helpers/classPrivateFieldInitSpec';
+var _a = /* @__PURE__ */ new WeakMap();
+class Foo {
+	constructor() {
+		_classPrivateFieldInitSpec(this, _a, void 0);
+	}
+}
+
+########## 11 es2019
+export { foo as "string-name" };
+----------
+
+  ! Arbitrary module namespace identifier names are not available in the
+  | configured target environment.
+   ,----
+ 1 | export { foo as "string-name" };
+   :                 ^^^^^^^^^^^^^
+   `----
+
+########## 12 es2021
+await fetch('/')
+----------
+
+  ! Top-level await is not available in the configured target environment.
+   ,----
+ 1 | await fetch('/')
+   : ^^^^^^^^^^^^^^^^
+   `----
+
+########## 13 es2022
+await fetch('/')
+----------
+await fetch('/');
+
+########## 14 es2021
+async function f() { await fetch('/'); }
+----------
+async function f() {
+	await fetch('/');
+}
+
+########## 15 es2021
+{ await fetch('/'); }
+----------
+
+  ! Top-level await is not available in the configured target environment.
+   ,----
+ 1 | { await fetch('/'); }
+   :   ^^^^^^^^^^^^^^^^
+   `----

@@ -1,0 +1,67 @@
+---
+source: crates/oxc_semantic/tests/main.rs
+input_file: crates/oxc_semantic/tests/fixtures/typescript-eslint/functions/function-declaration/default-params/readable-ref-nested-body-shadow.ts
+---
+[
+  {
+    "children": [
+      {
+        "children": [
+          {
+            "children": [],
+            "flags": "ScopeFlags(Function)",
+            "id": 2,
+            "node": "Function(<anonymous>)",
+            "symbols": []
+          }
+        ],
+        "flags": "ScopeFlags(Function)",
+        "id": 1,
+        "node": "Function(foo)",
+        "symbols": [
+          {
+            "flags": "SymbolFlags(FunctionScopedVariable)",
+            "id": 2,
+            "name": "b",
+            "node": "FormalParameter(b)",
+            "references": []
+          },
+          {
+            "flags": "SymbolFlags(BlockScopedVariable)",
+            "id": 3,
+            "name": "a",
+            "node": "VariableDeclarator(a)",
+            "references": []
+          }
+        ]
+      }
+    ],
+    "flags": "ScopeFlags(Top)",
+    "id": 0,
+    "node": "Program",
+    "symbols": [
+      {
+        "flags": "SymbolFlags(BlockScopedVariable)",
+        "id": 0,
+        "name": "a",
+        "node": "VariableDeclarator(a)",
+        "references": [
+          {
+            "flags": "ReferenceFlags(Read)",
+            "id": 0,
+            "name": "a",
+            "node_id": 13,
+            "scope_id": 2
+          }
+        ]
+      },
+      {
+        "flags": "SymbolFlags(Function)",
+        "id": 1,
+        "name": "foo",
+        "node": "Function(foo)",
+        "references": []
+      }
+    ]
+  }
+]

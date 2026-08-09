@@ -1,0 +1,81 @@
+---
+source: crates/oxc_semantic/tests/main.rs
+input_file: crates/oxc_semantic/tests/fixtures/typescript-eslint/type-declaration/type-parameters/tagged-template.ts
+---
+[
+  {
+    "children": [
+      {
+        "children": [],
+        "flags": "ScopeFlags(0x0)",
+        "id": 1,
+        "node": "TSTypeAliasDeclaration",
+        "symbols": []
+      },
+      {
+        "children": [],
+        "flags": "ScopeFlags(Function)",
+        "id": 2,
+        "node": "Function(div)",
+        "symbols": [
+          {
+            "flags": "SymbolFlags(TypeParameter)",
+            "id": 2,
+            "name": "T",
+            "node": "TSTypeParameter(T)",
+            "references": []
+          },
+          {
+            "flags": "SymbolFlags(FunctionScopedVariable)",
+            "id": 3,
+            "name": "arg",
+            "node": "FormalParameter(arg)",
+            "references": []
+          }
+        ]
+      }
+    ],
+    "flags": "ScopeFlags(Top)",
+    "id": 0,
+    "node": "Program",
+    "symbols": [
+      {
+        "flags": "SymbolFlags(TypeAlias)",
+        "id": 0,
+        "name": "StyledPaymentProps",
+        "node": "TSTypeAliasDeclaration",
+        "references": [
+          {
+            "flags": "ReferenceFlags(Type)",
+            "id": 1,
+            "name": "StyledPaymentProps",
+            "node_id": 28,
+            "scope_id": 0
+          }
+        ]
+      },
+      {
+        "flags": "SymbolFlags(Function)",
+        "id": 1,
+        "name": "div",
+        "node": "Function(div)",
+        "references": [
+          {
+            "flags": "ReferenceFlags(Read)",
+            "id": 0,
+            "name": "div",
+            "node_id": 25,
+            "scope_id": 0
+          }
+        ]
+      },
+      {
+        "flags": "SymbolFlags(BlockScopedVariable | ConstVariable)",
+        "id": 4,
+        "name": "StyledPayment",
+        "node": "VariableDeclarator(StyledPayment)",
+        "references": []
+      }
+    ]
+  }
+]

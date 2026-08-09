@@ -1,0 +1,439 @@
+use std::ops::Deref;
+
+use oxc_allocator::{Address, GetAddress};
+use oxc_ast::{
+    AstKind,
+    ast::{Argument, ArrowFunctionExpression, Expression, Function},
+};
+use oxc_diagnostics::{LabeledSpan, OxcDiagnostic};
+use oxc_macros::declare_oxc_lint;
+use oxc_span::Span;
+use oxc_str::{CompactStr, Str};
+use rustc_hash::FxHashSet;
+use schemars::JsonSchema;
+use serde_json::Value;
+
+use crate::{AstNode, context::LintContext, rule::Rule, utils};
+
+#[derive(Debug, Default, Clone)]
+pub struct NoAsyncEndpointHandlers(Box<NoAsyncEndpointHandlersConfig>);
+impl Deref for NoAsyncEndpointHandlers {
+    type Target = NoAsyncEndpointHandlersConfig;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+#[derive(Debug, Default, Clone, JsonSchema)]
+#[serde(rename_all = "camelCase", default, deny_unknown_fields)]
+pub struct NoAsyncEndpointHandlersConfig {
+    /// An array of names that are allowed to be async.
+    allowed_names: Vec<CompactStr>,
+}
+
+pub fn no_async_handlers(
+    function_span: Span,
+    registered_span: Option<Span>,
+    name: Option<&str>,
+    endpoint: Option<&str>,
+) -> OxcDiagnostic {
+    #[expect(clippy::cast_possible_truncation)]
+    const ASYNC_LEN: u32 = "async".len() as u32;
+
+    // Only cover "async" in "async function (req, res) {}" or "async (req, res) => {}"
+    let async_span = Span::sized(function_span.start, ASYNC_LEN);
+
+    let registration_note = endpoint.map(|endpoint| format!(" for route `{endpoint}`"));
+    let registered_label = registration_note.as_deref().map_or_else(
+        || "and is registered here".to_string(),
+        |note| format!("and is registered here{note}"),
+    );
+
+    let labels: &[LabeledSpan] = match (registered_span, name) {
+        // handler is declared separately from registration
+        // `async function foo(req, res) {}; app.get('/foo', foo);`
+        (Some(span), Some(name)) => &[
+            async_span.label(format!("Async handler '{name}' is declared here")),
+            span.primary_label(registered_label),
+        ],
+        // Shouldn't happen, since separate declaration/registration requires an
+        // identifier to be bound
+        (Some(span), None) => &[
+            async_span.label("Async handler is declared here"),
+            span.primary_label(registered_label),
+        ],
+        // `app.get('/foo', async function foo(req, res) {});`
+        (None, Some(name)) => &[async_span.label(format!("Async handler '{name}' is used here"))],
+
+        // `app.get('/foo', async (req, res) => {});`
+        (None, None) => &[async_span.label("Async handler is used here")],
+    };
+
+    let warning = endpoint.map_or_else(
+        || "Express endpoint handler should not be `async`.".to_string(),
+        |endpoint| format!("Express endpoint handler for `{endpoint}` should not be `async`."),
+    );
+
+    OxcDiagnostic::warn(warning)
+        .with_labels(labels.iter().cloned())
+        .with_help(
+            "Wrap the async handler and forward errors to `next()` (e.g. `(req, res, next) => Promise.resolve(handler(req, res, next)).catch(next)`).\nExpress does not automatically handle rejected promises from async handlers, which results in unhandled promise rejections and server crashes.",
+        ).with_note(
+            "If you're on Express 5, disable this rule. To allow specific functions, add their names to `allowedNames`."
+        )
+}
+
+declare_oxc_lint!(
+    /// ### What it does
+    ///
+    /// Disallows the use of `async` functions as Express endpoint handlers.
+    ///
+    /// ### Why is this bad?
+    ///
+    /// Before v5, Express will not automatically handle Promise rejections from
+    /// handler functions with your application's error handler. You must
+    /// instead explicitly pass the rejected promise to `next()`.
+    /// ```js
+    /// const app = express()
+    /// app.get('/', (req, res, next) => {
+    ///   new Promise((resolve, reject) => {
+    ///       return User.findById(req.params.id)
+    ///   })
+    ///     .then(user => res.json(user))
+    ///     .catch(next)
+    /// })
+    /// ```
+    ///
+    /// If this is not done, your server will crash with an unhandled promise
+    /// rejection.
+    /// ```js
+    /// const app = express()
+    /// app.get('/', async (req, res) => {
+    ///   // Server will crash if User.findById rejects
+    ///   const user = await User.findById(req.params.id)
+    ///   res.json(user)
+    /// })
+    /// ```
+    ///
+    /// See [Express' Error Handling
+    /// Guide](https://expressjs.com/en/guide/error-handling.html) for more
+    /// information.
+    ///
+    /// ### Examples
+    ///
+    /// Examples of **incorrect** code for this rule:
+    /// ```js
+    /// const app = express();
+    /// app.get('/', async (req, res) => {
+    ///   const user = await User.findById(req.params.id);
+    ///   res.json(user);
+    /// });
+    ///
+    /// const router = express.Router();
+    /// router.use(async (req, res, next) => {
+    ///   const user = await User.findById(req.params.id);
+    ///   req.user = user;
+    ///   next();
+    /// });
+    ///
+    /// const createUser = async (req, res) => {
+    ///   const user = await User.create(req.body);
+    ///   res.json(user);
+    /// }
+    /// app.post('/user', createUser);
+    ///
+    /// // Async handlers that are imported will not be detected because each
+    /// // file is checked in isolation. This does not trigger the rule, but still
+    /// // violates it and _will_ result in server crashes.
+    /// const asyncHandler = require('./asyncHandler');
+    /// app.get('/async', asyncHandler);
+    /// ```
+    ///
+    /// Examples of **correct** code for this rule:
+    /// ```js
+    /// const app = express();
+    /// // not async
+    /// app.use((req, res, next) => {
+    ///   req.receivedAt = Date.now();
+    /// })
+    ///
+    /// app.get('/', (req, res, next) => {
+    ///   fs.readFile('/file-does-not-exist', (err, data) => {
+    ///     if (err) {
+    ///       next(err) // Pass errors to Express.
+    ///     } else {
+    ///       res.send(data)
+    ///     }
+    ///   })
+    /// })
+    ///
+    /// const asyncHandler = async (req, res) => {
+    ///   const user = await User.findById(req.params.id);
+    ///   res.json(user);
+    /// }
+    /// app.get('/user', (req, res, next) => asyncHandler(req, res).catch(next))
+    /// ```
+    NoAsyncEndpointHandlers,
+    oxc,
+    suspicious,
+    config = NoAsyncEndpointHandlersConfig,
+    version = "0.9.2",
+    short_description = "Disallows the use of `async` functions as Express endpoint handlers.",
+);
+
+impl Rule for NoAsyncEndpointHandlers {
+    fn from_configuration(value: Value) -> Result<Self, serde_json::error::Error> {
+        let mut allowed_names: Vec<CompactStr> = value
+            .get(0)
+            .and_then(Value::as_object)
+            .and_then(|config| config.get("allowedNames"))
+            .and_then(Value::as_array)
+            .map(|names| names.iter().filter_map(Value::as_str).map(CompactStr::from).collect())
+            .unwrap_or_default();
+        allowed_names.sort_unstable();
+        allowed_names.dedup();
+
+        Ok(Self(Box::new(NoAsyncEndpointHandlersConfig { allowed_names })))
+    }
+
+    fn run<'a>(&self, node: &AstNode<'a>, ctx: &LintContext<'a>) {
+        let AstKind::CallExpression(call) = node.kind() else { return };
+        let Some((endpoint, args)) = utils::as_endpoint_registration(call) else {
+            return;
+        };
+        for arg in
+            args.iter().filter_map(Argument::as_expression).map(Expression::get_inner_expression)
+        {
+            self.check_endpoint_arg(ctx, endpoint, arg);
+        }
+    }
+}
+
+impl NoAsyncEndpointHandlers {
+    fn check_endpoint_arg<'a>(
+        &self,
+        ctx: &LintContext<'a>,
+        endpoint: Option<Str<'a>>,
+        arg: &Expression<'a>,
+    ) {
+        let mut visited = FxHashSet::default();
+        self.check_endpoint_expr(ctx, endpoint, None, None, arg, &mut visited);
+    }
+
+    fn check_endpoint_expr<'a>(
+        &self,
+        ctx: &LintContext<'a>,
+        endpoint: Option<Str<'a>>,
+        id_name: Option<&str>,
+        registered_at: Option<Span>,
+        arg: &Expression<'a>,
+        visited: &mut FxHashSet<Address>,
+    ) {
+        let expr_ptr = arg.address();
+        if !visited.insert(expr_ptr) {
+            return;
+        }
+
+        match arg {
+            Expression::Identifier(handler) => {
+                // Unresolved reference? Nothing we can do.
+                let Some(symbol_id) =
+                    ctx.scoping().get_reference(handler.reference_id()).symbol_id()
+                else {
+                    return;
+                };
+
+                // Cannot check imported handlers without cross-file analysis.
+                let flags = ctx.scoping().symbol_flags(symbol_id);
+                if flags.is_import() {
+                    return;
+                }
+
+                let decl_id = ctx.scoping().symbol_declaration(symbol_id);
+                let decl_node = ctx.nodes().get_node(decl_id);
+                let registered_at = registered_at.or(Some(handler.span));
+                match decl_node.kind() {
+                    AstKind::Function(f) => {
+                        self.check_function(ctx, endpoint, registered_at, id_name, f);
+                    }
+                    AstKind::VariableDeclarator(decl) => {
+                        if let Some(init) = &decl.init {
+                            if let Expression::Identifier(id) = &init
+                                && decl
+                                    .id
+                                    .get_identifier_name()
+                                    .is_some_and(|declared| declared == id.name)
+                            {
+                                return;
+                            }
+                            self.check_endpoint_expr(
+                                ctx,
+                                endpoint,
+                                id_name,
+                                registered_at,
+                                init,
+                                visited,
+                            );
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            func if utils::is_endpoint_handler(func) => {
+                match func {
+                    // `app.get('/', (async?) function (req, res) {}`
+                    Expression::FunctionExpression(f) => {
+                        self.check_function(ctx, endpoint, registered_at, id_name, f);
+                    }
+                    Expression::ArrowFunctionExpression(f) => {
+                        self.check_arrow(ctx, endpoint, registered_at, id_name, f);
+                    }
+                    _ => unreachable!(),
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn check_function<'a>(
+        &self,
+        ctx: &LintContext<'a>,
+        endpoint: Option<Str<'a>>,
+        registered_at: Option<Span>,
+        id_name: Option<&str>,
+        f: &Function<'a>,
+    ) {
+        if !f.r#async {
+            return;
+        }
+
+        let name = f.name().map(|n| n.as_str()).or(id_name);
+        if name.is_some_and(|name| self.is_allowed_name(name)) {
+            return;
+        }
+
+        ctx.diagnostic(no_async_handlers(
+            f.span,
+            registered_at,
+            name,
+            endpoint.map(|endpoint| endpoint.as_str()),
+        ));
+    }
+
+    fn check_arrow<'a>(
+        &self,
+        ctx: &LintContext<'a>,
+        endpoint: Option<Str<'a>>,
+        registered_at: Option<Span>,
+        id_name: Option<&str>,
+        f: &ArrowFunctionExpression<'a>,
+    ) {
+        if !f.r#async {
+            return;
+        }
+        if id_name.is_some_and(|name| self.is_allowed_name(name)) {
+            return;
+        }
+
+        ctx.diagnostic(no_async_handlers(
+            f.span,
+            registered_at,
+            id_name,
+            endpoint.map(|endpoint| endpoint.as_str()),
+        ));
+    }
+
+    fn is_allowed_name(&self, name: &str) -> bool {
+        self.allowed_names.binary_search_by(|allowed| allowed.as_str().cmp(name)).is_ok()
+    }
+}
+
+#[test]
+fn test() {
+    use serde_json::json;
+
+    use crate::tester::Tester;
+
+    let pass = vec![
+        ("app.get('/', fooController)", None),
+        ("app.get('/', (req, res) => {})", None),
+        ("app.get('/', function (req, res) {})", None),
+        ("app.get('/', middleware, function (req, res) {})", None),
+        ("app.get('/', (req, res, next) => {})", None),
+        ("app.get('/', (err, req, res, next) => {})", None),
+        ("app.get('/', (err, req, res) => {})", None),
+        ("app.get('/', (req, res) => Promise.resolve())", None),
+        ("app.get('/', (req, res) => new Promise((resolve, reject) => resolve()))", None),
+        ("app.use(middleware)", None),
+        ("app.get(middleware)", None),
+        (
+            "function ctl(req, res) {}
+             app.get(ctl)",
+            None,
+        ),
+        ("weirdName.get('/', async () =>  {})", None),
+        ("weirdName.get('/', async (notARequestObject) =>  {})", None),
+        // allowed names
+        (
+            "async function ctl(req, res) {}
+             app.get(ctl)",
+            Some(json!([ { "allowedNames": ["ctl"] } ])),
+        ),
+        (
+            "
+            async function middleware(req, res, next) {}
+            app.use(middleware)
+            ",
+            Some(json!([ { "allowedNames": ["middleware"] } ])),
+        ),
+        // https://github.com/oxc-project/oxc/issues/6583
+        (
+            "
+            class B{o(a={}){const attribute=attribute
+            c.get(attribute)}}
+            ",
+            None,
+        ),
+        ("{const{r}=r;e.delete(r)}", None),
+    ];
+
+    let fail = vec![
+        ("app.get('/', async function (req, res) {})", None),
+        ("app.get('/', async (req, res) =>  {})", None),
+        ("app.get('/', async (req, res, next) =>  {})", None),
+        ("weirdName.get('/', async (req, res) =>  {})", None),
+        (
+            "
+            async function foo(req, res) {}
+            app.post('/', foo)
+            ",
+            None,
+        ),
+        (
+            "
+            const foo = async (req, res) => {}
+            app.post('/', foo)
+            ",
+            None,
+        ),
+        (
+            "
+            async function middleware(req, res, next) {}
+            app.use(middleware)
+            ",
+            None,
+        ),
+        (
+            "
+            async function foo(req, res) {}
+            const bar = foo;
+            app.post('/', bar)
+            ",
+            None,
+        ),
+    ];
+
+    Tester::new(NoAsyncEndpointHandlers::NAME, NoAsyncEndpointHandlers::PLUGIN, pass, fail)
+        .test_and_snapshot();
+}

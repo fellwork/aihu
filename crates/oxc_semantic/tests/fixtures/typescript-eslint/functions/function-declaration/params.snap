@@ -1,0 +1,116 @@
+---
+source: crates/oxc_semantic/tests/main.rs
+input_file: crates/oxc_semantic/tests/fixtures/typescript-eslint/functions/function-declaration/params.ts
+---
+[
+  {
+    "children": [
+      {
+        "children": [],
+        "flags": "ScopeFlags(Function)",
+        "id": 1,
+        "node": "Function(foo)",
+        "symbols": [
+          {
+            "flags": "SymbolFlags(FunctionScopedVariable)",
+            "id": 2,
+            "name": "a",
+            "node": "FormalParameter(a)",
+            "references": [
+              {
+                "flags": "ReferenceFlags(Read)",
+                "id": 0,
+                "name": "a",
+                "node_id": 23,
+                "scope_id": 1
+              },
+              {
+                "flags": "ReferenceFlags(Read)",
+                "id": 2,
+                "name": "a",
+                "node_id": 31,
+                "scope_id": 1
+              }
+            ]
+          },
+          {
+            "flags": "SymbolFlags(FunctionScopedVariable)",
+            "id": 3,
+            "name": "b",
+            "node": "FormalParameter(<destructure>)",
+            "references": []
+          },
+          {
+            "flags": "SymbolFlags(FunctionScopedVariable)",
+            "id": 4,
+            "name": "c",
+            "node": "FormalParameter(<destructure>)",
+            "references": []
+          },
+          {
+            "flags": "SymbolFlags(FunctionScopedVariable)",
+            "id": 5,
+            "name": "d",
+            "node": "FormalParameter(d)",
+            "references": []
+          },
+          {
+            "flags": "SymbolFlags(FunctionScopedVariable)",
+            "id": 6,
+            "name": "e",
+            "node": "FormalParameter(e)",
+            "references": []
+          },
+          {
+            "flags": "SymbolFlags(FunctionScopedVariable)",
+            "id": 7,
+            "name": "f",
+            "node": "FormalParameter(f)",
+            "references": []
+          },
+          {
+            "flags": "SymbolFlags(FunctionScopedVariable)",
+            "id": 8,
+            "name": "g",
+            "node": "FormalParameter(g)",
+            "references": []
+          }
+        ]
+      }
+    ],
+    "flags": "ScopeFlags(Top)",
+    "id": 0,
+    "node": "Program",
+    "symbols": [
+      {
+        "flags": "SymbolFlags(BlockScopedVariable | ConstVariable)",
+        "id": 0,
+        "name": "outer",
+        "node": "VariableDeclarator(outer)",
+        "references": [
+          {
+            "flags": "ReferenceFlags(Read)",
+            "id": 1,
+            "name": "outer",
+            "node_id": 26,
+            "scope_id": 1
+          }
+        ]
+      },
+      {
+        "flags": "SymbolFlags(Function)",
+        "id": 1,
+        "name": "foo",
+        "node": "Function(foo)",
+        "references": []
+      },
+      {
+        "flags": "SymbolFlags(BlockScopedVariable | ConstVariable)",
+        "id": 9,
+        "name": "unresolved",
+        "node": "VariableDeclarator(unresolved)",
+        "references": []
+      }
+    ]
+  }
+]

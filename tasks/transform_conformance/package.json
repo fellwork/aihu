@@ -1,0 +1,27 @@
+{
+  "name": "transform_conformance",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "vitest": "vitest"
+  },
+  "devDependencies": {
+    "@babel/core": "^8.0.0",
+    "@babel/plugin-external-helpers": "^8.0.0",
+    "@babel/plugin-proposal-decorators": "^8.0.0",
+    "@babel/plugin-transform-arrow-functions": "^8.0.0",
+    "@babel/plugin-transform-async-to-generator": "^8.0.0",
+    "@babel/plugin-transform-class-properties": "^8.0.0",
+    "@babel/plugin-transform-class-static-block": "^8.0.0",
+    "@babel/plugin-transform-explicit-resource-management": "^8.0.0",
+    "@babel/plugin-transform-exponentiation-operator": "^8.0.0",
+    "@babel/plugin-transform-logical-assignment-operators": "^8.0.0",
+    "@babel/plugin-transform-optional-chaining": "^8.0.0",
+    "@babel/plugin-transform-private-methods": "^8.0.0",
+    "@babel/plugin-transform-private-property-in-object": "^8.0.0",
+    "@babel/plugin-transform-typescript": "^8.0.0",
+    "@oxc-project/runtime": "link:../../npm/runtime",
+    "reflect-metadata": "^0.2.2",
+    "vitest": "catalog:"
+  }
+}
