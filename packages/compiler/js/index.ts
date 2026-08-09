@@ -1044,7 +1044,16 @@ export function _buildStaticIsland(compiledCode: string, elementTag: string): st
   // DECLINED — the component keeps the ordinary `defineElement` path, exactly
   // as the "falls back to the original code" contract above promises.
   const TAIL_PLAIN = /\)\s*\)\s*$/
-  const TAIL_WITH_SHADOW_ONLY = /\)\s*,\s*\{\s*shadowMode:\s*'shadow'\s*,?\s*\}\s*\)\s*$/
+  // `_injectShadowMode`'s two-argument branch (line ~314) always emits this
+  // EXACT literal shape — `, { shadowMode: 'shadow' }` with one space at each
+  // junction, never a trailing comma — so the `\s*,?\s*` this used to have
+  // around the optional comma was dead flexibility, never exercised by real
+  // compiler output, and it was the ReDoS: two adjacent `\s*` groups with
+  // only an optional zero-width `,?` between them let a long non-matching
+  // whitespace run split across the pair in O(n) ways per position. A single
+  // `\s*` per junction, none of them adjacent to another, matches the same
+  // real input with no such ambiguity.
+  const TAIL_WITH_SHADOW_ONLY = /\),\s*\{\s*shadowMode:\s*'shadow'\s*\}\)\s*$/
   const tail = TAIL_PLAIN.test(withArborMount)
     ? TAIL_PLAIN
     : TAIL_WITH_SHADOW_ONLY.test(withArborMount)

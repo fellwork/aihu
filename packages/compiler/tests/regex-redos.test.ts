@@ -565,6 +565,18 @@ describe('redos — the shipped rewriters stay linear on adversarial input', () 
         ),
     ],
     [
+      // TAIL_WITH_SHADOW_ONLY's ambiguous `\s*,?\s*` (found by a fresh CodeQL
+      // pass, not the earlier ReDoS sweep): a long whitespace run right after
+      // `'shadow'` that never resolves to a real `}` forces the old pattern to
+      // try every split of the run across its two adjacent \s* groups.
+      '_buildStaticIsland — shadowMode tail whitespace pump',
+      () =>
+        _buildStaticIsland(
+          `defineElement('x-a', defineComponent(() => {}), { shadowMode: 'shadow'${' '.repeat(PUMP_N)}X`,
+          'x-a',
+        ),
+    ],
+    [
       // Trailing arbor import, so step 1 takes the REPLACE path and both the
       // capturing and non-capturing arbor matchers scan the pump.
       '_injectAutoWiring — arbor + signals-value + runtime named imports',
