@@ -1,5 +1,496 @@
 # @aihu/cli
 
+## 1.3.0
+
+### Minor Changes
+
+- [#780](https://github.com/fellwork/aihu/pull/780) [`abfaa6e`](https://github.com/fellwork/aihu/commit/abfaa6e0136cdf9d5f5ce77cc5f8e53c840fd4ce) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Give `aihu` a real command surface: `--help`, `--version`, and errors you can tell apart.
+
+  `usage()` wrote the same block to **stderr** and exited **1** for all four of
+  `--help`, `--version`, an unknown command, and no arguments at all. Every one of
+  those produced byte-identical output on the same stream with the same exit code,
+  so nothing — a person, a shell script, a CI job — could tell a typo from a
+  request for help, and `aihu --help | less` showed an empty screen. There was no
+  `--version` at all.
+
+  Now:
+
+  - `--help` / `-h` (and bare `aihu`) print usage to **stdout** and exit **0**,
+    matching `create-aihu`'s existing convention.
+  - `--version` / `-v` print the CLI's own version and exit **0**. The version is
+    read from this package's `package.json` at build time, so it cannot disagree
+    with the package it shipped in.
+  - An unknown command says `unknown command '<x>'` on stderr and exits 1.
+  - A missing positional says what is missing (`aihu app needs a project name`)
+    instead of reprinting the whole usage block.
+
+  Two accuracy fixes came with it. The help text now lists every flag the
+  dispatcher actually reads: `--style` (a real `aihu add` flag), `aihu migrate
+--state`, and the seven `aihu app` flags (`--pm`, `--no-git`, `--no-install`,
+  `--options-json`, `--no-auto-install-template`) that previously existed only in a
+  code comment and appeared in no user-facing help. And `aihu app`'s positional is
+  now parsed with the same `firstPositional` helper `create-aihu` uses — reading
+  `rest[0]` meant `aihu app --pm pnpm` scaffolded a complete project into a
+  directory literally named `--pm` and exited 0.
+
+  The legacy `aihu app` path's own output is brought in line with the other two
+  scaffold paths. It stopped at `Done. N file(s) created.` with no cd/install/dev
+  guidance, while both `dispatchTemplate` and `create-aihu` end with
+  `printNextSteps()`; it now calls the same function, so the three cannot drift
+  into three different sets of instructions. Its `created` lines are prefixed with
+  the project directory too — `created  package.json` named a file that is not at
+  `./package.json`. `page`/`component` are deliberately left unprefixed: they write
+  into the _current_ project, so their paths were already correct.
+
+  `--use-defaults` and `--no-interactive` are **removed**. They parsed into
+  variables that were immediately `void`-discarded under a "Reserved for B2+
+  wiring" comment, so a scripted `aihu app x --use-defaults` looked supported and
+  did nothing. `aihu app` issues no prompts, so their documented behaviour ("use
+  manifest defaults for unspecified overridable cells") is what `mergeOptions()`
+  does unconditionally — they could not have changed the output even wired up.
+
+- [#780](https://github.com/fellwork/aihu/pull/780) [`abfaa6e`](https://github.com/fellwork/aihu/commit/abfaa6e0136cdf9d5f5ce77cc5f8e53c840fd4ce) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Export `@aihu/cli/template-manifest`, and declare the Node floor both bins require.
+
+  `@aihu/templates-cf-team` imports `import type { TemplateManifest } from
+'@aihu/cli/template-manifest'` — the documented contract between the CLI and
+  every template package (arch-6 §2.3) — but `@aihu/cli`'s `exports` map had no
+  such subpath. It only worked because cf-team's `tsconfig.json` hand-maps the
+  specifier to the CLI's source file for local typechecking; a real npm consumer
+  typechecking the published template package hit `ERR_PACKAGE_PATH_NOT_EXPORTED`.
+  Compounding it, cf-team declared `"dependencies": {}` / `"devDependencies": {}`,
+  so `@aihu/cli` was not a declared dependency at all.
+
+  The subpath is now a real export backed by its own build entry
+  (`dist/template-manifest.{js,d.ts}`), and cf-team declares `@aihu/cli` as a
+  devDependency. The tsconfig `paths` mapping stays so in-repo `moon run :typecheck`
+  does not require the CLI to be built first.
+
+  Both `@aihu/cli` and `create-aihu` now declare `"engines": { "node": ">=20.6.0" }`.
+  `scaffold-pipeline.ts` calls `import.meta.resolve` synchronously and
+  `create-aihu/bin.mjs` calls it unconditionally — both Node 20.6+ only — and
+  neither package said so, unlike `@aihu/agent-server`, `@aihu/language-server` and
+  `@aihu/server`, which all carry an `engines` field.
+
+  Also removes three dead modules — `src/commands/{page,component,plugin}.ts` —
+  drifted duplicates of the live `scaffoldPage`/`scaffoldComponent`/`scaffoldPlugin`
+  in `src/index.ts` that `bin.ts` actually imports. Nothing referenced them; they
+  had different signatures and different output, so the risk was a future edit
+  landing in the copy that never runs.
+
+- [#780](https://github.com/fellwork/aihu/pull/780) [`abfaa6e`](https://github.com/fellwork/aihu/commit/abfaa6e0136cdf9d5f5ce77cc5f8e53c840fd4ce) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Enforce a template's declared `cliRange` / `contractVersion` instead of parsing and ignoring them.
+
+  `validateManifest()` read both fields off every `template.config.ts` and then
+  compared them against nothing at all. Because nothing could be wrong, the
+  declaration drifted: `@aihu/templates-cf-team` shipped `cliRange: '^0.2.0'`
+  against a CLI at 1.2.x, so the only publishable template asserted an
+  incompatibility with every CLI able to install it, for six minors, silently.
+
+  `scaffoldFromTemplatePackage` — the single driver both `aihu app --template` and
+  `create-aihu` run — now calls `assertTemplateCompatibility()` before any file is
+  written or any package installed, and fails in the same loud style as the
+  existing `unpublished`/`unknown` template cases: it names the template, both
+  versions, and what to do about it. An **unreadable** range fails too; the point
+  of enforcing the field is that an unenforceable declaration must not pass.
+
+  The range check is a small hand-rolled module (`semver-range.ts`) rather than a
+  new dependency: `@aihu/cli` carries exactly one runtime dependency, no package in
+  this repo depends on `semver`, and this is one comparison. It implements the npm
+  grammar a manifest realistically writes — caret (including the 0.x rules), tilde,
+  comparators, partial/wildcard forms, `||` and space composition — plus the
+  prerelease rule that stops `^1.0.0` from matching `2.0.0-beta.1`. A prerelease
+  CLI is checked as its release core, so a canary build does not fail every
+  template.
+
+  `cf-team`'s range is corrected to `^1.0.0` — the CLI line that actually ships
+  `scaffoldFromTemplatePackage` (added in 1.0.1), with a real upper bound so a 2.0
+  CLI stops rather than half-scaffolding.
+
+- [#780](https://github.com/fellwork/aihu/pull/780) [`abfaa6e`](https://github.com/fellwork/aihu/commit/abfaa6e0136cdf9d5f5ce77cc5f8e53c840fd4ce) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Widen every template's `vite` pin from `^6.0.0` to `^6 || ^8`.
+
+  Vite 8 was genuinely unsafe until the OXC strip fix that shipped alongside this:
+  vite 8 made esbuild an **optional peer** while still _exporting_
+  `transformWithEsbuild`, the compiler's strip chain tested only that the function
+  existed, and a **fresh** `^8` install (which has no esbuild at all) therefore
+  threw inside the strip and — through a swallowing `catch` — handed rolldown
+  un-stripped TypeScript. Every output mode runs a client build, so `spa`,
+  `static` and `ssr` all failed. That is fixed at the source rather than pinned
+  around: `transformWithOxc` is used whenever present, and a failed strip is now
+  fatal instead of silent. Vite 6 cannot regress — it does not export
+  `transformWithOxc` at all, so it keeps taking the esbuild branch.
+
+  Measured before widening, four **fresh** installs (no lockfile, no
+  `node_modules` — the defect is invisible on an incremental `bun add vite@8`,
+  where esbuild survives from the previous resolution), each driven past `build`:
+
+  | template  | vite 6                                                | vite 8 |
+  | --------- | ----------------------------------------------------- | ------ |
+  | `minimal` | scaffold/install/typecheck/build/dev/preview all pass | same   |
+  | `ssr`     | + the built `_worker.js` imports and answers 200      | same   |
+
+  Vite 7 is deliberately **not** in the range. No cell of the scaffold matrix has
+  ever installed it, so listing it would be a compatibility claim with nothing
+  behind it. `^6 || ^8` names exactly the two majors `ci-ok`'s
+  `scaffold-consistency` job builds on every PR.
+
+  The range now lives in one place — `EXTERNAL_RANGES` in
+  `scripts/sync-template-versions.ts` — rather than in the four manifests that
+  each carried their own copy.
+
+- [#780](https://github.com/fellwork/aihu/pull/780) [`abfaa6e`](https://github.com/fellwork/aihu/commit/abfaa6e0136cdf9d5f5ce77cc5f8e53c840fd4ce) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Add a real `ssr` template — `npm create aihu -- --template ssr` scaffolds a
+  Cloudflare Worker that server-renders.
+
+  `output: 'ssr'` was reachable from **no** scaffold. The only consumer-shaped
+  tree that exercised it was a post-scaffold patch inside the DX-matrix harness:
+  scaffold `minimal`, then rewrite its `vite.config.ts` and inject
+  `@aihu/adapter-cloudflare` before install. That was the right stopgap while the
+  SSR build was being fixed — the gate needed a consumer tree, and designing the
+  scaffold as a side effect of building a CI gate was the wrong order — but a
+  harness patch is not a product surface. No user could ask for it, and nothing
+  about it was typed or reviewable as a template.
+
+  The template bakes in the three options `output: 'ssr'` actually requires, each
+  commented in place because each fails differently:
+
+  - `output: 'ssr'` — without it there is no server build and no `_worker.js`.
+  - `css: { shadowMode: 'light' }` — **required**, not a style preference: a
+    shadow leaf exports no `__aihu_shadow__`, so every nested component renders
+    empty server-side. The build refuses rather than shipping blank children.
+  - `adapter: cloudflare({ name })` — what makes the SSR bundle a Worker
+    (`export default { fetch }` + the ASSETS fallthrough) instead of a bare node
+    bundle. It also writes `wrangler.toml` on the first build (never overwriting
+    one), so the next step is literally `npx wrangler deploy`.
+
+  It ships **no `preview` script** and **no `wrangler` dependency**, both
+  deliberate. `vite preview` serves the client `dist/` as static files, so under
+  `output: 'ssr'` it answers 200 on a page the Worker never rendered — the wrong
+  artifact reported as success; `npx wrangler dev` runs the real one, and the
+  emitted README and AGENTS.md say so. `wrangler` stays out of `devDependencies`
+  because `npx` runs it without adding ~100MB and a second native-binary delivery
+  mechanism to every scaffold.
+
+  Verified end to end, not asserted: scaffolded through `create-aihu`, installed
+  fresh on bun against `npm pack` tarballs of this checkout, typechecked, built,
+  and then the built `dist-server/_worker.js` **imported and called** with a
+  stubbed `ASSETS` binding — 200 `text/html`, 2.4 kB, outlet rendered — on vite 6
+  and vite 8. The import is bounded by a timeout, because the SSR defect this
+  covers was a deadlock: a Worker that built green and could not be loaded at all.
+
+  The harness's `minimal-ssr` pseudo-template, its `ssr-config` step and its
+  config patcher are deleted; the row is now `{ id: 'ssr', kind: 'create' }`,
+  exactly as that code's own docblock promised.
+
+- [#780](https://github.com/fellwork/aihu/pull/780) [`abfaa6e`](https://github.com/fellwork/aihu/commit/abfaa6e0136cdf9d5f5ce77cc5f8e53c840fd4ce) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Stop scaffolding `"latest"` — generate the dependency ranges at release time,
+  and gate them.
+
+  Every `@aihu/*` entry a scaffold emitted was the literal string `"latest"`, in
+  four separate places (`appPackageJson`, `agentPackageJson`, the plugin scaffold,
+  and cf-team's `apps/web/package.json.tmpl`). That is not a version, it is a
+  promise to resolve later, and for a scaffolding tool it is three problems at
+  once:
+
+  - **Not reproducible.** A project scaffolded today and one scaffolded in six
+    months have a byte-identical `package.json` and install two different
+    dependency graphs. Neither manifest records which one it was.
+  - **Not auditable.** `"latest"` is compatible with every future major, so a
+    breaking `@aihu/runtime` publish reaches every existing scaffold on its
+    owner's next `install` rather than on an upgrade they chose.
+  - **Not reviewable.** No sync mechanism existed, so nothing could be wrong and
+    nothing could be checked. Two hand-typed ranges were already dead on arrival
+    and nobody had noticed: cf-team's `appPeerDeps` still said `^0.2.0` while
+    `@aihu/runtime` was on 6.0.0, and the plugin scaffold's peer said `^0.8.0`
+    while `@aihu/plugin` was on 0.1.0. Neither range resolves to anything.
+
+  `scripts/sync-template-versions.ts` now derives one caret range per non-private
+  workspace package from that package's own `package.json` and writes
+  `packages/cli/src/dep-versions.ts` plus the three cf-team targets. There is no
+  curated list to drift out of date: add a package and it appears; bump one and
+  its range moves. It runs inside `release:version`, immediately after `changeset
+version` sets the versions that release is about to publish — so the ranges a
+  published `create-aihu` carries name versions that same release put on npm.
+
+  `check:template-versions` (a new always-on `ci-ok` job) fails when any target
+  disagrees with the workspace it was generated from, so a hand edit, or a version
+  bump without the regen, cannot ship. Its red path is proven by a negative
+  fixture in `check-gate-wiring`, red and green differing in exactly one version
+  string.
+
+  A caret rather than an exact pin, deliberately: a scaffold is a starting point,
+  and `^6.0.0` lets a new project take `6.0.1` without editing a manifest while
+  still refusing `7.0.0`. Prereleases are pinned exactly — `^1.0.0-rc.1` excludes
+  `rc.2` but includes `1.0.0`, which is not what anyone means by it.
+
+### Patch Changes
+
+- [#780](https://github.com/fellwork/aihu/pull/780) [`abfaa6e`](https://github.com/fellwork/aihu/commit/abfaa6e0136cdf9d5f5ce77cc5f8e53c840fd4ce) Thanks [@srmcguirt](https://github.com/srmcguirt)! - `create-aihu --options-json` was accepted and silently ignored.
+
+  The flag was listed in `create.ts`'s `VALUE_FLAGS` — so its value was correctly
+  skipped when parsing the project name — and then read by nobody: the
+  `package`-kind scaffold call passed no `userOverrides`. So
+
+  ```
+  create-aihu app --template cf-team --options-json '{"auth":"supabase"}'
+  ```
+
+  scaffolded better-auth and exited 0. It was also absent from `create.ts`'s own
+  `usageText()`.
+
+  `bin.ts` had threaded the same flag, with real validation, the whole time, and
+  `create-aihu` is the ONLY entry point npm users can reach (`npx @aihu/cli app`
+  cannot work — npx infers the bin from the package name; see create.ts's own
+  docblock). Nothing in the code, comments or tests suggested the omission was
+  deliberate. So the flag is threaded through rather than dropped, reusing
+  `bin.ts`'s parser — now extracted to `options-json.ts` so there is one
+  implementation instead of two — and documented in `--help`.
+
+  Overrides drive everything downstream of `mergeOptions`, so this also fixes
+  conditional file selection and the F-3b conditional peer deps: with
+  `{"auth":"supabase"}` the scaffold now emits `src/auth/supabase.ts` alone and
+  adds `@supabase/supabase-js` rather than `better-auth`.
+
+- [#780](https://github.com/fellwork/aihu/pull/780) [`abfaa6e`](https://github.com/fellwork/aihu/commit/abfaa6e0136cdf9d5f5ce77cc5f8e53c840fd4ce) Thanks [@srmcguirt](https://github.com/srmcguirt)! - `create-aihu --version` printed no version and created a directory instead.
+
+  ```
+  $ node dist/create.js --version </dev/null
+    ✓ Done!
+    Next steps:
+      cd my-aihu-app
+  $ echo $?
+  0
+  ```
+
+  `create.ts`'s argv handling special-cased `--help`/`-h` and nothing else, so
+  `--version` fell through to the positional/non-interactive path, took the
+  documented defaults, and scaffolded `my-aihu-app/`. A companion commit had added
+  real `--version` support to `bin.ts` and never to `create.ts`.
+
+  That is the worse of the two places to miss it. `create-aihu` is the only bin in
+  this package npm users can actually reach — `npx @aihu/cli app my-app` cannot
+  work, because npx infers the bin from the package name, as `create.ts`'s own
+  docblock explains. So the advertised flag was unreachable exactly where it is
+  advertised, and its invocation had a filesystem side effect rather than being
+  the no-op an informational flag is supposed to be. Non-TTY stdin (any script,
+  any CI job) is where this bites: with no prompt to stop at, nothing interrupts
+  the fall-through.
+
+  It now prints the version and exits 0, from the same build-time literal
+  `bin.ts` uses, so the two bins in one package cannot report different versions
+  of themselves. `--version` is also listed in `create-aihu --help`, which it
+  was not.
+
+  `aihu --version` had the mirror-image gap: it was tested against `argv[2]`
+  alone while `--help` was recognised anywhere in argv, so `aihu app foo
+--version` scaffolded a project — two flags documented side by side under
+  "Global:", only one of which was. Both are now global.
+
+  Also unified the two error dialects in `bin.ts`'s dispatcher: `aihu mcp` and
+  `aihu migrate` with no arguments printed a bare usage block with no `ERROR:`
+  marker and no pointer to `--help`, while every other malformed invocation in the
+  same function routed through `failUsage`. They now use `failUsage` too, and
+  `aihu mcp <typo>` names the subcommand it did not recognise.
+
+- [#780](https://github.com/fellwork/aihu/pull/780) [`abfaa6e`](https://github.com/fellwork/aihu/commit/abfaa6e0136cdf9d5f5ce77cc5f8e53c840fd4ce) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Fix two live bugs on the CLI surface found in a pre-release audit.
+
+  `aihu app <name> --template <bad-value>` (and `--template` with no value)
+  silently scaffolded a `minimal` app and exited 0. `create-aihu` already fixed
+  this exact failure mode for its own entry point — its own docblock names it
+  "the worst of the available failure modes... the run 'succeeds' and the user
+  finds out much later" — but the legacy `aihu app` dispatcher in `bin.ts` never
+  adopted the fix. Both cases now fail loudly with the template catalog and
+  exit 1, matching `create-aihu`'s existing behavior.
+
+  `aihu page '../../../../../ESCAPED'` wrote a file outside the project tree
+  (`src/pages/../../../../../ESCAPED.aihu` resolves via `join()` like any other
+  path) and exited 0. `scaffoldPage` split the route into segments but never
+  rejected `.`/`..`, unlike the sibling `scaffoldComponent`, which already
+  validates its input. Now throws before writing.
+
+- [#780](https://github.com/fellwork/aihu/pull/780) [`abfaa6e`](https://github.com/fellwork/aihu/commit/abfaa6e0136cdf9d5f5ce77cc5f8e53c840fd4ce) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Reject an unusable `--pm` instead of silently scaffolding a bun project.
+
+  `aihu app x --pm garbage` and a bare trailing `--pm` both resolved to `'bun'`
+  and said nothing:
+
+  ```
+  $ node dist/bin.js app demo --pm garbage && grep packageManager demo/package.json
+    "packageManager": "bun@1.3.8"
+  ```
+
+  This is the exact failure `resolvePmFlag`'s own docblock was written about, one
+  level up: the emitted `packageManager` field is enforced by corepack, so
+  `pnpm install` — the command the CLI prints as the next step — refuses to run
+  before resolving a single dependency (`ERROR: This project is configured to use
+bun`). The previous release fixed `--pm` for _valid_ values and left every
+  invalid one falling into the same trap, with no indication the flag had been
+  discarded.
+
+  `create-aihu` had the same hole with a different default: unknown values
+  returned `undefined`, which meant "the user did not choose", so the _detected_
+  package manager got pinned instead.
+
+  Both now fail loudly and exit 1, naming the valid set — the same triage
+  `--template` already got in the cleanup that wrote the docblock. `--pm` was the
+  last silent one of the three (`--css`/`--shadow` at least warn to stderr), and
+  the only one whose wrong value breaks the next command.
+
+  The classifier is shared (`argv.ts`'s `classifyPmFlag`), so the two entry points
+  cannot drift apart on this flag a third time. It distinguishes absent (default
+  to bun) from present-but-unusable, which is why a dangling `--pm` is now an
+  error rather than a default.
+
+- [#780](https://github.com/fellwork/aihu/pull/780) [`abfaa6e`](https://github.com/fellwork/aihu/commit/abfaa6e0136cdf9d5f5ce77cc5f8e53c840fd4ce) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Make `--pm` actually set `packageManager` — it was a no-op under the published binary.
+
+  Three generators (`appPackageJson`, `agentPackageJson`, `ssrPackageJson`) each
+  carried their own copy of:
+
+  ```ts
+  const bunVersion = globalThis.Bun?.version ?? process.versions.bun;
+  const packageManager =
+    pm === "bun" && bunVersion ? `bun@${bunVersion}` : undefined;
+  ```
+
+  Two things were wrong, and the second hid the first. `pm === 'bun' &&` meant
+  `--pm pnpm` could only ever produce no field — the flag was threaded from argv
+  into the generator and dropped. And the published binary's shebang is
+  `#!/usr/bin/env node`, where neither `globalThis.Bun` nor `process.versions.bun`
+  is set, so `--pm bun` produced no field either. Measured against the built
+  `dist/bin.js`, `aihu app x --pm bun` and `aihu app x --pm pnpm` emitted
+  **byte-identical** trees: `--pm` changed nothing at all on this path.
+
+  One shared helper now resolves `<pm>@<version>` for all four package managers by
+  asking the tool (`<pm> --version`, memoised per process), still preferring the
+  in-process Bun version when the CLI is running under Bun. A version that cannot
+  be established — the tool is not installed, or answers with something that is
+  not a version — emits **no** field rather than a guess. The original comment
+  already made that call for bun ("drop the field entirely rather than emit a
+  malformed `bun@1` string") and it generalises: corepack enforces
+  `packageManager` and refuses to run when it disagrees, so a wrong pin is worse
+  than none.
+
+- [#780](https://github.com/fellwork/aihu/pull/780) [`abfaa6e`](https://github.com/fellwork/aihu/commit/abfaa6e0136cdf9d5f5ce77cc5f8e53c840fd4ce) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Stop `aihu app` and `aihu plugin` from scaffolding outside the project directory.
+
+  `aihu app ../../ESCAPED` wrote a complete 11-file project two directories
+  **above** the cwd and exited 0. Measured against the built `dist/bin.js`:
+
+  ```
+  $ node dist/bin.js app ../../ESCAPED
+    Next steps:
+      cd ../../ESCAPED
+  $ echo $?
+  0
+  $ grep name ../../ESCAPED/package.json
+    "name": "../../ESCAPED",
+  ```
+
+  Both halves are broken. The files land where the user did not ask for them, and
+  `"name": "../../ESCAPED"` is not a legal npm package name — so `bun install`,
+  the very next command the CLI prints, fails on the tree it just created.
+
+  `scaffoldPage` had already grown a `.`/`..` guard for exactly this class of bug.
+  It was never extended to its two siblings, both of which called
+  `resolve(outDir ?? '.', name)` with no validation at all. Meanwhile the template
+  pipeline (`mergeOptions`) had been enforcing `/^[a-z][a-z0-9-]*$/` since it was
+  written — so the same string was a legal project name on one scaffold path and
+  not on the other.
+
+  That regex now lives in one place (`project-name.ts`) and all three paths use
+  it. Illegal names are **rejected**, never sanitised: silently renaming what the
+  author typed is the failure mode `scaffoldComponent`'s docblock already argues
+  against, so the error suggests the kebab form rather than applying it.
+
+  Three smaller things came out of the same pass:
+
+  - `scaffoldPlugin` could not actually traverse — `toKebab` rewrites `/` and `.`
+    to hyphens — but it accepted the garbage and scaffolded `aihu-plugin--x`
+    while reporting `created ../../X/package.json`. It also interpolates the raw
+    name into a single-quoted JS string literal in the generated `src/index.ts`,
+    so an unvalidated name was an injection into the file the user is about to
+    run.
+  - `aihu plugin my-forms` reported `created  my-forms/package.json` for files
+    written to `aihu-plugin-my-forms/` — the same wrong-path-in-the-listing defect
+    the output prefixing was added to fix, one level further in.
+  - `scaffoldPage`'s guard split on `/` only, so a Windows-style `..\..\x` was a
+    single segment and walked through it. Harmless on POSIX, where `\` is an
+    ordinary filename character; a real traversal on Win32, where `join()` treats
+    it as a separator. It now rejects on every platform.
+
+- [#780](https://github.com/fellwork/aihu/pull/780) [`abfaa6e`](https://github.com/fellwork/aihu/commit/abfaa6e0136cdf9d5f5ce77cc5f8e53c840fd4ce) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Fix four correctness bugs in the hand-rolled semver range matcher, one fail-open.
+
+  `semver-range.ts` exists so that `@aihu/cli` can enforce a template manifest's
+  `cliRange` without taking a dependency to compare two version strings. That
+  trade is only defensible if the implementation is right, and in four places it
+  was not. All four were measured against the real `semver` package (7.8.5);
+  the fixtures in `semver-range.test.ts` are those measurements, and the fix was
+  validated against a 4,140-pair cross-product of operators × partial/wildcard
+  cores × versions with zero remaining divergence.
+
+  **1. Partial `>` and `<=` bounds did not promote.** The module claimed partial
+  versions "resolve their wildcards to zero", which is true for `>=` and `<` and
+  wrong for the other two — npm steps them past the whole range the partial
+  names:
+
+  | range   | npm resolves to | this module resolved to |
+  | ------- | --------------- | ----------------------- |
+  | `>1.2`  | `>=1.3.0`       | `>1.2.0`                |
+  | `>1`    | `>=2.0.0`       | `>1.0.0`                |
+  | `<=1.2` | `<1.3.0-0`      | `<=1.2.0`               |
+  | `<=1`   | `<2.0.0-0`      | `<=1.0.0`               |
+
+  **2. `>1` was fail-open, and so was `>*`.** `satisfiesRange('1.5.0', '>1')`
+  returned `true` where npm returns `false`. `assertTemplateCompatibility` uses
+  this to decide whether the running CLI may scaffold a template, so a template
+  declaring `cliRange: '>1'` — meaning "2.x or newer" — was waved through by every
+  1.x CLI. `>*` and `<x` were the same shape of bug: npm reads them as "nothing is
+  allowed" (`<0.0.0-0`), this module read them as "anything is". A gate that fails
+  open is not a gate.
+
+  **3. A wildcard atom inside an AND-set discarded the set.** `>=1.0.0 * <2.0.0`
+  threw away _both_ real comparators and matched anything, so 2.5.0 satisfied a
+  range capped at 2.0.0. npm drops the wildcard and keeps the rest. Dropping
+  constraints is the precise opposite of this module's stated fail-closed
+  contract.
+
+  **4. Syntax npm accepts was rejected, which BLOCKED good templates.** `>= 1.0.0`
+  (space after the operator) and `v1.2.3` / `=v1.2.3` / `^v1.2.0` (the `v` prefix)
+  both threw inside the tokenizer, and `assertTemplateCompatibility` turns a throw
+  into "template declares an unusable cliRange" and refuses to scaffold. Failing
+  closed is right for syntax that cannot be read; it is not right for syntax npm
+  reads without complaint. Both forms are now tolerated — a bare operator with no
+  operand (`>=`) still throws.
+
+- [#780](https://github.com/fellwork/aihu/pull/780) [`abfaa6e`](https://github.com/fellwork/aihu/commit/abfaa6e0136cdf9d5f5ce77cc5f8e53c840fd4ce) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Correct the scaffold's `trustedDependencies` — it named the one package that no
+  longer needs it, and omitted the one that does.
+
+  Every scaffold emitted `trustedDependencies: ['@aihu/compiler']`, justified by a
+  comment stating that `@aihu/compiler`'s postinstall downloads and arch-validates
+  the native binary. Re-measured against the published tarball, that is no longer
+  true: `npm view @aihu/compiler@1.2.0 scripts` lists `build`, `build:native`,
+  `build:wasm`, `typecheck`, `prepublishOnly` and a codemod — **no install script
+  of any kind**. It was deleted in [#370](https://github.com/fellwork/aihu/issues/370), which replaced the postinstall with
+  per-platform `optionalDependencies`. The same holds for every published
+  `@aihu/*` package and every platform artifact under `packages/*/npm/*`: none has
+  `install`, `preinstall` or `postinstall`.
+
+  `esbuild` is what a scaffold actually postinstalls, reached transitively through
+  vite 6, and it was named only on the pnpm side (`pnpm-workspace.yaml`'s
+  `allowBuilds`, where it is not optional — pnpm exits 1 with
+  `ERR_PNPM_IGNORED_BUILDS` before the first build). It is now named on the bun
+  side too, so the two files agree and the manifest states its own requirement
+  rather than depending on bun's built-in allow-list — which does currently
+  contain it (`bun pm default-trusted`, 367 entries, checked), but which is not
+  visible in the project and not a promise to a reader. Under `vite ^8` there is
+  no esbuild at all and the entry is simply unused; `^6 || ^8` means one manifest
+  has to cover both installs.
+
+  `@aihu/compiler` is kept as a forward guard, now labelled as one instead of
+  carrying a false claim: that delivery mechanism has already changed once, and a
+  blocked script does not fail at install time — it resurfaces much later as
+  ENOEXEC inside `run build`.
+
+  Also verified, because the whole change depends on it: naming packages in
+  `trustedDependencies` does **not** disable bun's built-in list. A probe project
+  depending on `esbuild@0.25.12` with `trustedDependencies: ['@aihu/compiler']`
+  still ran esbuild's script — `bun pm untrusted` reported 0 untrusted, and the
+  binary resolved.
+
 ## 1.2.0
 
 ### Minor Changes

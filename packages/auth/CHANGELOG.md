@@ -1,5 +1,12 @@
 # @aihu/auth
 
+## 6.0.0
+
+### Patch Changes
+
+- Updated dependencies [[`ac47af2`](https://github.com/fellwork/aihu/commit/ac47af2431dde2ccb7fbde98955f74552eeabe88)]:
+  - @aihu/agent-service@0.4.0
+
 ## 5.0.0
 
 ### Patch Changes

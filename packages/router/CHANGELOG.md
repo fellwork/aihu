@@ -1,5 +1,455 @@
 # @aihu/router
 
+## 0.5.0
+
+### Minor Changes
+
+- [#779](https://github.com/fellwork/aihu/pull/779) [`ac47af2`](https://github.com/fellwork/aihu/commit/ac47af2431dde2ccb7fbde98955f74552eeabe88) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Forward the child-component registry on both server render paths.
+
+  `createServerRouter` forwarded `lightScopeId` to `renderToString` and nothing
+  else, so every request-time SSR consumer rendered a component reference as an
+  empty element with no diagnostic — the failure the child work exists to remove,
+  left behind at the live-SSR edge while SSG got the fix. `ServerRouterOptions`
+  gains `children`, typed as `buildChildRegistry`'s own return type:
+
+  ```ts
+  const children = buildChildRegistry(discovered);
+  export default createServerRouter(routes, { children });
+  ```
+
+  A resolved `Map` rather than a loader, because `__aihu_schild` runs inside the
+  compiled string fast path, which is synchronous — awaiting belongs at module
+  init, once. Both the governed and ungoverned arms forward it: child rendering
+  must not depend on whether a route happens to declare `extract`.
+
+  Omitting it is byte-identical to before.
+
+  **Scope, stated because it is easy to overestimate.** This closes the
+  forwarding hole and nothing more. It does not by itself give any shipped
+  adapter non-empty children: `@aihu/adapter-cloudflare` and `-vercel` emit their
+  entry as a raw string at `closeBundle` (so it never enters Vite's module
+  graph), wire `createRequestRouter` rather than this function, and give every
+  route a `notFound` placeholder — they render nothing at all today. A consumer
+  also still needs a way to BUILD the map on the server. That is a separate piece
+  of work.
+
+- [#779](https://github.com/fellwork/aihu/pull/779) [`ac47af2`](https://github.com/fellwork/aihu/commit/ac47af2431dde2ccb7fbde98955f74552eeabe88) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Agree with the compiler on both the custom-element tag and the collision
+  tie-break.
+
+  `readAihuComponentTag` preferred `@meta { name }` over everything else, but the
+  compiler never reads it: `SfcMeta` has no `name` field, and the parser hardcodes
+  `ScriptMeta { name: None }`, so the "@meta name" leg the OQ-C6 comments refer to
+  names an older script-level field that no longer parses. The convention that
+  `@meta` must not redefine the component name is written down as R-META-COEXIST
+  and asserted by the compiler's own tests; the router was the only thing that
+  believed otherwise.
+
+  The consequence was worse than an SSR miss. A component declaring
+  `@meta { name: "custom-thing" }` in `x-plain.aihu` compiles to
+  `defineElement('x-plain', …)`, so the router registered its loader under a tag
+  no module ever defines: `<custom-thing>` never upgraded on the client, and the
+  tag templates actually reference resolved to nothing. Precedence is now
+  `@route { name }` → file stem, matching `resolve_tag`.
+
+  **Behaviour change.** A component relying on `@meta { name }` to set its tag now
+  resolves to its file stem. That reliance was already broken — the browser
+  registered the stem regardless — so this makes the router agree with what
+  `customElements.define` actually receives rather than changing what ships. No
+  `.aihu` file in this repo declares `@meta` at all. Use `@route { name }`, or
+  rename the file.
+
+  `scanComponents` also kept the LAST file claiming a tag, over raw `readdirSync`
+  order, while `@aihu/server`'s `buildChildRegistry` keeps the FIRST over a sorted
+  list. The prerendered page shipped one module's markup while the client
+  upgraded with the other's — a content swap on hydrate — and the winner was not
+  reproducible across filesystems. Now sorts and keeps the first, over the same
+  key, so both sides select the same module from the same tree.
+
+- [#779](https://github.com/fellwork/aihu/pull/779) [`ac47af2`](https://github.com/fellwork/aihu/commit/ac47af2431dde2ccb7fbde98955f74552eeabe88) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Compose layouts on the live SSR path, by the same rule the prerender uses.
+
+  `createServerRouter` had zero layout handling. The SSG prerender composed a
+  route's layout around its page; live SSR served the page bare. So an app that
+  looked correct prerendered lost its entire shell — nav, footer, grid — the
+  moment the same route was served from a Worker, silently.
+
+  `ServerRouterOptions.layouts` takes a resolved name → module map (built at
+  module init by `virtual:aihu-server-entry` from `virtual:aihu-layouts`), and
+  `handle` composes it on BOTH the governed and ungoverned arms, with the same
+  fallback ladder the prerender has: a missing layout, a layout with no renderable
+  default, a layout with no `data-aihu-outlet` marker, or a layout that throws
+  each warn once and serve the bare page.
+
+  The outlet splice itself is not reimplemented. It moved out of `@aihu/app`'s
+  `prerender.ts` into `@aihu/server` as `injectIntoOutlet`, and both paths call
+  it — including its protection against `$&`/`` $` ``/`$'`/`$n` expanding as
+  replacement backreferences when page prose contains them.
+
+  `genSC` (`virtual:aihu-server-components`) now roots its reachability walk at
+  the LAYOUTS as well as the pages. Without that, every component a layout
+  references — which is where a site's nav, header and footer live — was left out
+  of the server bundle and rendered as an empty element on every route.
+
+  Two compiler-facing corrections were required to make that real, both found by
+  the Workers-SSR e2e gate against an actual `vite build` and neither visible to a
+  unit test:
+
+  - The child-tag derivation `@aihu/app` injects into the router now compiles a
+    layout in LAYOUT MODE (`_isLayoutFile` + `_layoutTag`, the same pair the
+    compiler plugin's own transform uses). Compiling one as an ordinary component
+    derives its tag from the file stem, so the common `src/layouts/app.aihu`
+    failed the whole build with C450 — `'app'` cannot register as a custom
+    element.
+  - Layouts derive their edges from the `// @aihu:component-tags` marker rather
+    than from `__aihu_schild` call sites. On the server target a compiled page
+    exports `__ssr` and `__ssrString`; a compiled LAYOUT exports `__ssr` only, and
+    the call sites live exclusively in `__ssrString` — so the call-site derivation
+    returns `[]` for every layout. A layout renders through the walker, which
+    resolves registry children by tag on its own, so the template-reference set is
+    the correct one there. It is the strictly larger set, which can bundle a
+    module for a reference the walker declines; that trade is documented at the
+    call site and ends when the compiler emits `__ssrString` for layouts.
+
+  An empty-string `layout` is treated as no layout, matching the client renderer's
+  existing convention — `compileRouteMeta` emits `layout: ""` for every page that
+  declares none, so an `undefined`-only check warned about a layout nobody wrote
+  on the most common route shape there is.
+
+  Omitting `layouts` leaves `handle` byte-identical to before.
+
+- [#779](https://github.com/fellwork/aihu/pull/779) [`ac47af2`](https://github.com/fellwork/aihu/commit/ac47af2431dde2ccb7fbde98955f74552eeabe88) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Thread the host runtime's per-request platform context into live SSR.
+
+  `ServerRouter.handle(req)` took a `Request` and nothing else, so a Cloudflare
+  Worker's `env` — the KV namespaces, D1 databases, R2 buckets, Durable Object
+  stubs and secrets — was unreachable from a page render. Those values exist ONLY
+  per request; there is no module-scope handle a loader could have closed over, so
+  a route loader on a Worker had exactly one data source: the public internet.
+
+  `handle(req, platform?)` now forwards an opaque, adapter-supplied value to every
+  consumer that can act on it:
+
+  - plain route loaders, as a second argument `{ request, url, platform }` (which
+    also gives a loader the request and query string for the first time)
+  - the governed provider's `fetch` and `preview`
+  - the live entitlement resolver (`EntitlementContext.platform`)
+  - the host-verified session resolver (`GovernedRequestAuth.resolveSession`)
+  - the E3 `/__aihu/data/*` transport, so it and SSR still reach the same sources
+
+  The framework never reads inside the value, and its type is `unknown` — an
+  augmentable interface with an index signature was rejected because TypeScript
+  gives interfaces no implicit index signature, so `wrangler types`' generated
+  `interface Env` would not have been assignable. `@aihu/adapter-cloudflare`
+  passes `{ env, ctx }`, so both bindings and `waitUntil` are reachable.
+
+  `handle(req)` with no platform is unchanged: every consumer receives no
+  `platform` key at all, which is the state they were already in.
+
+- [#779](https://github.com/fellwork/aihu/pull/779) [`ac47af2`](https://github.com/fellwork/aihu/commit/ac47af2431dde2ccb7fbde98955f74552eeabe88) Thanks [@srmcguirt](https://github.com/srmcguirt)! - `output: 'ssr'` — a Workers-deployable server bundle that actually renders.
+
+  [#778](https://github.com/fellwork/aihu/issues/778) made SSR child rendering correct. It did not make it shippable: the only
+  verified consumer was the SSG prerender. This closes that gap.
+
+  **The crux.** Generated server code does not need to be _emitted_ — it needs to
+  be a virtual module that is an SSR-environment **build input**. `@aihu/app` now
+  declares a second Vite environment under `output: 'ssr'` whose entry is
+  `virtual:aihu-server-entry`, so `import routes from 'virtual:aihu-routes'`
+  inside it resolves to REAL chunks, `.aihu` files compile to the server target
+  with no config (`aihuCompilerPlugin` reads
+  `this.environment.config.consumer === 'server'`), and one `vite build` produces
+  both environments. A built `dist-server/_worker.js` server-renders two levels of
+  child nesting, verified against a stubbed `ASSETS` binding in CI.
+
+  Load-bearing and non-obvious: a `virtual:` id works as a build entry ONLY via
+  `rollupOptions.input`. `build.ssr: 'virtual:…'` fails `[UNRESOLVED_ENTRY]`.
+
+  **`@aihu/app`**
+
+  - `OutputMode` gains `'ssr'`. `@aihu/server`'s `RenderingMode` is a different
+    axis — a client hydration hint whose only real consumer is `client.ts` — and
+    is deliberately not the knob here.
+  - **`output: 'ssr'` REQUIRES `css.shadowMode`, as a build error naming the key.**
+    Without it a leaf component exports no `__aihu_shadow__`, `buildChildRegistry`
+    refuses it, and every child renders as an empty element — indistinguishable
+    from a broken registry, which is the precise failure this whole effort exists
+    to remove. `apps/docs` setting `shadowMode: 'light'` is the only reason SSG
+    never hit it.
+  - `AihuAdapter.serverEntry?(ctx)` contributes the platform wrapper INTO the
+    virtual entry. `AdapterContext.createHandlerSource` is deprecated: its output
+    is written after the build, outside the module graph, so every route it wires
+    404s by construction.
+  - **D-1** — a `node:module` stub (`enforce: 'pre'`, or Vite's resolver wins)
+    keeps the builtin out of the Worker bundle. It arrives via `@aihu/server`'s
+    lazy `import('./native.js')`, is unreachable at runtime (the loader
+    short-circuits to the TS walker whenever `children` is passed), but is still
+    uploaded and fails on workerd without `nodejs_compat`.
+    The stub ships as its OWN artifact, `dist/node-module-stub.js`, rather than as
+    source text inside a `load` hook. Its export name is fixed by the binding
+    `native.js` imports, so inlining it put that identifier into `dist/index.js`
+    as inert string data that `check:runtime-purity`'s token scan cannot tell from
+    a real symbol. The fix is a declared boundary artifact — the same shape the
+    guard already uses for `@aihu/server`'s `dist/native.js` — checked under its
+    own `builtin-stub` tier (no quoted `node:` specifier of any kind), not an
+    exception that would blind the guard to a real leak elsewhere in the plugin.
+  - **D-2** — the SSR environment writes to a SIBLING of the client outDir
+    (`dist` → `dist-server`). Cloudflare's ASSETS binding serves the client outDir
+    verbatim; SSR chunks written there are downloadable server code.
+  - `closeBundle` fires once per environment, and `aihu-adapter` / `aihu-ssg` had
+    no guard — both would have run twice. Now client-only, with an absent
+    `environment` treated as the single-environment case so an older Vite is not
+    silently left without an adapter. `apps/docs`' `output: 'static'` build is
+    byte-identical across all 290 emitted files.
+
+  **`@aihu/router`** — `virtual:aihu-server-components` (`genSC`): a FLAT
+  tag→loader map, because the consumer is `buildChildRegistry`, which indexes
+  tag→MODULE and cannot use `genC`'s transitive `Promise.all` bundle. It carries
+  only the subgraph REACHABLE from the pages, walked over `__aihu_child_tags__`
+  render edges. Measured on a fixture separating the sets: every-component
+  bundles 4 modules, the source regex 3, render edges **2** — the regex pulls in
+  an attribute-bearing reference the emitter DECLINES, which `__aihu_schild` can
+  never look up and which renders empty either way.
+
+  Accepted trade, written into `genSC`'s docblock: a pruned registry loses
+  `buildChildRegistry`'s global cycle view. Correct for a Worker (the report is
+  advisory, `__aihu_schild` is depth- and budget-bounded, and an unreachable cycle
+  cannot affect a response); SSG still loads everything and keeps the global check.
+
+  **`@aihu/compiler`** — `_deriveChildTags` is exported so the compiler's
+  transform and the router's `genSC` share ONE derivation instead of adding a
+  fourth. The `__aihu_referenced_tags__` docblock already argues that deriving the
+  runtime edge set twice would be "one rule written in two places"; that does not
+  stop applying because the second site is in another package.
+
+  **`@aihu/adapter-cloudflare`** — implements `serverEntry`, and under
+  `output: 'ssr'` stops emitting `_worker.js` into the client outDir entirely
+  (the build's own `dist-server/_worker.js` is the worker). Its generated
+  `wrangler.toml` points `main` at the server bundle and `[assets] directory` at
+  the client dir only. Its docblock's claim that the 404 placeholders were caused
+  by "a non-serializable `module()` thunk" is corrected: `fileToRouteDefinition`
+  builds `module: () => Promise.resolve({ default: null })`, so there was never a
+  loadable module and no adapter-side fix was possible.
+
+  **Not in scope, named so it is not mistaken for done.** `@aihu/adapter-vercel`
+  still uses the string-emission shape and does not gain `serverEntry`. Layouts
+  are not composed under live SSR — `createServerRouter` has no layout handling at
+  all (SSG composes them); this is a real, separate gap. Worker bindings (`env`)
+  are not threaded into a page render, because `ServerRouter.handle` takes a
+  `Request` and nothing else.
+
+### Patch Changes
+
+- [#780](https://github.com/fellwork/aihu/pull/780) [`abfaa6e`](https://github.com/fellwork/aihu/commit/abfaa6e0136cdf9d5f5ce77cc5f8e53c840fd4ce) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Escape values embedded in the four generated virtual modules against
+  code-construction breakout, and fix a runtime `TypeError` found while tracing
+  one of the flagged flows.
+
+  Closes three OPEN CodeQL `js/bad-code-sanitization` alerts (CWE-79/94/116,
+  severity error), all in `packages/router/src/vite-plugin.ts`: **[#61](https://github.com/fellwork/aihu/issues/61)** and
+  **[#86](https://github.com/fellwork/aihu/issues/86)** (the module specifier in `genC`'s and `genSC`'s `import(...)`) and
+  **[#62](https://github.com/fellwork/aihu/issues/62)** (`genC`'s transitive `Promise.all([...])` loader).
+
+  **The vulnerability class.** `genR`, `genL`, `genC` and `genSC` each build
+  JavaScript SOURCE by string concatenation, interpolating values read off disk
+  with a bare `JSON.stringify`. `JSON.stringify` escapes for the JSON grammar —
+  quotes, backslashes, C0 controls — and passes `<`, `>`, U+2028 and U+2029
+  straight through. Those four are exactly the characters that matter in the
+  grammars a chunk of JS source can end up inside: `</script>` terminates an
+  inline `<script>` element, `<!--` opens an HTML comment inside script data, and
+  U+2028/9 are LineTerminators to a pre-ES2019 parser. Sanitizing for the wrong
+  context is the whole of the rule.
+
+  **What was actually reachable — traced, not assumed.** Two distinct sources
+  feed these sinks, and they are not equally exposed.
+
+  | sink                              | value                                       | existing guard       | `<`/`>` blocked? |
+  | --------------------------------- | ------------------------------------------- | -------------------- | ---------------- |
+  | `genC` / `genSC` `import(...)`    | filesystem path from the `readdirSync` walk | `SAFE_MODULE_PATH`   | **no**           |
+  | `genC` / `genSC` registry key     | component tag                               | `CUSTOM_ELEMENT_TAG` | yes              |
+  | `genR` `name:` / `layout:`        | text of the SFC's own `@route` block        | _none_               | **no**           |
+  | `genR` `head:`/`middleware:`/…    | a `.route.json` sidecar's JSON              | _none_               | **no**           |
+  | `genL` key / `tag` / `components` | layout stem, `@template` text               | _none_               | **no**           |
+
+  `SAFE_MODULE_PATH` bans quotes, backslashes and line terminators but says
+  nothing about angle brackets, and `<`/`>` are legal in a POSIX filename. So a
+  component under a directory named `a</script>b` put a literal `</script>` into
+  the generated registry, with a perfectly valid tag. Reproduced on a real
+  fixture: the emitted `virtual:aihu-components`, wrapped in a
+  `<script type="module">`, contained **five** `<script`/`</script` tokens where
+  two were intended.
+
+  The `genR` and `genL` sinks CodeQL did **not** flag turned out to be the more
+  exposed ones: those values are not filesystem paths but the _contents_ of a
+  `.aihu` file, lifted by regex (`@route { name: '…' }`) straight into the route
+  table with no shape check at any point. A one-line payload in a page file put
+  both a raw `</script>` and a raw U+2028 into the generated module. Fixed too —
+  an escaper used at three of five structurally identical sites is worse than one
+  used at all five.
+
+  None of this is a live exploit in the first-party pipeline as shipped: the
+  client entry is always injected as `<script type="module" src=...>`, never
+  inlined, so the generated module is served as an external `.js` where `<` is
+  inert. It becomes live the moment anything inlines a chunk — a
+  single-file/inline-script plugin, a CSP-driven inlining step, a downstream
+  consumer's own HTML template. Given that the value is attacker-influenceable
+  under a realistic threat model (a monorepo whose CI builds untrusted PRs: a
+  contributor controls both component filenames and `@route { name }`), and that
+  the fix is free at every normal input, defense in depth was the call rather
+  than dismissal. All three alerts are fixed; none dismissed.
+
+  **The fix.** One shared helper, `jsSourceLiteral()` (new
+  `packages/router/src/codegen.ts`, exported from `@aihu/router/plugin` alongside
+  `escapeForJsSource` so the sibling emitters in `@aihu/app`, the adapters and
+  `@aihu/magna` can adopt it rather than re-deriving it). It is `JSON.stringify`
+  plus the escaping pass the CodeQL rule's own remediation prescribes, over
+  `< > BS FF LF CR TAB NUL U+2028 U+2029`. Every replacement is a `\uXXXX`
+  escape, which denotes the same character inside a JS string literal, so the
+  emitted module evaluates identically — specifiers still resolve, tags still
+  match. It now backs all 11 interpolation holes across the four generators.
+
+  One deliberate divergence from the rule's example charMap: NUL is spelled
+  `\u0000`, not `\0`. `\0` immediately followed by a digit is a legacy
+  OctalEscapeSequence and a **SyntaxError** in module code — verified, and pinned
+  by a test that asserts the rule's own spelling throws while ours round-trips.
+
+  **A real bug, found by tracing alert [#62](https://github.com/fellwork/aihu/issues/62).** That sink interpolates the child
+  tags of `genC`'s transitive loader, and the value arriving there was not merely
+  unescaped — it was unchecked against the registry it indexes into. The child
+  filter accepted any key of `mods` (the raw directory scan) rather than any
+  member of `tags` (what survived the codegen-boundary filter). A single-word
+  component — `button.aihu` → tag `button`, no hyphen — is dropped by
+  `CUSTOM_ELEMENT_TAG` but stays in `mods`, so a parent referencing `<Button />`
+  emitted `__m["button"]()` against a registry with no `button` key:
+
+  ```
+  TypeError: __m["button"] is not a function
+  ```
+
+  thrown out of the _parent's_ loader, taking `site-header` down with the child
+  that was only ever meant to be skipped. Now filtered on the emitted set.
+
+  **Verified before and after, on real fixtures.**
+
+  | check                                                         | before                                               | after                                |
+  | ------------------------------------------------------------- | ---------------------------------------------------- | ------------------------------------ |
+  | hostile dir name → `genC`/`genSC`, script tokens when inlined | `<script`,`</script`,`<script`,`</script`,`</script` | `<script`,`</script`                 |
+  | hostile `@route { name }` → `genR`                            | raw `</script>` **and** raw U+2028                   | `\u003C/script\u003E`, `\u2028`      |
+  | dangling `__m["button"]()`                                    | emitted; loader throws `TypeError`                   | not emitted; loader resolves         |
+  | escaped literal round-trips through `new Function` (strict)   | —                                                    | all 7 payloads exact                 |
+  | **normal tree, output byte-identical to pre-fix**             | —                                                    | `genR` ✓ `genL` ✓ `genC` ✓ `genSC` ✓ |
+
+  That last row is the one that matters for blast radius: on a tree with no
+  hostile characters, all four generators emit byte-for-byte what they emitted
+  before, diffed against `HEAD`'s `vite-plugin.ts` loaded side by side in the
+  same process. Nothing about normal output changed.
+
+  Pinned by 11 new tests in `packages/router/tests/codegen-escaping.test.ts`.
+  Reverting `vite-plugin.ts` alone turns 4 of them red (one per generator, plus
+  the dangling-lookup case) and leaves the other 7 — the helper's own unit tests
+  — green, so each half of the change is independently guarded. Full
+  `packages/router` suite: 199 passed / 16 files. Full repo suite: 4787 passed,
+  with the same 25 pre-existing failures the unmodified base produces (all
+  build-artifact-dependent — they need `cargo build --release` and `bun run
+build`), confirmed by a baseline run on the same worktree. `biome ci` clean,
+  `moon run :typecheck` clean across 63 tasks.
+
+  No size impact on the measured surface: the helper is reachable only from the
+  build-time `@aihu/router/plugin` entry. `dist/index.js` — the browser runtime
+  under the 2400 B budget — does not contain it and stays at 1780 B gzip.
+
+- [#780](https://github.com/fellwork/aihu/pull/780) [`abfaa6e`](https://github.com/fellwork/aihu/commit/abfaa6e0136cdf9d5f5ce77cc5f8e53c840fd4ce) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Fix a stored-XSS gap in the SSR loader embed: `<script type="application/json"
+id="__aihu_loader__">` interpolated `JSON.stringify(data)` directly, on both
+  the governed and ungoverned response paths in `packages/router/src/server.ts`.
+  `JSON.stringify` does not escape `<`/`>`, so route data containing a literal
+  `</script>` closed the embed early and turned everything after it into live
+  DOM — the exact CWE-79/94/116 vulnerability class `router-codegen-escaping.md`
+  already fixed at build time in `vite-plugin.ts`, present at runtime too, and
+  missed by that sweep because these two sinks are a sibling package (`@aihu/server`
+  data flowing through `@aihu/router`'s request handler), not a codegen emitter.
+
+  **Why this one is live, unlike the codegen sinks.** This branch's SSR work
+  newly wires loaders to real platform bindings (D1/KV/R2) via `PlatformContext`,
+  so `emission.data`/`loaderData` can now carry stored, non-developer-authored
+  content — a comment, a title, anything round-tripped through a database. A
+  single field containing `</script><img src=x onerror=alert(1)>` is live markup
+  in the response the instant that route is requested. `packages/app/src/head-apply.ts`
+  already documents the concern for its own script-tag path ("no `</script>`
+  escaping needed, unlike the string path" — this is that string path).
+
+  Both sinks now use `jsSourceLiteral()` (the escaper `router-codegen-escaping.md`
+  built for the build-time generators) instead of `JSON.stringify`. `\uXXXX`
+  escapes round-trip through `JSON.parse` unchanged, so the client-side loader —
+  which reads `#__aihu_loader__`'s `textContent` and parses it — receives
+  byte-identical data; nothing on the client needed to change.
+
+  **Verified.** Reproduced the breakout against the pre-fix code (a payload
+  containing `</script><img ...>` survives verbatim in the response body) and
+  confirmed the fix neutralizes it while the parsed payload is unchanged.
+  Regression-tested end to end through `createServerRouter(...).handle()` on
+  both the governed and ungoverned arms (`packages/router/tests/governed-handle.test.ts`,
+  new `G7k` describe block) — mutation-tested: reverting the fix turns both new
+  tests red for exactly this reason, restoring it turns them green. Full
+  `packages/router`/`packages/app`/`packages/server` suites (811 tests) and the
+  real-built-Worker `workers-ssr-e2e` harness (23 tests) all pass.
+
+  Grepped for other `__aihu_loader__` write sites — these are the only two.
+
+- [#780](https://github.com/fellwork/aihu/pull/780) [`abfaa6e`](https://github.com/fellwork/aihu/commit/abfaa6e0136cdf9d5f5ce77cc5f8e53c840fd4ce) Thanks [@srmcguirt](https://github.com/srmcguirt)! - `output: 'ssr'` now serves a full document, so an SSR route actually hydrates.
+
+  The response body was a bare fragment: no doctype, no `<html>`, no `<head>`, no
+  `<title>`, and — the part that mattered — no client `<script type="module">`. A
+  deployed Worker painted server-rendered markup and then stopped. No hydration,
+  no interactivity, no SEO tags, and nothing in the build said so.
+
+  `renderToString`'s own document wrapper is gated on `SsrOptions.head`, which
+  neither `handle()` arm passes, and passing it would not have helped: `buildHead`
+  has no facility for `<script src>` at all (`ScriptTag` is `{ type, content }`).
+  Meanwhile the SSG path had solved this from the start by never computing a
+  document — it reads the finished client `dist/index.html`, which already carries
+  Vite's hashed entry script, and splices the render into the outlet. The only
+  missing input was that nothing passed that template into the server bundle.
+
+  A new `virtual:aihu-ssr-document` inlines the built `index.html` into the Worker
+  (the client environment builds first, so the file is on disk when the `ssr`
+  environment's `load()` runs), and the generated `virtual:aihu-server-entry`
+  splices each rendered fragment into it. `@aihu/app/ssr-document` is a new pure,
+  Worker-safe entry holding the splice — the SAME function the SSG prerender now
+  calls, so the two paths cannot drift.
+
+  The wrap lives in the generated entry rather than in `createServerRouter` on
+  purpose. The template is a BUILD ARTIFACT, and the only thing that knows about
+  build artifacts is the Vite plugin that generates the entry. `handle()` is
+  therefore byte-identical for every existing consumer — adapters, hand-wired Node
+  servers, the SSG path — and `@aihu/server` is untouched.
+
+  Only `text/html` responses are wrapped. A 404, a 500 and the E3 governed-data
+  endpoint pass through as the same object, which is what keeps an adapter's
+  `status !== 404 → env.ASSETS.fetch(request)` fallthrough serving the very bundle
+  the document now references.
+
+  Per-route `<head>` lands with it: the matched route's compiled `head` is lowered
+  through the same `routeHeadToSsrHead` + `applyHeadToHtml` pair the SSG and
+  client-navigation paths use, folded under `app.head` and resolved against
+  `site.url`. It is memoised per route pattern, so the per-request cost is a map
+  lookup.
+
+  **`app.outletId` is new, and it fixes a latent SSG bug.** `runPrerender`
+  hardcoded `const outletId = 'outlet'` while its splice already took the id as a
+  parameter — and `AihuConfig` had no `outletId` key at all, so the only way to
+  move the outlet was `createApp({ outletId })` in a hand-written `src/main.ts`,
+  which the prerender never sees. Any project that did so got a client mounting
+  one element and a prerender splicing another: every prerendered page shipped
+  with its content dropped, silently. `app.outletId` is now read by the prerender,
+  by the SSR splice, and by the virtual client entry (`createApp({ outletId })`),
+  so one value drives all three. It is verified on a NON-DEFAULT value in both
+  paths — against the default, hardcoding and resolving are indistinguishable.
+
+  A splice that finds no matching element now says so instead of returning the
+  template unchanged, on both paths. That silence is how the bug above survived.
+
+  A missing client `index.html` FAILS the `ssr` build rather than degrading. The
+  degraded outcome is a green build, a successful deploy and a site that never
+  hydrates — the exact defect this change removes.
+
+- Updated dependencies [[`9df850b`](https://github.com/fellwork/aihu/commit/9df850b3d0f93d1fa752cbbeb3038a831cf15edf), [`9df850b`](https://github.com/fellwork/aihu/commit/9df850b3d0f93d1fa752cbbeb3038a831cf15edf), [`788319c`](https://github.com/fellwork/aihu/commit/788319ca907d9a34ec83c7af655436555a42b4c0), [`9df850b`](https://github.com/fellwork/aihu/commit/9df850b3d0f93d1fa752cbbeb3038a831cf15edf), [`ff58a1b`](https://github.com/fellwork/aihu/commit/ff58a1b8d9018f0198aa8879c359e90133266b2f), [`9df850b`](https://github.com/fellwork/aihu/commit/9df850b3d0f93d1fa752cbbeb3038a831cf15edf), [`ac47af2`](https://github.com/fellwork/aihu/commit/ac47af2431dde2ccb7fbde98955f74552eeabe88), [`ac47af2`](https://github.com/fellwork/aihu/commit/ac47af2431dde2ccb7fbde98955f74552eeabe88), [`9df850b`](https://github.com/fellwork/aihu/commit/9df850b3d0f93d1fa752cbbeb3038a831cf15edf)]:
+  - @aihu/server@0.6.0
+
 ## 0.4.4
 
 ### Patch Changes

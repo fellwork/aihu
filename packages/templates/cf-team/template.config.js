@@ -86,12 +86,12 @@ export const config = {
   // GENERATED ranges — see the same block in template.config.ts, and
   // scripts/sync-template-versions.ts.
   appPeerDeps: {
-    '@aihu/runtime': '^6.0.0',
-    '@aihu/arbor': '^4.1.0',
+    '@aihu/runtime': '^6.1.0',
+    '@aihu/arbor': '^4.1.1',
     '@aihu/signals': '^0.5.0',
-    '@aihu/router': '^0.4.4',
-    '@aihu/server': '^0.5.0',
-    '@aihu/adapter-cloudflare': '^12.0.0',
+    '@aihu/router': '^0.5.0',
+    '@aihu/server': '^0.6.0',
+    '@aihu/adapter-cloudflare': '^13.0.0',
   },
   appPeerDepsConditional: {
     'better-auth': { version: '^1.0.0', when: 'auth === "better-auth"' },

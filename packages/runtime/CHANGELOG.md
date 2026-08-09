@@ -1,5 +1,144 @@
 # @aihu/runtime
 
+## 6.1.0
+
+### Minor Changes
+
+- [#772](https://github.com/fellwork/aihu/pull/772) [`0774261`](https://github.com/fellwork/aihu/commit/0774261509469b96093ebbbdcbeeeb3c2f200466) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Make shadow-mode components safe to hydrate from Declarative Shadow DOM.
+
+  `defineElement` attached a shadow root unconditionally in the constructor, so a
+  host whose root the parser had already attached (`<template
+shadowrootmode="open">`) failed to upgrade: the second `attachShadow` throws
+  `NotSupportedError` over an imperative root, and over a declarative one empties
+  it — deleting the server tree it was meant to adopt. It now attaches only when
+  no root exists.
+
+  First-render adoption was likewise gated on `shadowRoot === null`, so a
+  shadow-mode component could only ever discard a server template and mount
+  fresh. A `data-aihu-ssr`-marked host whose template lives in a populated shadow
+  root now hydrates into that root, with mount/adopt sharing one container. The
+  discard fallback clears both the host and its root, so an unadoptable template
+  can never render twice.
+
+  Adds `SHADOW_ROOT_MODE`, the single source for the DOM `ShadowRootMode` aihu
+  attaches with, so the SSR emitter's `shadowrootmode` value can be pinned to it
+  rather than duplicated.
+
+  Additive and dormant: no server emits DSD yet, and client-only mounts are
+  unchanged.
+
+- [#777](https://github.com/fellwork/aihu/pull/777) [`ac3affc`](https://github.com/fellwork/aihu/commit/ac3affc4cb27bae5af0ebbf84c1fd70b800d9ac8) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Carry a shadow component's CSS into its declarative shadow template.
+
+  The server target now exports `__aihu_css__` — the component's own CSS as a
+  plain string — and `__aihu_schild` inlines it as `<style>` inside the
+  `<template shadowrootmode="open">`, ahead of the content.
+
+  This is not optional polish. A shadow root is style-isolated by construction,
+  so a declarative one whose CSS lives outside it paints unstyled until the
+  component's chunk loads — content rendering ahead of its scoped CSS, which is
+  the failure that cost ~1.9s of LCP in [#754](https://github.com/fellwork/aihu/issues/754). Emitting the tree without its
+  styles would trade an empty header for a broken one.
+
+  The client's `CSSStyleSheet` declaration stays elided on the server target
+  (that is a DOM dependency), and both now share one escape function so the
+  bytes cannot diverge. `</style` sequences in authored CSS are escaped for
+  `<style>`'s raw-text context.
+
+  Light-DOM children are unaffected: their rules arrive via the app stylesheet's
+  `@scope([data-a=…])` blocks. Global `@style` blocks are never inlined — they
+  belong to the document, and scoping them to a child would change what they
+  match.
+
+- [#778](https://github.com/fellwork/aihu/pull/778) [`9df850b`](https://github.com/fellwork/aihu/commit/9df850b3d0f93d1fa752cbbeb3038a831cf15edf) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Let components using `onMount` be server-rendered.
+
+  Lifecycle hooks register against `defineComponent`'s owner pointer, which a
+  server render never sets — it calls the compiled setup directly. Every
+  `onMount`/`onCommit`/`onAdopt`/`onAttributeChange` in a `@state` block
+  therefore threw `SCR-R0010 'no owner'`, so those components could not be
+  prerendered at all.
+
+  Registration is now a no-op inside a server-render window and still throws
+  outside one, so a null owner in the browser remains a genuine authoring error.
+
+  The window is keyed on `globalThis` via `Symbol.for`, because `@aihu/server`
+  bundles its own copy of the SSR helpers: a module-scoped counter would have the
+  server incrementing one instance while the runtime read another.
+
+### Patch Changes
+
+- [#778](https://github.com/fellwork/aihu/pull/778) [`9df850b`](https://github.com/fellwork/aihu/commit/9df850b3d0f93d1fa752cbbeb3038a831cf15edf) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Prerender referenced components instead of empty shells.
+
+  `buildChildRegistry` indexes discovered components by the tag they register
+  under and rejects a cyclic component graph at build time — loudly, because
+  render-time recursion is already bounded by a depth cap, so a cycle would
+  otherwise emit 32 nested copies of the same subtree and write them to disk.
+
+  The SSG prerender discovers components under `dir.components`, keying each by
+  its own `__aihu_tag__` export rather than deriving a tag from the filename, and
+  passes the registry to every layout and page render.
+
+  Also fixes a double `data-a` stamp: a compiled `__ssrString` resolves
+  `opts.lightScopeId ?? __AIHU_LIGHT_SCOPE_ID__`, so omitting the option let the
+  module's own id stamp the template root while the host carried it too. Two
+  stamps make the template root a nested scope root and cut the component's own
+  `@scope(…) to ([data-a])` rules off at its first child. The child now renders
+  with an explicit empty scope id, which survives `??` and suppresses the stamp.
+
+- [#778](https://github.com/fellwork/aihu/pull/778) [`9df850b`](https://github.com/fellwork/aihu/commit/9df850b3d0f93d1fa752cbbeb3038a831cf15edf) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Fix defects found reviewing SSR child rendering.
+
+  - A server-rendered child host was duplicated on hydrate. It is the first
+    element to carry both `data-aihu-path` and `data-aihu-ssr`, and `closest()`
+    matches the element itself, so each host became its own path-map boundary and
+    was re-materialized instead of adopted.
+  - Each render path held half the server-render environment: the compiled fast
+    path had no effect scope (so `onCleanup`, `$stream` and most composables
+    threw), the walker had no lifecycle window (so `onMount` threw). Both now open
+    both.
+  - The walker resolved children at runtime-built paths (inside `{#each}`) that
+    the compiled emitter declines, a byte divergence with a registry present.
+  - A shadow child's declarative template shipped only its authored `@style`
+    block; css-engine utility CSS and design tokens are now folded into
+    `__aihu_css__` too.
+  - Child renders are memoized and budgeted by output bytes, so a fan-out graph
+    cannot exhaust build memory.
+
+- [#778](https://github.com/fellwork/aihu/pull/778) [`9df850b`](https://github.com/fellwork/aihu/commit/9df850b3d0f93d1fa752cbbeb3038a831cf15edf) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Degrade a child renderer that returns a non-string instead of embedding it.
+
+  An async `__ssrString` reached the page as the literal text `[object Promise]`
+  — worse than an empty element, because it looks like content and ships. The
+  SSR path is synchronous by construction and cannot await, so a non-string
+  return is a broken module: it now renders the bare element and reports why.
+
+- [#778](https://github.com/fellwork/aihu/pull/778) [`9df850b`](https://github.com/fellwork/aihu/commit/9df850b3d0f93d1fa752cbbeb3038a831cf15edf) Thanks [@srmcguirt](https://github.com/srmcguirt)! - Reconcile the SSR child-eligibility boundaries between the two renderers.
+
+  Whether a component reference is eligible for server rendering was decided in
+  two places — the Rust emitter on the raw template AST, the TypeScript walker on
+  the lowered arbor node — and their eligible sets differed, so one renderer
+  filled a child in while the other emitted an empty element.
+
+  The lowering is lossy: `<x-kid>`, `<x-kid show={on()}>`, `<x-kid ref={el}>`,
+  `<x-kid raw><b>s</b></x-kid>` and a multi-line `<x-kid>\n</x-kid>` all reach the
+  walker as the same node, so the walker cannot decline on information it does not
+  have. Those cases are reconciled by having the emitter resolve them; the lowered
+  tree is byte-identical to the plain reference already resolved and shipped.
+
+  Also fixes a divergence introduced by the previous `{#each}` fix: a reference
+  merely nested inside a conditional (`<div if={ready}><site-header></div>`)
+  resolved on the compiled path and declined on the walker, because the
+  static-path check tested "all digits" as a proxy for compile-time literalness
+  and `conditional.true` fails it. The check now tests literalness exactly.
+
+  32 differential fixtures added, one per boundary line, each asserting both
+  renderers agree AND which way — "both empty" satisfies byte-identity while
+  shipping the bug.
+
+  Component discovery loads in parallel, warns about a failed component only when
+  something references it, and no longer follows symlinks out of the components
+  directory.
+
+- Updated dependencies [[`abfaa6e`](https://github.com/fellwork/aihu/commit/abfaa6e0136cdf9d5f5ce77cc5f8e53c840fd4ce), [`abfaa6e`](https://github.com/fellwork/aihu/commit/abfaa6e0136cdf9d5f5ce77cc5f8e53c840fd4ce)]:
+  - @aihu/primitives@0.2.3
+
 ## 6.0.0
 
 ### Major Changes

@@ -5,7 +5,7 @@ export const PKG: ApiPackage = {
   name: '@aihu/cli',
   slug: 'cli',
   tier: 'Compiler & tooling',
-  version: '1.2.0',
+  version: '1.3.0',
   tagline: 'Aihu CLI (`aihu`, `create-aihu`) — scaffolding, dev, build commands.',
   note: '',
 }

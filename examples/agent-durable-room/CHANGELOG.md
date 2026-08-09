@@ -1,5 +1,13 @@
 # @aihu/example-agent-durable-room
 
+## 0.0.7
+
+### Patch Changes
+
+- Updated dependencies [[`9df850b`](https://github.com/fellwork/aihu/commit/9df850b3d0f93d1fa752cbbeb3038a831cf15edf), [`0774261`](https://github.com/fellwork/aihu/commit/0774261509469b96093ebbbdcbeeeb3c2f200466), [`ac3affc`](https://github.com/fellwork/aihu/commit/ac3affc4cb27bae5af0ebbf84c1fd70b800d9ac8), [`9df850b`](https://github.com/fellwork/aihu/commit/9df850b3d0f93d1fa752cbbeb3038a831cf15edf), [`9df850b`](https://github.com/fellwork/aihu/commit/9df850b3d0f93d1fa752cbbeb3038a831cf15edf), [`9df850b`](https://github.com/fellwork/aihu/commit/9df850b3d0f93d1fa752cbbeb3038a831cf15edf), [`9df850b`](https://github.com/fellwork/aihu/commit/9df850b3d0f93d1fa752cbbeb3038a831cf15edf)]:
+  - @aihu/runtime@6.1.0
+  - @aihu/arbor@4.1.1
+
 ## 0.0.6
 
 ### Patch Changes
