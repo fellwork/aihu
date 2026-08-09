@@ -187,13 +187,20 @@ jobs:
         # omitted — scaffold-matrix-e2e.ts filters blank entries) outside PR
         # mode, so a scheduled/dispatched `npm` run still tests the real
         # published registry end to end, unchanged.
+        #
+        # `all`, not a list: the hand-written list this replaced covered 12 of
+        # the 36 packages a scaffold can declare, and the 24 it missed kept
+        # resolving from the registry — invisible until `changeset version`
+        # moved one past what is published, at which point the Version PR (and
+        # only the Version PR) failed on a package nobody had thought to list.
+        # See discoverAllLocalPkgs() in scaffold-matrix-e2e.ts.
         run: |
           bun packages/cli/tests/scaffold-matrix-e2e.ts \
             --mode "${{ inputs.mode || (github.event_name == 'pull_request' && 'local' || 'npm') }}" \
             --version "${{ inputs.version || 'latest' }}" \
             --pm "${{ inputs.pm || 'bun,npm,pnpm,yarn' }}" \
             --template "${{ inputs.template || 'minimal,full,docs,agent,cf-team' }}" \
-            --local-pkg "${{ (inputs.mode == 'local' || (inputs.mode == '' && github.event_name == 'pull_request')) && 'app,router,server,adapter-cloudflare,compiler,runtime,arbor,signals,agent,agent-service,plugin,context' || '' }}" \
+            --local-pkg "${{ (inputs.mode == 'local' || (inputs.mode == '' && github.event_name == 'pull_request')) && 'all' || '' }}" \
             --cmd-timeout 300000 \
             --server-timeout 120000 \
             2>&1 | tee scaffold-matrix.log

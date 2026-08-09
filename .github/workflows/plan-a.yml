@@ -1196,7 +1196,7 @@ jobs:
           AIHU_COMPILER_NATIVE=0 AIHU_COMPILE_BIN="$(pwd)/target/release/aihu-compile" \
             bun packages/cli/tests/scaffold-matrix-e2e.ts \
             --template minimal --pm bun --mode local --vite 6,8 \
-            --local-pkg app,router,server,adapter-cloudflare,compiler,runtime,arbor,signals,agent,agent-service,plugin,context \
+            --local-pkg all \
             --cmd-timeout 300000 --server-timeout 120000 \
             2>&1 | tee scaffold-consistency.log
           # tee makes ${PIPESTATUS[0]} the harness's own exit code; `$?` would
@@ -1222,7 +1222,7 @@ jobs:
           AIHU_COMPILER_NATIVE=0 AIHU_COMPILE_BIN="$(pwd)/target/release/aihu-compile" \
             bun packages/cli/tests/scaffold-matrix-e2e.ts \
             --template ssr --pm bun --mode local \
-            --local-pkg app,router,server,adapter-cloudflare,compiler,runtime,arbor,signals,agent,agent-service,plugin,context \
+            --local-pkg all \
             --cmd-timeout 300000 --server-timeout 120000 \
             2>&1 | tee -a scaffold-consistency.log
           exit "${PIPESTATUS[0]}"
