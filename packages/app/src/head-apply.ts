@@ -90,6 +90,68 @@ function attrsToHtml(attrs: Record<string, string>): string {
 }
 
 /**
+ * Find `<title ...>...</title>` in `html` without the ReDoS `/<title[^>]*>
+ * [\s\S]*?<\/title>/i` used to have (CodeQL js/polynomial-redos). That combined
+ * regex re-ran its lazy `</title>` scan from EVERY `<title` occurrence in the
+ * string when none of them actually closed — O(occurrences × remaining
+ * length). `html` here is the build's OWN index.html template, attacker-
+ * reachable via an untrusted PR the same way `.aihu` source is elsewhere in
+ * this repo's threat model, and this runs at build/prerender time (per this
+ * file's own "build-time only" note) — a slow build IS the DoS.
+ *
+ * Split into two independent linear scans instead: `exec` without the `g`
+ * flag stops at the FIRST `<title...>` it finds (it does not retry-and-rescan
+ * per occurrence the way the combined pattern's backtracking did), and the
+ * `</title>` search that follows runs once, over the remainder only.
+ */
+function findTitleTag(html: string): { start: number; end: number } | null {
+  const open = /<title[^>]*>/i.exec(html)
+  if (open === null) return null
+  const afterOpen = open.index + open[0].length
+  const close = /<\/title>/i.exec(html.slice(afterOpen))
+  if (close === null) return null
+  return { start: open.index, end: afterOpen + close.index + close[0].length }
+}
+
+/**
+ * Find an existing `<link ... rel="canonical" ...>` tag without the ReDoS
+ * `/<link\s+[^>]*rel="canonical"[^>]*>/i` used to have.
+ *
+ * A first pass at this replaced the combined regex with `/<link\b[^>]*>/gi`
+ * enumerating tags one at a time, checked with a plain substring search —
+ * safe against the original's WORST failure mode (repeated-literal input ran
+ * seconds → tens of seconds, confirmed by direct timing) but still
+ * genuinely O(n²) on an adversarial `html` with many `<link` occurrences and
+ * NO `>` anywhere: the regex's own unbounded `[^>]*` re-scans the remaining
+ * string from EVERY `<link` position before concluding there's no closing
+ * `>`, and `g`-flag `exec` retries at every such position.
+ *
+ * `indexOf`-based instead: no regex at all for the boundary. Each loop
+ * iteration finds the NEXT `<link` and its OWN closing `>` via native
+ * substring search, and `searchFrom` only ever moves forward — so if a tag's
+ * `>` is never found, EVERY later `<link` also has no reachable `>` (nothing
+ * after `tagStart` can close before a `>` that doesn't exist), and the
+ * function returns immediately instead of retrying. `indexOf` scans lowercase
+ * `html` for case-insensitivity, matching the original `/i` flag, and returns
+ * offsets into the ORIGINAL string so casing in the returned span is
+ * unchanged.
+ */
+function findCanonicalLinkTag(html: string): { start: number; end: number } | null {
+  const lower = html.toLowerCase()
+  let searchFrom = 0
+  for (;;) {
+    const tagStart = lower.indexOf('<link', searchFrom)
+    if (tagStart === -1) return null
+    const tagEnd = lower.indexOf('>', tagStart)
+    if (tagEnd === -1) return null
+    if (lower.slice(tagStart, tagEnd + 1).includes('rel="canonical"')) {
+      return { start: tagStart, end: tagEnd + 1 }
+    }
+    searchFrom = tagEnd + 1
+  }
+}
+
+/**
  * Apply a lowered HeadConfig onto a built `index.html` template string.
  *
  * - `<title>` is replaced (or injected when absent).
@@ -107,8 +169,9 @@ export function applyHeadToHtml(html: string, head: HeadConfig): string {
 
   if (title !== undefined) {
     const tag = `<title>${escapeText(title)}</title>`
-    if (/<title[^>]*>[\s\S]*?<\/title>/i.test(out)) {
-      out = out.replace(/<title[^>]*>[\s\S]*?<\/title>/i, tag)
+    const existing = findTitleTag(out)
+    if (existing !== null) {
+      out = out.slice(0, existing.start) + tag + out.slice(existing.end)
     } else {
       inject.push(tag)
     }
@@ -131,9 +194,9 @@ export function applyHeadToHtml(html: string, head: HeadConfig): string {
   for (const link of links) {
     const linkTag = `<link ${attrsToHtml(link)}>`
     if ((link.rel ?? '').toLowerCase() === 'canonical') {
-      const re = /<link\s+[^>]*rel="canonical"[^>]*>/i
-      if (re.test(out)) {
-        out = out.replace(re, linkTag)
+      const existing = findCanonicalLinkTag(out)
+      if (existing !== null) {
+        out = out.slice(0, existing.start) + linkTag + out.slice(existing.end)
         continue
       }
     }
