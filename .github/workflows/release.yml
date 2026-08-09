@@ -11,7 +11,7 @@ name: Release aihu-compile binaries
 #     unless the input parses as an actual `v*` tag).
 #   - manual workflow_dispatch with `canary: true` — CANARY SNAPSHOT release:
 #     every publish job first runs `changeset version --snapshot canary`
-#     (+ scripts/stamp-platform-snapshot.ts for the native platform packages),
+#     (+ scripts/stamp-platform-versions.ts for the native platform packages),
 #     producing `0.0.0-canary-<shortsha>` versions, then publishes to the
 #     `canary` npm dist-tag so `latest` (and every plain `npm install`) is
 #     UNAFFECTED. Consumers pin with `npm install @aihu/app@canary` or the
@@ -544,7 +544,7 @@ jobs:
       - name: Snapshot version (canary)
         # Ephemeral 0.0.0-canary-<sha> versions — computed identically in every
         # canary publish job from the same SHA (snapshot.prereleaseTemplate is
-        # "{tag}-{commit}"). stamp-platform-snapshot.ts then syncs the non-
+        # "{tag}-{commit}"). stamp-platform-versions.ts then syncs the non-
         # workspace packages/*/npm/* platform packages + host optionalDependencies
         # pins to the same snapshot version.
         if: github.event_name == 'workflow_dispatch' && inputs.canary
@@ -557,7 +557,7 @@ jobs:
           bun install --frozen-lockfile --ignore-scripts
           bun scripts/canary-catchall-changeset.ts
           bun changeset version --snapshot canary
-          bun scripts/stamp-platform-snapshot.ts
+          bun scripts/stamp-platform-versions.ts --require-snapshot
 
       - name: Download all native artifacts
         uses: actions/download-artifact@v8
@@ -726,7 +726,7 @@ jobs:
           bun install --frozen-lockfile --ignore-scripts
           bun scripts/canary-catchall-changeset.ts
           bun changeset version --snapshot canary
-          bun scripts/stamp-platform-snapshot.ts
+          bun scripts/stamp-platform-versions.ts --require-snapshot
 
       - name: Download all css-native artifacts
         uses: actions/download-artifact@v8
@@ -839,7 +839,7 @@ jobs:
           bun install --frozen-lockfile --ignore-scripts
           bun scripts/canary-catchall-changeset.ts
           bun changeset version --snapshot canary
-          bun scripts/stamp-platform-snapshot.ts
+          bun scripts/stamp-platform-versions.ts --require-snapshot
 
       - name: Download all compiler binary artifacts
         uses: actions/download-artifact@v8
@@ -1049,7 +1049,7 @@ jobs:
           bun install --frozen-lockfile --ignore-scripts
           bun scripts/canary-catchall-changeset.ts
           bun changeset version --snapshot canary
-          bun scripts/stamp-platform-snapshot.ts
+          bun scripts/stamp-platform-versions.ts --require-snapshot
 
       - name: Download all compiler addon artifacts
         uses: actions/download-artifact@v8
@@ -1186,7 +1186,7 @@ jobs:
         run: |
           bun scripts/canary-catchall-changeset.ts
           bun changeset version --snapshot canary
-          bun scripts/stamp-platform-snapshot.ts
+          bun scripts/stamp-platform-versions.ts --require-snapshot
           bun install
 
       - name: Download compiler binaries
