@@ -203,6 +203,18 @@ const NEGATIVE_FIXTURES: Record<string, Fixture> = {
   // PLATFORM_SYNC_ROOT repoints the scan at a fixture tree: `should-flag` has
   // platform manifests + pins stuck at 0.1.54 under a 1.3.0 host (the exact
   // pre-lockstep drift), `should-not-flag` has them at 1.3.0.
+  // Every platform pin must be RESOLVED in bun.lock. Red is a lock still
+  // holding the OLD version while the manifest pins a new one -- the exact
+  // shape bun leaves behind when the pinned version is unpublished, and the
+  // state that took main red for every PR twice (#783, #794).
+  'check:lockfile-platform-pins': {
+    cmd: ['bun', 'scripts/check-lockfile-platform-pins.ts'],
+    env: { LOCKFILE_PINS_ROOT: 'scripts/fixtures/lockfile-platform-pins/should-flag' },
+    green: {
+      cmd: ['bun', 'scripts/check-lockfile-platform-pins.ts'],
+      env: { LOCKFILE_PINS_ROOT: 'scripts/fixtures/lockfile-platform-pins/should-not-flag' },
+    },
+  },
   'check:platform-version-sync': {
     cmd: ['bun', 'scripts/stamp-platform-versions.ts', '--check', '--host', 'compiler'],
     env: { PLATFORM_SYNC_ROOT: 'scripts/fixtures/platform-version-sync/should-flag' },

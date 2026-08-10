@@ -102,7 +102,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c # stable @ 2024-10-25
+        uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # stable @ 2024-10-25
         with:
           toolchain: "1.95.0"
           targets: ${{ matrix.target }}
@@ -188,6 +188,25 @@ jobs:
             artifact/${{ matrix.asset }}.sha256
           if-no-files-found: error
           retention-days: 7
+
+  # ---------------------------------------------------------------------------
+  # @aihu/server native renderer (napi-rs Rust addon).
+  #
+  # Parity-gate paths (AC-15, spec-server-native.md §4.4): the parity gate
+  # triggers on PRs touching
+  #   - packages/server/src/ssr.ts
+  #   - packages/server/src-native/**
+  # The build-native job below builds the addon for the runner's platform; the
+  # parity test (packages/server/tests/native-parity.test.ts) then runs against
+  # the freshly-built binary. No env-var gate is needed — on a supported
+  # platform a missing binary throws via the loader (AC-9, spec §5.1), so CI
+  # without the addon is automatically a hard fail. The PR-time enforcement
+  # lives in the per-PR CI workflow's `check` job (.github/workflows/plan-a.yml
+  # — its `bun run test` step picks this up like any other *.test.ts file,
+  # with no dedicated named step) or moon's local CI gate; this release
+  # workflow builds and publishes the per-platform .node binaries that ship as
+  # @aihu/server-<platform> packages.
+  # ---------------------------------------------------------------------------
   build-native:
     name: Build native ${{ matrix.platform }}
     runs-on: ${{ matrix.runner }}
@@ -226,7 +245,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c # stable @ 2024-10-25
+        uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # stable @ 2024-10-25
         with:
           toolchain: "1.95.0"
           targets: ${{ matrix.target }}
@@ -403,7 +422,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c # stable @ 2024-10-25
+        uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # stable @ 2024-10-25
         with:
           toolchain: "1.95.0"
           targets: ${{ matrix.target }}
@@ -714,7 +733,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c # stable @ 2024-10-25
+        uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # stable @ 2024-10-25
         with:
           toolchain: "1.95.0"
           targets: ${{ matrix.target }}
