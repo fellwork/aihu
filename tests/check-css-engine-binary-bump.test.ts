@@ -1,7 +1,7 @@
 /**
  * Test fixture for `scripts/check-css-engine-binary-bump.ts`.
  *
- * See tests/check-compiler-binary-bump.test.ts for the fuller FEL-414
+ * See tests/check-native-changeset.test.ts for the fuller FEL-414
  * background this class of guard exists to prevent. This package has only
  * one platform-binary family (no napi addon), so the lockstep/lone-family
  * cases collapse relative to the compiler's dual-family test suite.
