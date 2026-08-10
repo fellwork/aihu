@@ -294,6 +294,19 @@ jobs:
           AIHU_CONFIG_LOADER_E2E: '1'
       - run: bun run test --coverage
       - run: bun run build
+      # Counted-metric gate for @aihu/signals — exact recomputation counts per
+      # workload, pinned as equalities. A STEP in `check` rather than a new job,
+      # on purpose: `check` is already in ci-ok, so this BLOCKS, whereas the
+      # arbor counted gate sits inside `bench-arbor` and is non-blocking as an
+      # accepted consequence of D1 (bench/signals/HARNESS.md).
+      #
+      # Runs after `build` because it measures the built @aihu/signals through
+      # the bench adapters, not the source.
+      #
+      # Zero variance — these are integers, not timings. If it fails, an
+      # algorithm changed. See the script's "measured sensitivity" docblock for
+      # what it provably does and does not catch.
+      - run: bun run bench:counts-signals
       # API datasheet drift, caught on the PR that causes it.
       #
       # The sheets are DERIVED from every documentable package's export surface,

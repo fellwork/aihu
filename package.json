@@ -84,7 +84,8 @@
     "build:governed-examples": "bun scripts/build-governed-examples.ts",
     "check:rust-pin": "bun scripts/check-rust-pin.ts",
     "check:platform-version-sync": "bun scripts/stamp-platform-versions.ts --check --host compiler",
-    "check:native-changeset": "bun scripts/check-native-changeset.ts"
+    "check:native-changeset": "bun scripts/check-native-changeset.ts",
+    "bench:counts-signals": "bun bench/signals/src/counts.ts"
   },
   "devDependencies": {
     "@aihu-plugin/agent-readiness": "workspace:*",
