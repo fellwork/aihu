@@ -8,7 +8,8 @@
     "run": "bun src/runner.ts",
     "memory": "bun --expose-gc src/memory.ts",
     "size": "bun src/size.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "counts": "bun src/counts.ts"
   },
   "dependencies": {
     "@aihu/signals": "workspace:*",
