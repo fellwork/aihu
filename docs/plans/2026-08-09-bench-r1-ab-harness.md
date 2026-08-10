@@ -1,19 +1,133 @@
 # R1 — same-job A/B bench harness
 
 **Contract:** `C-FEL-BENCH-R1-AB-HARNESS`
-**Status:** design doc — the first deliverable in R1's own stated order, and the
-only one due now.
+**Status:** design doc — **REVISED 2026-08-09** after an external practice review.
+Two of the original six design elements were wrong and the stated ENDPOINT was
+wrong; see § 0. The first deliverable in R1's own stated order, and the only one
+due now.
 **Supersedes the mechanism condemned in:** `bench/signals/HARNESS.md`
 § "D1 — RESOLVED 2026-08-08".
 
-> Deliverable order, from the D1 decision, unchanged here:
-> **design doc → dual-arm harness → statistic swap (`p50` → `min`) → CI budget →
-> re-tier the workloads against in-band control-arm evidence → only then delete
-> the `continue-on-error` lines and promote the gates into `ci-ok`.**
+> Deliverable order, from the D1 decision, **amended by § 0**:
+> **design doc → dual-arm harness → statistic swap (`p50` → `median` + a
+> significance test, NOT `min`) → CI budget → re-tier against permutation-derived
+> noise evidence → confirm the timing gates STAY advisory, and move enforcement
+> to counted metrics.**
+>
+> D1 wrote the last two steps as "delete the `continue-on-error` lines and
+> promote the gates into `ci-ok`". That endpoint is abandoned — see § 0.3. D1's
+> *decision* (both timing gates ship red today) is untouched; only the
+> destination changed.
 >
 > D1 also records that no sub-piece was found independently shippable *and*
 > independently valuable: each exists to make the next one's number
 > interpretable. Nothing below changes that. Do not land a partial R1.
+
+---
+
+## 0. Revision 0→1 — what changed, and why
+
+The first draft was reviewed against published practice (Chromium Pinpoint,
+Mozilla Perfherder, rustc-perf, LLVM, MongoDB, ClickHouse, DuckDB, TypeScript,
+Preact, Android Jetpack) and against the measurement literature. Four elements
+survived. Two did not, and the intended endpoint did not.
+
+| element | v0 | v1 |
+|---|---|---|
+| Same-job BASE/HEAD A/B | keep | **keep** — this is the "duet" procedure, [ICPE '20](https://arxiv.org/abs/2001.05811), 2.3–12.5× accuracy gain |
+| Interleaving, rotated arm order | keep | **keep** — documented best practice |
+| Fresh process per cell | keep | **keep** — JMH forks by default for this reason |
+| Drop the git-committed baseline | keep | **keep** |
+| CONTROL arm (base measured twice) | core of the design | **REPLACED** — § 3.1 |
+| Statistic `p50` → `min` | core of the design | **REVERSED** — § 3.6 |
+| Endpoint: promote to blocking | § 6 step 6 | **ABANDONED** — § 6 |
+
+### 0.1 `min` was wrong, and wrong in a way specific to this harness
+
+v0 argued that "every source of noise on a CI runner is additive and
+one-directional … so the minimum is the least-contaminated estimator." **The
+premise is false in the direction that matters.** Turbo Boost and idle
+neighbours produce *speed spikes*; the fast tail is exactly where contamination
+lands, and `min` is a pure estimator of the fast tail. `pytest-benchmark`'s FAQ
+documents precisely this ("*When Turbo Boost kicks in you may see 'speed
+spikes' — and you'd get this strange outlier `Min`*").
+
+Worse, and decisive here: **`min` is an order statistic, and this harness is
+time-boxed rather than count-boxed.** `bench/signals/src/runner.ts` sets
+`min_cpu_time: 1_000_000_000` with the comment "*mitata's defaults adapt sample
+count to CPU time*". `E[min]` falls monotonically with sample count, so the
+FASTER arm collects more samples in its one second and earns a lower minimum
+**for that reason alone**. A min-based gate in this harness would manufacture
+speedups on HEAD and mask regressions. That is not a tuning error, it inverts
+the instrument.
+
+No surveyed tool with an automated comparison gates on `min` — Criterion.rs,
+google/benchmark, hyperfine, Go `benchstat`, Node core and ClickHouse all use a
+significance test. Note the pro-`min` position is not fringe
+([Chen & Revels, HPEC '16](https://arxiv.org/abs/1608.04295)), but every
+precondition its model assumes — fixed frequency, dedicated hardware, equal N —
+fails on shared CI with a JIT.
+
+### 0.2 The CONTROL arm was the right instinct with the wrong instrument
+
+A/A measurement is well established ([Laaber et al., EMSE 2019](https://link.springer.com/article/10.1007/s10664-019-09681-1):
+"*always perform A/A testing*"), but as **offline calibration**, not as a third
+arm inside every gating run. No prior art was found for the latter, and it has
+two defects: it costs 50 % more CI time, and `|CONTROL − BASE|` is a **single
+draw** from the noise distribution — a threshold set from one draw abstains when
+unlucky and gates when lucky, with no control over either rate.
+
+The same quantity is available **free from the two arms already measured**, by
+permuting the arm labels on the pooled samples. ClickHouse's
+[`eqmed.sql`](https://github.com/ClickHouse/ClickHouse/blob/master/ci/jobs/scripts/perf/eqmed.sql)
+is the reference implementation, ~40 lines, commented "*Randomization test for
+the median difference between the two versions*".
+
+### 0.3 The endpoint was wrong: this stays advisory
+
+**No major project hard-blocks a PR on wall-clock microbenchmarks.** The one
+organization that tried it at scale published the failure. MongoDB ran this
+exact design — pairwise comparison against a threshold — and reported
+([Daly et al., ICPE '20](https://arxiv.org/abs/2003.00584)) "*up to 99 %*" false
+positives and "*100 tickets in the first project reduced down to 1 useful
+ticket*", concluding "*there is no way we could adjust a common threshold*".
+
+Android Jetpack states it directly: "*Don't block submitting a patch based on
+results — just consider the results during code review*", and "*Benchmarks are
+like flakey tests*". Chromium, Mozilla, Rust, LLVM, Go, TypeScript, Preact and
+Node.js are all advisory; esbuild, Bun, Vite, Svelte and React have no timing
+gate at all. The two projects that do block on wall time gate a **suite-level
+aggregate** (ClickHouse: >10 distinct queries; DuckDB: suite geomean), never a
+single benchmark.
+
+Our own numbers say the same thing. 2 of 6 workloads drifting past 10 % on a
+no-op is a ~33 % per-workload false-positive rate; across six workloads that is
+a **~91 % chance of at least one spurious FAIL per run**.
+
+So R1 ships advisory and **stays** advisory. Deliverable 6 changes from "promote
+into `ci-ok`" to "confirm it should not be promoted". This is not a retreat from
+rigour — the rigour moves to § 6.1, where it belongs.
+
+### 0.4 Where the teeth actually go — and we already built it
+
+`bench/arbor/src/counts.ts` is the correct gate and its docblock already has the
+reasoning: "*Counts, not timings, for anything that gates. DOM writes/op … are
+exact integers with zero variance — machine-independent, load-independent,
+statistic-independent. And they fail in the right direction: a dead binding
+sends a count to ZERO, which screams, where it sends a timing DOWN, which
+flatters.*"
+
+External practice agrees: Firefox blocks landing on counted reflows, Rails ships
+`assert_queries_count`, and every major signals library asserts exact
+recomputation counts as correctness tests.
+
+**The signals analogue is already half-built.** `packages/signals/src/signal.ts`
+maintains `runVer`, a monotonic counter incremented once per computed
+recompute / effect run. Exposing it under `__DEV__` yields an exact,
+machine-independent "reactive recomputations per workload" metric for
+`deep-propagation-100`, `wide-fanout-100`, `dynamic-deps` and
+`batched-writes-100` — the signals equivalent of arbor's DOM-writes gate, and
+the thing that should carry enforcement.
 
 ---
 
@@ -69,35 +183,51 @@ assumptions in the existing docs.
 
 ## 3. Design
 
-### 3.1 Three arms, one job, one runner
+### 3.1 Two arms, one job, one runner
 
-Every gated run measures **three** arms and compares within the run:
+Every gated run measures **two** arms and compares within the run:
 
 | arm | tree | purpose |
 |---|---|---|
 | **BASE** | merge base of the PR | the reference |
 | **HEAD** | PR head | the thing under review |
-| **CONTROL** | merge base *again* | the in-band noise floor |
 
-The verdict comes from two deltas:
+> **v0 had a third CONTROL arm** (the merge base measured twice) to supply a
+> per-run noise floor. Removed — § 0.2. The noise floor is still measured
+> in-band, but derived from the two arms already collected rather than paid for
+> with a 50 % longer job.
+
+The verdict comes from the samples themselves, not from a delta of medians:
 
 ```
-observed  = HEAD    vs BASE      # what we want to know
-noise     = CONTROL vs BASE      # what this runner can resolve today
+observed = median(HEAD) - median(BASE)
+p        = permutation test: pool all samples, reshuffle the arm labels N times,
+           count how often |median difference| >= |observed|
 ```
 
-`CONTROL` is the whole point and is what distinguishes R1 from "run both arms in
-one job". It is a **second independent measurement of identical code**, so its
-delta is pure instrument error. It converts the threshold from a constant
-somebody guessed into a quantity this run measured.
+The permutation distribution **is** the noise floor, and unlike a single
+CONTROL-vs-BASE draw it is an estimate of the whole distribution rather than one
+sample from it. ClickHouse's `eqmed.sql` is the reference implementation.
 
 ### 3.2 The decision rule — abstain, don't guess
 
 ```
-if |noise| >= THRESHOLD:          -> ABSTAIN (exit 0, loudly)
-elif observed > max(THRESHOLD, k * |noise|):  -> FAIL
+if p >= ALPHA:                    -> not distinguishable from noise
+    if attempts < CAP:            -> RESAMPLE (collect more, re-test)
+    else:                         -> ABSTAIN (exit 0, loudly)
+elif |observed| < MIN_EFFECT:     -> PASS (significant but too small to care)
+elif observed > 0:                -> REPORT REGRESSION (advisory, exit 0)
 else:                             -> PASS
 ```
+
+Two changes from v0. A **minimum effect size** sits alongside significance,
+because with enough samples a statistically significant 0.4 % is still noise you
+do not want to act on. And abstention now **resamples first**: Chromium
+Pinpoint's `UNKNOWN` state routes to `AddAttempts` with a hard cap before it
+concludes "couldn't reproduce a difference", and ClickHouse and DuckDB both
+re-run flagged benchmarks rather than ruling on the first pass. Abstain-then-
+resample is strictly better than abstain-immediately and costs nothing on the
+common path, where most PRs resolve first time.
 
 Three properties, each deliberate:
 
@@ -171,12 +301,22 @@ class of bug where the gate reports on code that was never in that arm.
 `CONTROL` reuses the `bench-base` worktree and its build. It must **not** be a
 copy of BASE's *measurements* — the entire value is that it is measured again.
 
-### 3.6 Statistic: `p50` → `min`
+### 3.6 Statistic: `p50` → median + a significance test
 
-`min` is the least-contaminated estimator available here. Every source of noise
-on a CI runner is additive and one-directional — preemption, interrupts, GC,
-frequency scaling all make a sample *slower*, never faster. The minimum is the
-sample least polluted by them; `p50` averages the pollution in.
+> **v0 specified `min` here and was wrong** — § 0.1 has the full correction.
+> Briefly: the fast tail is contaminated too (Turbo Boost, idle neighbours), and
+> `min` is an order statistic while this harness is **time-boxed**, so the faster
+> arm collects more samples and earns a lower minimum for that reason alone.
+> A min-based gate here inverts the instrument.
+
+Compare **medians with a permutation test** (§ 3.1) plus a minimum effect size.
+This is what every surveyed tool with an automated comparison does: Criterion.rs
+(bootstrapped t-test), google/benchmark and Go `benchstat` (Mann-Whitney U),
+hyperfine and Node core (Welch's t), ClickHouse (permutation on the median
+difference).
+
+**If any `min` is reported at all, pin sample counts exactly equal across arms
+first** — otherwise the numbers are not comparable, for the reason above.
 
 Per §2 this is **not** one change:
 
@@ -221,13 +361,16 @@ the existing budget control and it stays.**
 Levers, in the order they should be spent:
 
 1. **Gate-tier workloads only in the A/B path.** arbor already tiers to two
-   workloads. Report-only rows do not need three arms — measure them once, on
+   workloads. Report-only rows do not need both arms — measure them once, on
    HEAD, purely as log context. This alone removes most of the multiplier.
-2. **Cut `min_cpu_time` per cell, raise repetition count.** `min` improves with
-   *more independent samples*, not longer single runs; the current
-   `min_cpu_time: 1_000_000_000` (1 s/cell) is tuned for stable `p50`. Shorter
-   cells × more reps is strictly better for the statistic R1 uses, at similar
-   total cost.
+2. **Raise the sampling budget before touching architecture.** Our measured
+   ~33 % per-workload false-positive rate implies a CV near **7.3 %** — roughly
+   2.7× the 2.66 % that CodSpeed published for GitHub-hosted runners, and we
+   measured ours on a *quiet dev box*. That gap is most likely the harness, not
+   the machine: `min_cpu_time: 1_000_000_000` (1 s/cell) with mitata's
+   `k_min_samples = 12` floor is a small sample budget. **Measure the noise
+   floor first** (§ 5) — sampling may be a bigger lever than the architecture,
+   and it is far cheaper to try.
 3. **Only then** consider a longer timeout.
 
 Measure the real cost during the harness build and record it here. Do not
@@ -270,14 +413,29 @@ Strict ordering, each step landing separately:
    its comparison. Still advisory.
 4. **CI budget** measured and tuned (§4). Still advisory.
 5. **Re-tier** from ≥ 2 weeks of control-arm evidence (§5). Still advisory.
-6. **Promote**: remove `continue-on-error`, add to `ci-ok`'s `needs` **and its
-   result loop** — being in `needs` alone does nothing, per the palette hole
-   documented in `plan-a.yml`, and `bun run check:gate-wiring` enforces the
-   pairing. Delete `fitness.json` handling and the committed-baseline paths.
+6. **Confirm it stays advisory**, and delete `fitness.json` handling and the
+   committed-baseline paths. `continue-on-error` **stays on** and the timing
+   gates stay out of `ci-ok` — § 0.3.
 
-Steps 2–5 all ship advisory. That is not timidity: it is how the abstention rate
-and control-arm distribution get measured under real load before anything can
-block a merge.
+Every step ships advisory, and the last one keeps it that way. That is not
+timidity; it is the industry's settled answer, and our own measured noise says
+the same thing.
+
+### 6.1 Where the rigour goes instead
+
+Abandoning the blocking endpoint would be a retreat if nothing replaced it.
+Something does — see § 0.4. Enforcement moves to metrics that are exact:
+
+- **arbor** already has it: `counts.ts`, exact DOM writes/op, no bypass.
+- **signals** needs the analogue: expose `runVer` (`packages/signals/src/signal.ts`)
+  under `__DEV__` and assert exact reactive-recomputation counts per workload.
+  Zero variance, machine-independent, and it fails in the right direction — a
+  dead binding drives a count to zero, which screams, where it drives a timing
+  down, which flatters.
+
+**That is the deliverable worth doing first if R1 is ever deprioritised.** It is
+smaller than R1, it blocks legitimately, and it catches the class of bug that
+made the arbor baseline invalid in the first place.
 
 **Rollback** is clean through step 5 — the gate is advisory throughout, so
 reverting is deleting code nothing depends on. After step 6, rollback is
@@ -314,13 +472,31 @@ direction.
 
 ## 8. Open questions for review
 
-1. **`k`** in §3.2 — start at 2, or derive it entirely from §5's distributions
-   and hard-code nothing?
+1. **`ALPHA` and `MIN_EFFECT`** in § 3.2, and the resample `CAP`. All three
+   should come from § 5's measured distributions rather than from taste.
+   (v0 asked about `k`, which no longer exists.)
 2. **Is `mount-deep-100x10` measurable at all?** It is gate-tier today on the
-   condemned mechanism's authority. §5 may well drop it.
+   condemned mechanism's authority, and § 5 may well drop it. Lower stakes now
+   that nothing blocks on the answer — but still worth knowing, because a
+   workload whose noise floor swallows any plausible effect is costing CI time
+   to produce no information.
 3. **`C-FEL-BENCH-REBASELINE-MEASURED`** — confirm it is moot under R1 rather
    than assuming it lapses; it is governance-gated and `needs C-FEL-409`, and
    that ordering was called load-bearing.
 4. **Does signals need a workload tier at all?** arbor has one; signals gates
    all six. Given 2 of 6 drift past threshold on a no-op, signals probably needs
    tiering more than arbor does.
+
+5. **Should we just use instruction counting instead?** The deterministic answer
+   to all of this is counting retired instructions rather than measuring time —
+   SQLite reports Cachegrind "*repeatable to 7 or more significant digits*"
+   against wall-clock "*scarcely repeatable beyond one significant digit*", and
+   `rustls` blocks CI at a **0.20 %** threshold on instruction counts. CodSpeed
+   offers a Callgrind simulation mode, free for OSS, on plain `ubuntu-latest`,
+   and **SolidJS 2 — a signals library plus a DOM library in one monorepo, our
+   exact shape — runs it on every PR**. Known caveats: it forces V8 tier-up for
+   determinism (Node.js removed forced optimization from its own benchmarks as
+   unrepresentative), and instruction counts shifted ~1.6 % between AMD and
+   Intel runners via glibc cache-size dispatch. Worth 20 same-commit runs to see
+   whether the sub-1 % variance claim holds for reactive-graph workloads —
+   nobody appears to have published that.
