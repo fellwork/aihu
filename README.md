@@ -1,6 +1,6 @@
 # Aihu
 
-> **An interactive framework that equally governs the security and experience of humans and AI.**
+> **One component. Two audiences.** The framework for the next era of AI — where every interface has two users: the person using it, and that person's AI agent.
 
 [![CI](https://github.com/fellwork/aihu/actions/workflows/plan-a.yml/badge.svg)](https://github.com/fellwork/aihu/actions/workflows/plan-a.yml)
 [![release](https://github.com/fellwork/aihu/actions/workflows/release.yml/badge.svg)](https://github.com/fellwork/aihu/actions/workflows/release.yml)
@@ -9,13 +9,17 @@
 [![MCP](https://img.shields.io/badge/MCP-compatible-blue?logo=anthropic)](#compliance)
 [![Agent Ready](https://img.shields.io/badge/agent--ready-yes-brightgreen)](#compliance)
 
-Every interface now has two audiences: the person using it, and that person's AI agent. Aihu treats them as **co-equal users of one interface**.
+The next era of software gives every product a second user. The person clicks, types, and reads. Their AI agent — Claude, ChatGPT, Cursor, whatever comes next — reads the same screen and acts on their behalf. Most frameworks make you build for one and bolt on the other: a UI here, a separate API for agents there, and drift between them from day one.
 
-You author a `.aihu` single-file component and declare what each audience may see and do. A Rust compiler emits both experiences from that one declaration — the rendered UI the human drives, and the MCP tool surface the agent drives — wired to the same live instance under the same policy. No second API layer, no drift between what the user sees and what the agent can touch.
+Aihu makes them the same thing. You author a `.aihu` single-file component and declare what each audience may see and do. A Rust compiler emits both experiences from that one declaration — the rendered UI the human drives, and the MCP tool surface the agent drives — wired to the same live instance under the same policy. No second API layer, no drift between what the user sees and what the agent can touch.
 
 ```bash
 npx create-aihu my-app --template agent   # one component, two audiences — running in one command
 ```
+
+**For AI innovators** — every component ships with an agent surface by construction. Mark a `state()` or `action()` `expose` and the compiler emits a matching MCP tool schema from the same line that renders the UI. `llms.txt`, an MCP Server Card, and A2A support come out of the box, and entitlement resolves server-side — what you didn't expose doesn't exist to the agent.
+
+**For web designers** — author in plain HTML with `{expr}` bindings, type-checked as TypeScript, compiled to vanilla custom elements on a sub-2 kB runtime. No virtual DOM, no lock-in, no hydration step. Accessible primitives, a styling engine, SSR, and first-party Cloudflare/Vercel adapters.
 
 *Equally governs* is concrete — one declaration fills all four quadrants:
 
