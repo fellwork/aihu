@@ -3,12 +3,12 @@
   "compilerOptions": {
     "outDir": "./dist",
     "noEmit": true,
-    "rootDir": "./src",
     "declaration": true,
     "declarationMap": true,
     "baseUrl": ".",
     "paths": {
-      "@aihu/reactive": ["./src/index.ts"]
+      "@aihu/reactive": ["./src/index.ts"],
+      "@aihu/signals": ["../signals/src/index.ts"]
     }
   },
   "include": ["src/**/*"],
